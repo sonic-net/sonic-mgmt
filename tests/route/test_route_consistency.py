@@ -43,10 +43,10 @@ class TestRouteConsistency():
         # take the snapshot of route table from all the DUTs
         self.__class__.pre_test_route_snapshot, max_prefix_cnt = self.get_route_prefix_snapshot_from_asicdb(duthosts)
         """sleep interval is calculated based on the max number of prefixes in the route table.
-           Addtional 30 seconds is added to the sleep interval to account for the time taken to
+           Addtional 60 seconds is added to the sleep interval to account for the time taken to
            withdraw and advertise the routes by peers
         """
-        self.__class__.sleep_interval = math.ceil(max_prefix_cnt/3000) + 30
+        self.__class__.sleep_interval = math.ceil(max_prefix_cnt/3000) + 60
         logger.debug("max_no_of_prefix: {} sleep_interval: {}".format(max_prefix_cnt, self.sleep_interval))
 
     def test_route_withdraw_advertise(self, duthosts, tbinfo, localhost):
@@ -86,10 +86,12 @@ class TestRouteConsistency():
             for dut_instance_name in self.pre_test_route_snapshot.keys():
                 assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
             logger.info("Route table is consistent across all the DUTs")
-        except Exception:
+        except Exception as e:
+            logger.error("Exception occurred: {}".format(e))
             # announce the routes back in case of any exception
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
             time.sleep(self.sleep_interval)
+            raise e
 
     def test_bgp_shut_noshut(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, localhost):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]

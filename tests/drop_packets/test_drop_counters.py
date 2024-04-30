@@ -253,7 +253,7 @@ def check_if_skip():
 @pytest.fixture(scope='module')
 def do_test(duthosts):
     def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None,    # noqa F811
-                         comparable_pkt=None, skip_counter_check=False, drop_information=None):
+                         comparable_pkt=None, skip_counter_check=False, drop_information=None, ip_ver='ipv4'):
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
         @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -262,6 +262,7 @@ def do_test(duthosts):
         @param duthost: fixture
         @param dut_iface: DUT interface name expected to receive packets from PTF
         @param sniff_ports: DUT ports to check that packets were not egressed from
+        @param ip_ver: A string, ipv4 or ipv6
         """
         check_if_skip()
         asic_index = ports_info["asic_index"]
@@ -270,7 +271,7 @@ def do_test(duthosts):
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
-            exp_pkt = expected_packet_mask(pkt)
+            exp_pkt = expected_packet_mask(pkt, ip_ver=ip_ver)
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=sniff_ports)
 
     return do_counters_test

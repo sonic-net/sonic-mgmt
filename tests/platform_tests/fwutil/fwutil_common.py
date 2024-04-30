@@ -26,6 +26,7 @@ REBOOT_TYPES = {
     WARM_REBOOT: "warm-reboot",
     FAST_REBOOT: "fast-reboot"
 }
+LATEST_VERSION_IDX = 0
 
 
 def find_pattern(lines, pattern):
@@ -301,8 +302,8 @@ def call_fwutil(duthost, localhost, pdu_ctrl, fw_pkg, component=None, next_image
     defined_components = get_defined_components(duthost, fw_pkg, chassis)
     final_components = final_versions["chassis"][chassis]["component"]
     for comp in list(paths.keys()):
-        if defined_components[comp][0]["version"] != final_components[comp] and \
-                boot in defined_components[comp][0]["reboot"] + [None] and \
+        if defined_components[comp][LATEST_VERSION_IDX]["version"] != final_components[comp] and \
+                boot in defined_components[comp][LATEST_VERSION_IDX]["reboot"] + [None] and \
                 not paths[comp].get("upgrade_only", False):
             update_needed["chassis"][chassis]["component"][comp] = defined_components[comp]
     if len(list(update_needed["chassis"][chassis]["component"].keys())) > 0:

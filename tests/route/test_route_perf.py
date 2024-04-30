@@ -1,5 +1,4 @@
 import pytest
-import json
 import logging
 import time
 import re
@@ -12,6 +11,8 @@ from datetime import datetime
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.generators import generate_ips
+from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_dut, cleanup_dut
+
 
 CRM_POLL_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
@@ -92,14 +93,6 @@ def ignore_expected_loganalyzer_exceptions(
         )
 
 
-@pytest.fixture(params=[4, 6])
-def ip_versions(request):
-    """
-    Parameterized fixture for IP versions.
-    """
-    yield request.param
-
-
 @pytest.fixture(scope="function", autouse=True)
 def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -122,103 +115,6 @@ def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
     time.sleep(wait_time)
-
-
-def prepare_dut(asichost, intf_neighs):
-    for intf_neigh in intf_neighs:
-        # Set up interface
-        asichost.config_ip_intf(intf_neigh["interface"], intf_neigh["ip"], "add")
-        # Set up neighbor
-        asichost.run_ip_neigh_cmd(
-            "replace "
-            + intf_neigh["neighbor"]
-            + " lladdr "
-            + intf_neigh["mac"]
-            + " dev "
-            + intf_neigh["interface"]
-        )
-
-
-def cleanup_dut(asichost, intf_neighs):
-    for intf_neigh in intf_neighs:
-        # Delete neighbor
-        asichost.run_ip_neigh_cmd(
-            "del " + intf_neigh["neighbor"] + " dev " + intf_neigh["interface"]
-        )
-        # remove interface
-        asichost.config_ip_intf(intf_neigh["interface"], intf_neigh["ip"], "remove")
-
-
-def generate_intf_neigh(asichost, num_neigh, ip_version):
-    interfaces = asichost.show_interface(command="status")["ansible_facts"][
-        "int_status"
-    ]
-    up_interfaces = []
-    for intf, values in list(interfaces.items()):
-        if values["admin_state"] == "up" and values["oper_state"] == "up":
-            up_interfaces.append(intf)
-    if not up_interfaces:
-        raise Exception("DUT does not have up interfaces")
-
-    # Generate interfaces and neighbors
-    intf_neighs = []
-    str_intf_nexthop = {"ifname": "", "nexthop": ""}
-
-    idx_neigh = 0
-    for itfs_name in up_interfaces:
-        if not itfs_name.startswith("PortChannel") and interfaces[itfs_name][
-            "vlan"
-        ].startswith("PortChannel"):
-            continue
-        if interfaces[itfs_name]["vlan"] == "trunk":
-            continue
-        if ip_version == 4:
-            intf_neigh = {
-                "interface": itfs_name,
-                # change prefix ip starting with 3 to avoid overlap with any bgp ip
-                "ip": "30.%d.0.1/24" % (idx_neigh + 1),
-                "neighbor": "30.%d.0.2" % (idx_neigh + 1),
-                "mac": "54:54:00:ad:48:%0.2x" % idx_neigh,
-            }
-        else:
-            intf_neigh = {
-                "interface": itfs_name,
-                "ip": "%x::1/64" % (0x2000 + idx_neigh),
-                "neighbor": "%x::2" % (0x2000 + idx_neigh),
-                "mac": "54:54:00:ad:48:%0.2x" % idx_neigh,
-            }
-
-        intf_neighs.append(intf_neigh)
-        if idx_neigh == 0:
-            str_intf_nexthop["ifname"] += intf_neigh["interface"]
-            str_intf_nexthop["nexthop"] += intf_neigh["neighbor"]
-        else:
-            str_intf_nexthop["ifname"] += "," + intf_neigh["interface"]
-            str_intf_nexthop["nexthop"] += "," + intf_neigh["neighbor"]
-        idx_neigh += 1
-        if idx_neigh == num_neigh:
-            break
-
-    if not intf_neighs:
-        raise Exception("DUT does not have interfaces available for test")
-
-    return intf_neighs, str_intf_nexthop
-
-
-def generate_route_file(duthost, prefixes, str_intf_nexthop, dir, op):
-    route_data = []
-    for prefix in prefixes:
-        key = "ROUTE_TABLE:" + prefix
-        route = {}
-        route["ifname"] = str_intf_nexthop["ifname"]
-        route["nexthop"] = str_intf_nexthop["nexthop"]
-        route_command = {}
-        route_command[key] = route
-        route_command["OP"] = op
-        route_data.append(route_command)
-
-    # Copy json file to DUT
-    duthost.copy(content=json.dumps(route_data, indent=4), dest=dir, verbose=False)
 
 
 def exec_routes(
@@ -325,9 +221,11 @@ def test_perf_add_remove_routes(
     check_config,
     ip_versions,
     enum_rand_one_frontend_asic_index,
+    is_backend_topology
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     max_scale = request.config.getoption("--max_scale")
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
@@ -339,7 +237,7 @@ def test_perf_add_remove_routes(
     # Generate interfaces and neighbors
     NUM_NEIGHS = 50  # Update max num neighbors for multi-asic
     intf_neighs, str_intf_nexthop = generate_intf_neigh(
-        asichost, NUM_NEIGHS, ip_versions
+        asichost, NUM_NEIGHS, ip_versions, mg_facts, is_backend_topology
     )
 
     route_tag = "ipv{}_route".format(ip_versions)
@@ -413,9 +311,9 @@ def test_perf_add_remove_routes(
         )
 
         # Traffic verification with 10 random routes
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         port_indices = mg_facts["minigraph_ptf_indices"]
-        nexthop_intf = str_intf_nexthop["ifname"].split(",")
+        # split off the vlan id from the interface name separated by the . delimiter
+        nexthop_intf = [nh_intf.split(".")[0] for nh_intf in str_intf_nexthop["ifname"].split(",")]
         src_port = random.choice(nexthop_intf)
         ptf_src_port = (
             port_indices[mg_facts["minigraph_portchannels"][src_port]["members"][0]]
@@ -470,7 +368,7 @@ def send_and_verify_traffic(
     if ipv6:
         pkt = testutils.simple_tcpv6_packet(
             eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ipv6_src="2001:db8:85a3::8a2e:370:7334",
             ipv6_dst=ip_dst,
             ipv6_hlim=64,
@@ -480,7 +378,7 @@ def send_and_verify_traffic(
     else:
         pkt = testutils.simple_tcp_packet(
             eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ip_src="1.1.1.1",
             ip_dst=ip_dst,
             ip_ttl=64,

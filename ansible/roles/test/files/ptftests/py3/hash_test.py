@@ -708,8 +708,8 @@ class IPinIPHashTest(HashTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         # mask the chksum also if masking the ttl
         if self.ignore_ttl:
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
         send_packet(self, src_port, ipinip_pkt)

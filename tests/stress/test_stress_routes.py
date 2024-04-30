@@ -14,7 +14,7 @@ MAX_WAIT_TIME = 120
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx')
+    pytest.mark.topology('t0', 't1', 'm0', 'mx')
 ]
 
 
@@ -37,17 +37,30 @@ def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
     logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
 
 
-def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conpleteness_level,
-                                 withdraw_and_announce_existing_routes, loganalyzer):
+def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_conpleteness_level,
+                                 withdraw_and_announce_existing_routes, loganalyzer,
+                                 enum_rand_one_per_hwsku_frontend_hostname):
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
     if loganalyzer:
         ignoreRegex = [
             ".*ERR route_check.py:.*",
-            ".*ERR.* \'routeCheck\' status failed.*",
-            ".*Process \'orchagent\' is stuck in namespace \'host\'.*"
+            ".*ERR.* 'routeCheck' status failed.*",
+            ".*Process \'orchagent\' is stuck in namespace \'host\'.*",
+            ".*ERR rsyslogd: .*"
         ]
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+        hwsku = duthost.facts['hwsku']
+        if hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31']:
+            ignoreRegex.append(".*ERR memory_threshold_check:.*")
+            ignoreRegex.append(".*ERR monit.*memory_check.*")
+            ignoreRegex.append(".*ERR monit.*mem usage of.*matches resource limit.*")
+
+        # Ignore errors in ignoreRegex for *all* DUTs
+        for dut in duthosts:
+            loganalyzer[dut.hostname].ignore_regex.extend(ignoreRegex)
 
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
@@ -61,7 +74,7 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
         announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name)
         loop_times -= 1
 
-    sleep_to_wait(CRM_POLLING_INTERVAL * 100)
+    sleep_to_wait(CRM_POLLING_INTERVAL * 120)
 
     ipv4_route_used_after = get_crm_resources(duthost, "ipv4_route", "used")
     ipv6_route_used_after = get_crm_resources(duthost, "ipv6_route", "used")

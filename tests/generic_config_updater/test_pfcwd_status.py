@@ -14,12 +14,31 @@ from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)
 
 READ_FLEXDB_TIMEOUT = 20
 READ_FLEXDB_INTERVAL = 5
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
+    if not loganalyzer:
+        return
+
+    for duthost in duthosts:
+        asic_name = duthost.get_asic_name()
+        if asic_name in ['td2']:
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    '.*ERR syncd#syncd:.*SAI_API_QUEUE:_brcm_sai_cosq_stat_get:.* ',
+                    '.*ERR syncd#syncd:.*SAI_API_SWITCH:sai_bulk_object_get_stats.* ',
+                ]
+            )
+
+    return
 
 
 @pytest.fixture(scope="module", autouse=True)

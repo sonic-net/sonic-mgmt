@@ -17,6 +17,8 @@ import requests
 import sys
 
 from setuptools import distutils
+from common import get_pdu_managers, check_reachability
+
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -30,7 +32,6 @@ if ansible_path not in sys.path:
 from devutil.devices.factory import init_localhost, init_testbed_sonichosts         # noqa E402
 from devutil.devices.sonic import upgrade_image                                     # noqa E402
 
-from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa E402
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ RC_UPGRADE_FAILED = 3
 RC_ENABLE_FIPS_FAILED = 4
 RC_SET_DOCKER_FOLDER_SIZE_FAILED = 5
 RC_SHUTDOWN_FAILED = 6
+RC_HOSTS_UNREACHABLE = 7
 
 
 def validate_args(args):
@@ -76,30 +78,6 @@ def validate_args(args):
         args.skip_prev_image = True
 
 
-def get_pdu_managers(sonichosts, conn_graph_facts):
-    """Get PDU managers for all the devices to be upgraded.
-
-    Args:
-        sonichosts (SonicHosts): Instance of class SonicHosts
-        conn_graph_facts (dict): Connection graph dict.
-
-    Returns:
-        dict: A dict of PDU managers. Key is device hostname. Value is the PDU manager object for the device.
-    """
-    pdu_managers = {}
-    device_pdu_links = conn_graph_facts['device_pdu_links']
-    device_pdu_info = conn_graph_facts['device_pdu_info']
-    for hostname in sonichosts.hostnames:
-        pdu_links = device_pdu_links[hostname]
-        pdu_info = device_pdu_info[hostname]
-        pdu_vars = {}
-        for pdu_name in pdu_info.keys():
-            pdu_vars[pdu_name] = sonichosts.get_host_visible_vars(pdu_name)
-
-        pdu_managers[hostname] = pdu_manager_factory(hostname, pdu_links, pdu_info, pdu_vars)
-    return pdu_managers
-
-
 def main(args):
     logger.info("Validating arguments")
     validate_args(args)
@@ -123,7 +101,7 @@ def main(args):
 
     # Power cycle before upgrade
     if args.always_power_cycle:
-        logger.info("Power cycle before upgrade")
+        logger.info("Always do power cycle before upgrade")
         for hostname, pdu_manager in pdu_managers.items():
             logger.info("Turn off power outlets to {}".format(hostname))
             pdu_manager.turn_off_outlet()
@@ -135,30 +113,32 @@ def main(args):
 
     # Power cycle when unreachable
     elif args.power_cycle_unreachable:
-        logger.info("Power cycle unreachable")
-        ping_results = {}
-        needs_sleep = False
-        for hostname, ip in zip(sonichosts.hostnames, sonichosts.ips):
-            logger.info("Ping {} @{} from localhost".format(hostname, ip))
-            ping_failed = localhost.command(
-                "timeout 2 ping {} -c 1".format(ip), module_ignore_errors=True
-            ).get("localhost", {}).get("failed")
-            if ping_failed:
-                logger.info("Ping {} @{} from localhost failed. Going to power off it".format(hostname, ip))
-                ping_results[hostname] = ping_failed
-                pdu_managers[hostname].turn_off_outlet()
-                needs_sleep = True
+        logger.info("Check if sonichosts are unreachable. If unreachable, need to try power cycle")
+        hosts_reachability = check_reachability(localhost, sonichosts)
 
-        if needs_sleep:
+        power_cycle_performed = False
+        for hostname, host_reachable in hosts_reachability.items():
+            if not host_reachable:
+                logger.info("Trying to power off {}".format(hostname))
+                pdu_managers[hostname].turn_off_outlet()
+                power_cycle_performed = True
+
+        if power_cycle_performed:
             localhost.pause(seconds=30, prompt="Pause between power off/on")
 
-        for hostname, ping_failed in ping_results.items():
-            if ping_failed:
-                logger.info("Power on {}".format(hostname))
+        for hostname, host_reachable in hosts_reachability.items():
+            if not host_reachable:
+                logger.info("Trying to power on {}".format(hostname))
                 pdu_managers[hostname].turn_on_outlet()
 
-        if needs_sleep:
+        if power_cycle_performed:
             localhost.pause(seconds=180, prompt="Add some sleep to allow power cycled DUTs to come back")
+
+    logger.info("Check reachability again after possible power cycle")
+    hosts_reachability = check_reachability(localhost, sonichosts)
+    if not all(hosts_reachability.values()):
+        logger.error("Some hosts are still unreachable, abort image upgrading: {}".format(hosts_reachability))
+        sys.exit(RC_HOSTS_UNREACHABLE)
 
     # Upgrade to prev image
     if not args.skip_prev_image:
@@ -179,6 +159,8 @@ def main(args):
 
         for hostname, version in sonichosts.sonic_version.items():
             logger.info("SONiC host {} current version {}".format(hostname, version.get("build_version")))
+    else:
+        logger.info("Skipping upgrade to prev image")
 
     # Upgrade to target image
     logger.info("upgrade to target image at {}".format(args.image_url))
@@ -190,10 +172,10 @@ def main(args):
         onie_pause_time=args.onie_pause_time
     )
     if not upgrade_success:
-        logger.error("Upgrade image {} failed".format(args.image_url))
+        logger.error("Upgrade to target image {} failed".format(args.image_url))
         sys.exit(RC_UPGRADE_FAILED)
     else:
-        logger.info("Upgraded to image {}".format(args.prev_image_url))
+        logger.info("Upgrad to target image {} done".format(args.image_url))
 
     current_build_version = None
     for hostname, version in sonichosts.sonic_version.items():
@@ -211,6 +193,8 @@ def main(args):
         except Exception as e:
             logger.error("Failed to enable FIPS mode: {}".repr(e))
             sys.exit(RC_ENABLE_FIPS_FAILED)
+    else:
+        logger.info("Skip enabling FIPS")
 
     # Set docker folder size, required for platforms with small disk
     if args.docker_folder_size:
@@ -232,14 +216,14 @@ def main(args):
 
     # Force reboot the device to apply changes
     if need_shutdown:
-        logger.info("Need to shutdown")
+        logger.info("Need to force reboot")
         try:
             sonichosts.command("shutdown -r now", module_attrs={"become": True, "async": 300, "poll": 0})
+            localhost.pause(seconds=180, prompt="Pause after force reboot")
         except Exception as e:
             logger.error("Failed to shutdown: {}".repr(e))
             sys.exit(RC_SHUTDOWN_FAILED)
 
-    localhost.pause(seconds=180, prompt="Pause after reboot")
     logger.info("===== UPGRADE IMAGE DONE =====")
 
 

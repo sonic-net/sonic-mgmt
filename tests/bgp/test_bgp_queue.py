@@ -10,36 +10,37 @@ pytestmark = [
 ]
 
 
-def clear_queue_counters(duthost):
-    duthost.shell("sonic-clear queuecounters")
+def clear_queue_counters(asichost):
+    asichost.command("sonic-clear queuecounters")
 
 
-def get_queue_counters(duthost, port, queue):
+def get_queue_counters(asichost, port, queue):
     """
     Return the counter for a given queue in given port
     """
     cmd = "show queue counters {}".format(port)
-    output = duthost.shell(cmd)['stdout_lines']
+    output = asichost.command(cmd)['stdout_lines']
     txq = "UC{}".format(queue)
     for line in output:
         fields = line.split()
         if fields[1] == txq:
-            return int(fields[2])
+            return int(fields[2].replace(',', ''))
     return -1
 
 
 def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
-    clear_queue_counters(duthost)
+    asichost = duthost.asic_instance(enum_asic_index)
+    clear_queue_counters(asichost)
     time.sleep(10)
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
     arp_dict = {}
     ndp_dict = {}
     processed_intfs = set()
-    show_arp = duthost.command('show arp')
-    show_ndp = duthost.command('show ndp')
+    show_arp = asichost.command('show arp')
+    show_ndp = asichost.command('show ndp')
     for arp_entry in show_arp['stdout_lines']:
         items = arp_entry.split()
         if (len(items) != 4):
@@ -69,9 +70,9 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
                 for port in mg_facts['minigraph_portchannels'][ifname]['members']:
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
                     for q in range(0, 7):
-                        assert(get_queue_counters(duthost, port, q) == 0)
+                        assert(get_queue_counters(asichost, port, q) == 0)
             else:
                 logger.info(ifname)
                 for q in range(0, 7):
-                    assert(get_queue_counters(duthost, ifname, q) == 0)
+                    assert(get_queue_counters(asichost, ifname, q) == 0)
             processed_intfs.add(ifname)

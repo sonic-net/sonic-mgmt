@@ -44,6 +44,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
+from tests.common.utilities import get_dut_current_passwd
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
@@ -51,7 +52,7 @@ from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 try:
-    from tests.macsec import MacsecPlugin
+    from tests.macsec import MacsecPluginT2, MacsecPluginT0
 except ImportError as e:
     logging.error(e)
 
@@ -80,7 +81,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.decap',
                   'tests.platform_tests.api',
                   'tests.common.plugins.allure_server',
-                  'tests.common.plugins.conditional_mark')
+                  'tests.common.plugins.conditional_mark',
+                  'tests.common.plugins.random_seed')
 
 
 def pytest_addoption(parser):
@@ -199,7 +201,11 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
-        config.pluginmanager.register(MacsecPlugin())
+        topo = config.getoption("topology")
+        if topo is not None and "t2" in topo:
+            config.pluginmanager.register(MacsecPluginT2())
+        else:
+            config.pluginmanager.register(MacsecPluginT0())
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -366,15 +372,26 @@ def mg_facts(duthost):
     return duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
 
+@pytest.fixture(scope="session")
+def macsec_duthost(duthosts, tbinfo):
+    # get the first macsec capable node
+    macsec_dut = None
+    if 't2' in tbinfo['topo']['name']:
+        # currently in the T2 topo only the uplink linecard will have
+        # macsec enabled
+        for duthost in duthosts:
+            if duthost.is_macsec_capable_node():
+                macsec_dut = duthost
+            break
+    else:
+        return duthosts[0]
+    return macsec_dut
+
+
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
-    """
-    """
-    dut_hostnames = generate_params_dut_hostname(request)
-    if len(dut_hostnames) > 1:
-        dut_hostnames = random.sample(dut_hostnames, 1)
-    logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
-    return dut_hostnames[0]
+    logger.info("Randomly select dut {} for testing".format(request.param))
+    return request.param
 
 
 @pytest.fixture(scope="module")
@@ -744,6 +761,16 @@ def creds_on_dut(duthost):
         console_login_creds = hostvars["console_login"]
     creds["console_user"] = {}
     creds["console_password"] = {}
+
+    creds["ansible_altpasswords"] = []
+
+    passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
+    creds['sonicadmin_password'] = get_dut_current_passwd(
+        duthost.mgmt_ip,
+        duthost.mgmt_ipv6,
+        creds['sonicadmin_user'],
+        passwords
+    )
 
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
@@ -1431,6 +1458,21 @@ def pytest_generate_tests(metafunc):        # noqa E302
         else:
             metafunc.parametrize(asic_fixture_name, [None], scope="module", indirect=True)
 
+    # When selected_dut used and select a dut for test, parameterize dut for enable TACACS on all UT
+    if dut_fixture_name and "selected_dut" in metafunc.fixturenames:
+        metafunc.parametrize("selected_dut", duts_selected, scope="module", indirect=True)
+
+    # When rand_one_dut_hostname used and select a dut for test, parameterize dut for enable TACACS on all UT
+    if "rand_one_dut_hostname" in metafunc.fixturenames:
+        rand_one_dut = generate_params_dut_hostname(metafunc)
+        if len(rand_one_dut) > 1:
+            rand_one_dut = random.sample(rand_one_dut, 1)
+        # parameterize only on DUT
+        metafunc.parametrize("rand_one_dut_hostname", rand_one_dut, scope="module", indirect=True)
+
+        if "selected_rand_dut" in metafunc.fixturenames:
+            metafunc.parametrize("selected_rand_dut", rand_one_dut, scope="module", indirect=True)
+
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
 
@@ -1547,6 +1589,24 @@ def enum_frontend_dut_hostname(request):
 
 
 @pytest.fixture(scope="module")
+def selected_dut(request):
+    try:
+        logger.debug("selected_dut host: {}".format(request.param))
+        return request.param
+    except AttributeError:
+        return None
+
+
+@pytest.fixture(scope="module")
+def selected_rand_dut(request):
+    try:
+        logger.debug("selected_rand_dut host: {}".format(request.param))
+        return request.param
+    except AttributeError:
+        return None
+
+
+@pytest.fixture(scope="module")
 def enum_rand_one_per_hwsku_hostname(request):
     return request.param
 
@@ -1591,6 +1651,8 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     duthost = duthosts[enum_supervisor_dut_hostname]
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    if "/" in console_host:
+        console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
@@ -2026,6 +2088,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
 
     if check_flag:
         for duthost in duthosts:
+            logger.info("Dumping Disk and Memory Space informataion before test on {}".format(duthost.hostname))
+            duthost.shell("free -h")
+            duthost.shell("df -h")
+
             logger.info("Collecting core dumps before test on {}".format(duthost.hostname))
             duts_data[duthost.hostname] = {}
 
@@ -2062,6 +2128,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             pre_only_config[duthost.hostname] = {}
             cur_only_config[duthost.hostname] = {}
             new_core_dumps[duthost.hostname] = []
+
+            logger.info("Dumping Disk and Memory Space informataion after test on {}".format(duthost.hostname))
+            duthost.shell("free -h")
+            duthost.shell("df -h")
 
             logger.info("Collecting core dumps after test on {}".format(duthost.hostname))
             if "20191130" in duthost.os_version:
@@ -2241,6 +2311,16 @@ def on_exit():
     on_exit = OnExit()
     yield on_exit
     on_exit.cleanup()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def add_mgmt_test_mark(duthosts):
+    '''
+    @summary: Create mark file at /etc/sonic/mgmt_test_mark, and DUT can use this mark to detect mgmt test.
+    @param duthosts: fixture to get DUT hosts
+    '''
+    mark_file = "/etc/sonic/mgmt_test_mark"
+    duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):

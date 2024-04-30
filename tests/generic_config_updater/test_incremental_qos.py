@@ -11,6 +11,7 @@ from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
+from tests.common.mellanox_data import is_mellanox_device
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -213,7 +214,8 @@ def ensure_application_of_updated_config(duthost, configdb_field, value):
 @pytest.mark.parametrize("configdb_field", ["ingress_lossless_pool/xoff",
                                             "ingress_lossless_pool/size", "egress_lossy_pool/size"])
 @pytest.mark.parametrize("op", ["add", "replace", "remove"])
-def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, configdb_field, op):
+def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, configdb_field, op,
+                                        skip_when_buffer_is_dynamic_model):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}"
                 .format(tmpfile, configdb_field, op))
@@ -221,6 +223,8 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
     field_value = duthost.shell('sonic-db-cli CONFIG_DB hget "BUFFER_POOL|{}" {}'
                                 .format(configdb_field.split("/")[0], configdb_field.split("/")[1]))['stdout']
     if op == "remove":
+        if is_mellanox_device(duthost):
+            pytest.skip("Skip remove test, because the mellanox device doesn't support removing qos config fields")
         value = ""
     else:
         value = calculate_field_value(duthost, tbinfo, configdb_field)
@@ -235,6 +239,9 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        if op == "replace" and not field_value:
+            expect_op_failure(output)
+
         if is_valid_platform_and_version(duthost, "BUFFER_POOL", "Shared/headroom pool size changes", op, field_value):
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, configdb_field, value)

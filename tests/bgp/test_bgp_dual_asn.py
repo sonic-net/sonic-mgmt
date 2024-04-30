@@ -282,7 +282,7 @@ class BgpDualAsn:
         logger.info("exabgp stopped")
 
         for port in self.ptf_ports:
-            ptfhost.shell("ip addr flush dev %s" % port)
+            ptfhost.shell("ip addr flush dev {} scope global".format(port))
         duthost.command("sonic-clear arp")
         duthost.command("sonic-clear ndp")
         duthost.command("sonic-clear fdb all")

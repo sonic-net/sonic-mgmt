@@ -61,9 +61,9 @@
           <Name>V6HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/64</b:IPPrefix>
+            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/64</a:PrefixStr>
+          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
@@ -183,42 +183,32 @@
 {% for idx in range(all_loopback4096[a_linecard]|length) %}
 {% set remote_asic_name = "ASIC" + idx|string %}
 {% if a_linecard != inventory_hostname or idx != asic_index %}
-{%- set nexthop_intfs = [] -%}
-{%- set nexthop_v6_intfs = [] -%}
-{%- set internal_po_channel_intfs = [] -%}
+{%- set internal_static_routes_ipv4_device_pair = [] -%}
+{%- set internal_static_routes_ipv6_device_pair = [] -%}
 {% set asic_config =  asic_topo_config[all_slots[a_linecard]][remote_asic_name] %}
 {% for neigh_asic in  asic_config['neigh_asic'] %}
-{% set _ = nexthop_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]) %}
-{% set _ = nexthop_v6_intfs.append(asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0]) %}
 {% set neigh_asic_index = neigh_asic.split('ASIC')[1]|int %}
 {% set po_intf = 'PortChannel' + port_channel_id(asic_index, neigh_asic_index).zfill(2) %}
-{{- internal_po_channel_intfs.append(po_intf) -}}
+{{- internal_static_routes_ipv4_device_pair.append(po_intf + ',' + asic_config['neigh_asic'][neigh_asic]['bgp_ipv4'][0]) -}}
+{{- internal_static_routes_ipv6_device_pair.append(po_intf +  ',' + asic_config['neigh_asic'][neigh_asic]['bgp_ipv6'][0]) -}}
 {% endfor %}
       <IPNextHop>
          <ElementType>IPNextHop</ElementType>
          <Name i:nil="true"/>
-         <AssociatedTo>{{ all_loopback4096[a_linecard][idx] }}</AssociatedTo>
+         <Address>{{ all_loopback4096[a_linecard][idx] }}</Address>
          <AttachTo>
-{{- internal_po_channel_intfs|join(',') -}}
+{{- internal_static_routes_ipv4_device_pair|join(';') -}}
          </AttachTo>
          <Type>StaticRoute</Type>
-         <Advertise>false</Advertise>
-         <Address>
-{{- nexthop_intfs|join(',') -}}
-         </Address>
       </IPNextHop>
       <IPNextHop>
          <ElementType>IPNextHop</ElementType>
          <Name i:nil="true"/>
-         <AssociatedTo>{{ all_loopback4096_ipv6[a_linecard][idx] }}</AssociatedTo>
+         <Address>{{ all_loopback4096_ipv6[a_linecard][idx] }}</Address>
          <AttachTo>
-{{- internal_po_channel_intfs|join(',') -}}
+{{- internal_static_routes_ipv6_device_pair|join(';') -}}
          </AttachTo>
          <Type>StaticRoute</Type>
-         <Advertise>false</Advertise>
-         <Address>
-{{- nexthop_v6_intfs|join(',') -}}
-         </Address>
       </IPNextHop>
 {% endif %}
 {% endfor %}

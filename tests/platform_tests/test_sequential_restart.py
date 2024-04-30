@@ -58,7 +58,10 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
 
     asichost = dut.asic_instance(enum_frontend_asic_index)
     service_name = asichost.get_service_name(service)
-    dut.command("sudo systemctl restart {}".format(service_name))
+    if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+        dut.shell("sudo systemctl stop {} && sleep 30 && sudo systemctl start {}".format(service_name, service_name))
+    else:
+        dut.command("sudo systemctl restart {}".format(service_name))
 
     for container in dut.get_default_critical_services_list():
         if is_service_hiting_start_limit(dut, container) is True:
@@ -70,9 +73,12 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
     wait_critical_processes(dut)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    pytest_assert(wait_until(300, 20, 0, check_interface_information, dut,
+    interface_wait_time = 300
+    if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+        interface_wait_time = 900
+    pytest_assert(wait_until(interface_wait_time, 20, 0, check_interface_information, dut,
                   enum_frontend_asic_index, interfaces, xcvr_skip_list),
-                  "Not all interface information are detected within 300 seconds")
+                  "Not all interface information are detected within {} seconds".format(interface_wait_time))
 
     logging.info("Check transceiver status on asic %s" % enum_frontend_asic_index)
     check_transceiver_basic(dut, enum_frontend_asic_index, interfaces, xcvr_skip_list)

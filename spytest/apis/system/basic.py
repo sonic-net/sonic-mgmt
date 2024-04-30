@@ -1,41 +1,92 @@
-import json
 import os
 import re
+import sys
 import ast
+import json
+import random
 import datetime
+import traceback
 
 from spytest import st
-from spytest.utils import filter_and_select
-from spytest.utils import exec_all
-import apis.system.connection as conn_obj
 
-from utilities.common import delete_file, do_eval, make_list, iterable
+import apis.system.connection as conn_obj
+from apis.system.rest import get_rest
+from apis.system.rest import config_rest, delete_rest
+
+from utilities.common import filter_and_select, kwargs_to_dict_list
+from utilities.common import exec_all, str_encode, str_decode
+from utilities.common import delete_file, make_list
+
 import utilities.utils as utils_obj
-from apis.system.rest import get_rest,config_rest
+
+
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in utils_obj.get_supported_ui_type_list() else cli_type
+    return cli_type
+
+
+def is_reboot_confirm(dut):
+    if not st.is_feature_supported("confirm-reboot", dut):
+        return False
+    output = st.config(dut, "fast-reboot -h", skip_error_check=True, type="click")
+    if "skip the user confirmation" in output:
+        return True
+    return False
 
 
 def ensure_hwsku_config(dut):
-    #TODO: call sudo config-hwsku set if present in device params
+    # TODO: call sudo config-hwsku set if present in device params
     pass
+
 
 def ensure_certificate(dut):
     if st.is_feature_supported("certgen-command", dut):
         st.config(dut, "/usr/bin/certgen admin")
 
-def get_system_status(dut, service=None, skip_error_check=False):
-    output = "???"
-    try:
-        output = st.show(dut, "show system status", skip_tmpl=True,
-                         skip_error_check=skip_error_check)
-        if "Error: Got unexpected extra argument (status)" in output:
-            return None
 
-        output = st.parse_show(dut, "show system status", output)
-        if not output:
+def get_system_status(dut, service=None, **kwargs):
+    cli_type = st.get_ui_type(dut, **kwargs)
+    if cli_type != 'click':
+        cli_type = utils_obj.override_supported_ui("rest-put", "rest-patch", cli_type=cli_type)
+    kwargs.setdefault("skip_tmpl", True)
+    output = "???"
+    if 'cmd' in kwargs:
+        if cli_type == 'click':
+            return st.show(dut, kwargs['cmd'], skip_tmpl=True, skip_error_check=True, type=cli_type)
+        if cli_type == 'klish':
+            return st.show(dut, kwargs['cmd'], skip_tmpl=True, skip_error_check=True, type=cli_type)
+    try:
+        has_status_core = st.is_feature_supported("system-status-core", dut)
+        if has_status_core:
+            if cli_type == 'klish':
+                if 'skip_error_check' not in kwargs:
+                    kwargs['skip_error_check'] = True
+                output = st.show(dut, "show system status core", type=cli_type, **kwargs)
+                if 'Error: Invalid input detected at' in output:
+                    st.log('show system status core is not supported in klish. Trying with click')
+                    cli_type = 'click'
+            if cli_type == 'click':
+                output = st.show(dut, "show system status core", type=cli_type, **kwargs)
+            if "Error: Got unexpected extra argument (core)" in output:
+                has_status_core = False
+        if not has_status_core:
+            if cli_type == 'klish':
+                if 'skip_error_check' not in kwargs:
+                    kwargs['skip_error_check'] = True
+                output = st.show(dut, "show system status", type=cli_type, **kwargs)
+                if 'Error: Invalid input detected at' in output:
+                    st.log('show system status is not supported in klish. Trying with click')
+                    cli_type = 'click'
+            if cli_type == 'click':
+                output = st.show(dut, "show system status", type=cli_type, **kwargs)
+            if "Error: Got unexpected extra argument (status)" in output:
+                return None
+        retval = st.parse_show(dut, "show system status", output)
+        if not retval:
             return False
-        if output[0]["status"] == "ready":
+        if retval[0]["status"] == "ready":
             return True
-        if service and output[0][service] == "Up":
+        if service and retval[0][service] == "Up":
             return True
     except Exception as exp:
         msg = "Failed to read system online status output='{}' error='{}'"
@@ -43,22 +94,125 @@ def get_system_status(dut, service=None, skip_error_check=False):
     return False
 
 
-def get_hwsku(dut):
+def get_system_status_all(dut, service=None, **kwargs):
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type in utils_obj.get_supported_ui_type_list() + ['rest-patch', 'rest-put'] else cli_type
+    failed_services = []
+    if cli_type == 'click':
+        cmd = "sudo show system status"
+    if cli_type == 'klish':
+        cmd = "show system status"
+    output = st.show(dut, cmd, type=cli_type, **kwargs)
+    if not output:
+        return False
+    if output[0]["status"] == "ready":
+        return True
+    if output[0]["status"] in ["not ready"]:
+        for i in output:
+            if i['state'] != 'OK':
+                failed_services.append("'{}' service '{}' due to '{}'".format(i['servname'], i['servstatus'], i['reason']))
+        st.log("Failed services list : {}".format(failed_services))
+        return False
+
+
+def get_system_status_all_brief(dut, service=None, **kwargs):
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type in utils_obj.get_supported_ui_type_list() + ['rest-patch', 'rest-put'] else cli_type
+    if cli_type == 'click':
+        cmd = "sudo show system status brief"
+    if cli_type == 'klish':
+        cmd = "show system status brief"
+    output = st.show(dut, cmd, type=cli_type, **kwargs)
+    if not output:
+        return False
+    if output[0]["status"] == "System is ready":
+        return True
+    if output[0]["status"] in ["System is not ready - one or more services are not up"]:
+        return False
+
+
+def get_system_status_all_detail(dut, service=None, **kwargs):
+    kwargs.pop('type', None)
+    cli_type = st.get_ui_type(dut, **kwargs)
+    failed_services = []
+    cli_type = 'klish' if cli_type in utils_obj.get_supported_ui_type_list() + ['rest-patch', 'rest-put'] else cli_type
+    if cli_type == 'click':
+        output = st.show(dut, "sudo show system status detail", type=cli_type, **kwargs)
+    if cli_type == 'klish':
+        output = st.show(dut, "show system status detail", type=cli_type, **kwargs)
+    if 'output' in kwargs:
+        return output
+    if not output:
+        return False
+    if output[0]["status"] == "System is ready":
+        return True
+    if output[0]["status"] in ["System is not ready - one or more services are not up"]:
+        for i in output:
+            if i['state'] != 'OK':
+                failed_services.append("'{}' service '{}' due to '{}'".format(i['servname'], i['servstatus'], i['reason']))
+        st.log("Failed services list : {}".format(failed_services))
+        return False
+    if service:
+        st.log("Service list : {}".format(service))
+        result = [True for serv in service for service_name in output if service_name['servname'] == serv and service_name['servstatus'] == 'OK']
+        if result:
+            return True
+        else:
+            return False
+
+
+def retry_api(func, args, **kwargs):
+    retry_count = kwargs.get("retry_count", 5)
+    delay = kwargs.get("delay", 1)
+    if 'retry_count' in kwargs:
+        del kwargs['retry_count']
+    if 'delay' in kwargs:
+        del kwargs['delay']
+    for i in range(retry_count):
+        st.log("Attempt %s of %s" % ((i + 1), retry_count))
+        if func(args, **kwargs):
+            return True
+        if retry_count != (i + 1):
+            st.log("waiting for %s seconds before retyring again" % delay)
+            st.wait(delay)
+    return False
+
+
+def get_machineconf_platform(dut):
+    cmd = "cat /host/machine.conf | grep onie_platform | cut -d '=' -f 2"
+    outputs = str_encode(st.config(dut, cmd)).split(str_encode('\n'))
+    return str_decode(outputs[0])
+
+
+def get_cfggen_hwsku(dut):
+    cmd = "sonic-cfggen -d -v \'DEVICE_METADATA[\"localhost\"][\"hwsku\"]\'"
+    output = st.config(dut, cmd, skip_error_check=True).split('\n')
+    return output[0]
+
+
+def get_hwsku(dut, **kwargs):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Function to ge the hwsku of the device.
     :param dut:
     :return:
     """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    if cli_type in utils_obj.get_supported_ui_type_list('klish'):
+        hwsku = show_version(dut, cli_type=cli_type)['hwsku']
+        return hwsku
+
     output = st.show(dut, "show platform summary")
     if len(output) <= 0 or "hwsku" not in output[0]:
         return None
     hwsku = output[0]["hwsku"]
     return hwsku
 
+
 def set_hwsku(dut, hwsku):
     st.config(dut, "config-hwsku set {}".format(hwsku),
               confirm='y', expect_reboot=True)
+
 
 def get_platform_summary(dut, value=None):
     """
@@ -69,24 +223,26 @@ def get_platform_summary(dut, value=None):
     :return:
     """
     output = st.show(dut, "show platform summary")
-    if value:
-        if len(output) <= 0 or value not in output[0]:
-            return None
-        out = output[0][value]
-        return out
-    else:
-        if output:
-            return output[0]
+    if not output:
+        return None
+
+    return output[0].get(value, None) if value else output[0]
 
 
-def get_dut_date_time(dut):
+def get_dut_date_time(dut, pattern="", addtl_time=""):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Function to get the DUT date and time
     :param dut:
     :return:
     """
-    return utils_obj.remove_last_line_from_string(st.config(dut, "date"))
+    add_time = ' -s "{}"'.format(addtl_time) if addtl_time else ""
+    sudo = "sudo " if add_time else ""
+    if not pattern:
+        return utils_obj.remove_last_line_from_string(st.config(dut, "date{}".format(add_time)))
+    else:
+        command = 'echo $({}date "+{}"{})'.format(sudo, pattern, add_time)
+        return utils_obj.remove_last_line_from_string(st.config(dut, command, skip_error_check=True))
 
 
 def get_dut_date_time_obj(dut):
@@ -107,26 +263,7 @@ def get_dut_date_time_obj(dut):
         return None
 
 
-def get_mac_address(base_mac="00:00:00:00:00:00", start=1, end=100):
-    """
-    Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
-    Function to get the mac addressses
-    :param base_mac:
-    :param start:
-    :param end:
-    :return:
-    """
-    mac_address_list = list()
-    base_mac = base_mac.replace(":", '').replace(" ", '')
-    mac_int = int("0x"+base_mac, 16)
-    for i in range(mac_int+start, mac_int+end+1):
-        mac_address = "{0:0{1}x}".format(i, 12)
-        mac_formated = ":".join([mac_address[i:i+2] for i in range(0, len(mac_address), 2)])
-        mac_address_list.append(mac_formated)
-    return mac_address_list
-
-
-def get_ifconfig(dut, interface=None):
+def get_ifconfig(dut, interface=None, **kwargs):
     """
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
     Function to get the ifconfig output
@@ -134,14 +271,15 @@ def get_ifconfig(dut, interface=None):
     :param interface:
     :return:
     """
-    interface = interface or st.get_mgmt_ifname(dut)
-    if '/' in interface:
-        interface = st.get_other_names(dut,[interface])[0]
+    if not interface:
+        interface = st.get_mgmt_ifname(dut)
+    else:
+        interface = utils_obj.convert_intf_name_to_component(dut, intf_list=interface)
     command = "/sbin/ifconfig {}".format(interface)
-    return st.show(dut, command)
+    return st.show(dut, command, **kwargs)
 
 
-def get_ifconfig_inet(dut, interface=None):
+def get_ifconfig_inet(dut, interface=None, **kwargs):
     """
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
     Function to get the ifconfig inet
@@ -149,9 +287,9 @@ def get_ifconfig_inet(dut, interface=None):
     :param interface:
     :return:
     """
-    output = get_ifconfig(dut, interface)
+    output = get_ifconfig(dut, interface, **kwargs)
     if len(output) <= 0 or "inet" not in output[0]:
-        return None
+        return "127.0.0.1" if st.is_dry_run() else None
     ip_addresses = output[0]['inet']
     return ip_addresses
 
@@ -171,7 +309,7 @@ def get_ifconfig_inet6(dut, interface=None):
     return ip_addresses
 
 
-def get_ifconfig_ether(dut, interface=None):
+def get_ifconfig_ether(dut, interface=None, **kwargs):
     """
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
     Function to get the ifconfig ethernet
@@ -179,7 +317,7 @@ def get_ifconfig_ether(dut, interface=None):
     :param interface:
     :return:
     """
-    output = get_ifconfig(dut, interface)
+    output = get_ifconfig(dut, interface, **kwargs)
     if len(output) <= 0 or "mac" not in output[0]:
         return None
     mac_address = output[0]['mac']
@@ -212,9 +350,9 @@ def get_hostname(dut):
     """
     cmd = 'hostname'
     hostname = utils_obj.remove_last_line_from_string(st.show(dut, cmd, skip_tmpl=True))
-    hostname = hostname.strip()
-    if hostname.startswith(cmd+'\n'):
-        hostname = hostname[len(cmd+'\n'):]
+    hostname = hostname.split('\n')[0].strip()
+    if hostname.startswith(cmd + '\n'):
+        hostname = hostname[len(cmd + '\n'):]
     return hostname
 
 
@@ -274,10 +412,13 @@ def verify_service_status(dut, service, device="dut"):
         result = st.config(dut, command)
     else:
         result = conn_obj.execute_command(dut, command)
-    if utils_obj.remove_last_line_from_string(result) != "active":
-        if "active" not in result or result != "inactive":
+    for line in result.splitlines():
+        if line == "inactive":
             return False
-    return True
+        if line == "active":
+            return True
+    return False
+
 
 def systemctl_restart_service(dut, name, max_wait=10, skip_error_check=False):
     command = "systemctl restart {}".format(name)
@@ -288,14 +429,15 @@ def systemctl_restart_service(dut, name, max_wait=10, skip_error_check=False):
         if verify_service_status(dut, name):
             retval = True
             break
-        if delay < 0 or i > int(max_wait/delay):
+        if delay < 0 or i > int(max_wait / delay):
             break
         i += delay
         st.wait(delay)
 
     return retval
 
-def service_operations_by_systemctl(dut, service, operation, skip_error_check=False):
+
+def service_operations_by_systemctl(dut, service, operation, skip_error_check=True, option=None):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Function to do the service operations using systemctl
@@ -304,7 +446,8 @@ def service_operations_by_systemctl(dut, service, operation, skip_error_check=Fa
     :param operation:
     :return:
     """
-    command = "systemctl {} {}".format(operation, service)
+    option = option if operation == "status" else None
+    command = "systemctl {} {}".format(operation, service) if option is None else "systemctl {} {} {}".format(operation, option, service)
     return st.config(dut, command, skip_error_check=skip_error_check)
 
 
@@ -356,7 +499,7 @@ def write_to_file(connection_obj, content, file_path, device="dut"):
         conn_obj.execute_command(connection_obj, command)
 
 
-def create_and_write_to_file_sudo_mode(dut, content, file_path):
+def file_create(dut, content, file_path, **kwargs):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Functcion to creat and write to file
@@ -365,11 +508,12 @@ def create_and_write_to_file_sudo_mode(dut, content, file_path):
     :param file_path:
     :return:
     """
-    command = 'sudo bash -c "echo {} > {}" '.format(content, file_path)
-    st.config(dut, command)
+    command = 'bash -c "echo {} > {}" '.format(content, file_path)
+    st.config(dut, command, **kwargs)
+    return True
 
 
-def write_to_file_sudo_mode(dut, content, file_path):
+def file_append(dut, content, file_path, **kwargs):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Function to write to file using sudo mode
@@ -378,8 +522,19 @@ def write_to_file_sudo_mode(dut, content, file_path):
     :param file_path:
     :return:
     """
-    command = 'sudo bash -c "echo {} >> {}" '.format(content, file_path)
-    st.config(dut, command)
+    command = 'bash -c "echo {} >> {}" '.format(content, file_path)
+    st.config(dut, command, **kwargs)
+
+
+def file_delete(dut, file_path, **kwargs):
+    try:
+        command = 'rm {} 2>/dev/null && echo 1 || echo 0'.format(file_path)
+        retval = st.config(dut, command, **kwargs)
+        if int(utils_obj.remove_last_line_from_string(retval)) == 1:
+            return True
+    except Exception as e:
+        st.exception(str(e))
+    return False
 
 
 def verify_file_on_device(connection_obj, client_path, file_name="client.pem", device="dut"):
@@ -551,7 +706,7 @@ def write_to_text_file(content):
         return src_file
 
 
-def replace_line_in_file(ssh_conn_obj, old_string, new_string, file_path,device = 'server'):
+def replace_line_in_file(ssh_conn_obj, old_string, new_string, file_path, device='server'):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Function to replace the content in a file in a specific line
@@ -568,7 +723,7 @@ def replace_line_in_file(ssh_conn_obj, old_string, new_string, file_path,device 
         st.config(ssh_conn_obj, command, faster_cli=False)
 
 
-def replace_line_in_file_with_line_number(dut,**kwargs):
+def replace_line_in_file_with_line_number(dut, **kwargs):
     """
     Author:Chaitanya Lohith Bollapragada
     Usage:
@@ -597,7 +752,7 @@ def replace_line_in_file_with_line_number(dut,**kwargs):
     return True
 
 
-def find_line_in_file(ssh_conn_obj, search_string, file_path, device='server'):
+def find_line_in_file(conn_obj, search_string, file_path, device='server', verify=True):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Function to file line in  a file
@@ -607,10 +762,13 @@ def find_line_in_file(ssh_conn_obj, search_string, file_path, device='server'):
     :return:
     """
     command = "grep -w '{}' {}".format(search_string, file_path)
-    result = conn_obj.execute_command(ssh_conn_obj, command) if device == 'server' else st.config(ssh_conn_obj, command)
-    if utils_obj.remove_last_line_from_string(result).find(search_string) < 1:
-        return False
-    return True
+    result = conn_obj.execute_command(conn_obj, command) if device == 'server' else st.config(conn_obj, command, skip_error_check=True)
+    if verify:
+        if utils_obj.remove_last_line_from_string(result).find(search_string) < 1:
+            return False
+        return True
+    else:
+        return utils_obj.remove_last_line_from_string(result)
 
 
 def check_service_status(ssh_conn_obj, service_name, status="running", device='server'):
@@ -648,15 +806,15 @@ def write_to_json_file(json_content):
     """
     json_dump = json.dumps(json_content)
     parsed = json.loads(json_dump)
-    chef_cookbook_json = json.dumps(parsed, indent=4, sort_keys=True)
+    json_str = json.dumps(parsed, indent=4, sort_keys=True)
     src_file = st.mktemp()
     src_fp = open(src_file, "w")
-    src_fp.write(chef_cookbook_json)
+    src_fp.write(json_str)
     src_fp.close()
     return src_file
 
 
-def copy_file_from_client_to_server(ssh_con_obj, **kwargs):
+def upload_file(ssh_con_obj, **kwargs):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Function to copy file from client to server
@@ -667,7 +825,7 @@ def copy_file_from_client_to_server(ssh_con_obj, **kwargs):
     try:
         import netmiko
         scp_conn = netmiko.SCPConn(ssh_con_obj)
-        scp_conn.scp_transfer_file(kwargs["src_path"], kwargs["dst_path"])
+        scp_conn.scp_put_file(kwargs["src_path"], kwargs["dst_path"])
         scp_conn.close()
         if "persist" not in kwargs:
             os.remove(kwargs["src_path"])
@@ -676,7 +834,27 @@ def copy_file_from_client_to_server(ssh_con_obj, **kwargs):
         st.report_fail("scp_file_transfer_failed", kwargs["src_path"], kwargs["dst_path"])
 
 
-def check_error_log(dut, file_path, error_string, lines=1, file_length=50, match=None, start_line=0):
+def download_file(ssh_con_obj, **kwargs):
+    """
+    Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
+    Function to copy file from client to server
+    :param ssh_con_obj:
+    :param kwargs:
+    :return:
+    """
+    try:
+        import netmiko
+        scp_conn = netmiko.SCPConn(ssh_con_obj)
+        scp_conn.scp_get_file(kwargs["src_path"], kwargs["dst_path"])
+        scp_conn.close()
+        if "persist" not in kwargs:
+            os.remove(kwargs["src_path"])
+    except Exception as e:
+        st.log(e)
+        st.report_fail("scp_file_transfer_failed", kwargs["src_path"], kwargs["dst_path"])
+
+
+def check_error_log(dut, file_path, error_string, lines=1, file_length=50, match=None, start_line=0, host_name=''):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     Function to check the error log
@@ -688,7 +866,7 @@ def check_error_log(dut, file_path, error_string, lines=1, file_length=50, match
     :return:
     """
     if start_line != 0:
-        command = 'sudo tail -n +{} {} | grep "{}" | grep -Ev "sudo tail"'.format(start_line, file_path, error_string)
+        command = 'sudo tail -n +{} {} | grep {} | grep "{}" | grep -Ev "sudo tail"'.format(start_line, file_path, host_name, error_string)
     else:
         command = 'sudo tail -{} {} | grep "{}" | tail -{}'.format(file_length, file_path, error_string, lines)
     try:
@@ -716,7 +894,7 @@ def poll_for_error_logs(dut, file_path, error_string, lines=1, file_length=50, i
     :param delay:
     :return:
     """
-    i=1
+    i = 1
     while True:
         if check_error_log(dut, file_path, error_string, lines, file_length, match=match):
             st.log("Log found in {} iteration".format(i))
@@ -724,11 +902,11 @@ def poll_for_error_logs(dut, file_path, error_string, lines=1, file_length=50, i
         if i > iteration_cnt:
             st.log("Max iteration count {} reached ".format(i))
             return False
-        i+=delay
+        i += delay
         st.wait(delay)
 
 
-def show_version(dut, cli_type= ''):
+def show_version(dut, cli_type='', report=True, **kwargs):
     """
     Get Show Version
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -737,19 +915,80 @@ def show_version(dut, cli_type= ''):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    #rest support is blocked due to SONIC-24371. So falling back to klish
+    if cli_type in utils_obj.get_supported_ui_type_list():
+        import apis.system.system_server as sys_server_api
+        kwargs['cli_type'] = cli_type
+        kwargs['report'] = report
+        return sys_server_api.system_show_version(dut, **kwargs)
     if cli_type in ['rest-put', 'rest-patch']:
-        cli_type = 'klish'
+        try:
+            rest_urls = st.get_datastore(dut, "rest_urls")
+            url = rest_urls['get_system_component'].format("software")
+            data = st.rest_read(dut, url)
+            if data['status'] in [200]:
+                version = data['output']['openconfig-platform:component'][0]['software']
+                # Version
+                ver = {'distribution': "Debian {}".format(version['distribution-version'])}
+                ver.update({"kernel": version['kernel-version']})
+                ver.update({"product": version['product-description']})
+                ver.update({"asic": version['asic-version']})
+                ver.update({"version": "SONiC-OS-{}".format(version['software-version'])})
+                ver.update({"hw_version": ''})
+                ver.update({"db_version": version['config-db-version']})
+                ver.update({"serial_number": version['serial-number']})
+                ver.update({"platform": version['platform-name']})
+                ver.update({"build_commit": version['build-commit']})
+                ver.update({"build_date": version['build-date']})
+                ver.update({"built_by": version['built-by']})
+                ver.update({"hwsku": version['hwsku-version']})
+                ver.update({"mfg": ''})
+                out = re.findall(r'(.*),\s+(\d+)\s+\S+,\s+load average:\s+(.*)\s*', version['up-time'])
+                if out and len(out[0]) == 3:
+                    ver.update({"uptime": out[0][0]})
+                    ver.update({"load_average": out[0][2]})
+                    ver.update({"user": out[0][1]})
+                ver2 = {k: v.replace("'", '').strip() for k, v in ver.items()}
+                st.debug(ver2)
+                return ver2
+            else:
+                st.error("Failed to read version", dut=dut)
+                cli_type = 'click'
+        except Exception as e:
+            st.error("Failed to read version", dut=dut)
+            st.error(e)
+            cli_type = 'click'
+
     if cli_type in ['click', 'klish']:
         command = 'show version'
-        output = st.show(dut, command, type= cli_type)
-        if not output or st.is_dry_run(): return []
+        output = st.show(dut, command, type=cli_type, **kwargs)
+        if not output:
+            st.error("Failed to read version", dut=dut)
+            if cli_type in ['klish']:
+                output = st.show(dut, command, type='click', **kwargs)
+                if not output:
+                    st.error("Failed to read version even from click", dut=dut)
+            if not output:
+                if report:
+                    st.report_fail("version_data_not_found", dut)
+                return {}
         exclude_keys = ['repository', 'tag', 'image_id', 'size']
         rv = {each_key: output[0][each_key] for each_key in output[0] if each_key not in exclude_keys}
         return rv
-    else:
-        st.log("UNSUPPORTED CLI TYPE ")
-        return False
+
+
+def compare_image_version(dut, version=[]):
+    """
+    Compare current image version on DUT with the provided version
+    Author: Venkat Moguluri (venkata.moguluri@broadcom.com)
+    :param dut: DUT to be comapred
+    :param version: Version to be compared
+    :return:
+    """
+    current_version = show_version(dut, report=False)['version']
+    st.log("Current Version on {} is {}".format(dut, current_version))
+    if current_version in version:
+        return True
+    return False
 
 
 def get_docker_info(dut):
@@ -778,6 +1017,7 @@ def get_docker_ps(dut):
     output = st.show(dut, command)
     return output
 
+
 def get_docker_stats(dut):
     """
     Get docker ps
@@ -789,7 +1029,35 @@ def get_docker_stats(dut):
     return output
 
 
-def verify_docker_ps(dut, image, **kwargs):
+def verify_docker_stats(dut, name, **kwargs):
+    """
+    To verify docker stats info
+
+    :param dut:
+    :param id:
+    :param name:
+    :param cpu:
+    :param memusage:
+    :param memlimit:
+    :param memperc:
+    :param pid:
+    :return: True/False
+    """
+    output = get_docker_stats(dut)
+    rv = filter_and_select(output, None, {'name': name})
+    if not rv:
+        st.error("No match for {} = {} in table".format('name', name))
+        return False
+    for each in kwargs.keys():
+        if not filter_and_select(rv, None, {each: kwargs[each]}):
+            st.error("No match for {} = {} in NAME {} ".format(each, kwargs[each], name))
+            return False
+        else:
+            st.log("Match found for {} = {} in NAME {}".format(each, kwargs[each], name))
+    return True
+
+
+def verify_docker_ps(dut, image=None, **kwargs):
     """
     To verify docker ps info
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -805,10 +1073,13 @@ def verify_docker_ps(dut, image, **kwargs):
     :return:
     """
     output = get_docker_ps(dut)
-    rv = filter_and_select(output, None, {'image': image})
-    if not rv:
-        st.error("No match for {} = {} in table".format('image', image))
-        return False
+    if image:
+        rv = filter_and_select(output, None, {'image': image})
+        if not rv:
+            st.error("No match for {} = {} in table".format('image', image))
+            return False
+    else:
+        rv = output
     for each in kwargs.keys():
         if not filter_and_select(rv, None, {each: kwargs[each]}):
             st.error("No match for {} = {} in table".format(each, kwargs[each]))
@@ -819,7 +1090,7 @@ def verify_docker_ps(dut, image, **kwargs):
     return True
 
 
-def docker_operation(dut, docker_name, operation):
+def docker_operation(dut, docker_name, operation, skip_error_check=True, docker_cmd=False, vrf="default"):
     """
     To Perform Docker operations
     Author: kesava-swamy.karedla@broadcom.com
@@ -828,8 +1099,14 @@ def docker_operation(dut, docker_name, operation):
     :param operation:
     :return:
     """
-    command = 'docker {} {}'.format(operation, docker_name)
-    return st.config(dut, command)
+    util_name = "systemctl" if not docker_cmd else "docker"
+    if docker_cmd == "docker":
+        if vrf == "default":
+            command = 'docker  -H unix:///run/docker-default.socket {} {}'.format(operation, docker_name)
+        elif vrf == "mgmt":
+            command = 'docker -H unix:///run/docker-mgmt.socket {} {}'.format(operation, docker_name)
+    command = '{} {} {}'.format(util_name, operation, docker_name)
+    return st.config(dut, command, skip_error_check=skip_error_check)
 
 
 def get_memory_info(dut):
@@ -844,7 +1121,7 @@ def get_memory_info(dut):
     rv = {}
     if output:
         include_keys = ['total', 'used', 'free', 'buff_cache']
-        rv = {each_key:  ast.literal_eval(output[0][each_key]) for each_key in output[0] if each_key in include_keys}
+        rv = {each_key: ast.literal_eval(output[0][each_key]) for each_key in output[0] if each_key in include_keys}
     return rv
 
 
@@ -881,7 +1158,6 @@ def get_overall_cpu_util(dut, exclude_proc_name=None):
     """
 
 
-
 def get_platform_syseeprom(dut, tlv_name=None, key='value', decode=False, cli_type=''):
     """
     Get Platform Syseeprom
@@ -892,13 +1168,15 @@ def get_platform_syseeprom(dut, tlv_name=None, key='value', decode=False, cli_ty
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+
     if cli_type == "click":
         if decode:
             command = "sudo decode-syseeprom"
         else:
             command = "show platform syseeprom"
         result = st.show(dut, command, type=cli_type)
-    elif cli_type in ["klish","rest-patch","rest-put"]:
+    elif cli_type in ["klish", "rest-patch", "rest-put"]:
         result = list()
         if cli_type == "klish":
             command = "show platform syseeprom"
@@ -908,7 +1186,7 @@ def get_platform_syseeprom(dut, tlv_name=None, key='value', decode=False, cli_ty
             rest_urls = st.get_datastore(dut, "rest_urls")
             url1 = rest_urls['get_system_component'].format("System Eeprom")
             try:
-                data=get_rest(dut, rest_url=url1)["output"]["openconfig-platform:component"][0]["state"]
+                data = get_rest(dut, rest_url=url1)["output"]["openconfig-platform:component"][0]["state"]
             except Exception as e:
                 st.error(e)
                 return False
@@ -919,22 +1197,22 @@ def get_platform_syseeprom(dut, tlv_name=None, key='value', decode=False, cli_ty
                 temp["ktlv_name"] = k
                 output.append(temp)
         st.log(output)
-        key_mapping = {"Platform":"Platform Name","Base Mac Address":"Base MAC Address","Mfg Date":"Manufacture Date",
-                       "Hardware Version":"Label Revision","Onie Version":"ONIE Version","Mac Addresses":"MAC Addresses",
-                       "Mfg Name":"Manufacturer","Manufacture Country":"Manufacture Country","Vendor Name":"Vendor Name",
-                       "Diag Version":"Diag Version","description":"Platform Name","id":"Product Name",
-                       "part-no":"Part Number","serial-no":"Serial Number","base-mac-address":"Base MAC Address",
-                       "mfg-date":"Manufacture Date","hardware-version":"Label Revision","onie-version":"ONIE Version",
-                       "mac-addresses":"MAC Addresses","mfg-name":"Manufacturer",
-                       "manufacture-country":"Manufacture Country","vendor-name":"Vendor Name",
-                       "diag-version":"Diag Version"}
+        key_mapping = {"Platform": "Platform Name", "Base Mac Address": "Base MAC Address", "Mfg Date": "Manufacture Date",
+                       "Hardware Version": "Label Revision", "Onie Version": "ONIE Version", "Mac Addresses": "MAC Addresses",
+                       "Mfg Name": "Manufacturer", "Manufacture Country": "Manufacture Country", "Vendor Name": "Vendor Name",
+                       "Diag Version": "Diag Version", "description": "Platform Name", "id": "Product Name",
+                       "part-no": "Part Number", "serial-no": "Serial Number", "base-mac-address": "Base MAC Address",
+                       "mfg-date": "Manufacture Date", "hardware-version": "Label Revision", "onie-version": "ONIE Version",
+                       "mac-addresses": "MAC Addresses", "mfg-name": "Manufacturer",
+                       "manufacture-country": "Manufacture Country", "vendor-name": "Vendor Name",
+                       "diag-version": "Diag Version"}
         for each in output:
-            if each.get("ktlv_name",""):
+            if each.get("ktlv_name", ""):
                 if each["ktlv_name"] in key_mapping.keys():
                     each["tlv_name"] = key_mapping[each["ktlv_name"]]
                 else:
                     each["tlv_name"] = each["ktlv_name"]
-            each.pop("ktlv_name",None)
+            each.pop("ktlv_name", None)
             result.append(each)
     else:
         st.error("Unsupported CLI Type: {}".format(cli_type))
@@ -956,7 +1234,7 @@ def get_platform_syseeprom_as_dict(dut, tlv_name=None, key='value', decode=False
     """
     rv = {}
     output = get_platform_syseeprom(dut, tlv_name=tlv_name, key=key, decode=decode)
-    for each in iterable(output):
+    for each in output:
         rv[each['tlv_name']] = each[key]
     return rv
 
@@ -976,7 +1254,7 @@ def copy_config_db_to_temp(dut, source_path, destination_path):
     copy_file_to_local_path(dut, source_path, destination_path)
 
 
-def remove_file(dut, file_path):
+def remove_file(dut, file_path, con_obj=""):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     This API is to remove file from a specifc path
@@ -986,7 +1264,18 @@ def remove_file(dut, file_path):
     """
     st.log("####### Removing file {} #######".format(file_path))
     command = "rm -f -- {}".format(file_path)
-    st.config(dut, command)
+    if not con_obj:
+        st.config(dut, command)
+    else:
+        prompt = con_obj.find_prompt()
+        result = con_obj.send_command(command, expect_string=prompt, max_loops=50, delay_factor=5)
+        result = utils_obj.remove_last_line_from_string(result)
+        if "denied" in result:
+            st.log("{} doesn't have permissions to remove {}".format(con_obj.username, file_path))
+            return False
+        else:
+            st.log("{} successfully removed".format(file_path))
+            return True
 
 
 def verify_package(dut, packane_name):
@@ -1003,6 +1292,37 @@ def verify_package(dut, packane_name):
         st.log("Package '{}' is not installed in DUT".format(packane_name))
         return False
     return True
+
+
+def verify_arp_nd_kernel_tx(dut, key, value, return_output="no"):
+    """
+    To verify ARP or ND packet forwarding through kernel CPU port
+    Author: Gangadhara Sahu (gangadhara.sahu@broadcom.com)
+    :param dut:
+    :param key: "tx_packets" OR "tx_bytes"
+    :param value: expected value for the key passed
+    :return:
+    """
+    output = get_ifconfig(dut, interface="CPU")
+    if return_output == "yes":
+        return output
+    key_li = list(key) if isinstance(key, list) else [key]
+    val_li = list(value) if isinstance(value, list) else [value]
+    ret_val = True
+    if len(output) > 0:
+        for ke, va in zip(key_li, val_li):
+            if ke in output[0]:
+                if output[0][ke] >= va:
+                    st.log("Match {} actual value {} >= expected value {}".format(ke, output[0][ke], va))
+                else:
+                    st.log("No Match {} actual value {} >= expected value {}".format(ke, output[0][ke], va))
+                    ret_val = False
+            else:
+                st.log("INFO: ARG {} does not exist in the ifconfig CPU output".format(ke))
+        return ret_val
+    else:
+        st.log("INFO: CPU port does not in the DUT kernel so hardware assistance not supported")
+        return False
 
 
 def deploy_package(dut, packane_name=None, mode='install', skip_verify_package=False, options=None):
@@ -1027,7 +1347,7 @@ def deploy_package(dut, packane_name=None, mode='install', skip_verify_package=F
                 return True
 
         for attempt in range(3):
-            st.config(dut, command, skip_error_check=True, faster_cli=False)
+            st.config(dut, command, skip_error_check=True, faster_cli=False, max_time=600)
             if verify_package(dut, packane_name):
                 st.log("Successfully installed package '{}'".format(packane_name), dut=dut)
                 return True
@@ -1049,7 +1369,7 @@ def deploy_package(dut, packane_name=None, mode='install', skip_verify_package=F
     if mode == "update":
         command = "apt-get update"
         for attempt in range(3):
-            output = st.config(dut, command, skip_error_check=True, faster_cli=False)
+            output = st.config(dut, command, skip_error_check=True, faster_cli=False, max_time=600)
             if "Done" in output:
                 st.log("Successfully {}d packages".format(mode), dut=dut)
                 return True
@@ -1081,20 +1401,65 @@ def download_file_content(dut, file_path, device="dut"):
     return file_content
 
 
+def is_td4_platform(dut):
+    platform = get_hwsku(dut)
+    common_constants = st.get_datastore(dut, "constants", "default")
+    return bool(platform.lower() in common_constants['TD4_PLATFORMS'])
+
+
+def is_th4_platform(dut):
+    platform = get_hwsku(dut)
+    common_constants = st.get_datastore(dut, "constants", "default")
+    return bool(platform.lower() in common_constants['TH4_PLATFORMS'])
+
+
+def is_sub_intf_platform(dut):
+    '''
+    Sub interface is supported only on TD3.X7, TD3.X5 and TD4.X11
+    :param dut:
+    :return:
+    '''
+    platform = get_hwsku(dut).lower()
+    chip_rev = st.get_device_param(dut, "chip_rev", None)
+    st.log("##### DUT:{}, Platform:{}, Chip_Rev:{} #####".format(dut, platform, chip_rev))
+    common_constants = st.get_datastore(dut, "constants")
+    td3_platforms = common_constants['TD3_PLATFORMS']
+    td3_chips = ['X5', 'X7']
+    td4_platforms = common_constants['TD4_PLATFORMS']
+    td4_chips = ['X11']
+    if platform in td3_platforms:
+        return bool(chip_rev in td3_chips)
+    if platform in td4_platforms:
+        return bool(chip_rev in td4_chips)
+    return False
+
+
+def is_warm_boot_support(dut, is_support=False):
+    platform = get_hwsku(dut)
+    features_support_data = st.get_datastore(dut, "features", "default")
+    key = "WARMBOOT_SUPPORTED" if is_support else "WARMBOOT_UNSUPPORTED"
+    return bool(platform.lower() in features_support_data[key])
+
+
 def poll_for_system_status(dut, service=None, iteration=150, delay=2):
 
     if not st.is_feature_supported("system-status", dut):
-        return st.wait_system_status(dut, (iteration*delay))
+        return st.wait_system_status(dut, (iteration * delay))
 
     i = 1
+    is_td4 = is_td4_platform(dut)
     while True:
         if get_system_status(dut, service):
             st.log("System is ready in {} iteration".format(i))
+
+            if is_td4:
+                st.wait(30, 'Extra wait for ports to come up')
+
             return True
         if i > iteration:
             st.log("Max iteration count {} reached ".format(i))
             return False
-        i += delay
+        i += 1
         st.wait(delay)
 
 
@@ -1108,7 +1473,7 @@ def get_interface_status(conn_obj, interface, device="dut"):
     :return:
     """
     command = "cat /sys/class/net/{}/operstate".format(interface)
-    if device=="dut":
+    if device == "dut":
         return utils_obj.remove_last_line_from_string(st.show(conn_obj, command, skip_tmpl=True))
 
 
@@ -1141,7 +1506,9 @@ def get_ps_aux(connection_obj, search_string, device="dut"):
     """
     command = "sudo ps aux"
     if search_string:
-        command += " | grep {}".format(search_string)
+        first_char = search_string[0]
+        rest_chars = search_string[1:]
+        command += " | grep [{}]{}".format(first_char, rest_chars)
     if device == "dut":
         return st.show(connection_obj, command)
     else:
@@ -1161,7 +1528,7 @@ def get_ifconfig_gateway(dut, interface=None):
     return None if len(gateway_list) == 0 else gateway_list[0]
 
 
-def get_frr_config(conn_obj, device="dut", protocol=None, cli_type= ''):
+def get_frr_config(conn_obj, device="dut", protocol=None, cli_type=''):
     """
     API to get frr config from frr.conf file
     Author: Sooriya G (sooriya.gajendrababu@broadcom.com)
@@ -1170,6 +1537,7 @@ def get_frr_config(conn_obj, device="dut", protocol=None, cli_type= ''):
     :return:
     """
     cli_type = st.get_ui_type(cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
 
     if cli_type == 'click':
         command = " sudo cat /etc/sonic/frr/frr.conf"
@@ -1182,7 +1550,7 @@ def get_frr_config(conn_obj, device="dut", protocol=None, cli_type= ''):
         return utils_obj.remove_last_line_from_string(st.show(conn_obj, command, skip_tmpl=True))
 
 
-def remove_user_log_in_frr(dut,log_file_name):
+def remove_user_log_in_frr(dut, log_file_name):
     """
     API to get frr config from frr.conf file
     Author: Gangadhara Sahu (gangadhara.sahu@broadcom.com)
@@ -1190,9 +1558,10 @@ def remove_user_log_in_frr(dut,log_file_name):
     :param log_file_name:
     :return:
     """
-    st.config(dut,"docker exec -it bgp rm /var/log/frr/%s"%log_file_name)
+    st.config(dut, "docker exec -it bgp rm /var/log/frr/%s" % log_file_name)
 
-def add_user_log_in_frr(dut,log_file_name):
+
+def add_user_log_in_frr(dut, log_file_name):
     """
     API to create frr log file in BGP frr docker
     Author: vishnuvardhan talluri (vishnuvardhan.talluri@broadcom.com)
@@ -1200,10 +1569,11 @@ def add_user_log_in_frr(dut,log_file_name):
     :param log_file_name:
     :return:
     """
-    st.config(dut,"docker exec -it bgp touch /var/log/frr/%s"%log_file_name)
-    st.config(dut,"docker exec -it bgp chmod 777 /var/log/frr/%s"%log_file_name)
+    st.config(dut, "docker exec -it bgp touch /var/log/frr/%s" % log_file_name)
+    st.config(dut, "docker exec -it bgp chmod 777 /var/log/frr/%s" % log_file_name)
 
-def return_user_log_from_frr(dut,log_file_name):
+
+def return_user_log_from_frr(dut, log_file_name):
     """
     API to get frr config from frr.conf file
     Author: Gangadhara Sahu (gangadhara.sahu@broadcom.com)
@@ -1211,10 +1581,10 @@ def return_user_log_from_frr(dut,log_file_name):
     :param log_file_name:
     :return:
     """
-    return st.config(dut,"docker exec -it bgp bash -c  \"grep 'BFD: state-change'  /var/log/frr/%s | tail -50\""%log_file_name)
+    return st.config(dut, "docker exec -it bgp bash -c  \"grep 'state-change'  /var/log/frr/%s | tail -50\"" % log_file_name)
 
 
-def debug_bfdconfig_using_frrlog(dut,config="",log_file_name=""):
+def debug_bfdconfig_using_frrlog(dut, config="", log_file_name=""):
     """
     API to get frr config from frr.conf file
     Author: Gangadhara Sahu (gangadhara.sahu@broadcom.com)
@@ -1223,14 +1593,18 @@ def debug_bfdconfig_using_frrlog(dut,config="",log_file_name=""):
     :param log_file_name:
     :return:
     """
-    if config == "yes" or config=="":
-        st.config(dut,"debug bfd", type='vtysh')
-        st.config(dut,"log syslog warnings", type='vtysh')
-        st.config(dut,"log file /var/log/frr/%s"%log_file_name, type='vtysh')
+    if config == "yes" or config == "":
+        st.config(dut, "debug bfd network", type='vtysh')
+        st.config(dut, "debug bfd peer", type='vtysh')
+        st.config(dut, "debug bfd zebra", type='vtysh')
+        st.config(dut, "log syslog warnings", type='vtysh')
+        st.config(dut, "log file /var/log/frr/%s" % log_file_name, type='vtysh')
     elif config == "no":
-        st.config(dut,"no debug bfd", type='vtysh')
-        st.config(dut,"no log syslog warnings", type='vtysh')
-        st.config(dut,"no log file /var/log/frr/%s"%log_file_name, type='vtysh')
+        st.config(dut, "no debug bfd zebra", type='vtysh')
+        st.config(dut, "no debug bfd peer", type='vtysh')
+        st.config(dut, "no debug bfd network", type='vtysh')
+        st.config(dut, "no log syslog warnings", type='vtysh')
+        st.config(dut, "no log file /var/log/frr/%s" % log_file_name, type='vtysh')
 
 
 def set_hostname(dut, host_name, **kwargs):
@@ -1246,8 +1620,11 @@ def set_hostname(dut, host_name, **kwargs):
 
     created by: Julius <julius.mariyan@broadcom>
     """
-    cli_type = st.get_ui_type(dut,**kwargs)
-    if cli_type in ['rest-put','rest-patch']:
+    host_name = host_name or "sonic"
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+
+    if cli_type in ['rest-put', 'rest-patch']:
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['get_hostname']
         payload = {"openconfig-system:hostname": host_name}
@@ -1262,6 +1639,50 @@ def set_hostname(dut, host_name, **kwargs):
     elif cli_type == "klish":
         cmd = "hostname {}".format(host_name)
     return st.config(dut, cmd, type=cli_type)
+
+
+def set_resource_stats_polling_interval(dut, interval, **kwargs):
+    """
+    this function is used to set resource-stats-polling-interval in DUT
+    :param dut: Device name where the command to be executed
+    :type dut: string
+    :param interval: resource-stats-polling-interval to be set
+    :type interval: int
+
+    usage: set_resource_stats_polling_interval(dut1, 120)
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    if cli_type in ['rest-put', 'rest-patch', 'rest-delete']:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        url = rest_urls['config_resource_stats_polling_interval']
+        if cli_type == 'rest-delete':
+            del_response = delete_rest(dut, rest_url=url, get_response=True)
+            st.log("REST delete of resource_stats_polling_interval response: {}".format(del_response))
+            if not del_response:
+                st.banner('FAIL-OCYANG: resource-stats-polling-interval delete Failed')
+                return False
+            else:
+                return True
+        else:
+            if interval is None:
+                st.log("Resource stats polling interval value not provided")
+                return False
+            payload = {"openconfig-system-deviation:resource-stats-polling-interval": interval}
+            response = config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload)
+            st.log("REST config of resource_stats_polling_interval response: {}".format(response))
+            if not response:
+                st.banner('FAIL-OCYANG: resource-stats-polling-interval config Failed')
+                return False
+            else:
+                return True
+    elif cli_type == "klish":
+        cmd = "system resource-stats-polling-interval {}".format(interval)
+        return st.config(dut, cmd, type=cli_type)
+
+    # Return False if cli_type is neither 'rest-put' nor 'rest-patch' nor 'klish'
+    st.log("Invalid cli_type: {}".format(cli_type))
+    return False
 
 
 def get_attr_from_cfgdbjson(dut, attr):
@@ -1298,8 +1719,8 @@ def update_config_db_json(dut, attr, val1, val2):
 
     created by: Julius <julius.mariyan@broadcom>
     """
-    cmd = "sudo sed -i 's/\"{}\": \"{}\"/\"{}\": \"{}\"/g' /etc/sonic/config_db.json"\
-                                                        .format(attr,val1,attr,val2)
+    cmd = "sudo sed -i 's/\"{0}\": \"{1}\"/\"{0}\": \"{2}\"/g' /etc/sonic/config_db.json"\
+        .format(attr, val1, val2)
     st.config(dut, cmd)
     return
 
@@ -1321,7 +1742,7 @@ def delete_directory_contents(conn_obj, path, device="dut"):
 
 
 def get_file_number_with_regex(connection_obj, search_pattern, file_path, device="server"):
-    #COMMAND :  sed -nE '/^\s*option\s+dhcp6.boot-file-url\s+"\S+";/=' /etc/dhcp/dhcpd6.conf
+    # COMMAND :  sed -nE '/^\s*option\s+dhcp6.boot-file-url\s+"\S+";/=' /etc/dhcp/dhcpd6.conf
     '''
     :param connection_obj:
     :param search_pattern:
@@ -1336,9 +1757,9 @@ def get_file_number_with_regex(connection_obj, search_pattern, file_path, device
     else:
         result = st.config(connection_obj, command)
     if utils_obj.remove_last_line_from_string(result):
-        line_number = re.findall(r'\d+',utils_obj.remove_last_line_from_string(result))
+        line_number = re.findall(r'\d+', utils_obj.remove_last_line_from_string(result))
         if line_number:
-            return line_number[0]
+            return int(line_number[0])
     return 0
 
 
@@ -1372,8 +1793,8 @@ def get_dut_mac_address(dut):
     cmd = "show platform syseeprom"
     eeprom_details = st.show(dut, cmd, skip_error_check=True)
     if not eeprom_details:
-        iteration=3
-        for i in range(1, iteration+1):
+        iteration = 3
+        for i in range(1, iteration + 1):
             st.wait(2)
             eeprom_details = st.show(dut, cmd, skip_error_check=True)
             if eeprom_details:
@@ -1413,7 +1834,7 @@ def get_dut_mac_address_thread(dut_list, thread=True):
 
 
 def get_number_of_lines_in_file(connection_obj, file_path, device="server"):
-    line_number=0
+    line_number = 0
     if file_path:
         command = "wc -l {}".format(file_path)
         if device == "server":
@@ -1444,24 +1865,51 @@ def get_config_profiles(dut):
         return None
     return output[:2]
 
-def set_config_profiles(dut, profile, check_system_status=True):
-    cur_profile = get_config_profiles(dut)
-    if cur_profile == profile.lower():
-        st.log('Device is in the desired profile')
+
+def set_config_profiles(dut, profile, check_system_status=True, force=False, **kwargs):
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    skiperr = kwargs.pop('skip_error', False)
+    # Adding apply_cli_type for backward compatibility.
+    apply_cli_type = kwargs.pop('apply_cli_type', False)
+    retvar = True
+
+    if apply_cli_type is False:
+        new_profile = profile.lower()
+        cur_profile = get_config_profiles(dut)
+        if cur_profile != new_profile:
+            st.log('Device is profile {} but needed profile {}'.format(cur_profile, new_profile), dut=dut)
+        elif not force:
+            st.log('Device is in the desired profile', dut=dut)
+            return True
+        else:
+            st.log('Device is in the desired profile, but applying again', dut=dut)
+
+        cmds = ['sudo config-setup factory']
+        cmds.append('sudo config-profiles factory {}'.format(new_profile))
+        st.config(dut, "\n".join(cmds), max_time=900)
     else:
-        cmd = 'sudo config-setup factory'
-        cmd += '\n sudo config-profiles factory {}'.format(profile.lower())
-        st.config(dut, cmd, max_time=900)
+        if cli_type == 'klish':
+            my_cmd = 'factory default profile {} confirm \n'.format(profile)
+            out = st.config(dut, my_cmd, type=cli_type, skip_error_check=skiperr, expect_reboot=True, max_time=50, min_time=10)
+            if '%Error:' in out:
+                retvar = False
+        else:
+            st.log("Unsupported CLI TYPE - {}".format(cli_type))
+            retvar = False
+
     if check_system_status:
-        return bool(get_system_status(dut))
-    return True
+        return bool(st.wait_system_status(dut, max_time=300))
+
+    return retvar
+
 
 def get_show_command_data(dut, command, type="txt"):
     file_extension = "txt" if type != "json" else "json"
     data = None
     remote_file = "/tmp/running_config.{}".format(file_extension)
     local_file = st.mktemp()
-    for _ in range(0,3):
+    for _ in range(0, 3):
         actual_cmd = "{} > {}".format(command, remote_file)
         st.config(dut, actual_cmd)
         delete_file(local_file)
@@ -1472,7 +1920,8 @@ def get_show_command_data(dut, command, type="txt"):
     try:
         with open(local_file) as file:
             if type == "json":
-                data = do_eval(json.dumps(json.load(file), indent=4, sort_keys=True))
+                # nosemgrep-next-line
+                data = eval(json.dumps(json.load(file), indent=4, sort_keys=True))
             else:
                 data = file.read().replace('\n', '')
         delete_file(local_file)
@@ -1481,7 +1930,8 @@ def get_show_command_data(dut, command, type="txt"):
     st.debug(data)
     return data
 
-def check_sonic_branding(build_name, cli_type= ""):
+
+def check_sonic_branding(build_name, cli_type=""):
     """
     Author1: Jagadish Chatrasi (jagadish.chatrasi@broadcom.com)
     Author2: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -1489,15 +1939,16 @@ def check_sonic_branding(build_name, cli_type= ""):
     :param build_name:
     :return:
     """
-    cli_type = st.get_ui_type(cli_type= cli_type)
-    #rest support is blocked due to SONIC-24371. So falling back to klish
+    cli_type = st.get_ui_type(cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    # rest support is blocked due to SONIC-24371. So falling back to klish
     if cli_type in ['rest-put', 'rest-patch']:
         cli_type = 'klish'
     result = True
     st.log("The Given build version string is : {}".format(build_name))
     constants = st.get_datastore(None, "constants", "default")
     if cli_type == "click":
-        regex_format = r"^([a-zA-Z]+-[a-zA-Z]+)-((\d+\.\d+\.\d+|\d+\.\d+)_*(\w*))_*(\d+_\d+_\d+)*-*(\S+)*$"
+        regex_format = r"^(\S+)((\d+\.\d+\.\d+|\d+\.\d+)_*(\w*))_*(\d+_\d+_\d+)*-*(\S+)*$"
         os_regex = r"^{}".format(constants['NOS_NAME'])
         version_regex = r"(\d+\.\d+\.\d+|\d+\.\d+)"
 
@@ -1525,6 +1976,9 @@ def check_sonic_branding(build_name, cli_type= ""):
     elif cli_type == "klish":
         regex_format = r"^(\S+)((\d+\.\d+\.\d+|\d+\.\d+)_*(\w*))_*(\d+_\d+_\d+)*-*(\S+)*$"
         version_regex = r"(\d+\.\d+\.\d+|\d+\.\d+)"
+        if 'dell_sonic' in build_name:
+            regex_format = r'SONiC-OS-rel_dell_sonic'
+            version_regex = r'(\d+\.x|\d+\.\d+\.x|sonic_share)'
 
         if not re.findall(version_regex, build_name):
             st.error('Build VERSION info is not matching with the standard format')
@@ -1548,7 +2002,6 @@ def check_sonic_branding(build_name, cli_type= ""):
     return result
 
 
-
 def copy_file_to_docker(dut, file_name, docker_name):
     """
     API to copy file to any docker
@@ -1558,12 +2011,13 @@ def copy_file_to_docker(dut, file_name, docker_name):
     :param docker_name:
     :return:
     """
-    command = "docker cp {} {}:{}".format(file_name, docker_name, file_name)
+    command = "docker cp {0} {1}:{0}".format(file_name, docker_name)
     output = st.config(dut, command)
     if "Error response" in utils_obj.remove_last_line_from_string(output):
         st.log(output)
         return False
     return True
+
 
 def get_user_group_details(connection_obj, device="server"):
     """
@@ -1579,6 +2033,7 @@ def get_user_group_details(connection_obj, device="server"):
         output = utils_obj.remove_last_line_from_string(st.show(connection_obj, command, skip_tmpl=True, type="click"))
     return output
 
+
 def verify_user_group_details(connection_obj, uid, group, device="server"):
     """
     API to verify the user group details by executing id.
@@ -1588,7 +2043,7 @@ def verify_user_group_details(connection_obj, uid, group, device="server"):
     :param device:
     :return:
     """
-    output = get_user_group_details(connection_obj,device=device)
+    output = get_user_group_details(connection_obj, device=device)
     if not output:
         st.log("Output not found {}".format(output))
         return False
@@ -1627,19 +2082,21 @@ def delete_line_using_specific_string(connection_obj, specific_string, file_path
             return st.config(connection_obj, command)
 
 
-def cmd_validator(dut, commands, cli_type='klish'):
+def cmd_validator(dut, commands, cli_type='klish', error_list=[]):
     """
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
     :param dut:
     :param commands:
     :param cli_type:
+    :param error_list:
     :return:
     """
     result = True
-    errs = ['%Error']
+    error_list.extend(['%Error'])
     command_list = commands if isinstance(commands, list) else commands.split('\n')
+    st.log(command_list)
     out = st.config(dut, command_list, type=cli_type, skip_error_check=True)
-    for each in errs:
+    for each in error_list:
         if each in out:
             st.error("Error string '{}' found in command execution.".format(each))
             result = False
@@ -1675,6 +2132,7 @@ def get_and_match_docker_count(dut, count=None):
             return True
     return False
 
+
 def move_file_to_local_path(dut, src_path, dst_path, sudo=True, skip_error_check=False):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -1688,16 +2146,13 @@ def move_file_to_local_path(dut, src_path, dst_path, sudo=True, skip_error_check
     command = "{} mv {} {}".format(sucmd, src_path, dst_path)
     st.config(dut, command, skip_error_check=skip_error_check)
 
-def delete_file_from_local_path(dut, filename, sudo=True, skip_error_check=True):
-    sucmd = "sudo" if sudo else ""
-    command = "{} rm {}".format(sucmd, filename)
-    st.config(dut, command, skip_error_check=skip_error_check)
 
 def killall_process(dut, name, skip_error_check=True):
     command = "killall {}".format(name)
     st.config(dut, command, skip_error_check=skip_error_check)
 
-def dhcp_server_config(dut, dhcp_files=['isc-dhcp-server','dhcpd.conf','dhcpd6.conf'], **kwargs):
+
+def dhcp_server_config(dut, dhcp_files=['isc-dhcp-server', 'dhcpd.conf', 'dhcpd6.conf', 'radvd.conf'], **kwargs):
     '''
     1. Install dhcp package
     2. Update dhcp files - dhcpd6.conf  dhcpd.conf  isc-dhcp-server
@@ -1707,7 +2162,7 @@ def dhcp_server_config(dut, dhcp_files=['isc-dhcp-server','dhcpd.conf','dhcpd6.c
     '''
     import apis.switching.vlan as vlan_api
     import apis.routing.ip as ip_api
-    vlan = kwargs.get("vlan", "50") # This is hardcoded as 50, because the interface on DHCP server is Vlan50
+    vlan = kwargs.get("vlan", "50")  # This is hardcoded as 50, because the interface on DHCP server is Vlan50
     server_connected_port = kwargs.get("server_port")
     ipv4_server_ip = kwargs.get("server_ipv4")
     ipv6_server_ip = kwargs.get("server_ipv6")
@@ -1718,39 +2173,53 @@ def dhcp_server_config(dut, dhcp_files=['isc-dhcp-server','dhcpd.conf','dhcpd6.c
     ipv4_relay_agent_ip = kwargs.get("ipv4_relay_agent_ip")
     ipv6_relay_agent_ip = kwargs.get("ipv6_relay_agent_ip")
     dhcp_files_path = kwargs.get("dhcp_files_path")
-    service="isc-dhcp-server"
+    apach = kwargs.get("apach", False)
+    radv = kwargs.get("radv", False)
+    service = "isc-dhcp-server"
+    service_apach = "apache2"
+    service_radv = "radvd"
     madatory_fields = [server_connected_port]
     if any(elem is None for elem in madatory_fields):
         st.log("Required interfaces are not provided")
         return False
     vlan_int = 'Vlan{}'.format(vlan) if vlan else server_connected_port
     action = kwargs.get("action", "config")
-    route_list =utils_obj.make_list(route_list)
-    route_list_v6 =utils_obj.make_list(route_list_v6)
+    route_list = make_list(route_list)
+    route_list_v6 = make_list(route_list_v6)
     error_msgs = ["Failed", "Error"]
     if action == "config":
         if not dhcp_files_path:
             st.log("DHCP FILES PATH not provided")
             return False
-        dhcp_files_path =utils_obj.make_list(dhcp_files_path)
+        dhcp_files_path = make_list(dhcp_files_path)
         # service_status = service_operations_by_systemctl(dut, service=service, operation="status")
         # st.debug(service_status)
         # if "Unit isc-dhcp-server.service could not be found" in service_status:
         deploy_package(dut, mode='update')
         deploy_package(dut, packane_name=service, mode='install')
+        if apach:
+            deploy_package(dut, packane_name=service_apach, mode='install')
+            service_operations_by_systemctl(dut, service=service_apach, operation="status", option='--no-pager')
+        if radv:
+            deploy_package(dut, packane_name=service_radv, mode='install')
+            service_operations_by_systemctl(dut, service=service_radv, operation="status", option='--no-pager')
+
         # else:
         #     st.log("SKIPPING {} installation, as status show it is already available for operations".format(service.upper()))
-        # copy_files_to_dut(st.get_mgmt_ip(dut))
-        for dhcp_file in dhcp_files_path:
-            st.upload_file_to_dut(dut, dhcp_file, "/tmp/")
-        st.config(dut,'sudo mv /tmp/'+dhcp_files[0]+' /etc/default/',skip_error_check=True)
-        st.config(dut,'sudo mv /tmp/'+dhcp_files[1]+' /etc/dhcp/',skip_error_check=True)
-        st.config(dut,'sudo mv /tmp/'+dhcp_files[2]+' /etc/dhcp/',skip_error_check=True)
+
+        utils_obj.copy_files_to_dut(dut, dhcp_files_path[:1], '/etc/default/')
+        utils_obj.copy_files_to_dut(dut, dhcp_files_path[1:3], '/etc/dhcp/')
+        if radv:
+            utils_obj.copy_files_to_dut(dut, dhcp_files_path[3:4], '/etc/')
         if vlan:
             vlan_api.create_vlan(dut, [vlan])
-            vlan_api.add_vlan_member(dut, vlan, server_connected_port)
+            sub_intf = st.get_args("routed_sub_intf")
+            if sub_intf is not True:
+                vlan_api.add_vlan_member(dut, vlan, server_connected_port)
+            else:
+                vlan_api.add_vlan_member(dut, vlan, server_connected_port, True)
         if ipv4_server_ip:
-            ip_api.config_ip_addr_interface(dut,vlan_int, ipv4_server_ip, ipv4_server_ip_mask)
+            ip_api.config_ip_addr_interface(dut, vlan_int, ipv4_server_ip, ipv4_server_ip_mask)
         else:
             st.log("IP CONFIGURATION SKIPPED AS V4 SERVER IP NOT PROVIDED")
         if ipv6_server_ip:
@@ -1760,7 +2229,7 @@ def dhcp_server_config(dut, dhcp_files=['isc-dhcp-server','dhcpd.conf','dhcpd6.c
         if route_list:
             for ip in route_list:
                 if ipv4_relay_agent_ip:
-                    ip_api.create_static_route(dut, next_hop= ipv4_relay_agent_ip,static_ip=ip)
+                    ip_api.create_static_route(dut, next_hop=ipv4_relay_agent_ip, static_ip=ip)
                 else:
                     st.log("STATIC ROUTE CREATION SKIPPED AS RELAY AGENT IP NOT PROVIDED")
         else:
@@ -1768,7 +2237,7 @@ def dhcp_server_config(dut, dhcp_files=['isc-dhcp-server','dhcpd.conf','dhcpd6.c
         if route_list_v6:
             for ip6 in route_list_v6:
                 if ipv6_relay_agent_ip:
-                    ip_api.create_static_route(dut, next_hop= ipv6_relay_agent_ip,static_ip=ip6, family= 'ipv6')
+                    ip_api.create_static_route(dut, next_hop=ipv6_relay_agent_ip, static_ip=ip6, family='ipv6')
                 else:
                     st.log("V6 STATIC ROUTE CREATION SKIPPED AS RELAY AGENT IPV6 NOT PROVIDED")
         else:
@@ -1778,9 +2247,17 @@ def dhcp_server_config(dut, dhcp_files=['isc-dhcp-server','dhcpd.conf','dhcpd6.c
             if msg in output:
                 st.error("Observerd Error while restarting the {} service".format(service))
                 return False
+        if radv:
+            output = service_operations_by_systemctl(dut, service=service_radv, operation="restart", skip_error_check=True)
+            for msg in error_msgs:
+                if msg in output:
+                    st.error("Observerd Error while restarting the {} service".format(service_radv))
+                    return False
+        # st.banner('Enabling dhcp snooping globally on the server node to install DHCP L2 copp rules')
+        # snooping_api.config_dhcp_snooping(dut, addr_family='ip', enable_global='yes')
         st.wait(2)
         ps_aux = get_ps_aux(dut, "dhcpd")
-        if len(ps_aux) > 1:
+        if len(ps_aux) >= 1 or st.is_dry_run():
             return True
         return False
     else:
@@ -1790,6 +2267,20 @@ def dhcp_server_config(dut, dhcp_files=['isc-dhcp-server','dhcpd.conf','dhcpd6.c
                 st.error("Observerd Error while stopping the {} service".format(service))
                 return False
         deploy_package(dut, packane_name=service, mode='purge')
+        if apach:
+            output = service_operations_by_systemctl(dut, service=service_apach, operation="stop")
+            for msg in error_msgs:
+                if msg in output:
+                    st.error("Observerd Error while stopping the {} service".format(service_apach))
+                    return False
+            deploy_package(dut, packane_name=service_apach, mode='purge')
+            if radv:
+                output = service_operations_by_systemctl(dut, service=service_radv, operation="stop")
+                for msg in error_msgs:
+                    if msg in output:
+                        st.error("Observerd Error while stopping the {} service".format(service_radv))
+                        return False
+                deploy_package(dut, packane_name=service_radv, mode='purge')
         if route_list:
             for ip in route_list:
                 if ipv4_relay_agent_ip:
@@ -1797,7 +2288,7 @@ def dhcp_server_config(dut, dhcp_files=['isc-dhcp-server','dhcpd.conf','dhcpd6.c
         if route_list_v6:
             for ip6 in route_list_v6:
                 if ipv6_relay_agent_ip:
-                    ip_api.delete_static_route(dut, next_hop=ipv6_relay_agent_ip, static_ip=ip6, family= 'ipv6')
+                    ip_api.delete_static_route(dut, next_hop=ipv6_relay_agent_ip, static_ip=ip6, family='ipv6')
         if ipv4_server_ip:
             ip_api.delete_ip_interface(dut, vlan_int, ipv4_server_ip, ipv4_server_ip_mask)
         if ipv6_server_ip:
@@ -1805,11 +2296,12 @@ def dhcp_server_config(dut, dhcp_files=['isc-dhcp-server','dhcpd.conf','dhcpd6.c
         if vlan:
             vlan_api.delete_vlan_member(dut, vlan, server_connected_port)
             vlan_api.delete_vlan(dut, [vlan])
+        # st.banner('Disable dhcp snooping Globally on Server Node..')
+        # snooping_api.config_dhcp_snooping(dut, addr_family='ip', enable_global='yes', config='no')
         st.log("Rebooting the device after purging of {} service to make the purge affect, "
                "without this isc-dhcp-server installation in other feature/module will fail.".format(service))
         st.reboot(dut, method="fast")
         return True
-
 
 
 def get_content_file_number(file_path, search_string_pattern):
@@ -1839,57 +2331,77 @@ def delete_content_from_line_number(file_path, line_number):
     return True
 
 
-def set_mgmt_ip_gw(dut, ipmask, gw):
+def set_mgmt_ip_gw(dut, ipmask, gw, **kwargs):
     interface = st.get_mgmt_ifname(dut)
     cli_type = st.get_ui_type(dut)
+    config = kwargs.get('config', 'yes')
     if cli_type in ['rest-put', 'rest-patch']:
         cli_type = 'klish'
     cmd = ""
     if cli_type in ['click']:
-        cmd = ["config interface ip add {} {} {}".format(interface, ipmask, gw)]
+        if config.lower() == "yes":
+            cmd = ["config interface ip add {} {} {}".format(interface, ipmask, gw)]
+        else:
+            cmd = ["config interface ip remove {} {} {}".format(interface, ipmask, gw)]
     elif cli_type in ['klish']:
         if interface == 'eth0':
             cmd = "interface Management 0"
-            cmd = cmd + "\n" + "ip address {} gwaddr {}".format(ipmask, gw)
+            if config.lower() == "yes":
+                cmd = cmd + "\n" + "ip address {} gwaddr {}".format(ipmask, gw)
+            else:
+                cmd = cmd + "\n" + "no ip address {} ".format(ipmask)
     else:
         st.log("UNSUPPORTED CLI TYPE ")
         return False
     if cmd:
-        st.config(dut, cmd, type=cli_type)
-    cmd = "sudo /sbin/ifconfig {} {}".format(interface, ipmask)
-    cmd = "{};sudo /sbin/route add default gw {}".format(cmd, gw)
-    st.config(dut, cmd)
+        st.config(dut, cmd, type=cli_type, **kwargs)
+
     return True
 
-def get_ip_route_list(dut, interface):
+
+def get_ip_route_list(dut, interface, **kwargs):
     # ensure that the interface admin state is up
     command = "/sbin/ip link set dev {} up".format(interface)
-    st.config(dut, command, skip_error_check=True)
+    st.config(dut, command, skip_error_check=True, **kwargs)
 
     # fetch the route list
     command = "/sbin/ip route list dev {}".format(interface)
-    output = st.show(dut, command, skip_error_check=True)
+    output = st.show(dut, command, skip_error_check=True, **kwargs)
     if len(output) <= 0 or "address" not in output[0]:
         return None
     ip_address = output[0]['address']
     return ip_address
 
-def get_mgmt_ip(dut, interface):
-    ip_address = get_ip_route_list(dut, interface)
-    if ip_address:
-        return ip_address
-    else:
+
+def get_mgmt_ip(dut, interface, force=False, **kwargs):
+    if not force:
+        ip_address = get_ip_route_list(dut, interface, **kwargs)
+        if ip_address:
+            return ip_address
         msg = "Unable to get the ip address of '{}' from '/sbin/ip route list'. Falling back to 'ifconfig'.."
         st.log(msg.format(interface), dut=dut)
-        ipaddr_list = get_ifconfig_inet(dut, interface)
-        if ipaddr_list:
-            return ipaddr_list[0]
+    ipaddr_list = get_ifconfig_inet(dut, interface, **kwargs)
+    if ipaddr_list:
+        return ipaddr_list[0]
     return None
 
-def renew_mgmt_ip(dut, interface):
-    output_1 = st.config(dut, "/sbin/dhclient -v -r {}".format(interface), skip_error_check=True, expect_ipchange=True)
-    output_2 = st.config(dut, "/sbin/dhclient -v {}".format(interface), skip_error_check=True, expect_ipchange=True)
-    return "\n".join([output_1, output_2])
+
+def renew_mgmt_ip(dut, interface, **kwargs):
+    cli_type = st.get_ui_type(dut)
+
+    # There is a issue in click to renew management ip. So, using klish
+    if st.is_feature_supported("klish", dut):
+        cli_type = "klish"
+
+    if cli_type == "click":
+        output_1 = st.config(dut, "/sbin/dhclient -v -r {}".format(interface), skip_error_check=True, expect_ipchange=True, **kwargs)
+        output_2 = st.config(dut, "/sbin/dhclient -v {}".format(interface), skip_error_check=True, expect_ipchange=True, **kwargs)
+        return "\n".join([output_1, output_2])
+    elif cli_type == "klish":
+        zero_or_more_space = utils_obj.get_random_space_string()
+        command = "renew dhcp-lease interface Management{}{}".format(zero_or_more_space, interface.strip('eth'))
+        return st.show(dut, command, type=cli_type, skip_tmpl=True, skip_error_check=True, expect_ipchange=True, **kwargs)
+
 
 def set_mgmt_vrf(dut, mgmt_vrf):
     import apis.system.management_vrf as mgmt_vrf_api
@@ -1899,151 +2411,47 @@ def set_mgmt_vrf(dut, mgmt_vrf):
         return mgmt_vrf_api.config(dut, no_form=True)
 
 
-def tpcm_operation(dut, action, docker_name, install_method="url",**kwargs ):
+def is_routed_vlan_subintf_supported(dut):
     """
+    CAUTION: Dell specific api. Consider using is_sub_intf_platform()
     purpose:
-            This definition is used to install/upgrade/uninstall third party container image
-
-    Arguments:
-    :param dut: device where the install/upgrade/uninstall needs to be done
-    :type dut: string
-    :param action: install/upgrade/uninstall
-    :type action: string
-    :param docker_name: docker name to be installed
-    :type docker_name: string
-    :param install_method: how the installation to be done; scp/sftp/url/pull etc
-    :type install_method: string
-    :param ser_name: remote server name
-    :type ser_name: string
-    :param user_name: user name
-    :type user_name: string
-    :param pwd: password
-    :type pwd: string
-    :param tag_name: tag name to be used for the image
-    :type tag_name: string
-    :param image_path: path for the image to be installed
-    :type image_path: string
-    :param file_name: file name
-    :type file_name: string
-    :param extra_args: additional arguments for the TPCM
-    :type extra_args: string
-    :param skip_data: whether to skip backup of data during upgrade
-    :type skip_data: string
-    :param cli_type: type of user interface
-    :type cli_type: string
-    :return: None
-
-    usage:
-    Install:
-        tpcm_operation(dut1, "install","mydocker","url",image_path="http://myserver/path/test.tar.gz")
-        tpcm_operation(dut1, "install","mydocker","scp",file_name="/images/test.tar.gz",
-                    ser_name="10.10.10.10",user_name="test",pwd="password")
-        tpcm_operation(dut1, "install","mydocker","sftp",file_name="/images/test.tar.gz",
-                    ser_name="10.10.10.10",user_name="test",pwd="password")
-        tpcm_operation(dut1, "install","mydocker","file",image_path="/media/usb/path/test.tar.gz")
-        tpcm_operation(dut1, "install","mydocker","image",image_path="test.tar.gz",tag_name="test")
-    Upgrade:
-        tpcm_operation(dut1, "upgrade","mydocker","url", image_path="http://myserver/path/test.tar.gz")
-        tpcm_operation(dut1, "upgrade","mydocker","url",image_path="http://myserver/path/test.tar.gz",skip_data="skip")
-    Uninstall:
-        tpcm_operation(dut1, "uninstall","mydocker")
-    Created by: Julius <julius.mariyan@broadcom.com
+        This definition is used to check whether DUT supports routed-vlan sub-interface feature or not.
+        It is supported only in Broadcom Trident3 based platforms. Hence this proc returns True only for those platforms.
+        In future, once other chipsets supports routed-vlan sub-interface, then this proc should have an entry
+        in the following dictionary
     """
-    cli_type = st.get_ui_type(dut, **kwargs)
-    if cli_type in ["rest-put", "rest-patch"]:
-        rest_urls = st.get_datastore(dut, "rest_urls")
-        url = rest_urls["tpcm_"+action]
-        if action == "uninstall":
-            if  "skip_data" in kwargs:
-                payload = {"openconfig-system-ext:input" : {"clean-data" : kwargs.get("skip_data", "no"),
-                           "docker-name" : docker_name}}
-            else:
-                payload = {"openconfig-system-ext:input" : {"clean-data" : "no", "docker-name" : docker_name}}
-        elif action == "install":
-            if install_method == "pull":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name, "image-source": "pull",
-                            "image-name" : kwargs["image_path"]+ ":" +kwargs["tag_name"],
-                            "args" : kwargs["extra_args"]}}
-            elif install_method == "url":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name, "image-source": "url",
-                            "image-name" : kwargs["image_path"]}}
-            elif install_method == "scp":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name,"image-source": "scp",
-                            "image-name" : kwargs["file_name"],"remote-server" : kwargs["ser_name"],
-                            "username" : kwargs["user_name"], "password" : kwargs["pwd"]}}
-            elif install_method == "sftp":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name,"image-source": "sftp",
-                            "image-name" : kwargs["file_name"],"remote-server" : kwargs["ser_name"],
-                            "username" : kwargs["user_name"], "password" : kwargs["pwd"]}}
-            elif install_method == "image":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name,"image-source": "image",
-                            "image-name" : kwargs["image_path"]}}
-            elif install_method == "file":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name,"image-source": "file",
-                            "image-name" : kwargs["image_path"]}}
-        elif action == "upgrade":
-            if install_method == "pull":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name, "image-source": "pull",
-                            "image-name" : kwargs["image_path"]+ ":" +kwargs["tag_name"],
-                            "remote-server" : kwargs["ser_name"], "username" : kwargs["user_name"],
-                            "password" : kwargs["pwd"],"args" : kwargs["args"],
-                            "skip-data-migration" : kwargs.get("skip_data", "no")}}
-            elif install_method == "url":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name, "image-source": "url",
-                            "image-name" : kwargs["image_path"],"skip-data-migration" : kwargs.get("skip_data", "no")}}
-            elif install_method == "scp":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name,"image-source": "scp",
-                            "image-name" : kwargs["file_name"],"remote-server" : kwargs["ser_name"],
-                            "username" : kwargs["user_name"], "password" : kwargs["pwd"],
-                            "skip-data-migration" : kwargs.get("skip_data", "no")}}
-            elif install_method == "sftp":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name,"image-source": "sftp",
-                            "image-name" : kwargs["file_name"],"remote-server" : kwargs["ser_name"],
-                            "username" : kwargs["user_name"], "password" : kwargs["pwd"],
-                            "skip-data-migration" : kwargs.get("skip_data", "no")}}
-            elif install_method == "image":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name,"image-source": "image",
-                            "image-name" : kwargs["image_path"],
-                            "skip-data-migration" : kwargs.get("skip_data", "no")}}
-            elif install_method == "file":
-                payload = { "openconfig-system-ext:input" :  {"docker-name" : docker_name,"image-source": "file",
-                            "image-name" : kwargs["image_path"],"skip-data-migration" : kwargs.get("skip_data", "no")}}
-        result = config_rest(dut, http_method='post', rest_url=url, json_data=payload,timeout=60)
-    else:
-        if action=="uninstall":
-            cmd = 'tpcm {} name {}'.format(action, docker_name)
-        else:
-            cmd = 'tpcm {} name {} {}'.format(action, docker_name,install_method)
 
-        if "image_path" in kwargs:
-            cmd += " {}".format(kwargs["image_path"])
-        if "tag_name" in kwargs:
-            cmd += ":{}".format(kwargs["tag_name"])
-        if "ser_name" in kwargs:
-            cmd += " {}".format(kwargs["ser_name"])
-        if "user_name" in kwargs:
-            cmd += " username {}".format(kwargs["user_name"])
-        if "pwd" in kwargs:
-            cmd += " password {}".format(kwargs["pwd"])
-        if "file_name" in kwargs:
-            cmd += " filename {}".format(kwargs["file_name"])
-        if "extra_args" in kwargs:
-            cmd += " args \"{}\"".format(kwargs["extra_args"])
-        if  "skip_data" in kwargs:
-            if action == "upgrade":
-                cmd += " skip_data_migration {}".format(kwargs.get("skip_data","no"))
-            elif action == "uninstall":
-                cmd += " clean_data {}".format(kwargs.get("skip_data", "no"))
-        if "skip_error" in kwargs:
-            skip_error = kwargs["skip_error"]
-        else:
-            skip_error = False
-        output= st.config(dut, cmd,type=cli_type,skip_error_check=skip_error)
-        if re.search("failed",output):
-            result=False
-        else:
-            result=True
-    return result
+    platform_to_chipset_family_map = {
+        "DellEMC-S5212f-P-25G": "TRIDENT3",
+        "DellEMC-S5224f-P-25G": "TRIDENT3",
+        "DellEMC-S5232f-C8D48": "TRIDENT3",
+        "DellEMC-S5232f-P-10G": "TRIDENT3",
+        "DellEMC-S5232f-C32": "TRIDENT3",
+        "DellEMC-S5232f-P-100G": "TRIDENT3",
+        "DellEMC-S5232f-P-25G": "TRIDENT3",
+        "DellEMC-S5248f-P-10G": "TRIDENT3",
+        "DellEMC-S5296f-P-10G": "TRIDENT3",
+        "DellEMC-S5248f-P-25G": "TRIDENT3",
+        "DellEMC-S5296f-P-25G": "TRIDENT3",
+        "DellEMC-S5296f-P-25G-DPB": "TRIDENT3",
+        "DellEMC-S5248f-P-25G-DPB": "TRIDENT3",
+        "DellEMC-Z9432f-O32": "TRIDENT4"
+    }
+
+    routed_vlan_subif_supported_chipsets = [
+        "TRIDENT3",
+        "TRIDENT4"
+    ]
+
+    platform = get_hwsku(dut)
+    if platform is not None:
+        chipset_family = platform_to_chipset_family_map.get(platform)
+        if chipset_family is not None:
+            for x in routed_vlan_subif_supported_chipsets:
+                if x is chipset_family:
+                    return True
+
+    return False
 
 
 def get_free_output(dut):
@@ -2059,7 +2467,7 @@ def verify_free_memory(dut, mem_diff):
         if i < 4:
             st.wait(60)
     st.log("AVAILABLE MEMORY SAMPLES - {}".format(avail_output))
-    if (avail_output[4]-avail_output[3]) > int(mem_diff) and (avail_output[3]-avail_output[2]) > int(mem_diff) and (avail_output[2]-avail_output[1]) > int(mem_diff) and (avail_output[1]-avail_output[0]) > int(mem_diff):
+    if (avail_output[4] - avail_output[3]) > int(mem_diff) and (avail_output[3] - avail_output[2]) > int(mem_diff) and (avail_output[2] - avail_output[1]) > int(mem_diff) and (avail_output[1] - avail_output[0]) > int(mem_diff):
         st.log("Observed continous decrement in available memory")
         return False
     return True
@@ -2072,106 +2480,7 @@ def get_techsupport(dut=None, filename='TechSupport'):
     :param file:
     :return:
     """
-    dut_list = dut or st.get_dut_names()
-    st.banner('Collecting the tech-support on dut {}'.format(dut_list))
-    api_list=[]
-    for d in make_list(dut_list):
-        file_path = filename + str(d)
-        api_list.append([st.generate_tech_support, d, file_path])
-    exec_all(True, api_list)
-
-
-def save_docker_image(dut,image,options):
-    """
-    purpose:
-            This definition is used to save existing docker's image
-
-    Arguments:
-    :param dut: device where the image needs to be saved
-    :type dut: string
-    :param image: docker image name
-    :type image: string
-    :param options: rest all things can be specfied as part of options; for ex |gzip -c > /home/admin/mydocker.tar.gz
-    :type options: string
-    :return: None
-
-    usage:
-        save_docker_image(dut1, "httpd:latest","|gzip -c > /home/admin/mydocker.tar.gz")
-    Created by: Julius <julius.mariyan@broadcom.com
-    """
-    cmd = "docker save {} {}".format(image,options)
-    return st.config(dut, cmd)
-
-
-def verify_tpcm_list(dut, docker_list, image_list,status_list,**kwargs):
-    """
-    purpose:
-            This definition is used to verify tpcm list
-
-    Arguments:
-    :param dut: device where the command needs to be executed
-    :type dut: string
-    :param docker_list: docker name list
-    :type docker_list: list
-    :param image_list: image name list
-    :type image_list: list
-    :param status_list: docker status list
-    :type status_list: list
-    :param cli_type: type of user interface
-    :type cli_type: string
-    :return: True/False; True for success case and Fail for failure case
-
-    usage:
-        verify_tpcm_list(dut1, docker_list=["docker1","docker2"],
-                         image_list=["httpd:image1","httpd:image2"],status_list=["Up","Exited"])
-
-	Created by: Julius <julius.mariyan@broadcom.com
-    """
-    success = True
-    cli_type = st.get_ui_type(dut, **kwargs)
-    docker_list = list(docker_list) if isinstance(docker_list,list) else [docker_list]
-    image_list = list(image_list) if isinstance(image_list, list) else [image_list]
-    status_list = list(status_list) if isinstance(status_list, list) else [status_list]
-    if cli_type in ['rest-put','rest-patch']:
-        rest_urls = st.get_datastore(dut, "rest_urls")
-        url = rest_urls["tpcm_get"]
-        rest_out = get_rest(dut,rest_url=url,timeout=60)
-        rest_out = rest_out['output']['openconfig-system-ext:tpcm-image-list']
-        for docker, image, status in zip(docker_list, image_list, status_list):
-            docker_status = False
-            for elem in rest_out:
-                temp_out = elem.split('  ')
-                temp_out = [x.strip(' ') for x in temp_out]
-                out = list(filter(None, temp_out))
-                if "CONTAINER NAME" not in out:
-                    if docker in out:
-                        docker_status = True
-                        if out[1] == image and out[2].split(" ")[0] == status:
-                            st.log("########## Match found for docker {} with status {} ########"
-                                   "##".format(docker, status))
-                        else:
-                            st.error("########## Match NOT found for docker {}; expected image: {} but got: {};"
-                                     "expected status : {} but got: {}".format(docker, image, out[1],
-                                                                               status, out[2].split(" ")[0]))
-                            success = False
-            if not docker_status:
-                success = False
-    elif cli_type == "klish":
-        output = st.show(dut, "show tpcm list",type=cli_type)
-        for docker,image,status in zip(docker_list,image_list,status_list):
-            fil_out = filter_and_select(output, ["status"], {'image': image,"cont_name" : docker})
-            if not fil_out:
-                st.error("Docker {} with image {} NOT found in tpcm list output".format(docker,image))
-                success = False
-            else:
-                if fil_out[0]["status"] == status:
-                    st.log("########## Match found for docker {} with status {} ########"
-                           "##".format(docker,status))
-                else:
-                    st.error("########## Match NOT found for docker {}; expected status : {}"
-                             " but got {}".format(docker,status,fil_out[0]["status"]))
-                    success = False
-    return success
+    st.generate_tech_support(dut, filename)
 
 
 def config_radius_server(dut, **kwargs):
@@ -2201,16 +2510,18 @@ def config_radius_server(dut, **kwargs):
                         process_id = int(process["pid"])
                         break
         if not installed:
-            deploy_package(dut, mode='update')
-            deploy_package(dut, packane_name=service, mode='install')
+            if not deploy_package(dut, mode='update'):
+                st.report_fail("APT failed to get package list.")
+            if not deploy_package(dut, packane_name=service, mode='install'):
+                st.report_fail("Freeradius installation is failed")
             for config_file in config_files_path:
                 st.upload_file_to_dut(dut, config_file, "/tmp/")
                 file_name = os.path.basename(config_file)
                 st.config(dut, 'sudo mv /tmp/' + file_name + ' /etc/freeradius/3.0/', skip_error_check=True)
                 st.config(dut, "sudo cp /etc/freeradius/3.0/users /etc/freeradius/3.0/users1")
-                st.config(dut,  "sudo rm -rf /etc/freeradius/3.0/users")
+                st.config(dut, "sudo rm -rf /etc/freeradius/3.0/users")
                 st.config(dut, "sudo ln -s mods-config/files/authorize /etc/freeradius/3.0/users")
-                st.config(dut,  "sudo cp /etc/freeradius/3.0/users1 /etc/freeradius/3.0/users")
+                st.config(dut, "sudo cp /etc/freeradius/3.0/users1 /etc/freeradius/3.0/users")
         else:
             if process_id:
                 st.config(dut, "kill -9 {}".format(process_id))
@@ -2229,35 +2540,15 @@ def config_radius_server(dut, **kwargs):
 
 def is_free_radius_installed(dut):
     """API to check whether free radius is installed or not"""
-    output = st.config(dut, "freeradius -v")
+    output = st.config(dut, "freeradius -v", skip_error_check=True)
     if "not found" in output:
         return False
     return True
 
 
-def commit_docker_image(dut,docker,image):
-    """
-    purpose:
-            This definition is used to commit existing docker's image
-
-    Arguments:
-    :param dut: device where the image needs to be saved
-    :type dut: string
-    :param docker: docker name
-    :type docker: string
-    :param image: image name
-    :type image: string
-    :return: None
-
-    usage:
-        commit_docker_image(dut1, "httpd:latest","image:test")
-    Created by: Julius <julius.mariyan@broadcom.com
-    """
-    cmd = "docker commit {} {}".format(docker,image)
-    return st.config(dut, cmd)
-
 def swss_config(dut, data):
-    if st.get_args("filemode"): return
+    if st.get_args("filemode"):
+        return
     file_path1 = "/tmp/swss_config.json"
     file_path2 = "/swss_config.json"
     local_file = write_to_text_file(data)
@@ -2269,5 +2560,497 @@ def swss_config(dut, data):
 def flush_iptable(dut):
     st.config(dut, "iptables -F")
 
+
 def execute_linux_cmd(dut, cmd):
     st.show(dut, cmd, skip_tmpl=True)
+
+
+def list_file(dut, path, **kwargs):
+    """
+    Purpose: To list files in a directory. This uses a time format to display date and time as required
+
+    :param dut: Device name
+    :param path: Directory path
+    :param listing: Enable or Disable '-l' option
+    :param search_keyword: Search keywords for grepping
+    :param time_style: Time display format
+    :return: List containing output
+    """
+    listing = kwargs.get("listing", True)
+    search_keyword = kwargs.get("search_keyword", False)
+    time_style = kwargs.get("time_style", "+%Y-%m-%d %T")
+    command = "sudo ls"
+    option = ""
+    if listing:
+        option += " -l"
+        option += " --time-style='{}'".format(time_style)
+    command += option
+    command += " " + path
+    if search_keyword:
+        command += " | grep '{}'".format(search_keyword)
+    output = st.show(dut, command, skip_error_check=True, on_cr_recover="retry5")
+    if not output:
+        st.error("File not found")
+    return output
+
+
+def is_file_in_path(dut, path, file_list, **kwargs):
+    """
+    Check the files in the provided path , return bool.
+    :param dut:
+    :param path:
+    :param file_list:
+    :param kwargs:
+    :return:
+    """
+
+    output = list_file(dut, path, **kwargs)
+    rv = True
+    for i in make_list(file_list):
+        if not filter_and_select(output, None, {'entry_name': i}):
+            rv = False
+    return rv
+
+
+def generate_dummy_file(dut, dest_file_path, **kwargs):
+    """
+
+    :param dut:
+    :param dest_file_path:
+    :param kwargs: block_size=requires file block size in bytes
+                   no_of_blocks=requires integer number
+                                such that required file size = block size X no of blocks
+    :return:
+    """
+    block_size = kwargs.get("block_size", 1073741824)
+    no_of_blocks = kwargs.get("no_of_blocks", 1)
+    skip_error_check = kwargs.get("skip_error_check", False)
+    cmd = "dd  if=/dev/zero of={} bs={} count={}".format(dest_file_path, block_size, no_of_blocks)
+    result = st.config(dut, cmd, skip_tmpl=True, skip_error_check=skip_error_check)
+    if result:
+        return result
+    return False
+
+
+def show_ram_memory_composition(dut, keyword=None):
+    cmd = "cat /proc/iomem"
+    if keyword:
+        cmd += " | grep -i '{}'".format(keyword)
+    output = st.config(dut, cmd, skip_tmpl=True, skip_error_check=True)
+    if output:
+        return output
+    return False
+
+
+def check_device_mount(dut, path):
+    cmd = "mount | grep '{}'".format(path)
+    output = st.config(dut, cmd, skip_tmpl=True, skip_error_check=True)
+    if output:
+        return output
+    return False
+
+
+def kill_process(dut, process_id):
+    cmd = "kill -9 {}".format(process_id)
+    st.config(dut, cmd, skip_tmpl=True, skip_error_check=True)
+    return True
+
+
+def set_dut_date(dut, date_string):
+    cmd = 'date -s "' + date_string + '"'
+    st.config(dut, cmd, skip_error_check=True)
+
+
+def show_techsupport_file_content(dut, tech_file_name, search_list=None):
+    cmd = "tar -tvf /var/dump/" + tech_file_name
+    if search_list:
+        search_list = make_list(search_list)
+        for each in search_list:
+            cmd += ' | grep "{}"'.format(each)
+    output = st.show(dut, cmd, skip_error_check=True)
+    return output
+
+
+def exec_ssh_remote_dut(dut, ipaddress, username, password, command=None, timeout=30, **kwargs):
+
+    # Check if sshpass exists, if not update and install
+    check_cmd = "which sshpass"
+    output = st.config(dut, check_cmd, skip_error_check=True)
+    st.log("Command '{}' Output: '{}'.".format(check_cmd, output), dut=dut)
+    if "sshpass" not in output:
+        install_cmd = "sudo apt-get update;sudo apt-get -f install -y sshpass"
+        output = st.config(dut, install_cmd, faster_cli=False, skip_error_check=True, max_time=600)
+        st.log("Command '{}' Output: '{}'.".format(check_cmd, output), dut=dut)
+
+    # Construct the sshpass command.
+    # nosemgrep-next-line
+    exec_command = "sshpass -p '{}' ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout={} {}@{} {}"
+    exec_command = exec_command.format(password, timeout, username, ipaddress, command or "show uptime")
+
+    # Execute the command
+    return st.show(dut, exec_command, skip_tmpl=True, **kwargs)
+
+# phase: pre-tryssh, post-tryssh
+
+
+def verify_device_info(dut, phase):
+    method = st.getenv("SPYTEST_VERIFY_DEVICE_INFO_METHOD", "0")
+    # method specifies the device info to be used and action to be taken.
+    #   1.1 - uses MAC address of management interface and forces node to be dead as action
+    #   1.2 - uses MAC address of management interface and forces node to be used in console
+    #   2.1 - uses eeprom serial number and forces node to be dead as action
+    #   2.2 - uses eeprom serial number and forces node to be used in console
+    #   3.1 - creates a random file and deletes it to verify and forces node to be dead as action
+    #   3.2 - creates a random file and deletes it to verify and forces node to be used in console
+    #   4.1 - creates a random file and forces node to be dead as action to simulate error
+    #   4.2 - creates a random file and forces node to be used in console to simulate error
+    #   *   - disabled
+    api_info = "verify device info:"
+    if phase not in ["pre-tryssh", "post-tryssh"]:
+        st.abort_run(99, "{} unknown phase {}".format(api_info, phase))
+        return True
+    if method not in ["1.1", "1.2", "2.1", "2.2", "3.1", "3.2", "4.1", "4.2"]:
+        return True
+
+    # read the old value
+    name, value = "device-info-key", "device-info-value"
+    result, old = True, st.get_cache(name, dut, None)
+
+    # skip reading pre-tryssh if already known based on method
+    if phase == "pre-tryssh" and old and method not in ["3.1", "3.2"]:
+        return True
+
+    # build the device info based on method
+    if method in ["1.1", "1.2"]:
+        value = get_ifconfig_ether(dut)
+        result = bool(old == value)
+    elif method in ["2.1", "2.2"]:
+        value = get_platform_syseeprom(dut, 'Serial Number', 'Value')
+        result = bool(old == value)
+    elif phase == "pre-tryssh":
+        value = random.random()
+        file_path = "/tmp/device-info.{}".format(value)
+        result = file_create(dut, "", file_path, sudo=False)
+    elif phase == "post-tryssh":
+        file_path = "/tmp/device-info.{}".format(old)
+        result = file_delete(dut, file_path, sudo=False)
+
+    # force the error
+    result = result and bool(method not in ["4.1", "4.2"])
+
+    # save the value
+    if phase == "pre-tryssh":
+        st.set_cache(name, value, dut)
+        return True
+
+    # compare the new value with saved value
+    if not result:
+        if method.endswith(".1"):
+            st.abort_run(99, "Duplicate IP")
+        return False
+
+    # verified the device info
+    return True
+
+
+def get_memory_histogram_info(dut, type, **kwargs):
+    """
+    Get memory info from Memory histogram CLI
+    Author: Nagappa Chincholi
+    :param dut:
+    :param type: process or docker or system
+    :kwargs - stime , etime , filter, analyze
+    :return:
+    """
+    command = "show histogram memory {}".format(type)
+
+    if 'stime' in kwargs.keys():
+        command += " stime {}".format(kwargs['stime'])
+    if 'etime' in kwargs.keys():
+        command += " etime {}".format(kwargs['etime'])
+    if 'analyze' in kwargs.keys():
+        command += " analyze {}".format(kwargs['analyze'])
+    if 'filter' in kwargs.keys():
+        command += " filter {}".format(kwargs['filter'])
+
+    output = st.show(dut, command)
+    if 'return_field' in kwargs.keys() and 'filter' in kwargs.keys():
+        return output[0][kwargs['return_field']]
+    else:
+        return output[0]
+
+
+def get_file_output(dut, filename, sudo_user='yes'):
+    """
+    To return content in specific file
+    Author: Jagadish Chatrasi(jagadish.chatrasi@broadcom.com)
+    :param dut:
+    :param filename:
+    :return:
+    """
+    if sudo_user == 'no':
+        command = "cat {}".format(filename)
+    else:
+        command = "sudo cat {}".format(filename)
+    output = st.show(dut, command, skip_tmpl=True, skip_error_check=True, faster_cli=False, max_time=1200)
+    st.debug("Raw output: {}".format(output))
+    out_list = output.strip().split('\n') if "\n" in output else output.strip().split()
+    for _ in range(out_list.count("'")):
+        out_list.remove("'")
+    return [x for x in out_list if x.strip()]
+
+
+def is_campus_build(dut):
+    if st.is_dry_run():
+        return st.getenv("SPYTEST_DRYRUN_FORCE_CAMPUS") != "0"
+    if st.get_testbed_vars().get('version'):
+        version = st.get_testbed_vars().version[dut]
+    else:
+        version = show_version(dut, report=False)['version']
+    if 'campus' in version.lower():
+        return True
+    return False
+
+
+def copy_file_content_to_file(src_file, dst_file=None):
+    """
+    Wrapper to copy/write the contents for source file to destination file
+    :param src_file:
+    :param dst_file:
+    :return:
+    """
+    try:
+        import shutil
+        dst_file_name = os.path.basename(src_file)
+        act_dst_file_path = "{}/{}".format(dst_file.rstrip("/"), dst_file_name)
+        shutil.copy(src_file, act_dst_file_path)
+        return act_dst_file_path
+    except Exception as e:
+        _, _, exc_tb = sys.exc_info()
+        message, function_name, line_no = (str(e), traceback.extract_tb(exc_tb)[-1][0], traceback.extract_tb(exc_tb)[-1][1])
+        st.error("{} - {} - {}".format(message, function_name, line_no))
+        return False
+
+
+def verify_log_messages_by_time_stamp(dut, search_string, file_path, match_string):
+    """
+    Common function to compare the logs.
+    :param dut:
+    :param search_string: Time stamp
+    :param file_path:
+    :param match_string:
+    :return:
+    """
+    response = find_line_in_file(dut, search_string=search_string, file_path=file_path, device="dut", verify=False)
+    if response.find(match_string) > 1:
+        return True
+    else:
+        return False
+
+
+def get_image_tag(dut, repo_name, vrf="mgmt"):
+    """
+    To get tag value for a repo
+
+    :param dut:
+    :param repo_name:
+    :return: tag vale on PASS
+             False on FAIL
+    """
+    if vrf == "mgmt":
+        command = "docker -H unix:///run/docker-mgmt.socket images"
+    elif vrf == "default":
+        command = "docker -H unix:///run/docker-default.socket images"
+    output = st.show(dut, command)
+    tag_out = filter_and_select(output, ['tag'], {'repo': repo_name})
+    if not tag_out:
+        st.error("No match for {} = {} in output".format('repository', repo_name))
+        return False
+    else:
+        return tag_out
+
+
+def read_disk_space(dut, **kwargs):
+    cli_type = 'click'
+    parsed_output = st.show(dut, 'sudo df -h', type=cli_type)
+    if len(parsed_output) == 0:
+        st.error("Output is Empty")
+        return False
+    if 'return_output' in kwargs:
+        return parsed_output
+    st.banner(parsed_output)
+    for each in kwargs.keys():
+        match = {each: kwargs[each]}
+        entries = filter_and_select(parsed_output, None, match)
+        if not entries:
+            st.error("Match not found for {}:   Expected - {} Actual - {} ".format(each, kwargs[each], parsed_output[0][each]))
+            return False
+    return True
+
+
+def sync_disk_space(dut, **kwargs):
+    st.config(dut, "sync", type='click', conf=False)
+
+
+def check_core_files(dut, **kwargs):
+    """
+    Author: Naveen Nag
+    email : naveen.nagaraju@broadcom.com
+    :param dut:
+    :return:
+
+    Usage:
+     basic.check_core_files(dut1)
+    """
+
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+
+    if cli_type == "click":
+        output = st.show(dut, "sudo show core list", type='click')
+
+    elif cli_type in ["rest-put", "rest-patch"]:
+        rest_url = st.get_datastore(dut, "rest_urls")["coreshow"]
+        coredata = st.rest_read(dut, rest_url)
+        st.log('The rest url is {}'.format(coredata))
+        output = coredata['output']
+
+    else:
+        output = st.show(dut, "show core list", type='klish')
+
+    entries = filter_and_select(output)
+
+    if not entries:
+        return False
+    return True
+
+
+def clear_core_files(dut, **kwargs):
+    if st.is_feature_supported("klish", dut):
+        st.config(dut, "clear core-files", type='klish')
+
+
+def check_kdump_files(dut, **kwargs):
+
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    skip_template = kwargs.get('skip_template', False)
+
+    if cli_type == "click":
+        output = st.show(dut, "sudo show kdump files", type='click', skip_tmpl=skip_template)
+
+    else:
+        output = st.show(dut, "show kdump files", type='klish', skip_tmpl=skip_template)
+
+    if 'return_output' in kwargs:
+        return output
+    if 'No kernel core dump files' in output:
+        return False
+    return True
+
+
+def clear_kdump_files(dut, **kwargs):
+    pass
+
+
+def set_klish_timeout(dut, timeout=10, **kwargs):
+    conn_index = kwargs.get("conn_index", None)
+    st.show(dut, "terminal timeout {}".format(timeout), type="klish", skip_error_check=True, skip_tmpl=True, conn_index=conn_index)
+
+
+def verify_config_reload_status(dut, **kwargs):
+    """
+    Verify the output of 'show config-reload status'.
+    Author: Aman Saini (aman.saini@broadcom.com)
+    :param :dut:
+    :param :return_output = True/False (default: False): returns the output.
+    :param :State
+    :param :StateDetail
+    :param :StartTime
+    :param :EndTime
+    :param :cli_type:
+    :param :skip_error:
+    :param :skip_template:
+    :return:
+
+    """
+
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    # CLI not supported in click.
+    skip_error = kwargs.get('skip_error', False)
+    skip_template = kwargs.get('skip_template', False)
+    return_flag = True
+    if cli_type in utils_obj.get_supported_ui_type_list():
+        import apis.system.system_server as sys_server_api
+        kwargs['cli_type'] = cli_type
+        kwargs['return_output'] = kwargs.pop('return_output', False)
+        return sys_server_api.verify_reload_stats(dut, **kwargs)
+    elif cli_type == 'click':
+        st.error("CLI not supported in CLICK. Supported only in KLISH.")
+        return False
+    elif cli_type == 'klish':
+        command = "show config-reload status"
+        output = st.show(dut, command, type=cli_type, skip_error_check=skip_error, skip_tmpl=skip_template)
+    else:
+        st.error("Supported modes are only KLISH and REST/GNMI.")
+        return False
+    return_output = kwargs.pop('return_output', False)
+
+    st.log("output={}, kwargs={}".format(output, kwargs))
+    if return_output:
+        return output
+
+    for key in ['cli_type', 'skip_template', 'return_output', 'skip_error']:
+        kwargs.pop(key, None)
+
+    if output == []:
+        output = [{}]
+    for key in kwargs.keys():
+        if key in output[0]:
+            if kwargs[key] != output[0][key]:
+                st.error("key: {} Input value: {}, Output value: {} are not same".format(key, kwargs[key], output[0][key]))
+                return_flag = False
+            else:
+                st.log('Found for key: {}, val:{}'.format(key, kwargs[key]))
+        else:
+            st.error("{} not found in the output.".format(key))
+            return_flag = False
+    return return_flag
+
+
+def verify_system_processes_cpu(dut, pname, **kwargs):
+    """
+    :param dut:
+    :param pname (mandetory)
+    :param kwargs: cpu, memory, mem_usage
+    :return:
+    """
+    ret_val = True
+    if not isinstance(pname, list):
+        pname = [pname]
+    input_dict_list = kwargs_to_dict_list(**kwargs)
+    for name, in_di_li in zip(pname, input_dict_list):
+        output = st.show(dut, "show system processes cpu | grep {}".format(name), type="klish")
+        kwargs['name'] = name
+        in_di_li = [in_di_li]
+        for input_dict in in_di_li:
+            st.log("input_dict_list is {}".format(in_di_li))
+            st.log("output is {}".format(output))
+            if 'cpu' in kwargs:
+                if int(output[0]['cpu']) <= int(in_di_li[0]['cpu']):
+                    st.log("PASS: process {} actual CPU % {} <= expected CPU % {}".format(name, output[0]['cpu'], in_di_li[0]['cpu']))
+                else:
+                    st.log("INFO: process {} actual CPU % {} > expected CPU % {}".format(name, output[0]['cpu'], in_di_li[0]['cpu']))
+                    ret_val = False
+                del input_dict['cpu']
+            entries = filter_and_select(output, None, match=input_dict)
+            if entries:
+                st.log("DUT {} -> Match Found {} ".format(dut, input_dict))
+            else:
+                st.error("DUT {} -> Match Not Found {}".format(dut, input_dict))
+                ret_val = False
+    return ret_val
+
+
+def show_system_host_mac(dut):
+    return st.show(dut, cmd="sonic-cfggen -H -v DEVICE_METADATA.localhost.mac", type='click')
