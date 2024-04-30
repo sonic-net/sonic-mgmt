@@ -26,7 +26,7 @@ def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, request):
    for nbr_name, nbr_info in nbrhosts.items():
        nbr_ip = setup_info["nbr_addr"].get(nbr_info["ip"])
        if nbr_ip:
-           configure_ospf_and_bfd(nbr_info["host"], nbrhosts[].hostname)
+           configure_ospf_and_bfd(nbr_info["host"], nbrhosts[nbr_name].hostname)
            setup_info["nbr_addr"][nbr_ip] = {"hostname": nbr_info["hostname"]}
 
 
