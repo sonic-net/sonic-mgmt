@@ -12,6 +12,7 @@ go_library(
 	"gnmi.go",
         "gnoi.go",
         "lacp.go",
+        "p4rt.go",
     ],
     data = [
         "//infrastructure/data",
