@@ -27,6 +27,7 @@ REBOOT_TYPE_SAI_WARM = "sai-warm"
 REBOOT_TYPE_COLD = "cold"
 REBOOT_TYPE_SOFT = "soft"
 REBOOT_TYPE_FAST = "fast"
+REBOOT_TYPE_HARD = "hard"
 REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
 REBOOT_TYPE_UNKNOWN = "Unknown"
@@ -67,6 +68,18 @@ reboot_ctrl_dict = {
         "timeout": 300,
         "wait": 120,
         "cause": "soft-reboot",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_HARD: {
+        # This is meant to be used only for S6100 in upgrade path testing, and
+        # is needed to get around possible memory corruption going from a
+        # 202205 or 202305 image to a 201911 or 202012 image, where some byte
+        # of memory would get stuck at 0x80000001. This is not actually
+        # supported by the image.
+        "command": "/sbin/reboot",
+        "timeout": 300,
+        "wait": 120,
+        "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
         "test_reboot_cause_only": False
     },
     REBOOT_TYPE_FAST: {

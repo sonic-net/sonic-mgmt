@@ -289,9 +289,10 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             networking_uptime = duthost.get_networking_uptime().seconds
             timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
-            pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-                          "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
-                                                                                  upgrade_type))
+            if "6100" not in duthost.facts["hwsku"]:
+                pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
+                              "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
+                                                                                      upgrade_type))
             check_services(duthost)
             check_neighbors(duthost, tbinfo)
             check_copp_config(duthost)

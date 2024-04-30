@@ -57,19 +57,18 @@ parameters:
         - vms61-t2-8800-1
         - vms61-t2-8800-2
 
+variables:
+  - group: SERVICE_CONNECTIONS
+
 jobs:
   - job: TriggerDeepClean
     timeoutInMinutes: 300
-    variables:
-      - name: skipComponentGovernanceDetection
-        value: true
-      - group: GIT_SECRETS
 
     steps:
 
-      - script: |
-          pip install PyYAML requests
-        displayName: Install dependency
+      - template: ../nightly/templates/get_token.yml  # Get accessToken and store in ACCESS_TOKEN variable
+        parameters:
+          SERVICE_CONNECTION: $(SC_AZDEVOPS_MSSONIC)
 
       - task: PythonScript@0
         displayName: Trigger deep clean
@@ -153,7 +152,7 @@ jobs:
             def trigger_deep_clean_pipeline(servers_testbeds_param):
                 token = sys.argv[1]
                 pipeline_url = "https://dev.azure.com/mssonic/internal/_apis/pipelines/364/runs"
-                auth = ("", token)
+                headers = {"Authorization": "Bearer " + token}
                 params = {
                     "api-version": "7.0"
                 }
@@ -165,7 +164,7 @@ jobs:
                     }
                 }
 
-                return requests.post(pipeline_url, params=params, auth=auth, json=body).json()
+                return requests.post(pipeline_url, params=params, headers=headers, json=body).json()
 
             def main():
                 all_servers_tbs = read_testbed_info()
@@ -178,4 +177,4 @@ jobs:
 
             main()
 
-          arguments: $(MSSONIC_TOKEN)
+          arguments: $(ACCESS_TOKEN)
