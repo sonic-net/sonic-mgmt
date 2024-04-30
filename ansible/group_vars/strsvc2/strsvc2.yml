@@ -3,7 +3,7 @@
 # file: group_vars/str.yml
 
 # ntp variables
-ntp_servers: ['10.20.8.129', '10.20.8.130']
+ntp_servers: ['10.206.144.18']
 
 # syslog variables
 syslog_servers: ['10.64.246.95']

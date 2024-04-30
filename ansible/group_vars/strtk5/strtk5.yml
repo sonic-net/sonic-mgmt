@@ -1,6 +1,6 @@
 ---
 # ntp variables
-ntp_servers: ['10.20.8.129', '10.20.8.130']
+ntp_servers: ['10.212.65.2']
 
 # syslog variables
 syslog_servers: ['10.212.65.2']
