@@ -32,7 +32,7 @@ def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname):
 
         # Get interface name for the neighbor
         interface_name = get_ospf_dut_interfaces(duthost)
-        if interface_name:  # Check if interface name is retrieved
+        if interface_name:  # Check if interface name is retrieved.
             cmd_list = [
                 'cd /usr/lib/frr',
                 './ospfd &',
