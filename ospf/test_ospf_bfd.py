@@ -74,6 +74,44 @@ def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname):
     ospf_routes = duthost.shell(cmd)['stdout']
     assert "O>" in ospf_routes  # Basic check for OSPF routes
 
+    if interface_name:
+        result = simulate_link_failure(duthost, interface_name)
+        assert result.rc == 0, f"Ping failed after link failure: {result.stderr}"
+
+def simulate_link_failure(duthost, interface_name):
+    # Shutdown the specified interface
+    shutdown_cmd = f'sudo config interface {interface_name} shutdown'
+    duthost.command(shutdown_cmd)
+
+    # Sleep for 5 seconds
+    time.sleep(5)
+
+    # Get the neighbor IP corresponding to the interface
+    neighbor_ip = get_ospf_neighbor_ip(duthost, interface_name)
+
+    # Ping the neighbor IP
+    ping_cmd = f'ping -n 50 {neighbor_ip}'
+    result = duthost.command(ping_cmd)
+
+    # Check if the output contains any failure indicators
+    failure_indicators = ['network unreachable', 'host unreachable', 'request timeout']
+    for indicator in failure_indicators:
+        if indicator in result.stdout.lower():
+            raise Exception(f"Error: {indicator} found in the output.")
+
+    # If no failure indicators found, return success
+    return "Success"
+
+def get_ospf_neighbor_ip(duthost, interface_name):
+    cmd = 'vtysh -c "show ip ospf neighbor"'
+    ospf_neighbor_output = duthost.command(cmd).stdout
+    for line in ospf_neighbor_output.split('\n'):
+        columns = line.split()
+        if len(columns) >= 7 and columns[6] == interface_name:
+            return columns[0]  # Neighbor IP
+    return None
+
+
 def get_ospf_dut_interfaces(host):
     cmd = 'cd /usr/lib/frr && ./ospfd && exit && vtysh -c "show ip ospf neighbor"'
     ospf_neighbor_output = host.shell(cmd)['stdout']
