@@ -10,6 +10,7 @@ go_library(
     testonly = 1,
     srcs = [
 	"gnmi.go",
+        "gnoi.go",
     ],
     data = [
         "//infrastructure/data",
