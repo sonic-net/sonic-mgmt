@@ -142,5 +142,6 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
 
             # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation
             ".*ERR syncd[0-9]*#syncd.*tap2veth_fun: failed to write to socket.*", # test_portchannel_interface tc2
+            ".*ERR.*'apply-patch' executed failed.*",  # negative cases that are expected to fail
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
