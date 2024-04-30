@@ -17,4 +17,4 @@ steps:
         accessToken=$(az account get-access-token --query accessToken -o tsv)
         echo "##vso[task.setvariable variable=ACCESS_TOKEN;issecret=true]$accessToken  "
 
-      displayName: Get ACCESS_TOKEN
+    displayName: Get ACCESS_TOKEN
