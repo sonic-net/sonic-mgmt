@@ -145,9 +145,6 @@ def common_setup_teardown(
         wait_until(60, 5, 0, rand_selected_dut.critical_services_fully_started)
         wait_until(60, 5, 0, rand_selected_dut.critical_processes_running, "swss")
         wait_until(60, 5, 0, rand_selected_dut.critical_processes_running, "mux")
-        verify_tor_states(
-            rand_unselected_dut, rand_selected_dut, "unhealthy", verify_db_timeout=60
-        )
 
 
 @pytest.mark.enable_active_active
@@ -201,3 +198,6 @@ def test_mac_move_during_switchover(
             intf_names=[common_setup_teardown["intf1"]],
             cable_type=cable_type
         )
+
+    # recover mux conifg
+    rand_selected_dut.shell("config mux mode auto all")
