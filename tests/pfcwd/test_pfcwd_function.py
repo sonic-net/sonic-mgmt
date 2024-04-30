@@ -736,7 +736,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.stats.get_pkt_cnts(self.queue_oid, begin=True)
         # test pfcwd functionality on a storm
         self.traffic_inst.verify_wd_func(action, self.rx_action, self.tx_action)
-
         return loganalyzer
 
     def storm_restore_path(self, dut, loganalyzer, port, action):
