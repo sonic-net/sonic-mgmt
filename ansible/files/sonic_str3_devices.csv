@@ -101,7 +101,7 @@ str3-z9332f-06,10.3.146.7/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str3-7060-acs-1,10.3.146.240/24,Arista-7060CX-32S-D48C8,DevSonic,,sonic
 str3-7060-acs-2,10.3.146.242/24,Arista-7060CX-32S-D48C8,DevSonic,,sonic
 str3-7060-acs-3,10.3.146.243/24,Arista-7060CX-32S-C32,DevSonic,,sonic
-str3-7060-acs-fan-01,10.3.146.241,Arista-7060CX-32S,FanoutLeaf,,
+str3-7060-acs-fan-01,10.3.146.241/24,Arista-7060CX-32S,FanoutLeaf,,
 str3-7260cx3-acs-1,10.3.146.180/24,Arista-7260CX3-C64,DevSonic,,sonic
 str3-7260cx3-acs-2,10.3.146.181/24,Arista-7260CX3-C64,DevSonic,,sonic
 str3-dx010-acs-1,10.3.146.236/24,Celestica-DX010-C32,FanoutLeafSonic,,sonic
