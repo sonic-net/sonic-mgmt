@@ -515,7 +515,7 @@ def test_bfd_echo_mode(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
                     error = True
         assert error is False
     finally:
-        # Cleanup: Remove BFD sessions and echo mode configuration
+        # Cleanup: Remove BFD sessions and echo mode configurations
         remove_bfd_sessions(duthost, neighbor_addrs)
 
         # No need for temporary BFD echo mode config file or cleanup for it
