@@ -10,6 +10,8 @@ from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
 )
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service  # noqa: F401
 from tests.common.utilities import wait_until
+from tests.common.dualtor.dual_tor_common import cable_type, CableType                                     # noqa F401
+
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +150,7 @@ def common_setup_teardown(
         )
 
 
+@pytest.mark.enable_active_active
 def test_mac_move_during_switchover(
     common_setup_teardown,
     toggle_all_simulator_ports_to_rand_unselected_tor,  # noqa: F811
@@ -156,6 +159,7 @@ def test_mac_move_during_switchover(
     ptfadapter,
     neigh_learn_pkt,
     ip_pkt,
+    cable_type,                                         # noqa: F811
 ):
     """
     Trigger a MAC move during a switchover and verify that the switchover still completes successfully
@@ -166,9 +170,14 @@ def test_mac_move_during_switchover(
     # Pause syncd and trigger a switchover. Since syncd is paused, orchagent will hang (if the bug is present)
     # which allows us to pause orchagent mid-switchover
     rand_selected_dut.control_process("syncd", pause=True)
-    rand_selected_dut.shell(
-        "config mux mode active {}".format(common_setup_teardown["intf1"])
-    )
+    if cable_type == CableType.active_standby:
+        rand_selected_dut.shell(
+            "config mux mode active {}".format(common_setup_teardown["intf1"])
+        )
+    if cable_type == CableType.active_active:
+        rand_selected_dut.shell(
+            "config mux mode standby {}".format(common_setup_teardown["intf1"])
+        )
     rand_selected_dut.control_process("orchagent", pause=True)
 
     # Unpause syncd to process the MAC move
@@ -177,8 +186,18 @@ def test_mac_move_during_switchover(
 
     rand_selected_dut.control_process("orchagent", pause=False)
 
-    verify_tor_states(
-        rand_selected_dut,
-        rand_unselected_dut,
-        intf_names=[common_setup_teardown["intf1"]],
-    )
+    if cable_type == CableType.active_standby:
+        verify_tor_states(
+            rand_selected_dut,
+            rand_unselected_dut,
+            intf_names=[common_setup_teardown["intf1"]],
+            cable_type=cable_type
+        )
+
+    if cable_type == CableType.active_active:
+        verify_tor_states(
+            expected_active_host=rand_unselected_dut,
+            expected_standby_host=rand_selected_dut,
+            intf_names=[common_setup_teardown["intf1"]],
+            cable_type=cable_type
+        )
