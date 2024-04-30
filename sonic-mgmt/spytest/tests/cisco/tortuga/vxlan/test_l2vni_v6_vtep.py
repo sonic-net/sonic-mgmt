@@ -244,7 +244,6 @@ def test_v6_vtep_port_flap():
     st.report_pass("test_case_passed", nodes['leaf1'])
 
 
-#@pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
 def test_v6_vtep_multiple_vni():
     vars = st.get_testbed_vars()
 

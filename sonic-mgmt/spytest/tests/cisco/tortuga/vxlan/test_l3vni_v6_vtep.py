@@ -120,10 +120,8 @@ def vxlan_config_hooks():
     for vrf in data.config_vrfs:
         vxlan_obj.config_vrf(nodes['leaf0'], vrf, add=False)
         vxlan_obj.config_vrf(nodes['leaf1'], vrf, add=False)
-
     data.config_vrfs = []
 
-    #router_preconfig_cleanup()
     vxlan_obj.remove_temp_config(updated_config_file)
 
 def configure_and_validate_basic_l3vni(overlay_afamily):
@@ -445,6 +443,277 @@ def test_l3vni_v6_v6_vtep_multiple_vni():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
+def test_l3vni_v6_v6_vtep_multiple_vni_load():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+
+    vrfs = { 'Vrf02' : { 'vlan' : '2', 'members' : [vars.D3T1P1], 'vni' : '2000', 'dummy_vlan' : '200'},
+             'Vrf03' : { 'vlan' : '3', 'members' : [vars.D3T1P2], 'vni' : '3000', 'dummy_vlan' : '300' },
+             'Vrf04' : { 'vlan' : '4', 'members' : [vars.D3T1P3], 'vni' : '4000', 'dummy_vlan' : '400' }}
+
+    svi_ips = { 'leaf0' : [ { 'vlan' : '2', 'ip' : '2002:db8:1::1/64', 'vni' : '2000' },
+                            { 'vlan' : '3', 'ip' : '2003:db8:1::1/64', 'vni' : '3000' },
+                            { 'vlan' : '4', 'ip' : '2004:db8:1::1/64', 'vni' : '4000' } ],
+                'leaf1' : [ { 'vlan' : '2', 'ip' : '2112:db8:1::1/64', 'vni' : '2000' },
+                            { 'vlan' : '3', 'ip' : '2113:db8:1::1/64', 'vni' : '3000' },
+                            { 'vlan' : '4', 'ip' : '2114:db8:1::1/64', 'vni' : '4000' } ]}
+
+    # Start configuration
+    '''
+    a. add vrf
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vrf(nodes['leaf0'], vrf)
+        vxlan_obj.config_vrf(nodes['leaf1'], vrf)
+
+    '''
+    b. add vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf)
+
+    '''
+    c. add dummy vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf)
+
+    '''
+    d. add vlan to vni map
+
+    e. add vrf to vni map
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
+        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
+
+    '''
+    f. add IP address on vlan
+    '''
+    for leaf, value in svi_ips.items():
+        for v in value:
+            st.config(nodes[leaf], 'sudo config interface ip add {} {}'.format('Vlan' + v['vlan'], v['ip']))
+
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
+
+    # Start Verification
+    for value in svi_ips['leaf1']:
+        prefix = value['ip'].strip('1/64') + '0'
+        output = st.show(nodes['leaf0'], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
+
+        parsed = st.parse_show(nodes['leaf0'], 'show bgp l2vpn evpn {}'.format(prefix),
+                               output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
+
+        if len(parsed) == 0:
+            report_fail(nodes['leaf0'], msg='Found no prefixes advertised to Leaf0')
+
+        for path in parsed:
+            if path['valid'] != 'valid':
+                report_fail(nodes['leaf0'], msg='Invalid path found in leaf0')
+            if path['pathevpntype'] != '5':
+                report_fail(nodes['leaf0'], msg='Invalid evpn type {} found in leaf0'.format(path['evpntype']))
+            if path['vni'] != value['vni']:
+                report_fail(nodes['leaf0'], msg='Invalid vni found in leaf0')
+
+    for value in svi_ips['leaf0']:
+        prefix = value['ip'].strip('1/64') + '0'
+        output = st.show(nodes['leaf1'], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
+
+        parsed = st.parse_show(nodes['leaf1'], 'show bgp l2vpn evpn {}'.format(prefix),
+                               output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
+
+        if len(parsed) == 0:
+            report_fail(nodes['leaf1'], msg='Found no prefixes advertised to Leaf0')
+
+        for path in parsed:
+            if path['valid'] != 'valid':
+                report_fail(nodes['leaf1'], msg='Invalid path found in leaf1')
+            if path['pathevpntype'] != '5':
+                report_fail(nodes['leaf1'], msg='Invalid evpn type {} found in leaf1'.format(path['evpntype']))
+            if path['vni'] != value['vni']:
+                report_fail(nodes['leaf1'], msg='Invalid vni found in leaf1')
+
+    '''
+    Save config to a file before unconfiguring. The same saved file will be used for load operation
+    '''
+    for k,v in nodes.items():
+        if 'spine' not in k:
+            filename = "/tmp/config-db-{}.json".format(k)
+            st.config(v, "config save {} -y".format(filename), skip_error_check=True)
+
+    '''
+    f. remove IP address on vlan
+    '''
+    for leaf, value in svi_ips.items():
+        for v in value:
+            st.config(nodes[leaf], 'sudo config interface ip rem {} {}'.format('Vlan' + v['vlan'], v['ip']))
+
+    '''
+    e. delete vrf to vni map
+
+    d. delete vlan to vni map
+
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+
+    '''
+    c. del dummy vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf, add=False)
+
+    '''
+    b. del vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf, add=False)
+
+    '''
+    Remove BGP before vrf is removed
+    '''
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    with open(updated_config_file) as c:
+        config_list = yaml.load(c, Loader=yaml.FullLoader)
+        for node, config in config_list.items():
+            if 'spine' not in node:
+                config_static(node, 'bgp', add=False)
+
+    '''
+    a. del vrf
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vrf(nodes['leaf0'], vrf, add=False)
+        vxlan_obj.config_vrf(nodes['leaf1'], vrf, add=False)
+
+    '''
+    Remove SONiC Config too
+    '''
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    with open(updated_config_file) as c:
+        config_list = yaml.load(c, Loader=yaml.FullLoader)
+        for node, config in config_list.items():
+            if 'spine' not in node:
+                config_static(node, 'sonic', add=False)
+
+    # sleep for 30 seconds for BGP to converge
+    st.wait(30)
+
+    ############# Start adding configuration back #############
+
+    '''
+    Add BGP back
+    '''
+    with open(updated_config_file) as c:
+        config_list = yaml.load(c, Loader=yaml.FullLoader)
+        for node, config in config_list.items():
+            if 'spine' not in node:
+                config_static(node, 'bgp')
+
+    '''
+    Now load config from already saved config file
+    '''
+    for k,v in nodes.items():
+        if 'spine' not in k:
+            filename = "/tmp/config-db-{}.json".format(k)
+            st.config(v, "config load {} -y".format(filename), skip_error_check=True)
+
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
+
+    # Start Verification
+    for value in svi_ips['leaf1']:
+        prefix = value['ip'].strip('1/64') + '0'
+        output = st.show(nodes['leaf0'], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
+
+        parsed = st.parse_show(nodes['leaf0'], 'show bgp l2vpn evpn {}'.format(prefix),
+                               output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
+
+        if len(parsed) == 0:
+            report_fail(nodes['leaf0'], msg='Found no prefixes advertised to Leaf0')
+
+        for path in parsed:
+            if path['valid'] != 'valid':
+                report_fail(nodes['leaf0'], msg='Invalid path found in leaf0')
+            if path['pathevpntype'] != '5':
+                report_fail(nodes['leaf0'], msg='Invalid evpn type {} found in leaf0'.format(path['evpntype']))
+            if path['vni'] != value['vni']:
+                report_fail(nodes['leaf0'], msg='Invalid vni found in leaf0')
+
+    for value in svi_ips['leaf0']:
+        prefix = value['ip'].strip('1/64') + '0'
+        output = st.show(nodes['leaf1'], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
+
+        parsed = st.parse_show(nodes['leaf1'], 'show bgp l2vpn evpn {}'.format(prefix),
+                               output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
+
+        if len(parsed) == 0:
+            report_fail(nodes['leaf1'], msg='Found no prefixes advertised to Leaf0')
+
+        for path in parsed:
+            if path['valid'] != 'valid':
+                report_fail(nodes['leaf1'], msg='Invalid path found in leaf1')
+            if path['pathevpntype'] != '5':
+                report_fail(nodes['leaf1'], msg='Invalid evpn type {} found in leaf1'.format(path['evpntype']))
+            if path['vni'] != value['vni']:
+                report_fail(nodes['leaf1'], msg='Invalid vni found in leaf1')
+
+    '''
+    f. remove IP address on vlan
+    '''
+    for leaf, value in svi_ips.items():
+        for v in value:
+            st.config(nodes[leaf], 'sudo config interface ip rem {} {}'.format('Vlan' + v['vlan'], v['ip']))
+
+    '''
+    e. delete vrf to vni map
+
+    d. delete vlan to vni map
+
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+
+    '''
+    c. del dummy vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf, add=False)
+
+    '''
+    b. del vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf, add=False)
+
+    '''
+    a. del vrf
+    '''
+    for vrf, value in vrfs.items():
+        data.config_vrfs.append(vrf)
+
+    st.report_pass('test_case_passed', nodes['leaf0'])
+    st.report_pass('test_case_passed', nodes['leaf1'])
+    st.report_pass('test_case_passed', nodes['spine0'])
+    st.report_pass('test_case_passed', nodes['spine1'])
+
+
 def test_l3vni_v6_v6_vtep_remove_add_bgp():
     vars = st.get_testbed_vars()
 
@@ -675,10 +944,12 @@ def test_l3vni_v6_v6_vtep_port_flap():
 
 
 # v4 over v6 tests
+#
 # TODO: We shouldn't be duplicating test cases. However, pytest parameterization is not working. This is
 # a temporary work around till the time parameterization is actually made to work.
+#
 # TODO: As noted in skip reason, test cases fail due to a zebra crash, we need to get a handle on that.
-@pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
+@pytest.mark.xfail(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
 def test_l3vni_v4_v6_vtep_basic_config():
     vars = st.get_testbed_vars()
 
@@ -700,7 +971,7 @@ def test_l3vni_v4_v6_vtep_basic_config():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-@pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
+@pytest.mark.xfail(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
 def test_l3vni_v4_v6_vtep_multiple_vni():
     vars = st.get_testbed_vars()
 
@@ -842,7 +1113,279 @@ def test_l3vni_v4_v6_vtep_multiple_vni():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-@pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
+@pytest.mark.xfail(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
+def test_l3vni_v4_v6_vtep_multiple_vni_load():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+
+    vrfs = { 'Vrf02' : { 'vlan' : '2', 'members' : [vars.D3T1P1], 'vni' : '2000', 'dummy_vlan' : '200'},
+             'Vrf03' : { 'vlan' : '3', 'members' : [vars.D3T1P2], 'vni' : '3000', 'dummy_vlan' : '300' },
+             'Vrf04' : { 'vlan' : '4', 'members' : [vars.D3T1P3], 'vni' : '4000', 'dummy_vlan' : '400' }}
+
+    svi_ips = { 'leaf0' : [ { 'vlan' : '2', 'ip' : '100.100.102.254/24', 'vni' : '2000' },
+                            { 'vlan' : '3', 'ip' : '100.100.103.254/24', 'vni' : '3000' },
+                            { 'vlan' : '4', 'ip' : '100.100.104.254/24', 'vni' : '4000' } ],
+                'leaf1' : [ { 'vlan' : '2', 'ip' : '100.100.112.254/24', 'vni' : '2000' },
+                            { 'vlan' : '3', 'ip' : '100.100.113.254/24', 'vni' : '3000' },
+                            { 'vlan' : '4', 'ip' : '100.100.114.254/24', 'vni' : '4000' } ]}
+
+    # Start configuration
+    '''
+    a. add vrf
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vrf(nodes['leaf0'], vrf)
+        vxlan_obj.config_vrf(nodes['leaf1'], vrf)
+
+    '''
+    b. add vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf)
+
+    '''
+    c. add dummy vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf)
+
+    '''
+    d. add vlan to vni map
+
+    e. add vrf to vni map
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
+        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
+
+    '''
+    f. add IP address on vlan
+    '''
+    for leaf, value in svi_ips.items():
+        for v in value:
+            st.config(nodes[leaf], 'sudo config interface ip add {} {}'.format('Vlan' + v['vlan'], v['ip']))
+
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
+
+    # Start Verification
+    for value in svi_ips['leaf1']:
+        prefix = value['ip'].strip('254/24') + '0'
+        output = st.show(nodes['leaf0'], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
+
+        parsed = st.parse_show(nodes['leaf0'], 'show bgp l2vpn evpn {}'.format(prefix),
+                               output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
+
+        if len(parsed) == 0:
+            report_fail(nodes['leaf0'], msg='Found no prefixes advertised to Leaf0')
+
+        for path in parsed:
+            if path['valid'] != 'valid':
+                report_fail(nodes['leaf0'], msg='Invalid path found in leaf0')
+            if path['pathevpntype'] != '5':
+                report_fail(nodes['leaf0'], msg='Invalid evpn type {} found in leaf0'.format(path['evpntype']))
+            if path['vni'] != value['vni']:
+                report_fail(nodes['leaf0'], msg='Invalid vni found in leaf0')
+
+    for value in svi_ips['leaf0']:
+        prefix = value['ip'].strip('254/24') + '0'
+        output = st.show(nodes['leaf1'], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
+
+        parsed = st.parse_show(nodes['leaf1'], 'show bgp l2vpn evpn {}'.format(prefix),
+                               output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
+
+        if len(parsed) == 0:
+            report_fail(nodes['leaf1'], msg='Found no prefixes advertised to Leaf0')
+
+        for path in parsed:
+            if path['valid'] != 'valid':
+                report_fail(nodes['leaf1'], msg='Invalid path found in leaf1')
+            if path['pathevpntype'] != '5':
+                report_fail(nodes['leaf1'], msg='Invalid evpn type {} found in leaf1'.format(path['evpntype']))
+            if path['vni'] != value['vni']:
+                report_fail(nodes['leaf1'], msg='Invalid vni found in leaf1')
+
+    '''
+    Save config to a file before unconfiguring. The same saved file will be used for load operation
+    '''
+    for k,v in nodes.items():
+        if 'spine' not in k:
+            filename = "/tmp/config-db-{}.json".format(k)
+            st.config(v, "config save {} -y".format(filename), skip_error_check=True)
+
+    '''
+    f. remove IP address on vlan
+    '''
+    for leaf, value in svi_ips.items():
+        for v in value:
+            st.config(nodes[leaf], 'sudo config interface ip rem {} {}'.format('Vlan' + v['vlan'], v['ip']))
+
+    '''
+    e. delete vrf to vni map
+
+    d. delete vlan to vni map
+
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+
+    '''
+    c. del dummy vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf, add=False)
+
+    '''
+    b. del vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf, add=False)
+
+    '''
+    Remove BGP before vrf is removed
+    '''
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    with open(updated_config_file) as c:
+        config_list = yaml.load(c, Loader=yaml.FullLoader)
+        for node, config in config_list.items():
+            if 'spine' not in node:
+                config_static(node, 'bgp', add=False)
+
+    '''
+    a. del vrf
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vrf(nodes['leaf0'], vrf, add=False)
+        vxlan_obj.config_vrf(nodes['leaf1'], vrf, add=False)
+
+    '''
+    Remove SONiC Config too
+    '''
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    with open(updated_config_file) as c:
+        config_list = yaml.load(c, Loader=yaml.FullLoader)
+        for node, config in config_list.items():
+            if 'spine' not in node:
+                config_static(node, 'sonic', add=False)
+
+    # sleep for 30 seconds for BGP to converge
+    st.wait(30)
+
+    ############# Start adding configuration back #############
+
+    '''
+    Add BGP back
+    '''
+    with open(updated_config_file) as c:
+        config_list = yaml.load(c, Loader=yaml.FullLoader)
+        for node, config in config_list.items():
+            if 'spine' not in node:
+                config_static(node, 'bgp')
+
+    '''
+    Now load config from already saved config file
+    '''
+    for k,v in nodes.items():
+        if 'spine' not in k:
+            filename = "/tmp/config-db-{}.json".format(k)
+            st.config(v, "config load {} -y".format(filename), skip_error_check=True)
+
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
+
+    # Start Verification
+    for value in svi_ips['leaf1']:
+        prefix = value['ip'].strip('254/24') + '0'
+        output = st.show(nodes['leaf0'], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
+
+        parsed = st.parse_show(nodes['leaf0'], 'show bgp l2vpn evpn {}'.format(prefix),
+                               output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
+
+        if len(parsed) == 0:
+            report_fail(nodes['leaf0'], msg='Found no prefixes advertised to Leaf0')
+
+        for path in parsed:
+            if path['valid'] != 'valid':
+                report_fail(nodes['leaf0'], msg='Invalid path found in leaf0')
+            if path['pathevpntype'] != '5':
+                report_fail(nodes['leaf0'], msg='Invalid evpn type {} found in leaf0'.format(path['evpntype']))
+            if path['vni'] != value['vni']:
+                report_fail(nodes['leaf0'], msg='Invalid vni found in leaf0')
+
+    for value in svi_ips['leaf0']:
+        prefix = value['ip'].strip('254/24') + '0'
+        output = st.show(nodes['leaf1'], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
+
+        parsed = st.parse_show(nodes['leaf1'], 'show bgp l2vpn evpn {}'.format(prefix),
+                               output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
+
+        if len(parsed) == 0:
+            report_fail(nodes['leaf1'], msg='Found no prefixes advertised to Leaf0')
+
+        for path in parsed:
+            if path['valid'] != 'valid':
+                report_fail(nodes['leaf1'], msg='Invalid path found in leaf1')
+            if path['pathevpntype'] != '5':
+                report_fail(nodes['leaf1'], msg='Invalid evpn type {} found in leaf1'.format(path['evpntype']))
+            if path['vni'] != value['vni']:
+                report_fail(nodes['leaf1'], msg='Invalid vni found in leaf1')
+
+    '''
+    f. remove IP address on vlan
+    '''
+    for leaf, value in svi_ips.items():
+        for v in value:
+            st.config(nodes[leaf], 'sudo config interface ip rem {} {}'.format('Vlan' + v['vlan'], v['ip']))
+
+    '''
+    e. delete vrf to vni map
+
+    d. delete vlan to vni map
+
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+
+    '''
+    c. del dummy vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf, add=False)
+
+    '''
+    b. del vlan
+    '''
+    for vrf, value in vrfs.items():
+        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf, add=False)
+
+    '''
+    a. del vrf
+    '''
+    for vrf, value in vrfs.items():
+        data.config_vrfs.append(vrf)
+
+    st.report_pass('test_case_passed', nodes['leaf0'])
+    st.report_pass('test_case_passed', nodes['leaf1'])
+    st.report_pass('test_case_passed', nodes['spine0'])
+    st.report_pass('test_case_passed', nodes['spine1'])
+
+
+@pytest.mark.xfail(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
 def test_l3vni_v4_v6_vtep_remove_add_bgp():
     vars = st.get_testbed_vars()
 
@@ -975,7 +1518,7 @@ def test_l3vni_v4_v6_vtep_remove_add_bgp():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-@pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
+@pytest.mark.xfail(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
 def test_l3vni_v4_v6_vtep_port_flap():
     vars = st.get_testbed_vars()
 

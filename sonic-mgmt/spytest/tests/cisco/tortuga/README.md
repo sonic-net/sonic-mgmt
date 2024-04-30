@@ -129,10 +129,7 @@ cd /data
 pip install monotonic
 unset https_proxy http_proxy
 
-docker exec -it ixia_sonic_mgmt bash
-cd /data
-
-./bin/spytest --testbed ../spytest_tb_files/tortuga_spytest_topo_5d_ixia.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 /data/tests/cisco/tortuga/vxlan/test_l2vni.py
+./bin/spytest --testbed ../spytest_tb_files/tortuga_spytest_topo_4D_ixia_cmono.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 /data/tests/cisco/tortuga/vxlan/test_l2vni.py
 
 ```
 
