@@ -72,19 +72,19 @@ bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
     conditions:
-      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0'])"
+      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
     reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8102_28fh_dpu_o-r0']"
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8102_28fh_dpu_o-r0']"
 
 bfd/test_bfd_static_route.py:
   skip:
@@ -207,7 +207,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'mx'] and 't2' not in topo_type)"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'mx', 't1-28-lag'] and 't2' not in topo_type)"
 
 copp/test_copp.py::TestCOPP::test_add_new_trap:
   skip:
@@ -1080,7 +1080,7 @@ qos/test_qos_sai.py::TestQosSai:
   skip:
     reason: "Unsupported testbed type."
     conditions:
-      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+      - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic', 't1-28-lag'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
   skip:
@@ -1521,19 +1521,19 @@ vxlan/test_vxlan_crm.py:
   skip:
     reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-8102_28fh_dpu_o-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
 
 vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-8102_28fh_dpu_o-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
 
 vxlan/test_vxlan_ecmp_switchover.py:
   skip:
     reason: "VxLAN ECMP switchover test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-8102_28fh_dpu_o-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
 
 #######################################
 #####           wan_lacp          #####
