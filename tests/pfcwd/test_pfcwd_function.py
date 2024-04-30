@@ -731,14 +731,11 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             # When the WD is not triggered, this redis-cli command returns
             # (nil), so this function call fails.
             self.traffic_inst.verify_tx_egress(self.tx_action)
-        else:
-            loganalyzer.analyze(marker)
+        loganalyzer.analyze(marker)
 
         self.stats.get_pkt_cnts(self.queue_oid, begin=True)
         # test pfcwd functionality on a storm
         self.traffic_inst.verify_wd_func(action, self.rx_action, self.tx_action)
-        if dut.facts['asic_type'] == "cisco-8000":
-            loganalyzer.analyze(marker)
 
         return loganalyzer
 
