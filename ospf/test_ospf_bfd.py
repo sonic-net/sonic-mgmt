@@ -1,13 +1,13 @@
 import pytest
 import logging
 import time
-import re
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t0', 't1')
 ]
+
 
 def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname):
     setup_info_nbr_addr = ospf_Bfd_setup['nbr_addr']
@@ -32,7 +32,7 @@ def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname):
 
         # Get interface name for the neighbor
         interface_name = get_ospf_dut_interfaces(duthost)
-        if interface_name:  # Check if interface name is retrieved.
+        if interface_name:  # Check if interface name is retrieved
             cmd_list = [
                 'cd /usr/lib/frr',
                 './ospfd &',
@@ -78,6 +78,7 @@ def test_ospf_with_bfd(ospf_Bfd_setup, duthosts, rand_one_dut_hostname):
         result = simulate_link_failure(duthost, interface_name)
         assert result.rc == 0, f"Ping failed after link failure: {result.stderr}"
 
+
 def simulate_link_failure(duthost, interface_name):
     # Shutdown the specified interface
     shutdown_cmd = f'sudo config interface {interface_name} shutdown'
@@ -101,6 +102,7 @@ def simulate_link_failure(duthost, interface_name):
 
     # If no failure indicators found, return success
     return "Success"
+
 
 def get_ospf_neighbor_ip(duthost, interface_name):
     cmd = 'vtysh -c "show ip ospf neighbor"'
