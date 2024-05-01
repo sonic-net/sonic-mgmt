@@ -2,6 +2,7 @@
 package testhelper
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
@@ -130,6 +131,27 @@ var (
 		return gnmi.Get(t, d, gnmi.OC().Component(physicalPort).Port().BreakoutMode().State())
 	}
 
+	testhelperPortPmdTypeGet = func(t *testing.T, d *ondatra.DUTDevice, port string) (string, error) {
+		if pph.PortToTransceiver == nil {
+			pph.PortToTransceiver = make(map[string]string)
+		}
+
+		xcvr := ""
+		if pph.PortToTransceiver[port] == "" {
+			xcvr = PortTransceiver(t, d, port)
+			if xcvr == "" {
+				return "", fmt.Errorf("transceiver not found for %v:%v", d.Name(), port)
+			}
+			pph.PortToTransceiver[port] = xcvr
+		}
+
+		pmd := string(EthernetPMD(t, d, xcvr))
+		if pmd == "" {
+			return "", fmt.Errorf("pmd not found for transceiver:%v", xcvr)
+		}
+		return pmd, nil
+	}
+
 	testhelperTransceiverEmpty = func(t *testing.T, d *ondatra.DUTDevice, port string) bool {
 		return gnmi.Get(t, d, gnmi.OC().Component(port).Empty().State())
 	}
@@ -225,9 +247,11 @@ type infoHandler struct{}
 func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfaceParams) (string, error) {
 	// Parse additional parameters
 	var portList []string
+	isParent := false
 	isOperDownOk := false
 	if params != nil {
 		portList = params.PortList
+		isParent = params.IsParent
 		isOperDownOk = params.OperDownOk
 	}
 
@@ -240,6 +264,21 @@ func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfa
 	interfaces := info.Up
 	if isOperDownOk {
 		interfaces = append(interfaces, info.Down...)
+	}
+
+	if isParent {
+		// Pick parent port only.
+		var parentInterfaces []string
+		for _, intf := range interfaces {
+			isParentPort, err := IsParentPort(t, dut, intf)
+			if err != nil {
+				return "", errors.Wrapf(err, "IsParentPort() failed for port: %v", intf)
+			}
+			if isParentPort {
+				parentInterfaces = append(parentInterfaces, intf)
+			}
+		}
+		interfaces = parentInterfaces
 	}
 
 	if len(interfaces) == 0 {

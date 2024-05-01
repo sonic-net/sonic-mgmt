@@ -9,6 +9,7 @@ go_library(
     name = "testhelper",
     testonly = 1,
     srcs = [
+        "augment.go",
 	"gnmi.go",
         "gnoi.go",
         "lacp.go",
