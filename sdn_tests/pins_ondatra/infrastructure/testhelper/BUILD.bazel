@@ -13,6 +13,10 @@ go_library(
         "gnoi.go",
         "lacp.go",
         "p4rt.go",
+        "platform_info.go",
+        "platform_components.go",
+        "port_management.go",
+        "//infrastructure/testhelper/platform_info:platform_info",
     ],
     data = [
         "//infrastructure/data",
