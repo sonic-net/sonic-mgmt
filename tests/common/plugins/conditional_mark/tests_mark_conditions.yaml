@@ -881,7 +881,7 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
 #####      passw_hardening        #####
 #######################################
 passw_hardening/test_passw_hardening.py:
-  skip:
+  xfail:
     reason: "Skip the script due to Issue #13582. Command currently not supported multi-asic platforms"
     conditions:
       - "is_multi_asic==True"
