@@ -72,4 +72,4 @@ def get_ospf_neighbor_interface(host):
        if 'PortChannel' in columns[6]:
                nbr_int_info['interface'] = columns[6].split(':')[0]
                nbr_int_info['ip'] = columns[6].split(':')[1]  # Return the interface name
-   return nbr_int_info  # Return None if interface name is not found or not PortChannel
+   return nbr_int_info  # Return None if interface name is not found or not PortChannels
