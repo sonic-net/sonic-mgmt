@@ -111,7 +111,7 @@ all:
           ansible_user: admin
         vlab-02:
           ansible_host: 10.250.0.114
-          ansible_hostv6: fec0::ffff:afa:2
+          ansible_hostv6: fec0::ffff:afa:e
           type: kvm
           hwsku: Force10-S6100
           serial_port: 9095

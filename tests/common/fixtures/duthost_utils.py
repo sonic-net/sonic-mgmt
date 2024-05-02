@@ -609,11 +609,15 @@ def check_bgp_router_id(duthost, mgFacts):
 
 @pytest.fixture(scope="module")
 def convert_and_restore_config_db_to_ipv6_only(duthosts):
-    """Back up the existing config_db.json file and restore it once the test ends.
+    """Convert the DUT's mgmt-ip to IPv6 only
 
-    Some cases will update the running config during the test and save the config
-    to be recovered after reboot. In such a case we need to backup config_db.json before
-    the test starts and then restore it after the test ends.
+    Convert the DUT's mgmt-ip to IPv6 only by removing the IPv4 mgmt-ip,
+    will revert the change after finished.
+
+    Since the change commands is distributed by IPv4 mgmt-ip,
+    the fixture will detect the IPv6 availability first,
+    only remove the IPv4 mgmt-ip when the IPv6 mgmt-ip is available,
+    and will re-establish the connection to the DUTs with IPv6 mgmt-ip.
     """
     config_db_file = "/etc/sonic/config_db.json"
     config_db_bak_file = "/etc/sonic/config_db.json.before_ipv6_only"
@@ -633,6 +637,14 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
     #             ]
     #         }
     #     }
+    #
+    # Sample SNMP_AGENT_ADDRESS_CONFIG:
+    #   "SNMP_AGENT_ADDRESS_CONFIG": {
+    #    "10.1.0.32|161|": {},
+    #    "10.250.0.101|161|": {},
+    #    "FC00:1::32|161|": {},
+    #    "fec0::ffff:afa:1|161|": {}
+    #    },                                         },
 
     # duthost_name: config_db_modified
     config_db_modified: Dict[str, bool] = {duthost.hostname: False
@@ -660,13 +672,17 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                     logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr}]")
                     ipv6_address[duthost.hostname].append(ip_addr_without_mask)
                     try:
+                        # Add a temporary debug log to see if the DUT is reachable via IPv6 mgmt-ip. Will remove later
+                        duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
+                        logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}]")
                         ssh_client.connect(ip_addr_without_mask,
                                            username="WRONG_USER", password="WRONG_PWD", timeout=15)
                     except AuthenticationException:
                         logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is available")
                         has_available_ipv6_addr = has_available_ipv6_addr or True
-                    except BaseException:
-                        pass
+                    except BaseException as e:
+                        logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is unavailable, "
+                                    f"exception[{type(e)}], msg[{str(e)}]")
                     finally:
                         ssh_client.close()
 
@@ -695,7 +711,37 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                     duthost.shell(f"""jq 'del(."MGMT_INTERFACE"."{key}")' {config_db_file} > temp.json"""
                                   f"""&& mv temp.json {config_db_file}""", module_ignore_errors=True)
                     config_db_modified[duthost.hostname] = True
-                    config_reload(duthost, wait=120)
+
+    # Save both IPv4 and IPv6 SNMP address for verification purpose.
+    snmp_ipv4_address: Dict[str, List] = {duthost.hostname: []
+                                          for duthost in duthosts.nodes}
+    snmp_ipv6_address: Dict[str, List] = {duthost.hostname: []
+                                          for duthost in duthosts.nodes}
+    for duthost in duthosts.nodes:
+        snmp_address = json.loads(duthost.shell(f"jq '.SNMP_AGENT_ADDRESS_CONFIG' {config_db_file}",
+                                                module_ignore_errors=True)["stdout"])
+        # In case device doesn't have SNMP_AGENT_CONFIG: this could happen if
+        # DUT is running old image.
+        if not snmp_address:
+            logger.info(f"No SNMP_AGENT_ADDRESS_CONFIG found in host[{duthost.hostname}] {config_db_file}, continue.")
+            continue
+        for key in list(snmp_address):
+            ip_addr = key.split("|")[0]
+            if ip_addr:
+                if valid_ipv4(ip_addr):
+                    snmp_ipv4_address[duthost.hostname].append(ip_addr)
+                    logger.info(f"Removing host[{duthost.hostname}] SNMP IPv4 address {ip_addr}")
+                    duthost.shell(f"""jq 'del(."SNMP_AGENT_ADDRESS_CONFIG"."{key}")' {config_db_file} > temp.json"""
+                                  f"""&& mv temp.json {config_db_file}""", module_ignore_errors=True)
+                    config_db_modified[duthost.hostname] = True
+                elif valid_ipv6(ip_addr):
+                    snmp_ipv6_address[duthost.hostname].append(ip_addr.lower())
+
+    # Do config_reload after processing BOTH SNMP and MGMT config
+    for duthost in duthosts.nodes:
+        if config_db_modified[duthost.hostname]:
+            logger.info(f"config changed. Doing config reload for {duthost.hostname}")
+            config_reload(duthost, wait=120)
     duthosts.reset()
 
     # Verify mgmt-interface status
@@ -703,14 +749,28 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
     for duthost in duthosts.nodes:
         logger.info(f"Checking host[{duthost.hostname}] mgmt interface[{mgmt_intf_name}]")
         mgmt_intf_ifconfig = duthost.shell(f"ifconfig {mgmt_intf_name}", module_ignore_errors=True)["stdout"]
-        assert_addr_in_ifconfig(addr_set=ipv4_address, hostname=duthost.hostname,
-                                expect_exists=False, ifconfig_output=mgmt_intf_ifconfig)
-        assert_addr_in_ifconfig(addr_set=ipv6_address, hostname=duthost.hostname,
-                                expect_exists=True, ifconfig_output=mgmt_intf_ifconfig)
+        assert_addr_in_output(addr_set=ipv4_address, hostname=duthost.hostname,
+                              expect_exists=False, cmd_output=mgmt_intf_ifconfig,
+                              cmd_desc="ifconfig")
+        assert_addr_in_output(addr_set=ipv6_address, hostname=duthost.hostname,
+                              expect_exists=True, cmd_output=mgmt_intf_ifconfig,
+                              cmd_desc="ifconfig")
+
+    # Verify SNMP address status
+    for duthost in duthosts.nodes:
+        logger.info(f"Checking host[{duthost.hostname}] SNMP status in netstat output")
+        snmp_netstat_output = duthost.shell("sudo netstat -tulnpW | grep snmpd",
+                                            module_ignore_errors=True)["stdout"]
+        assert_addr_in_output(addr_set=snmp_ipv4_address, hostname=duthost.hostname,
+                              expect_exists=False, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
+        assert_addr_in_output(addr_set=snmp_ipv6_address, hostname=duthost.hostname,
+                              expect_exists=True, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
 
     yield
 
-    # Recover IPv4 mgmt-ip
+    # Recover IPv4 mgmt-ip and other config (SNMP_ADDRESS, etc.)
     for duthost in duthosts.nodes:
         if config_db_modified[duthost.hostname]:
             logger.info(f"Restore {config_db_file} with {config_db_bak_file} on {duthost.hostname}")
@@ -722,30 +782,46 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
     for duthost in duthosts.nodes:
         logger.info(f"Checking host[{duthost.hostname}] mgmt interface[{mgmt_intf_name}]")
         mgmt_intf_ifconfig = duthost.shell(f"ifconfig {mgmt_intf_name}", module_ignore_errors=True)["stdout"]
-        assert_addr_in_ifconfig(addr_set=ipv4_address, hostname=duthost.hostname,
-                                expect_exists=True, ifconfig_output=mgmt_intf_ifconfig)
-        assert_addr_in_ifconfig(addr_set=ipv6_address, hostname=duthost.hostname,
-                                expect_exists=True, ifconfig_output=mgmt_intf_ifconfig)
+        assert_addr_in_output(addr_set=ipv4_address, hostname=duthost.hostname,
+                              expect_exists=True, cmd_output=mgmt_intf_ifconfig,
+                              cmd_desc="ifconfig")
+        assert_addr_in_output(addr_set=ipv6_address, hostname=duthost.hostname,
+                              expect_exists=True, cmd_output=mgmt_intf_ifconfig,
+                              cmd_desc="ifconfig")
+
+    # Verify SNMP address status
+    for duthost in duthosts.nodes:
+        logger.info(f"Checking host[{duthost.hostname}] SNMP status in netstat output")
+        snmp_netstat_output = duthost.shell("sudo netstat -tulnpW | grep snmpd",
+                                            module_ignore_errors=True)["stdout"]
+        assert_addr_in_output(addr_set=snmp_ipv4_address, hostname=duthost.hostname,
+                              expect_exists=True, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
+        assert_addr_in_output(addr_set=snmp_ipv6_address, hostname=duthost.hostname,
+                              expect_exists=True, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
 
 
-def assert_addr_in_ifconfig(addr_set: Dict[str, List], hostname: str, expect_exists: bool, ifconfig_output: str):
+def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
+                          expect_exists: bool, cmd_output: str, cmd_desc: str):
     """
-    Assert the address status in the ifconfig output,
+    Assert the address status in the command output,
     if status not as expected, assert as failure
 
     @param addr_set: addr_set, key is dut hostname, value is the list of ip addresses
     @param hostname: hostname
     @param expect_exists: Expectation of the ip,
-            True means expect all ip addresses in addr_set appears in the output of ifconfig
-            False means expect no ip addresses in addr_set appears in the output of ifconfig
-    @param ifconfig_output: output of 'ifconfig'
+            True means expect all ip addresses in addr_set appears in the output of cmd_output
+            False means expect no ip addresses in addr_set appears in the output of cmd_output
+    @param cmd_output: command output
+    @param cmd_desc: command description, used for logging purpose.
     """
     for addr in addr_set[hostname]:
         if expect_exists:
-            pytest_assert(addr in ifconfig_output,
-                          f"{addr} not appeared in {hostname} mgmt interface")
-            logger.info(f"{addr} exists in the output of ifconfig")
+            pytest_assert(addr in cmd_output,
+                          f"{addr} not appeared in {hostname} {cmd_desc}")
+            logger.info(f"{addr} exists in the output of {cmd_desc}")
         else:
-            pytest_assert(addr not in ifconfig_output,
-                          f"{hostname} mgmt interface still with addr {addr}")
-            logger.info(f"{addr} not exists in the output of ifconfig which is expected")
+            pytest_assert(addr not in cmd_output,
+                          f"{hostname} {cmd_desc} still with addr {addr}")
+            logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
