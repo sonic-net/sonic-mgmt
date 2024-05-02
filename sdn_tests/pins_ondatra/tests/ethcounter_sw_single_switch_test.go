@@ -6,13 +6,17 @@
 package ethernet_counter_test
 
 import (
+	"net"
 	"testing"
 	"time"
 
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
 )
 
 // These are the counters we track in these tests.
@@ -161,4 +165,210 @@ func ShowCountersDelta(t *testing.T, before Counters, after Counters, expect Cou
 // Tests start here.
 func TestMain(m *testing.M) {
 	ondatra.RunTests(m, pinsbind.New)
+}
+
+// ----------------------------------------------------------------------------
+// TestGNMIEthernetInterfaceRole - Check EthernetX interface role.
+// - management should be false
+// - CPU should be false
+func TestGNMIEthernetInterfaceRole(t *testing.T) {
+	// Report results to TestTracker at the end.
+	defer testhelper.NewTearDownOptions(t).WithID("e0619932-46c8-4e49-9e2b-d79a67d03dea").Teardown(t)
+
+	// Select the dut, or device under test.
+	dut := ondatra.DUT(t, "DUT")
+
+	// Select a random front panel interface EthernetX.
+	intf, err := testhelper.RandomInterface(t, dut, nil)
+	if err != nil {
+		t.Fatalf("Failed to fetch random interface: %v", err)
+	}
+	intfPath := gnmi.OC().Interface(intf)
+
+	// Read management via /state.  Note that the config path for
+	// this doesn't exist since it's read-only.
+	if stateMgmt := gnmi.Get(t, dut, intfPath.Management().State()); stateMgmt {
+		t.Errorf("%v state Management is %v, wanted false", intf, stateMgmt)
+	}
+
+	// Read cpu via /state.
+	if stateCPU := gnmi.Get(t, dut, intfPath.Cpu().State()); stateCPU {
+		t.Errorf("%v state CPU is %v, wanted false", intf, stateCPU)
+	}
+}
+
+// ----------------------------------------------------------------------------
+// TestGNMIEthParentPaths - Check EthernetX counters and interface paths.
+func TestGNMIEthParentPaths(t *testing.T) {
+	// Reports results to TestTracker at the end.
+	defer testhelper.NewTearDownOptions(t).WithID("1aaa6fc9-da57-4751-89b1-56751ac209c6").Teardown(t)
+
+	// Select the dut, or device under test.
+	dut := ondatra.DUT(t, "DUT")
+
+	// Pick a random interface, EthernetX
+	intf, err := testhelper.RandomInterface(t, dut, nil)
+	if err != nil {
+		t.Fatalf("Failed to fetch random interface: %v", err)
+	}
+	intfPath := gnmi.OC().Interface(intf)
+
+	// Read all counters via /state.  The config path for
+	// this doesn't exist since it's read-only.  The type
+	// for the return value is "type Interface_Counters struct"
+	stateCounters := gnmi.Get(t, dut, intfPath.Counters().State())
+
+	// For most counters, simply require them not to be nil.
+	if stateCounters.CarrierTransitions == nil {
+		t.Errorf("%v CarrierTransitions wasn't nil", intf)
+	}
+
+	if stateCounters.InBroadcastPkts == nil {
+		t.Errorf("%v BroadcastPkts is nil", intf)
+	}
+
+	if stateCounters.InDiscards == nil {
+		t.Errorf("%v InDicards is nil", intf)
+	}
+
+	if stateCounters.InErrors == nil {
+		t.Errorf("%v InErrors is nil", intf)
+	}
+
+	if stateCounters.InFcsErrors == nil {
+		t.Errorf("%v InFcsErrors is nil", intf)
+	}
+
+	if stateCounters.InMulticastPkts == nil {
+		t.Errorf("%v InMulticastPkts is nil", intf)
+	}
+
+	if stateCounters.InOctets == nil {
+		t.Errorf("%v InOctets is nil", intf)
+	}
+
+	if stateCounters.InPkts == nil {
+		t.Errorf("%v InPkts is nil", intf)
+	}
+
+	if stateCounters.InUnicastPkts == nil {
+		t.Errorf("%v InUnicastPkts is nil", intf)
+	}
+
+	if stateCounters.InUnknownProtos == nil {
+		t.Errorf("%v InUnknownProtos is nil", intf)
+	}
+
+	if stateCounters.LastClear == nil {
+		t.Errorf("%v LastClear is nil", intf)
+	}
+
+	if stateCounters.OutBroadcastPkts == nil {
+		t.Errorf("%v OutBroadcastPkts is nil", intf)
+	}
+
+	if stateCounters.OutDiscards == nil {
+		t.Errorf("%v OutDiscards is nil", intf)
+	}
+
+	if stateCounters.OutErrors == nil {
+		t.Errorf("%v OutErrors is nil", intf)
+	}
+
+	if stateCounters.OutMulticastPkts == nil {
+		t.Errorf("%v OutMulticastPkts is nil", intf)
+	}
+
+	if stateCounters.OutOctets == nil {
+		t.Errorf("%v OutOctets is nil", intf)
+	}
+
+	if stateCounters.OutPkts == nil {
+		t.Errorf("%v OutPkts is nil", intf)
+	}
+
+	if stateCounters.OutUnicastPkts == nil {
+		t.Errorf("%v OutUnicastPkts is nil", intf)
+	}
+
+	// Read parent via /state.  Note that the config path for
+	// this doesn't exist since it is read-only.  The type
+	// for the return value is
+	// "type OpenconfigInterfaces_Interfaces_Interface_State struct"
+	stateIntf := gnmi.Get(t, dut, intfPath.State())
+
+	// Verify the information received.
+	t.Logf("%v AdminStatus is %v", intf, stateIntf.AdminStatus)
+
+	// Validate AdminStatus is UP.
+	if stateIntf.AdminStatus != oc.Interface_AdminStatus_UP {
+		t.Errorf("%v AdminStatus is unexpected: %v", intf, stateIntf.AdminStatus)
+	}
+
+	// Validate Counters is not nil.
+	if stateIntf.Counters == nil {
+		t.Errorf("%v Counters is nil", intf)
+	}
+
+	// Description may not be valid, allow. Typically ''.
+	if stateIntf.Description != nil {
+		t.Logf("%v Description is '%v'", intf, stateIntf.GetDescription())
+	}
+
+	// Validate Enabled.
+	if stateIntf.Enabled == nil {
+		t.Error("Ethernet0 Enabled is nil")
+	} else {
+		if !stateIntf.GetEnabled() {
+			t.Errorf("%v is not enabled", intf)
+		}
+	}
+
+	// Ifindex may not be valid, allow.
+	if stateIntf.Ifindex != nil {
+		t.Logf("%v Ifindex is %v", intf, stateIntf.GetIfindex())
+	}
+
+	// LastChange may not be valid, allow.
+	if stateIntf.LastChange != nil {
+		t.Logf("%v LastChange is %v", intf, stateIntf.GetLastChange())
+	}
+
+	// Validate the LoopbackMode.
+	if stateIntf.LoopbackMode == oc.Interfaces_LoopbackModeType_UNSET {
+		t.Errorf("%v LoopbackMode is unset", intf)
+	} else {
+		if stateIntf.GetLoopbackMode() != oc.Interfaces_LoopbackModeType_NONE {
+			t.Errorf("LoopbackMode is not valid: got: %v, want: %v", stateIntf.GetLoopbackMode(), oc.Interfaces_LoopbackModeType_NONE)
+		}
+	}
+
+	// Validate the MTU.
+	if stateIntf.Mtu == nil {
+		t.Errorf("%v Mtu is nil", intf)
+	} else {
+		if stateIntf.GetMtu() < 1500 || stateIntf.GetMtu() > 9216 {
+			t.Errorf("%v Mtu is unexpected: %v (expected [1514-9216]", intf, stateIntf.GetMtu())
+		}
+	}
+
+	// Validate the Name.
+	if stateIntf.Name == nil {
+		t.Errorf("%v Name is nil", intf)
+	} else {
+		if stateIntf.GetName() != intf {
+			t.Errorf("%v Name is %v", intf, stateIntf.GetName())
+		}
+	}
+
+	// Validate OperStatus.  Looks like links are often down in
+	// current testbed so allow, at least for this test.
+	if stateIntf.OperStatus != oc.Interface_OperStatus_UP {
+		t.Logf("%v OperStatus is %v", intf, stateIntf.OperStatus)
+	}
+
+	// Validate the Type.
+	if stateIntf.Type != oc.IETFInterfaces_InterfaceType_ethernetCsmacd {
+		t.Errorf("%v Type is unexpected: %v", intf, stateIntf.Type)
+	}
 }
