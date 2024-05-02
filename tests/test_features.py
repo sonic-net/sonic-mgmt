@@ -8,7 +8,7 @@ pytestmark = [
 
 
 # Test Functions
-def test_show_features(duthosts, enum_dut_hostname):
+def run_show_features(duthosts, enum_dut_hostname):
     """Verify show features command output against CONFIG_DB
     """
     duthost = duthosts[enum_dut_hostname]
@@ -19,3 +19,7 @@ def test_show_features(duthosts, enum_dut_hostname):
                                     .format(cmd_key), module_ignore_errors=False)['stdout']
         pytest_assert(redis_value.lower() == cmd_value.lower(),
                       "'{}' is '{}' which does not match with config_db".format(cmd_key, cmd_value))
+
+
+def test_show_features(duthosts, enum_dut_hostname):
+    run_show_features(duthosts, enum_dut_hostname)
