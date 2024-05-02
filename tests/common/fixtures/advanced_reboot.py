@@ -688,6 +688,9 @@ class AdvancedReboot:
         """
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
+        passwords = self.duthost.host.options['variable_manager'].\
+            _hostvars[self.duthost.hostname]['sonic_default_passwords']
+
         params = {
             "dut_username": self.rebootData['dut_username'],
             "dut_password": self.rebootData['dut_password'],
@@ -715,8 +718,7 @@ class AdvancedReboot:
             "asic_type": self.duthost.facts["asic_type"],
             "allow_mac_jumping": self.allowMacJump,
             "preboot_files": self.prebootFiles,
-            "alt_password": self.duthost.host.options['variable_manager']
-                            ._hostvars[self.duthost.hostname].get("ansible_altpassword"),
+            "alt_password": passwords,
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
             "neighbor_type": self.neighborType,

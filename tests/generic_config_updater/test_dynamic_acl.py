@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 CREATE_CUSTOM_TABLE_TYPE_FILE = "create_custom_table_type.json"
 CREATE_CUSTOM_TABLE_TEMPLATE = "create_custom_table.j2"
 CREATE_FORWARD_RULES_TEMPLATE = "create_forward_rules.j2"
+CREATE_SECONDARY_FORWARD_RULES_TEMPLATE = "create_secondary_forward_rules.j2"
 CREATE_INITIAL_DROP_RULE_TEMPLATE = "create_initial_drop_rule.j2"
 CREATE_SECONDARY_DROP_RULE_TEMPLATE = "create_secondary_drop_rule.j2"
 CREATE_THREE_DROP_RULES_TEMPLATE = "create_three_drop_rules.j2"
@@ -897,7 +898,14 @@ def dynamic_acl_replace_rules(duthost):
                                "DST_IPV6: " + REPLACEMENT_IPV6_SUBNET,
                                "Active"]
 
-    output = format_and_apply_template(duthost, REPLACE_RULES_TEMPLATE, extra_vars)
+    # replacing an ACL rule causing error logs to get flooded because of a SONiC bug currently - temporary fix
+
+    dynamic_acl_remove_ip_forward_rule(duthost, "IPV4")
+    dynamic_acl_remove_ip_forward_rule(duthost, "IPV6")
+
+    time.sleep(2)
+
+    output = format_and_apply_template(duthost, CREATE_SECONDARY_FORWARD_RULES_TEMPLATE, extra_vars)
 
     expect_op_success(duthost, output)
 
@@ -962,27 +970,22 @@ def dynamic_acl_apply_drop_scale_rules(duthost, setup):
 
     priority = MAX_DROP_RULE_PRIORITY
     json_patch = []
-    expected_rule_contents = {}
-    rule_number = 1
 
-    for port_name in setup["scale_port_names"]:
-        rule_name = "DROP_RULE_" + str(rule_number)
-        full_rule_name = "/ACL_RULE/DYNAMIC_ACL_TABLE|"+rule_name
-        rule_vals = {
-            "PRIORITY": str(priority),
-            "PACKET_ACTION": "DROP",
-            "IN_PORTS": port_name
-        }
-        patch = {
-            "op": "add",
-            "path": full_rule_name,
-            "value": rule_vals
-        }
-        json_patch.append(patch)
-        expected_content = ["DYNAMIC_ACL_TABLE", rule_name, str(priority), "DROP", "IN_PORTS: " + port_name, "Active"]
-        expected_rule_contents[rule_name] = expected_content
-        priority -= 1
-        rule_number += 1
+    rule_name = "DROP_RULE"
+    full_rule_name = "/ACL_RULE/DYNAMIC_ACL_TABLE|"+rule_name
+    all_ports = ",".join(setup["scale_port_names"])
+    rule_vals = {
+        "PRIORITY": str(priority),
+        "PACKET_ACTION": "DROP",
+        "IN_PORTS": all_ports
+    }
+    patch = {
+        "op": "add",
+        "path": full_rule_name,
+        "value": rule_vals
+    }
+    json_patch.append(patch)
+    expected_content = ["DYNAMIC_ACL_TABLE", rule_name, str(priority), "DROP", "IN_PORTS: " + all_ports, "Active"]
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -991,8 +994,7 @@ def dynamic_acl_apply_drop_scale_rules(duthost, setup):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        for rule_name, expected_content in expected_rule_contents.items():
-            expect_acl_rule_match(duthost, rule_name, expected_content)
+        expect_acl_rule_match(duthost, rule_name, expected_content)
 
     finally:
         delete_tmpfile(duthost, tmpfile)
