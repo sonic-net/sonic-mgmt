@@ -213,7 +213,7 @@ foo ALL=(ALL) NOPASSWD:ALL
 
 4. Verify that you can login into the **host** (e.g. `ssh foo@172.17.0.1`, if the default docker bridge IP is `172.18.0.1/16`, follow https://docs.docker.com/network/bridge/#configure-the-default-bridge-network to change it to `172.17.0.1/16`, delete the current `sonic-mgmt` docker using command `docker rm -f <sonic-mgmt_container_name>`, then start over from step 1 of section **Setup sonic-mgmt docker** ) from the `sonic-mgmt` **container** without any password prompt.
 
-5. (Required for IPv6 test cases) Verify that you can login into the **host** via IPv6 (e.g. `ssh foo@fd00:1::1` if the default docker bridge is `fd00:1::1/64`) from the `sonic-mgmt` **container** without any password prompt. 
+5. (Required for IPv6 test cases) Verify that you can login into the **host** via IPv6 (e.g. `ssh foo@fd00:1::1` if the default docker bridge is `fd00:1::1/64`) from the `sonic-mgmt` **container** without any password prompt.
 
 6. Verify that you can use `sudo` without a password prompt inside the **host** (e.g. `sudo bash`).
 
