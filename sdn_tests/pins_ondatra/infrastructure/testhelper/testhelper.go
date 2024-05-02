@@ -1,4 +1,4 @@
-// Package testhelper contains APIs that help in writing GPINs Ondatra tests.
+// Package testhelper contains APIs that help in writing PINs Ondatra tests.
 package testhelper
 
 import (
