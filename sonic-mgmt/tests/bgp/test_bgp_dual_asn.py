@@ -439,7 +439,8 @@ def start_peer_ipv4_bgp_session(
     )
 
     # check exabgp http_api port is ready
-    return wait_tcp_connection(localhost, ptfhost.mgmt_ip, port)
+    if not wait_tcp_connection(localhost, ptfhost.mgmt_ip, port, timeout_s=60):
+        pytest.fail(f"exabgp http_api {ptfhost.mgmt_ip} port {port} is not ready")
 
 
 def verify_bgp_session(duthost, bgp_neighbor):

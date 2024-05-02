@@ -215,20 +215,22 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
         expected_route_flow_packets = get_expected_flow_counter_packets_number(vnet_json_data)
         with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost, [route_pattern], {route_pattern: {'packets': expected_route_flow_packets}}):
             ptf_runner(ptfhost,
-                "ptftests",
-                "vnet_vxlan.VNET",
-                platform_dir="ptftests",
-                params=ptf_params,
-                qlen=1000,
-                log_file=log_file)
+                       "ptftests",
+                       "vnet_vxlan.VNET",
+                       platform_dir="ptftests",
+                       params=ptf_params,
+                       qlen=1000,
+                       log_file=log_file,
+                       is_python3=True)
     else:
         ptf_runner(ptfhost,
-                "ptftests",
-                "vnet_vxlan.VNET",
-                platform_dir="ptftests",
-                params=ptf_params,
-                qlen=1000,
-                log_file=log_file)
+                   "ptftests",
+                   "vnet_vxlan.VNET",
+                   platform_dir="ptftests",
+                   params=ptf_params,
+                   qlen=1000,
+                   log_file=log_file,
+                   is_python3=True)
 
 
 def get_expected_flow_counter_packets_number(vnet_json_data):
