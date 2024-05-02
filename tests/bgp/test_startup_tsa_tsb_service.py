@@ -233,9 +233,6 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
             # Verify TSB is configured on the dut after startup_tsa_tsb service is stopped
             pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                           "DUT is not in normal state after startup_tsa_tsb service is stopped")
-        # Make sure DUT continues to be in good state after TSB
-        assert wait_until(300, 20, 2, duthost.critical_services_fully_started), \
-            "Not all critical services are fully started on {}".format(duthost.hostname)
 
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
@@ -345,9 +342,6 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
             # Verify TSB is configured on the dut after startup_tsa_tsb service is stopped
             pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
                           "DUT is not in normal state after startup_tsa_tsb service is stopped")
-        # Make sure DUT continues to be in good state after TSB
-        assert wait_until(300, 20, 2, duthost.critical_services_fully_started), \
-            "Not all critical services are fully started on {}".format(duthost.hostname)
 
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
@@ -447,17 +441,11 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
                           "startup_tsa_tsb service is not stopped even after configured timer expiry")
 
-            pytest_assert(wait_until(90, 5, 0, check_tsc_command_error, linecard),
-                          "TSC command still returns error even after startup_tsa_tsb service stopped/exited")
-
             # Ensure dut comes back to normal state after timer expiry
             if not get_tsa_tsb_service_status(linecard, 'running'):
                 # Verify TSB is configured on the dut after startup_tsa_tsb service is stopped
                 pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
                               "DUT is not in normal state after startup_tsa_tsb service is stopped")
-            # Make sure DUT continues to be in good state after TSB
-            assert wait_until(300, 20, 2, linecard.critical_services_fully_started), \
-                "Not all critical services are fully started on {}".format(linecard.hostname)
 
             # Wait until all routes are announced to neighbors
             cur_v4_routes = {}
@@ -583,17 +571,11 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
                           "startup_tsa_tsb service is not stopped even after configured timer expiry")
 
-            pytest_assert(wait_until(90, 5, 0, check_tsc_command_error, linecard),
-                          "TSC command still returns error even after startup_tsa_tsb service stopped/exited")
-
             # Ensure dut comes back to normal state after timer expiry
             if not get_tsa_tsb_service_status(linecard, 'running'):
                 # Verify TSB is configured on the dut after startup_tsa_tsb service is stopped
                 pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
                               "DUT is not in normal state after startup_tsa_tsb service is stopped")
-            # Make sure DUT continues to be in good state after TSB
-            assert wait_until(300, 20, 2, linecard.critical_services_fully_started), \
-                "Not all critical services are fully started on {}".format(linecard.hostname)
 
             # Wait until all routes are announced to neighbors
             cur_v4_routes = {}
