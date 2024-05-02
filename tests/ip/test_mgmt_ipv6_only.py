@@ -9,7 +9,7 @@ from tests.tacacs.utils import check_output
 from tests.bgp.test_bgp_fact import run_bgp_facts
 from tests.test_features import run_show_features
 from tests.tacacs.test_ro_user import ssh_remote_run
-from tests.ntp.test_ntp import run_ntp, setup_ntp # noqa F401
+from tests.ntp.test_ntp import run_ntp, setup_ntp_func # noqa F401
 from tests.common.helpers.assertions import pytest_require
 from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6 # noqa F401
 from tests.syslog.test_syslog import run_syslog, check_default_route # noqa F401
@@ -172,7 +172,7 @@ def test_telemetry_output_ipv6_only(convert_and_restore_config_db_to_ipv6_only, 
 
 
 def test_ntp_ipv6_only(duthosts, rand_one_dut_hostname,
-                                  convert_and_restore_config_db_to_ipv6_only, setup_ntp): # noqa F811
+                                  convert_and_restore_config_db_to_ipv6_only, setup_ntp_func): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
-    run_ntp(duthosts, rand_one_dut_hostname, setup_ntp)
+    run_ntp(duthosts, rand_one_dut_hostname, setup_ntp_func)
