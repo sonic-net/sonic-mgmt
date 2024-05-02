@@ -127,7 +127,7 @@ def test_snmp_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname, localhost, c
 
 
 def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                           tacacs_creds, check_tacacs_v6, convert_and_restore_config_db_to_ipv6_only): # noqa F811
+                           tacacs_creds, convert_and_restore_config_db_to_ipv6_only, check_tacacs_v6): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -139,7 +139,7 @@ def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname
 
 
 def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                           tacacs_creds, check_tacacs_v6, convert_and_restore_config_db_to_ipv6_only): # noqa F811
+                           tacacs_creds, convert_and_restore_config_db_to_ipv6_only, check_tacacs_v6): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
