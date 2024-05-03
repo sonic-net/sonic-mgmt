@@ -170,7 +170,7 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           state='started',
                           timeout=timeout_s,
                           module_ignore_errors=True)
-    if 'exception' in res:
+    if 'exception' in res or res.get('failed') is True:
         logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
                     (str(server_hostname), listening_port, timeout_s))
         return False
