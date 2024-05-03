@@ -20,12 +20,12 @@
 ## Introduction
 
 The purpose is to test the functionality of Smartswitch.
-DPU platform is on in which switch is connected to  dpu sleds via pcie link having two dpus per sled.
+Smartswitch is connected to dpu sleds via pcie link having two dpus per sled.
 
 ## Scope
 
-The test is targeting a running SONiC system on each dpus. Purpose of the test is to verify a platform 
-related functionalities/features for each dpus. 
+The test is targeting a running SONiC system on each dpus. 
+Purpose of the test is to verify smartswich platform related functionalities/features for each dpus. 
 For every test cases, all DPUs need to be powered on unless specified in any of the case.
 
 ## Definitions and Abbreviations
