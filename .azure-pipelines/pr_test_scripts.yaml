@@ -157,6 +157,7 @@ t0:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
+  - ip/test_mgmt_ipv6_only.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
