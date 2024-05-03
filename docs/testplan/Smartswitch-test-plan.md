@@ -19,8 +19,7 @@
 
 ## Introduction
 
-The purpose is to test the functionality of Smartswitch.
-Smartswitch is connected to dpu sleds via pcie link having two dpus per sled.
+The smartSwitch is a next generation of data center switch for T0/T1 roles, that now subsumes  the DPU. This PR describes test cases to validate additional platform management functions such FPD,  BMC, Console, Power mgmt., Health, Software upgrade, Life-cycle scenarios needed due to the presence of these DPUs in the system.
 
 ## Scope
 
