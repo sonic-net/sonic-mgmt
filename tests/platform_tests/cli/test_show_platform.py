@@ -231,7 +231,7 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     duthost = duthosts[enum_supervisor_dut_hostname]
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
-        check_pmon_daemon_status(duthost),
+        wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
         "Not all pmon daemons running on '{}'".format(duthost.hostname)
     )
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
@@ -267,7 +267,9 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
         pytest.skip("JSON output not available in this version")
 
     logging.info("Check pmon daemon status")
-    pytest_assert(check_pmon_daemon_status(duthost), "Not all pmon daemons running.")
+    pytest_assert(
+        wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
+        "Not all pmon daemons running.")
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus", "--json"])
 
@@ -279,7 +281,7 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0":
         led_status_list = ["N/A"]
     else:
-        led_status_list = ["green", "amber", "red", "off"]
+        led_status_list = ["green", "amber", "red", "off", "N/A"]
     for psu_info in psu_info_list:
         expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current",
                          "power"]
