@@ -883,9 +883,9 @@ pc/test_lag_2.py::test_lag_db_status_with_po_update:
 
 pc/test_lag_member.py:
   skip:
-    reason: "Not support dualtor topo"
+    reason: "Not support dualtor or t0 backend topo"
     conditions:
-        - "'dualtor' in topo_name"
+        - "'dualtor' in topo_name or 't0-backend' in topo_name"
 
 pc/test_po_cleanup.py:
   skip:
