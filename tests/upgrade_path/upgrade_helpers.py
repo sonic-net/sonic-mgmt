@@ -23,10 +23,10 @@ TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
 
 
 def pytest_runtest_setup(item):
-    from_list = item.config.getoption('base_image_list')
-    to_list = item.config.getoption('target_image_list')
-    if not from_list or not to_list:
-        pytest.skip("base_image_list or target_image_list is empty")
+    from_image = item.config.getoption('base_image')
+    to_image = item.config.getoption('target_image')
+    if not from_image or not to_image:
+        pytest.skip("base_image or target_image is empty")
 
 
 @pytest.fixture(scope="module")
@@ -57,6 +57,31 @@ def check_sonic_version(duthost, target_version):
     current_version = duthost.image_facts()['ansible_facts']['ansible_image_facts']['current']
     assert current_version == target_version, \
         "Upgrade sonic failed: target={} current={}".format(target_version, current_version)
+
+
+def restore_image_to_first_boot(duthost, image_version):
+    images = duthost.image_facts()['ansible_facts']['ansible_image_facts']
+    if images['current'] == image_version:
+        # We're running the image we want to restore to first boot state, which isn't valid,
+        # so fail here
+        return False
+
+    image_present = False
+    for installed_image in images['available']:
+        if installed_image == image_version:
+            image_present = True
+            break
+    if not image_present:
+        return False
+
+    base_path = os.path.dirname(__file__)
+    restore_to_first_boot_script = os.path.join(base_path, "restoreToFirstBoot.sh")
+    duthost.copy(src=restore_to_first_boot_script, dest="/tmp/restoreToFirstBoot.sh", mode="preserve")
+    duthost.command("sudo unshare -mnpf /tmp/restoreToFirstBoot.sh {}".format(image_version.replace("SONiC-OS", "image")))
+    duthost.command("sudo sonic-installer set-next-boot {}".format(image_version))
+    duthost.file(path="/host/old_config", state="absent")
+    duthost.copy(src="/etc/sonic/", dest="/host/old_config/", remote_src=True)
+    return True
 
 
 def install_sonic(duthost, image_url, tbinfo):
