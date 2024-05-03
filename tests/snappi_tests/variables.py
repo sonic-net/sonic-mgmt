@@ -21,14 +21,14 @@ in the snappi_sonic_devices.csv and asic values based on if its a chassis based 
     non_chassis_single_line_card : this option selects all the ports from the hostname
 
 '''
-line_card_choice = 'chassis_multi_line_card_multi_asic'
+line_card_choice = 'chassis_single_line_card_multi_asic'
 config_set = {
                 "chassis_single_line_card_single_asic": {
-                    'hostname': ["sonic-s6100-dut1"],
+                    'hostname': ["yy39top-lc4"],
                     'asic': ["asic0"]
                 },
                 "chassis_single_line_card_multi_asic": {
-                    'hostname': ["sonic-s6100-dut1"],
+                    'hostname': ["yy39top-lc4"],
                     'asic': ["asic0", "asic1"]
                 },
                 "chassis_multi_line_card_single_asic": {
@@ -49,6 +49,6 @@ config_set = {
                 }
             }
 
-dut_ip_start = '20.0.1.1'
-snappi_ip_start = '20.0.1.2'
-prefix_length = 24
+dut_ip_start = '100.0.0.0'
+snappi_ip_start = '100.0.0.1'
+prefix_length = 31

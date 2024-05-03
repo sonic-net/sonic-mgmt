@@ -268,6 +268,15 @@ def generate_pause_flows(testbed_config,
     pause_flow.metrics.loss = True
 
 
+def clear_dut_counters(duthost):
+    """
+    Clears the dut interface counter.
+    Args:
+        duthost (obj): DUT host object
+    """
+    duthost.command("sonic-clear counters \n")
+
+
 def run_traffic(duthost,
                 api,
                 config,
@@ -294,10 +303,8 @@ def run_traffic(duthost,
     """
 
     api.set_config(config)
-
     logger.info("Wait for Arp to Resolve ...")
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
-
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
     switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"][1].values(), [])
@@ -313,6 +320,7 @@ def run_traffic(duthost,
         cs.state = cs.START
         api.set_capture_state(cs)
 
+    clear_dut_counters(duthost)
     logger.info("Starting transmit on all flows ...")
     ts = api.transmit_state()
     ts.state = ts.START
@@ -741,3 +749,56 @@ def verify_egress_queue_frame_count(duthost,
                 total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
                 pytest_assert(total_egress_packets == test_tx_frames[prio],
                               "Queue counters should increment for invalid PFC pause frames")
+
+
+def verify_m2o_oversubscribtion_results(duthost,
+                                        rows,
+                                        test_flow_name,
+                                        bg_flow_name,
+                                        rx_port,
+                                        rx_frame_count_deviation,
+                                        flag):
+    """
+    Verify if we get expected experiment results
+
+    Args:
+        duthost (obj): DUT host object
+        rows (list): per-flow statistics
+        test_flow_name (str): name of test flows
+        bg_flow_name (str): name of background flows
+        rx_port: Rx port of the dut
+        rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
+        flag (dict): Comprises of flow name and its loss criteria
+
+    Returns:
+        N/A
+    """
+
+    sum_rx = 1
+    for flow_type, criteria in flag.items():
+        for row in rows:
+            tx_frames = row.frames_tx
+            rx_frames = row.frames_rx
+            if flow_type in row.name:
+                if 'no_loss' in criteria:
+                    logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
+                    pytest_assert(tx_frames == rx_frames,
+                                  '{} should not have any dropped packet'.format(row.name))
+                    pytest_assert(row.loss == 0,
+                                  '{} should not have traffic loss'.format(row.name))
+                    sum_rx += int(row.frames_rx)
+                elif 'loss' in criteria:
+                    logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
+                    pytest_assert(tx_frames != rx_frames,
+                                  '{} should have dropped packet'.format(row.name))
+                    pytest_assert(row.loss > 0,
+                                  '{} should have traffic loss'.format(row.name))
+                    sum_rx += int(row.frames_rx)
+                else:
+                    pytest_assert(False, "Wrong criteria given in flag")
+
+    tx_frames, tx_drop_frames = get_tx_frame_count(duthost, rx_port['peer_port'])
+    pytest_assert(abs(sum_rx - tx_frames)/sum_rx <= rx_frame_count_deviation,
+                  "FAIL: DUT counters doesn't match with the total frames received on Rx port, \
+                  Deviation of more than {} observed".format(rx_frame_count_deviation))
+    logger.info("PASS: DUT counters match with the total frames received on Rx port")

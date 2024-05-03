@@ -25,9 +25,9 @@ logger = logging.getLogger(__name__)
 dut_port_config = []
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 45
+TEST_FLOW_AGGR_RATE_PERCENT = 22
 BG_FLOW_NAME = 'Background Flow'
-BG_FLOW_AGGR_RATE_PERCENT = 45
+BG_FLOW_AGGR_RATE_PERCENT = 22
 data_flow_pkt_size = 1024
 DATA_FLOW_DURATION_SEC = 15
 data_flow_delay_sec = 1
@@ -265,6 +265,7 @@ def run_pfc_test(api,
     # Verify PFC pause frame count on the DUT
     verify_pause_frame_count_dut(duthost=duthost,
                                  test_traffic_pause=test_traffic_pause,
+                                 global_pause=True,
                                  snappi_extra_params=snappi_extra_params)
 
     # Verify in flight TX lossless packets do not leave the DUT when traffic is expected

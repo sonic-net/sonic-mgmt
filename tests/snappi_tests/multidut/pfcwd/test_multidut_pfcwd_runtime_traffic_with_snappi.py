@@ -20,6 +20,7 @@ def test_pfcwd_runtime_traffic(snappi_api,                  # noqa: F811
                                fanout_graph_facts,          # noqa: F811
                                duthosts,
                                line_card_choice,
+                               prio_dscp_map,
                                linecard_configuration_set,
                                get_multidut_snappi_ports    # noqa: F811
                                ):
@@ -63,7 +64,6 @@ def test_pfcwd_runtime_traffic(snappi_api,                  # noqa: F811
     tgen_ports = [port['location'] for port in snappi_ports]
 
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 

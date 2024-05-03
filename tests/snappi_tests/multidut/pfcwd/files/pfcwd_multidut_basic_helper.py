@@ -80,7 +80,8 @@ def run_pfcwd_basic_test(api,
 
     if trigger_pfcwd:
         """ Large enough to trigger PFC watchdog """
-        pfc_storm_dur_sec = ceil(detect_time_sec + poll_interval_sec + 0.1)
+        pfc_storm_dur_sec = 4 * ceil(detect_time_sec + poll_interval_sec + 0.1)
+        #pfc_storm_dur_sec = 4
 
         flow1_delay_sec = restore_time_sec / 2
         flow1_dur_sec = pfc_storm_dur_sec

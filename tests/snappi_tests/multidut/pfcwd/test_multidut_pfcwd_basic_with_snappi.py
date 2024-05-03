@@ -239,6 +239,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
 
     for duthost in dut_list:
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
+        duthost.shell("sudo config save -y")
         reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
         logger.info("Wait until the system is stable")
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
@@ -322,6 +323,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
 
     for duthost in dut_list:
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
+        duthost.shell("sudo config save -y")
         reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
         logger.info("Wait until the system is stable")
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),

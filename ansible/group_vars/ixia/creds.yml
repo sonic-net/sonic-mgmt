@@ -1,11 +1,11 @@
 ixia_api_server:
     user: admin
-    password: admin
+    password: Ixia123!Ixia123!
     rest_port: 443
     session_id: none
 
 snappi_api_server:
     user: admin
-    password: admin
+    password: Ixia123!Ixia123!
     rest_port: 443
     session_id: none

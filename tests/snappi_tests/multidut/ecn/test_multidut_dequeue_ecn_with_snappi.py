@@ -121,4 +121,5 @@ def test_dequeue_ecn(request,
     # Teardown ECN config through a reload
     logger.info("Reloading config to teardown ECN config")
     config_reload(sonic_host=duthost1, config_source='config_db', safe_reload=True)
-    config_reload(sonic_host=duthost2, config_source='config_db', safe_reload=True)
+    if duthost1 != duthost2:
+        config_reload(sonic_host=duthost2, config_source='config_db', safe_reload=True)

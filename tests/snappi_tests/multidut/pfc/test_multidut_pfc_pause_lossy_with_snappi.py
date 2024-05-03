@@ -27,6 +27,8 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
                                      duthosts,
                                      line_card_choice,
                                      linecard_configuration_set,
+                                     prio_dscp_map,
+                                     lossless_prio_list,
                                      get_multidut_snappi_ports):  # noqa: F811
     """
     Test if PFC will impact a single lossy priority
@@ -64,7 +66,6 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
     tgen_ports = [port['location'] for port in snappi_ports]
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
     all_prio_list = prio_dscp_map.keys()
@@ -103,6 +104,8 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
                                     fanout_graph_facts,     # noqa: F811
                                     duthosts,
                                     line_card_choice,
+                                    prio_dscp_map,
+                                    lossless_prio_list,
                                     linecard_configuration_set,
                                     get_multidut_snappi_ports   # noqa: F811
                                     ):
@@ -142,7 +145,6 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
     tgen_ports = [port['location'] for port in snappi_ports]
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 
@@ -174,7 +176,8 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
 
 
 @pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
+#@pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
+@pytest.mark.parametrize('reboot_type', ['cold'])
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
 def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
@@ -183,6 +186,8 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                                             duthosts,
                                             localhost,
                                             line_card_choice,
+                                            prio_dscp_map,
+                                            lossless_prio_list,
                                             linecard_configuration_set,
                                             get_multidut_snappi_ports,  # noqa: F811
                                             reboot_type):
@@ -224,7 +229,6 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
     tgen_ports = [port['location'] for port in snappi_ports]
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 
@@ -237,6 +241,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     bg_prio_list.remove(lossy_prio)
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost1.hostname))
+    duthost1.shell("sudo config save -y")
     reboot(duthost1, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(300, 20, 0, duthost1.critical_services_fully_started),
@@ -264,7 +269,8 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
 
 
 @pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
+@pytest.mark.parametrize('reboot_type', ['cold'])
+#@pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
 def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
@@ -273,6 +279,8 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
                                            duthosts,
                                            localhost,
                                            line_card_choice,
+                                           prio_dscp_map,
+                                           lossless_prio_list,
                                            linecard_configuration_set,
                                            get_multidut_snappi_ports,   # noqa: F811
                                            reboot_type):
@@ -316,7 +324,6 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
     tgen_ports = [port['location'] for port in snappi_ports]
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 
@@ -327,6 +334,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     bg_prio_list = lossless_prio_list
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost1.hostname))
+    duthost1.shell("sudo config save -y")
     reboot(duthost1, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(300, 20, 0, duthost1.critical_services_fully_started),

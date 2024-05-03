@@ -1,0 +1,41 @@
+Last cached time was 2024-02-24T00:44:55.444691
+      IFACE    STATE       RX_OK        RX_BPS    RX_UTIL    RX_ERR    RX_DRP    RX_OVR        TX_OK        TX_BPS    TX_UTIL    TX_ERR    TX_DRP    TX_OVR
+-----------  -------  ----------  ------------  ---------  --------  --------  --------  -----------  ------------  ---------  --------  --------  --------
+  Ethernet0        U           0      0.04 B/s      0.00%         0         0         0  130,609,386  4958.75 MB/s      9.92%         0         0         0
+  Ethernet8        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+ Ethernet16        U  71,835,151  2883.65 MB/s      5.77%         0         0         0           20  2426.47 KB/s      0.00%         0         0         0
+ Ethernet24        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+ Ethernet32        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+ Ethernet40        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+ Ethernet48        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+ Ethernet56        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+ Ethernet64        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+ Ethernet72        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+ Ethernet80        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+ Ethernet88        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+ Ethernet96        U  58,774,215  2428.15 MB/s      4.86%         0         0         0           20  2247.94 KB/s      0.00%         0         0         0
+Ethernet104        U           0      0.00 B/s      0.00%         0         0         0           21  2379.46 KB/s      0.00%         0         0         0
+Ethernet112        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet120        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet128        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet136        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet144        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet152        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet160        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet168        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet176        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet184        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet192        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet200        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet208        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet216        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet224        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet232        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet240        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet248        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet256        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet264        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet272        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+Ethernet280        X           0      0.00 B/s      0.00%         0         0         0            0      0.00 B/s      0.00%         0         0         0
+
+Reminder: Please execute 'show interface counters -d all' to include internal links

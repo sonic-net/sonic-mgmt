@@ -1,0 +1,28 @@
+#!/bin/bash
+set +x 
+tbname=yy39-t2-ixia
+imageid=$1
+if test "x$imageid" == "x"
+then
+	echo "Usage: scriptname imageid"
+else
+logdir=/run_logs/ixia/$imageid/`date +%F-%H-%M-%S`/
+ command="./run_tests.sh -n $tbname -e --skip_sanity -e -rA -O -u -l debug -e -s -p $logdir -e --disable_loganalyzer "
+#command="./run_tests.sh -n $tbname -e --skip_sanity -e -rA -O -u -l error -e -s -p $logdir "
+
+mkdir -p /run_logs/$imageid
+#logfile=/run_logs/l2-${imageid}.log
+logfile=/tmp/l2-${imageid}.log
+touch $logfile
+#$command -e --disable_loganalyzer -c snappi_tests
+
+#$command -c test_pretest.py
+ $command  -c 'snappi_tests/multidut/pfcwd/test_multidut_pfcwd_m2o_with_snappi.py'
+#$command -c 'snappi_tests/pfc/test_pfc_response_time.py'
+# Logs: /run_logs/ixia/7104/2023-10-29-03-07-29/tr_2023-10-29-03-07-29.xml
+
+# /run_logs/ixia/7104/2023-10-30-00-01-40/tr_2023-10-30-00-01-40.xml
+#$command -c 'snappi_tests/bgp'
+
+#$command -c "snappi_tests/pfcwd"
+fi

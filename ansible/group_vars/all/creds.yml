@@ -10,14 +10,15 @@ junos_default_password:  ""
 junos_login: "root"
 junos_password: ""
 
-cisco_login: "admin"
-cisco_password: "password"
+cisco_login: "cisco"
+cisco_password: "cisco123"
 
-sonic_login: "admin"
+sonic_login: "cisco"
 sonic_default_passwords:
  - "YourPaSsWoRd"
  - "password"
-sonic_password: "password"
+ - "cisco123"
+sonic_password: "cisco123"
 
 k8s_master_login: "ubuntu"
 k8s_master_password: "use_own_value"

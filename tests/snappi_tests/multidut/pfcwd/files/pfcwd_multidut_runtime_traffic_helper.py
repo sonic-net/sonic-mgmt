@@ -129,7 +129,8 @@ def __gen_traffic(testbed_config,
 
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
-    data_flow_rate_percent = int(100 / len(prio_list))
+    #data_flow_rate_percent = int(100 / len(prio_list))
+    data_flow_rate_percent = int(50 / len(prio_list))
 
     """ For each priority """
     for prio in prio_list:
@@ -235,7 +236,8 @@ def __verify_results(rows, speed_gbps, data_flow_dur_sec, data_pkt_size, toleran
     Returns:
         N/A
     """
-    data_flow_rate_percent = int(100 / len(rows))
+    #data_flow_rate_percent = int(100 / len(rows))
+    data_flow_rate_percent = int(50 / len(rows))
 
     for row in rows:
         flow_name = row.name

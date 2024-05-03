@@ -644,7 +644,7 @@ def get_pfcwd_poll_interval(host_ans, asic_value=None):
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope='GLOBAL',
                                     attr='POLL_INTERVAL',
-                                    namespace=asic_value)
+                                    asic_value=asic_value)
 
     if val is not None:
         return int(val)
@@ -671,7 +671,7 @@ def get_pfcwd_detect_time(host_ans, intf, asic_value=None):
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope=intf,
                                     attr='detection_time',
-                                    namespace=asic_value)
+                                    asic_value=asic_value)
 
     if val is not None:
         return int(val)
@@ -698,7 +698,7 @@ def get_pfcwd_restore_time(host_ans, intf, asic_value=None):
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope=intf,
                                     attr='restoration_time',
-                                    namespace=asic_value)
+                                    asic_value=asic_value)
 
     if val is not None:
         return int(val)
@@ -890,7 +890,10 @@ def get_egress_queue_count(duthost, port, priority):
     Returns:
         tuple (int, int): total count of packets and bytes in the queue
     """
-    raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
+    asic = duthost.get_port_asic_instance(port)
+    raw_out = duthost.shell(
+        "show queue counters -n {} {} | sed -n '/UC{}/p'".format(
+            asic.namespace, port, priority))['stdout']
     total_pkts = raw_out.split()[2] if 2 < len(raw_out.split()) else "0"
     if total_pkts == "N/A":
         total_pkts = "0"

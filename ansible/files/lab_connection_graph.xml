@@ -1,0 +1,35 @@
+<LabConnectionGraph>
+  <PhysicalNetworkGraphDeclaration>
+    <Devices>
+
+      <Device Hostname="yy39top-rp" HwSku="Cisco-8800-RP"  Type="DevSonic"/>
+      <Device Hostname="yy39top-lc4" HwSku="Cisco-88-LC0-36FH-M-O36"  Type="DevSonic"/>
+      <Device Hostname="sonic-ucs-m4-3" HwSku="TestServ" Type="Server"/>
+      <Device Hostname="yy40-ixia" HwSku="IXIA-tester" Type="DevIxiaChassis"/>
+      <Device Hostname="yy40-ixia-api-serv" HwSku="IXIA-tester" Type="DevIxiaApiServ"/>
+    </Devices>
+    <DeviceInterfaceLinks>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="yy40-ixia" EndPort="Card1/Port5" StartDevice="yy39top-lc4" StartPort="Ethernet0"/>
+      <!-- DeviceInterfaceLink BandWidth="400000" EndDevice="yy40-ixia" EndPort="Card1/Port6" StartDevice="yy39top-lc4" StartPort="Ethernet16" -->
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="yy40-ixia" EndPort="Card1/Port7" StartDevice="yy39top-lc4" StartPort="Ethernet96"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="yy40-ixia" EndPort="Card1/Port8" StartDevice="yy39top-lc4" StartPort="Etherne104"/>
+    </DeviceInterfaceLinks>
+  </PhysicalNetworkGraphDeclaration>
+  <DataPlaneGraph>
+    <DevicesL3Info Hostname="yy40-ixia">
+      <ManagementIPInterface Name="ManagementIp" Prefix="172.27.147.46"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="yy40-ixia">
+      <InterfaceVlan mode="Access" portname="Card1/Port5" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card1/Port6" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card1/Port7" vlanids=""/>
+      <InterfaceVlan mode="Access" portname="Card1/Port8" vlanids=""/>
+    </DevicesL2Info>
+  </DataPlaneGraph>
+  <ConsoleGraphDeclaration>
+  </ConsoleGraphDeclaration>
+  <BmcGraphDeclaration>
+  </BmcGraphDeclaration>
+  <PowerControlGraphDeclaration>
+  </PowerControlGraphDeclaration>
+</LabConnectionGraph>
