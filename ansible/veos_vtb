@@ -65,6 +65,9 @@ all:
         vlab-11:
         vlab-12:
         vlab-8k-01:
+        vlab-t2-01:
+        vlab-t2-02:
+        vlab-t2-sup:
     ptf:
       hosts:
         ptf-01:
