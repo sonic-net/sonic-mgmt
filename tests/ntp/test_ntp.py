@@ -3,6 +3,7 @@ from tests.common.helpers.assertions import pytest_assert
 import logging
 import time
 import pytest
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,18 @@ def config_long_jump(duthost, enable=False):
 
 @pytest.fixture(scope="module")
 def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
+    with _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6) as result:
+        yield result
+
+
+@pytest.fixture(scope="function")
+def setup_ntp_func(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
+    with _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6) as result:
+        yield result
+
+
+@contextmanager
+def _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
     """setup ntp client and server"""
     duthost = duthosts[rand_one_dut_hostname]
 
