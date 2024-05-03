@@ -9,7 +9,7 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
+from tests.common.helpers.backend_acl import bind_acl_table
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.ptf_agent_updater import PtfAgentUpdater
@@ -69,18 +69,18 @@ def port_type(request):
     return request.param
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='class')
 def acl_rule_cleanup(duthost, tbinfo):
     """
     Cleanup all the existing DATAACL rules
     """
     if "t0-backend" in tbinfo["topo"]["name"]:
-        duthost.shell('acl-loader delete')
+        duthost.shell('acl-loader delete DATAACL')
 
     yield
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='class')
 def modify_acl_table(duthost, tbinfo, port_type, acl_rule_cleanup):
     """
     Remove the DATAACL table prior to the test and recreate it at the end
@@ -288,10 +288,6 @@ def apply_route_config(request, tbinfo, duthost, ptfhost, port_type, define_sub_
 
             new_sub_ports[src_port].append((next_hop_sub_port, name_of_namespace))
 
-    if "t0-backend" in tbinfo["topo"]["name"] and 'lag' not in port_type:
-        parent_port_list = list(set([sub_port.split('.')[0] for sub_port in sub_ports_keys]))
-        apply_acl_rules(duthost, tbinfo, parent_port_list)
-
     yield {
         'new_sub_ports': new_sub_ports,
         'sub_ports': sub_ports
@@ -405,11 +401,6 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
             add_static_route_to_ptf(ptfhost, dst_port_network, dut_port_ip)
 
             port_map[ptf_port]['dst_ports'].append((next_hop_sub_port, name_of_namespace))
-
-    if "t0-backend" in tbinfo["topo"]["name"] and 'lag' not in port_type:
-        parent_port_list = list(set([sub_port.split('.')[0] for sub_port in sub_ports_keys]))
-        intf_list = parent_port_list + list(dut_ports.values())
-        apply_acl_rules(duthost, tbinfo, intf_list)
 
     yield {
         'port_map': port_map,
@@ -564,7 +555,7 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
 
 
 @pytest.fixture(scope='class')
-def reload_dut_config(request, duthost, define_sub_ports_configuration, port_type):
+def reload_dut_config(request, duthost, define_sub_ports_configuration, port_type, modify_acl_table):
     """
     DUT's configuration reload on teardown
 
