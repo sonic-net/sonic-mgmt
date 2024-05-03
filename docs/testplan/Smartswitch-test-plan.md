@@ -1,4 +1,4 @@
-# Test plan for DPU Platform for Chassis
+# Test plan for Smartswitch
 
 - [Introduction](#introduction)
 - [Scope](#scope)
