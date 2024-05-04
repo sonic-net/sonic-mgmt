@@ -21,8 +21,15 @@ except ImportError:
 import tempfile
 import json
 from datetime import datetime
+from msrest.authentication import (
+    BasicAuthentication,
+    BasicTokenAuthentication,
+    OAuthTokenAuthentication)
+from azure.devops.connection import Connection
+import requests
+import zipfile
 # Install the following package before running this program
-# pip install azure-storage-blob azure-identity
+# pip install azure-storage-blob azure-identity azure-devops
 
 
 logging.basicConfig(
@@ -32,6 +39,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+ORGANIZATION_URL = 'https://dev.azure.com/mssonic/'
+PROJECT_NAME = 'internal'
 DATABASE = 'SonicTestData'
 VENDOR_ACCOUNT_URL = 'https://sonicvendorresult.blob.core.windows.net'
 NIGHTLY_TEST_ACCOUNT_URL = 'https://sonicelastictestprodsa.blob.core.windows.net'
@@ -78,6 +87,62 @@ class KustoChecker(object):
         self.logger.debug('Query String: {}'.format(query))
         return self.client.execute(self.database, query)
 
+    def query_highest_pass_rate_for_dualtor(self, HardwareSku=None, BranchName=None, BuildId=None, Vendor=None):
+        """
+        Query the highest pass rate test dualtor result for each HardwareSku, Branch for past 7 days
+        return: list[{Vendor,BuildId,HardwareSku,BranchName,RunDate,RunWeek,OSVersion,SuccessRate,CasesRun}]
+        """
+        hardwaresku_q = '| where HardwareSku contains "{}"'.format(HardwareSku) if HardwareSku else ''
+        BranchName_q = '| where BranchName contains "{}"'.format(BranchName) if BranchName else ''
+        BuildId_q = '| where BuildId contains "{}"'.format(BuildId) if BuildId else ''
+        Vendor_q = '| where Vendor contains "{}"'.format(Vendor) if Vendor else ''
+        query_str = '''
+            let ExcludeTestbedList = dynamic(['ixia', 't2', '3132', '7280', 'slx', '3164', 'azd']);
+            let IncludeBranchList = dynamic(['20230531', '20231105', '20231110']);
+            let IncludeTopoList = dynamic(['dualtor']);
+            let ExcludeAsicList = dynamic(['barefoot']);
+            let BroadcomList = dynamic(['s6100','dx010','s6000','e1031','3164']);
+            let MellanoxList = dynamic(["3800", "2700", "4700","4600c"]);
+            FlatTestReportViewLatest
+            | where UploadTimeUTC > ago(8d)
+            | join kind=leftouter TestReportPipeline on ReportId
+            | extend PipeStatus = case (FailedTasks != "", "Sanity Failure", CancelledTasks != "", "Canceled", "FINISHED")
+            | project-away ReportId1,TestbedName1,OSVersion1
+            | project-rename TestplanStartTime=StartTimestamp,TestplanEndTime=UploadTimestamp
+            | project-rename UploadTimestamp = UploadTimeUTC
+            | where PipeStatus == "FINISHED"
+            | where Result != "skipped"
+            | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
+            | extend opTestCase = case(isempty(opTestCase), TestCase, opTestCase)
+            | extend BranchName = tostring(split(OSVersion, '.')[0])
+            | extend FullCaseName = strcat(ModulePath,".",opTestCase)
+            | extend TestType = case(strlen(BuildId)>10, "ElasticTest",strlen(BuildId)<=10, "PipeplineTest", "Unknow")
+            | where TestType == "PipeplineTest"
+            | where not(TestbedName has_any(ExcludeTestbedList))
+            | where not(AsicType has_any(ExcludeAsicList))
+            | where TopologyType in (IncludeTopoList)
+            | where BranchName in (IncludeBranchList)
+            | project-away CancelledTasks,FailedTasks,ReportId,SuccessTasks,JenkinsId
+            | extend PipelineName = tostring(split(TrackingId, '#')[0])
+            | extend ResultExpectation = case(Result in ("success", "xfail_expected", "xfail_forgive","xfail_skipped"), "expected", Result in ("xfail_unexpected"), "unexpected", Result)
+            | summarize CasesRun = count(), Successes = countif(ResultExpectation == "expected") by BuildId,OSVersion,RunDate,BranchName,HardwareSku,TopologyType,AsicType,PipelineName
+            | extend SuccessRate = case(Successes == 0 or CasesRun == 0,round(0),round(todouble((Successes)* 100) /todouble(CasesRun),2))
+            | extend Vendor = case(HardwareSku startswith "Arista", "arista",
+                                HardwareSku startswith "Cisco", "cisco",
+                                HardwareSku startswith "Mellanox", "mellanox",
+                                HardwareSku has_any (MellanoxList), "mellanox",
+                                HardwareSku has_any (BroadcomList), "brcm", "unknow" )
+            | extend RunWeek = week_of_year(RunDate)
+            | summarize arg_max(SuccessRate, *) by OSVersion, BranchName, HardwareSku, PipelineName, RunWeek
+            {} {} {} {}
+            '''.format(hardwaresku_q, BranchName_q, BuildId_q, Vendor_q)
+        logger.info('Query highest pass rate for dualtor from past 7 days:{}'.format(query_str))
+
+        result = self.query(query_str)
+        highest_pass_rate_dualtor = result.primary_results[0].to_dict()['data']
+        logger.info('Highest pass rate dualtor test result for each HardwareSku, Topology and Branch for past 7 days:{}'.format(highest_pass_rate_dualtor))
+        return highest_pass_rate_dualtor
+
     def query_highest_pass_rate(self, HardwareSku=None, TopologyType=None, BranchName=None, BuildId=None, Vendor=None):
         """
         Query the highest pass rate for each HardwareSku, Topology, Branch for past 7 days
@@ -98,13 +163,13 @@ class KustoChecker(object):
             let TopologyList = dynamic(['t0', 't1', 'm0', 'mx', 'dualtor']);
             let VendorList = dynamic(['arista', 'brcm', 'cisco', 'mellanox']);
             TestReportUnionData
-            | where UploadTimestamp > ago(7d)
+            | where UploadTimestamp > ago(8d)
             | where TestbedName != ''
             | where Result != "skipped"
             | where TestType == "ElasticTest"
             | where PipeStatus == "FINISHED"
             | where BranchName in (IncludeBranchList)
-            | where TopologyType in (TopologyList)
+            | where (TopologyType in (TopologyList) and TestType == "ElasticTest") or (Topology == "dualtor" and TestType != "ElasticTest")
             | extend ResultExpectation = case(Result in ("success", "xfail_expected", "xfail_forgive","xfail_skipped"), "expected", Result in ("xfail_unexpected"), "unexpected", Result)
             | summarize CasesRun = count(), Successes = countif(ResultExpectation == "expected") by BuildId,OSVersion,RunDate,BranchName,HardwareSku,TopologyType,AsicType
             | extend SuccessRate = case(Successes == 0 or CasesRun == 0,round(0),round(todouble((Successes)* 100) /todouble(CasesRun),2))
@@ -125,7 +190,7 @@ class KustoChecker(object):
 
         result = self.query(query_str)
         highest_pass_rate = result.primary_results[0].to_dict()['data']
-        print(highest_pass_rate)
+        logger.info('Highest pass rate for each HardwareSku, Topology and Branch for past 7 days:{}'.format(highest_pass_rate))
         return highest_pass_rate
 
     def upload_data(self, report_data):
@@ -152,6 +217,44 @@ class KustoChecker(object):
                 logger.info("Ingest to backup cluster...")
                 self.ingest_client.ingest_from_file(temp.name, ingestion_properties=props)
         return
+
+
+class AzureDevOpsConnecter(object):
+
+    def __init__(self, organization_url, project_name, personal_access_token):
+        if personal_access_token:
+            self.personal_access_token = personal_access_token
+        else:
+            raise RuntimeError('Could not load Azure DevOps credentials from environment')
+
+        self.organization_url = organization_url
+        self.project_name = project_name
+        self.http_logger = logging.getLogger('azure.devops.connection')
+        self.http_logger.setLevel(logging.WARNING)
+
+        self.connection = Connection(base_url=self.organization_url, creds=BasicAuthentication("", self.personal_access_token))
+        logger.info("Connected to Azure DevOps {} successfully".format(self.organization_url))
+
+    def download_artifacts(self, build_id, file_name):
+        # Use self.connection to interact with Azure DevOps APIs
+        build_client = self.connection.clients_v7_0.get_build_client()
+        build_artifacts = build_client.get_artifacts(self.project_name, build_id)
+
+        # Check if build exists
+        if not build_artifacts:
+            logger.error("Build {} does not exist".format(build_id))
+            return
+
+        for artifact in build_artifacts:
+            download_url = artifact.resource.download_url
+            logger.info("Downloading artifacts from build {} with download url: {}".format(build_id, download_url))
+            response = requests.get(download_url, auth=("", self.personal_access_token))
+            if response.status_code == 200:
+                with open(file_name + '.zip', 'wb') as f:
+                    f.write(response.content)
+                logger.info("File {} downloaded successfully!".format(file_name))
+            else:
+                logger.error("Failed to download file {}. Response status code: {}".format(file_name, response.status_code))
 
 
 class AzureBlobConnecter(object):
@@ -292,14 +395,20 @@ def main(args):
     hardwaresku = args.hardwaresku if args.hardwaresku != "All" else None
     buildid = args.buildid if args.buildid != "All" else None
     vendor = args.vendor if args.vendor != "All" else None
+    pipeline_type = "PipelineTest" if args.topology == "dualtor" else "ElasticTest"
 
     kustochecker = create_kusto_checker()
     vendor_sharing_storage_token = os.getenv("VENDOR_SHARING_SAS_TOKEN")
     nightly_test_storage_token = os.getenv("NIGHTLY_TEST_SAS_TOKEN")
     nightly_test_storage_connecter = AzureBlobConnecter(NIGHTLY_TEST_ACCOUNT_URL, nightly_test_storage_token)
     vendor_sharing_storage_connecter = AzureBlobConnecter(VENDOR_ACCOUNT_URL, vendor_sharing_storage_token)
+    pat_for_dualtor_result = os.getenv("AZURE_DEVOPS_PAT_FOR_DUALTOR_RESULT")
+    azure_devops_connecter = AzureDevOpsConnecter(ORGANIZATION_URL, PROJECT_NAME, pat_for_dualtor_result)
 
-    result = kustochecker.query_highest_pass_rate(HardwareSku=hardwaresku, TopologyType=topology, BranchName=branch, BuildId=buildid, Vendor=vendor)
+    if pipeline_type == "PipelineTest":
+        result = kustochecker.query_highest_pass_rate_for_dualtor(HardwareSku=hardwaresku, BranchName=branch, BuildId=buildid, Vendor=vendor)
+    else:
+        result = kustochecker.query_highest_pass_rate(HardwareSku=hardwaresku, TopologyType=topology, BranchName=branch, BuildId=buildid, Vendor=vendor)
     total_count = len(result)
     logger.info('Total count of test result: {}'.format(total_count))
 
@@ -345,12 +454,6 @@ def main(args):
         temp_json.update({'buildid': buildid, 'hardwaresku': hardwaresku, 'topology': topology, 'branch': branch, 'vendor': vendor, 'run_date': str(run_date), 'os_version': os_version, 'cases_run': cases_run, 'success_rate': success_rate})
         logger.info("current temp_json: {}".format(temp_json))
 
-        if vendor != "cisco" and topology == "dualtor":
-            # Dualtor test result should from azure pipeline besides cisco
-            logger.info('Topology {} is not supported for vendor {}, ignore'.format(topology, vendor))
-            report_json.append(temp_json)
-            continue
-
         if vendor not in VENDOR_CONTAINER:
             logger.info('Vendor {} is not in the vendor list, ignore'.format(vendor))
             report_json.append(temp_json)
@@ -361,18 +464,23 @@ def main(args):
             report_json.append(temp_json)
             continue
 
-        if cases_run < CASE_SHRESHOLD and vendor != 'cisco':
-            logger.info('Total CassesRun: {} is less than 800, may be not a full run, ingore'.format(str(cases_run)))
+        if cases_run < CASE_SHRESHOLD and vendor != 'cisco' and topology != 'dualtor':
+            logger.info('Total CassesRun of build {}: {} is less than 800, may be not a full run, ingore'.format(buildid, str(cases_run)))
             report_json.append(temp_json)
             continue
 
         if float(success_rate) < PASSRATE_SHRESHOLD:
-            logger.info('SuccessRate: {} is less than 90%, do not upload this, ingore'.format(str(success_rate)))
+            logger.info('SuccessRate of build {}: {} is less than 90%, do not upload this, ingore'.format(buildid, str(success_rate)))
             report_json.append(temp_json)
             continue
 
-        nightly_test_storage_connecter.download_artifacts_from_container_recursively(NIGHTLY_TEST_CONTAINER_NAME, buildid, base_path)
-        shutil.make_archive(buildid, 'zip', base_path)
+        if pipeline_type == "ElasticTest":
+            nightly_test_storage_connecter.download_artifacts_from_container_recursively(NIGHTLY_TEST_CONTAINER_NAME, buildid, base_path)
+            shutil.make_archive(buildid, 'zip', base_path)
+        else:
+            # dualtor test result is in the azure devops build artifacts
+            azure_devops_connecter.download_artifacts(buildid, buildid)
+
         # artifact name is buildid.zip
         local_artifact_path = buildid + '.zip'
 
@@ -388,7 +496,8 @@ def main(args):
         temp_json.update({'upload_status': 'True'})
         kustochecker.upload_data(temp_json)
         report_json.append(temp_json)
-        shutil.rmtree(base_path + '/' + buildid)
+        if pipeline_type == "ElasticTest":
+            shutil.rmtree(base_path + '/' + buildid)
         os.remove(local_artifact_path)
 
     logger.info('Actual upload to azure storage counter summary: {}'.format(counter_map))
@@ -408,16 +517,16 @@ if __name__ == '__main__':
                         type=str,
                         dest='topology',
                         default="All",
-                        choices=['t0', 't1', 'm0', 'mx', 'All'],
-                        help='Topology type, t0, t1, m0 or mx, default is all'
+                        choices=['t0', 't1', 'm0', 'mx', 'dualtor', 'All'],
+                        help='Topology type, t0, t1, m0, mx or dualtor, default is all'
                         )
 
     parser.add_argument('-b', '--branch',
                         type=str,
                         dest='branch',
                         default="All",
-                        choices=['20230531', '20231105', 'All'],
-                        help='Branch name, 20230531 or 20231105'
+                        choices=['20230531', '20231105', '20231110', 'All'],
+                        help='Branch name, 20230531, 20231105 or 20231110'
                         )
 
     parser.add_argument('-s', '--sku',

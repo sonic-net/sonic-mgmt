@@ -7,7 +7,7 @@ pr: none
 
 schedules:
   - cron: "15 0 * * Sun"
-    displayName: Test Result Sharing With Vendor Scheduler_ElasticTest
+    displayName: Test Result Sharing With Vendor Scheduler_PipelineTest
     branches:
       include:
         - internal
@@ -19,9 +19,6 @@ parameters:
     displayName: "Vendor Name"
     default:
       - arista
-      - cisco
-      - brcm
-      - mellanox
 
   - name: HARDWARESKU
     type: string
@@ -30,7 +27,7 @@ parameters:
 
   - name: TOPOLGY_TYPE
     type: string
-    default: 'All'
+    default: 'dualtor'
     displayName: "Topology Type, t0, t1 or dualtor"
 
   - name: BRANCH
@@ -44,16 +41,16 @@ parameters:
     displayName: "Build ID"
 
 stages:
-  - stage: TestResultSharingWithVendor_ElasticTest
+  - stage: TestResultSharingWithVendor_dualtor
     jobs:
       - ${{ each vendor in parameters.VENDOR }}:
-        - job: ${{ vendor }}_TestResultSharingWithVendor_ElasticTest
+        - job: ${{ vendor }}_TestResultSharingWithVendor_dualtor
           pool: nightly
           timeoutInMinutes: 960
           variables:
             - group: KUSTO_SECRETS
             - group: GIT_SECRETS
-            - group: sonibld
+            - group: sonicbld
             - name: skipComponentGovernanceDetection
               value: true
 
