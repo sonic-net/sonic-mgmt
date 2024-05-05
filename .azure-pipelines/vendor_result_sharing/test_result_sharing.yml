@@ -53,7 +53,7 @@ stages:
           variables:
             - group: KUSTO_SECRETS
             - group: GIT_SECRETS
-            - group: sonibld
+            - group: sonicbld
             - name: skipComponentGovernanceDetection
               value: true
 
