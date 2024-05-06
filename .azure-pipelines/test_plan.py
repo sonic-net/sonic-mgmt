@@ -190,7 +190,7 @@ class TestPlanManager(object):
             "scope": get_scope(self.url)
         }
         attempt = 0
-        while(attempt < MAX_GET_TOKEN_RETRY_TIMES):
+        while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
             try:
                 resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
                 self._token = resp["access_token"]
