@@ -49,7 +49,7 @@ RETURN = '''
 FILE_PATH = '/usr/share/sonic/device'
 PORTMAP_FILE = 'port_config.ini'
 ALLOWED_HEADER = ['name', 'lanes', 'alias', 'index', 'asic_port_name', 'role', 'speed',
-                  'coreid', 'coreportid', 'numvoq']
+                  'core_id', 'core_port_id', 'num_voq']
 
 MACHINE_CONF = '/host/machine.conf'
 ONIE_PLATFORM_KEY = 'onie_platform'
@@ -135,11 +135,11 @@ class SonicPortAliasMap():
                             role_index = index
                         if 'asic_port_name' in text:
                             asic_name_index = index
-                        if 'coreid' in text:
+                        if 'core_id' in text:
                             port_coreid_index = index
-                        if 'coreportid' in text:
+                        if 'core_port_id' in text:
                             port_core_portid_index = index
-                        if 'numvoq' in text:
+                        if 'num_voq' in text:
                             num_voq_index = index
                         if 'index' in text:
                             port_index = index
