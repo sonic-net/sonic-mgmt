@@ -169,7 +169,7 @@ steps:
           echo "MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}"
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
         displayName: "Download test plan script"
-        condition: ne(parameters.MGMT_BRANCH, 'master')
+        condition: ne(variables['MGMT_BRANCH'], 'master')
 
   - script: |
       set -e
