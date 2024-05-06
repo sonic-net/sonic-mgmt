@@ -42,8 +42,8 @@ def pytest_configure(config):
         allowed values: 'physical', 'vs'"
     )
     config.addinivalue_line(
-        "markers", "supported_completeness_level(TEST_LEVEL): mark test to specify the completeness level for the test. \
-        Allowed values: 'debug', 'basic' ,'confident', 'thorough'"
+        "markers", "supported_completeness_level(TEST_LEVEL): mark test to specify the completeness level for the \
+        test. Allowed values: 'debug', 'basic' ,'confident', 'thorough'"
     )
 
 
