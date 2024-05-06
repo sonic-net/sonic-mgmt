@@ -924,6 +924,11 @@ platform_tests/test_cont_warm_reboot.py:
     conditions:
       - "'dualtor' in topo_name"
 
+platform_tests/test_reload_config.py::test_reload_configuration_checks:
+  skip:
+    reason: "Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000"
+    conditions:
+      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305']"
 
 #######################################
 #####           qos               #####
