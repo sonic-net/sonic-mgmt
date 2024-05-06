@@ -256,6 +256,22 @@
         "tag": ""
     },
     {
+        "hwsku": "Mellanox-SN2700-A1",
+        "topo": "t0",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Mellanox-SN2700-A1",
+        "topo": "t1",
+        "owner": "Shahzad Iqbal",
+        "email": "shahzadiqbal@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
         "hwsku": "Mellanox-SN2700-D40C8S8",
         "topo": "t0",
         "owner": "Bing Wang",
