@@ -219,7 +219,7 @@ def check_traffic(streams_info):
     Author:Ramsiddarth Ragurajan (rraguraj@cisco.com)
 
     '''
-    flag = False
+    flag = True
     for traffic_item, values in streams_info.items(): 
         values['tg_handle'].tg_traffic_control(action='run', stream_handle=values['stream_id'])
         st.wait(30)
@@ -232,7 +232,6 @@ def check_traffic(streams_info):
         st.log(traffic_stat['rx']['total_packets']/traffic_stat['tx']['total_packets'])
         if traffic_stat['rx']['total_packets'] > 0.998*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] < 1.002*traffic_stat['tx']['total_packets']:
             st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {} PASSED".format(traffic_item))
-            flag = True
         else:
             st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {} FAILED".format(traffic_item))
             st.report_fail("BI-DIRECTIONAL TRAFFIC BEWTEEN {} FAILED".format(traffic_item))
