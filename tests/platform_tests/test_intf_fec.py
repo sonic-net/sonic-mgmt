@@ -48,3 +48,44 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             if presence == "present" and oper == "up" and speed in SUPPORTED_SPEEDS:
                 if fec == "n/a":
                     pytest.fail("FEC status is N/A for interface {}".format(intf['interface']))
+
+
+def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                              enum_frontend_asic_index, conn_graph_facts):
+    """
+    @Summary: Configure the FEC operational mode for all the interfaces, then check
+    FEC operational mode is retored to default FEC mode
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
+        # Not supported on 202305 and older releases
+        skip_release(duthost, ['201811', '201911', '202012', '202205', '202211', '202305'])
+    else:
+        pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
+
+    logging.info("Get output of '{}'".format("show interface status"))
+    intf_status = duthost.show_and_parse("show interface status")
+
+    for intf in intf_status:
+        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}"
+                                              .format(intf['interface']))
+        if sfp_presence:
+            presence = sfp_presence[0].get('presence', '').lower()
+            oper = intf.get('oper', '').lower()
+
+            if presence == "not present" or oper != "up":
+                continue
+
+        config_status = duthost.command("sudo config interface fec {} rs"
+                                        .format(intf['interface']))
+        if config_status:
+            duthost.command("sleep 5")
+            # Verify the FEC operational mode is restored
+            fec_status = duthost.show_and_parse("sudo show interface status {}"
+                                                .format(intf['interface']))
+            oper = fec_status[0].get('oper', '').lower()
+            fec = fec_status[0].get('fec', '').lower()
+
+            if not (oper == "up" and fec == "rs"):
+                pytest.fail("FEC status is not restored for interface {}".format(intf['interface']))
