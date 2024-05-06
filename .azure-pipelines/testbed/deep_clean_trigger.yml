@@ -23,6 +23,13 @@ schedules:
         - internal
     always: true
 
+resources:
+  repositories:
+    - repository: sonic-mgmt-int
+      type: git
+      name: sonic-mgmt-int
+      ref: refs/heads/internal
+
 parameters:
 
   - name: DRY_RUN
@@ -57,18 +64,18 @@ parameters:
         - vms61-t2-8800-1
         - vms61-t2-8800-2
 
-variables:
-  - group: SERVICE_CONNECTIONS
-
 jobs:
   - job: TriggerDeepClean
     timeoutInMinutes: 300
+    variables:
+      - template: .azure-pipelines/variables/service_connections.yml@sonic-mgmt-int
 
     steps:
 
-      - template: ../nightly/templates/get_token.yml  # Get accessToken and store in ACCESS_TOKEN variable
+      # Get accessToken and store in ACCESS_TOKEN variable
+      - template: .azure-pipelines/nightly/templates/get_token.yml@sonic-mgmt-int
         parameters:
-          SERVICE_CONNECTION: $(SC_AZDEVOPS_MSSONIC)
+          SERVICE_CONNECTION: ${{ variables.AZDEVOPS_MSSONIC }}
 
       - task: PythonScript@0
         displayName: Trigger deep clean
