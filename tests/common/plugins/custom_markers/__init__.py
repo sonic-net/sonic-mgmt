@@ -124,6 +124,7 @@ def check_device_type(item):
             pytest.skip("test requires device type in {!r}".format(dev))
     # Else, test case not specify device_type explicitly, by default run on all devices
 
+
 def check_test_completeness(item):
     '''
     API to set the completeness level. If the specified level does not match
