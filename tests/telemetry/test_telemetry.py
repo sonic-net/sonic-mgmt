@@ -43,7 +43,6 @@ def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, gnmi_port):
             '.format(dut_ip, gnmi_port, i)
         
         cmd_output = ptfhost.shell(cmd, module_ignore_errors=True)
-        stdout_output = cmd_output["stdout"]
         
         if not cmd_output["failed"]:
             cnt += 1
@@ -119,8 +118,8 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
-    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
-           -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
+    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt \
+        COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
@@ -132,7 +131,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, gnxi_path):
+                                    setup_streaming_telemetry, gnxi_path):
     """
     Run pyclient from ptfdocker and check number of queue counters to check
     correctness of the feature of polling only configured port buffer queues.
