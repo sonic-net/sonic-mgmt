@@ -1,9 +1,20 @@
 import logging
 
 import pytest
+import os
+import sys
 from .pdu_manager import pdu_manager_factory
 from tests.common.utilities import get_host_visible_vars, get_sup_node_or_random_node
 
+SELF_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.realpath(os.path.join(SELF_DIR, ".."))
+if BASE_DIR not in sys.path:
+    sys.path.append(BASE_DIR)
+ANSIBLE_DIR = os.path.realpath(os.path.join(SELF_DIR, "../../../../ansible"))
+if ANSIBLE_DIR not in sys.path:
+    sys.path.append(ANSIBLE_DIR)
+
+from devutil.inv_helpers import HostManager            # noqa E402
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +41,7 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
     return pdu_hosts_vars
 
 
-def _get_pdu_controller(duthost, conn_graph_facts):
+def _get_pdu_controller(duthost, conn_graph_facts, tbinfo):
     hostname = duthost.hostname
     device_pdu_links = conn_graph_facts['device_pdu_links']
     device_pdu_info = conn_graph_facts['device_pdu_info']
@@ -38,10 +49,17 @@ def _get_pdu_controller(duthost, conn_graph_facts):
         # fall back to using inventory
         inv_mgr = duthost.host.options["inventory_manager"]
         pdu_host = inv_mgr.get_host(duthost.hostname).get_vars().get("pdu_host")
-        hosts = inv_mgr.get_host_list('all', pdu_host)
+
+        hostmgr = HostManager(os.path.join(ANSIBLE_DIR, tbinfo['inv_name']))
+        hosts = hostmgr.get_host_list('all', pdu_host)
+
         pdu_links = {}
         pdu_info = {}
         pdu_vars = {}
+
+        if pdu_host is None:
+            return pdu_manager_factory(duthost.hostname, pdu_links, pdu_info, pdu_vars)
+
         index = 1
         for ph in pdu_host.split(','):
             if ph in hosts:
@@ -70,7 +88,7 @@ def _get_pdu_controller(duthost, conn_graph_facts):
 
 
 @pytest.fixture(scope="module")
-def pdu_controller(duthosts, conn_graph_facts):
+def pdu_controller(duthosts, conn_graph_facts, tbinfo):
     """
     @summary: Fixture for controlling power supply to PSUs of DUT
     @param duthost: Fixture duthost defined in sonic-mgmt/tests/conftest.py
@@ -78,7 +96,7 @@ def pdu_controller(duthosts, conn_graph_facts):
               controller_base.py.
     """
     duthost = get_sup_node_or_random_node(duthosts)
-    controller = _get_pdu_controller(duthost, conn_graph_facts)
+    controller = _get_pdu_controller(duthost, conn_graph_facts, tbinfo)
 
     yield controller
 
@@ -89,12 +107,12 @@ def pdu_controller(duthosts, conn_graph_facts):
 
 
 @pytest.fixture(scope="module")
-def get_pdu_controller(conn_graph_facts):
+def get_pdu_controller(conn_graph_facts, tbinfo):
     controller_map = {}
 
     def pdu_controller_helper(duthost):
         if duthost.hostname not in controller_map:
-            controller = _get_pdu_controller(duthost, conn_graph_facts)
+            controller = _get_pdu_controller(duthost, conn_graph_facts, tbinfo)
             controller_map[duthost.hostname] = controller
 
         return controller_map[duthost.hostname]
