@@ -41,12 +41,12 @@ def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, gnmi_port):
             -p {1} -m get -x COUNTERS_QUEUE_NAME_MAP/Ethernet0:{2} \
             -xt COUNTERS_DB -o "ndastreamingservertest" \
             '.format(dut_ip, gnmi_port, i)
-        
+
         cmd_output = ptfhost.shell(cmd, module_ignore_errors=True)
-        
+
         if not cmd_output["failed"]:
             cnt += 1
-            
+
     return cnt
 
 
@@ -156,7 +156,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     duthost.shell("sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB))
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                     verbose=False)['stdout'])
-    
+
     # Add create_only_config_db_buffers entry to device metadata to enable
     # counters optimization and get number of queue counters of Ethernet0 prior
     # to removing buffer queues
