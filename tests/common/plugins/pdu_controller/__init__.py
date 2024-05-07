@@ -43,8 +43,8 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
 
 def _get_pdu_controller(duthost, conn_graph_facts, tbinfo):
     hostname = duthost.hostname
-    device_pdu_links = conn_graph_facts['device_pdu_links']
-    device_pdu_info = conn_graph_facts['device_pdu_info']
+    device_pdu_links = conn_graph_facts.get('device_pdu_links', {})
+    device_pdu_info = conn_graph_facts.get('device_pdu_info', {})
     if hostname not in device_pdu_links or hostname not in device_pdu_info:
         # fall back to using inventory
         inv_mgr = duthost.host.options["inventory_manager"]
