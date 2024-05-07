@@ -19,7 +19,8 @@ from .thermal_control_test_helper import ThermalPolicyFileContext,\
     mocker_factory, disable_thermal_policy  # noqa F401
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
