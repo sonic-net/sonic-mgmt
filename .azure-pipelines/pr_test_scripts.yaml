@@ -16,7 +16,6 @@ t0:
   - dns/test_dns_resolv_conf.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgpl.py
-  - generic_config_updater/test_bgp_prefix.py
   - generic_config_updater/test_bgp_speaker.py
   - generic_config_updater/test_cacl.py
   - generic_config_updater/test_dhcp_relay.py
