@@ -9,12 +9,12 @@ import ptf.testutils as testutils
 import random
 from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
 
 
 pytestmark = [
     pytest.mark.topology('mx'),
 ]
+
 
 MINIMUM_HOSTS_COUNT = 2
 MINIMUM_INTERFACE_MEMBERS_COUNT = 2
@@ -128,12 +128,18 @@ def dhcp_server_config_cli(duthost, config_commands):
 
 
 def dhcp_server_config_gcu(duthost, config_to_apply):
-    tmpfile = generate_tmpfile(duthost)
+    logging.info("The dhcp_server_config: %s" % config_to_apply)
+    tmpfile = duthost.shell('mktemp')['stdout']
     try:
-        output = apply_patch(duthost, json_data=config_to_apply, dest_file=tmpfile)
-        expect_op_success(duthost, output)
+        duthost.copy(content=json.dumps(config_to_apply, indent=4), dest=tmpfile)
+        output = duthost.shell('config apply-patch {}'.format(tmpfile), module_ignore_errors=True)
+        pytest_assert(not output['rc'], "Command is not running successfully")
+        pytest_assert(
+            "Patch applied successfully" in output['stdout'],
+            "Please check if json file is validate"
+        )
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        duthost.file(path=tmpfile, state='absent')
 
 
 def generate_common_config_patch(vlan_name, gateway, net_mask, dut_ports, ip_ranges):
