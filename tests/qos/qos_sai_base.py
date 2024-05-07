@@ -36,7 +36,7 @@ class QosBase:
     Common APIs
     """
     SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-64", "dualtor-120",
-                          "dualtor", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48"]
+                          "dualtor", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
@@ -720,6 +720,9 @@ class QosSaiBase(QosBase):
                 dstPorts = dst_port_ids
             elif len(dst_test_port_ids) >= 4:
                 dstPorts = [0, 2, 3]
+                if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["asic_type"]
+                        in ['cisco-8000']):
+                    dstPorts = [2, 3, 4]
             elif len(dst_test_port_ids) == 3:
                 dstPorts = [0, 2, 2]
             else:
@@ -1801,7 +1804,8 @@ class QosSaiBase(QosBase):
         return
 
     @pytest.fixture(scope='class', autouse=True)
-    def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host): # noqa F811
+    def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host, # noqa F811
+                         swapSyncd_on_selected_duts):
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             docker0_ipv6_addr = \
                 duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[

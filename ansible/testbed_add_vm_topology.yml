@@ -50,7 +50,7 @@
 
   - name: Check for a single host
     fail: msg="Please use -l server_X to limit this playbook to one host"
-    when: "{{ play_hosts|length }} != 1"
+    when: play_hosts|length != 1
 
   - name: Check that variable testbed_name is defined
     fail: msg="Define testbed_name variable with -e testbed_name=something"

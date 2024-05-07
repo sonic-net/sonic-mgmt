@@ -8,7 +8,7 @@ from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F4
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('ptf')
+    pytest.mark.topology('t0', 'ptf')
 ]
 
 
