@@ -60,6 +60,10 @@ parameters:
     - nightly-svc
     - nightly-bjw
     - nightly-tk5
+- name: SKIP_LOCKING_TESTBED
+  displayName: "Skip locking testbed (Please reserve the testbed manually)"
+  type: boolean
+  default: false
 
 stages:
 - stage: SONiCMetadataUpgradeTest
@@ -136,6 +140,7 @@ stages:
           TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
           TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
       displayName: Lock Testbed
+      condition: eq('${{ parameters.SKIP_LOCKING_TESTBED }}', 'false')
 
     - task: Bash@3
       displayName: remove-topo for ceos, and add-topo for vsonic
@@ -256,4 +261,4 @@ stages:
           TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
           TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
       displayName: Release Testbed
-      condition: always()
+      condition: eq('${{ parameters.SKIP_LOCKING_TESTBED }}', 'false')

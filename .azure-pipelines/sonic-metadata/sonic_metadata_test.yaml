@@ -71,6 +71,11 @@ parameters:
   default: false
   type: boolean
 
+- name: SKIP_LOCKING_TESTBED
+  displayName: "Skip locking testbed (Please reserve the testbed manually)"
+  type: boolean
+  default: false
+
 - name: FROM_IMAGE_LIST
   type: string
   displayName: "All base image numbers (space separated)"
@@ -224,3 +229,4 @@ stages:
     SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
     ITERATIONS : ${{ parameters.ITERATIONS }}
     SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+    SKIP_LOCKING_TESTBED: ${{ parameters.SKIP_LOCKING_TESTBED }}
