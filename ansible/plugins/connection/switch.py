@@ -96,7 +96,7 @@ class Connection(ConnectionBase):
                         "Establish connection to server failed after tried %d times." % max_retries)
 
             # if "'>', '#'" means Passwordless login, no need to send password
-            if i < 2 :
+            if i < 2:
                 self._display.vvv(
                     "Establish connection to server successful without requiring a password.", host=self.host)
                 break
