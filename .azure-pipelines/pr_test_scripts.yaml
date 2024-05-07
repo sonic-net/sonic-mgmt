@@ -97,6 +97,7 @@ t0:
   - platform_tests/test_reboot.py
   - platform_tests/test_secure_upgrade.py
   - platform_tests/test_sensors.py
+  - platform_tests/test_sequential_restart.py
   - platform_tests/test_service_warm_restart.py
   - portstat/test_portstat.py
   - process_monitoring/test_critical_process_monitoring.py
