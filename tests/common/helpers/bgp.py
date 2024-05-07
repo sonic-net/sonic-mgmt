@@ -112,9 +112,6 @@ class BGPNeighbor(object):
         assert resp.status_code == 200
 
         self.ptfhost.exabgp(name=self.name, state="stopped")
-        if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port, timeout_s=60):
-            raise RuntimeError("Failed to stop BGP neighbor %s" % self.name)
-
         if not self.is_passive:
             for asichost in self.duthost.asics:
                 logging.debug("update CONFIG_DB admin_status to down")

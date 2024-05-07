@@ -13,6 +13,7 @@ from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, delete_running_config
 
+TEST_ITERATIONS = 5
 BGP_DOWN_LOG_TMPL = "/tmp/bgp_down.pcap"
 WAIT_TIMEOUT = 120
 NEIGHBOR_ASN0 = 61000
@@ -127,7 +128,7 @@ def bgp_notification_packets(pcap_file):
     return packets
 
 
-def match_bgp_notification(packet, src_ip, dst_ip, action):
+def match_bgp_notification(packet, src_ip, dst_ip, action, bgp_session_down_time):
     """Check if the bgp notification packet matches."""
     if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
         return False
@@ -135,7 +136,9 @@ def match_bgp_notification(packet, src_ip, dst_ip, action):
     bgp_fields = packet[bgp.BGPNotification].fields
     if action == "cease":
         # error_code 6: Cease, error_subcode 3: Peer De-configured. References: RFC 4271
-        return bgp_fields["error_code"] == 6 and bgp_fields["error_subcode"] == 3
+        return (bgp_fields["error_code"] == 6 and
+                bgp_fields["error_subcode"] == 3 and
+                float(packet.time) < bgp_session_down_time)
     else:
         return False
 
@@ -159,50 +162,53 @@ def test_bgp_peer_shutdown(
     n0 = common_setup_teardown
     announced_route = {"prefix": "10.10.100.0/27", "nexthop": n0.ip}
 
-    try:
-        n0.start_session()
-        # ensure new session is ready
-        if not wait_until(
-            WAIT_TIMEOUT,
-            5,
-            20,
-            lambda: is_neighbor_session_established(duthost, n0),
-        ):
-            pytest.fail("Could not establish bgp sessions")
-
-        n0.announce_route(announced_route)
-        time.sleep(constants.sleep_interval)
-        announced_route_on_dut_before_shutdown = duthost.get_route(announced_route["prefix"], n0.namespace)
-        if not announced_route_on_dut_before_shutdown:
-            pytest.fail("announce route %s from n0 to dut failed" % announced_route["prefix"])
-
-        # Tear down BGP session on n0
-        bgp_pcap = BGP_DOWN_LOG_TMPL
-        with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
-            n0.teardown_session()
+    for _ in range(TEST_ITERATIONS):
+        try:
+            n0.start_session()
+            # ensure new session is ready
             if not wait_until(
                 WAIT_TIMEOUT,
                 5,
                 20,
-                lambda: is_neighbor_session_down(duthost, n0),
+                lambda: is_neighbor_session_established(duthost, n0),
             ):
-                pytest.fail("Could not tear down bgp session")
+                pytest.fail("Could not establish bgp sessions")
 
-        local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
-        bpg_notifications = bgp_notification_packets(local_pcap_filename)
-        for bgp_packet in bpg_notifications:
-            logging.debug(
-                "bgp notification packet, capture time %s, packet details:\n%s",
-                bgp_packet.time,
-                bgp_packet.show(dump=True),
-            )
+            n0.announce_route(announced_route)
+            time.sleep(constants.sleep_interval)
+            announced_route_on_dut_before_shutdown = duthost.get_route(announced_route["prefix"], n0.namespace)
+            if not announced_route_on_dut_before_shutdown:
+                pytest.fail("announce route %s from n0 to dut failed" % announced_route["prefix"])
 
-            if not match_bgp_notification(bgp_packet, n0.ip, n0.peer_ip, "cease"):
-                pytest.fail("BGP notification packet does not match expected values")
+            # tear down BGP session on n0
+            bgp_pcap = BGP_DOWN_LOG_TMPL
+            with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
+                n0.teardown_session()
+                if not wait_until(
+                    WAIT_TIMEOUT,
+                    1,
+                    0,
+                    lambda: is_neighbor_session_down(duthost, n0),
+                ):
+                    pytest.fail("Could not tear down bgp session")
 
-        announced_route_on_dut_after_shutdown = duthost.get_route(announced_route["prefix"], n0.namespace)
-        if announced_route_on_dut_after_shutdown:
-            pytest.fail("route %s still exists in DUT after BGP shutdown" % announced_route["prefix"])
-    finally:
-        n0.stop_session()
-        duthost.shell("ip route flush %s" % announced_route["prefix"])
+                bgp_session_down_time = time.time()
+
+            local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
+            bpg_notifications = bgp_notification_packets(local_pcap_filename)
+            for bgp_packet in bpg_notifications:
+                logging.debug(
+                    "bgp notification packet, capture time %s, packet details:\n%s",
+                    bgp_packet.time,
+                    bgp_packet.show(dump=True),
+                )
+
+                if not match_bgp_notification(bgp_packet, n0.ip, n0.peer_ip, "cease", bgp_session_down_time):
+                    pytest.fail("BGP notification packet does not match expected values")
+
+            announced_route_on_dut_after_shutdown = duthost.get_route(announced_route["prefix"], n0.namespace)
+            if announced_route_on_dut_after_shutdown:
+                pytest.fail("route %s still exists in DUT after BGP shutdown" % announced_route["prefix"])
+        finally:
+            n0.stop_session()
+            duthost.shell("ip route flush %s" % announced_route["prefix"])
