@@ -94,6 +94,7 @@ t0:
   - platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py
   - platform_tests/test_port_toggle.py
   - platform_tests/test_power_off_reboot.py
+  - platform_tests/test_reboot.py
   - platform_tests/test_secure_upgrade.py
   - platform_tests/test_sensors.py
   - platform_tests/test_service_warm_restart.py
