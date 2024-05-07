@@ -29,7 +29,7 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
     if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
         # Not supported on 202305 and older releases
-        skip_release(duthost, ['201811', '201911', '202012', '202205', '202211', '202305'])
+        skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305"])
     else:
         pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
@@ -43,9 +43,12 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             presence = sfp_presence[0].get('presence', '').lower()
             oper = intf.get('oper', '').lower()
             speed = intf.get('speed', '')
-            fec = intf.get('fec', '').lower()
 
             if presence == "present" and oper == "up" and speed in SUPPORTED_SPEEDS:
+                # Verify the FEC operational mode is valid
+                logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
+                fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
+                fec = fec_status[0].get('fec oper', '').lower()
                 if fec == "n/a":
                     pytest.fail("FEC status is N/A for interface {}".format(intf['interface']))
 
@@ -60,7 +63,7 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
     if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
         # Not supported on 202305 and older releases
-        skip_release(duthost, ['201811', '201911', '202012', '202205', '202211', '202305'])
+        skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305"])
     else:
         pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
@@ -80,12 +83,11 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         config_status = duthost.command("sudo config interface fec {} rs"
                                         .format(intf['interface']))
         if config_status:
-            duthost.command("sleep 5")
+            duthost.command("sleep 2")
             # Verify the FEC operational mode is restored
-            fec_status = duthost.show_and_parse("sudo show interface status {}"
-                                                .format(intf['interface']))
-            oper = fec_status[0].get('oper', '').lower()
-            fec = fec_status[0].get('fec', '').lower()
+            logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
+            fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
+            fec = fec_status[0].get('fec oper', '').lower()
 
-            if not (oper == "up" and fec == "rs"):
+            if not (fec == "rs"):
                 pytest.fail("FEC status is not restored for interface {}".format(intf['interface']))
