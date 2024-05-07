@@ -1,0 +1,147 @@
+trigger: none
+pr: none
+
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
+schedules:
+  - cron: "0 0,12 * * *"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+- name: TESTBED_NAME
+  type: string
+  default: vms64-t0-s6100-1
+  displayName: "Testbed Name"
+
+- name: POOL
+  type: string
+  default: nightly
+  displayName: "Agent pool name"
+  values:
+    - nightly
+    - nightly-svc
+    - nightly-bjw
+    - nightly-tk5
+
+- name: UPGRADE_TYPE
+  type: string
+  displayName: "Type of upgrade"
+  default: warm
+  values:
+  - warm
+  - fast
+  - cold
+  - warm,fast
+  - warm,fast,cold
+
+- name: VM_TYPE
+  type: string
+  displayName: "VM type of neighbor devices"
+  default: vsonic
+  values:
+    - vsonic
+    - ceos
+
+- name: FROM_IMAGE_LIST
+  type: string
+  default: 115
+  displayName: "All base image numbers (space separated)"
+
+- name: FROM_IMAGE_URL
+  displayName: "Base image location"
+  type: string
+  default: $(IMAGE_BRCM_202012)
+  values:
+  - $(IMAGE_BRCM_201811)
+  - $(IMAGE_BRCM_201911)
+  - $(IMAGE_BRCM_202012)
+  - $(IMAGE_BRCM_202106)
+  - $(IMAGE_BRCM_202205)
+  - $(IMAGE_BRCM_202305)
+  - $(IMAGE_BRCM_INTERNAL)
+  - $(IMAGE_BRCM_PUBLIC)
+  - custom
+
+- name: TO_IMAGE_LIST
+  type: string
+  default: 22
+  displayName: "All target image numbers (space separated)"
+
+- name: TO_IMAGE_URL
+  displayName: "Target image location"
+  type: string
+  default: $(IMAGE_BRCM_202305)
+  values:
+  - $(IMAGE_BRCM_201811)
+  - $(IMAGE_BRCM_201911)
+  - $(IMAGE_BRCM_202012)
+  - $(IMAGE_BRCM_202106)
+  - $(IMAGE_BRCM_202205)
+  - $(IMAGE_BRCM_202305)
+  - $(IMAGE_BRCM_INTERNAL)
+  - $(IMAGE_BRCM_PUBLIC)
+  - custom
+
+- name: VSONIC_NEIGHBOR_IMAGE_URL
+  displayName: "SONiC image URL (used only for vsonic neighbors)"
+  type: string
+  default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=202305&platform=vs&target=target%2Fsonic-vs.img.gz
+
+- name: SKIP_REBOOT_CASES
+  default: "test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path"
+  type: string
+  displayName: "Cases to skip running"
+  values:
+  - test_upgrade_path
+  - test_warm_upgrade_sad_path
+  - test_cancelled_upgrade_path
+  - test_cancelled_upgrade_path test_upgrade_path
+  - test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path
+  - " "
+
+- name: SELECT_SAD_CASES
+  default: "sad,multi_sad,sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+  type: string
+
+- name: ITERATIONS
+  type: string
+  default: "18"
+  values:
+  - "1"
+  - "10"
+  - "18"
+  - "20"
+  - "22"
+  - "100"
+  - "500"
+
+stages:
+  - template: ../metadata_upgrade_template.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      POOL: ${{ parameters.POOL }}
+      UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+      VM_TYPE: ${{ parameters.VM_TYPE }}
+      FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
+      FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
+      TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
+      TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
+      VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
+      SKIP_REBOOT_CASES: ${{ parameters.SKIP_REBOOT_CASES }}
+      SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
+      ITERATIONS : ${{ parameters.ITERATIONS }}

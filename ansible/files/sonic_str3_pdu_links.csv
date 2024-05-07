@@ -70,7 +70,8 @@ pdu-97,34,str3-7260qx-acs-fan-01,PSU1
 pdu-96,34,str3-7260qx-acs-fan-01,PSU2
 pdu-102,37,str3-7260qx-acs-fan-02,PSU1
 pdu-103,37,str3-7260qx-acs-fan-02,PSU2
-pdu-103,15,str3-7260cx3-acs-14,PSU1
+pdu-102,15,str3-7260cx3-acs-14,PSU1
+pdu-103,15,str3-7260cx3-acs-14,PSU2
 pdu-103,14,str3-7260cx3-acs-fan-39,PSU1
 pdu-92,12,str3-7260cx3-acs-fan-37,PSU1
 pdu-92,13,str3-7260cx3-acs-fan-37,PSU2
