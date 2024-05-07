@@ -1,6 +1,7 @@
 import pytest
 import logging
 import random
+import hashlib
 from tests.common.helpers.constants import RANDOM_SEED
 
 
@@ -33,5 +34,11 @@ def set_random_seed(request, random_seed):
     """
     random_seed = request.config.cache.get(RANDOM_SEED, None)
     if random_seed:
-        logger.info("\n Random seed is {} \n".format(random_seed))
+        test_name = request.node.name
+        random_seed = str(random_seed) + get_test_name_hash_hex_value(test_name)
+        logger.info("\n Random seed is {} for {}\n".format(random_seed, test_name))
         random.seed(random_seed)
+
+
+def get_test_name_hash_hex_value(test_name):
+    return hashlib.md5(test_name.encode()).hexdigest()
