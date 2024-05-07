@@ -38,7 +38,6 @@ t0:
   - fdb/test_fdb_mac_expire.py
   - fdb/test_fdb_mac_move.py
   - generic_config_updater/test_aaa.py
-  - generic_config_updater/test_bgp_prefix.py
   - generic_config_updater/test_bgp_speaker.py
   - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_cacl.py
