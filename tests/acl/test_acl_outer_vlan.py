@@ -566,7 +566,7 @@ class AclVlanOuterTest_Base(object):
             pytest_assert(count_after >= count_before + 1,
                           "Unexpected results, counter_after {} > counter_before {}".format(count_after, count_before))
         except Exception as e:
-            raise(e)
+            raise (e)
         finally:
             self._remove_acl_rules(duthost, stage, ip_version)
 
