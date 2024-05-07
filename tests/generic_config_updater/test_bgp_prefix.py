@@ -8,7 +8,7 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1')
+    pytest.mark.topology('t1'),  # It is a t1 only feature
 ]
 
 logger = logging.getLogger(__name__)
