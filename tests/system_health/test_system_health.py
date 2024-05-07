@@ -14,7 +14,8 @@ from .device_mocker import device_mocker_factory        # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)
