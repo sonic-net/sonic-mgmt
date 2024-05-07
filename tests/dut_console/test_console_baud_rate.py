@@ -47,7 +47,7 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     pytest_require(is_sonic_console(conn_graph_facts, dut_hostname), "Unsupport non-sonic console swith.")
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_user = creds['console_user']['console_ssh']
-    console_passwords=creds['console_password']['console_ssh']
+    console_passwords = creds['console_password']['console_ssh']
 
     client = None
     for console_password in console_passwords:
