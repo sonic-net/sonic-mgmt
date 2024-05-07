@@ -19,7 +19,11 @@ index d72ce05..91b14e9 100644
 +        "@org_golang_google_protobuf//types/known/emptypb",
 +    ],
  )
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
  alias(
 
 diff --git a/gosnappi/otg/BUILD.bazel b/gosnappi/otg/BUILD.bazel
@@ -51,4 +55,7 @@ index c0c81d6..5c4fc59 100644
 +    importpath = "github.com/open-traffic-generator/snappi/gosnappi/otg",
      visibility = ["//visibility:public"],
  )
+<<<<<<< HEAD
 
+=======
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)

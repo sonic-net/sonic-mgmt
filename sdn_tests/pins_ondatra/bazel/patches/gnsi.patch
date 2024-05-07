@@ -10,12 +10,20 @@ index ecb3f3f..c6216b8 100644
 +  rpc Install(stream InstallAuthzRequest)
 +      returns (stream InstallAuthzResponse);
  }
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
  // Request messages to rotate existing gRPC-level Authorization Policy on
 @@ -152,6 +155,16 @@ message RotateAuthzRequest {
    bool force_overwrite = 3;
  }
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
 +// Request messages to install a new Authz Policy on
 +// the target.
 +message InstallAuthzRequest {
@@ -32,7 +40,11 @@ index ecb3f3f..c6216b8 100644
 @@ -160,6 +173,14 @@ message RotateAuthzResponse {
    }
  }
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
 +// Response messages from the target.
 +message InstallAuthzResponse {
 +  // Response messages.

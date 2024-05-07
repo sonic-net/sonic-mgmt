@@ -10,4 +10,8 @@ index a152057..3a2ee21 100644
 +        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
          "@com_github_openconfig_gocloser//:go_default_library",
          "@com_github_openconfig_goyang//pkg/yang:go_default_library",
+<<<<<<< HEAD
          "@com_github_openconfig_ygot//util:go_default_library",
+=======
+         "@com_github_openconfig_ygot//util:go_default_library",
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)

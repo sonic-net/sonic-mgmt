@@ -5,7 +5,11 @@ index 4d431d1..0ff43a4 100644
 @@ -33,7 +33,7 @@ import (
  	credzpb "github.com/openconfig/gnsi/credentialz"
  	pathzpb "github.com/openconfig/gnsi/pathz"
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
 -	grpb "github.com/openconfig/gribi/v1/proto/service"
 +	grpb "github.com/openconfig/gribi/proto/service"
  	opb "github.com/openconfig/ondatra/proto"
@@ -30,23 +34,38 @@ index bef545c..98df921 100644
 +++ b/internal/rawapis/rawapis.go
 @@ -34,7 +34,7 @@ import (
  	"google.golang.org/grpc"
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
  	gpb "github.com/openconfig/gnmi/proto/gnmi"
 -	grpb "github.com/openconfig/gribi/v1/proto/service"
 +	grpb "github.com/openconfig/gribi/proto/service"
  	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
  )
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
 diff --git a/raw/raw.go b/raw/raw.go
 index 780e978..1821141 100644
 --- a/raw/raw.go
 +++ b/raw/raw.go
 @@ -89,7 +89,7 @@ import (
  	"github.com/openconfig/ondatra/internal/rawapis"
+<<<<<<< HEAD
  
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
  	gpb "github.com/openconfig/gnmi/proto/gnmi"
 -	grpb "github.com/openconfig/gribi/v1/proto/service"
 +	grpb "github.com/openconfig/gribi/proto/service"
  	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
  )
+<<<<<<< HEAD
  
+=======
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
