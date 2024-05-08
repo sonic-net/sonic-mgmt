@@ -1,0 +1,370 @@
+import os
+import yaml
+import re
+
+from spytest import st, tgapi
+import apis.system.basic as basic_obj
+import apis.system.port as papi
+import apis.switching.portchannel as portchannel_obj
+import apis.routing.ip as ip_obj
+
+# Hierarchical Port Naming
+
+def modify_config_file(config_file,var_dict):
+    output_yaml_file = "temp_config.yaml"
+    input_yaml_file = config_file
+    dir_path = os.path.dirname(os.path.realpath(__file__))+"/"
+    result = os.system("cp {1} {0}{2}".format(dir_path,input_yaml_file,output_yaml_file))
+    if result != 0:
+        st.report_fail("config file copy failed")
+    st.wait(2)
+    for item, value in var_dict.items():
+        if re.match("(D.D.P.)|(D.T.P.)", item):
+            find_and_replace(dir_path+output_yaml_file, item, value)
+    return dir_path+output_yaml_file
+
+
+def find_and_replace(file_path, target_string, replacement_string):
+    with open(file_path, 'r') as file:
+        data = yaml.safe_load(file)
+    # Iterate through the YAML data recursively
+    def replace_string(obj):
+        if isinstance(obj, str):
+            return obj.replace(target_string, replacement_string)
+        elif isinstance(obj, dict):
+            return {key: replace_string(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [replace_string(item) for item in obj]
+        else:
+            return obj
+    updated_data = replace_string(data)
+    with open(file_path, 'w') as file:
+        yaml.dump(updated_data, file)
+        
+def remove_temp_config(updated_config_file):
+    os.system("rm {}".format(updated_config_file))
+        
+#Tgen wrappers
+
+def get_handles(hdl1,hdl2):
+    tg1, tg_ph_1 = tgapi.get_handle_byname(hdl1)
+    tg2, tg_ph_2 = tgapi.get_handle_byname(hdl2)
+    return (tg1, tg2, tg_ph_1, tg_ph_2)
+
+def clear_counters():
+
+    vars = st.get_testbed_vars() 
+    dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
+
+    for _dut in dut_list:
+        st.config(_dut, "sudo sonic-clear fdb all")
+        st.config(_dut, "sudo sonic-clear rifcounters")
+        st.config(_dut, "sudo sonic-clear counters")
+        
+def config_ipv4_intf(tg, tg_ph, data, intf_ip_addr, src_mac_addr, gateway):
+    res=tg.tg_interface_config(port_handle=tg_ph, mode='config', intf_ip_addr=intf_ip_addr,
+    gateway=gateway, src_mac_addr=src_mac_addr, arp_send_req='1', enable_ping_response=1)
+    st.log("INTFCONF: "+str(res))
+    return res['handle']
+    
+def config_ipv6_intf(tg, tg_ph, data, ipv6_intf_addr, src_mac_addr, gateway):
+    res=tg.tg_interface_config(port_handle=tg_ph, mode='config', ipv6_intf_addr=ipv6_intf_addr, ipv6_prefix_length='64',
+    ipv6_gateway=gateway, src_mac_addr=src_mac_addr, arp_send_req='1', enable_ping_response=1)
+    st.log("INTFCONF: "+str(res))
+    return res['handle']
+
+def config_ipv4_traffic(tg, tg_ph, data1, data2, mac_src, dst_mac, ip_src_addr, ip_dst_addr):
+    data1.tr1=tg.tg_traffic_config(port_handle=tg_ph, mode='create', transmit_mode=data1.transmit_mode, length_mode='fixed',
+            l3_protocol='ipv4', mac_dst=dst_mac, mac_src=mac_src, pkts_per_burst=data1.pkts_per_burst,
+            l3_length=data1.tgen_l3_len, rate_pps=data1.tgen_rate_pps, ip_src_addr=ip_src_addr, ip_dst_addr=ip_dst_addr)
+    st.wait(5)
+    
+def config_ipv6_traffic(tg, tg_ph, data1, data2, mac_src, dst_mac, ipv6_src_addr, ipv6_dst_addr):
+    data1.tr1=tg.tg_traffic_config(port_handle=tg_ph, mode='create', transmit_mode='single_burst', length_mode='fixed',
+            l3_protocol='ipv6', mac_src=mac_src, mac_dst=dst_mac, pkts_per_burst=data1.pkts_per_burst,
+            rate_pps=data1.tgen_rate_pps, ipv6_src_addr=ipv6_src_addr, ipv6_dst_addr=ipv6_dst_addr)
+    st.wait(5)
+    
+def verify_ping_helper(tg, tg_ph, handle, dest_ip):
+    res = tgapi.verify_ping(src_obj=tg, port_handle=tg_ph, dev_handle=handle, dst_ip=dest_ip, ping_count='10', exp_count='10')
+    st.log("PING_RES: " + str(res))
+    if res:
+        st.log("Ping succeeded.")
+        return
+    st.report_fail("Ping Failed")
+    
+def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True):
+    data1.my_dut_list = st.get_dut_names()
+    data2.my_dut_list = st.get_dut_names()
+    
+    if cl_count: clear_counters() 
+
+    tg_handler = tgapi.get_handles_byname(hdl1, hdl2)
+    tg = tg_handler["tg"]
+
+    vars = st.get_testbed_vars()
+    dut_lists = [vars.D3, vars.D4]
+
+    (tg1, tg2, tg_ph_1, tg_ph_2) = get_handles(hdl1, hdl2)
+
+    tg.tg_traffic_control(action="reset", port_handle=tg_handler["tg_ph_list"])
+    tg.tg_traffic_control(action="clear_stats", port_handle=tg_handler["tg_ph_list"])
+
+    if ipv4 :
+        handle1 = config_ipv4_intf(tg1, tg_ph_1, data1, data1.t1d3_ip_addr, data1.t1d3_mac_addr, data1.t1d3_ip_gateway)
+        handle2 = config_ipv4_intf(tg2, tg_ph_2, data2, data2.t1d4_ip_addr, data2.t1d4_mac_addr, data2.t1d4_ip_gateway)
+        # Ping from tgen to tgen.
+        verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ip_addr)
+        verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ip_addr)
+    else:
+        handle1 = config_ipv6_intf(tg1, tg_ph_1, data1, data1.t1d3_ipv6_addr, data1.t1d3_mac_addr, data1.t1d3_ipv6_gateway)
+        handle2 = config_ipv6_intf(tg2, tg_ph_2, data2, data2.t1d4_ipv6_addr, data2.t1d4_mac_addr, data2.t1d4_ipv6_gateway)
+        # Ping from tgen to tgen.
+        verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ipv6_addr)
+        verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ipv6_addr)
+        
+
+    ## Update Traffic Result for Burst Test:
+     
+    for _dut in dut_lists:
+      papi.clear_interface_counters(_dut)
+      st.config(_dut, "sudo sonic-clear counters")
+
+    conn_intf = {"T1D3P1":  vars.D3T1P1,
+                 "T1D3P2":  vars.D3T1P2,
+                 "T1D4P1":  vars.D4T1P1,
+                 "T1D4P2":  vars.D4T1P2}
+    if mode == "unicast":
+        dst_mac1 = basic_obj.get_ifconfig_ether(vars.D3, conn_intf[hdl1])
+        dst_mac2 = basic_obj.get_ifconfig_ether(vars.D4, conn_intf[hdl2])
+    if mode == "broadcast":
+        dst_mac1 = "ff:ff:ff:ff:ff:ff"
+        dst_mac2 = "ff:ff:ff:ff:ff:ff"
+    if mode == "multicast":
+        dst_mac1 = "01:00:5e:44:44:44"
+        dst_mac2 = "01:00:5e:33:33:33"
+    if mode == "unknownunicast":
+        dst_mac1 = "00:44:44:44:44:44"
+        dst_mac2 = "00:33:33:33:33:33"
+        
+    if ipv4 :
+        config_ipv4_traffic(tg1, tg_ph_1, data1, data2, data1.t1d3_mac_addr, dst_mac1, data1.t1d3_ip_addr, data2.t1d4_ip_addr)
+        config_ipv4_traffic(tg2, tg_ph_2, data2, data1,data1.t1d4_mac_addr, dst_mac2, data2.t1d4_ip_addr, data1.t1d3_ip_addr)
+    else:
+        config_ipv6_traffic(tg1, tg_ph_1, data1, data2, data1.t1d3_mac_addr, dst_mac1, data1.t1d3_ipv6_addr, data2.t1d4_ipv6_addr)
+        config_ipv6_traffic(tg2, tg_ph_2, data2, data1, data1.t1d4_mac_addr, dst_mac2, data2.t1d4_ipv6_addr, data1.t1d3_ipv6_addr)
+        
+    handles = {'tg_handle_1': tg1, 'tg_handle_2': tg2, 'port_handle_1': tg_ph_1, 'port_handle_2': tg_ph_2, 'int_handle_1': handle1, 'int_handle_2': handle2} 
+    return handles
+
+def traffic_start(handles, data1, data2):
+    vars = st.get_testbed_vars()
+    dut_lists = [vars.D3, vars.D4]
+ 
+    handles['tg_handle_1'].tg_packet_control(port_handle=handles['port_handle_1'], action='start')
+    handles['tg_handle_2'].tg_packet_control(port_handle=handles['port_handle_2'], action='start')
+
+    handles['tg_handle_1'].tg_traffic_control(action='clear_stats', port_handle=handles['port_handle_1'])
+    handles['tg_handle_2'].tg_traffic_control(action='clear_stats', port_handle=handles['port_handle_2'])
+    st.log("TRAFCONF - TR1: " + str(data1.tr1) + " TR2: " + str(data2.tr1))
+        
+    for _dut in dut_lists:
+        papi.clear_interface_counters(_dut)
+        st.config(_dut, "sudo sonic-clear counters")
+        st.wait(1)
+
+    t_run1=handles['tg_handle_1'].tg_traffic_control(action='run', port_handle=handles['port_handle_1'])
+    t_run2=handles['tg_handle_2'].tg_traffic_control(action='run', port_handle=handles['port_handle_2'])
+    st.wait(data1.traffic_run_time)
+    st.log("TR_CTRL: " + str(t_run1) + "t run2 " + str(t_run2))
+
+def traffic_stop(handles):
+    handles['tg_handle_1'].tg_traffic_control(action='stop', port_handle=handles['port_handle_1'])
+    handles['tg_handle_2'].tg_traffic_control(action='stop', port_handle=handles['port_handle_2'])
+    st.wait(5)
+    handles['tg_handle_1'].tg_packet_control(port_handle=handles['port_handle_1'], action='stop')
+    handles['tg_handle_2'].tg_packet_control(port_handle=handles['port_handle_2'], action='stop')
+    st.wait(30)
+    
+def traffic_test_check(handles, d3t1port, d4t1port, data1, data2):
+    vars = st.get_testbed_vars()
+    dut_lists = [vars.D3, vars.D4]
+    stats_tg1 = handles['tg_handle_1'].tg_traffic_stats(port_handle=handles['port_handle_1'],mode='aggregate')
+    total_tg1_tx = stats_tg1[handles['port_handle_1']]['aggregate']['tx']['total_pkts']
+    total_tg1_rx = stats_tg1[handles['port_handle_1']]['aggregate']['rx']['total_pkts']
+
+    stats_tg2 = handles['tg_handle_2'].tg_traffic_stats(port_handle=handles['port_handle_2'],mode='aggregate')
+    total_tg2_tx = stats_tg2[handles['port_handle_2']]['aggregate']['tx']['total_pkts']
+    total_tg2_rx = stats_tg2[handles['port_handle_2']]['aggregate']['rx']['total_pkts']
+
+    st.log("Tgen Sent Packets on {}: {} and Received Packets on {}: {}".format(d3t1port, total_tg1_tx, d4t1port, total_tg2_rx))
+    st.log("Tgen Sent Packets on {}: {} and Received Packets on {}: {}".format(d4t1port, total_tg2_tx, d3t1port, total_tg1_rx))
+
+    st.banner("Tgen Sent Packets on {}: {} and Received Packets on {}: {}".format(d3t1port, total_tg1_tx, d4t1port, total_tg2_rx))
+    st.banner("Tgen Sent Packets on {}: {} and Received Packets on {}: {}".format(d4t1port, total_tg2_tx, d3t1port, total_tg1_rx))
+
+    passed = True
+    if ((int(total_tg1_tx) == 0) or (int(total_tg2_tx) == 0) or
+        (int(total_tg1_tx)-int(total_tg2_rx) > data1.tgen_stats_threshold) or
+        (int(total_tg2_tx)-int(total_tg1_rx) > data1.tgen_stats_threshold)):
+      passed = False
+    
+    dut_lists = [vars.D1, vars.D3, vars.D4]
+    for _dut in dut_lists:
+        st.show(_dut, "sudo show interface counter", skip_tmpl=True, skip_error_check=True)
+      
+    if passed:
+        st.report_pass("test_case_passed",  "Traffic Validation Passed")
+    else:
+        st.log("Traffic Validation Failed")
+
+    return passed
+
+def traffic_cleanup(handles):
+    st.log("Test traffic gen Cleanup.")
+    handles['tg_handle_1'].tg_interface_config(port_handle=handles['port_handle_1'], handle=handles['int_handle_1'], mode='destroy')
+    handles['tg_handle_2'].tg_interface_config(port_handle=handles['port_handle_2'], handle=handles['int_handle_2'], mode='destroy')
+    
+# Config functions
+
+def config_node(node, config, type=''):
+    if type:
+        st.config(node, config, type=type, skip_error_check=False, conf=True)
+    else:
+        st.config(node, config, skip_error_check=False, conf=True)
+
+def config_static(node, config_domain, add, config_file):
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+
+    domain = ''
+    if config_domain == 'bgp':
+        domain = 'vtysh'
+
+    with open(config_file) as c:
+        config_list = yaml.load(c, Loader=yaml.FullLoader)
+        if add:
+            config_node(nodes[node], config_list[node][config_domain]['config'], domain)
+        else:
+            config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain) 
+            
+# Portchannel wrappers
+
+def portchannel_add_del_member(node, portchannel='', members=[], add=True):
+    if not portchannel:
+       return
+
+    if add:
+        if members:
+            cmd = "config acl remove table TORTUGA_ACL_INGRESS"
+            st.config(node, cmd)
+            cmd = "config acl remove table TORTUGA_ACL_INGRESS_V6"
+            st.config(node, cmd)
+            #add member interfaces
+            for member in members:
+                cmd = "sudo config interface ipv6 disable use-link-local-only {}".format(member)
+                st.config(node, cmd)
+                cmd = "sudo config interface startup {}".format(member)
+                st.config(node, cmd)
+                if not portchannel_obj.add_portchannel_member(node, portchannel, member) :
+                    st.report_fail("{} add member {} failed".format(portchannel, member))
+    else:
+        if members:
+            #delete member interfaces
+            if not portchannel_obj.delete_portchannel_member(node, portchannel, members):
+                st.report_fail("{} delete members failed".format(portchannel))
+                
+def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[], add=True):
+    
+    if not portchannel:
+       return
+
+    if add:
+        #add PortChannelxx
+        if not portchannel_obj.create_portchannel(node, portchannel):
+            st.report_fail("{} create failed".format(portchannel))
+
+        if ipv4_add:
+            ipv4_addr, ipv4_mask = ipv4_add.split('/')
+            #add ipv4 address to PortChannelxx
+            if_data4 = {'name': portchannel,
+                 'ip' : ipv4_addr,
+                 'subnet': ipv4_mask,
+                 'family': "ipv4"
+                }
+            if not ip_obj.config_unconfig_interface_ip_addresses(node, [if_data4] , config='add'):
+                st.report_fail("{} ipv4 address add failed".format(portchannel))
+        if ipv6_add:
+            ipv6_addr, ipv6_mask = ipv6_add.split('/')
+            #add ipv6 address to PortChannelxx
+            if_data6 = {'name': portchannel,
+                'ip' : ipv6_addr,
+                'subnet': ipv6_mask,
+                'family': "ipv6"
+               }
+            if not ip_obj.config_unconfig_interface_ip_addresses(node, [if_data6] , config='add'):
+                st.report_fail("{} ipv6 address add failed".format(portchannel))
+
+        if members:
+            portchannel_add_del_member(node, portchannel, members, add=True)
+    else:
+        if members:
+            #delete member interfaces
+            portchannel_add_del_member(node, portchannel, members, add=False)
+            
+        if ipv4_add:
+            ipv4_addr, ipv4_mask = ipv4_add.split('/')
+            #remove ipv4 address from PortChannelxx
+            if_data4 = {'name': portchannel,
+                'ip' : ipv4_addr,
+                'subnet': ipv4_mask,
+                'family': "ipv4"
+               }
+            if not ip_obj.config_unconfig_interface_ip_addresses(node, [if_data4] , config='remove'):
+                  st.report_fail("{} ipv4 address remove failed".format(portchannel))
+
+        if ipv6_add:
+            ipv6_addr, ipv6_mask = ipv6_add.split('/')
+            #remove ipv6 address from PortChannelxx
+            if_data6 = {'name': portchannel,
+                'ip' : ipv6_addr,
+                'subnet': ipv6_mask,
+                'family': "ipv6"
+               }
+            if not ip_obj.config_unconfig_interface_ip_addresses(node, [if_data6] , config='remove'):
+                  st.report_fail("{} ipv6 address remove failed".format(portchannel))
+
+        #del PortChannelxx 
+        if not portchannel_obj.delete_portchannel(node, [portchannel]):
+            st.report_fail("{} delete failed".format(portchannel))
+            
+def check_portchannel_add_del(node, portchannel, members, state='up', add=True):  
+    if add:
+        if not portchannel_obj.poll_for_portchannel_status(node, portchannel, state):
+            st.report_fail('{} {} state {} check failed'.format(node, portchannel, state))
+        if members:
+            if not portchannel_obj.verify_portchannel_member(node, portchannel, members, 'add'):
+                st.report_fail("members check failed for {}".format(portchannel))
+    else:
+        if portchannel_obj.verify_portchannel(node, portchannel):
+            st.report_fail('{} {} still exists'.format(node, portchannel))
+    
+
+def check_portchannel_ip_address(node, portchannel, ip_addr, family, add=True):
+    if add:
+        if not ip_obj.verify_interface_ip_address(node, portchannel, ip_addr, family=family):
+            st.report_fail("{} {} ip address addition failed".format(node, portchannel))
+    else:
+        check_type = 'ip' if family=='ipv4' else 'ipv6'
+        cmd_output = st.show(node, "sudo show {} interfaces".format(check_type), skip_tmpl=True)
+        parsed_output = st.parse_show(node, "sudo show {} interfaces".format(check_type),
+                                 cmd_output, "show_ip_interfaces.tmpl")
+        for interface_det in parsed_output:
+            if interface_det['interface'] == portchannel:
+                st.report_fail("{} {} {} address removal failed".format(node, portchannel, check_type))
+            
