@@ -231,7 +231,7 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     duthost = duthosts[enum_supervisor_dut_hostname]
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
-        check_pmon_daemon_status(duthost),
+        wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
         "Not all pmon daemons running on '{}'".format(duthost.hostname)
     )
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
@@ -264,7 +264,9 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
         pytest.skip("JSON output not available in this version")
 
     logging.info("Check pmon daemon status")
-    pytest_assert(check_pmon_daemon_status(duthost), "Not all pmon daemons running.")
+    pytest_assert(
+        wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
+        "Not all pmon daemons running.")
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus", "--json"])
 

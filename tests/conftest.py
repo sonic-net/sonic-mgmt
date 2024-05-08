@@ -44,6 +44,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
+from tests.common.utilities import get_dut_current_passwd
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
@@ -747,6 +748,14 @@ def creds_on_dut(duthost):
     creds["console_password"] = {}
 
     creds["ansible_altpasswords"] = []
+
+    passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
+    creds['sonicadmin_password'] = get_dut_current_passwd(
+        duthost.mgmt_ip,
+        duthost.mgmt_ipv6,
+        creds['sonicadmin_user'],
+        passwords
+    )
 
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]

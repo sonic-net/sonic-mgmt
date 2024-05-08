@@ -1,20 +1,32 @@
-import pytest
+import logging
 
-from netaddr import valid_ipv6
+import pytest
+import re
+
+from tests.common.utilities import get_mgmt_ipv6
+from tests.common.helpers.assertions import pytest_assert
 from tests.tacacs.utils import check_output
 from tests.bgp.test_bgp_fact import run_bgp_facts
 from tests.test_features import run_show_features
 from tests.tacacs.test_ro_user import ssh_remote_run
+from tests.ntp.test_ntp import run_ntp, setup_ntp  # noqa F401
 from tests.common.helpers.assertions import pytest_require
 from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6 # noqa F401
 from tests.syslog.test_syslog import run_syslog, check_default_route # noqa F401
 from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.telemetry.conftest import gnxi_path, setup_streaming_telemetry # noqa F401
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
+
+
+def pytest_generate_tests(metafunc):
+    if "ptf_use_ipv6" in metafunc.fixturenames:
+        metafunc.parametrize("ptf_use_ipv6", [True], scope="module")
 
 
 @pytest.fixture(autouse=True)
@@ -44,25 +56,22 @@ def ignore_expected_loganalyzer_exception(loganalyzer):
             loganalyzer[hostname].ignore_regex.extend(ignore_regex)
 
 
-def get_mgmt_ipv6(duthost):
-    config_facts = duthost.get_running_config_facts()
-    mgmt_interfaces = config_facts.get("MGMT_INTERFACE", {})
-    mgmt_ipv6 = None
-
-    for mgmt_interface, ip_configs in mgmt_interfaces.items():
-        for ip_addr_with_prefix in ip_configs.keys():
-            ip_addr = ip_addr_with_prefix.split("/")[0]
-            if valid_ipv6(ip_addr):
-                mgmt_ipv6 = ip_addr
-    return mgmt_ipv6
+def log_eth0_interface_info(duthosts):
+    for duthost in duthosts:
+        duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
+        logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}] after fixture")
 
 
 def test_bgp_facts_ipv6_only(duthosts, enum_frontend_dut_hostname, enum_asic_index,
                              convert_and_restore_config_db_to_ipv6_only): # noqa F811
+    # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
+    log_eth0_interface_info(duthosts)
     run_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index)
 
 
 def test_show_features_ipv6_only(duthosts, enum_dut_hostname, convert_and_restore_config_db_to_ipv6_only): # noqa F811
+    # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
+    log_eth0_interface_info(duthosts)
     run_show_features(duthosts, enum_dut_hostname)
 
 
@@ -71,6 +80,8 @@ def test_image_download_ipv6_only(creds, duthosts, enum_dut_hostname,
     """
     Test image download in mgmt ipv6 only scenario
     """
+    # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
+    log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_dut_hostname]
     image_url = creds.get("test_image_url", {}).get("ipv6", "")
     pytest_require(len(image_url) != 0, "Cannot get image url")
@@ -89,13 +100,17 @@ def test_image_download_ipv6_only(creds, duthosts, enum_dut_hostname,
 @pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b",
                          [("fd82:b34f:cc99::100", None),
                           ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
-def test_syslog_ipv6_only(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b,
+def test_syslog_ipv6_only(duthosts, rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b,
                           check_default_route, convert_and_restore_config_db_to_ipv6_only): # noqa F811
+    # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
+    log_eth0_interface_info(duthosts)
     run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route)
 
 
 def test_snmp_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,
                         convert_and_restore_config_db_to_ipv6_only): # noqa F811
+    # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
+    log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostipv6 = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_hostv6']
@@ -113,6 +128,8 @@ def test_snmp_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname, localhost, c
 
 def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
                            tacacs_creds, check_tacacs_v6, convert_and_restore_config_db_to_ipv6_only): # noqa F811
+    # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
+    log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
 
@@ -123,9 +140,37 @@ def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname
 
 def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
                            tacacs_creds, check_tacacs_v6, convert_and_restore_config_db_to_ipv6_only): # noqa F811
+    # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
+    log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
 
     res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_rw_user'],
                          tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")
     check_output(res, 'testadmin', 'remote_user_su')
+
+
+@pytest.mark.parametrize('setup_streaming_telemetry', [True], indirect=True)
+def test_telemetry_output_ipv6_only(convert_and_restore_config_db_to_ipv6_only, # noqa F811
+                                    duthosts, enum_rand_one_per_hwsku_hostname,
+                                    setup_streaming_telemetry): # noqa F811
+    # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
+    log_eth0_interface_info(duthosts)
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    if duthost.is_supervisor_node():
+        pytest.skip(
+            "Skipping test as no Ethernet0 frontpanel port on supervisor")
+    dut_ip = get_mgmt_ipv6(duthost)
+    cmd = "~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/Ethernet0 -target_addr \
+          [%s]:%s -logtostderr -insecure" % (dut_ip, env.gnmi_port)
+    show_gnmi_out = duthost.shell(cmd)['stdout']
+    result = str(show_gnmi_out)
+    inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
+    pytest_assert(inerrors_match is not None,
+                  "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
+
+
+def test_ntp_ipv6_only(duthosts, rand_one_dut_hostname,
+                                  convert_and_restore_config_db_to_ipv6_only, setup_ntp): # noqa F811
+    run_ntp(duthosts, rand_one_dut_hostname, setup_ntp)
