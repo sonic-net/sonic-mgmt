@@ -790,6 +790,37 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             logger.info("--- Verify PFCwd counters for port {} ---".format(port))
             self.stats.verify_pkt_cnts(self.pfc_wd['port_type'], self.pfc_wd['test_pkt_count'])
 
+    def run_no_traffic_test(self, dut, port):
+        """
+        No Storm detection with no traffic.
+
+        Args:
+            dut(AnsibleHost) : DUT instance
+            port(string) : DUT port
+
+        Returns:
+            loganalyzer(Loganalyzer) : instance
+        """
+
+        loganalyzer = LogAnalyzer(ansible_host=self.dut,
+                                  marker_prefix="pfc_function_no_storm_detect_port_{}".format(port))
+        marker = loganalyzer.init()
+        ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
+        reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
+        loganalyzer.ignore_regex.extend(reg_exp)
+        loganalyzer.expect_regex = []
+        loganalyzer.match_regex = []
+        loganalyzer.match_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
+
+        restore_time = self.timers['pfc_wd_restore_time_large']
+        detect_time = self.timers['pfc_wd_detect_time']
+        start_wd_on_ports(dut, port, restore_time, detect_time, "drop")
+        self.storm_hndle.start_storm()
+
+        logger.info("Verify if PFC storm is not detected on port {}".format(port))
+        loganalyzer.analyze(marker)
+        return loganalyzer
+
     def set_traffic_action(self, duthost, action):
         action = action if action != "dontcare" else "drop"
         if duthost.facts["asic_type"] in ["mellanox", "cisco-8000"] or is_tunnel_qos_remap_enabled(duthost):
@@ -1142,4 +1173,55 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     logger.info("--- Disabling fake storm on port {} queue {}".format(port, self.queue_oid))
                     PfcCmd.set_storm_status(self.dut, self.queue_oid, "disabled")
                 logger.info("--- Stop PFCWD ---")
+                self.dut.command("pfcwd stop")
+
+    def test_pfcwd_no_traffic(
+            self, request, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
+            ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+        """
+        Verify the pfcwd is not triggered when no traffic is sent, even when pfc storm is active.
+        Args:
+            request(object) : pytest request object
+            setup_pfc_test(fixture) : Module scoped autouse fixture for PFCwd
+            enum_fanout_graph_facts(fixture) : fanout graph info
+            ptfhost(AnsibleHost) : ptf host instance
+            duthost(AnsibleHost) : DUT instance
+            fanouthosts(AnsibleHost): fanout instance
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        setup_info = setup_pfc_test
+        setup_dut_info = setup_dut_test_params
+        self.fanout_info = enum_fanout_graph_facts
+        self.ptf = ptfhost
+        self.dut = duthost
+        self.fanout = fanouthosts
+        self.timers = setup_info['pfc_timers']
+        self.ports = setup_info['selected_test_ports']
+        self.test_ports_info = setup_info['test_ports']
+        if self.dut.topo_type == 't2':
+            key, value = list(self.ports.items())[0]
+            self.ports = {key: value}
+        self.neighbors = setup_info['neighbors']
+        self.peer_dev_list = dict()
+        self.storm_hndle = None
+        self.rx_action = None
+        self.tx_action = None
+        self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
+        self.fake_storm = False  # Not needed for this test.
+
+        for idx, port in enumerate(self.ports):
+            logger.info("")
+            logger.info("--- Testing non-Trafific Pfcwd actions on {} ---".format(port))
+            self.setup_test_params(port, setup_info['vlan'], init=not idx)
+
+            pfc_wd_restore_time_large = request.config.getoption("--restore-time")
+            # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
+            self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
+            try:
+                self.run_no_traffic_test(self.dut, port)
+            finally:
+                if self.storm_hndle:
+                    logger.info("--- Stop pfc storm on port {}".format(port))
+                    self.storm_hndle.stop_storm()
+                logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
