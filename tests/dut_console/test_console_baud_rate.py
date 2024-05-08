@@ -54,7 +54,7 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
         try:
             client = create_ssh_client(console_host, "{}:{}".format(console_user, console_port), console_password)
             ensure_console_session_up(client, console_port)
-        except Exception as _:
+        except Exception:
             client = None
         else:
             break
