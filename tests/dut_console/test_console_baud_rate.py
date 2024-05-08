@@ -53,12 +53,13 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     for console_password in console_passwords:
         try:
             client = create_ssh_client(console_host, "{}:{}".format(console_user, console_port), console_password)
-        except Exception as err:
-            pytest.fail("Not connect console ssh, error: {}".format(err))
+            ensure_console_session_up(client, console_port)
+        except Exception as _:
+            client = None
         else:
             break
 
-    ensure_console_session_up(client, console_port)
+    pytest_assert(client is not None, "Cannot connect to console device")
     client.sendline()
     yield client, console_port
 
