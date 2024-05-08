@@ -1689,7 +1689,7 @@ str3-s6100-acs-7,Ethernet51,str3-7260qx-acs-fan-02,Ethernet52,40000,2515,Access
 str3-s6100-acs-7,Ethernet52,str3-7260qx-acs-fan-02,Ethernet53,40000,2516,Access
 str3-s6100-acs-7,Ethernet53,str3-7260qx-acs-fan-02,Ethernet54,40000,2517,Access
 str3-s6100-acs-7,Ethernet54,str3-7260qx-acs-fan-02,Ethernet55,40000,2518,Access
-str3-s6100-acs-7,Ethernet55,str3-7260qx-acs-fan-02,Ethernet56,40000,2519,Access
+str3-s6100-acs-7,Ethernet55,str3-7260qx-acs-fan-02,Ethernet63,40000,2519,Access
 str3-s6100-acs-7,Ethernet56,str3-7260qx-acs-fan-02,Ethernet57,40000,2520,Access
 str3-s6100-acs-7,Ethernet57,str3-7260qx-acs-fan-02,Ethernet58,40000,2521,Access
 str3-s6100-acs-7,Ethernet58,str3-7260qx-acs-fan-02,Ethernet59,40000,2522,Access
