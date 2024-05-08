@@ -274,7 +274,7 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
 
 
 @pytest.fixture(autouse=True)
-def setup_env(rand_selected_dut, rand_unselected_dut, tbinfo):
+def setup_env(rand_selected_dut, rand_unselected_dut, setup):
     """
     Setup/teardown fixture for acl config
     Args:
@@ -282,9 +282,8 @@ def setup_env(rand_selected_dut, rand_unselected_dut, tbinfo):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
 
-    dualtor_aa = "dualtor-aa" in tbinfo["topo"]["name"]
     create_checkpoint(rand_selected_dut)
-    if dualtor_aa:
+    if setup["is_dualtor_aa"]:
         create_checkpoint(rand_unselected_dut)
 
     yield
@@ -292,12 +291,12 @@ def setup_env(rand_selected_dut, rand_unselected_dut, tbinfo):
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(rand_selected_dut)
-        if dualtor_aa:
+        if setup["is_dualtor_aa"]:
             rollback_or_reload(rand_unselected_dut)
     finally:
         delete_checkpoint(rand_selected_dut)
-        if dualtor_aa:
-            rollback_or_reload(rand_unselected_dut)
+        if setup["is_dualtor_aa"]:
+            delete_checkpoint(rand_unselected_dut)
 
 
 @pytest.fixture(scope="module")
@@ -687,16 +686,15 @@ def dynamic_acl_create_table(rand_selected_dut, rand_unselected_dut, dynamic_acl
         expect_op_success(rand_unselected_dut, output)
 
         expect_acl_table_match_multiple_bindings(rand_unselected_dut,
-                                                "DYNAMIC_ACL_TABLE",
-                                                expected_first_line,
-                                                expected_bindings)
+                                                 "DYNAMIC_ACL_TABLE",
+                                                 expected_first_line,
+                                                 expected_bindings)
 
     yield
 
     dynamic_acl_remove_table(rand_selected_dut)
     if setup["is_dualtor_aa"]:
         dynamic_acl_remove_table(rand_unselected_dut)
-
 
 
 def dynamic_acl_create_forward_rules(duthost):
