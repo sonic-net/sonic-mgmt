@@ -30,7 +30,7 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
     return pdu_hosts_vars
 
 
-def _get_pdu_controller(duthost, conn_graph_facts, tbinfo):
+def _get_pdu_controller(duthost, conn_graph_facts):
     hostname = duthost.hostname
     device_pdu_links = conn_graph_facts.get('device_pdu_links', {})
     device_pdu_info = conn_graph_facts.get('device_pdu_info', {})
@@ -43,7 +43,7 @@ def _get_pdu_controller(duthost, conn_graph_facts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def pdu_controller(duthosts, conn_graph_facts, tbinfo):
+def pdu_controller(duthosts, conn_graph_facts):
     """
     @summary: Fixture for controlling power supply to PSUs of DUT
     @param duthost: Fixture duthost defined in sonic-mgmt/tests/conftest.py
@@ -51,7 +51,7 @@ def pdu_controller(duthosts, conn_graph_facts, tbinfo):
               controller_base.py.
     """
     duthost = get_sup_node_or_random_node(duthosts)
-    controller = _get_pdu_controller(duthost, conn_graph_facts, tbinfo)
+    controller = _get_pdu_controller(duthost, conn_graph_facts)
 
     yield controller
 
@@ -62,12 +62,12 @@ def pdu_controller(duthosts, conn_graph_facts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def get_pdu_controller(conn_graph_facts, tbinfo):
+def get_pdu_controller(conn_graph_facts):
     controller_map = {}
 
     def pdu_controller_helper(duthost):
         if duthost.hostname not in controller_map:
-            controller = _get_pdu_controller(duthost, conn_graph_facts, tbinfo)
+            controller = _get_pdu_controller(duthost, conn_graph_facts)
             controller_map[duthost.hostname] = controller
 
         return controller_map[duthost.hostname]
