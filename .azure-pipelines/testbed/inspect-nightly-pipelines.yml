@@ -14,25 +14,12 @@ schedules:
         - internal
     always: true
 
-resources:
-  repositories:
-    - repository: sonic-mgmt-int
-      type: git
-      name: sonic-mgmt-int
-      ref: refs/heads/internal
-
 jobs:
   - job: Inspect
     variables:
       - group: KUSTO_SECRETS
-      - template: .azure-pipelines/variables/service_connections.yml@sonic-mgmt-int
     timeoutInMinutes: 30
     steps:
-
-      # Get accessToken and store in ACCESS_TOKEN variable
-      - template: .azure-pipelines/nightly/templates/get_token.yml@sonic-mgmt-int
-        parameters:
-          SERVICE_CONNECTION: ${{ variables.AZDEVOPS_MSSONIC }}
 
       - task: Bash@3
         displayName: Inspect Nightly Pipelines
@@ -48,7 +35,7 @@ jobs:
             ls -l expected_runs.json
             cat expected_runs.json
         env:
-          AZURE_DEVOPS_MSSONIC_TOKEN: $(ACCESS_TOKEN)
+          AZURE_DEVOPS_MSSONIC_TOKEN: $(System.AccessToken)
 
       - task: Bash@3
         displayName: Upload Inspection Results

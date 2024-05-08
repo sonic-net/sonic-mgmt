@@ -1,2 +1,3 @@
 variables:
-  AZDEVOPS_MSSONIC: "SONiC-Automation"
+  # Authorized for subscription "Network Dev Environment -- SONiC 2 (No ExpressRoute)"
+  SONIC_AUTOMATION: "SONiC-Automation"
