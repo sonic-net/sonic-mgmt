@@ -388,3 +388,10 @@ def get_pci_cr0_path(duthost):
     This method is to get path for /dev/mst/*_pci_cr0
     """
     return duthost.shell('ls /dev/mst/*_pci_cr0')['stdout'].strip()
+
+
+def get_pciconf0_path(duthost):
+    """
+    This method is to get path for /dev/mst/*_pciconf0
+    """
+    return duthost.shell('ls /dev/mst/*_pciconf0')['stdout'].strip()
