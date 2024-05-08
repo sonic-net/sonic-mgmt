@@ -141,6 +141,7 @@ all:
           - t1-28-lag
           - t1-56-lag
           - t1-64-lag
+          - t1-32-lag
           - t1-64-lag-clet
           - t1-4-lag
           - t1-backend

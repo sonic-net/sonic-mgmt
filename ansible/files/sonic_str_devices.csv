@@ -16,6 +16,8 @@ str-dx010-acs-1,10.64.246.33/23,Celestica-DX010-C32,DevSonic,,sonic
 str-agc7648-acs-1,10.64.246.40/23,Delta-AGC7648,DevSonic,,sonic
 str-a7280cr3-2,10.3.146.28/24,Arista-7280CR3-C40,DevSonic,,sonic
 str-e1031-acs-1,10.64.247.24/23,Celestica-E1031-T48S4,DevSonic,,sonic
+str-msn4700-01,10.3.146.206/24,Mellanox-SN4700-O28,DevSonic,,sonic
+str-msn4700-fanout-01,10.3.146.204/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
 str-e1031-acs-2,10.64.247.25/23,Celestica-E1031-T48S4,FanoutLeafSonic,,sonic
 str-7050qx-32s-acs-04,10.3.146.113/24,Arista-7050QX32S-Q32,DevSonic,,sonic
 str-7260-02,10.3.146.168/24,Arista-7260QX-64,FanoutLeaf,,
@@ -95,3 +97,4 @@ console-179,10.3.145.179,Cisco,ConsoleServer,ssh,
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh,
 console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
 console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
+console-213,10.3.145.184,Cisco,ConsoleServer,ssh,
