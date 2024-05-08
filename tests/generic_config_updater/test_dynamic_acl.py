@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 CREATE_CUSTOM_TABLE_TYPE_FILE = "create_custom_table_type.json"
 CREATE_CUSTOM_TABLE_TEMPLATE = "create_custom_table.j2"
 CREATE_FORWARD_RULES_TEMPLATE = "create_forward_rules.j2"
+CREATE_SECONDARY_FORWARD_RULES_TEMPLATE = "create_secondary_forward_rules.j2"
 CREATE_INITIAL_DROP_RULE_TEMPLATE = "create_initial_drop_rule.j2"
 CREATE_SECONDARY_DROP_RULE_TEMPLATE = "create_secondary_drop_rule.j2"
 CREATE_THREE_DROP_RULES_TEMPLATE = "create_three_drop_rules.j2"
@@ -375,12 +376,12 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
 
     # Increment address by 3 to offset it from the intf on which the address may be learned
     if intf_ipv4_addr is not None:
-        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=3)
+        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=129)
     else:
         ptf_intf_ipv4_addr = None
 
     if intf_ipv6_addr is not None:
-        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=3)
+        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=129)
     else:
         ptf_intf_ipv6_addr = None
 
@@ -897,7 +898,14 @@ def dynamic_acl_replace_rules(duthost):
                                "DST_IPV6: " + REPLACEMENT_IPV6_SUBNET,
                                "Active"]
 
-    output = format_and_apply_template(duthost, REPLACE_RULES_TEMPLATE, extra_vars)
+    # replacing an ACL rule causing error logs to get flooded because of a SONiC bug currently - temporary fix
+
+    dynamic_acl_remove_ip_forward_rule(duthost, "IPV4")
+    dynamic_acl_remove_ip_forward_rule(duthost, "IPV6")
+
+    time.sleep(2)
+
+    output = format_and_apply_template(duthost, CREATE_SECONDARY_FORWARD_RULES_TEMPLATE, extra_vars)
 
     expect_op_success(duthost, output)
 
