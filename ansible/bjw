@@ -346,10 +346,10 @@ sonic_arista_7050qx_32s_s4q31:
       base_mac: 94:8e:d3:cf:fa:0e
       syseeprom_info:
         "0x21": "DCS-7050QX-32S"
-        "0x22": "ASY0105910D0"
-        "0x23": "SSJ18381373"
-        "0x24": "98:5d:82:08:c4:84"
-        "0x25": "2018/09/26 17:09:33"
+        "0x22": "ASY0105910F0"
+        "0x23": "JPA22421574"
+        "0x24": "94:8e:d3:cf:fa:0e"
+        "0x25": "2020/01/01 00:00:00"
         "0x26": "01"
         "0x27": "02.00"
         "0x28": "x86_64-arista_7050_qx32s"
@@ -357,8 +357,8 @@ sonic_arista_7050qx_32s_s4q31:
         "0x2B": "Arista Networks"
         "0x2C": "US"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal4-4.1.0-3037060"
-        "0x2F": "SSJ18381373"
+        "0x2E": "Aboot-norcal4-4.1.1-13522936"
+        "0x2F": "JPA22421574"
         "0xFE": "0xdeadbeef"
 
 sonic_arista_720dt:
