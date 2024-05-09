@@ -295,6 +295,7 @@ dpu:
   - dash/test_dash_vnet.py
 
 onboarding_t0:
+<<<<<<< HEAD
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - bgp/test_bgp_peer_shutdown.py
   - cacl/test_ebtables_application.py
@@ -337,6 +338,10 @@ onboarding_dualtor:
   - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_server_failure.py
   - dualtor_mgmt/test_toggle_mux.py
+=======
+  - console/test_console_availability.py
+
+>>>>>>> Add a separate non-blocking PR check for onboarding new tests (#12729)
 
 specific_param:
   t0-sonic:
