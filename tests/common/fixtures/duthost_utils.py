@@ -29,7 +29,7 @@ def _backup_and_restore_config_db(duts, scope='function'):
     the test starts and then restore it after the test ends.
     """
     CONFIG_DB = "/etc/sonic/config_db.json"
-    CONFIG_DB_BAK = "/etc/sonic/config_db.json.before_test_{}".format(scope)
+    CONFIG_DB_BAK = "/host/config_db.json.before_test_{}".format(scope)
 
     if type(duts) is not list:
         duthosts = [duts]
