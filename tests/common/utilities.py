@@ -1096,6 +1096,8 @@ def capture_and_check_packet_on_dut(
     interface='any',
     pkts_filter='',
     pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured"),
+    pkts_validator_args=[],
+    pkts_validator_kwargs={},
     wait_time=1
 ):
     """
@@ -1105,6 +1107,9 @@ def capture_and_check_packet_on_dut(
         interface: the interface to capture packets on, default is 'any'
         pkts_filter: the PCAP-FILTER to apply to the captured packets, default is '' means no filter
         pkts_validator: the function to validate the captured packets, default is to check if any packet is captured
+        pkts_validator_args: ther args to pass to the pkts_validator function
+        pkts_validator_kwargs: the kwargs to pass to the pkts_validator function
+        wait_time: the time to wait before stopping the packet capture, default is 1 second
     """
     pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
     cmd_capture_pkts = "sudo nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
@@ -1121,7 +1126,7 @@ def capture_and_check_packet_on_dut(
         duthost.shell("kill -s 2 %s" % tcpdump_pid)
         with tempfile.NamedTemporaryFile() as temp_pcap:
             duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
-            pkts_validator(scapy_sniff(offline=temp_pcap.name))
+            pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
     finally:
         duthost.file(path=pcap_save_path, state="absent")
 
