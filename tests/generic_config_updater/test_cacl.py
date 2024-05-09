@@ -22,8 +22,6 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-T0_CACL_TABLE = ["NTP_ACL", "SNMP_ACL", "SSH_ONLY"]
-
 
 def get_cacl_tables(duthost):
     """Get acl control palne tables
@@ -53,6 +51,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     original_iptable_rules = get_iptable_rules(duthost)
+    original_cacl_tables = get_cacl_tables(duthost)
     create_checkpoint(duthost)
 
     yield
@@ -62,12 +61,18 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rollback_or_reload(duthost)
 
         current_iptable_rules = get_iptable_rules(duthost)
-        pytest_assert(set(original_iptable_rules) == set(current_iptable_rules),
-                      "iptable rules are not suppose to change after test")
+        pytest_assert(
+            set(original_iptable_rules) == set(current_iptable_rules),
+            "iptable rules are not suppose to change after test. org:{} cur:{}".format(
+                original_iptable_rules, current_iptable_rules)
+        )
 
         current_cacl_tables = get_cacl_tables(duthost)
-        pytest_assert(set(T0_CACL_TABLE) == set(current_cacl_tables),
-                      "iptable rules are not suppose to change after test")
+        pytest_assert(
+            set(original_cacl_tables) == set(current_cacl_tables),
+            "cacl tables are not suppose to change after test, org:{} cur:{}".format(
+                original_cacl_tables, current_cacl_tables)
+        )
     finally:
         delete_checkpoint(duthost)
 
