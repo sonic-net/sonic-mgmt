@@ -12,8 +12,8 @@ from datetime import datetime
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MGMT_REPOSITOR_ID = os.environ.get('MGMT_REPOSITOR_ID')
-MSSONIC_USERNAME = os.environ.get('MSSONIC_USERNAME')
+MGMT_REPOSITOR_ID = '5380e8f7-6e2a-4154-8dee-f3be7b096894'
+MSSONIC_USERNAME = 'mssonic'
 MSSONIC_PUBLIC_TOKEN = os.environ.get('MSSONIC_PUBLIC_TOKEN')
 
 SOURCE_BRANCH = 'internal'
@@ -298,9 +298,6 @@ def create_pull_request(source_branch, target_branch, pull_request_info):
     source_branch = f'refs/heads/{source_branch}'
     target_branch = f'refs/heads/{target_branch}'
 
-    headers = {
-        'Content-Type': 'application/json',
-    }
     data = {
         'sourceRefName': source_branch,
         'targetRefName': target_branch,
@@ -311,8 +308,8 @@ def create_pull_request(source_branch, target_branch, pull_request_info):
 
     response = requests.post(
         repository_url,
-        headers=headers,
-        auth=HTTPBasicAuth('', MSSONIC_PUBLIC_TOKEN),
+        headers=HEADERS,
+        auth=AUTH,
         data=json.dumps(data)
     )
 

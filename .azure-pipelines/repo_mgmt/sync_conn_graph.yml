@@ -37,7 +37,6 @@ stages:
         pool: nightly
         timeoutInMinutes: 30
         variables:
-          - group: GIT_SECRETS
           - group: sonicbld
           - name: skipComponentGovernanceDetection
             value: true
@@ -56,6 +55,4 @@ stages:
 
                 python3 sync_conn_graph.py
             env:
-              MGMT_REPOSITOR_ID: $(MGMT_REPOSITOR_ID)
-              MSSONIC_USERNAME: $(MSSONIC_USERNAME)
               MSSONIC_PUBLIC_TOKEN: $(MSSONIC-TOKEN)
