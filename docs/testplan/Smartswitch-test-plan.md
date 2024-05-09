@@ -661,7 +661,7 @@ root@sonic:/home/cisco#
 #### Pass/Fail Criteria
  * Verify both the date and time zone are same
  * Verify the syslogs on both switch and dpu to be same
- * Verify by changing time intentially and restart. Verify again for time sync
+ * Verify by changing time intentionally in dpu and restart the dpu. Verify again for time sync
 
 ### 1.9 Check the State of DPUs
 
