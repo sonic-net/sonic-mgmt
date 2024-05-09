@@ -52,7 +52,6 @@ stages:
           timeoutInMinutes: 960
           variables:
             - group: KUSTO_SECRETS
-            - group: GIT_SECRETS
             - group: sonicbld
             - name: skipComponentGovernanceDetection
               value: true

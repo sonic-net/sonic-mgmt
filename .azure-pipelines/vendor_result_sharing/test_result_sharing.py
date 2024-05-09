@@ -488,7 +488,7 @@ def main(args):
 
         remote_file_path = upload_date + '/' + buildid + '_' + hardwaresku + '_' + topology + '_' + str(os_version) + '_' + str(success_rate) + '.zip'
 
-        logger.debug('Staring upload artifact {} to container {} with blob name:{}'.format(local_artifact_path, vendor_container_name, remote_file_path))
+        logger.debug('Starting upload artifact {} to container {} with blob name:{}'.format(local_artifact_path, vendor_container_name, remote_file_path))
         vendor_sharing_storage_connecter.upload_artifacts_to_container(container_name=vendor_container_name, artifact=local_artifact_path, blob_name=remote_file_path)
 
         # update counter and log data
