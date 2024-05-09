@@ -216,7 +216,6 @@ t1-lag:
   - snmp/test_snmp_queue.py
   - snmp/test_snmp_v2mib.py
   - test_interfaces.py
-  - voq/test_voq_ipfwd.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
