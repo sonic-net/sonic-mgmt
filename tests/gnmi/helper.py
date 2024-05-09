@@ -179,12 +179,12 @@ def gnoi_reboot(duthost, localhost, method, delay, message):
         return 0, output['stdout']
 
 
-def gnoi_killprocess(duthost, localhost, request_json_data):
+def gnoi_request(duthost, localhost, rpc, request_json_data):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = "gnmi/gnoi_client -target %s:%s " % (ip, port)
-    cmd += "-logtostderr -cert ./gnmiclient.crt -key ./gnmiclient.key -ca ./gnmiCA.pem -rpc KillProcess "
+    cmd += "-logtostderr -cert ./gnmiclient.crt -key ./gnmiclient.key -ca ./gnmiCA.pem -rpc {} ".format(rpc)
     cmd += f'-jsonin \'{request_json_data}\''
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
