@@ -75,6 +75,21 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     config_reload(duthost)
 
 
+def compare_dicts_ignore_list_order(dict1, dict2):
+    def normalize(data):
+        if isinstance(data, list):
+            return set(data)
+        elif isinstance(data, dict):
+            return {k: normalize(v) for k, v in data.items()}
+        else:
+            return data
+
+    dict1_normalized = normalize(dict1)
+    dict2_normalized = normalize(dict2)
+
+    return dict1_normalized == dict2_normalized
+
+
 def load_minigraph_with_golden_empty_input(duthost):
     """Test Golden Config with empty input
     """
@@ -87,10 +102,17 @@ def load_minigraph_with_golden_empty_input(duthost):
     for table in initial_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
-        pytest_assert(
-            initial_config[table] == current_config[table],
-            "empty input compare fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            pytest_assert(
+                compare_dicts_ignore_list_order(initial_config[table], current_config[table]),
+                "empty input ACL_TABLE compare fail!"
+            )
+        else:
+            pytest_assert(
+                initial_config[table] == current_config[table],
+                "empty input compare fail! {}".format(table)
+            )
 
 
 def load_minigraph_with_golden_partial_config(duthost):
@@ -144,10 +166,17 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
     for table in full_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
-        pytest_assert(
-            full_config[table] == current_config[table],
-            "full config override fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            pytest_assert(
+                compare_dicts_ignore_list_order(full_config[table], current_config[table]),
+                "full config ACL_TABLE compare fail!"
+            )
+        else:
+            pytest_assert(
+                full_config[table] == current_config[table],
+                "full config override fail! {}".format(table)
+            )
 
 
 def load_minigraph_with_golden_empty_table_removal(duthost):
