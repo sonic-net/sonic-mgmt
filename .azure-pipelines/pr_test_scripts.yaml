@@ -264,6 +264,10 @@ wan-pub:
 dpu:
   - dash/test_dash_vnet.py
 
+onboarding_t0:
+  - console/test_console_availability.py
+
+
 specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
