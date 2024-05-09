@@ -1,15 +1,16 @@
 #! /usr/bin/env python3
 
 import logging
+import random
+import re
 import time
 
 from run_events_test import run_test
 
+random.seed(10)
 logger = logging.getLogger(__name__)
 tag = "sonic-events-swss"
 
-IF_STATE_TEST_PORT = "Ethernet0"
-PFC_STORM_TEST_PORT = "Ethernet4"
 PFC_STORM_TEST_QUEUE = "4"
 PFC_STORM_DETECTION_TIME = 100
 PFC_STORM_RESTORATION_TIME = 100
@@ -35,6 +36,14 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
 
 def shutdown_interface(duthost):
     logger.info("Shutting down an interface")
+    interfaces = duthost.get_interfaces_status()
+    pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
+    interface_list = []
+    for interface, status in interfaces.items():
+        if pattern.match(interface) and status["oper"] == "up" and status["admin"] == "up":
+            interface_list.append(interface)
+    IF_STATE_TEST_PORT = random.choice(interface_list)
+    assert IF_STATE_TEST_PORT is not None, "Unable to find valid interface for test"
     ret = duthost.shell("config interface startup {}".format(IF_STATE_TEST_PORT))
     assert ret["rc"] == 0, "Failing to startup interface {}".format(IF_STATE_TEST_PORT)
 
@@ -47,6 +56,15 @@ def shutdown_interface(duthost):
 
 def generate_pfc_storm(duthost):
     logger.info("Generating pfc storm")
+    interfaces = duthost.get_interfaces_status()
+    pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
+    interface_list = []
+    for interface, status in interfaces.items():
+        if pattern.match(interface) and status["oper"] == "up" and status["admin"] == "up":
+            interface_list.append(interface)
+    PFC_STORM_TEST_PORT = random.choice(interface_list)
+    assert PFC_STORM_TEST_PORT is not None, "Unable to find valid interface for test"
+
     queue_oid = duthost.get_queue_oid(PFC_STORM_TEST_PORT, PFC_STORM_TEST_QUEUE)
     duthost.shell("sonic-db-cli COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
                   format(queue_oid))
