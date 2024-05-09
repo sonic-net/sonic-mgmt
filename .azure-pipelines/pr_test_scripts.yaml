@@ -99,8 +99,11 @@ t0:
   - platform_tests/link_flap/test_cont_link_flap.py
   - platform_tests/sfp/test_show_intf_xcvr.py
   - platform_tests/sfp/test_sfpshow.py
+<<<<<<< HEAD
   - platform_tests/sfp/test_sfputil.py
   - platform_tests/test_kdump.py
+=======
+>>>>>>> Add case `test_warm_reboot` back (#12761)
   - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_auto_negotiation.py
   #  Temporarily remove for blocking builimage and take too much time to complete on KVM
