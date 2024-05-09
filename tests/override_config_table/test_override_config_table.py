@@ -76,6 +76,21 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     config_reload(duthost)
 
 
+def compare_dicts_ignore_list_order(dict1, dict2):
+    def normalize(data):
+        if isinstance(data, list):
+            return set(data)
+        elif isinstance(data, dict):
+            return {k: normalize(v) for k, v in data.items()}
+        else:
+            return data
+
+    dict1_normalized = normalize(dict1)
+    dict2_normalized = normalize(dict2)
+
+    return dict1_normalized == dict2_normalized
+
+
 def load_minigraph_with_golden_empty_input(duthost):
     """Test Golden Config with empty input
     """
