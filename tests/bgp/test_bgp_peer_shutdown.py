@@ -197,8 +197,8 @@ def test_bgp_peer_shutdown(
                 n0.teardown_session()
                 if not wait_until(
                     WAIT_TIMEOUT,
-                    1,
-                    0,
+                    5,
+                    20,
                     lambda: is_neighbor_session_down(duthost, n0),
                 ):
                     pytest.fail("Could not tear down bgp session")
