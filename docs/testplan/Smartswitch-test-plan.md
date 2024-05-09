@@ -24,7 +24,7 @@ Smartswitch is connected to dpu sleds via pcie link having two dpus per sled.
 
 ## Scope
 
-The test is targeting a running SONiC system on each dpus. 
+The test is targeting a running SONIC on Switch and SONIC-DASH system on each dpus. 
 Purpose of the test is to verify smartswich platform related functionalities/features for each dpus. 
 For every test cases, all DPUs need to be powered on unless specified in any of the case.
 
@@ -661,6 +661,7 @@ root@sonic:/home/cisco#
 #### Pass/Fail Criteria
  * Verify both the date and time zone are same
  * Verify the syslogs on both switch and dpu to be same
+ * Verify by changing time intentially and restart. Verify again for time sync
 
 ### 1.9 Check the State of DPUs
 
@@ -801,7 +802,7 @@ DPU3        2023_10_02_17_23_46     Host Reset DPU                  Sun 02 Oct 2
 
 #### Pass/Fail Criteria 
  * Verify the output to check the latest reboot cause with the date time stamp at the start of reboot
- * Reboot cause list - Watchdog, reboot command, Host Reset
+ * Verify all the reboot causes - Watchdog, reboot command, Host Reset
 
 
 ### 1.12 Check the DPU state after OS reboot
