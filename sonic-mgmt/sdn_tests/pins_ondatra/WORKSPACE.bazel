@@ -1,0 +1,135 @@
+# Copyright 2024 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+workspace(name = "com_github_sonic_net_sonic_mgmt_sdn_tests_pins_ondatra")
+
+# -- Load buildifier -----------------------------------------------------------
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# Bazel toolchain to build go-lang.
+http_archive(
+    name = "io_bazel_rules_go",
+    sha256 = "91585017debb61982f7054c9688857a2ad1fd823fc3f9cb05048b0025c47d023",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.42.0/rules_go-v0.42.0.zip",
+        "https://github.com/bazelbuild/rules_go/releases/download/v0.42.0/rules_go-v0.42.0.zip",
+    ],
+)
+
+# Gazelle to auto generate go-lang BUILD rules.
+http_archive(
+    name = "bazel_gazelle",
+    sha256 = "b7387f72efb59f876e4daae42f1d3912d0d45563eac7cb23d1de0b094ab588cf",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.34.0/bazel-gazelle-v0.34.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.34.0/bazel-gazelle-v0.34.0.tar.gz",
+    ],
+)
+
+load("pins_deps.bzl", "pins_deps")
+
+pins_deps()
+
+# -- Load Rules Foreign CC -----------------------------------------------------
+
+load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+
+rules_foreign_cc_dependencies()
+
+# -- Load GoLang Rules -----------------------------------------------------
+
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+load("//:infra_deps.bzl", "binding_deps")
+
+binding_deps()
+
+go_rules_dependencies()
+
+go_register_toolchains(version = "1.21.1")
+
+gazelle_dependencies(go_repository_default_config = "@//:WORKSPACE.bazel")
+
+# -- Load GRPC -------------------------------------------------------------
+
+load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
+
+switched_rules_by_language(
+    name = "com_google_googleapis_imports",
+    cc = True,
+    go = True,
+    grpc = True,
+)
+
+load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+
+grpc_deps()
+
+load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+
+grpc_extra_deps()
+
+# -- Load Protobuf -------------------------------------------------------------
+
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()
+
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
+
+rules_proto_dependencies()
+
+rules_proto_toolchains()
+
+### Bazel rules for many languages to compile PROTO into gRPC libraries
+http_archive(
+    name = "rules_proto_grpc",
+    sha256 = "f87d885ebfd6a1bdf02b4c4ba5bf6fb333f90d54561e4d520a8413c8d1fb7beb",
+    strip_prefix = "rules_proto_grpc-4.5.0",
+    urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.5.0.tar.gz"],
+    patch_args = ["-p1"],
+    patches = [
+        "//:bazel/patches/rules_proto_grpc.patch",
+    ],
+)
+
+load("@rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
+
+rules_proto_grpc_toolchains()
+
+rules_proto_grpc_repos()
+
+# -- Load P4Runtime ------------------------------------------------------------
+
+load("@com_github_p4lang_p4runtime//:p4runtime_deps.bzl", "p4runtime_deps")
+
+p4runtime_deps()
+
+# -- Load packaging rules ------------------------------------------------------
+
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
+
+rules_pkg_dependencies()
+
+# == Dependencies needed for testing and formatting only =======================
+
+# -- Load p4c ------------------------------------------------------------------
+
+load("@com_github_p4lang_p4c//:bazel/p4c_deps.bzl", "p4c_deps")
+
+p4c_deps()
+
+load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
+
+boost_deps()
