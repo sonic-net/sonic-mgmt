@@ -712,6 +712,7 @@ DPU0       1     Partial Online       dpu_midplane_link_state        up         
  * Online : All states are up
  * Offline: dpu_midplane_link_state or dpu_booted_state is down
  * Partial Online: dpu_midplane_link_state is up and dpu_booted_state is up and dpu_control_plane_state is up and dpu_data_plane_state is down
+ * Verify powering down dpu and check for status and powering up again to check the status to show online. 
 
 
 ### 1.10 Check the Health of DPUs
