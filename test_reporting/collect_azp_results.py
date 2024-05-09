@@ -4,11 +4,13 @@ import requests
 import argparse
 import json
 
+from requests.auth import HTTPBasicAuth
+
 
 TOKEN = os.environ.get('AZURE_DEVOPS_MSSONIC_TOKEN')
 if not TOKEN:
     raise Exception('Must export environment variable AZURE_DEVOPS_MSSONIC_TOKEN')
-AUTH = ('', TOKEN)
+AUTH = HTTPBasicAuth('', TOKEN)
 
 TASK_RESULT_FILE = "pipeline_task_results.json"
 
