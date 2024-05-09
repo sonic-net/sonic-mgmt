@@ -27,7 +27,7 @@ stages:
         timeoutInMinutes: 240
         variables:
           - group: KUSTO_SECRETS
-          - group: GIT_SECRETS
+          - group: sonicbld
           - group: SECRETS_JSON
           - group: TBSHARE_SECRETS
           - group: NIGHTLY_HAWK
@@ -54,4 +54,4 @@ stages:
               TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
               TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
               TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
-              AZURE_DEVOPS_MSAZURE_TOKEN: $(AZURE_DEVOPS_MSAZURE_TOKEN)
+              AZURE_DEVOPS_MSAZURE_TOKEN: $(MSAZURE-TOKEN)
