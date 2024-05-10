@@ -232,14 +232,19 @@ def set_drop_all(url, recover_directions_all):
     A helper function is returned to make fixture accept arguments
     """
     def _set_drop_all(directions):
+        nonlocal is_dropped
         server_url = url(action=DROP)
         data = {"out_sides": directions}
         logger.info("Dropping all packets to {}".format(directions))
         pytest_assert(_post(server_url, data), "Failed to set drop all on {}".format(directions))
+        is_dropped = True
+
+    is_dropped = False
 
     yield _set_drop_all
 
-    recover_directions_all()
+    if is_dropped:
+        recover_directions_all()
 
 
 @pytest.fixture(scope='function')
