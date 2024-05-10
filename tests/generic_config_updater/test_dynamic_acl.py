@@ -28,10 +28,11 @@ from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
+from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch, apply_formed_json_patch
 from tests.generic_config_updater.gu_utils import expect_acl_rule_match, expect_acl_rule_removed
 from tests.generic_config_updater.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
+from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor # noqa F401
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
 
 
@@ -264,6 +265,7 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
         "vlan_ips": vlan_ips,
         "is_dualtor": is_dualtor,
         "is_dualtor_aa": is_dualtor_aa,
+        "rand_unselected_dut": rand_unselected_dut,
         "switch_loopback_ip": switch_loopback_ip,
         "ipv4_vlan_mac": v4_vlan_mac,
         "uplink_mac": uplink_mac,
@@ -640,19 +642,14 @@ def build_exp_pkt(input_pkt):
 def dynamic_acl_create_table_type(rand_selected_dut, rand_unselected_dut, setup):
     """Create a new ACL table type that can be used"""
 
-    output = load_and_apply_json_patch(rand_selected_dut, CREATE_CUSTOM_TABLE_TYPE_FILE)
+    outputs = load_and_apply_json_patch(rand_selected_dut, CREATE_CUSTOM_TABLE_TYPE_FILE, setup)
 
-    expect_op_success(rand_selected_dut, output)
-
-    if setup["is_dualtor_aa"]:
-        output = load_and_apply_json_patch(rand_unselected_dut, CREATE_CUSTOM_TABLE_TYPE_FILE)
-        expect_op_success(rand_unselected_dut, output)
+    for output in outputs:
+        expect_op_success(rand_selected_dut, output)
 
     yield
 
-    dynamic_acl_remove_table_type(rand_selected_dut)
-    if setup["is_dualtor_aa"]:
-        dynamic_acl_remove_table_type(rand_unselected_dut)
+    dynamic_acl_remove_table_type(rand_selected_dut, setup)
 
 
 @pytest.fixture(scope="module")
@@ -671,33 +668,23 @@ def dynamic_acl_create_table(rand_selected_dut, rand_unselected_dut, dynamic_acl
                            "ingress",
                            "Active"]
 
-    output = format_and_apply_template(rand_selected_dut, CREATE_CUSTOM_TABLE_TEMPLATE, extra_vars)
+    outputs = format_and_apply_template(rand_selected_dut, CREATE_CUSTOM_TABLE_TEMPLATE, extra_vars, setup)
 
-    expect_op_success(rand_selected_dut, output)
+    for output in outputs:
+        expect_op_success(rand_selected_dut, output)
 
     expect_acl_table_match_multiple_bindings(rand_selected_dut,
                                              "DYNAMIC_ACL_TABLE",
                                              expected_first_line,
-                                             expected_bindings)
-
-    if setup["is_dualtor_aa"]:
-        output = format_and_apply_template(rand_unselected_dut, CREATE_CUSTOM_TABLE_TEMPLATE, extra_vars)
-
-        expect_op_success(rand_unselected_dut, output)
-
-        expect_acl_table_match_multiple_bindings(rand_unselected_dut,
-                                                 "DYNAMIC_ACL_TABLE",
-                                                 expected_first_line,
-                                                 expected_bindings)
+                                             expected_bindings,
+                                             setup)
 
     yield
 
-    dynamic_acl_remove_table(rand_selected_dut)
-    if setup["is_dualtor_aa"]:
-        dynamic_acl_remove_table(rand_unselected_dut)
+    dynamic_acl_remove_table(rand_selected_dut, setup)
 
 
-def dynamic_acl_create_forward_rules(duthost):
+def dynamic_acl_create_forward_rules(duthost, setup):
     """Create forward ACL rules"""
 
     IPV4_SUBNET = DST_IP_FORWARDED_ORIGINAL + "/32"
@@ -708,15 +695,16 @@ def dynamic_acl_create_forward_rules(duthost):
         'ipv6_subnet': IPV6_SUBNET
         }
 
-    output = format_and_apply_template(duthost, CREATE_FORWARD_RULES_TEMPLATE, extra_vars)
+    outputs = format_and_apply_template(duthost, CREATE_FORWARD_RULES_TEMPLATE, extra_vars, setup)
 
     expected_rule_1_content = ["DYNAMIC_ACL_TABLE", "RULE_1", "9999", "FORWARD", "DST_IP: " + IPV4_SUBNET, "Active"]
     expected_rule_2_content = ["DYNAMIC_ACL_TABLE", "RULE_2", "9998", "FORWARD", "DST_IPV6: " + IPV6_SUBNET, "Active"]
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
-    expect_acl_rule_match(duthost, "RULE_1", expected_rule_1_content)
-    expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content)
+    expect_acl_rule_match(duthost, "RULE_1", expected_rule_1_content, setup)
+    expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content, setup)
 
 
 def dynamic_acl_create_secondary_drop_rule(duthost, setup, blocked_port_name=None):
@@ -728,7 +716,7 @@ def dynamic_acl_create_secondary_drop_rule(duthost, setup, blocked_port_name=Non
         'blocked_port': blocked_name
     }
 
-    output = format_and_apply_template(duthost, CREATE_SECONDARY_DROP_RULE_TEMPLATE, extra_vars)
+    outputs = format_and_apply_template(duthost, CREATE_SECONDARY_DROP_RULE_TEMPLATE, extra_vars, setup)
 
     expected_rule_content = ["DYNAMIC_ACL_TABLE",
                              "RULE_3",
@@ -737,9 +725,10 @@ def dynamic_acl_create_secondary_drop_rule(duthost, setup, blocked_port_name=Non
                              "IN_PORTS: " + blocked_name,
                              "Active"]
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
-    expect_acl_rule_match(duthost, "RULE_3", expected_rule_content)
+    expect_acl_rule_match(duthost, "RULE_3", expected_rule_content, setup)
 
 
 def dynamic_acl_create_drop_rule_initial(duthost, setup):
@@ -749,7 +738,7 @@ def dynamic_acl_create_drop_rule_initial(duthost, setup):
         'blocked_port': setup["blocked_src_port_name"]
     }
 
-    output = format_and_apply_template(duthost, CREATE_INITIAL_DROP_RULE_TEMPLATE, extra_vars)
+    outputs = format_and_apply_template(duthost, CREATE_INITIAL_DROP_RULE_TEMPLATE, extra_vars, setup)
 
     expected_rule_content = ["DYNAMIC_ACL_TABLE",
                              "RULE_3",
@@ -758,9 +747,10 @@ def dynamic_acl_create_drop_rule_initial(duthost, setup):
                              "IN_PORTS: " + setup["blocked_src_port_name"],
                              "Active"]
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
-    expect_acl_rule_match(duthost, "RULE_3", expected_rule_content)
+    expect_acl_rule_match(duthost, "RULE_3", expected_rule_content, setup)
 
 
 def dynamic_acl_create_three_drop_rules(duthost, setup):
@@ -776,7 +766,7 @@ def dynamic_acl_create_three_drop_rules(duthost, setup):
 
     }
 
-    output = format_and_apply_template(duthost, CREATE_THREE_DROP_RULES_TEMPLATE, extra_vars)
+    outputs = format_and_apply_template(duthost, CREATE_THREE_DROP_RULES_TEMPLATE, extra_vars, setup)
 
     expected_rule_3_content = ["DYNAMIC_ACL_TABLE",
                                "RULE_3",
@@ -797,43 +787,47 @@ def dynamic_acl_create_three_drop_rules(duthost, setup):
                                "IN_PORTS: " + extra_vars['blocked_port_3'],
                                "Active"]
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
-    expect_acl_rule_match(duthost, "RULE_3", expected_rule_3_content)
-    expect_acl_rule_match(duthost, "RULE_4", expected_rule_4_content)
-    expect_acl_rule_match(duthost, "RULE_5", expected_rule_5_content)
+    expect_acl_rule_match(duthost, "RULE_3", expected_rule_3_content, setup)
+    expect_acl_rule_match(duthost, "RULE_4", expected_rule_4_content, setup)
+    expect_acl_rule_match(duthost, "RULE_5", expected_rule_5_content, setup)
 
 
-def dynamic_acl_create_arp_forward_rule(duthost):
+def dynamic_acl_create_arp_forward_rule(duthost, setup):
     """Create an ARP forward rule with the highest priority"""
 
-    output = load_and_apply_json_patch(duthost, CREATE_ARP_FORWARD_RULE_FILE)
+    outputs = load_and_apply_json_patch(duthost, CREATE_ARP_FORWARD_RULE_FILE, setup)
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
     expected_rule_content = ["DYNAMIC_ACL_TABLE", "ARP_RULE", "9997", "FORWARD", "ETHER_TYPE: 0x0806", "Active"]
 
-    expect_acl_rule_match(duthost, "ARP_RULE", expected_rule_content)
+    expect_acl_rule_match(duthost, "ARP_RULE", expected_rule_content, setup)
 
 
-def dynamic_acl_create_ndp_forward_rule(duthost):
+def dynamic_acl_create_ndp_forward_rule(duthost, setup):
     "Create an NDP forwarding rule with high priority"
 
-    output = load_and_apply_json_patch(duthost, CREATE_NDP_FORWARD_RULE_FILE)
+    outputs = load_and_apply_json_patch(duthost, CREATE_NDP_FORWARD_RULE_FILE, setup)
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
     expected_rule_content = ["DYNAMIC_ACL_TABLE", "NDP_RULE", "9996", "FORWARD", "IP_PROTOCOL: 58", "Active"]
 
-    expect_acl_rule_match(duthost, "NDP_RULE", expected_rule_content)
+    expect_acl_rule_match(duthost, "NDP_RULE", expected_rule_content, setup)
 
 
-def dynamic_acl_create_dhcp_forward_rule(duthost):
+def dynamic_acl_create_dhcp_forward_rule(duthost, setup):
     """Create DHCP forwarding rules"""
 
-    output = load_and_apply_json_patch(duthost, CREATE_DHCP_FORWARD_RULE_FILE)
+    outputs = load_and_apply_json_patch(duthost, CREATE_DHCP_FORWARD_RULE_FILE, setup)
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
     expected_v6_rule_content = ["DYNAMIC_ACL_TABLE",
                                 "DHCPV6_RULE", "9998",
@@ -880,28 +874,30 @@ def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_
         verify_expected_packet_behavior(exp_pkt, ptfadapter, setup, expect_drop=packets_dropped)
 
 
-def dynamic_acl_remove_third_drop_rule(duthost):
+def dynamic_acl_remove_third_drop_rule(duthost, setup):
     """Remove the third drop rule of the three created for the drop rule removal test"""
 
     extra_vars = {
         'rule_name': "RULE_5"
         }
 
-    output = format_and_apply_template(duthost, REMOVE_RULE_TEMPLATE, extra_vars)
-    expect_op_success(duthost, output)
+    outputs = format_and_apply_template(duthost, REMOVE_RULE_TEMPLATE, extra_vars, setup)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
-    expect_acl_rule_removed(duthost, "RULE_5")
+    expect_acl_rule_removed(duthost, "RULE_5", setup)
 
 
-def dynamic_acl_replace_nonexistent_rule(duthost):
+def dynamic_acl_replace_nonexistent_rule(duthost, setup):
     """Verify that replacing a non-existent rule fails"""
 
-    output = load_and_apply_json_patch(duthost, REPLACE_NONEXISTENT_RULE_FILE)
+    outputs = load_and_apply_json_patch(duthost, REPLACE_NONEXISTENT_RULE_FILE, setup)
 
-    expect_op_failure(output)
+    for output in outputs:
+        expect_op_failure(output)
 
 
-def dynamic_acl_replace_rules(duthost):
+def dynamic_acl_replace_rules(duthost, setup):
     """
     Replace our forward rules on the ACL table"""
 
@@ -928,17 +924,18 @@ def dynamic_acl_replace_rules(duthost):
 
     # replacing an ACL rule causing error logs to get flooded because of a SONiC bug currently - temporary fix
 
-    dynamic_acl_remove_ip_forward_rule(duthost, "IPV4")
-    dynamic_acl_remove_ip_forward_rule(duthost, "IPV6")
+    dynamic_acl_remove_ip_forward_rule(duthost, "IPV4", setup)
+    dynamic_acl_remove_ip_forward_rule(duthost, "IPV6", setup)
 
     time.sleep(2)
 
-    output = format_and_apply_template(duthost, CREATE_SECONDARY_FORWARD_RULES_TEMPLATE, extra_vars)
+    outputs = format_and_apply_template(duthost, CREATE_SECONDARY_FORWARD_RULES_TEMPLATE, extra_vars, setup)
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
-    expect_acl_rule_match(duthost, "RULE_1", expected_rule_1_content)
-    expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content)
+    expect_acl_rule_match(duthost, "RULE_1", expected_rule_1_content, setup)
+    expect_acl_rule_match(duthost, "RULE_2", expected_rule_2_content, setup)
 
 
 def dynamic_acl_apply_forward_scale_rules(duthost, setup):
@@ -979,18 +976,13 @@ def dynamic_acl_apply_forward_scale_rules(duthost, setup):
         }
     ]
 
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
+    outputs = apply_formed_json_patch(duthost, json_patch, setup)
 
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+    for output in outputs:
         expect_op_success(duthost, output)
 
-        for rule_name, expected_content in expected_rule_contents.items():
-            expect_acl_rule_match(duthost, rule_name, expected_content)
-
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    for rule_name, expected_content in expected_rule_contents.items():
+        expect_acl_rule_match(duthost, rule_name, expected_content, setup)
 
 
 def dynamic_acl_apply_drop_scale_rules(duthost, setup):
@@ -1015,20 +1007,16 @@ def dynamic_acl_apply_drop_scale_rules(duthost, setup):
     json_patch.append(patch)
     expected_content = ["DYNAMIC_ACL_TABLE", rule_name, str(priority), "DROP", "IN_PORTS: " + all_ports, "Active"]
 
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
+    outputs = apply_formed_json_patch(duthost, json_patch, setup)
 
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+    for output in outputs:
+
         expect_op_success(duthost, output)
 
-        expect_acl_rule_match(duthost, rule_name, expected_content)
-
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    expect_acl_rule_match(duthost, rule_name, expected_content, setup)
 
 
-def dynamic_acl_remove_ip_forward_rule(duthost, ip_type):
+def dynamic_acl_remove_ip_forward_rule(duthost, ip_type, setup):
     """Remove selected forward rule from the acl table"""
 
     if ip_type == "IPV4":
@@ -1040,35 +1028,39 @@ def dynamic_acl_remove_ip_forward_rule(duthost, ip_type):
         "rule_name": rule_name
     }
 
-    output = format_and_apply_template(duthost, REMOVE_RULE_TEMPLATE, extra_vars)
+    outputs = format_and_apply_template(duthost, REMOVE_RULE_TEMPLATE, extra_vars, setup)
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
-    expect_acl_rule_removed(duthost, rule_name)
+    expect_acl_rule_removed(duthost, rule_name, setup)
 
 
-def dynamic_acl_remove_table(duthost):
+def dynamic_acl_remove_table(duthost, setup):
     """Remove an ACL Table Type from the duthost"""
 
-    output = load_and_apply_json_patch(duthost, REMOVE_TABLE_FILE)
+    outputs = load_and_apply_json_patch(duthost, REMOVE_TABLE_FILE, setup)
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
 
-def dynamic_acl_remove_nonexistent_table(duthost):
+def dynamic_acl_remove_nonexistent_table(duthost, setup):
     """Remove a nonexistent ACL Table from the duthost, verify it fails"""
 
-    output = load_and_apply_json_patch(duthost, REMOVE_NONEXISTENT_TABLE_FILE)
+    outputs = load_and_apply_json_patch(duthost, REMOVE_NONEXISTENT_TABLE_FILE, setup)
 
-    expect_op_failure(output)
+    for output in outputs:
+        expect_op_failure(output)
 
 
-def dynamic_acl_remove_table_type(duthost):
+def dynamic_acl_remove_table_type(duthost, setup):
     """Remove an ACL Table definition from the duthost"""
 
-    output = load_and_apply_json_patch(duthost, REMOVE_TABLE_TYPE_FILE)
+    outputs = load_and_apply_json_patch(duthost, REMOVE_TABLE_TYPE_FILE, setup)
 
-    expect_op_success(duthost, output)
+    for output in outputs:
+        expect_op_success(duthost, output)
 
 
 def test_gcu_acl_arp_rule_creation(rand_selected_dut,
@@ -1122,7 +1114,8 @@ def test_gcu_acl_dhcp_rule_creation(rand_selected_dut,
                                     ptfadapter,
                                     setup,
                                     dynamic_acl_create_table,
-                                    toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                    toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                    setup_standby_ports_on_rand_unselected_tor):  # noqa F811
     """Verify that DHCP and DHCPv6 forwarding rules can be created, and that dhcp packets are properly forwarded
     whereas others are dropped"""
 
