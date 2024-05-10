@@ -65,7 +65,7 @@ parameters:
 - name: FROM_IMAGE_URL
   displayName: "Base image location"
   type: string
-  default: $(IMAGE_BRCM_ABOOT_202012)
+  default: $(IMAGE_BRCM_ABOOT_202305)
   values:
   - $(IMAGE_BRCM_ABOOT_201811)
   - $(IMAGE_BRCM_ABOOT_201911)
@@ -76,6 +76,8 @@ parameters:
   - $(IMAGE_BRCM_ABOOT_202205_SLIM)
   - $(IMAGE_BRCM_ABOOT_202305)
   - $(IMAGE_BRCM_ABOOT_202305_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202311)
+  - $(IMAGE_BRCM_ABOOT_202311_SLIM)
   - $(IMAGE_BRCM_ABOOT_INTERNAL)
   - $(IMAGE_BRCM_ABOOT_PUBLIC)
   - custom
@@ -88,7 +90,7 @@ parameters:
 - name: TO_IMAGE_URL
   displayName: "Target image location"
   type: string
-  default: $(IMAGE_BRCM_ABOOT_202305)
+  default: $(IMAGE_BRCM_ABOOT_202311)
   values:
   - $(IMAGE_BRCM_ABOOT_201811)
   - $(IMAGE_BRCM_ABOOT_201911)
@@ -99,6 +101,8 @@ parameters:
   - $(IMAGE_BRCM_ABOOT_202205_SLIM)
   - $(IMAGE_BRCM_ABOOT_202305)
   - $(IMAGE_BRCM_ABOOT_202305_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202311)
+  - $(IMAGE_BRCM_ABOOT_202311_SLIM)
   - $(IMAGE_BRCM_ABOOT_INTERNAL)
   - $(IMAGE_BRCM_ABOOT_PUBLIC)
   - custom
