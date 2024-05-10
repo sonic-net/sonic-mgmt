@@ -27,9 +27,9 @@ def setup_multiple_vlans_and_teardown(duthost, tbinfo):
     vlan_members = first_vlan_info['members']
     vlan_member_with_ptf_idx = [(member, connected_dut_intf_to_ptf_index[member])
                                 for member in vlan_members if member in connected_dut_intf_to_ptf_index]
-    pytest_assert(len(vlan_member_with_ptf_idx) >= 4, 'Vlan size is too small for testing')
+    pytest_assert(len(vlan_member_with_ptf_idx) >= 8, 'Vlan size is too small for testing')
     vlan_net = ipaddress.ip_network(address=first_vlan_ipv4_prefix, strict=False)
-    pytest_assert(vlan_net.num_addresses >= 4, 'Vlan size is too small for testing')
+    pytest_assert(vlan_net.num_addresses >= 8, 'Vlan size is too small for testing')
 
     vlan_setting = {
         'vlan_name': first_vlan_name,
@@ -38,7 +38,7 @@ def setup_multiple_vlans_and_teardown(duthost, tbinfo):
     }
 
     logging.info("The vlan_setting before test is %s" % vlan_setting)
-    two_vlans_info, patch_setup, patch_restore = generate_vlan_config_patch(
+    four_vlans_info, patch_setup, patch_restore = generate_four_vlans_config_patch(
         first_vlan_name,
         first_vlan_info,
         vlan_member_with_ptf_idx
@@ -48,16 +48,16 @@ def setup_multiple_vlans_and_teardown(duthost, tbinfo):
     apply_vlan_config_patch(duthost, patch_setup)
     # import pdb; pdb.set_trace()
 
-    logging.info("The two_vlans_info after setup is %s" % two_vlans_info)
-    yield two_vlans_info
+    logging.info("The four_vlans_info after setup is %s" % four_vlans_info)
+    yield four_vlans_info
 
     logging.info("The patch for restore is %s" % patch_restore)
     apply_vlan_config_patch(duthost, patch_restore)
     # import pdb; pdb.set_trace()
 
 
-def generate_vlan_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx):
-    two_vlans_info, patch_setup, patch_restore = [], [], []
+def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx):
+    four_vlans_info, patch_setup, patch_restore = [], [], []
     patch_setup += remove_vlan_patch(vlan_name) \
         + [remove_vlan_ip_patch(vlan_name, ip)[0] for ip in vlan_info['interface_ipv4']] \
         + [remove_vlan_ip_patch(vlan_name, ip)[0] for ip in vlan_info['interface_ipv6']] \
@@ -71,31 +71,22 @@ def generate_vlan_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx):
     # split single vlan into two vlans
     vlan_prefix = vlan_info['interface_ipv4'][0]
     vlan_net = ipaddress.ip_network(address=vlan_prefix, strict=False)
-    vlan_nets = list(vlan_net.subnets(prefixlen_diff=1))
-    two_vlans_info.append(
-        {
-            'vlan_name': 'Vlan123',
-            'vlan_gateway': str(list(vlan_nets[0].hosts())[0]),
-            'interface_ipv4': str(list(vlan_nets[0].hosts())[0]) + '/' + str(vlan_nets[0].prefixlen),
-            'vlan_subnet_mask': str(vlan_nets[0].netmask),
-            'vlan_hosts': [str(host) for host in list(vlan_nets[0].hosts())[1:]],
-            'members_with_ptf_idx': [(member, ptf_idx) for member, ptf_idx
-                                     in vlan_member_with_ptf_idx[:len(vlan_member_with_ptf_idx)//2]]
-        }
-    )
-    two_vlans_info.append(
-        {
-            'vlan_name': 'Vlan456',
-            'vlan_gateway': str(list(vlan_nets[1].hosts())[0]),
-            'interface_ipv4': str(list(vlan_nets[1].hosts())[0]) + '/' + str(vlan_nets[1].prefixlen),
-            'vlan_subnet_mask': str(vlan_nets[1].netmask),
-            'vlan_hosts': [str(host) for host in list(vlan_nets[1].hosts())[1:]],
-            'members_with_ptf_idx': [(member, ptf_idx) for member, ptf_idx
-                                     in vlan_member_with_ptf_idx[len(vlan_member_with_ptf_idx)//2:]]
-        }
-    )
+    vlan_nets = list(vlan_net.subnets(prefixlen_diff=2))
+    member_count = len(vlan_member_with_ptf_idx)//4
+    for i in range(4):
+        four_vlans_info.append(
+            {
+                'vlan_name': 'Vlan40%s' % i,
+                'vlan_gateway': str(list(vlan_nets[i].hosts())[0]),
+                'interface_ipv4': str(list(vlan_nets[i].hosts())[0]) + '/' + str(vlan_nets[i].prefixlen),
+                'vlan_subnet_mask': str(vlan_nets[i].netmask),
+                'vlan_hosts': [str(host) for host in list(vlan_nets[i].hosts())[1:]],
+                'members_with_ptf_idx': [(member, ptf_idx) for member, ptf_idx
+                                         in vlan_member_with_ptf_idx[member_count*i:member_count*(i+1)]]
+            }
+        )
 
-    for info in two_vlans_info:
+    for info in four_vlans_info:
         new_vlan_name = info['vlan_name']
         new_interface_ipv4 = info['interface_ipv4']
         new_members_with_ptf_idx = info['members_with_ptf_idx']
@@ -106,7 +97,7 @@ def generate_vlan_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx):
             + remove_vlan_ip_patch(new_vlan_name, new_interface_ipv4) \
             + [remove_vlan_member_patch(new_vlan_name, member)[0] for member, _ in new_members_with_ptf_idx]
 
-    return two_vlans_info, patch_setup, patch_restore
+    return four_vlans_info, patch_setup, patch_restore
 
 
 def apply_vlan_config_patch(duthost, config_patch_to_apply):
@@ -211,10 +202,10 @@ def test_single_ip_assignment(
         Verify configured interface can successfully get IP
     """
 
-    two_vlans_info = setup_multiple_vlans_and_teardown
+    four_vlans_info = setup_multiple_vlans_and_teardown
 
     test_xid_1 = 111
-    vlan_info_1 = two_vlans_info[0]
+    vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
     vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = vlan_info_1['vlan_name'], \
         vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], vlan_info_1['vlan_hosts'], \
         vlan_info_1['members_with_ptf_idx']
@@ -222,7 +213,6 @@ def test_single_ip_assignment(
     dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
 
     test_xid_2 = 112
-    vlan_info_2 = two_vlans_info[1]
     vlan_name_2, gateway_2, net_mask_2, vlan_hosts_2, vlan_members_with_ptf_idx_2 = vlan_info_2['vlan_name'], \
         vlan_info_2['vlan_gateway'], vlan_info_2['vlan_subnet_mask'], vlan_info_2['vlan_hosts'], \
         vlan_info_2['members_with_ptf_idx']
@@ -284,10 +274,10 @@ def test_range_ip_assignment(
         Verify configured interface can successfully get IP from an IP range
     """
 
-    two_vlans_info = setup_multiple_vlans_and_teardown
+    four_vlans_info = setup_multiple_vlans_and_teardown
 
     test_xid_1 = 113
-    vlan_info_1 = two_vlans_info[0]
+    vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
     vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = vlan_info_1['vlan_name'], \
         vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], vlan_info_1['vlan_hosts'], \
         vlan_info_1['members_with_ptf_idx']
@@ -296,7 +286,6 @@ def test_range_ip_assignment(
     dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
 
     test_xid_2 = 114
-    vlan_info_2 = two_vlans_info[1]
     vlan_name_2, gateway_2, net_mask_2, vlan_hosts_2, vlan_members_with_ptf_idx_2 = vlan_info_2['vlan_name'], \
         vlan_info_2['vlan_gateway'], vlan_info_2['vlan_subnet_mask'], vlan_info_2['vlan_hosts'], \
         vlan_info_2['members_with_ptf_idx']
@@ -360,17 +349,16 @@ def test_dhcp_server_config_vlan_intf_change(
         the dhcp server should assign IP from the subnet
     """
 
-    two_vlans_info = setup_multiple_vlans_and_teardown
+    four_vlans_info = setup_multiple_vlans_and_teardown
 
     test_xid_1 = 115
-    vlan_info_1 = two_vlans_info[0]
+    vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
     vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = vlan_info_1['vlan_name'], \
         vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], vlan_info_1['vlan_hosts'], \
         vlan_info_1['members_with_ptf_idx']
     expected_assigned_ip_1 = random.choice(vlan_hosts_1)
     dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
 
-    vlan_info_2 = two_vlans_info[1]
     _, gateway_2, net_mask_2, vlan_hosts_2, _ = vlan_info_2['vlan_name'], vlan_info_2['vlan_gateway'], \
         vlan_info_2['vlan_subnet_mask'], vlan_info_2['vlan_hosts'], vlan_info_2['members_with_ptf_idx']
     expected_assigned_ip_2 = random.choice(vlan_hosts_2)
