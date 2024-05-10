@@ -36,19 +36,6 @@ def get_sqg0(duthost, asic_index):
     return sqg0
 
 
-def get_static_th_bp(duthost):
-    port = "Ethernet0"
-    db = 4
-    bp_profile = "pg_lossless_200000_1m_profile"
-    asic = duthost.get_port_asic_instance(port)
-    static_th = six.text_type(asic.run_redis_cmd(
-        argv=[
-            "redis-cli", "-n", db, "HGET", "BUFFER_PROFILE|{}".format(bp_profile), "static_th"
-            ]
-        )[0])
-    return int(static_th)
-
-
 def get_asic_type(duthost):
     cmd = "sudo show platform npu global -n asic0"
     output = duthost.command(cmd)['stdout'].strip()
@@ -71,12 +58,17 @@ def lossless_use_hbm(duthost):
     return False
 
 
-def get_xoff_threshold(duthost, portspeed):
+def get_rx_cgm_profile(duthost, portspeed, is_bp=True):
+    # return sq thresholds and counter A threshoulds in bytes
     cmd = "show interface status -n asic0 -d all"
     output = duthost.command(cmd)['stdout'].strip()
     intf = ""
+    if is_bp:
+        search_string = '(Ethernet-BP\d+) +\S+ +{}.*up'.format(portspeed)
+    else:
+        search_string = '(Ethernet\d+) +\S+ +.*up'
     for line in output.split('\n'):
-        match = re.search('(Ethernet-BP\d+) +\S+ +{}.*up'.format(portspeed), line)
+        match = re.search(search_string, line)
         if match:
             intf = match.group(1)
             break
@@ -88,12 +80,49 @@ def get_xoff_threshold(duthost, portspeed):
         data = json.loads(json_str)
     except Exception as e:
         pytest.fail("JSon load error: {}".format(e))
+    sq_thresholds = []
+    ctr_a_thresholds = []
+    sqg_thresholds = []
     if "sq_thresholds_bytes" in data:
-        sq_threshold = data["sq_thresholds_bytes"][2][0]
-        sq_threshold_cells = sq_threshold/384
-        return int(sq_threshold_cells)
+        sq_thres0 = data["sq_thresholds_bytes"][2][0]
+        sq_thres1 = data["sq_thresholds_bytes"][1][0]
+        sq_thres2 = data["sq_thresholds_bytes"][0][0]
+        sq_thresholds = [sq_thres0, sq_thres1, sq_thres2]
+    if "sqg_thresholds" in data:
+        sqg_thres0 = data["sqg_thresholds"][0][0]
+        sqg_thres1 = data["sqg_thresholds"][1][0]
+        sqg_thres2 = data["sqg_thresholds"][2][0]
+        sqg_thresholds = [sqg_thres0, sqg_thres1, sqg_thres2]
+    if "ctr_a_thresholds" in data:
+        ctr_a_thres0 = data["ctr_a_thresholds"][0][0]
+        ctr_a_thres1 = data["ctr_a_thresholds"][1][0]
+        ctr_a_thres2 = data["ctr_a_thresholds"][2][0]
+        ctr_a_thresholds = [ctr_a_thres0, ctr_a_thres1, ctr_a_thres2]
+    return sq_thresholds, sqg_thresholds, ctr_a_thresholds
+
+def get_xoff_threshold_bp(duthost, portspeed):
+    sq_thresholds, _, _ = get_rx_cgm_profile(duthost, portspeed)
+    return sq_thresholds[0]
+
+def get_expected_sqg0(dst_duthost, num_of_voqs, is_egress=True):
+    if get_asic_type(dst_duthost) == "Gibraltar":
+        sq_thresholds, sqg_thresholds, _ = get_rx_cgm_profile(dst_duthost, "200G", is_egress)
+        expected_sqg0 = sq_thresholds[0] * num_of_voqs
+        if sqg_thresholds[0] < expected_sqg0:
+            expected_sqg0 = sq_thresholds[1] * num_of_voqs
+        if sqg_thresholds[1] < expected_sqg0:
+            expected_sqg0 = sq_thresholds[2] * num_of_voqs
+        if sqg_thresholds[2] < expected_sqg0:
+            expected_sqg0 = sqg_thresholds[2]
     else:
-        pytest.fail("No sq_thresholds_bytes in show platform npu rx cgm_profile -t 3 -i {} -d".format(intf))
+        # Pacific
+        sq_thresholds, _, ctr_a_thresholds = get_rx_cgm_profile(dst_duthost, "100G", is_egress)
+        expected_sqg0 = sq_thresholds[1] * num_of_voqs
+        if ctr_a_thresholds[0] < expected_sqg0:
+            expected_sqg0 = max(sq_thresholds[2] * num_of_voqs, ctr_a_thresholds[0])
+        if ctr_a_thresholds[1] < expected_sqg0:
+            expected_sqg0 = ctr_a_thresholds[1]
+    return expected_sqg0
 
 
 class TestMemory(QosSaiBase):
@@ -255,10 +284,11 @@ class TestMemory(QosSaiBase):
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
-        
-        dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
+
         dst_ip = "100.0.0.1"
-        
+        dst_port_id = dutConfig["testPorts"]["dst_port_id"]
+        dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         all_src_ports = dutConfig["testPortIps"][src_dut_index][src_asic_index]
@@ -275,7 +305,7 @@ class TestMemory(QosSaiBase):
         num_of_flows = qosConfig[MemoryProfile]['num_of_flows']
         testParams.update(qosConfig[MemoryProfile])
         testParams.update({
-            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_id": dst_port_id,
             "dst_port_ip": dst_ip,
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
@@ -300,37 +330,48 @@ class TestMemory(QosSaiBase):
                 qosConfig[MemoryProfile]["packet_size"]
 
         rp_duthost = duthosts.supervisor_nodes[0]
-        for duthost in set([src_duthost, dst_duthost, rp_duthost]):
-            enable_serviceability_cli(duthost)
 
         cmd = "sudo ip netns exec asic{} config route add prefix {}/32 nexthop {}".format(dst_asic_index, dst_ip, dst_port_ip)
         res = dst_duthost.command(cmd)
         pytest_assert(res['rc'] == 0, "Config static route failed")
 
-        self.runPtfTest(
-            ptfhost, testCase="sai_qos_tests.Memorytest",
-            testParams=testParams
-        )
-
-        # Caculate xoff threshold based on pkts_num_trig_pfc
+        # Caculate expected value
         cell_per_pkt = math.ceil(packet_size/cell_size)
-        xoff_thres_cell = cell_per_pkt * pkts_num_trig_pfc
-        xoff_thres_cell_bp = xoff_thres_cell
-        if lossless_use_hbm(dst_duthost):
-            static_th = get_static_th_bp(dst_duthost)
-            xoff_thres_cell_bp = math.ceil(static_th/cell_size)
 
-        # Check SQG0 of ingress asic
-        # ingress asic: xoff_threshold * 2 voqs (src ports)
-        ingress_sqg0 = get_sqg0(src_duthost, src_asic_index)
-        expected_ingress_sqg0 = xoff_thres_cell * 2
+        # Ingress asic: xoff_threshold * 2 voqs (src ports)
+        expected_ingress_sqg0_bytes = get_expected_sqg0(src_duthost, 2, False)
 
-        # Check SQG0 of FC asics
         # FC asic: xoff_threshold * min(num_of_flows * 2, number of FC asics)
         cmd = "show platform inventory"
         output = rp_duthost.command(cmd)['stdout'].strip()
         num_of_fc = output.count('Cisco 8808 Fabric Card')
         num_of_fc_asic = 2 * num_of_fc
+        if get_asic_type(src_duthost) == "Gibraltar":
+            fc_xoff_thres = get_xoff_threshold_bp(rp_duthost, "200G")
+        else:
+            fc_xoff_thres = get_xoff_threshold_bp(rp_duthost, "100G")
+        expected_fc_sqg0_bytes = fc_xoff_thres * min(num_of_flows * 2, num_of_fc_asic)
+
+        # Egress asic: xoff_threshold * min(num_of_flows * 2, number of FC asics)
+        num_of_voqs = min(num_of_flows * 2, num_of_fc_asic)
+        expected_egress_sqg0_bytes = get_expected_sqg0(dst_duthost, num_of_voqs)
+
+        expected_egress_pkts = math.ceil(expected_egress_sqg0_bytes / cell_size / cell_per_pkt)
+        expected_total_sqg0_bytes = expected_ingress_sqg0_bytes + expected_fc_sqg0_bytes + expected_egress_sqg0_bytes
+        expected_total_pkts = math.ceil(expected_total_sqg0_bytes / cell_size / cell_per_pkt)
+        testParams["pkts_num_trig_pfc_egress"] = int(expected_egress_pkts / 2)
+        testParams["pkts_num_trig_pfc"] = int(expected_total_pkts / 2)
+
+        # Send packets
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.Memorytest",
+            testParams=testParams
+        )
+
+        # Check SQG0 of ingress asic
+        ingress_sqg0 = get_sqg0(src_duthost, src_asic_index)
+
+        # Check SQG0 of FC asics
         fc_sqg0 = 0
         for line in output.split('\n'):
             if line.find('Cisco 8808 Fabric Card') == -1:
@@ -342,58 +383,54 @@ class TestMemory(QosSaiBase):
                 for asic_index in asic_indexes:
                     sqg0 = get_sqg0(rp_duthost, asic_index)
                     fc_sqg0 += sqg0
-        if get_asic_type(src_duthost) == "Gibraltar":
-            fc_xoff_thres_cells = get_xoff_threshold(rp_duthost, "200G")
-        else:
-            fc_xoff_thres_cells = get_xoff_threshold(rp_duthost, "100G")
-        expected_fc_sqg0 = fc_xoff_thres_cells * min(num_of_flows * 2, num_of_fc_asic)
 
         # Check SQG0 of egress asic
-        # egress asic: xoff_threshold * min(num_of_flows * 2, number of FC asics)
         egress_sqg0 = get_sqg0(dst_duthost, dst_asic_index)
-        expected_egress_sqg0 = xoff_thres_cell_bp * min(num_of_flows * 2, num_of_fc_asic)
 
         # Print memory usage
         if lossless_use_hbm(src_duthost):
             ingress_sqg0_bytes = ingress_sqg0 * 8192
-            expected_ingress_sqg0_bytes = expected_ingress_sqg0 * 8192
         else:
             ingress_sqg0_bytes = ingress_sqg0 * 384
-            expected_ingress_sqg0_bytes = expected_ingress_sqg0 * 384
         fc_sqg0_bytes = fc_sqg0 * 384
-        expected_fc_sqg0_bytes = expected_fc_sqg0 * 384
         if lossless_use_hbm(dst_duthost):
             egress_sqg0_bytes = egress_sqg0 * 8192
-            expected_egress_sqg0_bytes = expected_egress_sqg0 * 8192
         else:
             egress_sqg0_bytes = egress_sqg0 * 384
-            expected_egress_sqg0_bytes = expected_egress_sqg0 * 384
         total_sqg0_bytes = ingress_sqg0_bytes + fc_sqg0_bytes + egress_sqg0_bytes
-        expected_total_sqg0_bytes = expected_ingress_sqg0_bytes + expected_fc_sqg0_bytes + expected_egress_sqg0_bytes
+
+        expected_total_sqg0_mb = bytes_to_mb(expected_total_sqg0_bytes)
+        expected_ingress_sqg0_mb = bytes_to_mb(expected_ingress_sqg0_bytes)
+        expected_fc_sqg0_mb = bytes_to_mb(expected_fc_sqg0_bytes)
+        expected_egress_sqg0_mb = bytes_to_mb(expected_egress_sqg0_bytes)
+        total_sqg0_mb = bytes_to_mb(total_sqg0_bytes)
+        ingress_sqg0_mb = bytes_to_mb(ingress_sqg0_bytes)
+        fc_sqg0_mb = bytes_to_mb(fc_sqg0_bytes)
+        egress_sqg0_mb = bytes_to_mb(egress_sqg0_bytes)
+
         table = PrettyTable(["", "Number of Flows", "Total SQG0", "Ingress SQG0", "FC SQG0", "Egress SQG0"])
-        table.add_row(["Expected cells", num_of_flows * 2, "", expected_ingress_sqg0, expected_fc_sqg0, expected_egress_sqg0])
-        table.add_row(["Actual cells", num_of_flows * 2, "", ingress_sqg0, fc_sqg0, egress_sqg0])
         table.add_row(["Expected bytes", num_of_flows * 2, expected_total_sqg0_bytes, expected_ingress_sqg0_bytes, expected_fc_sqg0_bytes, expected_egress_sqg0_bytes])
         table.add_row(["Actual bytes", num_of_flows * 2, total_sqg0_bytes, ingress_sqg0_bytes, fc_sqg0_bytes, egress_sqg0_bytes])
         table.add_row(["Expected MB", num_of_flows * 2,
-                       bytes_to_mb(expected_total_sqg0_bytes),
-                       bytes_to_mb(expected_ingress_sqg0_bytes),
-                       bytes_to_mb(expected_fc_sqg0_bytes),
-                       bytes_to_mb(expected_egress_sqg0_bytes)])
+                       expected_total_sqg0_mb,
+                       expected_ingress_sqg0_mb,
+                       expected_fc_sqg0_mb,
+                       expected_egress_sqg0_mb])
         table.add_row(["Actual MB", num_of_flows * 2,
-                       bytes_to_mb(total_sqg0_bytes),
-                       bytes_to_mb(ingress_sqg0_bytes),
-                       bytes_to_mb(fc_sqg0_bytes),
-                       bytes_to_mb(egress_sqg0_bytes)])
+                       total_sqg0_mb,
+                       ingress_sqg0_mb,
+                       fc_sqg0_mb,
+                       egress_sqg0_mb])
         print(table)
 
         # Assert result
-        assert abs(ingress_sqg0 - expected_ingress_sqg0) < expected_ingress_sqg0 * 0.1, "ingress asic{} sqg0 {} divert from expected buffers {}".format(
-                src_asic_index, ingress_sqg0, expected_ingress_sqg0)
-        assert abs(fc_sqg0 - expected_fc_sqg0) < expected_fc_sqg0 * 0.1, "FC sqg0_total {} divert from expected buffers {}".format(
-            fc_sqg0, expected_fc_sqg0)
-        assert abs(egress_sqg0 - expected_egress_sqg0) < expected_egress_sqg0 * 0.1, "egress asic{} sqg0 {} divert from expected buffers {}".format(
-                dst_asic_index, egress_sqg0, expected_egress_sqg0)
+        pass_criteria = 0.06
+        assert abs(ingress_sqg0_bytes - expected_ingress_sqg0_bytes) < expected_ingress_sqg0_bytes * pass_criteria, "Ingress asic{} sqg0 {} MB, expected {} MB".format(
+            src_asic_index, ingress_sqg0_mb, expected_ingress_sqg0_mb)
+        assert abs(fc_sqg0_bytes - expected_fc_sqg0_bytes) < expected_fc_sqg0_bytes * pass_criteria, "FC sqg0_total {} MB, expected {} MB".format(
+            fc_sqg0_mb, expected_fc_sqg0_mb)
+        assert abs(egress_sqg0_bytes - expected_egress_sqg0_bytes) < expected_egress_sqg0_bytes * pass_criteria, "Egress asic{} sqg0 {} MB, expected {} MB".format(
+            dst_asic_index, egress_sqg0_mb, expected_egress_sqg0_mb)
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.ReleaseAllPorts",

@@ -707,6 +707,8 @@ class QosSaiBase(QosBase):
         dst_dut_port_ips = testPortIps[get_src_dst_asic_and_duts['dst_dut_index']]
         dst_test_port_ips = dst_dut_port_ips[get_src_dst_asic_and_duts['dst_asic_index']]
 
+        dst_test_port_ids_not_lag_member = [k for k, v in dst_test_port_ips.items() if ('is_lag_member' in v and not v['is_lag_member'])]
+
         if dstPorts is None:
             if dst_port_ids:
                 pytest_assert(
@@ -760,6 +762,10 @@ class QosSaiBase(QosBase):
         dstVlan3 = dst_test_port_ips[dstPort3]['vlan_id'] if 'vlan_id' in dst_test_port_ips[dstPort3] else None
         srcPort = srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]
         srcVlan = src_test_port_ips[srcPort]['vlan_id'] if 'vlan_id' in src_test_port_ips[srcPort] else None
+
+        if dst_test_port_ids_not_lag_member:
+            dstPort = dst_test_port_ids_not_lag_member[0]
+
         return {
          "dst_port_id": dstPort,
          "dst_port_ip": dst_test_port_ips[dstPort]['peer_addr'],
@@ -972,14 +978,14 @@ class QosSaiBase(QosBase):
             for iface, addr in active_ips.items():
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                     portIndex = src_mgFacts["minigraph_ptf_indices"][iface]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface, 'is_lag_member': False}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
                 elif iface.startswith("PortChannel"):
                     portName = next(
                         iter(src_mgFacts["minigraph_portchannels"][iface]["members"])
                     )
                     portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName, 'is_lag_member': True}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
 
             testPortIds[src_dut_index][src_asic_index] = sorted(dutPortIps[src_dut_index][src_asic_index].keys())
@@ -999,14 +1005,14 @@ class QosSaiBase(QosBase):
                 for iface, addr in active_ips.items():
                     if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                         portIndex = dst_mgFacts["minigraph_ptf_indices"][iface]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
+                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface, 'is_lag_member': False}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
                     elif iface.startswith("PortChannel"):
                         portName = next(
                             iter(dst_mgFacts["minigraph_portchannels"][iface]["members"])
                         )
                         portIndex = dst_mgFacts["minigraph_ptf_indices"][portName]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
+                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName, 'is_lag_member': True}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
 
                 testPortIds[dst_dut_index][dst_asic_index] = sorted(dutPortIps[dst_dut_index][dst_asic_index].keys())

@@ -55,12 +55,11 @@ def get_tcp_port():
 TCP_PORT_GEN = get_tcp_port()
 
 
-def generate_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pkt_len, src_details, packets_per_port=1):
+def generate_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pkt_len, src_details, packets_per_port=1, check_actual_dst_id=True):
     '''
         Returns a dict of format:
         src_id : [list of (pkt, exp_pkt) pairs that go to the given dst_id]
     '''
-
     def get_rx_port_pkt(dp, src_port_id, pkt, exp_pkt):
         send_packet(dp, src_port_id, pkt, 1)
 
@@ -108,8 +107,13 @@ def generate_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, tt
                 all_pkts[src_tuple[0]]
             except KeyError:
                 all_pkts[src_tuple[0]] = []
-            all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt, dst_id))
-            num_of_pkts += 1
+            if check_actual_dst_id is False:
+                actual_dst_id = dst_id
+            else:
+                actual_dst_id = get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt)
+            if actual_dst_id == dst_id:
+                all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt, dst_id))
+                num_of_pkts += 1
             print("ip_src {}, ip_dst {}, tcp_dport {}".format(src_tuple[1], dst_ip, tcp_dport))
 
     return all_pkts
@@ -143,6 +147,7 @@ class Memorytest(sai_base_test.ThriftInterfaceDataPlane):
         num_of_flows = self.test_params['num_of_flows']
         asic_type = self.test_params['sonic_asic_type']
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        pkts_num_trig_pfc_egress = int(self.test_params['pkts_num_trig_pfc_egress'])
         cell_size = int(self.test_params['cell_size'])
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
@@ -180,7 +185,8 @@ class Memorytest(sai_base_test.ThriftInterfaceDataPlane):
                 ttl,
                 packet_length,
                 src_details,
-                packets_per_port=num_of_flows)
+                packets_per_port=num_of_flows,
+                check_actual_dst_id=False)
 
         # get a snapshot of counter values at recv and transmit ports
         def collect_counters():
@@ -203,11 +209,21 @@ class Memorytest(sai_base_test.ThriftInterfaceDataPlane):
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
-        # send packets short of triggering pfc
-        # Send 1 less packet due to leakout filling
-        npkts = (pkts_num_trig_pfc // num_of_flows) - 2 - margin
+        # send packets to trigger pfc in egress asic
+        npkts = pkts_num_trig_pfc_egress // num_of_flows
         print("Sending {} flows, {} packets for each flow".format(num_of_flows * 2, npkts))
         total_pkts = [npkts * num_of_flows] * 2
+        for src_id in all_pkts.keys():
+            for pkt_tuple in all_pkts[src_id]:
+                send_packet(self, src_id, pkt_tuple[0], npkts)
+
+        # send packets short of triggering pfc
+        # Send 1 less packet due to leakout filling
+        npkts = ((pkts_num_trig_pfc - pkts_num_trig_pfc_egress) // num_of_flows) - 2 - margin
+        print("Sending {} flows, {} packets for each flow".format(num_of_flows * 2, npkts))
+        num_src_ports = 2
+        for i in range(num_src_ports):
+            total_pkts[i] += npkts * num_of_flows
         for src_id in all_pkts.keys():
             for pkt_tuple in all_pkts[src_id]:
                 send_packet(self, src_id, pkt_tuple[0], npkts)
@@ -219,7 +235,7 @@ class Memorytest(sai_base_test.ThriftInterfaceDataPlane):
         # queue counters value is not of our interest here
         counter_details_after = collect_counters()
 
-        for i in range(2):
+        for i in range(num_src_ports):
             # recv port no pfc
             pfc_txd = counter_details_after[i][0][pg] - counter_details_before[i][0][pg]
             assert pfc_txd == 0, \
@@ -236,17 +252,17 @@ class Memorytest(sai_base_test.ThriftInterfaceDataPlane):
             assert diff == 0, "Unexpected egress drops {} on port {}".format(diff, dst_port_id)
 
         # Keep sending packets until PFC is triggerred
-        npkts = 200 // num_of_flows
+        npkts = 20 // num_of_flows
         print("Keep sending {} packets per flow until PFC is triggered".format(npkts))
         pfc_is_triggered = [False, False]
         src_port_ids = [src_port_1_id, src_port_2_id]
         while False in pfc_is_triggered:
-            for i in range(2):
+            for i in range(num_src_ports):
                 if not pfc_is_triggered[i]:
                     for pkt_tuple in all_pkts[src_port_ids[i]]:
                         send_packet(self, src_port_ids[i], pkt_tuple[0], npkts)
                         total_pkts[i] += npkts
-                    print("Totally {} packets sent to src port {}".format(total_pkts[i], i))
+                    print("Total {} packets sent to src port {}".format(total_pkts[i], i))
 
             # allow enough time for counters to update
             time.sleep(2)
