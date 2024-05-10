@@ -420,6 +420,7 @@ def load_and_apply_json_patch(duthost, file_name, setup):
 
     return outputs
 
+
 def apply_formed_json_patch(duthost, json_patch, setup):
 
     duts_to_apply = [duthost]
@@ -440,7 +441,11 @@ def apply_formed_json_patch(duthost, json_patch, setup):
     return outputs
 
 
-def expect_acl_table_match_multiple_bindings(duthost, table_name, expected_first_line_content, expected_bindings, setup):
+def expect_acl_table_match_multiple_bindings(duthost,
+                                             table_name,
+                                             expected_first_line_content,
+                                             expected_bindings,
+                                             setup):
     """Check if acl table show as expected
     Acl table with multiple bindings will show as such
 
@@ -495,7 +500,7 @@ def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
         if rule_lines > 1:
             for i in range(1, rule_lines):
                 pytest_assert(output[i]["match"] in expected_content_list,
-                            "Unexpected match condition found: " + str(output[i]["match"]))
+                              "Unexpected match condition found: " + str(output[i]["match"]))
 
 
 def expect_acl_rule_removed(duthost, rulename, setup):

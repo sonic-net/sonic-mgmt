@@ -25,10 +25,10 @@ import ptf.testutils as testutils
 from ipaddress import ip_network, IPv6Network, IPv4Network
 from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.generic_config_updater.gu_utils import expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch, apply_formed_json_patch
+from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
+from tests.generic_config_updater.gu_utils import apply_formed_json_patch
 from tests.generic_config_updater.gu_utils import expect_acl_rule_match, expect_acl_rule_removed
 from tests.generic_config_updater.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
