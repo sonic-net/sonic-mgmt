@@ -130,7 +130,7 @@ function setup_test_options()
     # for the scenario of specifying test scripts using pattern like `subfolder/test_*.py`. The pattern will be
     # expanded to matched test scripts by bash. Among the expanded scripts, we may want to skip a few. Then we can
     # explicitly specify the script to be skipped.
-    ignores=$(python2 -c "print('|'.join('''$SKIP_FOLDERS'''.split()))")
+    ignores=$(python2 -c "print '|'.join('''$SKIP_FOLDERS'''.split())")
     if [[ -z ${TEST_CASES} ]]; then
         # When TEST_CASES is not specified, find all the possible scripts, ignore the scripts under $SKIP_FOLDERS
         all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${ignores})")
