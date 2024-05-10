@@ -87,7 +87,7 @@ def test_packet_capture(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ena
 
     # 5. Check we have captured the packets
     # 5.1 Remove existing capture file
-    result = duthost.command("sudo rm -f /var/dump/capture.pcap")
+    result = duthost.command("sudo rm -f /var/dump/capture_0.pcap")
     # 5.2 Dump packet capture
     result = duthost.command("show platform npu packet-debug capture -d")
     logging.info(result)
@@ -98,16 +98,18 @@ def test_packet_capture(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ena
     assert '(68)' in result["stdout"] , "CLI output missing/not correct"
     # 5.5 Verify dump captured in default file
     assert "dump captured" in result["stdout"]
-    assert not os.path.isfile("/var/dump/capture.pcap")
-    assert os.stat("/var/dump/capture.pcap").st_size
+    result = duthost.command('stat --printf="%s" /var/dump/capture_0.pcap')
+    assert not result["stderr"]
+    assert result["stdout"] != '0'
     # 5.6 Verify dump captured with given filename
     result = duthost.command("show platform npu packet-debug capture -f capture2.pcap")
     assert "dump captured" in result["stdout"]
-    assert not os.path.isfile("/var/dump/capture2.pcap")
-    assert os.stat("/var/dump/capture2.pcap").st_size
+    result = duthost.command('stat --printf="%s" /var/dump/capture2_0.pcap')
+    assert not result["stderr"]
+    assert result["stdout"] != '0'
     # 5.7 Remove capture files
-    result = duthost.command("sudo rm -f /var/dump/capture.pcap")
-    result = duthost.command("sudo rm -f /var/dump/capture2.pcap")
+    result = duthost.command("sudo rm -f /var/dump/capture_0.pcap")
+    result = duthost.command("sudo rm -f /var/dump/capture2_0.pcap")
 
     # 6. Disable packet-debug drops feature
     result = duthost.command("sudo config platform cisco packet-debug drops disable")
