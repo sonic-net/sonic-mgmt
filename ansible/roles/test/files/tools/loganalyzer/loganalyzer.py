@@ -404,7 +404,7 @@ class AnsibleLogAnalyzer:
         '''
 
         ret_code = False
-        if (expect_messages_regex is not None) and (expect_messages_regex.findall(str)):
+        if (expect_messages_regex is not None) and (expect_messages_regex.match(str)):
             ret_code = True
 
         return ret_code
