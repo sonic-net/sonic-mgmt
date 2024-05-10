@@ -6,6 +6,7 @@ import glob
 import subprocess
 import click
 
+
 def read_ips_from_csv(file_pattern: str):
     ips = []
 
@@ -21,20 +22,27 @@ def read_ips_from_csv(file_pattern: str):
 
     return ips
 
+
 def check_ip_available(ip: str, ping: bool) -> bool:
     if ip.endswith(".0") or ip.endswith(".255"):
         return False
-    
+
     if not ping:
         return True
 
     print(f"Pinging IP: {ip}")
     try:
-        response = subprocess.run(['ping', '-c', '1', '-W', '0.3', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        response = subprocess.run(
+            ['ping', '-c', '1', '-W', '0.3', ip],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True)
+
         return response.returncode != 0
     except Exception as e:
         print(f"Failed to ping {ip}: {str(e)}")
         return True
+
 
 def find_unused_ips(csv_ips, ip_range, ping, count):
     range_ips = ipaddress.ip_network(ip_range)
@@ -52,8 +60,9 @@ def find_unused_ips(csv_ips, ip_range, ping, count):
             continue
 
         unused_ips.append(str(ip))
-    
+
     return unused_ips
+
 
 @click.command()
 @click.argument('file_pattern', default='files/*_devices.csv')
@@ -76,10 +85,11 @@ def main(ping, file_pattern, ip_range, count):
     """
     csv_ips = read_ips_from_csv(file_pattern)
     unused_ips = find_unused_ips(csv_ips, ip_range, ping, count)
-    
+
     print("Avaiable IPs:")
     for ip in unused_ips:
         print(ip)
+
 
 if __name__ == '__main__':
     main()
