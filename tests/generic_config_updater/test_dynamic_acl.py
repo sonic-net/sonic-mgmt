@@ -1267,12 +1267,14 @@ def test_gcu_acl_scale_rules(rand_selected_dut, rand_unselected_dut, ptfadapter,
 
 
 def test_gcu_acl_nonexistent_rule_replacement(rand_selected_dut,
-                                              toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                              toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                              setup):
     """Confirm that replacing a nonexistent rule results in operation failure"""
     dynamic_acl_replace_nonexistent_rule(rand_selected_dut, setup)
 
 
 def test_gcu_acl_nonexistent_table_removal(rand_selected_dut,
-                                           toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                           toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                           setup):
     """Confirm that removing a nonexistent table results in operation failure"""
     dynamic_acl_remove_nonexistent_table(rand_selected_dut, setup)
