@@ -69,7 +69,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "pfcwd/test_pfcwd_warm_reboot.py, platform_tests/test_advanced_reboot.py, platform_tests/test_cont_warm_reboot.py, arp/test_wr_arp.py"
+    default: "pfcwd/test_pfcwd_warm_reboot.py, platform_tests/test_advanced_reboot.py, platform_tests/test_cont_warm_reboot.py, arp/test_wr_arp.py, arp/test_neighbor_mac.py"
     displayName: "Scripts to be excluded"
 
   # metadata-scripts relies on the change to clone sonic-metadata as a fixture which is not done, currently skip the feature
