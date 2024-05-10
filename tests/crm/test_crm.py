@@ -69,7 +69,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def handle_default_acl_rules(duthost, tbinfo):
     """
     Cleanup all the existing DATAACL rules and re-create them at the end of the test
