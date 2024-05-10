@@ -639,6 +639,12 @@ generic_config_updater/test_dhcp_relay.py:
       - "platform in ['x86_64-8111_32eh_o-r0']"
       - "'backend' in topo_name"
 
+generic_config_updater/test_dynamic_acl.py:
+  skip:
+    reason: "Skip on unsupported platforms"
+    conditions:
+      - "release in ['202311', '202405'] and platform in ['armhf-nokia_ixs7215_52x-r0']"
+
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     reason: "This test is not run on this asic type, topology, or version currently"
