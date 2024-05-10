@@ -33,6 +33,10 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
 def _get_pdu_controller(duthost, conn_graph_facts):
     hostname = duthost.hostname
     # To adapt to the kvm testbed, conn_graph_facts is None for kvm.
+    # Unfortunately, for most DUTs
+    # we will get None because there is no key pdu_host under most of the hosts in iventory.
+    # And although we can get the pdu hosts list of a DUT from inventory
+    # we can not get the hwsku and os of pdu host from inventory.
     # So we give the default value `{}` to kvm.
     device_pdu_links = conn_graph_facts.get('device_pdu_links', {})
     device_pdu_info = conn_graph_facts.get('device_pdu_info', {})
