@@ -510,7 +510,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         duthost.command(route_add)
 
     check_available_counters = True
-    if duthost.facts['asic_type'] == 'broadcom':
+    if duthost.facts['asic_type'] in ['broadcom', 'mellanox']:
         check_available_counters = False
 
     # Make sure CRM counters updated
