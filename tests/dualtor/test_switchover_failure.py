@@ -11,6 +11,10 @@ from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service  # noqa: F401
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_common import cable_type, CableType                                     # noqa F401
+<<<<<<< HEAD
+=======
+
+>>>>>>> [dualtor] adapting `test_mac_move_during_switchover` to dualtor_aa (#12671)
 
 logger = logging.getLogger(__name__)
 
