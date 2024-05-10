@@ -845,9 +845,9 @@ def dynamic_acl_create_dhcp_forward_rule(duthost, setup):
                              "ETHER_TYPE: 0x0800",
                              "Active"]
 
-    expect_acl_rule_match(duthost, "DHCP_RULE", expected_rule_content)
+    expect_acl_rule_match(duthost, "DHCP_RULE", expected_rule_content, setup)
 
-    expect_acl_rule_match(duthost, "DHCPV6_RULE", expected_v6_rule_content)
+    expect_acl_rule_match(duthost, "DHCPV6_RULE", expected_v6_rule_content, setup)
 
 
 def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_port=None):
@@ -1087,8 +1087,6 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
         dynamic_acl_create_ndp_forward_rule(rand_selected_dut, setup)
 
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup, port_name)
-    if setup["is_dualtor_aa"]:
-        dynamic_acl_create_secondary_drop_rule(rand_unselected_dut, setup, port_name)
 
     rand_selected_dut.shell("ping -c 3 {} {}".format(ipv6_ping_option, ip_address_for_test), module_ignore_errors=True)
 
