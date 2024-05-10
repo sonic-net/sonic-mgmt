@@ -376,12 +376,12 @@ def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_
 
     # Increment address by 3 to offset it from the intf on which the address may be learned
     if intf_ipv4_addr is not None:
-        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=3)
+        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=129)
     else:
         ptf_intf_ipv4_addr = None
 
     if intf_ipv6_addr is not None:
-        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=3)
+        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=129)
     else:
         ptf_intf_ipv6_addr = None
 
