@@ -1080,15 +1080,11 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
     if is_ipv4_test:
         show_cmd = "show arp"
         ipv6_ping_option = ""
-        dynamic_acl_create_arp_forward_rule(rand_selected_dut)
-        if setup["is_dualtor_aa"]:
-            dynamic_acl_create_arp_forward_rule(rand_unselected_dut)
+        dynamic_acl_create_arp_forward_rule(rand_selected_dut, setup)
     else:
         show_cmd = "nbrshow -6 -ip"
         ipv6_ping_option = "-6"
-        dynamic_acl_create_ndp_forward_rule(rand_selected_dut)
-        if setup["is_dualtor_aa"]:
-            dynamic_acl_create_ndp_forward_rule(rand_unselected_dut)
+        dynamic_acl_create_ndp_forward_rule(rand_selected_dut, setup)
 
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup, port_name)
     if setup["is_dualtor_aa"]:
@@ -1122,12 +1118,8 @@ def test_gcu_acl_dhcp_rule_creation(rand_selected_dut,
     if setup["topo"] == "m0_l3":
         pytest.skip("M0 L3 sets up destination ports differently than what we want for DHCP, skipping test.")
 
-    dynamic_acl_create_dhcp_forward_rule(rand_selected_dut)
+    dynamic_acl_create_dhcp_forward_rule(rand_selected_dut, setup)
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
-
-    if setup["is_dualtor_aa"]:
-        dynamic_acl_create_dhcp_forward_rule(rand_unselected_dut)
-        dynamic_acl_create_secondary_drop_rule(rand_unselected_dut, setup)
 
     dynamic_acl_send_and_verify_dhcp_packets(rand_selected_dut, setup, ptfadapter)
 
@@ -1147,8 +1139,6 @@ def test_gcu_acl_drop_rule_creation(rand_selected_dut,
     that match the drop rule are dropped and packets that do not match the drop rule are forwarded"""
 
     dynamic_acl_create_drop_rule_initial(rand_selected_dut, setup)
-    if setup["is_dualtor_aa"]:
-        dynamic_acl_create_drop_rule_initial(rand_unselected_dut, setup)
 
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
@@ -1170,11 +1160,7 @@ def test_gcu_acl_drop_rule_removal(rand_selected_dut,
     """Test that once a drop rule is removed, packets that were previously being dropped are now forwarded"""
 
     dynamic_acl_create_three_drop_rules(rand_selected_dut, setup)
-    dynamic_acl_remove_third_drop_rule(rand_selected_dut)
-
-    if setup["is_dualtor_aa"]:
-        dynamic_acl_create_three_drop_rules(rand_unselected_dut, setup)
-        dynamic_acl_remove_third_drop_rule(rand_unselected_dut)
+    dynamic_acl_remove_third_drop_rule(rand_selected_dut, setup)
 
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
@@ -1193,12 +1179,8 @@ def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut,
     higher priority than drop.  Then, perform a traffic test to confirm that packets that match both the forward
     and drop rules are correctly forwarded, as the forwarding rules have higher priority"""
 
-    dynamic_acl_create_forward_rules(rand_selected_dut)
+    dynamic_acl_create_forward_rules(rand_selected_dut, setup)
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
-
-    if setup["is_dualtor_aa"]:
-        dynamic_acl_create_forward_rules(rand_unselected_dut)
-        dynamic_acl_create_secondary_drop_rule(rand_unselected_dut, setup)
 
     dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup), packets_dropped=False)
     dynamic_acl_verify_packets(setup, ptfadapter,
@@ -1216,14 +1198,9 @@ def test_gcu_acl_forward_rule_replacement(rand_selected_dut,
     Confirm that packets sent that match this new value are correctly forwarded, and that packets that are sent that
     match the old, replaced value are correctly dropped."""
 
-    dynamic_acl_create_forward_rules(rand_selected_dut)
+    dynamic_acl_create_forward_rules(rand_selected_dut, setup)
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
-    dynamic_acl_replace_rules(rand_selected_dut)
-
-    if setup["is_dualtor_aa"]:
-        dynamic_acl_create_forward_rules(rand_unselected_dut)
-        dynamic_acl_create_secondary_drop_rule(rand_unselected_dut, setup)
-        dynamic_acl_replace_rules(rand_unselected_dut)
+    dynamic_acl_replace_rules(rand_selected_dut, setup)
 
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
@@ -1245,14 +1222,9 @@ def test_gcu_acl_forward_rule_removal(rand_selected_dut,
     """Test that if a forward rule is created, and then removed, that packets associated with that rule are properly
     no longer forwarded, and packets associated with the remaining rule are forwarded"""
 
-    dynamic_acl_create_forward_rules(rand_selected_dut)
+    dynamic_acl_create_forward_rules(rand_selected_dut, setup)
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
-    dynamic_acl_remove_ip_forward_rule(rand_selected_dut, ip_type)
-
-    if setup["is_dualtor_aa"]:
-        dynamic_acl_create_forward_rules(rand_unselected_dut)
-        dynamic_acl_create_secondary_drop_rule(rand_unselected_dut, setup)
-        dynamic_acl_remove_ip_forward_rule(rand_unselected_dut, ip_type)
+    dynamic_acl_remove_ip_forward_rule(rand_selected_dut, ip_type, setup)
 
     forward_packets = generate_packets(setup)
     drop_packets = forward_packets.copy()
@@ -1277,10 +1249,6 @@ def test_gcu_acl_scale_rules(rand_selected_dut, rand_unselected_dut, ptfadapter,
     dynamic_acl_apply_forward_scale_rules(rand_selected_dut, setup)
     dynamic_acl_apply_drop_scale_rules(rand_selected_dut, setup)
 
-    if setup["is_dualtor_aa"]:
-        dynamic_acl_apply_forward_scale_rules(rand_unselected_dut, setup)
-        dynamic_acl_apply_drop_scale_rules(rand_unselected_dut, setup)
-
     # select one of our src ports blocked by these scale rules
     blocked_scale_port = setup["scale_port_indices"][0]
 
@@ -1303,10 +1271,10 @@ def test_gcu_acl_scale_rules(rand_selected_dut, rand_unselected_dut, ptfadapter,
 def test_gcu_acl_nonexistent_rule_replacement(rand_selected_dut,
                                               toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
     """Confirm that replacing a nonexistent rule results in operation failure"""
-    dynamic_acl_replace_nonexistent_rule(rand_selected_dut)
+    dynamic_acl_replace_nonexistent_rule(rand_selected_dut, setup)
 
 
 def test_gcu_acl_nonexistent_table_removal(rand_selected_dut,
                                            toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
     """Confirm that removing a nonexistent table results in operation failure"""
-    dynamic_acl_remove_nonexistent_table(rand_selected_dut)
+    dynamic_acl_remove_nonexistent_table(rand_selected_dut, setup)
