@@ -92,6 +92,7 @@ console-178,10.3.145.178,Cisco,ConsoleServer,ssh,
 console-182,10.3.145.182,Cisco,ConsoleServer,ssh,
 console-184,10.3.145.184,Cisco,ConsoleServer,ssh,
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh,
+console-196,10.3.145.196,Cisco,ConsoleServer,ssh,
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
 console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
 str3-z9332f-01,10.3.146.248/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
@@ -116,3 +117,9 @@ str3-msn4700-fanout-03,10.3.146.12/24,Mellanox-SN4700-O8V48,FanoutLeafSonic,,son
 str3-msn4700-04,10.3.146.175/24,Mellanox-SN4700-O28,DevSonic,,sonic
 str3-msn4700-fanout-04,10.3.146.131/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
 str3-s6100-acs-8,10.64.247.77/23,Force10-S6100,DevSonic,,sonic
+str3-7060x6-64pe-1,10.64.246.2/23,Arista-7060X6-OSFP-64PE,DevSonic,,sonic
+str3-7060x6-64pe-fan-1,10.64.246.3/23,Arista-7060X6-OSFP-64PE,FanoutLeafSonic,,sonic
+str3-7060x6-64pe-2,10.64.246.4/23,Arista-7060X6-OSFP-64PE,DevSonic,,sonic
+str3-7060x6-64pe-fan-2,10.64.246.8/23,Arista-7060X6-OSFP-64PE,FanoutLeafSonic,,sonic
+str3-sn5600-1,10.64.246.9/23,NVidia-SN5600-O64,DevSonic,,sonic
+str3-sn5600-fan-1,10.64.246.12/23,NVidia-SN5600-O64,FanoutLeafSonic,,sonic

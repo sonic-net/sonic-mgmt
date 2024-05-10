@@ -41,6 +41,9 @@ str3-7260cx3-acs-root03,Ethernet41/1,str3-7260cx3-acs-fan-10,Ethernet64/1,100000
 str3-7260cx3-acs-root03,Ethernet39/1,str3-7260qx-acs-fan-01,Ethernet64,40000,"2400-2461",Trunk
 str3-7260cx3-acs-root03,Ethernet42/1,str3-7260qx-acs-fan-02,Ethernet64,40000,"2464-2525",Trunk
 str3-7260cx3-acs-root03,Ethernet50/1,str3-msn4700-fanout-02,Ethernet248,100000,"2592-2645",Trunk
+str3-7260cx3-acs-root03,Ethernet53/1,str3-7060x6-64pe-fan-1,Ethernet504,100000,"3136-3199",Trunk
+str3-7260cx3-acs-root03,Ethernet54/1,str3-7060x6-64pe-fan-2,Ethernet504,100000,"3200-3263",Trunk
+str3-7260cx3-acs-root03,Ethernet55/1,str3-sn5600-fan-1,Ethernet504,100000,"3264-3327",Trunk
 str3-7260cx3-acs-root03,Ethernet47/1,str3-msn4700-fanout-04,etp32,100000,"2650-2680",Trunk
 str3-7260cx3-acs-root03,Ethernet48/1,str3-7260cx3-acs-fan-11,Ethernet64/1,100000,"3000-3061",Trunk
 str3-7260cx3-acs-root03,Ethernet51/1,str3-msn4700-fanout-03,Ethernet248,100000,"3064-3177",Trunk
