@@ -184,7 +184,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
             duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
         except RunAnsibleModuleFail as e:
             # command will failed when log already in rotating
-            logger.warning("logrotate command failed".format(e))
+            logger.warning("logrotate command failed: {}".format(e))
 
         res = duthost.shell("systemctl restart rsyslog")
         assert res["rc"] == 0, "failed to restart rsyslog"
