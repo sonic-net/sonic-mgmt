@@ -1,7 +1,7 @@
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert
-from .utils import check_output
+from .utils import check_output, tacacs_running, start_tacacs_server
 
 import logging
 
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 SLEEP_TIME = 10
 TIMEOUT_LIMIT = 120
+RETRY_COUNT = 3
 
 
 def ssh_remote_run(localhost, remote_ip, username, password, cmd):
@@ -77,6 +78,22 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
                 current_attempt += 1
 
 
+def ssh_remote_run_with_ipv6(localhost, dutip, ptfhost, user, password, command):
+    retry_count = RETRY_COUNT
+    while retry_count > 0:
+        res = ssh_remote_run(localhost, dutip, user,
+                            password, command)
+
+        # TACACS server randomly crash after receive authorization request from IPV6
+        if not tacacs_running(ptfhost):
+            start_tacacs_server(ptfhost)
+            retry_count -= 1
+        else:
+            return res
+
+    pytest_assert(False, "cat command failed because TACACS server not running")
+
+
 def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
@@ -86,13 +103,16 @@ def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_c
     check_output(res, 'test', 'remote_user')
 
 
-def test_ro_user_ipv6(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6):
+def test_ro_user_ipv6(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    res = ssh_remote_run(localhost, dutip, tacacs_creds['tacacs_ro_user'],
-                         tacacs_creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
 
-    check_output(res, 'test', 'remote_user')
+    res = ssh_remote_run_with_ipv6(localhost, dutip, ptfhost,
+                                   tacacs_creds['tacacs_rw_user'],
+                                   tacacs_creds['tacacs_rw_user_passwd'],
+                                   "cat /etc/passwd")
+
+    check_output(res, 'testadmin', 'remote_user_su')
 
 
 def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):

@@ -33,12 +33,11 @@ def check_all_services_status(ptfhost):
     res = ptfhost.command("service --status-all")
     logger.info(res["stdout_lines"])
 
+def tacacs_running(ptfhost):
+    out = ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout"]
+    return "tacacs+ running" in out
 
 def start_tacacs_server(ptfhost):
-    def tacacs_running(ptfhost):
-        out = ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout"]
-        return "tacacs+ running" in out
-
     ptfhost.command("service tacacs_plus restart", module_ignore_errors=True)
     return wait_until(5, 1, 0, tacacs_running, ptfhost)
 
