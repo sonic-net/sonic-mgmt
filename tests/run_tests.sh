@@ -130,17 +130,18 @@ function setup_test_options()
     # for the scenario of specifying test scripts using pattern like `subfolder/test_*.py`. The pattern will be
     # expanded to matched test scripts by bash. Among the expanded scripts, we may want to skip a few. Then we can
     # explicitly specify the script to be skipped.
-    ignore_files=("test_pretest.py" "test_posttest.py")
-    ignore_conditions=""
-    for file in "${ignore_files[@]}"; do
-        ignore_conditions+=('!' -name "$file" -a)
-    done
-    ignore_conditions[${#ignore_conditions[@]}-1]=''
-
     ignores=$(python3 -c "print('|'.join('''$SKIP_FOLDERS'''.split()))")
     if [[ -z ${TEST_CASES} ]]; then
         # When TEST_CASES is not specified, find all the possible scripts, ignore the scripts under $SKIP_FOLDERS
-        all_scripts=$(find ./ -name 'test_*.py' ${ignore_conditions[@]} | sed s:^./:: | grep -vE "^(${ignores})")
+        all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${ignores})")
+        ignore_files=("test_pretest.py" "test_posttest.py")
+        for ((i=${#all_scripts[@]}-1; i>=0; i--)); do
+            # Check if the current element is in the sub array
+            if [[ " ${ignore_files[@]} " =~ " ${all_scripts[i]} " ]]; then
+                # Remove the element from the main array
+                unset 'all_scripts[i]'
+            fi
+        done
     else
         # When TEST_CASES is specified, ignore the scripts under $SKIP_FOLDERS
         all_scripts=""
