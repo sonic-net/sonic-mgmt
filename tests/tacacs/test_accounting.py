@@ -39,7 +39,7 @@ def cleanup_tacacs_log(ptfhost, rw_user_client):
     ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
 
 
-def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
+def wait_for_log(host, log_file, pattern, timeout=30, check_interval=1):
     wait_time = 0
     while wait_time <= timeout:
         sed_command = "sed -nE '{0}' {1}".format(pattern, log_file)
@@ -99,6 +99,12 @@ def check_local_log_exist(duthost, tacacs_creds, command):
                   /INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
                   .format(username, command)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
+
+    if len(logs) == 0:
+        # print recent logs for debug
+        recent_logs = duthost.command(("cat /var/log/syslog | tail -n 500")
+        logger.debug("Found logs: %s", recent_logs)
+
     pytest_assert(len(logs) > 0)
 
     # exclude logs of the sed command produced by Ansible
