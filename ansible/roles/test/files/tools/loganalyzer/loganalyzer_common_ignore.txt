@@ -233,6 +233,9 @@ r, ".*ERR kernel: \[.*\] snd_hda_intel.*no codecs found!.*"
 r, ".* ERR syncd#syncd.* SAI_API_QUEUE:_brcm_sai_cosq_stat_get.* Bulk read not supported.*"
 r, ".* ERR syncd#syncd.* SAI_API_SWITCH:sai_bulk_object_get_stats.* get bulk queue stats failed.*"
 
+# https://github.com/sonic-net/sonic-buildimage/issues/18887
+r, ".* ERR bgp#zebra.*zfpm_build_route_updates: Encoding Prefix:.* No valid nexthops"
+
 #Cisco platform ignore messages
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_0 is not ready.*"
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_1 is not ready.*"
