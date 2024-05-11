@@ -61,6 +61,9 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rollback_or_reload(duthost)
 
         current_iptable_rules = get_iptable_rules(duthost)
+        logger.info("original iptable rules: {}, current iptable rules: {}".format(
+            original_iptable_rules, current_iptable_rules)
+        )
         pytest_assert(
             set(original_iptable_rules) == set(current_iptable_rules),
             "iptable rules are not suppose to change after test. org:{} cur:{}".format(
@@ -68,6 +71,9 @@ def setup_env(duthosts, rand_one_dut_hostname):
         )
 
         current_cacl_tables = get_cacl_tables(duthost)
+        logger.info("original cacl tables: {}, current cacl tables: {}".format(
+            original_cacl_tables, current_cacl_tables)
+        )
         pytest_assert(
             set(original_cacl_tables) == set(current_cacl_tables),
             "cacl tables are not suppose to change after test, org:{} cur:{}".format(
