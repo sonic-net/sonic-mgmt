@@ -82,7 +82,7 @@ def ssh_remote_run_with_ipv6(localhost, dutip, ptfhost, user, password, command)
     retry_count = RETRY_COUNT
     while retry_count > 0:
         res = ssh_remote_run(localhost, dutip, user,
-                            password, command)
+                             password, command)
 
         # TACACS server randomly crash after receive authorization request from IPV6
         if not tacacs_running(ptfhost):
@@ -193,7 +193,8 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
                                           " 'sudo sonic-installer list' is banned")
 
 
-def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                                           tacacs_creds, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 

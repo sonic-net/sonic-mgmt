@@ -21,7 +21,8 @@ def test_rw_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_c
     check_output(res, 'testadmin', 'remote_user_su')
 
 
-def test_rw_user_ipv6(localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6):
+def test_rw_user_ipv6(localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
+                      tacacs_creds, check_tacacs_v6):
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
