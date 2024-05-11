@@ -134,6 +134,14 @@ function setup_test_options()
     if [[ -z ${TEST_CASES} ]]; then
         # When TEST_CASES is not specified, find all the possible scripts, ignore the scripts under $SKIP_FOLDERS
         all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${ignores})")
+        ignore_files=("test_pretest.py" "test_posttest.py")
+        for ((i=${#all_scripts[@]}-1; i>=0; i--)); do
+            # Check if the current element is in the sub array
+            if [[ " ${ignore_files[@]} " =~ " ${all_scripts[i]} " ]]; then
+                # Remove the element from the main array
+                unset 'all_scripts[i]'
+            fi
+        done
     else
         # When TEST_CASES is specified, ignore the scripts under $SKIP_FOLDERS
         all_scripts=""
