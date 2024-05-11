@@ -1,3 +1,4 @@
+from conftest import DHCP_SERVER_CONTAINER_NAME, DHCP_RELAY_CONTAINER_NAME
 import logging
 import ipaddress
 import pytest
@@ -651,3 +652,29 @@ def test_dhcp_server_config_vlan_member_change(
         net_mask=net_mask
     )
     clean_dhcp_server_config(duthost)
+
+
+@pytest.mark.parametrize("container_name", [DHCP_SERVER_CONTAINER_NAME, DHCP_RELAY_CONTAINER_NAME])
+def test_dhcp_server_critical_process_crush(
+    duthost,
+    container_name
+):
+    """
+        Test if dhcp server can recover from critical process crush
+    """
+    running_critical_process_before_kill = duthost.critical_process_status(container_name)['running_critical_process']
+    pytest_assert(running_critical_process_before_kill, "No critical process found")
+
+    critical_process = random.choice(running_critical_process_before_kill)
+    pid = duthost.shell("docker exec -it %s supervisorctl pid %s" % (container_name, critical_process))['stdout']
+    pytest_assert(pid, "No pid found for critical process %s" % critical_process)
+
+    duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, pid))
+    time.sleep(5)  # wait container exit
+    output = duthost.shell('docker ps -a | grep %s' % container_name)['stdout']
+    pytest_assert('Exited' in output,
+                  "Container %s is not exited when critical process was killed" % DHCP_SERVER_CONTAINER_NAME)
+    time.sleep(60)  # wait for container restart and process be stable
+    running_critical_process_after_kill = duthost.critical_process_status(container_name)['running_critical_process']
+    pytest_assert(len(running_critical_process_before_kill) == len(running_critical_process_after_kill),
+                  "Running critical process count changed")
