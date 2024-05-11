@@ -17,7 +17,7 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa F
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.utilities import get_intf_by_sub_intf
+from tests.common.utilities import get_intf_by_sub_intf, wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -320,10 +320,14 @@ class TrafficSendVerify(object):
             else:
                 actual_cnt = int(stats[intf]['RX_DRP'])
                 exp_cnt = self.pre_rx_drops[intf] + TEST_PKT_CNT
-                pytest_assert(actual_cnt >= exp_cnt,
-                              "Pkt dropped cnt incorrect for intf {}. Expected: {}, Obtained: {}".format(intf, exp_cnt,
-                                                                                                         actual_cnt))
                 logger.info("Pkt count dropped on interface {}: {}, Expected: {}".format(intf, actual_cnt, exp_cnt))
+                if actual_cnt < exp_cnt:
+                    return False
+        return True
+
+    def verifyIntfCounters(self):
+        pytest_assert(wait_until(10, 2, 0, self._verifyIntfCounters),
+                      "Drop counters failed to increment")
 
     def runTest(self):
         """
@@ -343,7 +347,7 @@ class TrafficSendVerify(object):
             testutils.send(self.ptfadapter, src_port, pkt, count=TEST_PKT_CNT)
             testutils.verify_no_packet_any(self.ptfadapter, exp_pkt, ports=self.ptf_vlan_ports)
         logger.info("Collect and verify drop counters after test run")
-        self._verifyIntfCounters()
+        self.verifyIntfCounters()
 
 
 class TestUnknownMac(object):

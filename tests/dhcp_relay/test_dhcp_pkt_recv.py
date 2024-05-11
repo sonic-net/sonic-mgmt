@@ -37,7 +37,9 @@ class Dhcpv6PktRecvBase:
 
     @pytest.fixture(scope="class")
     def setup_teardown(self, duthost, tbinfo):
-        ptf_indices = tbinfo['topo']['properties']['topology']['host_interfaces']
+        disabled_host_interfaces = tbinfo['topo']['properties']['topology'].get('disabled_host_interfaces', [])
+        ptf_indices = [interface for interface in tbinfo['topo']['properties']['topology'].get('host_interfaces', [])
+                       if interface not in disabled_host_interfaces]
         dut_intf_ptf_index = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
         yield ptf_indices, dut_intf_ptf_index
 

@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 
@@ -848,6 +849,10 @@ class TestSfpApi(PlatformApiTestBase):
                            "Unable to retrieve transceiver {} error description".format(i)):
                 if "Not implemented" in error_description:
                     pytest.skip("get_error_description isn't implemented. Skip the test")
+                if "Not supported" in error_description:
+                    logger.warning("test_get_error_description: Skipping transceiver {} as error description not "
+                                   "supported on this port)".format(i))
+                    continue
                 if self.expect(isinstance(error_description, str) or isinstance(error_description, str),
                                "Transceiver {} error description appears incorrect".format(i)):
                     self.expect(error_description == "OK", "Transceiver {} is not present".format(i))

@@ -37,14 +37,17 @@ def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
     logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
 
 
-def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conpleteness_level,
-                                 withdraw_and_announce_existing_routes, loganalyzer):
+def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_conpleteness_level,
+                                 withdraw_and_announce_existing_routes, loganalyzer,
+                                 enum_rand_one_per_hwsku_frontend_hostname):
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
     if loganalyzer:
         ignoreRegex = [
             ".*ERR route_check.py:.*",
-            ".*ERR.* \'routeCheck\' status failed.*",
+            ".*ERR.* 'routeCheck' status failed.*",
             ".*Process \'orchagent\' is stuck in namespace \'host\'.*",
             ".*ERR rsyslogd: .*"
         ]
@@ -54,7 +57,10 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
             ignoreRegex.append(".*ERR memory_threshold_check:.*")
             ignoreRegex.append(".*ERR monit.*memory_check.*")
             ignoreRegex.append(".*ERR monit.*mem usage of.*matches resource limit.*")
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+        # Ignore errors in ignoreRegex for *all* DUTs
+        for dut in duthosts:
+            loganalyzer[dut.hostname].ignore_regex.extend(ignoreRegex)
 
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:

@@ -45,6 +45,24 @@ seed_cmd_td3 = [
 offset_cmd = 'bcmcmd  "dump RTAG7_PORT_BASED_HASH 0 392 OFFSET_ECMP"'
 
 
+@pytest.fixture
+def enable_container_autorestart(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    # Enable autorestart for all features
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    feature_list, _ = duthost.get_feature_status()
+    container_autorestart_states = duthost.get_container_autorestart_states()
+    for feature, status in list(feature_list.items()):
+        # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+
+    yield
+    for feature, status in list(feature_list.items()):
+        # Disable container autorestart back if it was initially disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            duthost.shell("sudo config feature autorestart {} disabled".format(feature))
+
+
 def parse_hash_seed(output, asic_name):
     logger.info("Checking seed config: {}".format(output))
     # RTAG7_HASH_SEED_A.ipipe0[1][0x16001500]=0: <HASH_SEED_A=0>
@@ -174,7 +192,8 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku):
 
 
 @pytest.mark.parametrize("parameter", ["common", "restart_syncd", "reload", "reboot", "warm-reboot"])
-def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, parameter):
+def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, parameter,
+                              enable_container_autorestart):
     """
     Check ecmp HASH_SEED
     """
@@ -222,7 +241,8 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
 
 
 @pytest.mark.parametrize("parameter", ["common", "restart_syncd", "reload", "reboot", "warm-reboot"])
-def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, parameter):
+def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, parameter,
+                           enable_container_autorestart):
     """
     Check ecmp HASH_OFFSET
     """

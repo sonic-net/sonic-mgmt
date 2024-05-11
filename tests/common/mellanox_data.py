@@ -621,6 +621,61 @@ SWITCH_MODELS = {
             }
         }
     },
+    "x86_64-nvidia_sn4280_simx-r0": {
+            "chip_type": "spectrum3",
+            "reboot": {
+                "cold_reboot": True,
+                "fast_reboot": False,
+                "warm_reboot": True
+            },
+            "fans": {
+                "number": 6,
+                "hot_swappable": True
+            },
+            "psus": {
+                "number": 2,
+                "hot_swappable": True,
+                "capabilities": PSU_CAPABILITIES[1]
+            },
+            "cpu_pack": {
+                "number": 0
+            },
+            "cpu_cores": {
+                "number": 0
+            },
+            "ports": {
+                "number": 32
+            },
+            "thermals": {
+                "cpu_core": {
+                    "start": 0,
+                    "number": 0
+                },
+                "module": {
+                    "start": 1,
+                    "number": 32
+                },
+                "psu": {
+                    "start": 1,
+                    "number": 2
+                },
+                "cpu_pack": {
+                    "number": 0
+                },
+                "asic_ambient": {
+                    "number": 1
+                },
+                "port_ambient": {
+                    "number": 1
+                },
+                "fan_ambient": {
+                    "number": 1
+                },
+                "comex_ambient": {
+                    "number": 1
+                }
+            }
+    },
     "x86_64-mlnx_msn4700-r0": {
         "chip_type": "spectrum3",
         "reboot": {

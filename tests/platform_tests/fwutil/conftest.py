@@ -17,6 +17,29 @@ FS_MOUNTPOINT_TEMPLATE = "/tmp/image-{}-fs"
 OVERLAY_MOUNTPOINT_TEMPLATE = "/tmp/image-{}-overlay"
 
 
+def pytest_addoption(parser):
+    """
+    Adds pytest options that are used by fwutil tests
+    """
+
+    parser.addoption(
+        "--shutdown_bgp", action="store_true", default=False, help="Shutdown bgp before getting fw image from url"
+    )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def shutdown_bgp(request, duthost):
+    if request.config.getoption('shutdown_bgp'):
+        duthost.command("sudo config bgp shutdown all")
+        duthost.command("sudo config save -y")
+
+    yield
+
+    if request.config.getoption('shutdown_bgp'):
+        duthost.command("sudo config bgp startup all")
+        duthost.command("sudo config save -y")
+
+
 def check_path_exists(duthost, path):
     return duthost.stat(path=path)["stat"]["exists"]
 

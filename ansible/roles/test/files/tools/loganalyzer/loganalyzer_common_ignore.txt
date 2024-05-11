@@ -49,6 +49,7 @@ r, ".* ERR syncd\d*#syncd.*translateVidToRid: unable to get RID for VID.*"
 r, ".* ERR dhcp_relay.*setsockopt.*No such device.*"
 r, ".* ERR syncd\d*#syncd.*Failed to get attr of SAI_OBJECT_TYPE_ACL_COUNTER.*"
 r, ".* ERR syncd\d*#syncd.*Failed to get (stats|attr) of .*(MACSEC|MACsec).*"
+r, ".*Metadata file \/etc\/sonic\/vs_chassis_metadata.json not found.*"
 
 ##### White list below messages found on physical devices for now. Need to address them later.
 
@@ -230,6 +231,11 @@ r, ".* ERR dualtor_neighbor_check.py: .*"
 r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
 r, ".*ERR kernel: \[.*\] firmware_class: See https:\/\/wiki.debian.org\/Firmware for information about missing firmware.*"
 r, ".*ERR kernel: \[.*\] snd_hda_intel.*no codecs found!.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/26734952
+# https://msazure.visualstudio.com/One/_workitems/edit/27214953
+r, ".* ERR syncd#syncd.* SAI_API_QUEUE:_brcm_sai_cosq_stat_get.* Bulk read not supported.*"
+r, ".* ERR syncd#syncd.* SAI_API_SWITCH:sai_bulk_object_get_stats.* get bulk queue stats failed.*"
 
 #Cisco platform ignore messages
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_0 is not ready.*"

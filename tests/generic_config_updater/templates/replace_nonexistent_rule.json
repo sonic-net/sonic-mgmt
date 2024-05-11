@@ -1,0 +1,11 @@
+[
+    {
+        "op": "replace",
+        "path": "/ACL_RULE/DYNAMIC_ACL_TABLE|RULE_10",
+        "value": {
+            "DST_IP": "103.23.2.2/32",
+            "PRIORITY": "9999",
+            "PACKET_ACTION": "FORWARD"
+        }
+    }
+]

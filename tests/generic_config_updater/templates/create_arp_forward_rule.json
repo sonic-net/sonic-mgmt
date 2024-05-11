@@ -1,0 +1,13 @@
+[
+    {
+        "op": "add",
+        "path": "/ACL_RULE",
+        "value": {
+            "DYNAMIC_ACL_TABLE|ARP_RULE": {
+                "ETHER_TYPE": "0x0806",
+                "PRIORITY": "9997",
+                "PACKET_ACTION": "FORWARD"
+            }
+        }
+    }
+]

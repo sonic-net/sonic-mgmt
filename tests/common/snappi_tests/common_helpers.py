@@ -98,7 +98,7 @@ def get_egress_lossless_buffer_size(host_ans):
 
 def get_lossless_buffer_size(host_ans):
     """
-    Get egress lossless buffer size of a switch, unless an 8102 switch,
+    Get egress lossless buffer size of a switch, unless a Cisco 8000 switch,
     in which case, get the ingress lossless buffer size
     Args:
         host_ans: Ansible host instance of the device
@@ -107,13 +107,13 @@ def get_lossless_buffer_size(host_ans):
     """
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
-    is_cisco_8102 = True if ('Cisco' or 'cisco') and '8102' in host_ans.facts['platform'] else False
+    is_cisco8000_platform = True if 'cisco-8000' in host_ans.facts['platform_asic'] else False
 
     if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
-    profile_name = 'ingress_lossless_pool' if is_cisco_8102 else 'egress_lossless_pool'
+    profile_name = 'ingress_lossless_pool' if is_cisco8000_platform else 'egress_lossless_pool'
 
     if profile_name not in list(buffer_pools.keys()):
         return None
@@ -891,8 +891,14 @@ def get_egress_queue_count(duthost, port, priority):
         tuple (int, int): total count of packets and bytes in the queue
     """
     raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
-    total_pkts = "0" if raw_out.split()[2] == "N/A" else raw_out.split()[2]
-    total_bytes = "0" if raw_out.split()[3] == "N/A" else raw_out.split()[3]
+    total_pkts = raw_out.split()[2] if 2 < len(raw_out.split()) else "0"
+    if total_pkts == "N/A":
+        total_pkts = "0"
+
+    total_bytes = raw_out.split()[3] if 3 < len(raw_out.split()) else "0"
+    if total_bytes == "N/A":
+        total_bytes = "0"
+
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
 
 

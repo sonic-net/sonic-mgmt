@@ -47,7 +47,7 @@ def get_dut_psu_line_pattern(dut):
             PSU 2  N/A      N/A               12.01           4.12        49.50  OK        green
 
         """
-        psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off)")
+        psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     return psu_line_pattern
 
 

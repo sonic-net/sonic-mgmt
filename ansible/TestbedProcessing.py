@@ -999,7 +999,7 @@ def main():
     # Load Data
     print("LOADING PROCESS STARTED")
     print("LOADING: " + args.i)
-    doc = yaml.load(open(args.i, 'r'))
+    doc = yaml.safe_load(open(args.i, 'r'))
     # dictionary contains information about devices
     devices = dict()
     generateDictionary(doc, devices, "devices")             # load devices

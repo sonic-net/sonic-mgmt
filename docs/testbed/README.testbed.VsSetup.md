@@ -101,7 +101,18 @@ cd sonic-mgmt
 ./setup-container.sh -n <container name> -d /data
 ```
 
-2. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
+2. (Required for IPv6 test cases): Follow the steps [IPv6 for docker default bridge](https://docs.docker.com/config/daemon/ipv6/#use-ipv6-for-the-default-bridge-network) to enable IPv6 for container. For example, edit the Docker daemon configuration file located at `/etc/docker/daemon.json` with the following parameters to use ULA address if no special requirement. Then restart docker daemon by running `sudo systemctl restart docker` to take effect.
+
+```json
+{
+    "ipv6": true,
+    "fixed-cidr-v6": "fd00:1::1/64",
+    "experimental": true,
+    "ip6tables": true
+}
+```
+
+3. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
 
 
 You can enter your sonic-mgmt container with the following command:
@@ -125,8 +136,8 @@ In order to configure the testbed on your host automatically, Ansible needs to b
 ```
      STR-ACS-VSERV-01:
        ansible_host: 172.17.0.1
-       ansible_user: use_own_value
-       vm_host_user: foo
+       ansible_user: foo
+       vm_host_user: use_own_value
 ```
 
 2. Modify `/data/sonic-mgmt/ansible/ansible.cfg` to uncomment the two lines:
@@ -175,18 +186,18 @@ index 029ab9a6..e00d3852 100644
 +vm_host_become_password: foo123
 
 diff --git a/ansible/veos_vtb b/ansible/veos_vtb
-index 3e7b3c4e..edabfc40 100644
+index 99727bcf3..2a9c36006 100644
 --- a/ansible/veos_vtb
 +++ b/ansible/veos_vtb
-@@ -258,7 +258,7 @@ vm_host_1:
+@@ -274,7 +274,7 @@ vm_host_1:
+   hosts:
      STR-ACS-VSERV-01:
        ansible_host: 172.17.0.1
-       ansible_user: use_own_value
--      vm_host_user: use_own_value
-+      vm_host_user: foo
+-      ansible_user: use_own_value
++      ansible_user: foo
+       vm_host_user: use_own_value
 
  vms_1:
-   hosts:
 ```
 
 2.  Create a dummy `password.txt` file under `/data/sonic-mgmt/ansible`
@@ -202,7 +213,9 @@ foo ALL=(ALL) NOPASSWD:ALL
 
 4. Verify that you can login into the **host** (e.g. `ssh foo@172.17.0.1`, if the default docker bridge IP is `172.18.0.1/16`, follow https://docs.docker.com/network/bridge/#configure-the-default-bridge-network to change it to `172.17.0.1/16`, delete the current `sonic-mgmt` docker using command `docker rm -f <sonic-mgmt_container_name>`, then start over from step 1 of section **Setup sonic-mgmt docker** ) from the `sonic-mgmt` **container** without any password prompt.
 
-5. Verify that you can use `sudo` without a password prompt inside the **host** (e.g. `sudo bash`).
+5. (Required for IPv6 test cases) Verify that you can login into the **host** via IPv6 (e.g. `ssh foo@fd00:1::1` if the default docker bridge is `fd00:1::1/64`) from the `sonic-mgmt` **container** without any password prompt.
+
+6. Verify that you can use `sudo` without a password prompt inside the **host** (e.g. `sudo bash`).
 
 ## Setup VMs on the server
 **(Skip this step if you are using cEOS - the containers will be automatically setup in a later step.)**
@@ -211,7 +224,7 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 
 1. Start the VMs:
 ```
-./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
+./testbed-cli.sh -m veos_vtb -n 4 -k veos start-vms server_1 password.txt
 ```
 If you use SONiC image as the neighbor devices (***Not DUT***), you need to add extra parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
 

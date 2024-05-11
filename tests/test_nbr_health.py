@@ -27,7 +27,7 @@ def check_snmp(hostname, mgmt_addr, localhost, community, is_eos):
 
 def check_eos_facts(hostname, mgmt_addr, host):
     logger.info("Check neighbor {} eos facts".format(hostname))
-    res = host.eos_facts()
+    res = host.eos_facts(gather_subset=["!config"])
     logger.info("facts: {}".format(json.dumps(res, indent=4)))
     try:
         eos_facts = res['ansible_facts']

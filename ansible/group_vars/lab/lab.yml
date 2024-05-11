@@ -54,3 +54,8 @@ fanout_admin_password: "fanoutadminpassword"
 
 mgmt_admin_user: "mgmtadminuser"
 mgmt_admin_password: "mgmtadminpassword"
+
+# Flag for run UTs with lab TACACS server
+test_with_lab_tacacs_server: false
+lab_tacacs_server: ""
+lab_tacacs_passkey: ""

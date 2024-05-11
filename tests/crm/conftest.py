@@ -131,8 +131,8 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
                 elif crm_intf2 is None:
                     crm_intf2 = intf
 
-        if crm_intf1 is not None and crm_intf2 is not None:
-            return (crm_intf1, crm_intf2)
+    if crm_intf1 is not None and crm_intf2 is not None:
+        return (crm_intf1, crm_intf2)
 
     if crm_intf1 is None or crm_intf2 is None:
         pytest.skip("Not enough interfaces on this host/asic (%s/%s) to support test." % (duthost.hostname,

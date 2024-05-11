@@ -4,6 +4,7 @@ This module contains classes for PDU controllers that supports the SNMP manageme
 The classes must implement the PduControllerBase interface defined in controller_base.py.
 """
 import logging
+import jinja2
 
 from .controller_base import PduControllerBase
 
@@ -146,7 +147,11 @@ class snmpPduController(PduControllerBase):
         PduControllerBase.__init__(self)
         self.controller = controller
         self.snmp_rocommunity = pdu['snmp_rocommunity']
-        self.snmp_rwcommunity = pdu['snmp_rwcommunity']
+        if 'secret_group_vars' in pdu['snmp_rwcommunity']:
+            context = {'secret_group_vars': pdu['secret_group_vars']}
+            self.snmp_rwcommunity = jinja2.Template(pdu['snmp_rwcommunity']).render(context)
+        else:
+            self.snmp_rwcommunity = pdu['snmp_rwcommunity']
         self.pduType = 'Sentry4' if hwsku == 'Sentry' and psu_peer_type == 'Pdu' else hwsku
         self.port_oid_dict = {}
         self.port_label_dict = {}
@@ -231,7 +236,8 @@ class snmpPduController(PduControllerBase):
             current_val = str(val)
             port_oid = current_oid.replace(self.PORT_POWER_BASE_OID, '')
             if port_oid == port_id:
-                status['output_watts'] = current_val
+                if current_val != "":
+                    status['output_watts'] = current_val
                 return
 
     def _get_one_outlet_status(self, cmdGen, snmp_auth, port_id):

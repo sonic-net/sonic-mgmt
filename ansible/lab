@@ -121,6 +121,7 @@ sonic_s6100:
       ansible_host: 10.251.0.190
     vlab-02:
       ansible_host: 10.250.0.114
+      ansible_hostv6: fec0::ffff:afa:e
 
 sonic_a7260:
   vars:

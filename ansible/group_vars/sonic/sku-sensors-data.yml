@@ -7002,3 +7002,32 @@ sensors_checks:
       temp: []
     psu_skips: {}
     sensor_skip_per_version: {}
+
+  arm64-nvda_bf-9009d3b600cvaa:
+    alarms:
+      fan: [ ]
+      power: [ ]
+      temp: [ ]
+
+    compares:
+      power: [ ]
+      temp:
+
+      - - mlx5-pci-0301/asic/temp1_input
+        - mlx5-pci-0301/asic/temp1_crit
+
+      - - nvme-pci-0600/Composite/temp1_input
+        - nvme-pci-0600/Composite/temp1_crit
+
+      - - nvme-pci-0600/Sensor 1/temp2_input
+        - nvme-pci-0600/Sensor 1/temp2_max
+
+      - - mlx5-pci-0300/asic/temp1_input
+        - mlx5-pci-0300/asic/temp1_crit
+
+    non_zero:
+      fan: [ ]
+      power: [ ]
+      temp: [ ]
+    psu_skips: { }
+    sensor_skip_per_version: { }

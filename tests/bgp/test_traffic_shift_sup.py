@@ -58,9 +58,9 @@ class TestTrafficShiftOnSup:
                      "ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'".format(
                          self.dutuser, self.dutip),
                      timeout=300)
-            client.expect(["admin@{}'s password:".format(self.dutip)])
+            client.expect(["{}@{}'s password:".format(self.dutuser, self.dutip)])
             client.sendline(self.dutpass)
-            client.expect("admin*")
+            client.expect("{}*".format(self.dutuser))
             client.sendline(cmd)
             client.expect("Password .*")
             client.sendline(self.dutpass)
