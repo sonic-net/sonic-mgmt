@@ -381,7 +381,12 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
 
 
-<<<<<<< HEAD
+def load_tacacs_creds():
+    TACACS_CREDS_FILE = 'tacacs_creds.yaml'
+    creds_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), TACACS_CREDS_FILE)
+    return yaml.safe_load(open(creds_file_path).read())
+
+
 def ssh_run_command(ssh_client, command):
     stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
     exit_code = stdout.channel.recv_exit_status()
@@ -397,9 +402,3 @@ def cleanup_tacacs_log(ptfhost, rw_user_client):
     ptfhost.command('touch /var/log/tac_plus.acct')
     ptfhost.command(r'truncate -s 0  /var/log/tac_plus.log')
     ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
-=======
-def load_tacacs_creds():
-    TACACS_CREDS_FILE = 'tacacs_creds.yaml'
-    creds_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), TACACS_CREDS_FILE)
-    return yaml.safe_load(open(creds_file_path).read())
->>>>>>> origin
