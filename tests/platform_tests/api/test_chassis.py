@@ -60,13 +60,13 @@ ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 # scope because this function can be quite time consuming based upon the
 # number of ports on the DUT
 @pytest.fixture(scope="module")
-def physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname):
+def physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname, dpu_npu_port_list):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     port_map = get_physical_port_indices(duthost)
     result = []
     visited_intfs = set()
     for intf in natsorted(list(port_map.keys())):
-        if intf in visited_intfs:
+        if intf in visited_intfs or intf in dpu_npu_port_list[duthost.hostname]:
             continue
         visited_intfs.add(intf)
         result.append(port_map[intf])
