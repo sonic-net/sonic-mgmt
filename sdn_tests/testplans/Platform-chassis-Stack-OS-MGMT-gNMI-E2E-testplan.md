@@ -1,5 +1,3 @@
-# [DRAFT, UNDER DEVELOPMENT]
-
 # Overview
 
 This document describes the test plan for exercising 68 gNMI platform-related paths with the headings:
@@ -17,18 +15,6 @@ This document describes the test plan for exercising 68 gNMI platform-related pa
 State paths are read-only paths.  They are used to reflect the state of the system.  For end to end tests, state paths cannot be directly modified by a gNMI set operation.  They may be modified via gNMI set operations on the corresponding config path.   The state paths may be altered by a system command (e.g. an installation operation), or by system state changes (e.g. packet counter events).  
 
 Config paths can be read or written.  Writing a config path indicates a desired system change.  There is a corresponding state path that is updated once the change takes effect.  Most of the gNMI config path tests verify both the gNMI get (read) path is operating as expected and that the gNMI set (write) path updates the system state as expected.
-
-
-# Test Setup
-
-In the test setup of Figure 1, a test client initializes a gNMI client that connects to the gNMI server running on a single switch under test (SUT).  This connection uses the `bond0` management interface.  
-
-
-<img width="347" alt="Screenshot 2024-04-01 at 3 45 45 PM" src="https://github.com/saiilla/sonic-mgmt/assets/165318278/f9d7e212-936d-42ea-aa64-94147c256614">
-
-
-
-Figure 1: gNMI platform path end to end test setup.
 
 
 ## Test types
