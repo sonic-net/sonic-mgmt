@@ -1,11 +1,9 @@
-from conftest import DHCP_SERVER_CONTAINER_NAME, DHCP_RELAY_CONTAINER_NAME
 import logging
 import ipaddress
 import pytest
 import random
 import time
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI, \
     create_common_config_patch, generate_common_config_cli_commands, dhcp_server_config, \
     validate_dhcp_server_pkts_custom_option, \
@@ -16,7 +14,7 @@ from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CON
 
 
 pytestmark = [
-    pytest.mark.topology('mx'),
+    pytest.mark.topology('m0', 'mx'),
 ]
 
 
