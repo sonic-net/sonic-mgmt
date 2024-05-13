@@ -598,7 +598,6 @@ def test_dhcp_server_config_change_common(
         }
     ]
     apply_dhcp_server_config_gcu(duthost, change_to_apply)
-    import pdb; pdb.set_trace()
     verify_discover_and_request_then_release(
         duthost=duthost,
         ptfhost=ptfhost,
