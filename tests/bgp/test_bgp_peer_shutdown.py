@@ -151,15 +151,18 @@ def is_neighbor_session_down(duthost, neighbor):
             bgp_neighbors[neighbor.ip]["state"] == "idle")
 
 
-def get_bgp_down_timestamp(duthost, peer_ip):
+def get_bgp_down_timestamp(duthost, peer_ip, timestamp_before_teardown):
     # get the bgp session down timestamp from syslog in the format of seconds (with ms precision) since the Unix Epoch
     cmd = (
         "grep \"[b]gp#bgpcfgd: Peer 'default|{}' admin state is set to 'down'\" /var/log/syslog | tail -1"
     ).format(peer_ip)
     bgp_down_msg_list = duthost.shell(cmd)['stdout'].split()
     timestamp = " ".join(bgp_down_msg_list[0:3])
-    timestamp_in_sec = duthost.shell("date -d \"{}\" +%s.%6N".format(timestamp))['stdout']
-    return float(timestamp_in_sec)
+    timestamp_in_sec = float(duthost.shell("date -d \"{}\" +%s.%6N".format(timestamp))['stdout'])
+    if timestamp_in_sec < timestamp_before_teardown:
+        pytest.fail("Could not find the BGP session down time")
+
+    return timestamp_in_sec
 
 
 def test_bgp_peer_shutdown(
@@ -191,6 +194,7 @@ def test_bgp_peer_shutdown(
             if not announced_route_on_dut_before_shutdown:
                 pytest.fail("announce route %s from n0 to dut failed" % announced_route["prefix"])
 
+            timestamp_before_teardown = time.time()
             # tear down BGP session on n0
             bgp_pcap = BGP_DOWN_LOG_TMPL
             with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
@@ -212,7 +216,7 @@ def test_bgp_peer_shutdown(
                     bgp_packet.show(dump=True),
                 )
 
-                bgp_session_down_time = get_bgp_down_timestamp(duthost, n0.ip)
+                bgp_session_down_time = get_bgp_down_timestamp(duthost, n0.ip, timestamp_before_teardown)
                 if not match_bgp_notification(bgp_packet, n0.ip, n0.peer_ip, "cease", bgp_session_down_time):
                     pytest.fail("BGP notification packet does not match expected values")
 
