@@ -192,6 +192,7 @@ def pins_deps():
             strip_prefix = "rules_proto-3f1ab99b718e3e7dd86ebdc49c580aa6a126b1cd",
             sha256 = "c9cc7f7be05e50ecd64f2b0dc2b9fd6eeb182c9cc55daf87014d605c31548818",
         )
+
     if not native.existing_rule("sonic_swss_common"):
         # We use `git_repository` over `http_archive` only because this is a private repo
         # requiring SSH authentication.
@@ -200,6 +201,7 @@ def pins_deps():
             commit = "672b1cfe1914489b79a91fff8a539b6c195f8959",
             remote = "git@github.com:pins/sonic-swss-common.git",
         )
+
     if not native.existing_rule("rules_pkg"):
         http_archive(
             name = "rules_pkg",

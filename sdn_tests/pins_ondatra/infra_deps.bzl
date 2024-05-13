@@ -322,6 +322,7 @@ def binding_deps():
         version = "v2.1.0+incompatible",
     )
 
+
     go_repository(
         name = "com_github_pkg_errors",
         importpath = "github.com/pkg/errors",
