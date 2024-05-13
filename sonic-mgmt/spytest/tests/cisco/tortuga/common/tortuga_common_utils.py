@@ -16,7 +16,7 @@ def modify_config_file(config_file,var_dict):
     dir_path = os.path.dirname(os.path.realpath(__file__))+"/"
     result = os.system("cp {1} {0}{2}".format(dir_path,input_yaml_file,output_yaml_file))
     if result != 0:
-        st.report_fail("config file copy failed")
+        st.report_fail('msg', "config file copy failed")
     st.wait(2)
     for item, value in var_dict.items():
         if re.match("(D.D.P.)|(D.T.P.)", item):
@@ -91,9 +91,9 @@ def verify_ping_helper(tg, tg_ph, handle, dest_ip):
     if res:
         st.log("Ping succeeded.")
         return
-    st.report_fail("Ping Failed")
+    st.report_fail('msg', "Ping Failed")
     
-def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True):
+def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True, verify_ping=True):
     data1.my_dut_list = st.get_dut_names()
     data2.my_dut_list = st.get_dut_names()
     
@@ -114,14 +114,16 @@ def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True):
         handle1 = config_ipv4_intf(tg1, tg_ph_1, data1, data1.t1d3_ip_addr, data1.t1d3_mac_addr, data1.t1d3_ip_gateway)
         handle2 = config_ipv4_intf(tg2, tg_ph_2, data2, data2.t1d4_ip_addr, data2.t1d4_mac_addr, data2.t1d4_ip_gateway)
         # Ping from tgen to tgen.
-        verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ip_addr)
-        verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ip_addr)
+        if verify_ping:
+            verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ip_addr)
+            verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ip_addr)
     else:
         handle1 = config_ipv6_intf(tg1, tg_ph_1, data1, data1.t1d3_ipv6_addr, data1.t1d3_mac_addr, data1.t1d3_ipv6_gateway)
         handle2 = config_ipv6_intf(tg2, tg_ph_2, data2, data2.t1d4_ipv6_addr, data2.t1d4_mac_addr, data2.t1d4_ipv6_gateway)
         # Ping from tgen to tgen.
-        verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ipv6_addr)
-        verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ipv6_addr)
+        if verify_ping:
+            verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ipv6_addr)
+            verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ipv6_addr)
         
 
     ## Update Traffic Result for Burst Test:
@@ -272,12 +274,12 @@ def portchannel_add_del_member(node, portchannel='', members=[], add=True):
                 cmd = "sudo config interface startup {}".format(member)
                 st.config(node, cmd)
                 if not portchannel_obj.add_portchannel_member(node, portchannel, member) :
-                    st.report_fail("{} add member {} failed".format(portchannel, member))
+                    st.report_fail('msg', "{} add member {} failed".format(portchannel, member))
     else:
         if members:
             #delete member interfaces
             if not portchannel_obj.delete_portchannel_member(node, portchannel, members):
-                st.report_fail("{} delete members failed".format(portchannel))
+                st.report_fail('msg', "{} delete members failed".format(portchannel))
                 
 def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[], add=True):
     
@@ -287,7 +289,7 @@ def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[],
     if add:
         #add PortChannelxx
         if not portchannel_obj.create_portchannel(node, portchannel):
-            st.report_fail("{} create failed".format(portchannel))
+            st.report_fail('msg', "{} create failed".format(portchannel))
 
         if ipv4_add:
             ipv4_addr, ipv4_mask = ipv4_add.split('/')
@@ -298,7 +300,7 @@ def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[],
                  'family': "ipv4"
                 }
             if not ip_obj.config_unconfig_interface_ip_addresses(node, [if_data4] , config='add'):
-                st.report_fail("{} ipv4 address add failed".format(portchannel))
+                st.report_fail('msg', "{} ipv4 address add failed".format(portchannel))
         if ipv6_add:
             ipv6_addr, ipv6_mask = ipv6_add.split('/')
             #add ipv6 address to PortChannelxx
@@ -308,7 +310,7 @@ def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[],
                 'family': "ipv6"
                }
             if not ip_obj.config_unconfig_interface_ip_addresses(node, [if_data6] , config='add'):
-                st.report_fail("{} ipv6 address add failed".format(portchannel))
+                st.report_fail('msg', "{} ipv6 address add failed".format(portchannel))
 
         if members:
             portchannel_add_del_member(node, portchannel, members, add=True)
@@ -326,7 +328,7 @@ def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[],
                 'family': "ipv4"
                }
             if not ip_obj.config_unconfig_interface_ip_addresses(node, [if_data4] , config='remove'):
-                  st.report_fail("{} ipv4 address remove failed".format(portchannel))
+                  st.report_fail('msg', "{} ipv4 address remove failed".format(portchannel))
 
         if ipv6_add:
             ipv6_addr, ipv6_mask = ipv6_add.split('/')
@@ -337,28 +339,28 @@ def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[],
                 'family': "ipv6"
                }
             if not ip_obj.config_unconfig_interface_ip_addresses(node, [if_data6] , config='remove'):
-                  st.report_fail("{} ipv6 address remove failed".format(portchannel))
+                  st.report_fail('msg', "{} ipv6 address remove failed".format(portchannel))
 
         #del PortChannelxx 
         if not portchannel_obj.delete_portchannel(node, [portchannel]):
-            st.report_fail("{} delete failed".format(portchannel))
+            st.report_fail('msg', "{} delete failed".format(portchannel))
             
 def check_portchannel_add_del(node, portchannel, members, state='up', add=True):  
     if add:
         if not portchannel_obj.poll_for_portchannel_status(node, portchannel, state):
-            st.report_fail('{} {} state {} check failed'.format(node, portchannel, state))
+            st.report_fail('msg', '{} {} state {} check failed'.format(node, portchannel, state))
         if members:
             if not portchannel_obj.verify_portchannel_member(node, portchannel, members, 'add'):
-                st.report_fail("members check failed for {}".format(portchannel))
+                st.report_fail('msg', "members check failed for {}".format(portchannel))
     else:
         if portchannel_obj.verify_portchannel(node, portchannel):
-            st.report_fail('{} {} still exists'.format(node, portchannel))
+            st.report_fail('msg', '{} {} still exists'.format(node, portchannel))
     
 
 def check_portchannel_ip_address(node, portchannel, ip_addr, family, add=True):
     if add:
         if not ip_obj.verify_interface_ip_address(node, portchannel, ip_addr, family=family):
-            st.report_fail("{} {} ip address addition failed".format(node, portchannel))
+            st.report_fail('msg', "{} {} ip address addition failed".format(node, portchannel))
     else:
         check_type = 'ip' if family=='ipv4' else 'ipv6'
         cmd_output = st.show(node, "sudo show {} interfaces".format(check_type), skip_tmpl=True)
@@ -366,5 +368,5 @@ def check_portchannel_ip_address(node, portchannel, ip_addr, family, add=True):
                                  cmd_output, "show_ip_interfaces.tmpl")
         for interface_det in parsed_output:
             if interface_det['interface'] == portchannel:
-                st.report_fail("{} {} {} address removal failed".format(node, portchannel, check_type))
+                st.report_fail('msg', "{} {} {} address removal failed".format(node, portchannel, check_type))
             

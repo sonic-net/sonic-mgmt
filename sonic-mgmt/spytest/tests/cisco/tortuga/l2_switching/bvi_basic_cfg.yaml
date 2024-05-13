@@ -1,0 +1,456 @@
+spine0:
+    sonic_bd:
+      config: |
+        sudo config vlan add 10
+        sudo config interface startup D1D3P1
+        sudo config interface ipv6 disable use-link-local-only D1D3P1
+        sudo config vlan member add 10 D1D3P1
+        sudo config interface startup D1D4P1
+        sudo config interface ipv6 disable use-link-local-only D1D4P1
+        sudo config vlan member add 10 D1D4P1
+        sudo config interface startup D1D3P3
+        sudo config interface ip add D1D3P3 12.1.1.1/24
+        sudo config interface ip add D1D3P3 12:1:1::1/120
+        sudo config interface startup D1D4P2
+        sudo config interface ip add D1D4P2 13.1.1.1/24
+        sudo config interface ip add D1D4P2 13:1:1::1/120
+      deconfig: |
+        sudo config interface ip rem D1D3P3 12.1.1.1/24
+        sudo config interface ip rem D1D3P3 12:1:1::1/120
+        sudo config interface ip rem D1D4P2 13.1.1.1/24
+        sudo config interface ip rem D1D4P2 13:1:1::1/120
+        sudo config vlan member del 10 D1D3P1
+        sudo config vlan member del 10 D1D4P1
+        sudo config interface shutdown D1D3P1
+        sudo config interface shutdown D1D3P3
+        sudo config interface shutdown D1D4P1
+        sudo config interface shutdown D1D4P2
+        sudo config vlan del 10
+    sonic_bd_pc:
+      config: |
+        sudo config vlan add 10
+        sudo config portchannel add PortChannel01
+        sudo config interface startup D1D3P2
+        sudo config acl remove table TORTUGA_ACL_INGRESS
+        sudo config acl remove table TORTUGA_ACL_INGRESS_V6
+        sudo config interface ipv6 disable use-link-local-only D1D3P2
+        sudo config portchannel member add PortChannel01 D1D3P2
+        sudo config interface startup D1D3P4
+        sudo config acl remove table TORTUGA_ACL_INGRESS
+        sudo config acl remove table TORTUGA_ACL_INGRESS_V6
+        sudo config interface ipv6 disable use-link-local-only D1D3P4
+        sudo config portchannel member add PortChannel01 D1D3P4
+        sudo config vlan member add 10 PortChannel01
+        sudo config interface startup D1D4P1
+        sudo config interface ipv6 disable use-link-local-only D1D4P1
+        sudo config vlan member add 10 D1D4P1
+        sudo config interface startup D1D3P3
+        sudo config interface ip add D1D3P3 12.1.1.1/24
+        sudo config interface ip add D1D3P3 12:1:1::1/120
+        sudo config interface startup D1D4P2
+        sudo config interface ip add D1D4P2 13.1.1.1/24
+        sudo config interface ip add D1D4P2 13:1:1::1/120
+      deconfig: |
+        sudo config interface ip rem D1D3P3 12.1.1.1/24
+        sudo config interface ip rem D1D3P3 12:1:1::1/120
+        sudo config interface ip rem D1D4P2 13.1.1.1/24
+        sudo config interface ip rem D1D4P2 13:1:1::1/120
+        sudo config vlan member del 10 PortChannel01
+        sudo config portchannel member del PortChannel01 D1D3P2
+        sudo config portchannel member del PortChannel01 D1D3P4
+        sudo config portchannel del PortChannel01
+        sudo config vlan member del 10 D1D4P1
+        sudo config interface shutdown D1D3P3
+        sudo config interface shutdown D1D4P1
+        sudo config interface shutdown D1D4P2
+        sudo config vlan del 10
+    sonic_pc:
+      config: |
+        sudo config vlan add 10
+        sudo config portchannel add PortChannel01
+        sudo config interface startup D1D3P2
+        sudo config acl remove table TORTUGA_ACL_INGRESS
+        sudo config acl remove table TORTUGA_ACL_INGRESS_V6
+        sudo config interface ipv6 disable use-link-local-only D1D3P2
+        sudo config portchannel member add PortChannel01 D1D3P2
+        sudo config interface startup D1D3P4
+        sudo config acl remove table TORTUGA_ACL_INGRESS
+        sudo config acl remove table TORTUGA_ACL_INGRESS_V6
+        sudo config interface ipv6 disable use-link-local-only D1D3P4
+        sudo config portchannel member add PortChannel01 D1D3P4
+        sudo config vlan member add 10 PortChannel01
+        sudo config interface startup D1D4P1
+        sudo config interface ipv6 disable use-link-local-only D1D4P1
+        sudo config vlan member add 10 D1D4P1
+        sudo config vlan add 20
+        sudo config interface startup D1D3P1
+        sudo config interface ipv6 disable use-link-local-only D1D3P1
+        sudo config vlan member add 20 D1D3P1
+        sudo config vlan member add 20 D1D4P1
+      deconfig: |
+        sudo config vlan member del 20 D1D4P1
+        sudo config vlan member del 20 D1D3P1
+        sudo config vlan member del 10 PortChannel01
+        sudo config vlan member del 10 D1D4P1
+        sudo config portchannel member del PortChannel01 D1D3P2
+        sudo config portchannel member del PortChannel01 D1D3P4
+        sudo config portchannel del PortChannel01
+        sudo config interface shutdown D1D4P1
+        sudo config interface shutdown D1D3P1
+        sudo config vlan del 10
+        sudo config vlan del 20
+    sonic:
+      config: |
+        sudo config vlan add 10
+        sudo config vlan add 20
+        sudo config interface startup D1D3P1
+        sudo config interface ipv6 disable use-link-local-only D1D3P1
+        sudo config vlan member add 10 D1D3P1
+        sudo config interface startup D1D3P2
+        sudo config interface ipv6 disable use-link-local-only D1D3P2
+        sudo config vlan member add 20 D1D3P2
+        sudo config interface startup D1D4P1
+        sudo config interface ipv6 disable use-link-local-only D1D4P1
+        sudo config vlan member add 10 D1D4P1
+        sudo config vlan member add 20 D1D4P1
+      deconfig: |
+        sudo config vlan member del 10 D1D4P1
+        sudo config vlan member del 10 D1D3P1
+        sudo config vlan member del 20 D1D4P1
+        sudo config vlan member del 20 D1D3P2
+        sudo config interface shutdown D1D4P1
+        sudo config interface shutdown D1D3P2
+        sudo config interface shutdown D1D3P1
+        sudo config vlan del 10
+        sudo config vlan del 20
+    bgp:
+      config: |
+        no router bgp
+        router bgp 1001
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor 12.1.1.2 remote-as 1002
+        neighbor 12.1.1.2 update-source 12.1.1.1
+        neighbor 12.1.1.2 timers 3 10
+        neighbor 13.1.1.2 remote-as 1003
+        neighbor 13.1.1.2 update-source 13.1.1.1
+        neighbor 13.1.1.2 timers 3 10
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor 12.1.1.2 activate
+        neighbor 13.1.1.2 activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor 12.1.1.2 activate
+        neighbor 13.1.1.2 activate
+        exit-address-family
+        exit
+      deconfig: |
+        no router bgp 1001
+
+leaf0:
+    sonic_bd:
+      config: |
+        sudo config vlan add 10
+        sudo config interface startup D3D1P1
+        sudo config interface ipv6 disable use-link-local-only D3D1P1
+        sudo config vlan member add 10 D3D1P1
+        sudo config interface startup D3T1P1
+        sudo config interface ipv6 disable use-link-local-only D3T1P1
+        sudo config vlan member add -u 10 D3T1P1
+        sudo config interface ip add Vlan10 10.0.1.10/24
+        sudo config interface ip add Vlan10 10:0:1::10/64
+        sudo config interface startup D3D1P3
+        sudo config interface ip add D3D1P3 12.1.1.2/24
+        sudo config interface ip add D3D1P3 12:1:1::2/120
+        sudo config interface startup D3T1P2
+        sudo config interface ip add D3T1P2 10.1.1.1/24
+        sudo config interface ip add D3T1P2 10:1:1::1/120
+      deconfig: |
+        sudo config interface ip rem Vlan10 10.0.1.10/24
+        sudo config interface ip rem Vlan10 10:0:1::10/64
+        sudo config interface ip rem D3T1P2 10.1.1.1/24
+        sudo config interface ip rem D3T1P2 10:1:1::1/120
+        sudo config interface ip rem D3D1P3 12.1.1.2/24
+        sudo config interface ip rem D3D1P3 12:1:1::2/120
+        sudo config vlan member del 10 D3D1P1
+        sudo config vlan member del 10 D3T1P1
+        sudo config interface shutdown D3D1P1
+        sudo config interface shutdown D3D1P3
+        sudo config interface shutdown D3T1P1
+        sudo config interface shutdown D3T1P2
+        sudo config vlan del 10
+    sonic_bd_pc:
+      config: |
+        sudo config vlan add 10
+        sudo config portchannel add PortChannel01 
+        sudo config interface startup D3D1P2
+        sudo config acl remove table TORTUGA_ACL_INGRESS
+        sudo config acl remove table TORTUGA_ACL_INGRESS_V6
+        sudo config interface ipv6 disable use-link-local-only D3D1P2
+        sudo config portchannel member add PortChannel01 D3D1P2
+        sudo config interface startup D3D1P4
+        sudo config acl remove table TORTUGA_ACL_INGRESS
+        sudo config acl remove table TORTUGA_ACL_INGRESS_V6
+        sudo config interface ipv6 disable use-link-local-only D3D1P4
+        sudo config portchannel member add PortChannel01 D3D1P4
+        sudo config vlan member add 10 PortChannel01
+        sudo config interface startup D3T1P1
+        sudo config interface ipv6 disable use-link-local-only D3T1P1
+        sudo config vlan member add -u 10 D3T1P1
+        sudo config interface ip add Vlan10 10.0.1.10/24
+        sudo config interface ip add Vlan10 10:0:1::10/64
+        sudo config interface startup D3D1P3
+        sudo config interface ip add D3D1P3 12.1.1.2/24
+        sudo config interface ip add D3D1P3 12:1:1::2/120
+        sudo config interface startup D3T1P2
+        sudo config interface ip add D3T1P2 10.1.1.1/24
+        sudo config interface ip add D3T1P2 10:1:1::1/120
+      deconfig: |
+        sudo config interface ip rem Vlan10 10.0.1.10/24
+        sudo config interface ip rem Vlan10 10:0:1::10/64
+        sudo config interface ip rem D3T1P2 10.1.1.1/24
+        sudo config interface ip rem D3T1P2 10:1:1::1/120
+        sudo config interface ip rem D3D1P3 12.1.1.2/24
+        sudo config interface ip rem D3D1P3 12:1:1::2/120
+        sudo config vlan member del 10 PortChannel01
+        sudo config vlan member del 10 D3T1P1
+        sudo config portchannel member del PortChannel01 D3D1P2
+        sudo config portchannel member del PortChannel01 D3D1P4
+        sudo config portchannel del PortChannel01
+        sudo config interface shutdown D3D1P3
+        sudo config interface shutdown D3T1P1
+        sudo config interface shutdown D3T1P2
+        sudo config vlan del 10
+    sonic_pc:
+      config: |
+        sudo config vlan add 10
+        sudo config portchannel add PortChannel01 
+        sudo config interface startup D3D1P2
+        sudo config acl remove table TORTUGA_ACL_INGRESS
+        sudo config acl remove table TORTUGA_ACL_INGRESS_V6
+        sudo config interface ipv6 disable use-link-local-only D3D1P2
+        sudo config portchannel member add PortChannel01 D3D1P2
+        sudo config interface startup D3D1P4
+        sudo config acl remove table TORTUGA_ACL_INGRESS
+        sudo config acl remove table TORTUGA_ACL_INGRESS_V6
+        sudo config interface ipv6 disable use-link-local-only D3D1P4
+        sudo config portchannel member add PortChannel01 D3D1P4
+        sudo config vlan member add 10 PortChannel01
+        sudo config interface startup D3T1P1
+        sudo config interface ipv6 disable use-link-local-only D3T1P1
+        sudo config vlan member add 10 -u D3T1P1
+        sudo config vlan add 20
+        sudo config interface startup D3D1P1
+        sudo config interface ipv6 disable use-link-local-only D3D1P1
+        sudo config vlan member add 20 D3D1P1
+        sudo config interface startup D3T1P2
+        sudo config interface ipv6 disable use-link-local-only D3T1P2
+        sudo config vlan member add 20 -u D3T1P2
+        sudo config interface ip add Vlan10 10.0.1.10/24
+        sudo config interface ip add Vlan20 10.0.2.20/24
+        sudo config interface ip add Vlan10 10:0:1::10/64
+        sudo config interface ip add Vlan20 10:0:2::20/64
+      deconfig: |
+        sudo config interface ip rem Vlan10 10:0:1::10/64
+        sudo config interface ip rem Vlan20 10:0:2::20/64
+        sudo config interface ip rem Vlan10 10.0.1.10/24
+        sudo config interface ip rem Vlan20 10.0.2.20/24
+        sudo config vlan member del 10 PortChannel01
+        sudo config vlan member del 10 D3T1P1
+        sudo config vlan member del 20 D3D1P1
+        sudo config vlan member del 20 D3T1P2
+        sudo config portchannel member del PortChannel01 D3D1P2
+        sudo config portchannel member del PortChannel01 D3D1P4
+        sudo config portchannel del PortChannel01
+        sudo config interface shutdown D3D1P1
+        sudo config interface shutdown D3T1P1
+        sudo config interface shutdown D3T1P2
+        sudo config vlan del 10
+        sudo config vlan del 20
+    sonic:
+      config: |
+        sudo config vlan add 10
+        sudo config vlan add 20
+        sudo config interface startup D3D1P1
+        sudo config interface ipv6 disable use-link-local-only D3D1P1
+        sudo config vlan member add 10 D3D1P1
+        sudo config interface startup D3D1P2
+        sudo config interface ipv6 disable use-link-local-only D3D1P2
+        sudo config vlan member add 20 D3D1P2
+        sudo config interface startup D3T1P1
+        sudo config interface ipv6 disable use-link-local-only D3T1P1
+        sudo config vlan member add 10 -u D3T1P1
+        sudo config interface startup D3T1P2
+        sudo config interface ipv6 disable use-link-local-only D3T1P2
+        sudo config vlan member add 20 -u D3T1P2
+        sudo config interface ip add Vlan10 10.0.1.10/24
+        sudo config interface ip add Vlan20 10.0.2.20/24
+        sudo config interface ip add Vlan10 10:0:1::10/64
+        sudo config interface ip add Vlan20 10:0:2::20/64
+      deconfig: |
+        sudo config interface ip rem Vlan10 10.0.1.10/24
+        sudo config interface ip rem Vlan20 10.0.2.20/24
+        sudo config interface ip rem Vlan10 10:0:1::10/64
+        sudo config interface ip rem Vlan20 10:0:2::20/64
+        sudo config vlan member del 10 D3D1P1
+        sudo config vlan member del 10 D3T1P1
+        sudo config vlan member del 20 D3D1P2
+        sudo config vlan member del 20 D3T1P2
+        sudo config interface shutdown D3D1P1
+        sudo config interface shutdown D3D1P2
+        sudo config interface shutdown D3T1P1
+        sudo config interface shutdown D3T1P2
+        sudo config vlan del 10
+        sudo config vlan del 20
+    bgp:
+      config: |
+        no router bgp
+        router bgp 1002
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor 12.1.1.1 remote-as 1001
+        neighbor 12.1.1.1 update-source 12.1.1.2
+        neighbor 12.1.1.1 timers 3 10
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor 12.1.1.1 activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor 12.1.1.1 activate
+        exit-address-family
+        exit
+      deconfig: |
+        no router bgp 1002
+
+leaf1:
+    sonic_bd:
+      config: |
+        sudo config vlan add 10
+        sudo config interface startup D4D1P1
+        sudo config interface ipv6 disable use-link-local-only D4D1P1
+        sudo config vlan member add 10 D4D1P1
+        sudo config interface startup D4T1P1
+        sudo config interface ipv6 disable use-link-local-only D4T1P1
+        sudo config vlan member add -u 10 D4T1P1
+        sudo config interface startup D4D1P2
+        sudo config interface ip add D4D1P2 13.1.1.2/24
+        sudo config interface ip add D4D1P2 13:1:1::2/120
+        sudo config interface startup D4T1P2
+        sudo config interface ip add D4T1P2 11.1.1.1/24
+        sudo config interface ip add D4T1P2 11:1:1::1/120
+      deconfig: |
+        sudo config interface ip rem D4T1P2 11.1.1.1/24
+        sudo config interface ip rem D4T1P2 11:1:1::1/120
+        sudo config interface ip rem D4D1P2 13.1.1.2/24
+        sudo config interface ip rem D4D1P2 13:1:1::2/120
+        sudo config vlan member del 10 D4D1P1
+        sudo config vlan member del 10 D4T1P1
+        sudo config interface shutdown D4D1P1
+        sudo config interface shutdown D4D1P2
+        sudo config interface shutdown D4T1P1
+        sudo config interface shutdown D4T1P2
+        sudo config vlan del 10
+    sonic_bd_pc:
+      config: |
+        sudo config vlan add 10
+        sudo config interface startup D4D1P1
+        sudo config interface ipv6 disable use-link-local-only D4D1P1
+        sudo config vlan member add 10 D4D1P1
+        sudo config interface startup D4T1P1
+        sudo config interface ipv6 disable use-link-local-only D4T1P1
+        sudo config vlan member add -u 10 D4T1P1
+        sudo config interface startup D4D1P2
+        sudo config interface ip add D4D1P2 13.1.1.2/24
+        sudo config interface ip add D4D1P2 13:1:1::2/120
+        sudo config interface startup D4T1P2
+        sudo config interface ip add D4T1P2 11.1.1.1/24
+        sudo config interface ip add D4T1P2 11:1:1::1/120
+      deconfig: |
+        sudo config interface ip rem D4T1P2 11.1.1.1/24
+        sudo config interface ip rem D4T1P2 11:1:1::1/120
+        sudo config interface ip rem D4D1P2 13.1.1.2/24
+        sudo config interface ip rem D4D1P2 13:1:1::2/120
+        sudo config vlan member del 10 D4D1P1
+        sudo config vlan member del 10 D4T1P1
+        sudo config interface shutdown D4D1P1
+        sudo config interface shutdown D4D1P2
+        sudo config interface shutdown D4T1P1
+        sudo config interface shutdown D4T1P2
+        sudo config vlan del 10
+    sonic_pc:
+      config: |
+        sudo config vlan add 10
+        sudo config interface startup D4D1P1
+        sudo config interface ipv6 disable use-link-local-only D4D1P1
+        sudo config vlan member add 10 D4D1P1
+        sudo config interface startup D4T1P1
+        sudo config interface ipv6 disable use-link-local-only D4T1P1
+        sudo config vlan member add 10 -u D4T1P1
+        sudo config vlan add 20
+        sudo config vlan member add 20 D4D1P1
+        sudo config interface startup D4T1P2
+        sudo config interface ipv6 disable use-link-local-only D4T1P2
+        sudo config vlan member add 20 -u D4T1P2
+      deconfig: |
+        sudo config vlan member del 10 D4D1P1
+        sudo config vlan member del 10 D4T1P1
+        sudo config vlan member del 20 D4D1P1
+        sudo config vlan member del 20 D4T1P2
+        sudo config interface shutdown D4D1P1
+        sudo config interface shutdown D4T1P1
+        sudo config interface shutdown D4T1P2
+        sudo config vlan del 10
+        sudo config vlan del 20
+    sonic:
+      config: |
+        sudo config vlan add 10
+        sudo config interface startup D4D1P1
+        sudo config interface ipv6 disable use-link-local-only D4D1P1
+        sudo config vlan member add 10 D4D1P1
+        sudo config interface startup D4T1P1
+        sudo config interface ipv6 disable use-link-local-only D4T1P1
+        sudo config vlan member add 10 -u D4T1P1
+        sudo config vlan add 20
+        sudo config vlan member add 20 D4D1P1
+        sudo config interface startup D4T1P2
+        sudo config interface ipv6 disable use-link-local-only D4T1P2
+        sudo config vlan member add 20 -u D4T1P2
+      deconfig: |
+        sudo config vlan member del 10 D4D1P1
+        sudo config vlan member del 10 D4T1P1
+        sudo config vlan member del 20 D4D1P1
+        sudo config vlan member del 20 D4T1P2
+        sudo config interface shutdown D4D1P1
+        sudo config interface shutdown D4T1P1
+        sudo config interface shutdown D4T1P2
+        sudo config vlan del 10
+        sudo config vlan del 20
+    bgp:
+      config: |
+        no router bgp
+        router bgp 1003
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor 13.1.1.1 remote-as 1001
+        neighbor 13.1.1.1 update-source 13.1.1.2
+        neighbor 13.1.1.1 timers 3 10
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor 13.1.1.1 activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor 13.1.1.1 activate
+        exit-address-family
+        exit
+      deconfig: |
+        no router bgp 1003
