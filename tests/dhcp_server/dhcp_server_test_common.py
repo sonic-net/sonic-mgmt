@@ -6,7 +6,6 @@ import logging
 import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
-import re
 import time
 from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.helpers.assertions import pytest_assert, pytest_require
