@@ -86,6 +86,7 @@ t0:
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
   - platform_tests/sfp/test_sfpshow.py
+  - platform_tests/test_kdump.py
   - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_auto_negotiation.py
   #  Temporarily remove for blocking builimage and take too much time to complete on KVM
