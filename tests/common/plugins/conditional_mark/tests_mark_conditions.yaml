@@ -1140,9 +1140,9 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity:
   skip:
-    reason: "Unsupported testbed type."
+    reason: "Unsupported platform or testbed type."
     conditions:
-      - "topo_name not in ['ptf64'] and asic_type in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or topo_name not in ['ptf64']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
   skip:
