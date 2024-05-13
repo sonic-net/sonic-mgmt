@@ -5,7 +5,7 @@ import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
 from dhcp_server_test_common import create_common_config_patch, append_common_config_patch, \
-    verify_discover_and_request_then_release, clean_dhcp_server_config, apply_dhcp_server_config_gcu
+    verify_discover_and_request_then_release, apply_dhcp_server_config_gcu
 
 pytestmark = [
     pytest.mark.topology('mx'),
@@ -199,7 +199,6 @@ def test_single_ip_assignment(
     """
         Verify configured interface can successfully get IP
     """
-
     four_vlans_info = setup_multiple_vlans_and_teardown
 
     test_xid_1 = 111
@@ -264,7 +263,6 @@ def test_single_ip_assignment(
         exp_gateway=gateway_2,
         net_mask=net_mask_2
     )
-    clean_dhcp_server_config(duthost)
 
 
 def test_range_ip_assignment(
@@ -343,7 +341,6 @@ def test_range_ip_assignment(
         exp_gateway=gateway_2,
         net_mask=net_mask_2
     )
-    clean_dhcp_server_config(duthost)
 
 
 def test_dhcp_server_config_vlan_intf_change_tc1(
@@ -356,7 +353,6 @@ def test_dhcp_server_config_vlan_intf_change_tc1(
         When dhcp server congifurate a subnet not belong to current VLAN,
         the dhcp server can't  assign IP from the subnet
     """
-
     four_vlans_info = setup_multiple_vlans_and_teardown
 
     test_xid_1 = 115
@@ -429,7 +425,6 @@ def test_dhcp_server_config_vlan_intf_change_tc1(
         exp_gateway=gateway_1,
         net_mask=net_mask_1
     )
-    clean_dhcp_server_config(duthost)
 
 
 def test_dhcp_server_config_vlan_intf_change_tc2(
@@ -519,4 +514,3 @@ def test_dhcp_server_config_vlan_intf_change_tc2(
         exp_gateway=gateway_1,
         net_mask=net_mask_1
     )
-    clean_dhcp_server_config(duthost)
