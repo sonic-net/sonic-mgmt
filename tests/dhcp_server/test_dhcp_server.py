@@ -12,7 +12,7 @@ from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CON
     verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
     clean_dhcp_server_config, apply_dhcp_server_config_gcu, \
-    create_dhcp_client_packet, get_running_critical_processes
+    create_dhcp_client_packet
 
 
 pytestmark = [
