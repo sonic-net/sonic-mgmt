@@ -8,7 +8,7 @@ from dhcp_server_test_common import create_common_config_patch, append_common_co
     verify_discover_and_request_then_release, clean_dhcp_server_config, apply_dhcp_server_config_gcu
 
 pytestmark = [
-    pytest.mark.topology('m0', 'mx'),
+    pytest.mark.topology('mx'),
 ]
 
 
@@ -204,11 +204,14 @@ def test_single_ip_assignment(
 
     test_xid_1 = 111
     vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
+    logging.info("vlan_info_1 is %s, vlan_info_2 is %s" % (vlan_info_1, vlan_info_2))
     vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = vlan_info_1['vlan_name'], \
         vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], vlan_info_1['vlan_hosts'], \
         vlan_info_1['members_with_ptf_idx']
     expected_assigned_ip_1 = random.choice(vlan_hosts_1)
     dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
+    logging.info("expected_assigned_ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
+                 (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
 
     test_xid_2 = 112
     vlan_name_2, gateway_2, net_mask_2, vlan_hosts_2, vlan_members_with_ptf_idx_2 = vlan_info_2['vlan_name'], \
@@ -216,6 +219,8 @@ def test_single_ip_assignment(
         vlan_info_2['members_with_ptf_idx']
     expected_assigned_ip_2 = random.choice(vlan_hosts_2)
     dut_port_2, ptf_port_index_2 = random.choice(vlan_members_with_ptf_idx_2)
+    logging.info("expected_assigned_ip_2 is %s, dut_port_2 is %s, ptf_port_index_2 is %s" %
+                 (expected_assigned_ip_2, dut_port_2, ptf_port_index_2))
     config_to_apply = create_common_config_patch(
         vlan_name_1,
         gateway_1,
@@ -276,12 +281,15 @@ def test_range_ip_assignment(
 
     test_xid_1 = 113
     vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
+    logging.info("vlan_info_1 is %s, vlan_info_2 is %s" % (vlan_info_1, vlan_info_2))
     vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = vlan_info_1['vlan_name'], \
         vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], vlan_info_1['vlan_hosts'], \
         vlan_info_1['members_with_ptf_idx']
     expected_assigned_ip_1 = random.choice(vlan_hosts_1)
     last_ip_in_range_1 = random.choice(vlan_hosts_1[vlan_hosts_1.index(expected_assigned_ip_1) + 1:])
     dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
+    logging.info("expected_assigned_ip_1 is %s, last_ip_in_range_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
+                 (expected_assigned_ip_1, last_ip_in_range_1, dut_port_1, ptf_port_index_1))
 
     test_xid_2 = 114
     vlan_name_2, gateway_2, net_mask_2, vlan_hosts_2, vlan_members_with_ptf_idx_2 = vlan_info_2['vlan_name'], \
@@ -290,6 +298,8 @@ def test_range_ip_assignment(
     expected_assigned_ip_2 = random.choice(vlan_hosts_2)
     last_ip_in_range_2 = random.choice(vlan_hosts_2[vlan_hosts_2.index(expected_assigned_ip_2) + 1:])
     dut_port_2, ptf_port_index_2 = random.choice(vlan_members_with_ptf_idx_2)
+    logging.info("expected_assigned_ip_2 is %s, last_ip_in_range_2 is %s, dut_port_2 is %s, ptf_port_index_2 is %s" %
+                 (expected_assigned_ip_2, last_ip_in_range_2, dut_port_2, ptf_port_index_2))
     config_to_apply = create_common_config_patch(
         vlan_name_1,
         gateway_1,
@@ -351,15 +361,19 @@ def test_dhcp_server_config_vlan_intf_change_tc1(
 
     test_xid_1 = 115
     vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
+    logging.info("vlan_info_1 is %s, vlan_info_2 is %s" % (vlan_info_1, vlan_info_2))
     vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = vlan_info_1['vlan_name'], \
         vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], vlan_info_1['vlan_hosts'], \
         vlan_info_1['members_with_ptf_idx']
     expected_assigned_ip_1 = random.choice(vlan_hosts_1)
     dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
+    logging.info("expected_assigned_ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
+                 (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
 
     _, gateway_2, net_mask_2, vlan_hosts_2, _ = vlan_info_2['vlan_name'], vlan_info_2['vlan_gateway'], \
         vlan_info_2['vlan_subnet_mask'], vlan_info_2['vlan_hosts'], vlan_info_2['members_with_ptf_idx']
     expected_assigned_ip_2 = random.choice(vlan_hosts_2)
+    logging.info("expected_assigned_ip_2 is %s" % expected_assigned_ip_2)
     config_to_apply = create_common_config_patch(
         vlan_name_1,
         gateway_2,
@@ -433,11 +447,14 @@ def test_dhcp_server_config_vlan_intf_change_tc2(
 
     test_xid_1 = 116
     vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
+    logging.info("vlan_info_1 is %s, vlan_info_2 is %s" % (vlan_info_1, vlan_info_2))
     vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1, vlan_ipv4_1 = \
         vlan_info_1['vlan_name'], vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], \
         vlan_info_1['vlan_hosts'], vlan_info_1['members_with_ptf_idx'], vlan_info_1['interface_ipv4']
     expected_assigned_ip_1 = random.choice(vlan_hosts_1)
     dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
+    logging.info("expected_assigned_ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
+                 (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
 
     vlan_ipv4_2 = vlan_info_2['interface_ipv4']
     config_to_apply = create_common_config_patch(
