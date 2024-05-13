@@ -641,9 +641,13 @@ generic_config_updater/test_dhcp_relay.py:
 
 generic_config_updater/test_dynamic_acl.py:
   skip:
-    reason: "Skip on unsupported platforms"
+    reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test
+    on m0-2vlan testbed causes consistent failures"
+    conditions_logical_operator: "OR"
     conditions:
       - "release in ['202311', '202405'] and platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "hwsku in ['Cisco-8111-O64']"
+      - "topo_name in ['m0-2vlan']"
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
