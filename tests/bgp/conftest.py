@@ -724,6 +724,7 @@ def gather_info(tbinfo, duthost, nbrhosts):
 
     # verify bgp neighbor relationship is established
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    neigh_asn = dict()
     for k, v in bgp_facts['bgp_neighbors'].items():
         if v['description'].lower() not in skip_hosts:
             if v['description'] == neigh:
@@ -733,8 +734,9 @@ def gather_info(tbinfo, duthost, nbrhosts):
                 elif v['ip_version'] == 6:
                     neigh_ip_v6 = k
                     peer_group_v6 = v['peer group']
-            logger.info(v['state'])
+            logger.debug(v['state'])
             assert v['state'] == 'established'
+            neigh_asn[v['description']] = v['remote AS']
 
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][1].lower()
@@ -755,6 +757,7 @@ def gather_info(tbinfo, duthost, nbrhosts):
         'neighhost': nbrhosts[neigh]["host"],
         'neigh': neigh,
         'dut_asn': dut_asn,
+        'neigh_asn': neigh_asn[neigh],
         'dut_ip_v4': dut_ip_v4,
         'dut_ip_v6': dut_ip_v6,
         'neigh_ip_v4': neigh_ip_v4,

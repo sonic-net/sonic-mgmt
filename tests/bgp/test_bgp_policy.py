@@ -24,11 +24,49 @@ pytestmark = [
     pytest.mark.topology('t2')
 ]
 
+@pytest.fixture(scope='session')
+def get_test_routes(gather_info):
+    # gather IPv4 routes
+    cmd = 'vtysh{} -c "show ip bgp neighbors {} advertised-routes"'.format(gather_info['cli_options'], gather_info['neigh_ip_v4'])
+    output = gather_info['duthost'].shell(cmd, module_ignore_errors=True)['stdout']
+    split_out = output.split("\n")
+    list_route_v4 = []
+    test_route_v4 = []
+    i = 0
+    for line in split_out:
+        if str(gather_info['neigh_asn']) in line:
+            list_route_v4.append(line)
+            i = i + 1
+            if i > 3:
+                break
+    for line in list_route_v4:
+        temp = line.split()
+        test_route_v4.append(temp[1])
+
+    # gather IPv6 routes
+    cmd = 'vtysh{} -c "show bgp ipv6 neighbors {} advertised-routes"'.format(gather_info['cli_options'], gather_info['neigh_ip_v6'])
+    output = gather_info['duthost'].shell(cmd, module_ignore_errors=True)['stdout']
+    split_out = output.split("\n")
+    logger.info(output)
+    list_route_v6 = []
+    test_route_v6 = []
+    i = 0
+    for line in split_out:
+        if str(gather_info['neigh_asn']) in line:
+            logger.info(line)
+            list_route_v6.append(line)
+            i = i + 1
+            if i > 3:
+                break
+    for line in list_route_v6:
+        temp = line.split()
+        test_route_v6.append(temp[1])
+    return test_route_v4, test_route_v6
 
 def verify_rm(dut, nei_ip, cli_options, ipX, route_map, prefix_list, route_count, match_prefix):
     cmd = 'vtysh{} -c "show route-map {}"'.format(cli_options, route_map)
     output = dut.shell(cmd, module_ignore_errors=True)['stdout']
-    logger.info(output)
+    logger.debug(output)
     assert route_map in output
     assert prefix_list in output
 
@@ -36,7 +74,7 @@ def verify_rm(dut, nei_ip, cli_options, ipX, route_map, prefix_list, route_count
         output = dut.shell("show ip bgp neighbors {} routes".format(nei_ip))['stdout']
     elif ipX == "ipv6":
         output = dut.shell("show ipv6 bgp neighbors {} routes".format(nei_ip))['stdout']
-    # logger.info(output)
+    logger.debug(output[len(output) - 200:])
     if route_count == "0":
         assert output == ""
     else:
@@ -93,12 +131,16 @@ def test_policy(gather_info):
     logger.debug(gather_info['duthost'].shell('vtysh -c "show run bgp"', module_ignore_errors=True)['stdout'])
     # verify_route_agg(gather_info['neighhost'], "4", True)
 
-    cmd = 'vtysh{} -c "config" -c "router bgp {}" -c "neighbor {} route-map DEFAULT_RM_V4 in" \
-           -c "neighbor {} route-map DEFAULT_RM_V6 in"' \
+    cmd = 'vtysh{} -c "config" -c "router bgp {}" -c "address-family ipv4 unicast" \
+           -c "neighbor {} route-map DEFAULT_RM_V4 in" \
+           -c "address-family ipv6 unicast" -c "neighbor {} route-map DEFAULT_RM_V6 in"' \
           .format(gather_info['cli_options'], gather_info['dut_asn'], gather_info['neigh_ip_v4'], 
                   gather_info['neigh_ip_v6'])
-    gather_info['duthost'].shell(cmd, module_ignore_errors=True)
+    logger.debug(gather_info['duthost'].shell(cmd, module_ignore_errors=True))
     time.sleep(10)
+
+    logger.debug(gather_info['duthost'].shell('show run bgp')['stdout'])
+
     verify_rm(gather_info['duthost'], gather_info['neigh_ip_v4'], gather_info['cli_options'], "ipv4", "DEFAULT_RM_V4", 
               "DEFAULT_V4", "1", "0.0.0.0/0")
     verify_rm(gather_info['duthost'], gather_info['neigh_ip_v6'], gather_info['cli_options'], "ipv6", "DEFAULT_RM_V6", 
@@ -111,3 +153,7 @@ def test_policy(gather_info):
                   gather_info['neigh_ip_v6'])
     gather_info['duthost'].shell(cmd, module_ignore_errors=True)
     time.sleep(10)
+
+def test_prefix_policy(gather_info, get_test_routes):
+    # Configure and verify policy to permit only the first two prefixes
+    logger.info(get_test_routes)
