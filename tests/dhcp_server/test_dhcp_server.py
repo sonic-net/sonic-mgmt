@@ -9,8 +9,7 @@ from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CON
     validate_dhcp_server_pkts_custom_option, \
     verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
-    clean_dhcp_server_config, apply_dhcp_server_config_gcu, \
-    create_dhcp_client_packet
+    apply_dhcp_server_config_gcu, create_dhcp_client_packet
 
 
 pytestmark = [
@@ -542,7 +541,6 @@ def test_dhcp_server_config_change_dhcp_interface(
         exp_gateway=gateway,
         net_mask=net_mask
     )
-    clean_dhcp_server_config(duthost)
 
 
 def test_dhcp_server_config_change_common(
@@ -600,6 +598,7 @@ def test_dhcp_server_config_change_common(
         }
     ]
     apply_dhcp_server_config_gcu(duthost, change_to_apply)
+    import pdb; pdb.set_trace()
     verify_discover_and_request_then_release(
         duthost=duthost,
         ptfhost=ptfhost,
@@ -614,7 +613,6 @@ def test_dhcp_server_config_change_common(
         net_mask=net_mask,
         exp_lease_time=changed_lease_time
     )
-    clean_dhcp_server_config(duthost)
 
 
 def test_dhcp_server_config_vlan_member_change(
@@ -680,4 +678,3 @@ def test_dhcp_server_config_vlan_member_change(
         exp_gateway=gateway,
         net_mask=net_mask
     )
-    clean_dhcp_server_config(duthost)
