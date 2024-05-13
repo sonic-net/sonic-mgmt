@@ -374,17 +374,16 @@ The tests in this section cover the following gNMI paths.
 2. Expect the following results:
     1. `mac-address` matches a pattern of the form `00:00:00:00:00:00`.
         1. If installation provides a specific MAC address, expect that value.
-    2. `~~interface-role is mgmt.~~`
-    3. `name` is the name of the interface.  Allowed values, depending on the path, include `bond0`, `eth0`, and `eth1`.  Only one of these values is allowed for a given path.
-    4. `oper-status` is `up`.  Allowed values are `up`, `down`, `testing`, `unknown`, `dormant`, `not_present`, and `lower_layer_down`. 
-    5. `type` is `ethernetCsmacd`.
+    2. `name` is the name of the interface.  Allowed values, depending on the path, include `bond0`, `eth0`, and `eth1`.  Only one of these values is allowed for a given path.
+    3. `oper-status` is `up`.  Allowed values are `up`, `down`, `testing`, `unknown`, `dormant`, `not_present`, and `lower_layer_down`. 
+    4. `type` is `ethernetCsmacd`.
 
 ### Test 2: Set name
 
 
 1. Use a gNMI get operation to fetch the state value for `name`.
 2. Use a gNMI set replace operation to add a new interface.
-    1. We will give it a `name` that is “bond7”.  Allowed values must match the pattern here.** TODO**
+    1. We will give it a `name` that is “bond7”.  Allowed values must match the pattern here.`(eth|bond)([1-3][0-9]{3}|[1-9][0-9]{2}|[1-9][0-9]|[0-9])`.
 3. Use a gNMI get operation to fetch the state value for `name`.
 4. Expect the read state value for `name` to be “bond7,” indicating the write operation has taken effect.
 
@@ -826,9 +825,9 @@ The tests in this section cover the following gNMI paths.
 *   /components/component[name=&lt;chassis>]/state/serial-no
 *   /components/component[name=&lt;chassis>]/state/type
 
-The EEPROM can be accessed by examining the contents of `/sys/bus/i2c/devices/10001-0050`.
-
-The mapping for state path variable to EEPROM file name is as shown in [Table 6].
+Typically, chassis information is held in an EEPROM that is populated during
+manufacturing.  One example mapping for state path variable from an EEPROM
+file name is as shown in [Table 6].
 
 
 <table>
@@ -861,7 +860,7 @@ The mapping for state path variable to EEPROM file name is as shown in [Table 6]
    </td>
    <td>assembly_part_number
    </td>
-   <td>10392080202
+   <td>`some value`
    </td>
   </tr>
   <tr>
@@ -869,7 +868,7 @@ The mapping for state path variable to EEPROM file name is as shown in [Table 6]
    </td>
    <td>assembly_serial_number
    </td>
-   <td>TMBCTH192900378
+   <td>`some value`
    </td>
   </tr>
 </table>
@@ -882,15 +881,15 @@ Table 6: gNMI path variable to EEPROM file name mapping.
 
 1. Use gNMI get operations to fetch the state values for `firmware-version`, `fully-qualified-name`, `hardware-version`, `model-name`, `mfg-date`, `name`, `part-no`, `platform`, `serial-no`, and `type`.
 2. Expect the following values:
-    1. `firmware-version` matches against the patterns of `gpins_dev_YYMMDD_HH_RCxx` or `gpins_prod_YYMMDD_HH_RCxx`, which are labels used by the image MPMs.
-    2. `fully-qualified-name` is of the form `df42f001.mtv16.net.google.com`.
-    3. `hardware-version` is a single byte, so the value should be in the range 0 to 255.  A `1` indicates EVT and a `2` indicates PVT.
+    1. `firmware-version` matches against a build label that identifies an image version.
+    2. `fully-qualified-name` matches against a machine name, e.g. something ending in `.com`.
+    3. `hardware-version` is a single byte, so the value should be in the range 0 to 255.
     4. `model-name` is a string.
-    5. `mfg-date` is a string that matches the format `%m/%d/%Y %H:%M:%S`.  (Only month, day, and year are expected to vary, since the platform only retains data associated with the manufacturing year and week.) 
+    5. `mfg-date` is a string that matches the format `%m/%d/%Y %H:%M:%S`.
     6. `name` is a `chassis`.
-    7. `part-no` is a string that is at most 20 characters.
-    8. `platform` is taygeta.  Allowed values are `taygeta` or `brixia`.
-    9. `serial-no` is a string that is at most 20 characters.
+    7. `part-no` is a string.
+    8. `platform` is the a string for the platform name.
+    9. `serial-no` is a string.
     10. `type` is `CHASSIS`.  Allowed values based on the enumeration are `chassis`, `backplane`, `fabric`, `power_supply`, `fan`, `sensor`, `fru`, `linecard`, `controller_card`, `port`, `transceiver`, `cpu`, `storage`, `intergrated_circuit`, `operating_system`, `operating_system_update`, `boot_loader`, and `software_module`.
 
 
@@ -906,7 +905,7 @@ Table 6: gNMI path variable to EEPROM file name mapping.
 
 ### Test 3: Set invalid name
 
-1. Use a gNMI set operation to write the valid expected value of `name` to “chassis” to ensure.  
+1. Use a gNMI set operation to write the valid expected value of `name` to “chassis”.  
 2. Use a gNMI get operation to read the state path for `name`.
 3. Expect the read value to be “chassis.”
 4. Use a gNMI set operation to write an invalid value for `name`, e.g. “mychassis.”
@@ -916,8 +915,6 @@ Table 6: gNMI path variable to EEPROM file name mapping.
 
 
 ### Test 4: Changes persist after reboot
-
-Note: Reboot persistence requires the save-on-set feature.  However, this test case will leverage that functionality once it is available.
 
 1. Use gNMI get operations to fetch the state values for `firmware-version`, `fully-qualified-name`, `hardware-version`, `model-name`, `mfg-date`, `name`, `part-no`, `platform`, `serial-no`, and `type`.
 2. Use a gNMI set operation to write the config value for `fully-qualified-name`.
@@ -1070,8 +1067,8 @@ Table 7: Summary of network stack tests.
     1. `name` is a string that is `network_stack0` or `network_stack1`.
     2. `oper-status` matches `active` for the primary path and inactive for alternate path. Allowed values are `active`, `inactive`, and `disabled`.
     3. `parent` is `chassis`.
-    4. `software-version` matches against the patterns of `gpins_dev_YYMMDD_HH_RCxx` or `gpins_prod_YYMMDD_HH_RCxx`, which are labels used by the image MPMs. 
-    5. `storage-side` is either `a` or `b`.  If the primary path returns `a`, then the alternate path must return `b`.  If the primary path returns `b`, then the alternate path must return `a`.
+    4. `software-version` against a build label that identifies an image version.
+    5. `storage-side` is either `a` or `b` for systems that support a primary and alternate stack to be loaded.  If the primary path returns `a`, then the alternate path must return `b`.  If the primary path returns `b`, then the alternate path must return `a`.
     6. `type` is `SOFTWARE_MODULE`.  Allowed values based on the enumeration are `chassis`, `backplane`, `fabric`, `power_supply`, `fan`, `sensor`, `fru`, `linecard`, `controller_card`, `port`, `transceiver`, `cpu`, `storage`, `intergrated_circuit`, `operating_system`, `operating_system_update`, `boot_loader`, and `software_module`.
     7. `module-type` is `USERSPACE_PACKAGE_BUNDLE`.  Allowed values based on the enumeration are `userspace_package_bundle` and `userspace_package`. 
 
@@ -1216,7 +1213,7 @@ Table 8: Summary of OS tests.
     1. `name` is a string that is `os0` or `os1`.
     2. `oper-status` matches `active` for the primary path and inactive for alternate path. Allowed values are `active`, `inactive`, and `disabled`.
     3. `parent` is `chassis`.
-    4. `software-version` is the Linux kernel version.  For example, a pattern that looks like `4.19.37-planetbde` should match.
+    4. `software-version` is the Linux kernel version.  For example, a pattern that looks like `6.1.10` should match.
     5. `storage-side` is either `a` or `b`.  If the primary path returns `a`, then the alternate path must return `b`.  If the primary path returns `b`, then the alternate path must return `a`.
     6. `type` is `OPERATING_SYSTEM`.  Allowed values based on the enumeration are `chassis`, `backplane`, `fabric`, `power_supply`, `fan`, `sensor`, `fru`, `linecard`, `controller_card`, `port`, `transceiver`, `cpu`, `storage`, `intergrated_circuit`, `operating_system`, `operating_system_update`, `boot_loader`, and `software_module`.
 
@@ -1295,29 +1292,28 @@ Table 9: Summary of bootloader tests.
 2. Expect the following values:
     1. `name` is a string that is `boot_loader`.
     2. `parent` is `chassis`.
-    3. `software-version` is a string that represents a bundled boot loader image.  On Taygeta, this is a combination of the `bios` and `uboot`, which is of the form of `1.26.1-20201110180000`.  On Brixia, this version is a combination of `coreboot` and `NERF`, and an example is of the form `999999999.20210909.172128`.
-        1. Note: In the future, we may need to export information about `Linuxboot` and `Netlo`.  If so, we would have multiple software components of type `BOOT_LOADER`.  This likely requires adding an additional path to designate these different bootloader types.
+    3. `software-version` is a string that represents a bundled boot loader image.
     4. `type` is `BOOT_LOADER`.  Allowed values based on the enumeration are `chassis`, `backplane`, `fabric`, `power_supply`, `fan`, `sensor`, `fru`, `linecard`, `controller_card`, `port`, `transceiver`, `cpu`, `storage`, `intergrated_circuit`, `operating_system`, `operating_system_update`, `boot_loader`, and `software_module`.
 
 
 # Container Monitor
 
-The container monitor is a Google-specific monitoring daemon that periodically polls that containers and top-level processes are running as expected.  The containers and processes to monitor the actions to take based on events are defined by a configuration protobuf.   
+The container monitor is a Google-specific monitoring daemon that periodically polls that containers and top-level processes are running as expected.  If a container or top-level process has exited unexpectedly, the container monitor may restart the container or top-level process, depending on configuration settings.  The containers and processes to monitor the actions to take based on events are defined by a configuration protobuf.
+ 
 
 
-## Test 1: Force stop the inband manager
+## Test 1: Force stop a container that can be restarted
 
-For this test, we want to verify that the GPINs container monitor can successfully restart a faulty container.  We select the inband manager container to perform this verification.  This test will perform the following steps:
+For this test, we want to verify that the container monitor can successfully restart a faulty container.  We select a container tha is configured to allow restarts to perform this verification.  This test will perform the following steps:
 
-1. Check that the GPINs container monitor and inband manager container are running as expected.
-2. Force stop the inband manager.  Wait for up to two minutes to detect that the inband manager returns an error when the status is checked.
-3. Wait for the GPINs container monitor to restart the inband manager container.  Wait for up to three minutes to detect the inband manager to report an operational status.
+1. Check that the container monitor and selected container are running as expected.
+2. Force stop the selected container.  Wait for up to two minutes to detect that the selected container returns an error when the status is checked.
+3. Wait for the container monitor to restart the selected container.  Wait for up to three minutes to detect the selected container reports an operational status.
 
+## Test 2: Force-stop a container that cannot be restarted
 
-## Test 2: Kill the p4rt container and validate if the Critical state gets reported
+For this test, we want to verify that the container monitor reports the system is in a critical state when the container is not running as expected.  We select a container that is not allowed to be restarted (e.g. `syncd`) to perform this verification.  This test will perform the following steps:
 
-For this test, we want to verify that the GPINs container monitor reports the Critical state when the container process gets killed.  We select the p4rt container to perform this verification.  This test will perform the following steps:
-
-1. Check that the GPINs container monitor and p4rt container are running as expected.
-2. Kill the p4rt container process.  Wait for up to two minutes to detect that the p4rt container returns CRITICAL state error when the status is checked.
-3. Reboot the switch and validate if the p4rt container process gets restored.
+1. Check that the container monitor and selected container are running as expected.
+2. Force stop the selected container.  Wait for up to two minutes to detect that the selected container returns a `CRITICAL` state error when the status is checked.
+3. Reboot the switch and validate if the selected container process gets restored.
