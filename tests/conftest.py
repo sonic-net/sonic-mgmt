@@ -397,7 +397,7 @@ def rand_one_dut_hostname(request):
     """
     """
     global rand_one_dut_hostname_var
-    if rand_one_dut_hostname_var == None:
+    if rand_one_dut_hostname_var is None:
         dut_hostnames = generate_params_dut_hostname(request)
         if len(dut_hostnames) > 1:
             dut_hostnames = random.sample(dut_hostnames, 1)
@@ -413,6 +413,11 @@ def rand_selected_dut(duthosts, rand_one_dut_hostname):
     Return the randomly selected duthost
     """
     return duthosts[rand_one_dut_hostname]
+
+
+@pytest.fixture(scope="module")
+def selected_rand_dut(request):
+    return rand_one_dut_hostname(request)
 
 
 @pytest.fixture(scope="module")
@@ -1594,15 +1599,6 @@ def enum_frontend_dut_hostname(request):
 def selected_dut(request):
     try:
         logger.debug("selected_dut host: {}".format(request.param))
-        return request.param
-    except AttributeError:
-        return None
-
-
-@pytest.fixture(scope="module")
-def selected_rand_dut(request):
-    try:
-        logger.debug("selected_rand_dut host: {}".format(request.param))
         return request.param
     except AttributeError:
         return None
