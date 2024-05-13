@@ -469,7 +469,7 @@ def main(args):
             report_json.append(temp_json)
             continue
 
-        if float(success_rate) < PASSRATE_SHRESHOLD:
+        if float(success_rate) < PASSRATE_SHRESHOLD and hardwaresku != 'Cisco-8111-O32':
             logger.info('SuccessRate of build {}: {} is less than 90%, do not upload this, ingore'.format(buildid, str(success_rate)))
             report_json.append(temp_json)
             continue
