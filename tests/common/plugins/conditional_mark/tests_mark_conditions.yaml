@@ -351,9 +351,9 @@ dualtor/test_orchagent_active_tor_downstream.py::test_downstream_ecmp_nexthops:
 
 dualtor/test_orchagent_mac_move.py:
   skip:
-    reason: "This testcase is designed for single tor testbed with mock dualtor config."
+    reason: "This testcase is designed for single tor testbed with mock dualtor config. Or skip by issue 12795"
     conditions:
-      - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+      - "(topo_type not in ['t0']) or ('dualtor' in topo_name) or (https://github.com/sonic-net/sonic-mgmt/issues/12795)"
 
 dualtor/test_orchagent_standby_tor_downstream.py::test_downstream_standby_mux_toggle_active:
   skip:
