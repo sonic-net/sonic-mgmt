@@ -243,6 +243,12 @@ crm/test_crm.py::test_crm_fdb_entry:
     conditions:
       - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
 
+crm/test_crm.py::test_crm_route:
+  skip:
+    reason: "Skip the test on mellanox  device due to the bug of https://github.com/sonic-net/sonic-mgmt/issues/12725"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/12725
+      - "asic_type in ['mellanox']"
 #######################################
 #####            decap            #####
 #######################################
@@ -639,7 +645,8 @@ generic_config_updater/test_dynamic_acl.py:
     on m0-2vlan testbed causes consistent failures"
     conditions_logical_operator: "OR"
     conditions:
-      - "hwsku in ['Nokia-M0-7215', 'Cisco-8111-O64']"
+      - "release in ['202311', '202405'] and platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "hwsku in ['Cisco-8111-O64']"
       - "topo_name in ['m0-2vlan']"
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
@@ -892,9 +899,9 @@ pc/test_lag_2.py::test_lag_db_status_with_po_update:
 
 pc/test_lag_member.py:
   skip:
-    reason: "Not support dualtor topo"
+    reason: "Not support dualtor or t0 backend topo"
     conditions:
-        - "'dualtor' in topo_name"
+        - "'dualtor' in topo_name or 't0-backend' in topo_name"
 
 pc/test_po_cleanup.py:
   skip:
@@ -958,6 +965,12 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
+
+pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
+   skip:
+     reason: "This test is applicable only for cisco-8000"
+     conditions:
+        - "asic_type != 'cisco-8000'"
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
