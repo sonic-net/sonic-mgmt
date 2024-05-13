@@ -392,10 +392,7 @@ def macsec_duthost(duthosts, tbinfo):
 rand_one_dut_hostname_var = None
 
 
-@pytest.fixture(scope="module")
-def rand_one_dut_hostname(request):
-    """
-    """
+def set_rand_one_dut_hostname(request):
     global rand_one_dut_hostname_var
     if rand_one_dut_hostname_var is None:
         dut_hostnames = generate_params_dut_hostname(request)
@@ -404,6 +401,13 @@ def rand_one_dut_hostname(request):
         rand_one_dut_hostname_var = dut_hostnames[0]
         logger.info("Randomly select dut {} for testing".format(rand_one_dut_hostname_var))
 
+
+@pytest.fixture(scope="module")
+def rand_one_dut_hostname(request):
+    """
+    """
+    global rand_one_dut_hostname_var
+    set_rand_one_dut_hostname(request)
     return rand_one_dut_hostname_var
 
 
@@ -417,7 +421,8 @@ def rand_selected_dut(duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(scope="module")
 def selected_rand_dut(request):
-    return rand_one_dut_hostname(request)
+    global rand_one_dut_hostname_var
+    return rand_one_dut_hostname_var
 
 
 @pytest.fixture(scope="module")
