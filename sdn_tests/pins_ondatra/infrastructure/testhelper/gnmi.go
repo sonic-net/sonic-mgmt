@@ -2,10 +2,15 @@ package testhelper
 
 import (
 	"context"
+<<<<<<< HEAD
 	"os"
 	"testing"
 
 	closer "github.com/openconfig/gocloser"
+=======
+	"testing"
+
+>>>>>>> [sdn_tests]: Adding GNMI testhelper to pins_ondatra. (#12667)
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
 	"github.com/openconfig/ondatra/gnmi/oc/system"
@@ -90,6 +95,7 @@ func CreateSubscribeRequest(params SubscribeRequestParams) (*gpb.SubscribeReques
 		},
 	}, nil
 }
+<<<<<<< HEAD
 
 // GNMIAble returns whether the gNMI server on the specified device is reachable
 // or not.
@@ -154,3 +160,5 @@ func ConfigPush(t *testing.T, dut *ondatra.DUTDevice, config *[]byte) error {
 	_, err := gnmiSet(t, dut, setRequest)
 	return err
 }
+=======
+>>>>>>> [sdn_tests]: Adding GNMI testhelper to pins_ondatra. (#12667)

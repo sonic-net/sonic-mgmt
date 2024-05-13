@@ -9,6 +9,7 @@ go_library(
     name = "testhelper",
     testonly = 1,
     srcs = [
+<<<<<<< HEAD
         "augment.go",
 	      "gnmi.go",
         "gnoi.go",
@@ -21,6 +22,9 @@ go_library(
 	      "results.go",
       	"ssh.go",
         "//infrastructure/testhelper/platform_info:platform_info",
+=======
+	"gnmi.go",
+>>>>>>> [sdn_tests]: Adding GNMI testhelper to pins_ondatra. (#12667)
     ],
     data = [
         "//infrastructure/data",
