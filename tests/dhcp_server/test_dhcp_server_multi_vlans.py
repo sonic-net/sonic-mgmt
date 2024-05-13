@@ -8,7 +8,7 @@ from dhcp_server_test_common import create_common_config_patch, append_common_co
     verify_discover_and_request_then_release, clean_dhcp_server_config, apply_dhcp_server_config_gcu
 
 pytestmark = [
-    pytest.mark.topology('mx'),
+    pytest.mark.topology('m0', 'mx'),
 ]
 
 
@@ -27,9 +27,9 @@ def setup_multiple_vlans_and_teardown(duthost, tbinfo):
     vlan_members = first_vlan_info['members']
     vlan_member_with_ptf_idx = [(member, connected_dut_intf_to_ptf_index[member])
                                 for member in vlan_members if member in connected_dut_intf_to_ptf_index]
-    pytest_assert(len(vlan_member_with_ptf_idx) >= 8, 'Vlan size is too small for testing')
+    pytest_assert(len(vlan_member_with_ptf_idx) >= 8, 'Vlan member is too litte for testing')
     vlan_net = ipaddress.ip_network(address=first_vlan_ipv4_prefix, strict=False)
-    pytest_assert(vlan_net.num_addresses >= 8, 'Vlan size is too small for testing')
+    pytest_assert(vlan_net.num_addresses >= 12, 'Vlan size is too small for testing')
 
     vlan_setting = {
         'vlan_name': first_vlan_name,
@@ -46,14 +46,12 @@ def setup_multiple_vlans_and_teardown(duthost, tbinfo):
 
     logging.info("The patch for setup is %s" % patch_setup)
     apply_vlan_config_patch(duthost, patch_setup)
-    # import pdb; pdb.set_trace()
 
     logging.info("The four_vlans_info after setup is %s" % four_vlans_info)
     yield four_vlans_info
 
     logging.info("The patch for restore is %s" % patch_restore)
     apply_vlan_config_patch(duthost, patch_restore)
-    # import pdb; pdb.set_trace()
 
 
 def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx):
@@ -77,10 +75,10 @@ def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_
         four_vlans_info.append(
             {
                 'vlan_name': 'Vlan40%s' % i,
-                'vlan_gateway': str(list(vlan_nets[i].hosts())[0]),
-                'interface_ipv4': str(list(vlan_nets[i].hosts())[0]) + '/' + str(vlan_nets[i].prefixlen),
+                'vlan_gateway': str(list(vlan_nets[i].hosts())[1]),
+                'interface_ipv4': str(list(vlan_nets[i].hosts())[1]) + '/' + str(vlan_nets[i].prefixlen),
                 'vlan_subnet_mask': str(vlan_nets[i].netmask),
-                'vlan_hosts': [str(host) for host in list(vlan_nets[i].hosts())[1:]],
+                'vlan_hosts': [str(host) for host in list(vlan_nets[i].hosts())[2:]],
                 'members_with_ptf_idx': [(member, ptf_idx) for member, ptf_idx
                                          in vlan_member_with_ptf_idx[member_count*i:member_count*(i+1)]]
             }
@@ -338,7 +336,7 @@ def test_range_ip_assignment(
     clean_dhcp_server_config(duthost)
 
 
-def test_dhcp_server_config_vlan_intf_change(
+def test_dhcp_server_config_vlan_intf_change_tc1(
     duthost,
     ptfhost,
     ptfadapter,
@@ -346,7 +344,7 @@ def test_dhcp_server_config_vlan_intf_change(
 ):
     """
         When dhcp server congifurate a subnet not belong to current VLAN,
-        the dhcp server should assign IP from the subnet
+        the dhcp server can't  assign IP from the subnet
     """
 
     four_vlans_info = setup_multiple_vlans_and_teardown
@@ -404,6 +402,93 @@ def test_dhcp_server_config_vlan_intf_change(
         }
     ]
     apply_dhcp_server_config_gcu(duthost, patch_subnet)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port_1,
+        ptf_port_index=ptf_port_index_1,
+        ptf_mac_port_index=ptf_port_index_1,
+        test_xid=test_xid_1,
+        dhcp_interface=vlan_name_1,
+        expected_assigned_ip=expected_assigned_ip_1,
+        exp_gateway=gateway_1,
+        net_mask=net_mask_1
+    )
+    clean_dhcp_server_config(duthost)
+
+
+def test_dhcp_server_config_vlan_intf_change_tc2(
+    duthost,
+    ptfhost,
+    ptfadapter,
+    setup_multiple_vlans_and_teardown
+):
+    """
+        When dhcp server congifurate a subnet not belong to current VLAN,
+        the dhcp server can't assign IP from the subnet
+    """
+
+    four_vlans_info = setup_multiple_vlans_and_teardown
+
+    test_xid_1 = 116
+    vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
+    vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1, vlan_ipv4_1 = \
+        vlan_info_1['vlan_name'], vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], \
+        vlan_info_1['vlan_hosts'], vlan_info_1['members_with_ptf_idx'], vlan_info_1['interface_ipv4']
+    expected_assigned_ip_1 = random.choice(vlan_hosts_1)
+    dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
+
+    vlan_ipv4_2 = vlan_info_2['interface_ipv4']
+    config_to_apply = create_common_config_patch(
+        vlan_name_1,
+        gateway_1,
+        net_mask_1,
+        [dut_port_1],
+        [[expected_assigned_ip_1]]
+    )
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+
+    # When the subnet not match to VLAN, client won't get IP
+    patch_replace_subnet = [
+        {
+            "op": "remove",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_1.replace('/', '~1'))
+        },
+        {
+            "op": "add",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_2.replace('/', '~1')),
+            "value": {}
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, patch_replace_subnet)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port_1,
+        ptf_port_index=ptf_port_index_1,
+        ptf_mac_port_index=ptf_port_index_1,
+        test_xid=test_xid_1,
+        dhcp_interface=None,
+        expected_assigned_ip=None,
+        exp_gateway=None,
+        net_mask=None
+    )
+
+    # When the subnet is changed to match VLAN, client can get IP
+    patch_restore_subnet = [
+        {
+            "op": "remove",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_2.replace('/', '~1'))
+        },
+        {
+            "op": "add",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_1.replace('/', '~1')),
+            "value": {}
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, patch_restore_subnet)
     verify_discover_and_request_then_release(
         duthost=duthost,
         ptfhost=ptfhost,
