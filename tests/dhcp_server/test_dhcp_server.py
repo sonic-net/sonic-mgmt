@@ -5,6 +5,7 @@ import pytest
 import random
 import time
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI, \
     create_common_config_patch, generate_common_config_cli_commands, dhcp_server_config, \
     validate_dhcp_server_pkts_custom_option, \
@@ -670,11 +671,23 @@ def test_dhcp_server_critical_process_crush(
     pytest_assert(pid, "No pid found for critical process %s" % critical_process)
 
     duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, pid))
-    time.sleep(5)  # wait container exit
-    output = duthost.shell('docker ps -a | grep %s' % container_name)['stdout']
-    pytest_assert('Exited' in output,
-                  "Container %s is not exited when critical process was killed" % DHCP_SERVER_CONTAINER_NAME)
-    time.sleep(60)  # wait for container restart and process be stable
-    running_critical_process_after_kill = duthost.critical_process_status(container_name)['running_critical_process']
-    pytest_assert(len(running_critical_process_before_kill) == len(running_critical_process_after_kill),
-                  "Running critical process count changed")
+    pytest_assert(
+        wait_until(
+            5,
+            1,
+            1,
+            lambda: 'Exited' in duthost.shell('docker ps -a | grep %s' % container_name)['stdout']
+        ),
+        "Container %s is not exited when critical process was killed" % DHCP_SERVER_CONTAINER_NAME
+    )
+
+    pytest_assert(
+        wait_until(
+            60,
+            10,
+            1,
+            lambda: len(running_critical_process_before_kill) ==
+            len(duthost.critical_process_status(container_name)['running_critical_process'])
+        ),
+        "Container %s is not exited when critical process was killed" % DHCP_SERVER_CONTAINER_NAME
+    )
