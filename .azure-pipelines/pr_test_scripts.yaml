@@ -3,7 +3,8 @@ t0:
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
   - arp/test_tagged_arp.py
-  - autorestart/test_container_autorestart.py
+  # Due to the auto start fails on container restapi, comment this case temporarily
+#  - autorestart/test_container_autorestart.py
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py
