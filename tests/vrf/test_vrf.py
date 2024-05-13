@@ -274,8 +274,8 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     # get members from Vlan1000, and move half of them to Vlan2000 in vrf basic cfg
     ports = get_vlan_members('Vlan1000', cfg_facts)
 
-    vlan_ports = {'Vlan1000': ports[:len(ports)/2],
-                  'Vlan2000': ports[len(ports)/2:]}
+    vlan_ports = {'Vlan1000': ports[:len(ports)//2],
+                  'Vlan2000': ports[len(ports)//2:]}
 
     extra_vars = {'cfg_t0': cfg_t0,
                   'vlan_ports': vlan_ports}
@@ -398,7 +398,7 @@ def gen_specific_neigh_file(dst_ips, dst_ports, render_file, ptfhost):
     dst_ports = [str(port) for port_list in dst_ports for port in port_list]
     tmp_file = tempfile.NamedTemporaryFile()
     for ip in dst_ips:
-        tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))
+        tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)).encode())
     tmp_file.flush()
     ptfhost.copy(src=tmp_file.name, dest=render_file)
 
