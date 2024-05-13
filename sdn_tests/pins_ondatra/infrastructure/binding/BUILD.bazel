@@ -52,6 +52,9 @@ go_library(
         "@com_github_openconfig_ondatra//proto:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//credentials",
+<<<<<<< HEAD
 	"@org_golang_google_grpc//credentials/insecure",
+=======
+>>>>>>> [sdn_tests]: Adding binding infra to pins_ondatra. (#12662)
     ],
 )
