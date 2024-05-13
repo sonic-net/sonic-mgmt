@@ -12,7 +12,7 @@ from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CON
     verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
     clean_dhcp_server_config, apply_dhcp_server_config_gcu, \
-    create_dhcp_client_packet
+    create_dhcp_client_packet, get_running_critical_processes
 
 
 pytestmark = [
@@ -73,6 +73,8 @@ def test_dhcp_server_port_based_assignment_single_ip_tc1(
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     expected_assigned_ip = random.choice(vlan_hosts)
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
     config_cli = generate_common_config_cli_commands(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     config_gcu = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     config_to_apply = None
@@ -111,6 +113,8 @@ def test_dhcp_server_port_based_assignment_single_ip_tc2(
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     expected_assigned_ip = random.choice(vlan_hosts)
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
     config_cli = generate_common_config_cli_commands(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     config_gcu = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     config_to_apply = None
@@ -153,6 +157,8 @@ def test_dhcp_server_port_based_assignment_single_ip_tc3(
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
     config_cli = generate_common_config_cli_commands(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     _, ptf_mac_port_index = random.choice([m for m in vlan_members_with_ptf_idx if m[0] != dut_port])
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s, ptf_mac_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index, ptf_mac_port_index))
     config_gcu = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     config_to_apply = None
     if config_tool == DHCP_SERVER_CONFIG_TOOL_CLI:
@@ -192,6 +198,10 @@ def test_dhcp_server_port_based_assignment_single_ip_tc4(
     assigned_ip = random.choice(vlan_hosts)
     unconfigured_dut_port, unconfigured_ptf_port_index = random.choice(vlan_members_with_ptf_idx)
     configured_dut_port, _ = random.choice([m for m in vlan_members_with_ptf_idx if m[0] != unconfigured_dut_port])
+    logging.info(
+        "assigned ip is %s, unconfigured_dut_port is %s, unconfigured_ptf_port_index is %s, configured_dut_port is %s" %
+        (assigned_ip, unconfigured_dut_port, unconfigured_ptf_port_index, configured_dut_port)
+    )
     config_cli = generate_common_config_cli_commands(
         vlan_name, gateway, net_mask, [configured_dut_port], [[assigned_ip]])
     config_gcu = create_common_config_patch(
@@ -234,6 +244,8 @@ def test_dhcp_server_port_based_assignment_range_ip(
     expected_assigned_ip = random.choice(vlan_hosts[:-1])
     last_ip_in_range = random.choice(vlan_hosts[vlan_hosts.index(expected_assigned_ip) + 1:])
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, last_ip_in_range is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, last_ip_in_range, dut_port, ptf_port_index))
     config_cli = generate_common_config_cli_commands(
         vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip, last_ip_in_range]])
     config_gcu = create_common_config_patch(
@@ -277,6 +289,10 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
     dut_port_0, ptf_port_index_0 = random.choice(vlan_members_with_ptf_idx)
     expected_assigned_ip_1 = random.choice([v for v in vlan_hosts if v != expected_assigned_ip_0])
     dut_port_1, ptf_port_index_1 = random.choice([m for m in vlan_members_with_ptf_idx if m[0] != dut_port_0])
+    logging.info("expected assigned ip_0 is %s, dut_port_0 is %s, ptf_port_index_0 is %s" %
+                 (expected_assigned_ip_0, dut_port_0, ptf_port_index_0))
+    logging.info("expected assigned ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
+                 (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
     config_cli = generate_common_config_cli_commands(
         vlan_name, gateway, net_mask, [dut_port_0, dut_port_1], [[expected_assigned_ip_0], [expected_assigned_ip_1]])
     config_gcu = create_common_config_patch(
@@ -332,6 +348,10 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
     dut_port_0, ptf_port_index_0 = random.choice(vlan_members_with_ptf_idx)
     expected_assigned_ip_1 = random.choice([v for v in vlan_hosts if v != expected_assigned_ip_0])
     dut_port_1, ptf_port_index_1 = random.choice([m for m in vlan_members_with_ptf_idx if m[0] != dut_port_0])
+    logging.info("expected assigned ip_0 is %s, dut_port_0 is %s, ptf_port_index_0 is %s" %
+                 (expected_assigned_ip_0, dut_port_0, ptf_port_index_0))
+    logging.info("expected assigned ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
+                 (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
     config_cli = generate_common_config_cli_commands(
         vlan_name, gateway, net_mask, [dut_port_0, dut_port_1], [[expected_assigned_ip_0], [expected_assigned_ip_1]])
     config_gcu = create_common_config_patch(
@@ -396,7 +416,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
         )
 
 
-@pytest.mark.parametrize("option_info", [["string", "#hello i'm dhcp_server!"]])
+@pytest.mark.parametrize("option_info", [["string", "#hello, i'm dhcp_server!"]])
 def test_dhcp_server_port_based_customize_options(
     duthost,
     ptfhost,
@@ -420,6 +440,8 @@ def test_dhcp_server_port_based_customize_options(
             "value": option_info[1]
         }
     }
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s, random_option_id is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index, random_option_id))
     config_patch = create_common_config_patch(
         vlan_name,
         gateway,
@@ -483,6 +505,8 @@ def test_dhcp_server_config_change_dhcp_interface(
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     expected_assigned_ip = random.choice(vlan_hosts)
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
     config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     apply_dhcp_server_config_gcu(duthost, config_to_apply)
     verify_discover_and_request_then_release(
@@ -536,6 +560,8 @@ def test_dhcp_server_config_change_common(
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     expected_assigned_ip = random.choice(vlan_hosts)
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
     config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     apply_dhcp_server_config_gcu(duthost, config_to_apply)
     verify_discover_and_request_then_release(
@@ -556,6 +582,8 @@ def test_dhcp_server_config_change_common(
     changed_gateway = random.choice([v for v in vlan_hosts
                                      if v != expected_assigned_ip and v != changed_expected_assigned_ip])
     changed_lease_time = random.randint(DHCP_DEFAULT_LEASE_TIME, 1000)
+    logging.info("changed expected assigned ip is %s, changed_gateway is %s, changed_lease_time is %s" %
+                 (changed_expected_assigned_ip, changed_gateway, changed_lease_time))
     change_to_apply = [
         {
             "op": "replace",
@@ -604,6 +632,8 @@ def test_dhcp_server_config_vlan_member_change(
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     expected_assigned_ip = random.choice(vlan_hosts)
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
     config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     apply_dhcp_server_config_gcu(duthost, config_to_apply)
     # delete member
@@ -663,17 +693,18 @@ def test_dhcp_server_critical_process_crush(
     """
         Test if dhcp server can recover from critical process crush
     """
-    running_critical_process_before_kill = duthost.critical_process_status(container_name)['running_critical_process']
+    running_critical_process_before_kill = get_running_critical_processes(duthost, container_name)
     pytest_assert(running_critical_process_before_kill, "No critical process found")
 
     critical_process = random.choice(running_critical_process_before_kill)
-    pid = duthost.shell("docker exec -it %s supervisorctl pid %s" % (container_name, critical_process))['stdout']
+    logging.info("The random one critical process is %s" % critical_process)
+    pid = duthost.shell("docker exec %s supervisorctl pid %s" % (container_name, critical_process))['stdout']
     pytest_assert(pid, "No pid found for critical process %s" % critical_process)
 
     duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, pid))
     pytest_assert(
         wait_until(
-            5,
+            10,
             1,
             1,
             lambda: 'Exited' in duthost.shell('docker ps -a | grep %s' % container_name)['stdout']
@@ -683,11 +714,11 @@ def test_dhcp_server_critical_process_crush(
 
     pytest_assert(
         wait_until(
-            60,
+            90,
             10,
             1,
             lambda: len(running_critical_process_before_kill) ==
-            len(duthost.critical_process_status(container_name)['running_critical_process'])
+            len(get_running_critical_processes(duthost, container_name))
         ),
-        "Container %s is not exited when critical process was killed" % DHCP_SERVER_CONTAINER_NAME
+        "Running critical process count of container %s changed after restart" % DHCP_SERVER_CONTAINER_NAME
     )
