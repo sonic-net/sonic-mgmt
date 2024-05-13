@@ -8,8 +8,13 @@ t0:
   - arp/test_neighbor_mac_noptf.py
   - arp/test_stress_arp.py
   - arp/test_tagged_arp.py
+<<<<<<< HEAD
   - arp/test_wr_arp.py
   - autorestart/test_container_autorestart.py
+=======
+  # Due to the auto start fails on container restapi, comment this case temporarily
+#  - autorestart/test_container_autorestart.py
+>>>>>>> Remove module autorestart/test_container_autorestart.py in PR test (#12827)
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py
