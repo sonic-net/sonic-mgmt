@@ -6,6 +6,7 @@ import logging
 import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
+import re
 import time
 from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -431,3 +432,23 @@ def verify_discover_and_request_then_release(
             ciaddr=expected_assigned_ip
         )
         testutils.send_packet(ptfadapter, ptf_port_index, release_pkt)
+
+
+def get_running_critical_processes(duthost, service):
+    critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(service)
+    if not succeeded:
+        logging.info("Failed to get critical group and process lists for service {}".format(service))
+        return []
+
+    service_result = duthost.command("docker exec {} supervisorctl status".format(service), module_ignore_errors=True)
+    if not service_result['stdout_lines']:
+        logging.info("Failed to get supervisor processes status for service {}".format(service))
+        return []
+
+    running_critical_process = []
+    for line in service_result['stdout_lines']:
+        pname, status, _ = re.split('\\s+', line, 2)
+        if status == 'RUNNING' and (pname.split(':')[0] in critical_group_list or pname in critical_process_list):
+            running_critical_process.append(pname)
+
+    return running_critical_process
