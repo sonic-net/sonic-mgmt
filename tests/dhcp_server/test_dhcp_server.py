@@ -6,7 +6,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI, \
     create_common_config_patch, generate_common_config_cli_commands, dhcp_server_config, \
-    validate_dhcp_server_pkts_custom_option, \
+    validate_dhcp_server_pkts_custom_option, verify_lease, \
     verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
     apply_dhcp_server_config_gcu, create_dhcp_client_packet
@@ -677,3 +677,48 @@ def test_dhcp_server_config_vlan_member_change(
         exp_gateway=gateway,
         net_mask=net_mask
     )
+
+
+def test_dhcp_server_lease_config_change(
+    duthost,
+    ptfhost,
+    ptfadapter,
+    parse_vlan_setting_from_running_config
+):
+    """
+        Verify lease change won't effect the existing lease
+    """
+    test_xid = 12
+    vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
+    expected_assigned_ip = random.choice(vlan_hosts)
+    dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
+    config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port,
+        ptf_port_index=ptf_port_index,
+        ptf_mac_port_index=ptf_port_index,
+        test_xid=test_xid,
+        dhcp_interface=vlan_name,
+        expected_assigned_ip=expected_assigned_ip,
+        exp_gateway=gateway,
+        net_mask=net_mask,
+        release_needed=False
+    )
+    changed_lease_time = random.randint(DHCP_DEFAULT_LEASE_TIME, 1000)
+    logging.info("changed_lease_time is %s" % changed_lease_time)
+    change_to_apply = [
+        {
+            "op": "replace",
+            "path": "/DHCP_SERVER_IPV4/%s/lease_time" % vlan_name,
+            "value": "%s" % changed_lease_time
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, change_to_apply)
+    client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
+    verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip, DHCP_DEFAULT_LEASE_TIME)
