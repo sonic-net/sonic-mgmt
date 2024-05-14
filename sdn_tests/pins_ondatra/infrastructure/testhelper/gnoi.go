@@ -8,10 +8,15 @@ import (
 	"testing"
 	"time"
 
+<<<<<<< HEAD
 	log "github.com/golang/glog"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
 	"github.com/pkg/errors"
+=======
+	"github.com/openconfig/ondatra"
+	"github.com/openconfig/ondatra/gnmi"
+>>>>>>> [sdn_tests]: Adding LACP testhelper to pins_ondatra. (#12669)
 
 	healthzpb "github.com/openconfig/gnoi/healthz"
 	syspb "github.com/openconfig/gnoi/system"
@@ -85,6 +90,7 @@ func (p *RebootParams) measureLatency() bool {
 	return p.waitTime > 0 && p.lmTitle != ""
 }
 
+<<<<<<< HEAD
 // Reboot sends a RebootRequest message to the switch. It waits for a specified
 // amount of time for the switch reboot to be successful. A switch reboot is
 // considered to be successful if the gNOI server is up and the boot time is
@@ -153,6 +159,8 @@ func Reboot(t *testing.T, d *ondatra.DUTDevice, params *RebootParams) error {
 	return err
 }
 
+=======
+>>>>>>> [sdn_tests]: Adding LACP testhelper to pins_ondatra. (#12669)
 // GNOIAble returns whether the gNOI server on the specified device is reachable
 // or not.
 func GNOIAble(t *testing.T, d *ondatra.DUTDevice) error {

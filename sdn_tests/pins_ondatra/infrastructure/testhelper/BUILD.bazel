@@ -24,7 +24,12 @@ go_library(
         "//infrastructure/testhelper/platform_info:platform_info",
 =======
 	"gnmi.go",
+<<<<<<< HEAD
 >>>>>>> [sdn_tests]: Adding GNMI testhelper to pins_ondatra. (#12667)
+=======
+        "gnoi.go",
+        "lacp.go",
+>>>>>>> [sdn_tests]: Adding LACP testhelper to pins_ondatra. (#12669)
     ],
     data = [
         "//infrastructure/data",

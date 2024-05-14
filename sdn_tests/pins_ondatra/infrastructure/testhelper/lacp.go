@@ -1,6 +1,7 @@
 package testhelper
 
 import (
+<<<<<<< HEAD
 	"testing"
 	"time"
 
@@ -8,6 +9,9 @@ import (
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/pkg/errors"
+=======
+	"github.com/openconfig/ondatra/gnmi/oc"
+>>>>>>> [sdn_tests]: Adding LACP testhelper to pins_ondatra. (#12669)
 )
 
 // PeerPorts holds the name of 2 Ethernet interfaces. These interfaces will be on separate machines,
@@ -17,6 +21,7 @@ type PeerPorts struct {
 	Peer string
 }
 
+<<<<<<< HEAD
 // PeerPortsBySpeed iterates through all the available Ethernet ports on a host device, and
 // determines if they have a matching port on the peer device. All host ports with a valid peer will
 // be grouped together based on their speed.
@@ -70,6 +75,8 @@ func PeerPortGroupWithNumMembers(t *testing.T, host *ondatra.DUTDevice, peer *on
 	return nil, errors.Errorf("cannot make group of %v member ports with the same speed from %v.", numMembers, peerPortsBySpeed)
 }
 
+=======
+>>>>>>> [sdn_tests]: Adding LACP testhelper to pins_ondatra. (#12669)
 // GeneratePortChannelInterface will return a minimal PortChannel interface that tests can extend as needed.
 func GeneratePortChannelInterface(portChannelName string) oc.Interface {
 	enabled := true
@@ -99,6 +106,7 @@ func GenerateLACPInterface(pcName string) oc.Lacp_Interface {
 		LacpMode: oc.Lacp_LacpActivityType_ACTIVE,
 	}
 }
+<<<<<<< HEAD
 
 // RemovePortChannelFromDevice will cleanup all configs relating to a PortChannel on a given switch.
 // It will also verify that the state has been updated before returning. If the state fails to
@@ -127,3 +135,5 @@ func AssignPortsToAggregateID(t *testing.T, dut *ondatra.DUTDevice, portChannelN
 		testhelperIntfAggregateIDReplace(t, dut, portName, portChannelName)
 	}
 }
+=======
+>>>>>>> [sdn_tests]: Adding LACP testhelper to pins_ondatra. (#12669)
