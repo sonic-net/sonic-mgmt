@@ -407,7 +407,6 @@ def rand_one_dut_hostname(request):
     """
     """
     global rand_one_dut_hostname_var
-    set_rand_one_dut_hostname(request)
     return rand_one_dut_hostname_var
 
 
@@ -1484,6 +1483,12 @@ def pytest_generate_tests(metafunc):        # noqa E302
     # When selected_dut used and select a dut for test, parameterize dut for enable TACACS on all UT
     if dut_fixture_name and "selected_dut" in metafunc.fixturenames:
         metafunc.parametrize("selected_dut", duts_selected, scope="module", indirect=True)
+
+    # When rand_one_dut_hostname used and select a dut for test, initialize rand_one_dut_hostname_var
+    # rand_one_dut_hostname and rand_selected_dut will use this variable for setup test case
+    # selected_rand_dut will use this variable for setup TACACS
+    if "rand_one_dut_hostname" in metafunc.fixturenames:
+        set_rand_one_dut_hostname(metafunc)
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
