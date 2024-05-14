@@ -7,6 +7,7 @@ from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
 from dhcp_server_test_common import create_common_config_patch, append_common_config_patch, \
     verify_discover_and_request_then_release, apply_dhcp_server_config_gcu
 
+
 pytestmark = [
     pytest.mark.topology('mx'),
 ]
@@ -71,18 +72,34 @@ def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_
     vlan_net = ipaddress.ip_network(address=vlan_prefix, strict=False)
     vlan_nets = list(vlan_net.subnets(prefixlen_diff=2))
     member_count = len(vlan_member_with_ptf_idx)//4
-    for i in range(4):
-        four_vlans_info.append(
-            {
-                'vlan_name': 'Vlan40%s' % i,
-                'vlan_gateway': str(list(vlan_nets[i].hosts())[1]),
-                'interface_ipv4': str(list(vlan_nets[i].hosts())[1]) + '/' + str(vlan_nets[i].prefixlen),
-                'vlan_subnet_mask': str(vlan_nets[i].netmask),
-                'vlan_hosts': [str(host) for host in list(vlan_nets[i].hosts())[2:]],
-                'members_with_ptf_idx': [(member, ptf_idx) for member, ptf_idx
-                                         in vlan_member_with_ptf_idx[member_count*i:member_count*(i+1)]]
-            }
-        )
+    for i in range(3):
+        if i == 3:
+            # change the fourth vlan to a smaller subnet
+            smaller_prefix_length = 30
+            smaller_subnet = list(vlan_nets[i].subnets(new_prefix=smaller_prefix_length))[0]
+            four_vlans_info.append(
+                {
+                    'vlan_name': 'Vlan40%s' % i,
+                    'vlan_gateway': str(list(smaller_subnet.hosts())[0]),
+                    'interface_ipv4': str(list(smaller_subnet.hosts())[0]) + '/' + str(smaller_prefix_length),
+                    'vlan_subnet_mask': str(smaller_subnet.netmask),
+                    'vlan_hosts': [str(host) for host in list(smaller_subnet.hosts())[1:]],
+                    'members_with_ptf_idx': [(member, ptf_idx) for member, ptf_idx
+                                             in vlan_member_with_ptf_idx[member_count*i:member_count*i+1]]
+                }
+            )
+        else:
+            four_vlans_info.append(
+                {
+                    'vlan_name': 'Vlan40%s' % i,
+                    'vlan_gateway': str(list(vlan_nets[i].hosts())[0]),
+                    'interface_ipv4': str(list(vlan_nets[i].hosts())[0]) + '/' + str(vlan_nets[i].prefixlen),
+                    'vlan_subnet_mask': str(vlan_nets[i].netmask),
+                    'vlan_hosts': [str(host) for host in list(vlan_nets[i].hosts())[1:]],
+                    'members_with_ptf_idx': [(member, ptf_idx) for member, ptf_idx
+                                             in vlan_member_with_ptf_idx[member_count*i:member_count*(i+1)]]
+                }
+            )
 
     for info in four_vlans_info:
         new_vlan_name = info['vlan_name']
@@ -278,7 +295,8 @@ def test_range_ip_assignment(
     four_vlans_info = setup_multiple_vlans_and_teardown
 
     test_xid_1 = 113
-    vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
+    # exclude the fourth vlan which has a smaller subnet
+    vlan_info_1, vlan_info_2 = random.sample(four_vlans_info[:3], 2)
     logging.info("vlan_info_1 is %s, vlan_info_2 is %s" % (vlan_info_1, vlan_info_2))
     vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = vlan_info_1['vlan_name'], \
         vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], vlan_info_1['vlan_hosts'], \
