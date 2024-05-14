@@ -13,7 +13,12 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
+<<<<<<< HEAD
     pytest.mark.topology('any')
+=======
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
+>>>>>>> Change the mark in module `test_link_flap.py` (#12504)
 ]
 
 
