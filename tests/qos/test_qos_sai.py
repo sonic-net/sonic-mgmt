@@ -1335,6 +1335,9 @@ class TestQosSai(QosSaiBase):
         testParams.update(dutTestParams["basicParams"])
 
         if ip_version == "ipv6":
+            if "src_port_ipv6" not in dutConfig["testPorts"] or "dst_port_ipv6" not in dutConfig["testPorts"]:
+                pytest.skip("Skip IPV6 variant as IPV6 not configured")
+
             testParams.update({
                 "src_port_ip": dutConfig["testPorts"]["src_port_ipv6"],
                 "dst_port_ip": dutConfig["testPorts"]["dst_port_ipv6"],
