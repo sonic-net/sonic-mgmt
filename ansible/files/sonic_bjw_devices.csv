@@ -76,8 +76,8 @@ bjw-can-a7280cr3-1,10.150.22.153/23,Arista-7280CR3-C40,DevSonic,,sonic
 bjw-can-7260-8,10.150.22.154/23,Arista-7260CX3-C64,DevSonic,,sonic
 bjw-can-7260-11,10.150.22.157/23,Arista-7260CX3-D108C8,DevSonic,,sonic
 bjw-can-7260-12,10.150.22.158/23,Arista-7260CX3-C64,DevSonic,,sonic
-bjw-can-7260-14,10.150.22.160/23,Arista-7260CX3-D108C8,DevSonic,,sonic
-bjw-can-7260-16,10.150.22.162/23,Arista-7260CX3-D108C8,DevSonic,,sonic
+bjw-can-7260-14,10.150.22.160/23,Arista-7260CX3-C64,DevSonic,,sonic
+bjw-can-7260-16,10.150.22.162/23,Arista-7260CX3-C64,DevSonic,,sonic
 bjw-pdu-126-130,10.150.126.130,Vertiv,Pdu,snmp,
 bjw-pdu-126-131,10.150.126.131,Vertiv,Pdu,snmp,
 bjw-pdu-126-132,10.150.126.132,Vertiv,Pdu,snmp,

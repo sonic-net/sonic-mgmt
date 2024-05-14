@@ -447,8 +447,8 @@ sonic_mlnx_40:
         "0x2B": "Mellanox"
         "0xFE": "0xA51F40F2"
   vars:
-    hwsku: Mellanox-SN2700
-    iface_speed: 40000
+    hwsku: Mellanox-SN2700-A1
+    iface_speed: 100000
 
 sonic_mlnx_100:
   hosts:
