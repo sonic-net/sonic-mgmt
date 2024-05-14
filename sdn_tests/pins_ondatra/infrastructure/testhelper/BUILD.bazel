@@ -10,7 +10,7 @@ go_library(
     testonly = 1,
     srcs = [
         "augment.go",
-	"gnmi.go",
+	      "gnmi.go",
         "gnoi.go",
         "lacp.go",
         "p4rt.go",

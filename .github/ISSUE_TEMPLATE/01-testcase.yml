@@ -1,0 +1,84 @@
+name: Test Case Bug Report
+description: File a bug report for a test case.
+title: "[Bug]: "
+labels: ["bug", "triage", "testcase"]
+projects: ["sonic-mgmt"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+
+        If you are reporting a new issue, make sure that we do not have any duplicates already open. You can ensure this by searching the issue list for this repository. If there is a duplicate, please close your issue and add a comment to the existing issue instead.
+        
+        If you suspect your issue is a bug, please edit your issue description to include the BUG REPORT INFORMATION shown below. If you fail to provide this information within 7 days, we cannot debug your issue and will close it. We will however, reopen it if you later provide the information.
+        
+        For more information about reporting issues, see [SONiC Issue Reporting Page](https://github.com/sonic-net/SONiC/wiki#report-issues)
+  - type: markdown
+    id: tc-contact-links
+    attributes:
+      value: |
+        Please ask and answer questions here at the [SONiC Support Forums](https://groups.google.com/forum/#!forum/sonicproject)        
+  - type: textarea
+    id: tc-description
+    attributes:
+      label: Issue Description
+      description: What happened?
+      placeholder: Describe the issue and step to reproduce the issue
+    validations:
+      required: true
+  - type: textarea
+    id: tc-results
+    attributes:
+      label: Results you see
+      description: Results you see
+      placeholder: Describe the results you saw
+    validations:
+      required: true
+  - type: textarea
+    id: tc-expected-results
+    attributes:
+      label: Results you expected to see
+      description: Results you expected to see
+      placeholder: Describe the results you expected to see
+    validations:
+      required: true
+  - type: dropdown
+    id: tc-platform
+    attributes:
+      label: Is it platform specific
+      description: Platform name
+      options:
+        - generic      
+        - barefoot
+        - broadcom
+        - cavium
+        - centec
+        - innovium
+        - marvell
+        - mellanox
+        - nephos
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: tc-logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+  - type: textarea
+    id: tc-output
+    attributes:
+      label: Output of `show version`
+      description: Please copy and paste output of `show version`. This will be automatically formatted into code, so no need for backticks
+      render: shell
+  - type: markdown
+    id: tc-attach-logs
+    attributes:
+      value: |
+        Attach debug file (if any) from: `sudo generate_dump` or other logs.
+  - type: textarea
+    id: tc-attachments
+    attributes:
+      label: Attach files (if any)

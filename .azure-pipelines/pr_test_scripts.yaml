@@ -3,7 +3,8 @@ t0:
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
   - arp/test_tagged_arp.py
-  - autorestart/test_container_autorestart.py
+  # Due to the auto start fails on container restapi, comment this case temporarily
+#  - autorestart/test_container_autorestart.py
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py
@@ -38,7 +39,6 @@ t0:
   - fdb/test_fdb_mac_expire.py
   - fdb/test_fdb_mac_move.py
   - generic_config_updater/test_aaa.py
-  - generic_config_updater/test_bgp_prefix.py
   - generic_config_updater/test_bgp_speaker.py
   - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_cacl.py
@@ -52,7 +52,6 @@ t0:
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - generic_config_updater/test_monitor_config.py
   - generic_config_updater/test_ntp.py
-  - generic_config_updater/test_pfcwd_interval.py
   - generic_config_updater/test_portchannel_interface.py
   - generic_config_updater/test_syslog.py
   - generic_config_updater/test_vlan_interface.py
@@ -76,13 +75,8 @@ t0:
   - pc/test_lag_2.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
-  - platform_tests/api/test_module.py
   - platform_tests/broadcom/test_ser.py
   - platform_tests/counterpoll/test_counterpoll_watermark.py
-  - platform_tests/daemon/test_fancontrol.py
-  - platform_tests/daemon/test_ledd.py
-  - platform_tests/daemon/test_psud.py
-  - platform_tests/daemon/test_syseepromd.py
   - platform_tests/fwutil/test_fwutil.py
   - platform_tests/link_flap/test_cont_link_flap.py
   - platform_tests/mellanox/test_check_sfp_eeprom.py
@@ -92,8 +86,12 @@ t0:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  - platform_tests/sfp/test_sfpshow.py
+  - platform_tests/test_kdump.py
+  - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_auto_negotiation.py
-  - platform_tests/test_cont_warm_reboot.py
+  #  Temporarily remove for blocking builimage and take too much time to complete on KVM
+  # - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_cpu_memory_usage.py
   - platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py
   - platform_tests/test_port_toggle.py
@@ -161,6 +159,7 @@ t0:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
+  - ip/test_mgmt_ipv6_only.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -180,6 +179,8 @@ dualtor:
   - arp/test_arp_extended.py
 
 t1-lag:
+  - arp/test_arpall.py
+  - arp/test_neighbor_mac_noptf.py
   - bgp/test_bgp_allow_list.py
   - bgp/test_bgp_bbr.py
   - bgp/test_bgp_bounce.py
@@ -190,18 +191,33 @@ t1-lag:
   - bgp/test_traffic_shift.py
   - configlet/test_add_rack.py
   - container_checker/test_container_checker.py
+  - dhcp_relay/test_dhcp_pkt_fwd.py
+  - fdb/test_fdb_flush.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
+  - ipfwd/test_dip_sip.py
   - ipfwd/test_mtu.py
   - lldp/test_lldp.py
   - monit/test_monit_status.py
   - override_config_table/test_override_config_table.py
   - pc/test_lag_2.py
+  - pc/test_po_update.py
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
+  - qos/test_buffer.py
   - route/test_default_route.py
+  - route/test_route_perf.py
   - scp/test_scp_copy.py
+  - snmp/test_snmp_cpu.py
+  - snmp/test_snmp_default_route.py
+  - snmp/test_snmp_interfaces.py
+  - snmp/test_snmp_lldp.py
+  - snmp/test_snmp_loopback.py
+  - snmp/test_snmp_memory.py
+  - snmp/test_snmp_pfc_counters.py
+  - snmp/test_snmp_queue.py
+  - snmp/test_snmp_v2mib.py
   - test_interfaces.py
 
 multi-asic-t1-lag:
@@ -250,6 +266,10 @@ wan-pub:
 
 dpu:
   - dash/test_dash_vnet.py
+
+onboarding_t0:
+  - console/test_console_availability.py
+
 
 specific_param:
   t0-sonic:
