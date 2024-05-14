@@ -365,7 +365,8 @@ def verify_discover_and_request_then_release(
         exp_gateway,
         net_mask,
         refresh_fdb_ptf_port=None,
-        exp_lease_time=DHCP_DEFAULT_LEASE_TIME
+        exp_lease_time=DHCP_DEFAULT_LEASE_TIME,
+        release_needed=True
 ):
     client_mac = ptfadapter.dataplane.get_mac(0, ptf_mac_port_index).decode('utf-8')
     pkts_validator = validate_dhcp_server_pkts if expected_assigned_ip else validate_no_dhcp_server_pkts
@@ -421,7 +422,7 @@ def verify_discover_and_request_then_release(
         pkts_validator_args=pkts_validator_args,
         refresh_fdb_ptf_port=refresh_fdb_ptf_port
     )
-    if expected_assigned_ip:
+    if expected_assigned_ip and release_needed:
         verify_lease(duthost, dhcp_interface, client_mac, expected_assigned_ip, exp_lease_time)
         release_pkt = create_dhcp_client_packet(
             src_mac=client_mac,
