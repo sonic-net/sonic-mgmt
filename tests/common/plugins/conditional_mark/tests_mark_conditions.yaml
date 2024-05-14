@@ -116,9 +116,9 @@ bgp/test_bgp_multipath_relax.py:
 
 bgp/test_bgp_queue.py:
   skip:
-    reason: "Unsupported topology"
+    reason: "1. Not support on mgmt device 2. Known issue on Mellanox platform with T1-LAG topology"
     conditions:
-      - "topo_type in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx'] or ((topo_name in ['t1-lag']) and (asic_type in ['mellanox']))"
 
 bgp/test_bgp_slb.py:
   skip:
