@@ -8,7 +8,6 @@ spine0:
       deconfig: |
         sudo config vlan del 20
         sudo config vlan del 10
-        sudo config interface shutdown D1D3P1 
 
 
 spine1:
@@ -46,9 +45,6 @@ leaf0:
         sudo config vlan member del 10 D3T1P1
         sudo config vlan del 20
         sudo config vlan del 10
-        sudo config interface shutdown D3D1P1 
-        sudo config interface shutdown D3T1P2
-        sudo config interface shutdown D3T1P1
         sudo config interface startup D3D2P1 
 
 
