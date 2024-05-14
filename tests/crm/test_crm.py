@@ -70,6 +70,17 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 
+@pytest.fixture(scope="function")
+def handle_default_acl_rules(duthost, tbinfo):
+    """
+    Cleanup all the existing DATAACL rules and re-create them at the end of the test
+    """
+    data_acl = get_data_acl(duthost)
+    if data_acl:
+        duthost.shell('acl-loader delete DATAACL')
+        RESTORE_CMDS["test_acl_counter"].append({"data_acl": data_acl})
+
+
 def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
     """ Create acl rule defined in config file. Return ACL table key. """
     base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -500,7 +511,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         duthost.command(route_add)
 
     check_available_counters = True
-    if duthost.facts['asic_type'] == 'broadcom':
+    if duthost.facts['asic_type'] in ['broadcom', 'mellanox']:
         check_available_counters = False
 
     # Make sure CRM counters updated
@@ -1003,7 +1014,8 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     duthost.command("acl-loader delete")
 
 
-def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
+def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector,
+                     handle_default_acl_rules):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
