@@ -819,7 +819,6 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         # Recover to Normal state
         duthost.shell("TSB")
         duthost.shell('sudo config save -y')
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
         # Verify DUT comes back to  normal state after TSB.
         pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
@@ -898,12 +897,12 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         duthost.shell("TSB")
         duthost.shell('sudo config save -y')
 
+        # Verify DUT comes back to normal state after TSB.
+        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
+
         # Ensure startup_tsa_tsb service is in inactive state after user-initiated TSB
         pytest_assert(wait_until(60, 5, 10, get_tsa_tsb_service_status, duthost, 'inactive'),
                       "startup_tsa_tsb service is not in inactive state after user init TSB")
-
-        # Verify DUT comes back to normal state after TSB.
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
 
         # Make sure DUT continues to be in good state after TSB
         assert wait_until(300, 20, 2, duthost.critical_services_fully_started), \
@@ -1008,15 +1007,13 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
         exec_tsa_tsb_cmd_on_supervisor(duthosts, enum_supervisor_dut_hostname, creds, tsa_tsb_cmd)
 
         for linecard in duthosts.frontend_nodes:
-            # Ensure startup_tsa_tsb service is in inactive state after user-initiated TSA on supervisor
+            # Ensure dut comes back to normal state
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
+                          "DUT is not in normal state after TSB command from supervisor")
+
+            # Ensure startup_tsa_tsb service is in inactive state after user-initiated TSB on supervisor
             pytest_assert(wait_until(60, 5, 0, get_tsa_tsb_service_status, linecard, 'inactive'),
                           "startup_tsa_tsb service is not in inactive state after user init TSB from supervisor")
-
-            # Ensure dut comes back to normal state
-            if not get_tsa_tsb_service_status(linecard, 'running'):
-                # Verify TSB is configured on the dut after startup_tsa_tsb service became inactive
-                pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
-                              "DUT is not in normal state after TSB command from supervisor")
 
             pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, linecard),
                           "Not all ports that are admin up on are operationally up")
@@ -1042,7 +1039,6 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             # Make sure linecards are in Normal state and save the config to proceed further
             linecard.shell("TSB")
             linecard.shell('sudo config save -y')
-            config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
             # Verify DUT is in normal state.
             pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
                           "DUT {} is not in normal state".format(linecard))
