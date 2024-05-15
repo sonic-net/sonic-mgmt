@@ -61,6 +61,9 @@ from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
+from tests.common.fixtures.ptfhost_utils import run_garp_service_dualtor_session                        # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                    # noqa F401
+
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()

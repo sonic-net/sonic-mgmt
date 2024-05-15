@@ -5,6 +5,7 @@ import logging
 import yaml
 import six
 import requests
+import re
 
 from ipaddress import ip_interface
 from jinja2 import Template
@@ -235,7 +236,7 @@ icmp_responder_session_started = False
 def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
     # No vlan is available on non-t0 testbed, so skip this fixture
-    if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
+    if "dualtor" not in tbinfo["topo"]["name"]:
         logger.info("Skip running icmp_responder at session level, "
                     "it is only for dualtor testbed with active-active mux ports.")
         yield
@@ -269,7 +270,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     yield
 
-    logger.info("Leave icmp_responder running for dualtor-mixed/dualtor-aa topology")
+    logger.info("Leave icmp_responder running for dualtor/dualtor-aa/dualtor-mixed topology")
     return
 
 
@@ -348,8 +349,7 @@ def pause_garp_service(ptfhost):
         ptfhost.shell("supervisorctl start garp_service")
 
 
-@pytest.fixture(scope='module', autouse=True)
-def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
+def _run_garp_service(duthost, ptfhost, tbinfo, request):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if tbinfo['topo']['type'] == 't0':
         garp_config = {}
@@ -379,7 +379,6 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
         if 'dualtor' not in tbinfo['topo']['name']:
             if "test_advanced_reboot" in request.node.name:
                 logger.info("Skip GARP service for advanced-reboot test on non dualtor devices")
-                yield
                 return
             # For mocked dualtor testbed
             mux_cable_table = {}
@@ -423,11 +422,141 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
     else:
         logger.info("Not running on a T0 testbed, not starting GARP service")
 
+
+@pytest.fixture(scope='module', autouse=True)
+def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
+
+    res = ptfhost.shell("supervisorctl status garp_service", module_ignore_errors=True)
+    if 'RUNNING' in res['stdout']:
+        logger.info("GARP service already running in PTF")
+        yield
+        return
+
+    _run_garp_service(duthost, ptfhost, tbinfo, request)
+
     yield
+
+    if 'dualtor' not in tbinfo['topo']['name'] and "test_advanced_reboot" in request.node.name:
+        return
 
     if tbinfo['topo']['type'] == 't0':
         logger.info("Stopping GARP service on PTF host")
         ptfhost.shell('supervisorctl stop garp_service')
+
+
+def is_active_standby_dualtor_topo(tbinfo):
+    """
+    Check for topologies having all ports in active-standby mode like dualtor. dualtor-120,
+    dualtor-56, etc
+    """
+    topo_name = tbinfo['topo']['name']
+    return re.fullmatch(r"dualtor|dualtor-[0-9]*", topo_name) is not None
+
+
+@pytest.fixture(scope='session', autouse=True)
+def run_garp_service_dualtor_session(duthost, ptfhost, tbinfo, change_mac_addresses, request):
+    if is_active_standby_dualtor_topo(tbinfo):
+        _run_garp_service(duthost, ptfhost, tbinfo, request)
+    yield
+
+
+@pytest.fixture
+def pause_garp_service_dualtor(ptfhost, tbinfo):
+    """
+    Temporarily pause GARP service on PTF for one test method for active-standby dualtor
+
+    `run_garp_service_dualtor_session` is session scoped and autoused,
+    but some tests in modules where it is imported need it disabled
+    This fixture should only be used when garp_service is already running on the PTF
+    """
+    if not is_active_standby_dualtor_topo(tbinfo):
+        yield
+        return
+
+    needs_resume = False
+    res = ptfhost.shell("supervisorctl status garp_service", module_ignore_errors=True)
+    if res['rc'] != 0:
+        logger.warning("GARP service not present on PTF")
+    elif 'RUNNING' in res['stdout']:
+        needs_resume = True
+        ptfhost.shell("supervisorctl stop garp_service")
+    else:
+        logger.warning("GARP service already stopped on PTF")
+
+    yield
+
+    if needs_resume:
+        ptfhost.shell("supervisorctl start garp_service")
+
+
+@pytest.fixture(scope="module")
+def pause_garp_service_dualtor_m(ptfhost, tbinfo):
+    """
+    Temporarily pause GARP service on PTF for one test method for active-standby dualtor
+
+    `run_garp_service_dualtor_session` is session scoped and autoused,
+    but some tests in modules where it is imported need it disabled
+    This fixture should only be used when icmp_responder is already running on the PTF
+    """
+    if not is_active_standby_dualtor_topo(tbinfo):
+        yield
+        return
+
+    needs_resume = False
+    res = ptfhost.shell("supervisorctl status garp_service", module_ignore_errors=True)
+    if res['rc'] != 0:
+        logger.warning("GARP service not present on PTF")
+    elif 'RUNNING' in res['stdout']:
+        needs_resume = True
+        ptfhost.shell("supervisorctl stop garp_service")
+    else:
+        logger.warning("GARP service already stopped on PTF")
+
+    yield
+
+    if needs_resume:
+        ptfhost.shell("supervisorctl start garp_service")
+
+
+@pytest.fixture(scope="module")
+def pause_icmp_responder_dualtor_m(ptfhost, tbinfo):
+    """
+    Temporarily pause ICMP responder service on PTF for one test method for active-standby dualtor
+
+    `run_icmp_responder_session` is session scoped and autoused,
+    but some tests in modules where it is imported need it disabled
+    This fixture should only be used when icmp_responder is already running on the PTF
+    """
+    if not is_active_standby_dualtor_topo(tbinfo):
+        yield
+        return
+
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
+    if "RUNNING" not in icmp_responder_status:
+        yield
+        return
+    ptfhost.shell("supervisorctl stop icmp_responder", module_ignore_errors=True)
+
+    yield
+
+    ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
+
+
+@pytest.fixture
+def pause_icmp_responder_dualtor(ptfhost, tbinfo):
+    if not is_active_standby_dualtor_topo(tbinfo):
+        yield
+        return
+
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
+    if "RUNNING" not in icmp_responder_status:
+        yield
+        return
+    ptfhost.shell("supervisorctl stop icmp_responder", module_ignore_errors=True)
+
+    yield
+
+    ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
 
 
 def ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url, duts_running_config_facts, duts_minigraph_facts):
