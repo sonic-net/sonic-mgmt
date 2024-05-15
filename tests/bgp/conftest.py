@@ -706,3 +706,16 @@ def set_timeout_for_bgpmon(duthost):
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_bgpmon.py', 'cold')
     if plt_reboot_ctrl:
         MAX_TIME_FOR_BGPMON = plt_reboot_ctrl.get('timeout', 180)
+
+
+@pytest.fixture(scope="module")
+def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Return True if current bgp is using Quagga."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    show_res = duthost.asic_instance().run_vtysh("-c 'show version'")
+    return "Quagga" in show_res["stdout"]
+
+
+@pytest.fixture(scope="module")
+def is_dualtor(tbinfo):
+    return "dualtor" in tbinfo["topo"]["name"]
