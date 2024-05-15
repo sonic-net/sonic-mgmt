@@ -772,17 +772,35 @@ def verify_egress_queue_frame_count(duthost,
                               "Queue counters should increment for invalid PFC pause frames")
 
 
+<<<<<<< HEAD
 def verify_m2o_oversubscribtion_results(rows,
                                         test_flow_name,
                                         bg_flow_name,
+=======
+def verify_m2o_oversubscribtion_results(duthost,
+                                        rows,
+                                        test_flow_name,
+                                        bg_flow_name,
+                                        rx_port,
+                                        rx_frame_count_deviation,
+>>>>>>>  [snappi] Adding Many to One Oversubscribe Lossy Testcase (#8023)
                                         flag):
     """
     Verify if we get expected experiment results
 
     Args:
+<<<<<<< HEAD
         rows (list): per-flow statistics
         test_flow_name (str): name of test flows
         bg_flow_name (str): name of background flows
+=======
+        duthost (obj): DUT host object
+        rows (list): per-flow statistics
+        test_flow_name (str): name of test flows
+        bg_flow_name (str): name of background flows
+        rx_port: Rx port of the dut
+        rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
+>>>>>>>  [snappi] Adding Many to One Oversubscribe Lossy Testcase (#8023)
         flag (dict): Comprises of flow name and its loss criteria ,loss criteria value can be integer values
                      of string type for definite results or 'continuing' for non definite loss value results
                      example:{
@@ -804,6 +822,10 @@ def verify_m2o_oversubscribtion_results(rows,
         N/A
     """
 
+<<<<<<< HEAD
+=======
+    sum_rx = 0
+>>>>>>>  [snappi] Adding Many to One Oversubscribe Lossy Testcase (#8023)
     for flow_type, criteria in flag.items():
         for row in rows:
             tx_frames = row.frames_tx
@@ -833,3 +855,13 @@ def verify_m2o_oversubscribtion_results(rows,
                     else:
                         pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
                                       string for loss criteria')
+<<<<<<< HEAD
+=======
+            sum_rx += int(row.frames_rx)
+
+    tx_frames = get_tx_frame_count(duthost, rx_port['peer_port'])[0]
+    pytest_assert(abs(sum_rx - tx_frames)/sum_rx <= rx_frame_count_deviation,
+                  "FAIL: DUT counters doesn't match with the total frames received on Rx port, \
+                  Deviation of more than {} observed".format(rx_frame_count_deviation))
+    logger.info("PASS: DUT counters match with the total frames received on Rx port")
+>>>>>>>  [snappi] Adding Many to One Oversubscribe Lossy Testcase (#8023)
