@@ -388,10 +388,26 @@ def macsec_duthost(duthosts, tbinfo):
     return macsec_dut
 
 
+# Make sure in same test module, always use same random DUT
+rand_one_dut_hostname_var = None
+
+
+def set_rand_one_dut_hostname(request):
+    global rand_one_dut_hostname_var
+    if rand_one_dut_hostname_var is None:
+        dut_hostnames = generate_params_dut_hostname(request)
+        if len(dut_hostnames) > 1:
+            dut_hostnames = random.sample(dut_hostnames, 1)
+        rand_one_dut_hostname_var = dut_hostnames[0]
+        logger.info("Randomly select dut {} for testing".format(rand_one_dut_hostname_var))
+
+
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
-    logger.info("Randomly select dut {} for testing".format(request.param))
-    return request.param
+    """
+    """
+    global rand_one_dut_hostname_var
+    return rand_one_dut_hostname_var
 
 
 @pytest.fixture(scope="module")
@@ -400,6 +416,12 @@ def rand_selected_dut(duthosts, rand_one_dut_hostname):
     Return the randomly selected duthost
     """
     return duthosts[rand_one_dut_hostname]
+
+
+@pytest.fixture(scope="module")
+def selected_rand_dut(request):
+    global rand_one_dut_hostname_var
+    return rand_one_dut_hostname_var
 
 
 @pytest.fixture(scope="module")
@@ -1462,16 +1484,11 @@ def pytest_generate_tests(metafunc):        # noqa E302
     if dut_fixture_name and "selected_dut" in metafunc.fixturenames:
         metafunc.parametrize("selected_dut", duts_selected, scope="module", indirect=True)
 
-    # When rand_one_dut_hostname used and select a dut for test, parameterize dut for enable TACACS on all UT
+    # When rand_one_dut_hostname used and select a dut for test, initialize rand_one_dut_hostname_var
+    # rand_one_dut_hostname and rand_selected_dut will use this variable for setup test case
+    # selected_rand_dut will use this variable for setup TACACS
     if "rand_one_dut_hostname" in metafunc.fixturenames:
-        rand_one_dut = generate_params_dut_hostname(metafunc)
-        if len(rand_one_dut) > 1:
-            rand_one_dut = random.sample(rand_one_dut, 1)
-        # parameterize only on DUT
-        metafunc.parametrize("rand_one_dut_hostname", rand_one_dut, scope="module", indirect=True)
-
-        if "selected_rand_dut" in metafunc.fixturenames:
-            metafunc.parametrize("selected_rand_dut", rand_one_dut, scope="module", indirect=True)
+        set_rand_one_dut_hostname(metafunc)
 
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
@@ -1592,15 +1609,6 @@ def enum_frontend_dut_hostname(request):
 def selected_dut(request):
     try:
         logger.debug("selected_dut host: {}".format(request.param))
-        return request.param
-    except AttributeError:
-        return None
-
-
-@pytest.fixture(scope="module")
-def selected_rand_dut(request):
-    try:
-        logger.debug("selected_rand_dut host: {}".format(request.param))
         return request.param
     except AttributeError:
         return None
