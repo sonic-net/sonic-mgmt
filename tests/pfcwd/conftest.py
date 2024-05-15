@@ -5,6 +5,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # no
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
+from tests.common.fixtures.ptfhost_utils import pause_garp_service_dualtor_m # noqa F401
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 from tests.common.utilities import str2bool
@@ -210,7 +211,7 @@ def setup_dut_test_params(
 # icmp_responder need to be paused during the test because the test case
 # configures static IP address on ptf host and sends ICMP reply to DUT.
 @pytest.fixture(scope="module")
-def pause_icmp_responder(ptfhost):
+def pause_icmp_responder(ptfhost, pause_garp_service_dualtor_m):  # noqa F811
     icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
     if "RUNNING" not in icmp_responder_status:
         yield

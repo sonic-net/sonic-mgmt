@@ -11,6 +11,7 @@ from requests.adapters import HTTPAdapter
 from requests import Session
 
 from tests.common import utilities
+from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.dualtor.dual_tor_common import cable_type                             # noqa F401
 from tests.common.dualtor.dual_tor_common import mux_config                             # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
@@ -42,6 +43,8 @@ __all__ = [
     'check_mux_status',
     'validate_check_result',
     'simulator_flap_counter',
+    'config_active_standby_ports',
+    'toggle_all_simulator_ports_to_rand_selected_tor_unconditionally',
     ]
 
 logger = logging.getLogger(__name__)
@@ -953,3 +956,99 @@ def validate_check_result(check_result, duthosts, get_mux_status):
         else:
             logger.error('Failed to get mux status from mux simulator')
         pytest.fail('Toggle mux from simulator test failed')
+
+
+def show_muxcable_status(duthost):
+    """
+    Show muxcable status and parse into a dict
+    """
+    command = "show muxcable status --json"
+    output = json.loads(duthost.shell(command)["stdout"])
+
+    ret = {}
+    for port, muxcable in list(output['MUX_CABLE'].items()):
+        ret[port] = {'status': muxcable['STATUS'], 'health': muxcable['HEALTH']}
+
+    return ret
+
+
+@pytest.fixture
+def config_active_standby_ports(duthosts, active_standby_ports, tbinfo):
+
+    def check_active_standby_port_status(duthost, ports, status):
+        logging.debug("Check mux status for ports {} is {}".format(ports, status))
+        show_mux_status_ret = show_muxcable_status(duthost)
+        logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
+        for port in ports:
+            if port not in show_mux_status_ret:
+                return False
+            elif show_mux_status_ret[port]['status'] != status:
+                return False
+        return True
+
+    def _config_the_active_standby_dualtor(active_tor, standby_tor, ports):
+        active_side_commands = []
+        standby_side_commands = []
+        logging.info("Configuring {} as active".format(active_tor.hostname))
+        logging.info("Configuring {} as standby".format(standby_tor.hostname))
+        for port in ports:
+            if port not in active_standby_ports:
+                raise ValueError("Port {} is not in the active-active ports".format(port))
+            active_side_commands.append("config mux mode active {}".format(port))
+            standby_side_commands.append("config mux mode standby {}".format(port))
+
+        active_tor.shell_cmds(cmds=active_side_commands)
+        standby_tor.shell_cmds(cmds=standby_side_commands)
+
+        pt_assert(utilities.wait_until(30, 5, 0, check_active_standby_port_status, active_tor, ports, 'active'),
+                  "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
+        pt_assert(utilities.wait_until(30, 5, 0, check_active_standby_port_status, standby_tor, ports, 'standby'),
+                  "Could not config ports {} to standby on {}".format(ports, standby_tor.hostname))
+
+        ports_to_restore.extend(ports)
+
+    ports_to_restore = []
+
+    yield _config_the_active_standby_dualtor
+
+    if ports_to_restore:
+        restore_cmds = []
+        for port in ports_to_restore:
+            restore_cmds.append("config mux mode auto {}".format(port))
+
+        for duthost in duthosts:
+            duthost.shell_cmds(cmds=restore_cmds)
+
+
+@pytest.fixture
+def toggle_all_simulator_ports_to_rand_selected_tor_unconditionally(
+        active_standby_ports,
+        rand_selected_dut,
+        rand_unselected_dut,
+        tbinfo,
+        config_active_standby_ports):
+
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
+        return
+
+    config_active_standby_ports(rand_selected_dut, rand_unselected_dut, active_standby_ports)
+
+
+@pytest.fixture
+def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_unconditionally(
+        active_standby_ports,
+        enum_rand_one_per_hwsku_frontend_hostname,
+        tbinfo,
+        config_active_standby_ports,
+        upper_tor_host,
+        lower_tor_host,
+        duthosts):
+
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
+        logger.info('Skipping toggle on non-dualtor testbed or active-active dualtor topo.')
+        return
+    active_tor = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    standby_tor = upper_tor_host if active_tor == lower_tor_host else lower_tor_host
+
+    config_active_standby_ports(active_tor, standby_tor, active_standby_ports)

@@ -13,7 +13,8 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory                                 # noqa: F401
 from .everflow_test_utilities import setup_info, setup_arp_responder, EVERFLOW_DSCP_RULES                # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py                                   # noqa: F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
+from tests.common.dualtor.mux_simulator_control \
+      import toggle_all_simulator_ports_to_rand_selected_tor_unconditionally  # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "m0")
@@ -129,7 +130,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
                                        dest_port_type, ptfadapter, tbinfo,
-                                       toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
+                                       toggle_all_simulator_ports_to_rand_selected_tor_unconditionally,     # noqa F811
                                        setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa F811
         """
         Verify basic forwarding scenarios for the Everflow feature.
@@ -230,7 +231,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session,               # noqa F811
                                           dest_port_type, ptfadapter, tbinfo,
-                                          toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
+                                          toggle_all_simulator_ports_to_rand_selected_tor_unconditionally,      # noqa F811
                                           setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa F811
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
 
@@ -300,7 +301,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session,               # noqa F811
                                                   dest_port_type, ptfadapter, tbinfo,
-                                                  toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
+                                                  toggle_all_simulator_ports_to_rand_selected_tor_unconditionally,      # noqa F811
                                                   setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa F811
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
 
@@ -392,7 +393,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session,                 # noqa F811
                                                 dest_port_type, ptfadapter, tbinfo,
-                                                toggle_all_simulator_ports_to_rand_selected_tor,        # noqa F811
+                                                toggle_all_simulator_ports_to_rand_selected_tor_unconditionally,        # noqa F811
                                                 setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa F811
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
 
@@ -504,7 +505,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             partial_ptf_runner,
             config_method,
             tbinfo,
-            toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
+            toggle_all_simulator_ports_to_rand_selected_tor_unconditionally,    # noqa F811
             setup_standby_ports_on_rand_unselected_tor_unconditionally,    # noqa F811
     ):
         """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table.
