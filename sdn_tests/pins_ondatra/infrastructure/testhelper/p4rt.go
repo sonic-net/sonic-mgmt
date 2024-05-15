@@ -141,7 +141,11 @@ func (p *P4RTClient) P4Info() (*p4infopb.P4Info, error) {
 
 	// Read P4Info from file.
 	p4Info = &p4infopb.P4Info{}
+<<<<<<< HEAD
 	data, err := os.ReadFile("ondatra/data/p4rtconfig.prototext")
+=======
+	data, err := os.ReadFile("infrastructure/data/p4rtconfig.prototext")
+>>>>>>> [sdn_tests]: Adding P4RT testhelper to pins_ondatra. (#12670)
 	if err != nil {
 		return nil, err
 	}

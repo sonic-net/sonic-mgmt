@@ -10,6 +10,7 @@ go_library(
     testonly = 1,
     srcs = [
 <<<<<<< HEAD
+<<<<<<< HEAD
         "augment.go",
 	      "gnmi.go",
         "gnoi.go",
@@ -30,6 +31,12 @@ go_library(
         "gnoi.go",
         "lacp.go",
 >>>>>>> [sdn_tests]: Adding LACP testhelper to pins_ondatra. (#12669)
+=======
+        "gnmi.go",
+        "gnoi.go",
+        "lacp.go",
+        "p4rt.go",
+>>>>>>> [sdn_tests]: Adding P4RT testhelper to pins_ondatra. (#12670)
     ],
     data = [
         "//infrastructure/data",
