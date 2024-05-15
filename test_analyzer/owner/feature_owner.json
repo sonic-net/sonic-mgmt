@@ -854,12 +854,13 @@
     },
     {
         "feature": "mx",
-        "owner": "Zhijian Li",
-        "email": "zhijianli@microsoft.com",
+        "owner": "Yaqiang Zhu",
+        "email": "yaqiangzhu@microsoft.com",
         "scripts": [
             {
                 "scripts": [
-                    "mx.test_acl_rules"
+                    "mx.test_acl_rules",
+                    "mx.test_acl_rules_internal_only"
                 ],
                 "owner": "Zhijian Li",
                 "email": "zhijianli@microsoft.com"
@@ -868,7 +869,10 @@
                 "scripts": [
                     "mx.test_bgp_policy_private_ip",
                     "mx.test_dhcp_server",
-                    "mx.test_dhcp_server_init"
+                    "mx.test_dhcp_server_init",
+                    "mx.test_bgp_policy_private_ip_internal_only",
+                    "mx.test_dhcp_server_init_internal_only",
+                    "mx.test_dhcp_server_internal_only"
                 ],
                 "owner": "Yaqiang Zhu",
                 "email": "yaqiangzhu@microsoft.com"
