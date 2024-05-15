@@ -15,6 +15,21 @@
   auto_recover: 'True'
   comment: weibai
 
+- conf-name: vms2-3-t0-2700a1
+  group-name: vms2-3
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: vms2-3
+  ptf_ip: 10.64.246.130/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f682/64
+  server: server_2
+  vm_base: VM02000
+  dut:
+  - str-msn2700a1-03
+  inv_name: str
+  auto_recover: 'True'
+  comment: bingwang
+
 - conf-name: vms2-4-t0-2700
   group-name: vms2-4
   topo: t0
