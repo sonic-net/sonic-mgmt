@@ -206,7 +206,7 @@ class KustoConnector(object):
             | where OwningTeamName == "CLOUDNET\\\\SONiCNightlyTest"
             | where Title contains "[SONiC_Nightly][Failed_Case]"
             | where Status == "ACTIVE"
-            | where IsPurged == false
+            | where IsPurged == false or isempty(IsPurged)
             | project IncidentId, Title, SourceCreateDate, ModifiedDate, Status
             | sort by SourceCreateDate
             '''
