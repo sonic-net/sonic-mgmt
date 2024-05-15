@@ -1023,7 +1023,8 @@ platform_tests/daemon/test_chassisd.py:
 platform_tests/mellanox/test_check_sfp_using_ethtool.py:
   skip:
     reason: "Deprecated as Mellanox do not use ethtool in release 202305 or higher"
-    conditions: "release in ['202305', 'master']"
+    conditions:
+      - "asic_type in ['mellanox']"
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
