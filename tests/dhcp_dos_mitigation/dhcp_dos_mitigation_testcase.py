@@ -59,4 +59,3 @@ class TestDhcpRateLimit:
 
         # Clean up
         self.teardown_method(self.test_dhcp_rate_limit)
-
