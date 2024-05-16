@@ -46,8 +46,8 @@ VENDOR_ACCOUNT_URL = 'https://sonicvendorresult.blob.core.windows.net'
 NIGHTLY_TEST_ACCOUNT_URL = 'https://sonicelastictestprodsa.blob.core.windows.net'
 NIGHTLY_TEST_CONTAINER_NAME = 'nightlytest'
 VENDOR_CONTAINER = {'arista', 'brcm', 'cisco', 'mellanox'}
-CASE_SHRESHOLD = int(800)
-PASSRATE_SHRESHOLD = float(90.0)
+CASE_THRESHOLD = int(800)
+PASSRATE_THRESHOLD = float(90.0)
 TEST_RESULT_SHARE_LOG_TABLE = "TestResultSharingLogData"
 TABLE_FORMAT_LOOKUP = {
     TEST_RESULT_SHARE_LOG_TABLE: DataFormat.JSON
@@ -464,12 +464,12 @@ def main(args):
             report_json.append(temp_json)
             continue
 
-        if cases_run < CASE_SHRESHOLD and vendor != 'cisco' and topology != 'dualtor':
+        if cases_run < CASE_THRESHOLD and hardwaresku != 'Cisco-8111-O32' and topology != 'dualtor':
             logger.info('Total CassesRun of build {}: {} is less than 800, may be not a full run, ingore'.format(buildid, str(cases_run)))
             report_json.append(temp_json)
             continue
 
-        if float(success_rate) < PASSRATE_SHRESHOLD and hardwaresku != 'Cisco-8111-O32':
+        if float(success_rate) < PASSRATE_THRESHOLD and hardwaresku != 'Cisco-8111-O32':
             logger.info('SuccessRate of build {}: {} is less than 90%, do not upload this, ingore'.format(buildid, str(success_rate)))
             report_json.append(temp_json)
             continue
