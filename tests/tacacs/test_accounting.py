@@ -61,7 +61,7 @@ def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
     wait_time = 0
     while wait_time <= timeout:
         flush_log(host, log_file)
-        sed_command = "sed -nE '{1}' {2}".format(log_file, pattern, log_file)
+        sed_command = "sed -nE '{0}' {1}".format(pattern, log_file)
         logger.debug(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
         res = host_run_command(host, sed_command)
 
