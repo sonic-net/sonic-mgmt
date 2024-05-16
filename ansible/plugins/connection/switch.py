@@ -81,7 +81,7 @@ class Connection(ConnectionBase):
                     client = pexpect.spawn(' '.join(cmd), env={
                                            'TERM': 'dumb'}, timeout=self.timeout)
                     i = client.expect(
-                        ['[Pp]assword:', '>', '#', pexpect.EOF, pexpect.TIMEOUT])
+                        ['>', '#', '[Pp]assword:', pexpect.EOF, pexpect.TIMEOUT])
                     if i in [0, 1, 2]:
                         break
                     else:
@@ -96,7 +96,7 @@ class Connection(ConnectionBase):
                         "Establish connection to server failed after tried %d times." % max_retries)
 
             # if "'>', '#'" means Passwordless login, no need to send password
-            if i in [1, 2]:
+            if i < 2:
                 self._display.vvv(
                     "Establish connection to server successful without requiring a password.", host=self.host)
                 break
