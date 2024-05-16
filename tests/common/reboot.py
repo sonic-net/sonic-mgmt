@@ -34,6 +34,8 @@ REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
 REBOOT_TYPE_BIOS = "bios"
 REBOOT_TYPE_ASIC = "asic"
 REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
+REBOOT_TYPE_SUPERVISOR = "Reboot from Supervisor"
+REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS = "Heartbeat with the Supervisor card lost"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -117,6 +119,22 @@ reboot_ctrl_dict = {
         "wait": 120,
         "cause": "Kernel Panic",
         "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_SUPERVISOR: {
+        "command": "reboot",
+        "timeout": 300,
+        "wait": 120,
+        # When linecards are rebooted due to supervisor cold reboot
+        "cause": "reboot from Supervisor",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS: {
+        "command": "reboot",
+        "timeout": 300,
+        "wait": 120,
+        # When linecards are rebooted due to supervisor crash/abnormal reboot
+        "cause": "Heartbeat",
+        "test_reboot_cause_only": False
     }
 }
 
