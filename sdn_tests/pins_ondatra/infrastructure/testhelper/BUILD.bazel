@@ -18,6 +18,7 @@ go_library(
         "platform_components.go",
         "platform_info.go",
         "port_management.go",
+	      "results.go",
         "//infrastructure/testhelper/platform_info:platform_info",
     ],
     data = [

@@ -63,7 +63,6 @@ func (b *Backend) registerGRPCTLS(grpc *bindingbackend.GRPCServices, serverName 
 }
 
 
-
 // ReserveTopology returns topology containing reserved DUT and ATE devices.
 func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime, waitTime time.Duration) (*bindingbackend.ReservedTopology, error) {
 	// Fill in the Dut and Control device details.
