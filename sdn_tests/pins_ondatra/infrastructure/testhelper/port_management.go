@@ -3,6 +3,7 @@ package testhelper
 // This file provides helper APIs to perform ports related operations.
 
 import (
+<<<<<<< HEAD
 	"fmt"
 	"strconv"
 	"strings"
@@ -14,6 +15,12 @@ import (
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/pkg/errors"
+=======
+	"strconv"
+	"strings"
+
+	"github.com/openconfig/ondatra/gnmi/oc"
+>>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
 )
 
 type speedEnumInfo struct {
@@ -123,6 +130,7 @@ func Uint16ListToString(a []uint16) string {
 	return strings.Join(s, ",")
 }
 
+<<<<<<< HEAD
 // CollateralFlapAllowed indicates if collateral link flap is allowed on the platform, pmd type.
 func CollateralFlapAllowed(t *testing.T, dut *ondatra.DUTDevice, pmdType string) (bool, error) {
 	info, err := portInfoForDevice(t, dut)
@@ -444,6 +452,8 @@ func computePortIDForPort(t *testing.T, d *ondatra.DUTDevice, intfName string) (
 	return Id, nil
 }
 
+=======
+>>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
 func fecMode(portSpeed oc.E_IfEthernet_ETHERNET_SPEED, lanes uint8) oc.E_IfEthernet_INTERFACE_FEC {
 	switch portSpeed {
 	case oc.IfEthernet_ETHERNET_SPEED_SPEED_400GB:
@@ -468,6 +478,7 @@ func fecMode(portSpeed oc.E_IfEthernet_ETHERNET_SPEED, lanes uint8) oc.E_IfEther
 
 	return oc.IfEthernet_INTERFACE_FEC_FEC_DISABLED
 }
+<<<<<<< HEAD
 
 func interfaceConfigForPort(t *testing.T, d *ondatra.DUTDevice, intfName string, breakoutSpeed oc.E_IfEthernet_ETHERNET_SPEED, fec oc.E_IfEthernet_INTERFACE_FEC) (*oc.Interface, error) {
 	subinterfaceIndex := uint32(0)
@@ -970,3 +981,5 @@ func portStringToUint8(portStr string) (uint8, error) {
     }
     return result, nil
 }
+=======
+>>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
