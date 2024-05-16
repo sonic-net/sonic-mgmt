@@ -45,6 +45,7 @@ __all__ = [
     'simulator_flap_counter',
     'config_active_standby_ports',
     'toggle_all_simulator_ports_to_rand_selected_tor_unconditionally',
+    'toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_unconditionally',
     ]
 
 logger = logging.getLogger(__name__)
