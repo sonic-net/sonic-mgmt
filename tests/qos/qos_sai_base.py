@@ -77,7 +77,12 @@ class QosBase:
                 dutTestParams (dict): DUT host test params
         """
         # update router mac
-        if dut_test_params_qos["topo"] in self.SUPPORTED_T0_TOPOS:
+        if "t0-backend" in dut_test_params_qos["topo"]:
+            duthost = get_src_dst_asic_and_duts['src_dut']
+            dut_test_params_qos["basicParams"]["router_mac"] = duthost.shell(
+                    'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
+
+        elif dut_test_params_qos["topo"] in self.SUPPORTED_T0_TOPOS:
             dut_test_params_qos["basicParams"]["router_mac"] = ''
 
         elif "dualtor" in tbinfo["topo"]["name"]:
@@ -1266,7 +1271,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def stopServices(
-        self, duthosts, get_src_dst_asic_and_duts,
+        self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
         swapSyncd_on_selected_duts, enable_container_autorestart, disable_container_autorestart, get_mux_status, # noqa F811
         tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports):  # noqa F811
         """
