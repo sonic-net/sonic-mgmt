@@ -65,11 +65,10 @@ bjw-can-e1031-2,18,bjw-can-7260-12,ssh,,9600
 bjw-can-e1031-2,19,bjw-can-7260-13,ssh,,9600
 bjw-can-e1031-2,20,bjw-can-rome128q-1-a,ssh,,115200
 bjw-can-e1031-2,21,bjw-can-rome128q-1-b,ssh,,115200
-bjw-can-e1031-2,22,bjw-can-7260-14,ssh,,9600
-bjw-can-e1031-2,22,bjw-can-7260-15,ssh,,9600
-bjw-can-e1031-2,22,bjw-can-7260-16,ssh,,9600
-bjw-can-e1031-2,22,bjw-can-7260-17,ssh,,9600
 bjw-can-e1031-2,23,bjw-can-7260-14,ssh,,9600
 bjw-can-e1031-2,24,bjw-can-7260-15,ssh,,9600
 bjw-can-e1031-2,25,bjw-can-7260-16,ssh,,9600
 bjw-can-e1031-2,26,bjw-can-7260-17,ssh,,9600
+bjw-can-e1031-2,27,bjw-can-7060-1,ssh,,9600
+bjw-can-e1031-2,28,bjw-can-7260-18,ssh,,9600
+bjw-can-e1031-2,29,bjw-can-7060-2,ssh,,9600

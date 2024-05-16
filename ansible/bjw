@@ -94,6 +94,12 @@ all:
         bjw13-7:
           ansible_host: 10.150.23.75
           ansible_hostv6: 2404:f801:10:2200::a96:174b
+        bjw14-2:
+          ansible_host: 10.150.23.76
+          ansible_hostv6: 2404:f801:10:2200::a96:174c
+        bjw14-3:
+          ansible_host: 10.150.23.77
+          ansible_hostv6: 2404:f801:10:2200::a96:174d
 
     pdu:
       hosts:
@@ -259,6 +265,9 @@ fanout:
     bjw-can-7260-17:
       ansible_host: 10.150.22.163
       ansible_hostv6: 2404:f801:10:2200::a96:16a3
+    bjw-can-7260-18:
+      ansible_host: 10.150.22.165
+      ansible_hostv6: 2404:f801:10:2200::a96:16a5
 
 sonic:
   vars:
@@ -279,6 +288,7 @@ sonic:
     sonic_nokia_lc_400G:
     sonic_arista_a7280cr3_c40:
     sonic_arista_7260cx3:
+    sonic_arista_7060cx:
 
 sonic_arista_7050qx_32s_q32:
   vars:
@@ -957,6 +967,49 @@ sonic_arista_7260cx3:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
         "0x2F": "JPA2248P1QH"
+  vars:
+    iface_speed: 100000
+
+sonic_arista_7060cx:
+  hosts:
+    bjw-can-7060-1:
+      ansible_host: 10.150.22.164
+      ansible_hostv6: 2404:f801:10:2200::a96:16a4
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial: HBG231205DB
+      base_mac: ac:3d:94:b7:b4:2b
+      syseeprom_info:
+        "0x21": "DCS-7060CX-32S"
+        "0x22": "ASY0171716A0"
+        "0x23": "HBG231205DB"
+        "0x24": "ac:3d:94:b7:b4:2b"
+        "0x25": "2017/02/07 22:15:43"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7060_cx32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.1-3490684"
+        "0x2F": "HBG231205DB"
+    bjw-can-7060-2:
+      ansible_host: 10.150.22.166
+      ansible_hostv6: 2404:f801:10:2200::a96:16a6
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial: SGD22023511
+      base_mac: e8:ae:c5:76:1b:d0
+      syseeprom_info:
+        "0x21": "DCS-7060CX-32S"
+        "0x22": "ASY0171715C0"
+        "0x23": "SGD22023511"
+        "0x24": "e8:ae:c5:76:1b:d0"
+        "0x25": "2017/02/07 22:15:43"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7060_cx32s"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal6-6.1.1-3490684"
+        "0x2F": "SGD22023511"
   vars:
     iface_speed: 100000
 

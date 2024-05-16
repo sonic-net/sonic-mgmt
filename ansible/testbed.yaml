@@ -2511,3 +2511,35 @@
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
+
+- conf-name: testbed-bjw-can-t1-7060-1
+  group-name: bjw14-2
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw14-2
+  ptf_ip: 10.150.23.76/23
+  ptf_ipv6: 2404:f801:10:2200::a96:174c/52
+  ptf_extra_mgmt_ip: ["172.16.188.76/17"]
+  server: server_bjw_14
+  vm_base: VM71008
+  dut:
+  - bjw-can-7060-1
+  inv_name: bjw
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw-can-t1-7060-2
+  group-name: bjw14-3
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw14-3
+  ptf_ip: 10.150.23.77/23
+  ptf_ipv6: 2404:f801:10:2200::a96:174d/52
+  ptf_extra_mgmt_ip: ["172.16.188.77/17"]
+  server: server_bjw_14
+  vm_base: VM71032
+  dut:
+  - bjw-can-7060-2
+  inv_name: bjw
+  auto_recover: 'True'
+  comment: Beijing Lab
