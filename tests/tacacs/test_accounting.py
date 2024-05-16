@@ -39,17 +39,33 @@ def cleanup_tacacs_log(ptfhost, rw_user_client):
     ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
 
 
-def wait_for_log(host, log_file, pattern, timeout=30, check_interval=1):
+def host_run_command(host, command):
+    if isinstance(host, PTFHost):
+        return host.command(command)
+    else:
+        return host.shell("sudo {0}".format(command))
+
+
+def flush_log(host, log_file):
+    if "syslog" in log_file:
+        # force flush syslog by reopen log file and write cached data to disk:
+        #   https://man7.org/linux/man-pages/man8/rsyslogd.8.html
+        #   https://man7.org/linux/man-pages/man1/sync.1.html
+        host_run_command(host, "kill -HUP $(cat /var/run/rsyslogd.pid)")
+        host_run_command(host, "sync {0}".format(log_file))
+    else:
+        host_run_command(host, "sync {0}".format(log_file))
+
+
+def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
     wait_time = 0
     while wait_time <= timeout:
-        sed_command = "sed -nE '{0}' {1}".format(pattern, log_file)
-        logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-        if isinstance(host, PTFHost):
-            res = host.command(sed_command)
-        else:
-            res = host.shell(sed_command)
+        flush_log(host, log_file)
+        sed_command = "sed -nE '{1}' {2}".format(log_file, pattern, log_file)
+        logger.debug(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
+        res = host_run_command(host, sed_command)
 
-        logger.info(res["stdout_lines"])
+        logger.debug(res["stdout_lines"])
         if len(res["stdout_lines"]) > 0:
             return res["stdout_lines"]
 
