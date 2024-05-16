@@ -3,8 +3,11 @@ package testhelper
 
 import (
 	"crypto/rand"
+<<<<<<< HEAD
 	"math/big"
 	"fmt"
+=======
+>>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
 	"strings"
 	"testing"
 	"time"
@@ -132,6 +135,7 @@ var (
 		return gnmi.Get(t, d, gnmi.OC().Component(physicalPort).Port().BreakoutMode().State())
 	}
 
+<<<<<<< HEAD
 	testhelperPortPmdTypeGet = func(t *testing.T, d *ondatra.DUTDevice, port string) (string, error) {
 		if pph.PortToTransceiver == nil {
 			pph.PortToTransceiver = make(map[string]string)
@@ -153,6 +157,8 @@ var (
 		return pmd, nil
 	}
 
+=======
+>>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
 	testhelperTransceiverEmpty = func(t *testing.T, d *ondatra.DUTDevice, port string) bool {
 		return gnmi.Get(t, d, gnmi.OC().Component(port).Empty().State())
 	}
@@ -248,11 +254,17 @@ type infoHandler struct{}
 func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfaceParams) (string, error) {
 	// Parse additional parameters
 	var portList []string
+<<<<<<< HEAD
 	isParent := false
 	isOperDownOk := false
 	if params != nil {
 		portList = params.PortList
 		isParent = params.IsParent
+=======
+	isOperDownOk := false
+	if params != nil {
+		portList = params.PortList
+>>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
 		isOperDownOk = params.OperDownOk
 	}
 
@@ -267,6 +279,7 @@ func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfa
 		interfaces = append(interfaces, info.Down...)
 	}
 
+<<<<<<< HEAD
 	if isParent {
 		// Pick parent port only.
 		var parentInterfaces []string
@@ -282,16 +295,22 @@ func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfa
 		interfaces = parentInterfaces
 	}
 
+=======
+>>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
 	if len(interfaces) == 0 {
 		if params == nil {
 			return "", errors.Errorf("no operationally UP interfaces found in %v", testhelperDUTNameGet(dut))
 		}
 		return "", errors.Errorf("no interface found in %v with params: %+v", testhelperDUTNameGet(dut), *params)
 	}
+<<<<<<< HEAD
 	interfaceLen := int64(len(interfaces))
 	max := big.NewInt(interfaceLen)
 	randomIndex, _ := rand.Int(rand.Reader, max)
 	s := interfaces[randomIndex.Int64()]
+=======
+	s := interfaces[rand.Intn(len(interfaces))]
+>>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
 
 	log.Infof("Using interface %v (%d considered)", s, len(interfaces))
 	return s, nil

@@ -12,6 +12,7 @@ go_library(
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         "augment.go",
 	      "gnmi.go",
         "gnoi.go",
@@ -40,11 +41,15 @@ go_library(
 >>>>>>> [sdn_tests]: Adding P4RT testhelper to pins_ondatra. (#12670)
 =======
 	      "gnmi.go",
+=======
+      	"gnmi.go",
+>>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
         "gnoi.go",
         "lacp.go",
         "p4rt.go",
-        "platform_info.go",
+        "testhelper.go",
         "platform_components.go",
+        "platform_info.go",
         "port_management.go",
         "//infrastructure/testhelper/platform_info:platform_info",
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
