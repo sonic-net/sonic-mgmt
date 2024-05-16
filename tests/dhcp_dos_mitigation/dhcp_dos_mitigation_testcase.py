@@ -36,8 +36,9 @@ class TestDhcpRateLimit:
 
     def simulate_excessive_dhcp_traffic(self, ptfhost, port, packet_rate):
         """Simulate excessive DHCP traffic on the specified port."""
-        ptfhost.shell(f'python3 -c "import scapy.all as scapy; scapy.sendp(scapy.Ether()/scapy.IP()/scapy.UDP(dport=67),\
-                       \iface=\'{port}\', count={packet_rate*2}, inter=0.001)"')
+        ptfhost.shell(f'python3 -c "import scapy.all as scapy; \
+                      \ scapy.sendp(scapy.Ether()/scapy.IP()/scapy.UDP(dport=67),\
+                      \ iface=\'{port}\', count={packet_rate*2}, inter=0.001)"')
 
     def verify_dhcp_packets_dropped(self, duthost, port):
         """Verify that DHCP packets are being dropped as per the rate limit."""
