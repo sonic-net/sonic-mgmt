@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 
@@ -23,7 +24,6 @@ def get_port_list(duthost, tbinfo):
 
 
 @pytest.mark.usefixtures("bgp_sessions_config")
-@pytest.mark.platform('physical')
 def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts, get_loop_times):
     """
     Validates that link flap works as expected
