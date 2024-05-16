@@ -2,11 +2,12 @@ import pytest
 import logging
 import time
 
-logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
 ]
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.mark.topology('any')
@@ -58,3 +59,4 @@ class TestDhcpRateLimit:
 
         # Clean up
         self.teardown_method(self.test_dhcp_rate_limit)
+
