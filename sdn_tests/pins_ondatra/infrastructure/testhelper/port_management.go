@@ -4,6 +4,9 @@ package testhelper
 
 import (
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,12 +18,15 @@ import (
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/pkg/errors"
+<<<<<<< HEAD
 =======
 	"strconv"
 	"strings"
 
 	"github.com/openconfig/ondatra/gnmi/oc"
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 )
 
 type speedEnumInfo struct {
@@ -48,20 +54,20 @@ var stringToEnumSpeedMap = map[string]oc.E_IfEthernet_ETHERNET_SPEED{
 }
 
 var enumToSpeedInfoMap = map[oc.E_IfEthernet_ETHERNET_SPEED]speedEnumInfo{
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_10MB:   {"10M", 10_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_100MB:  {"100M", 100_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_1GB:    {"1G", 1_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_2500MB: {"2500M", 2500_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_5GB:    {"5G", 5_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_10GB:   {"10G", 10_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_25GB:   {"25G", 25_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_40GB:   {"40G", 40_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_50GB:   {"50G", 50_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_100GB:  {"100G", 100_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_200GB:  {"200G", 200_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_400GB:  {"400G", 400_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_600GB:  {"600G", 600_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_800GB:  {"800G", 800_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_10MB:   speedEnumInfo{"10M", 10_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_100MB:  speedEnumInfo{"100M", 100_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_1GB:    speedEnumInfo{"1G", 1_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_2500MB: speedEnumInfo{"2500M", 2500_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_5GB:    speedEnumInfo{"5G", 5_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_10GB:   speedEnumInfo{"10G", 10_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_25GB:   speedEnumInfo{"25G", 25_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_40GB:   speedEnumInfo{"40G", 40_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_50GB:   speedEnumInfo{"50G", 50_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_100GB:  speedEnumInfo{"100G", 100_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_200GB:  speedEnumInfo{"200G", 200_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_400GB:  speedEnumInfo{"400G", 400_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_600GB:  speedEnumInfo{"600G", 600_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_800GB:  speedEnumInfo{"800G", 800_000_000_000},
 }
 
 // Indices for slot, port and lane number in Ethernet<slot/port/lane> port naming format.
@@ -131,6 +137,9 @@ func Uint16ListToString(a []uint16) string {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // CollateralFlapAllowed indicates if collateral link flap is allowed on the platform, pmd type.
 func CollateralFlapAllowed(t *testing.T, dut *ondatra.DUTDevice, pmdType string) (bool, error) {
 	info, err := portInfoForDevice(t, dut)
@@ -452,8 +461,11 @@ func computePortIDForPort(t *testing.T, d *ondatra.DUTDevice, intfName string) (
 	return Id, nil
 }
 
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 func fecMode(portSpeed oc.E_IfEthernet_ETHERNET_SPEED, lanes uint8) oc.E_IfEthernet_INTERFACE_FEC {
 	switch portSpeed {
 	case oc.IfEthernet_ETHERNET_SPEED_SPEED_400GB:
@@ -479,6 +491,9 @@ func fecMode(portSpeed oc.E_IfEthernet_ETHERNET_SPEED, lanes uint8) oc.E_IfEther
 	return oc.IfEthernet_INTERFACE_FEC_FEC_DISABLED
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 func interfaceConfigForPort(t *testing.T, d *ondatra.DUTDevice, intfName string, breakoutSpeed oc.E_IfEthernet_ETHERNET_SPEED, fec oc.E_IfEthernet_INTERFACE_FEC) (*oc.Interface, error) {
 	subinterfaceIndex := uint32(0)
@@ -500,7 +515,11 @@ func interfaceConfigForPort(t *testing.T, d *ondatra.DUTDevice, intfName string,
 			FecMode:   fec,
 		},
 		Subinterface: map[uint32]*oc.Interface_Subinterface{
+<<<<<<< HEAD
 			0: {
+=======
+			0: &oc.Interface_Subinterface{
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 				Index: &subinterfaceIndex,
 				Ipv6: &oc.Interface_Subinterface_Ipv6{
 					Unnumbered: &oc.Interface_Subinterface_Ipv6_Unnumbered{
@@ -611,7 +630,11 @@ func ConfigFromBreakoutMode(t *testing.T, dut *ondatra.DUTDevice, breakoutMode, 
 	// Construct component path config from created breakout groups.
 	componentName := "1/" + strconv.Itoa(portIndex)
 	componentConfig := map[string]*oc.Component{
+<<<<<<< HEAD
 		componentName: {
+=======
+		componentName: &oc.Component{
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 			Name: &componentName,
 			Port: &oc.Component_Port{
 				BreakoutMode: &oc.Component_Port_BreakoutMode{Group: breakoutGroups},
@@ -981,5 +1004,8 @@ func portStringToUint8(portStr string) (uint8, error) {
     }
     return result, nil
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)

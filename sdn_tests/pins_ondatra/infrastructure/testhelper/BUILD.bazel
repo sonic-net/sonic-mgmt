@@ -13,6 +13,7 @@ go_library(
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         "augment.go",
 	      "gnmi.go",
         "gnoi.go",
@@ -44,6 +45,10 @@ go_library(
 =======
       	"gnmi.go",
 >>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
+=======
+        "augment.go",
+	      "gnmi.go",
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
         "gnoi.go",
         "lacp.go",
         "p4rt.go",

@@ -4,10 +4,15 @@ package testhelper
 import (
 	"crypto/rand"
 <<<<<<< HEAD
+<<<<<<< HEAD
 	"math/big"
 	"fmt"
 =======
 >>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
+=======
+	"math/big"
+	"fmt"
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 	"strings"
 	"testing"
 	"time"
@@ -136,6 +141,9 @@ var (
 	}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 	testhelperPortPmdTypeGet = func(t *testing.T, d *ondatra.DUTDevice, port string) (string, error) {
 		if pph.PortToTransceiver == nil {
 			pph.PortToTransceiver = make(map[string]string)
@@ -157,8 +165,11 @@ var (
 		return pmd, nil
 	}
 
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 	testhelperTransceiverEmpty = func(t *testing.T, d *ondatra.DUTDevice, port string) bool {
 		return gnmi.Get(t, d, gnmi.OC().Component(port).Empty().State())
 	}
@@ -255,16 +266,22 @@ func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfa
 	// Parse additional parameters
 	var portList []string
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 	isParent := false
 	isOperDownOk := false
 	if params != nil {
 		portList = params.PortList
 		isParent = params.IsParent
+<<<<<<< HEAD
 =======
 	isOperDownOk := false
 	if params != nil {
 		portList = params.PortList
 >>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 		isOperDownOk = params.OperDownOk
 	}
 
@@ -280,6 +297,9 @@ func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfa
 	}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 	if isParent {
 		// Pick parent port only.
 		var parentInterfaces []string
@@ -295,8 +315,11 @@ func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfa
 		interfaces = parentInterfaces
 	}
 
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 	if len(interfaces) == 0 {
 		if params == nil {
 			return "", errors.Errorf("no operationally UP interfaces found in %v", testhelperDUTNameGet(dut))
@@ -304,13 +327,19 @@ func RandomInterface(t *testing.T, dut *ondatra.DUTDevice, params *RandomInterfa
 		return "", errors.Errorf("no interface found in %v with params: %+v", testhelperDUTNameGet(dut), *params)
 	}
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 	interfaceLen := int64(len(interfaces))
 	max := big.NewInt(interfaceLen)
 	randomIndex, _ := rand.Int(rand.Reader, max)
 	s := interfaces[randomIndex.Int64()]
+<<<<<<< HEAD
 =======
 	s := interfaces[rand.Intn(len(interfaces))]
 >>>>>>> [sdn_tests]: Adding testhelper to pins_ondatra. (#12673)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 	log.Infof("Using interface %v (%d considered)", s, len(interfaces))
 	return s, nil

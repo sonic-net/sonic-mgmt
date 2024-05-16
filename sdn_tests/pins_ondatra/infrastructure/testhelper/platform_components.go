@@ -4,13 +4,19 @@ import (
 	"fmt"
 	"strings"
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 	"testing"
 	"time"
 
 	"github.com/openconfig/ondatra"
 	"github.com/pkg/errors"
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 )
 
 // Software Component APIs.
@@ -41,6 +47,9 @@ func (c CPUInfo) GetMaxAverageUsage() uint8 {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // RebootTimeForDevice returns the maximum time that the device might take to reboot.
 func RebootTimeForDevice(t *testing.T, d *ondatra.DUTDevice) (time.Duration, error) {
 	info, err := platformInfoForDevice(t, d)
@@ -49,6 +58,7 @@ func RebootTimeForDevice(t *testing.T, d *ondatra.DUTDevice) (time.Duration, err
 	}
 	return info.SystemInfo.RebootTime, nil
 }
+<<<<<<< HEAD
 
 // LoggingServerAddressesForDevice returns remote logging server address information for a platform.
 func LoggingServerAddressesForDevice(t *testing.T, d *ondatra.DUTDevice) (LoggingInfo, error) {
@@ -68,9 +78,30 @@ func CPUInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]CPUInfo, error) {
 	return info.SystemInfo.CPUInfo, nil
 }
 =======
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
+// LoggingServerAddressesForDevice returns remote logging server address information for a platform.
+func LoggingServerAddressesForDevice(t *testing.T, d *ondatra.DUTDevice) (LoggingInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return LoggingInfo{}, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.SystemInfo.LoggingInfo, nil
+}
 
+<<<<<<< HEAD
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+// CPUInfoForDevice returns CPU related information for a device.
+func CPUInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]CPUInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.SystemInfo.CPUInfo, nil
+}
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 // GetPhysical returns the expected physical memory.
 func (m MemoryInfo) GetPhysical() uint64 {
@@ -93,6 +124,9 @@ func (m MemoryInfo) GetCorrectableEccErrorThreshold() uint64 {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // MemoryInfoForDevice returns memory related information for a device.
 func MemoryInfoForDevice(t *testing.T, d *ondatra.DUTDevice) (MemoryInfo, error) {
 	info, err := platformInfoForDevice(t, d)
@@ -101,8 +135,11 @@ func MemoryInfoForDevice(t *testing.T, d *ondatra.DUTDevice) (MemoryInfo, error)
 	}
 	return info.SystemInfo.MemInfo, nil
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 // GetName returns the name of the mount point.
 func (m MountPointInfo) GetName() string {
@@ -110,6 +147,9 @@ func (m MountPointInfo) GetName() string {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // MountPointsInfoForDevice returns information about all "required"
 // mount points for a device.
 func MountPointsInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]MountPointInfo, error) {
@@ -119,8 +159,11 @@ func MountPointsInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]MountPointI
 	}
 	return info.SystemInfo.MountPointInfo, nil
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 // GetIPv4Address returns NTP server's IPv4 addresses.
 func (n NTPServerInfo) GetIPv4Address() []string {
@@ -138,6 +181,9 @@ func (n NTPServerInfo) GetStratumThreshold() uint8 {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // NTPServerInfoForDevice returns NTP server related information for a device.
 func NTPServerInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]NTPServerInfo, error) {
 	info, err := platformInfoForDevice(t, d)
@@ -146,8 +192,11 @@ func NTPServerInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]NTPServerInfo
 	}
 	return info.SystemInfo.NTPServerInfo, nil
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 // Integrated Circuit APIs.
 
@@ -163,6 +212,9 @@ func (i IntegratedCircuitInfo) GetCorrectedParityErrorsThreshold() uint64 {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // ICInfoForDevice returns integrated-circuit related information for all
 // integrated circuits present in a platform.
 func ICInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]IntegratedCircuitInfo, error) {
@@ -173,8 +225,11 @@ func ICInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]IntegratedCircuitInf
 	return info.HardwareInfo.ICs, nil
 }
 
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // FPGA APIs.
 
 // GetName returns the FPGA name.
@@ -203,6 +258,9 @@ func (f FPGAInfo) GetResetCauseNum() int {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // FPGAInfoForDevice returns FPGA related information for all FPGAs present in a
 // platform.
 func FPGAInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]FPGAInfo, error) {
@@ -212,8 +270,11 @@ func FPGAInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]FPGAInfo, error) {
 	}
 	return info.HardwareInfo.FPGAs, nil
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 // GetMin returns the minimum threshold for the power information.
 func (p Threshold32) GetMin() float32 {
@@ -263,6 +324,9 @@ func (t TemperatureSensorInfo) GetMaxTemperature() float64 {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // TemperatureSensorInfoForDevice returns information about all temperature sensors
 // of the specified type.
 func TemperatureSensorInfoForDevice(t *testing.T, d *ondatra.DUTDevice, s TemperatureSensorType) ([]TemperatureSensorInfo, error) {
@@ -286,8 +350,11 @@ func TemperatureSensorInfoForDevice(t *testing.T, d *ondatra.DUTDevice, s Temper
 
 	return nil, errors.Errorf("invalid sensor type: %v", s)
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 // GetName returns the security component name.
 func (s SecurityComponentInfo) GetName() string {
@@ -295,6 +362,9 @@ func (s SecurityComponentInfo) GetName() string {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // SecurityInfoForDevice returns information about all security components.
 func SecurityInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]SecurityComponentInfo, error) {
 	info, err := platformInfoForDevice(t, d)
@@ -304,8 +374,11 @@ func SecurityInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]SecurityCompon
 
 	return info.HardwareInfo.Security, nil
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 // IsValid checks if a value is in the thresholds.
 func (t Thresholds[T]) IsValid(v T) bool {
@@ -400,6 +473,9 @@ func (s StorageDeviceInfo) GetSmartDataInfo() SmartDataInfo {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // StorageDeviceInfoForDevice returns information about all storage devices.
 func StorageDeviceInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]StorageDeviceInfo, error) {
 	info, err := platformInfoForDevice(t, d)
@@ -409,8 +485,11 @@ func StorageDeviceInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]StorageDe
 
 	return info.HardwareInfo.Storage, nil
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 // GetName returns the fan name.
 func (f FanInfo) GetName() string {
@@ -458,12 +537,16 @@ func (f FanTrayInfo) GetLocation() string {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 // FanInfoForDevice returns information about all fans.
 func FanInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]FanInfo, error) {
 	info, err := platformInfoForDevice(t, d)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
 	}
+<<<<<<< HEAD
 
 	return info.HardwareInfo.Fans, nil
 }
@@ -480,12 +563,30 @@ func FanTrayInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]FanTrayInfo, er
 =======
 
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+
+	return info.HardwareInfo.Fans, nil
+}
+
+// FanTrayInfoForDevice returns information about all fan trays.
+func FanTrayInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]FanTrayInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+
+	return info.HardwareInfo.Fantrays, nil
+}
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 // GetName returns the PCIe device name.
 func (p PCIeInfo) GetName() string {
 	return p.Name
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
 
 // PcieInfoForDevice returns information about all PCIe devices.
 func PcieInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]PCIeInfo, error) {
@@ -495,5 +596,8 @@ func PcieInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]PCIeInfo, error) {
 	}
 	return info.HardwareInfo.PCIe, nil
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+>>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
