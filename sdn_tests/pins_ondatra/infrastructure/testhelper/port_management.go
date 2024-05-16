@@ -516,10 +516,14 @@ func interfaceConfigForPort(t *testing.T, d *ondatra.DUTDevice, intfName string,
 		},
 		Subinterface: map[uint32]*oc.Interface_Subinterface{
 <<<<<<< HEAD
+<<<<<<< HEAD
 			0: {
 =======
 			0: &oc.Interface_Subinterface{
 >>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
+=======
+			0: {
+>>>>>>> [sdn_tests]: Adding results testhelper to pins_ondatra. (#12675)
 				Index: &subinterfaceIndex,
 				Ipv6: &oc.Interface_Subinterface_Ipv6{
 					Unnumbered: &oc.Interface_Subinterface_Ipv6_Unnumbered{
@@ -631,10 +635,14 @@ func ConfigFromBreakoutMode(t *testing.T, dut *ondatra.DUTDevice, breakoutMode, 
 	componentName := "1/" + strconv.Itoa(portIndex)
 	componentConfig := map[string]*oc.Component{
 <<<<<<< HEAD
+<<<<<<< HEAD
 		componentName: {
 =======
 		componentName: &oc.Component{
 >>>>>>> [sdn_tests]: Adding Augment testhelper to pins_ondatra. (#12674)
+=======
+		componentName: {
+>>>>>>> [sdn_tests]: Adding results testhelper to pins_ondatra. (#12675)
 			Name: &componentName,
 			Port: &oc.Component_Port{
 				BreakoutMode: &oc.Component_Port_BreakoutMode{Group: breakoutGroups},
