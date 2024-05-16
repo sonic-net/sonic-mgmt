@@ -374,38 +374,78 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
         return False
 
 
-def format_and_apply_template(duthost, template_name, extra_vars):
+def format_and_apply_template(duthost, template_name, extra_vars, setup):
     dest_path = os.path.join(TMP_DIR, template_name)
-    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-    duthost.file(path=dest_path, state='absent')
-    duthost.template(src=os.path.join(TEMPLATES_DIR, template_name), dest=dest_path)
 
-    try:
-        # duthost.template uses single quotes, which breaks apply-patch. this replaces them with double quotes
-        duthost.shell("sed -i \"s/'/\\\"/g\" " + dest_path)
-        output = duthost.shell("config apply-patch {}".format(dest_path))
-    finally:
-        duthost.file(path=dest_path, state='absent')
+    duts_to_apply = [duthost]
+    outputs = []
+    if setup["is_dualtor_aa"]:
+        duts_to_apply.append(setup["rand_unselected_dut"])
 
-    return output
+    for dut in duts_to_apply:
+        dut.host.options['variable_manager'].extra_vars.update(extra_vars)
+        dut.file(path=dest_path, state='absent')
+        dut.template(src=os.path.join(TEMPLATES_DIR, template_name), dest=dest_path)
+
+        try:
+            # duthost.template uses single quotes, which breaks apply-patch. this replaces them with double quotes
+            dut.shell("sed -i \"s/'/\\\"/g\" " + dest_path)
+            output = dut.shell("config apply-patch {}".format(dest_path))
+            outputs.append(output)
+        finally:
+            dut.file(path=dest_path, state='absent')
+
+    return outputs
 
 
-def load_and_apply_json_patch(duthost, file_name):
+def load_and_apply_json_patch(duthost, file_name, setup):
     with open(os.path.join(TEMPLATES_DIR, file_name)) as file:
         json_patch = json.load(file)
 
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
+    duts_to_apply = [duthost]
+    outputs = []
+    if setup["is_dualtor_aa"]:
+        duts_to_apply.append(setup["rand_unselected_dut"])
 
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    for dut in duts_to_apply:
 
-    return output
+        tmpfile = generate_tmpfile(dut)
+        logger.info("tmpfile {}".format(tmpfile))
+
+        try:
+            output = apply_patch(dut, json_data=json_patch, dest_file=tmpfile)
+            outputs.append(output)
+        finally:
+            delete_tmpfile(dut, tmpfile)
+
+    return outputs
 
 
-def expect_acl_table_match_multiple_bindings(duthost, table_name, expected_first_line_content, expected_bindings):
+def apply_formed_json_patch(duthost, json_patch, setup):
+
+    duts_to_apply = [duthost]
+    outputs = []
+    if setup["is_dualtor_aa"]:
+        duts_to_apply.append(setup["rand_unselected_dut"])
+
+    for dut in duts_to_apply:
+        tmpfile = generate_tmpfile(dut)
+        logger.info("tmpfile {}".format(tmpfile))
+
+        try:
+            output = apply_patch(dut, json_data=json_patch, dest_file=tmpfile)
+            outputs.append(output)
+        finally:
+            delete_tmpfile(dut, tmpfile)
+
+    return outputs
+
+
+def expect_acl_table_match_multiple_bindings(duthost,
+                                             table_name,
+                                             expected_first_line_content,
+                                             expected_bindings,
+                                             setup):
     """Check if acl table show as expected
     Acl table with multiple bindings will show as such
 
@@ -419,44 +459,62 @@ def expect_acl_table_match_multiple_bindings(duthost, table_name, expected_first
 
     cmds = "show acl table {}".format(table_name)
 
-    output = duthost.show_and_parse(cmds)
-    pytest_assert(len(output) > 0, "'{}' is not a table on this device".format(table_name))
+    duts_to_check = [duthost]
+    if setup["is_dualtor_aa"]:
+        duts_to_check.append(setup["rand_unselected_dut"])
 
-    first_line = output[0]
-    pytest_assert(set(first_line.values()) == set(expected_first_line_content))
-    table_bindings = [first_line["binding"]]
-    for i in range(len(output)):
-        table_bindings.append(output[i]["binding"])
-    pytest_assert(set(table_bindings) == set(expected_bindings), "ACL Table bindings don't fully match")
+    for dut in duts_to_check:
+
+        output = dut.show_and_parse(cmds)
+        pytest_assert(len(output) > 0, "'{}' is not a table on this device".format(table_name))
+
+        first_line = output[0]
+        pytest_assert(set(first_line.values()) == set(expected_first_line_content))
+        table_bindings = [first_line["binding"]]
+        for i in range(len(output)):
+            table_bindings.append(output[i]["binding"])
+        pytest_assert(set(table_bindings) == set(expected_bindings), "ACL Table bindings don't fully match")
 
 
-def expect_acl_rule_match(duthost, rulename, expected_content_list):
+def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
     """Check if acl rule shows as expected"""
 
     cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
 
-    output = duthost.show_and_parse(cmds)
+    duts_to_check = [duthost]
+    if setup["is_dualtor_aa"]:
+        duts_to_check.append(setup["rand_unselected_dut"])
 
-    rule_lines = len(output)
+    for dut in duts_to_check:
 
-    pytest_assert(rule_lines >= 1, "'{}' is not a rule on this device".format(rulename))
+        output = dut.show_and_parse(cmds)
 
-    first_line = output[0].values()
+        rule_lines = len(output)
 
-    pytest_assert(set(first_line) <= set(expected_content_list), "ACL Rule details do not match!")
+        pytest_assert(rule_lines >= 1, "'{}' is not a rule on this device".format(rulename))
 
-    if rule_lines > 1:
-        for i in range(1, rule_lines):
-            pytest_assert(output[i]["match"] in expected_content_list,
-                          "Unexpected match condition found: " + str(output[i]["match"]))
+        first_line = output[0].values()
+
+        pytest_assert(set(first_line) <= set(expected_content_list), "ACL Rule details do not match!")
+
+        if rule_lines > 1:
+            for i in range(1, rule_lines):
+                pytest_assert(output[i]["match"] in expected_content_list,
+                              "Unexpected match condition found: " + str(output[i]["match"]))
 
 
-def expect_acl_rule_removed(duthost, rulename):
+def expect_acl_rule_removed(duthost, rulename, setup):
     """Check if ACL rule has been successfully removed"""
 
     cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
-    output = duthost.show_and_parse(cmds)
 
-    removed = len(output) == 0
+    duts_to_check = [duthost]
+    if setup["is_dualtor_aa"]:
+        duts_to_check.append(setup["rand_unselected_dut"])
 
-    pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
+    for dut in duts_to_check:
+        output = dut.show_and_parse(cmds)
+
+        removed = len(output) == 0
+
+        pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
