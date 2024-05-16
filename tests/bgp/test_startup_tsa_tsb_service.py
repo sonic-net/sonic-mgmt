@@ -1,6 +1,9 @@
 import logging
 import datetime
+<<<<<<< HEAD
 import pexpect
+=======
+>>>>>>> Tests to verify 'startup_tsa_tsb.service' during linecard bring up - PR#18496 (#12238)
 
 import pytest
 
@@ -169,6 +172,7 @@ def check_ssh_state(localhost, dut_ip, expected_state, timeout=60):
     return not res.is_failed and 'Timeout' not in res.get('msg', '')
 
 
+<<<<<<< HEAD
 def exec_tsa_tsb_cmd_on_supervisor(duthosts, enum_supervisor_dut_hostname, creds, tsa_tsb_cmd):
     """
     @summary: Issue TSA/TSB command on supervisor card using user credentials
@@ -200,6 +204,8 @@ def exec_tsa_tsb_cmd_on_supervisor(duthosts, enum_supervisor_dut_hostname, creds
         pytest.fail("Cannot connect to DUT {} host via SSH: {}".format(suphost.hostname, e))
 
 
+=======
+>>>>>>> Tests to verify 'startup_tsa_tsb.service' during linecard bring up - PR#18496 (#12238)
 @pytest.mark.disable_loganalyzer
 def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                                               nbrhosts, traffic_shift_community, tbinfo):
@@ -737,6 +743,7 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         reboot_cause = get_reboot_cause(duthost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
                       "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+<<<<<<< HEAD
 
 
 @pytest.mark.disable_loganalyzer
@@ -1158,3 +1165,5 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
         reboot_cause = get_reboot_cause(duthost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
                       "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+=======
+>>>>>>> Tests to verify 'startup_tsa_tsb.service' during linecard bring up - PR#18496 (#12238)
