@@ -51,10 +51,10 @@ class TestDhcpRateLimit:
         """Test DHCP rate limiting on an interface."""
         self.config_dhcp_rate_limit(duthost, self.port, self.packet_rate)
         self.verify_dhcp_rate_limit_set(duthost, self.port)
-        
+
         self.simulate_excessive_dhcp_traffic(ptfhost, self.port, self.packet_rate)
         time.sleep(5)  # Wait for traffic to be processed
-        
+
         self.verify_dhcp_packets_dropped(duthost, self.port)
 
         # Clean up
