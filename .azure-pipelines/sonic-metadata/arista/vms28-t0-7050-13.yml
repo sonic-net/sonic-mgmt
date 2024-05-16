@@ -59,7 +59,7 @@ parameters:
 
 - name: FROM_IMAGE_LIST
   type: string
-  default: 97
+  default: 22
   displayName: "All base image numbers (space separated)"
 
 - name: FROM_IMAGE_URL
@@ -84,7 +84,7 @@ parameters:
 
 - name: TO_IMAGE_LIST
   type: string
-  default: 22
+  default: latest
   displayName: "All target image numbers (space separated)"
 
 - name: TO_IMAGE_URL
