@@ -17,6 +17,7 @@ from tests.common.utilities import InterruptableThread
 from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
 from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
+from .files.pfcwd_helper import send_background_traffic
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 TESTCASE_INFO = {'no_storm': {'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
@@ -336,19 +337,23 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE])
         self.loganalyzer.match_regex = []
 
-        # ongoing storm. no need to start a new one
-        if not first_detect_after_wb:
-            if not self.pfc_wd['fake_storm']:
-                self.storm_handle[port][queue].start_storm()
-                time.sleep(15 * len(self.pfc_wd['queue_indices']))
+        selected_test_ports = [self.pfc_wd['rx_port'][0]]
+        test_ports_info = {self.pfc_wd['rx_port'][0]: self.pfc_wd}
+
+        with send_background_traffic(self.dut, self.ptf, [queue], selected_test_ports, test_ports_info):
+            # ongoing storm. no need to start a new one
+            if not first_detect_after_wb:
+                if not self.pfc_wd['fake_storm']:
+                    self.storm_handle[port][queue].start_storm()
+                    time.sleep(15 * len(self.pfc_wd['queue_indices']))
+                else:
+                    logger.info("Enable DEBUG fake storm on port {} queue {}".format(port, queue))
+                    PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
+                    time.sleep(5)
             else:
-                logger.info("Enable DEBUG fake storm on port {} queue {}".format(port, queue))
-                PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
-                time.sleep(5)
-        else:
-            # for the first iteration after wb, check the log for detect msgs for the ongoing storms
-            self.loganalyzer.expected_matches_target = len(self.ports) * len(self.pfc_wd['queue_indices'])
-            time.sleep(20)
+                # for the first iteration after wb, check the log for detect msgs for the ongoing storms
+                self.loganalyzer.expected_matches_target = len(self.ports) * len(self.pfc_wd['queue_indices'])
+                time.sleep(20)
 
         # storm detect check
         logger.info("Verify if PFC storm is detected on port {} queue {}".format(port, queue))
