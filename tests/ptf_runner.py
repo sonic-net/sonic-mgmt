@@ -35,7 +35,7 @@ def ptf_collect(host, log_file, skip_pcap=False):
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
                socket_recv_size=None, log_file=None, device_sockets=[], timeout=0, custom_options="",
-               module_ignore_errors=False, is_python3=False):
+               module_ignore_errors=False, is_python3=False, async_mode=False):
     # Call virtual env ptf for migrated py3 scripts.
     # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
     # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
@@ -92,12 +92,12 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         host.create_macsec_info()
 
     try:
-        result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors)
-        if log_file:
-            # when ptf cmd execution result is 0 (success), we need to skip collecting pcap file
-            ptf_collect(host, log_file, result is not None and result.get("rc", -1) == 0)
-        if result:
-            allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
+        result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors, module_async=async_mode)
+        if not async_mode:
+            if log_file:
+                ptf_collect(host, log_file)
+            if result:
+                allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
         if module_ignore_errors:
             if result["rc"] != 0:
                 return result
