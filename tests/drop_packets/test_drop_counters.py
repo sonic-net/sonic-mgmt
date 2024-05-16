@@ -29,6 +29,8 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+PTF_PORT_MAPPING_MODE = 'use_orig_interface'
+
 PKT_NUMBER = 1000
 
 # CLI commands to obtain drop counters.
@@ -98,6 +100,20 @@ def parse_combined_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
                 if re.match(item, duthost.facts["platform"]):
                     COMBINED_ACL_DROP_COUNTER = True
                     break
+
+
+@pytest.fixture(scope='module', autouse=True)
+def handle_backend_acl(duthost, tbinfo):
+    """
+    Cleanup/Recreate all the existing DATAACL rules
+    """
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        duthost.shell('acl-loader delete DATAACL')
+
+    yield
+
+    if "t0-backend" in tbinfo["topo"]["name"]:
+        duthost.shell('systemctl restart backend-acl')
 
 
 def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,   # noqa F811

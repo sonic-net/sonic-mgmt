@@ -102,12 +102,13 @@ def do_reboot(duthost, localhost, duthosts):
 def do_setup_tacacs(ptfhost, duthost, tacacs_creds):
     logger.info('Upon reboot: setup tacacs_creds')
     tacacs_server_ip = ptfhost.mgmt_ip
-    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+    tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
+    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey, ptfhost)
 
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
     if 'ansible_hostv6' in ptfhost_vars:
         tacacs_server_ip = ptfhost_vars['ansible_hostv6']
-        setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+        setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey, ptfhost)
     logger.info('Upon reboot: complete: setup tacacs_creds')
 
 
@@ -179,7 +180,14 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         duthost.copy(src=conf_path, dest="/etc/rsyslog.d/000-ro_disk.conf")
 
         # To get file in decent size. Force a rotate
-        duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
+        try:
+            duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
+        except RunAnsibleModuleFail as e:
+            if "logrotate does not support parallel execution on the same set of logfiles" in e.message:
+                # command will failed when log already in rotating
+                logger.warning("logrotate command failed: {}".format(e))
+            else:
+                raise e
 
         res = duthost.shell("systemctl restart rsyslog")
         assert res["rc"] == 0, "failed to restart rsyslog"

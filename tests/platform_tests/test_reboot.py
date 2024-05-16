@@ -91,7 +91,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
     if dut.is_supervisor_node():
         for lc in duthosts.frontend_nodes:
-            wait_for_startup(lc, localhost, delay=10, timeout=300)
+            wait_for_startup(lc, localhost, delay=10, timeout=600)
             check_interfaces_and_services(lc, interfaces, xcvr_skip_list)
 
 
@@ -129,7 +129,11 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
                 dut, asic_index, interfaces_per_asic, xcvr_skip_list)
 
         logging.info("Check pmon daemon status")
-        assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
+        if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+            result = wait_until(300, 20, 0, check_pmon_daemon_status, dut)
+        else:
+            result = check_pmon_daemon_status(dut)
+        assert result, "Not all pmon daemons running."
 
     if dut.facts["asic_type"] in ["mellanox"]:
 

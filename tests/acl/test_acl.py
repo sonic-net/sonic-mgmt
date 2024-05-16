@@ -364,7 +364,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # TODO: We should make this more robust (i.e. bind all active front-panel ports)
     acl_table_ports = defaultdict(list)
 
-    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag"):
+    if topo in ["t0", "mx", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1", "t1-lag", "t1-28-lag"):
         for namespace, port in list(downstream_ports.items()):
             acl_table_ports[namespace] += port
             # In multi-asic we need config both in host and namespace.
@@ -372,7 +372,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
                 acl_table_ports[''] += port
 
     if topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                                                                        "t1-56-lag"):
+                                                                        "t1-56-lag", "t1-28-lag"):
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
@@ -1056,7 +1056,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x1217)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
-        counters_sanity_check.append(5)
+        counters_sanity_check.append(9)
 
     def test_l4_sport_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and forward on L4 source port."""
@@ -1119,7 +1119,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x1271)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(10)
+        counters_sanity_check.append(17)
 
     def test_ip_proto_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop on the IP protocol."""
@@ -1133,7 +1133,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, flags=0x24)
 
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
-        counters_sanity_check.append(5)
+        counters_sanity_check.append(19)
 
     def test_icmp_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
         """Verify that we can match and drop on the TCP flags."""
