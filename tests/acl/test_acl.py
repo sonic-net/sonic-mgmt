@@ -1072,7 +1072,11 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         """Verify that we can match and forward on L4 destination port."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x1217)
 
+<<<<<<< HEAD
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
+=======
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+>>>>>>> Fixing a few ACL tests which expect the wrong rule (#12785)
         counters_sanity_check.append(9)
 
     def test_l4_sport_match_forwarded(self, setup, direction, ptfadapter,
@@ -1144,7 +1148,11 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         """Verify that we can match and drop on L4 source port."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x1271)
 
+<<<<<<< HEAD
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+=======
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+>>>>>>> Fixing a few ACL tests which expect the wrong rule (#12785)
         counters_sanity_check.append(17)
 
     def test_ip_proto_match_dropped(self, setup, direction, ptfadapter,
@@ -1160,7 +1168,11 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         """Verify that we can match and drop on the TCP flags."""
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, flags=0x24)
 
+<<<<<<< HEAD
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
+=======
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+>>>>>>> Fixing a few ACL tests which expect the wrong rule (#12785)
         counters_sanity_check.append(19)
 
     def test_icmp_match_forwarded(self, setup, direction, ptfadapter,
