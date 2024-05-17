@@ -2282,7 +2282,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_port_vlan
             )
             pkt2 = construct_ip_pkt(packet_length,
-                                    pkt_dst_mac,
+                                    pkt_dst_mac2,
                                     src_port_mac,
                                     src_port_ip,
                                     dst_port_2_ip,
