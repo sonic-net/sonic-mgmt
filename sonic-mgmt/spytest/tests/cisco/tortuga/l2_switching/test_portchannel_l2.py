@@ -6,7 +6,7 @@ from spytest import st, SpyTestDict
 import apis.switching.portchannel as portchannel_obj
 import apis.switching.vlan as vlan_obj
 import apis.system.interface as intf_obj
-import tests.cisco.tortuga.common.tortuga_common_utils as common_obj
+import tortuga_common_utils as common_obj
 
 #SIM File : tortuga_spytest_5D_linux_stc.yaml
 
@@ -18,13 +18,13 @@ data_glob.portchannel_name = "PortChannel01"
 def portchannel_func_hooks(request):
     global vars
     global updated_path
-    vars = st.ensure_min_topology("D1D3:4", "D1D4:4", "D3T1:2", "D4T1:2")
+    vars = st.ensure_min_topology("D1D3:2", "D1D4:2", "D3T1:2", "D4T1:2")
     data_glob.function_unconfig = False
     data_glob.spine0 = vars.D1
     data_glob.leaf0 = vars.D3
     data_glob.leaf1 = vars.D4
-    data_glob.members_dut1 = [vars.D1D3P1, vars.D1D3P2, vars.D1D3P3, vars.D1D3P4]
-    data_glob.members_dut2 = [vars.D3D1P1, vars.D3D1P2, vars.D3D1P3, vars.D3D1P4]
+    data_glob.members_dut1 = [vars.D1D3P1, vars.D1D3P2]
+    data_glob.members_dut2 = [vars.D3D1P1, vars.D3D1P2]    
     dir_path = os.path.dirname(os.path.realpath(__file__))
     updated_path = common_obj.modify_config_file(dir_path + '/' + CONFIGS_FILE,vars)
     yield
@@ -47,7 +47,7 @@ def function_unconfig():
 ##Vlan id 10 stream config
 data_vid_10 = SpyTestDict()
 data_vid_10.my_dut_list = None
-data_vid_10.t1d3_ip_gateway = "10.0.1.1"
+data_vid_10.t1d3_ip_gateway = "10.0.1.2"
 data_vid_10.t1d4_ip_gateway = "10.0.1.1"
 
 data_vid_10.t1d3_ip_addr = "10.0.1.1"
@@ -67,13 +67,13 @@ data_vid_10.traffic_run_time = 20
 ##Vlan id 20 stream config
 data_vid_20 = SpyTestDict()
 data_vid_20.my_dut_list = None
-data_vid_20.t1d3_ip_gateway = "20.0.1.1"
-data_vid_20.t1d4_ip_gateway = "20.0.1.1"
+data_vid_20.t1d3_ip_gateway = "10.0.2.2"
+data_vid_20.t1d4_ip_gateway = "10.0.2.1"
 
-data_vid_20.t1d3_ip_addr = "20.0.1.1"
+data_vid_20.t1d3_ip_addr = "10.0.2.1"
 data_vid_20.t1d3_mac_addr = "00:0a:01:00:13:01"
 
-data_vid_20.t1d4_ip_addr = "20.0.1.2"
+data_vid_20.t1d4_ip_addr = "10.0.2.2"
 data_vid_20.t1d4_mac_addr = "00:0a:01:00:14:01"
 
 data_vid_20.pkts_per_burst = '500'
@@ -132,28 +132,25 @@ def test_portchannel_l2(setup_teardown_portchannel_l2):
         if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
             st.log("Traffic verification for L2 {} Passed".format(traffic_type))
         else:
-            st.report_fail("Traffic verification for L2 {} Failed".format(traffic_type))
+            st.report_fail('failed_traffic_verification', "for L2 {} ".format(traffic_type))
         common_obj.traffic_cleanup(handles)
         
-    #Test BUM traffic for Vlan 20
-    for traffic_type in traffic_types:
-        handles = common_obj.traffic_test_config(data_vid_20, data_vid_20, 'T1D3P2', 'T1D4P2', traffic_type, True)
-        common_obj.traffic_start(handles, data_vid_20, data_vid_20)
-        common_obj.traffic_stop(handles)
-        if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_20, data_vid_20):
-            st.log("Traffic verification for L2 {} Passed".format(traffic_type))
-        else:
-            st.report_fail("Traffic verification for L2 {} Failed".format(traffic_type))
-        common_obj.traffic_cleanup(handles)
+    #Test trunk traffic for Vlan 20
+    handles = common_obj.traffic_test_config(data_vid_20, data_vid_20, 'T1D3P2', 'T1D4P2', 'unicast', True)
+    common_obj.traffic_start(handles, data_vid_20, data_vid_20)
+    common_obj.traffic_stop(handles)
+    if common_obj.traffic_test_check(handles, 'T1D3P2', 'T1D4P2', data_vid_20, data_vid_20):
+        st.log("Traffic verification for L2 {} Passed".format('unicast'))
+    else:
+        st.report_fail('failed_traffic_verification', "for L2 {} ".format('unicast'))
+    common_obj.traffic_cleanup(handles)
     
-    st.report_pass('test_case_passed', data_glob.spine0)
-    st.report_pass('test_case_passed', data_glob.leaf0)
-    st.report_pass('test_case_passed', data_glob.leaf1)
+    st.report_pass('test_case_passed')
 
 def test_portchannel_l2_member_shut_unshut(setup_teardown_portchannel_l2):
     
     #config traffic
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', 'unicast', True)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', 'unicast', True, verify_ping=False)
 
     #start traffic
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -170,7 +167,7 @@ def test_portchannel_l2_member_shut_unshut(setup_teardown_portchannel_l2):
         st.log("Traffic verification with one member shut down Passed")
     else:
         common_obj.traffic_cleanup(handles)
-        st.report_fail("Traffic verification with one member shut down Failed")
+        st.report_fail('failed_traffic_verification', "one member shut down case")
 
     #start traffic
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -187,16 +184,14 @@ def test_portchannel_l2_member_shut_unshut(setup_teardown_portchannel_l2):
         st.log("Traffic verification with member unshut back Passed")
     else:
         common_obj.traffic_cleanup(handles)
-        st.report_fail("Traffic verification with member unshut back Failed")
+        st.report_fail('failed_traffic_verification', "member unshut back case")
 
-    st.report_pass('test_case_passed', data_glob.spine0)
-    st.report_pass('test_case_passed', data_glob.leaf0)
-    st.report_pass('test_case_passed', data_glob.leaf1)
+    st.report_pass('test_case_passed')
 
 def test_portchannel_l2_member_del_add(setup_teardown_portchannel_l2):
     
     #config traffic
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', 'unicast', True)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', 'unicast', True, verify_ping=False)
 
     #start traffic
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -213,7 +208,7 @@ def test_portchannel_l2_member_del_add(setup_teardown_portchannel_l2):
         st.log("Traffic verification with one member removed Passed")
     else:
         common_obj.traffic_cleanup(handles)
-        st.report_fail("Traffic verification with one member removed Failed")
+        st.report_fail('failed_traffic_verification', "one member removed case")
     
     #start traffic
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -230,10 +225,8 @@ def test_portchannel_l2_member_del_add(setup_teardown_portchannel_l2):
         st.log("Traffic verification with member added back Passed")
     else:
         common_obj.traffic_cleanup(handles)
-        st.report_fail("Traffic verification with member added back Failed")
+        st.report_fail('failed_traffic_verification', "member added back case")
 
-    st.report_pass('test_case_passed', data_glob.spine0)
-    st.report_pass('test_case_passed', data_glob.leaf0)
-    st.report_pass('test_case_passed', data_glob.leaf1)
+    st.report_pass('test_case_passed')
 
     

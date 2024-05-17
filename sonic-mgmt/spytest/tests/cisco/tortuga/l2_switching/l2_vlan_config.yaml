@@ -1,0 +1,69 @@
+spine0:
+    sonic:
+      config: |
+        sudo config interface startup D1D3P1
+        sudo config interface startup D1D4P1
+        sudo config vlan add 10
+        sudo config vlan member add  10 D1D3P1
+        sudo config vlan member add  10 D1D4P1
+        sudo config vlan add 20
+        sudo config vlan member add  20 D1D3P1
+        sudo config vlan member add  20 D1D4P1
+
+      deconfig: |
+        sudo config vlan member del 10 D1D3P1
+        sudo config vlan member del 10 D1D4P1
+        sudo config vlan member del 20 D1D3P1
+        sudo config vlan member del 20 D1D4P1
+        sudo config vlan del 10
+        sudo config vlan del 20
+        sudo config interface shutdown D1D3P1
+        sudo config interface shutdown D1D4P1
+
+leaf0:
+    sonic:
+      config: |
+        sudo config interface startup D3D1P1
+        sudo config interface startup D3T1P1
+        sudo config interface startup D3T1P2
+        sudo config vlan add 10
+        sudo config vlan member add  10 D3D1P1
+        sudo config vlan member add  -u 10 D3T1P1
+        sudo config vlan add 20
+        sudo config vlan member add  20 D3D1P1
+
+      deconfig: |
+        sudo config vlan member del 10 D3D1P1
+        sudo config vlan member del 10 D3T1P1
+        sudo config vlan del 10
+        sudo config vlan member del 20 D3D1P1
+        sudo config vlan del 20
+        sudo config interface shutdown D3D1P1
+        sudo config interface shutdown D3T1P1
+        sudo config interface shutdown D3T1P2
+leaf1:
+    sonic:
+      config: |
+        sudo config interface startup D4D1P1
+        sudo config interface startup D4T1P1
+        sudo config interface startup D4T1P2
+        sudo config vlan add 10
+        sudo config vlan member add  10 D4D1P1
+        sudo config vlan member add  -u 10 D4T1P1
+        sudo config vlan add 20
+        sudo config vlan member add  20 D4D1P1
+
+      deconfig: |
+        sudo config vlan member del 10 D4D1P1
+        sudo config vlan member del 10 D4T1P1
+        sudo config vlan del 10
+        sudo config vlan member del 20 D4D1P1
+        sudo config vlan del 20
+        sudo config interface shutdown D4D1P1
+        sudo config interface shutdown D4T1P1
+
+
+
+
+
+

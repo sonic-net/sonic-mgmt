@@ -5,7 +5,7 @@ from spytest import st, SpyTestDict
 
 import apis.switching.portchannel as portchannel_obj
 import apis.switching.vlan as vlan_obj
-import tests.cisco.tortuga.common.tortuga_common_utils as common_obj
+import tortuga_common_utils as common_obj
 
 # Global variables
 data_glob = SpyTestDict()
@@ -145,9 +145,7 @@ def test_portchannel_v4_add_del():
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
 
-    st.report_pass('test_case_passed', data_glob.spine0)
-    st.report_pass('test_case_passed', data_glob.leaf0)
-    st.report_pass('test_case_passed', data_glob.leaf1)
+    st.report_pass('test_case_passed')
    
 def test_portchannel_v6_add_del():
     
@@ -175,9 +173,7 @@ def test_portchannel_v6_add_del():
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
 
-    st.report_pass('test_case_passed', data_glob.spine0)
-    st.report_pass('test_case_passed', data_glob.leaf0)
-    st.report_pass('test_case_passed', data_glob.leaf1)
+    st.report_pass('test_case_passed')
 
 def test_portchannel_dual_stack_add_del():
 
@@ -213,9 +209,7 @@ def test_portchannel_dual_stack_add_del():
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
     
-    st.report_pass('test_case_passed', data_glob.spine0)
-    st.report_pass('test_case_passed', data_glob.leaf0)
-    st.report_pass('test_case_passed', data_glob.leaf1)
+    st.report_pass('test_case_passed')
 
 def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
     
@@ -239,7 +233,7 @@ def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv4 traffic Passed")
     else:
-        st.report_fail("Traffic check for ipv4 traffic Failed")
+        st.report_fail('failed_traffic_verification', "ipv4 traffic")
     common_obj.traffic_cleanup(handles)
 
     #remove one of member link
@@ -257,7 +251,7 @@ def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv4 traffic after one member removal Passed")
     else:
-        st.report_fail("Traffic check for ipv4 traffic after one member removal Failed")
+        st.report_fail('failed_traffic_verification', "ipv4 traffic after one member removal")
     common_obj.traffic_cleanup(handles)
 
     #remove ipv4 address from PortChannel01 and del PortChannel01
@@ -272,9 +266,7 @@ def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
 
-    st.report_pass('test_case_passed', data_glob.spine0)
-    st.report_pass('test_case_passed', data_glob.leaf0)
-    st.report_pass('test_case_passed', data_glob.leaf1)
+    st.report_pass('test_case_passed')
 
 def test_portchannel_member_v6_add_del(setup_teardown_portchannel):
     
@@ -298,7 +290,7 @@ def test_portchannel_member_v6_add_del(setup_teardown_portchannel):
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv6 traffic Passed")
     else:
-        st.report_fail("Traffic check for ipv6 traffic Failed")
+        st.report_fail('failed_traffic_verification', "ipv6 traffic")
     common_obj.traffic_cleanup(handles)
     
     #remove one of member link
@@ -316,7 +308,7 @@ def test_portchannel_member_v6_add_del(setup_teardown_portchannel):
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv6 traffic after one member removal Passed")
     else:
-        st.report_fail("Traffic check for ipv6 traffic after one member removal Failed")
+        st.report_fail('failed_traffic_verification', "ipv6 traffic after one member removal")
     common_obj.traffic_cleanup(handles)
 
     #remove dual stack from PortChannel01 and del PortChannel01
@@ -331,9 +323,7 @@ def test_portchannel_member_v6_add_del(setup_teardown_portchannel):
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
     
-    st.report_pass('test_case_passed', data_glob.spine0)
-    st.report_pass('test_case_passed', data_glob.leaf0)
-    st.report_pass('test_case_passed', data_glob.leaf1)
+    st.report_pass('test_case_passed')
 
 def test_portchannel_member_v4_v6_add_del(setup_teardown_portchannel):
     
@@ -359,7 +349,7 @@ def test_portchannel_member_v4_v6_add_del(setup_teardown_portchannel):
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv4 traffic Passed")
     else:
-        st.report_fail("Traffic check for ipv4 traffic Failed")
+        st.report_fail('failed_traffic_verification', "ipv4 traffic")
     common_obj.traffic_cleanup(handles)
         
     #test ipv6 traffic
@@ -369,7 +359,7 @@ def test_portchannel_member_v4_v6_add_del(setup_teardown_portchannel):
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv6 traffic Passed")
     else:
-        st.report_fail("Traffic check for ipv6 traffic Failed")
+        st.report_fail('failed_traffic_verification', "ipv6 traffic")
     common_obj.traffic_cleanup(handles)
 
     #remove one of member link
@@ -387,7 +377,7 @@ def test_portchannel_member_v4_v6_add_del(setup_teardown_portchannel):
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv4 traffic after one member removal Passed")
     else:
-        st.report_fail("Traffic check for ipv4 traffic after one member removal Failed")
+        st.report_fail('failed_traffic_verification', "ipv4 traffic after one member removal")
     common_obj.traffic_cleanup(handles)
         
     #test ipv6 traffic
@@ -397,7 +387,7 @@ def test_portchannel_member_v4_v6_add_del(setup_teardown_portchannel):
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv6 traffic after one member removal Passed")
     else:
-        st.report_fail("Traffic check for ipv6 traffic after one member removal Failed")
+        st.report_fail('failed_traffic_verification', "ipv6 traffic after one member removal")
     common_obj.traffic_cleanup(handles)
 
     #remove dual stack from PortChannel01 and del PortChannel01
@@ -412,7 +402,5 @@ def test_portchannel_member_v4_v6_add_del(setup_teardown_portchannel):
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
 
-    st.report_pass('test_case_passed', data_glob.spine0)
-    st.report_pass('test_case_passed', data_glob.leaf0)
-    st.report_pass('test_case_passed', data_glob.leaf1)
+    st.report_pass('test_case_passed')
     

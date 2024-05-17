@@ -112,17 +112,23 @@ def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True, ver
 
     if ipv4 :
         handle1 = config_ipv4_intf(tg1, tg_ph_1, data1, data1.t1d3_ip_addr, data1.t1d3_mac_addr, data1.t1d3_ip_gateway)
+        st.wait(5) 
         handle2 = config_ipv4_intf(tg2, tg_ph_2, data2, data2.t1d4_ip_addr, data2.t1d4_mac_addr, data2.t1d4_ip_gateway)
+        st.wait(5)
         # Ping from tgen to tgen.
         if verify_ping:
             verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ip_addr)
+            st.wait(5)
             verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ip_addr)
     else:
         handle1 = config_ipv6_intf(tg1, tg_ph_1, data1, data1.t1d3_ipv6_addr, data1.t1d3_mac_addr, data1.t1d3_ipv6_gateway)
+        st.wait(5)
         handle2 = config_ipv6_intf(tg2, tg_ph_2, data2, data2.t1d4_ipv6_addr, data2.t1d4_mac_addr, data2.t1d4_ipv6_gateway)
+        st.wait(5)
         # Ping from tgen to tgen.
         if verify_ping:
             verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ipv6_addr)
+            st.wait(5)
             verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ipv6_addr)
         
 
