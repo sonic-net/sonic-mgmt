@@ -220,7 +220,8 @@ def configure_a_route_with_same_prefix_as_vlan_for_mlnx(duthost, asichost, tbinf
     # Get sai sdk dump file in case test fail, we can get the LPM tree information
     get_sai_sdk_dump_file(duthost, "sai_sdk_dump_before_shutdown_vlan_ports")
 
-    del_dump_route_with_same_prefix_as_vlan_interface_cmd = f" sudo ip route del {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
+    del_dump_route_with_same_prefix_as_vlan_interface_cmd = \
+        f" sudo ip route del {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
 
     return del_dump_route_with_same_prefix_as_vlan_interface_cmd
 

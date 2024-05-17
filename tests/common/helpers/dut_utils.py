@@ -333,5 +333,5 @@ def get_sai_sdk_dump_file(duthost, dump_file_name):
     compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"
     duthost.archive(path=full_path_dump_file, dest=compressed_dump_file, format='gz')
 
-    duthost.fetch(src=compressed_dump_file, dest=f"/tmp/", flat=True)
+    duthost.fetch(src=compressed_dump_file, dest="/tmp/", flat=True)
     allure.attach.file(compressed_dump_file, dump_file_name, extension=".tar.gz")

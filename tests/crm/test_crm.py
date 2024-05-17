@@ -457,7 +457,7 @@ def get_nh_ip(duthost, asichost, crm_interface, ip_ver):
     cmd = "{ip_cmd} -{ip_ver} neigh show dev {crm_intf} nud reachable nud stale \
                         | grep -v fe80".format(ip_cmd=asichost.ip_cmd, ip_ver=ip_ver, crm_intf=crm_interface[0])
     out = duthost.shell(cmd)
-    assert (out["stdout"] != "", "Get Next Hop IP failed. Neighbor not found")
+    assert out["stdout"] != "", "Get Next Hop IP failed. Neighbor not found"
     nh_ip = [item.split()[0] for item in out["stdout"].split("\n") if "REACHABLE" in item][0]
     return nh_ip
 
