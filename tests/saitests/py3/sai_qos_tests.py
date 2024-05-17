@@ -1798,9 +1798,14 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                     xmit_counters, xmit_counters_base),
                 to_stderr=True)
             # recv port no pfc
+<<<<<<< HEAD
             qos_test_assert(
                 self, recv_counters[pg] == recv_counters_base[pg],
                 'unexpectedly PFC counter increase, {}'.format(test_stage))
+=======
+            assert (recv_counters[pg] == recv_counters_base[pg]), \
+                'unexpectedly PFC counter increase, {}'.format(test_stage)
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
             # & may give inconsistent test results
@@ -1811,6 +1816,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
                 else:
+<<<<<<< HEAD
                     qos_test_assert(
                         self, recv_counters[cntr] == recv_counters_base[cntr],
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -1819,6 +1825,14 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 qos_test_assert(
                     self, xmit_counters[cntr] == xmit_counters_base[cntr],
                     'unexpectedly TX drop counter increase, {}'.format(test_stage))
+=======
+                    assert (recv_counters[cntr] == recv_counters_base[cntr]),\
+                        'unexpectedly RX drop counter increase, {}'.format(test_stage)
+            # xmit port no egress drop
+            for cntr in egress_counters:
+                assert (xmit_counters[cntr] == xmit_counters_base[cntr]), \
+                    'unexpectedly TX drop counter increase, {}'.format(test_stage)
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
 
             # send 1 packet to trigger pfc
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
@@ -1839,9 +1853,14 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 'xmit_counters {}\n\txmit_counters_base {}\n'.format(
                     test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base), to_stderr=True)
             # recv port pfc
+<<<<<<< HEAD
             qos_test_assert(
                 self, recv_counters[pg] > recv_counters_base[pg],
                 'unexpectedly PFC counter not increase, {}'.format(test_stage))
+=======
+            assert (recv_counters[pg] > recv_counters_base[pg]), \
+                'unexpectedly PFC counter not increase, {}'.format(test_stage)
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
             # & may give inconsistent test results
@@ -1852,6 +1871,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
                 else:
+<<<<<<< HEAD
                     qos_test_assert(
                         self, recv_counters[cntr] == recv_counters_base[cntr],
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -1860,6 +1880,14 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 qos_test_assert(
                     self, xmit_counters[cntr] == xmit_counters_base[cntr],
                     'unexpectedly TX drop counter increase, {}'.format(test_stage))
+=======
+                    assert (recv_counters[cntr] == recv_counters_base[cntr]),\
+                        'unexpectedly RX drop counter increase, {}'.format(test_stage)
+            # xmit port no egress drop
+            for cntr in egress_counters:
+                assert (xmit_counters[cntr] == xmit_counters_base[cntr]), \
+                    'unexpectedly TX drop counter increase, {}'.format(test_stage)
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
 
             # send packets short of ingress drop
             send_packet(self, src_port_id, pkt, (pkts_num_trig_ingr_drp -
@@ -1881,9 +1909,14 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 'xmit_counters {}\n\txmit_counters_base {}\n'.format(
                     test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base), to_stderr=True)
             # recv port pfc
+<<<<<<< HEAD
             qos_test_assert(
                 self, recv_counters[pg] > recv_counters_base[pg],
                 'unexpectedly PFC counter not increase, {}'.format(test_stage))
+=======
+            assert (recv_counters[pg] > recv_counters_base[pg]), \
+                'unexpectedly PFC counter not increase, {}'.format(test_stage)
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
             # & may give inconsistent test results
@@ -1894,6 +1927,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
                 else:
+<<<<<<< HEAD
                     qos_test_assert(
                         self, recv_counters[cntr] == recv_counters_base[cntr],
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -1902,6 +1936,14 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 qos_test_assert(
                     self, xmit_counters[cntr] == xmit_counters_base[cntr],
                     'unexpectedly TX drop counter increase, {}'.format(test_stage))
+=======
+                    assert (recv_counters[cntr] == recv_counters_base[cntr]),\
+                        'unexpectedly RX drop counter increase, {}'.format(test_stage)
+            # xmit port no egress drop
+            for cntr in egress_counters:
+                assert (xmit_counters[cntr] == xmit_counters_base[cntr]), \
+                    'unexpectedly TX drop counter increase, {}'.format(test_stage)
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
 
             # send 1 packet to trigger ingress drop
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
@@ -1922,14 +1964,20 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 'xmit_counters {}\n\txmit_counters_base {}\n'.format(
                     test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base), to_stderr=True)
             # recv port pfc
+<<<<<<< HEAD
             qos_test_assert(
                 self, recv_counters[pg] > recv_counters_base[pg],
                 'unexpectedly PFC counter not increase, {}'.format(test_stage))
+=======
+            assert (recv_counters[pg] > recv_counters_base[pg]), \
+                'unexpectedly PFC counter not increase, {}'.format(test_stage)
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
             # recv port ingress drop
             if self.hwsku not in ['Cisco-8800-LC-48H-C48']:
                 for cntr in ingress_counters:
                     if platform_asic and platform_asic == "broadcom-dnx":
                         if cntr == 1:
+<<<<<<< HEAD
                             qos_test_assert(
                                 self, recv_counters[cntr] > recv_counters_base[cntr],
                                 'unexpectedly RX drop counter not increase, {}'.format(test_stage))
@@ -1942,6 +1990,17 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 qos_test_assert(
                     self, xmit_counters[cntr] == xmit_counters_base[cntr],
                     'unexpectedly TX drop counter increase, {}'.format(test_stage))
+=======
+                            assert (recv_counters[cntr] > recv_counters_base[cntr]), \
+                                'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                    else:
+                        assert (recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
+                                                                            ' not increase, {}'.format(test_stage)
+            # xmit port no egress drop
+            for cntr in egress_counters:
+                assert (xmit_counters[cntr] == xmit_counters_base[cntr]),\
+                    'unexpectedly TX drop counter increase, {}'.format(test_stage)
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
 
             if '201811' not in sonic_version and 'mellanox' in asic_type:
                 pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(
@@ -2697,8 +2756,12 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
                             port_counter_fields[cntr], step_id, step_desc))
                 else:
+<<<<<<< HEAD
                     qos_test_assert(
                         self, recv_counters[cntr] == recv_counters_base[cntr],
+=======
+                    assert (recv_counters[cntr] == recv_counters_base[cntr]),\
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
                             port_counter_fields[cntr], step_id, step_desc))
             # xmit port no egress drop
@@ -2796,10 +2859,17 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.dst_client, asic_type, port_list['dst'][dst_port_3_id])
 
             # recv port no pfc
+<<<<<<< HEAD
             qos_test_assert(
                 self, recv_counters[pg] == recv_counters_base[pg],
                 'unexpectedly trigger PFC for PG {} (counter: {}), at step {} {}'.format(
                     pg, port_counter_fields[pg], step_id, step_desc))
+=======
+            assert (
+                recv_counters[pg] == recv_counters_base[pg]
+                ), 'unexpectedly trigger PFC for PG {} (counter: {}), at step {} {}'.format(
+                pg, port_counter_fields[pg], step_id, step_desc)
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
             # recv port no ingress drop
             for cntr in ingress_counters:
                 qos_test_assert(
@@ -3128,7 +3198,11 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                         self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, self.uniq_dst_ports)
                     sys.exit("Too many pkts needed to trigger pfc: %d" % (pkt_cnt))
                 assert (recv_counters[sidx_dscp_pg_tuples[i][2]] >
+<<<<<<< HEAD
                         recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
+=======
+                       recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
                 print("%d packets for sid: %d, pg: %d to trigger pfc" % (
                     pkt_cnt, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], sidx_dscp_pg_tuples[i][2] - 2),
                     file=sys.stderr)
@@ -3985,11 +4059,19 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
                     if cntr == 1:
+<<<<<<< HEAD
                         log_message("recv_counters_base: {}, recv_counters: {}".format(
                             recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
                         qos_test_assert(self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
                 else:
                     qos_test_assert(self, recv_counters[cntr] == recv_counters_base[cntr])
+=======
+                        print("recv_counters_base: %d, recv_counters: %d" % (recv_counters_base[cntr],
+                                                                             recv_counters[cntr]), file=sys.stderr)
+                        assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
+                else:
+                    assert (recv_counters[cntr] == recv_counters_base[cntr])
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(self, xmit_counters[cntr] == xmit_counters_base[cntr])
@@ -5371,7 +5453,12 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                       file=sys.stderr,
                 )
                 assert (buffer_pool_wm <= (expected_wm + upper_bound_margin) * cell_size)
+<<<<<<< HEAD
                 assert ((expected_wm - lower_bound_margin) * cell_size <= buffer_pool_wm)
+=======
+                assert ((expected_wm - lower_bound_margin)
+                       * cell_size <= buffer_pool_wm)
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
 
                 pkts_num = pkts_inc
 
@@ -5565,7 +5652,12 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             if 'cisco-8000' in asic_type:
                 # Queue is always the inner_dscp due to the TC_TO_QUEUE_MAP redirection
                 queue = inner_dscp
+<<<<<<< HEAD
                 assert (fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
+=======
+                assert (fill_leakout_plus_one(self, src_port_id,
+                       dst_port_id, pkt, queue, asic_type))
+>>>>>>> Fix qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXonLimit (#12649)
                 num_pkts = pkts_num_trig_pfc - pkts_num_margin - 1
                 send_packet(self, src_port_id, pkt, num_pkts)
                 print("Sending {} packets to port {}".format(num_pkts, src_port_id), file=sys.stderr)
