@@ -34,6 +34,12 @@ CLOUD_URL=https://tortuga-k8s-a.cisco.com:32398
 START_TIME=$(date +%s)
 TEST_TAGS=sonic-test
 
+# Disable SSH based pre/post checks in prod mode.
+if [[ "${TEST_NAME}" == "prod" ]]; then
+  TEST_TAGS="${TEST_TAGS},no-ssh"
+  TEST_NAME=""
+fi
+
 set -euo pipefail
 
 function cleanup() {
@@ -69,7 +75,7 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
     --leaves "${LEAF_PORTS}" \
     --ports "${PORTS1x3}" \
     --routes "${ROUTES1x3}" \
-    --tags "${TEST_TAGS},add-sag,ipv6-l3vni"
+    --tags "${TEST_TAGS},add-sag,ipv4,ipv6,l3vni"
 fi
 
 # Test multi-VNI with single vlan in each VNI.
@@ -83,47 +89,6 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "l3vni" ]]; then
     --lldp \
     --auto \
     --prefix \
-    --cloud "${CLOUD_URL}" \
-    --fabric "${FABRIC_NAME}" \
-    --pyvxr "${PYVXR_HOST}" \
-    --hosts "${HOST_PORTS}" \
-    --spines "${SPINE_COUNT}" \
-    --leaves "${LEAF_PORTS}" \
-    --tags "${TEST_TAGS}"
-fi
-
-# Test one Vni and multiple Vlans.
-# E.g. VNI 5100 - Vlan 10 - one port per leaf
-#                 Vlan 20 - one port per leaf
-#                 VRF
-if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "one-vni" ]]; then
-  cleanup "one-vni"
-
-  "${CONFIG_GEN}" \
-    --lldp \
-    --auto \
-    --prefix \
-    --test "one-vni" \
-    --cloud "${CLOUD_URL}" \
-    --fabric "${FABRIC_NAME}" \
-    --pyvxr "${PYVXR_HOST}" \
-    --hosts "${HOST_PORTS}" \
-    --spines "${SPINE_COUNT}" \
-    --leaves "${LEAF_PORTS}" \
-    --tags "${TEST_TAGS}"
-fi
-
-# Tests one Vni and one Vlan.
-# E.g. VNI 5100 - Vlan 10 - multiple ports per leaf
-#                 VRF
-if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "one-vlan" ]]; then
-  cleanup "one-vlan"
-
-  "${CONFIG_GEN}" \
-    --lldp \
-    --auto \
-    --prefix \
-    --test "one-vlan" \
     --cloud "${CLOUD_URL}" \
     --fabric "${FABRIC_NAME}" \
     --pyvxr "${PYVXR_HOST}" \
