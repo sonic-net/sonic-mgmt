@@ -1,6 +1,6 @@
 import pytest
 
-from .test_ro_user import ssh_remote_run, ssh_remote_run_with_ipv6
+from .test_ro_user import ssh_remote_run, ssh_remote_run_retry
 from .utils import check_output
 
 pytestmark = [
@@ -27,7 +27,7 @@ def test_rw_user_ipv6(localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_host
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    res = ssh_remote_run_with_ipv6(localhost, dutip, ptfhost,
+    res = ssh_remote_run_retry(localhost, dutip, ptfhost,
                                    tacacs_creds['tacacs_rw_user'],
                                    tacacs_creds['tacacs_rw_user_passwd'],
                                    "cat /etc/passwd")
