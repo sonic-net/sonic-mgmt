@@ -77,7 +77,7 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
                 current_attempt += 1
 
 
-def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count = 3):
+def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=3):
     while retry_count > 0:
         res = ssh_remote_run(localhost, dutip, user,
                              password, command)
@@ -106,9 +106,9 @@ def test_ro_user_ipv6(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_host
     dutip = duthost.mgmt_ip
 
     res = ssh_remote_run_retry(localhost, dutip, ptfhost,
-                                   tacacs_creds['tacacs_ro_user'],
-                                   tacacs_creds['tacacs_ro_user_passwd'],
-                                   "cat /etc/passwd")
+                               tacacs_creds['tacacs_ro_user'],
+                               tacacs_creds['tacacs_ro_user_passwd'],
+                               "cat /etc/passwd")
 
     check_output(res, 'testadmin', 'remote_user_su')
 
