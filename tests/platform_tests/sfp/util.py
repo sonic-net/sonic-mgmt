@@ -33,7 +33,7 @@ def parse_eeprom(output_lines):
 
 
 def get_dev_conn(duthost, conn_graph_facts, asic_index):
-    dev_conn = conn_graph_facts["device_conn"][duthost.hostname]
+    dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
 
     # Get the interface pertaining to that asic
     portmap = get_port_map(duthost, asic_index)
