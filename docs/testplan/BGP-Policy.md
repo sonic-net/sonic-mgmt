@@ -10,7 +10,7 @@ BGP Policy
 
 ## Overview
 
-The goal of this test is to verify that the BGP policy feature works as expected in different configurations.  
+The goal of this test is to verify that the BGP policy feature works as expected in different configurations.
 
 ### Scope
 
