@@ -3,6 +3,11 @@ package testhelper
 import (
 	"fmt"
 	"strings"
+	"testing"
+	"time"
+
+	"github.com/openconfig/ondatra"
+	"github.com/pkg/errors"
 )
 
 // Software Component APIs.
@@ -32,8 +37,32 @@ func (c CPUInfo) GetMaxAverageUsage() uint8 {
 	return c.MaxAverageUsage
 }
 
+// RebootTimeForDevice returns the maximum time that the device might take to reboot.
+func RebootTimeForDevice(t *testing.T, d *ondatra.DUTDevice) (time.Duration, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.SystemInfo.RebootTime, nil
+}
 
+// LoggingServerAddressesForDevice returns remote logging server address information for a platform.
+func LoggingServerAddressesForDevice(t *testing.T, d *ondatra.DUTDevice) (LoggingInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return LoggingInfo{}, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.SystemInfo.LoggingInfo, nil
+}
 
+// CPUInfoForDevice returns CPU related information for a device.
+func CPUInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]CPUInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.SystemInfo.CPUInfo, nil
+}
 
 // GetPhysical returns the expected physical memory.
 func (m MemoryInfo) GetPhysical() uint64 {
@@ -55,12 +84,29 @@ func (m MemoryInfo) GetCorrectableEccErrorThreshold() uint64 {
 	return m.CorrectableEccErrorThreshold
 }
 
+// MemoryInfoForDevice returns memory related information for a device.
+func MemoryInfoForDevice(t *testing.T, d *ondatra.DUTDevice) (MemoryInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return MemoryInfo{}, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.SystemInfo.MemInfo, nil
+}
 
 // GetName returns the name of the mount point.
 func (m MountPointInfo) GetName() string {
 	return m.Name
 }
 
+// MountPointsInfoForDevice returns information about all "required"
+// mount points for a device.
+func MountPointsInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]MountPointInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.SystemInfo.MountPointInfo, nil
+}
 
 // GetIPv4Address returns NTP server's IPv4 addresses.
 func (n NTPServerInfo) GetIPv4Address() []string {
@@ -77,6 +123,14 @@ func (n NTPServerInfo) GetStratumThreshold() uint8 {
 	return n.StratumThreshold
 }
 
+// NTPServerInfoForDevice returns NTP server related information for a device.
+func NTPServerInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]NTPServerInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.SystemInfo.NTPServerInfo, nil
+}
 
 // Integrated Circuit APIs.
 
@@ -89,6 +143,16 @@ func (i IntegratedCircuitInfo) GetName() string {
 // threshold for the integrated-circuit.
 func (i IntegratedCircuitInfo) GetCorrectedParityErrorsThreshold() uint64 {
 	return i.CorrectedParityErrorsThreshold
+}
+
+// ICInfoForDevice returns integrated-circuit related information for all
+// integrated circuits present in a platform.
+func ICInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]IntegratedCircuitInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.HardwareInfo.ICs, nil
 }
 
 // FPGA APIs.
@@ -118,6 +182,15 @@ func (f FPGAInfo) GetResetCauseNum() int {
 	return f.ResetCauseNum
 }
 
+// FPGAInfoForDevice returns FPGA related information for all FPGAs present in a
+// platform.
+func FPGAInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]FPGAInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.HardwareInfo.FPGAs, nil
+}
 
 // GetMin returns the minimum threshold for the power information.
 func (p Threshold32) GetMin() float32 {
@@ -166,12 +239,44 @@ func (t TemperatureSensorInfo) GetMaxTemperature() float64 {
 	return t.MaxTemperature
 }
 
+// TemperatureSensorInfoForDevice returns information about all temperature sensors
+// of the specified type.
+func TemperatureSensorInfoForDevice(t *testing.T, d *ondatra.DUTDevice, s TemperatureSensorType) ([]TemperatureSensorInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+
+	switch s {
+	case CPUTempSensor:
+		return info.HardwareInfo.CPU, nil
+	case HeatsinkTempSensor:
+		return info.HardwareInfo.Heatsink, nil
+	case ExhaustTempSensor:
+		return info.HardwareInfo.Exhaust, nil
+	case InletTempSensor:
+		return info.HardwareInfo.Inlet, nil
+	case DimmTempSensor:
+		return info.HardwareInfo.Dimm, nil
+	}
+
+	return nil, errors.Errorf("invalid sensor type: %v", s)
+}
 
 // GetName returns the security component name.
 func (s SecurityComponentInfo) GetName() string {
 	return s.Name
 }
 
+// SecurityInfoForDevice returns information about all security components.
+func SecurityInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]SecurityComponentInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+
+	return info.HardwareInfo.Security, nil
+}
 
 // IsValid checks if a value is in the thresholds.
 func (t Thresholds[T]) IsValid(v T) bool {
@@ -265,6 +370,15 @@ func (s StorageDeviceInfo) GetSmartDataInfo() SmartDataInfo {
 	return s.SmartDataInfo
 }
 
+// StorageDeviceInfoForDevice returns information about all storage devices.
+func StorageDeviceInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]StorageDeviceInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+
+	return info.HardwareInfo.Storage, nil
+}
 
 // GetName returns the fan name.
 func (f FanInfo) GetName() string {
@@ -311,9 +425,36 @@ func (f FanTrayInfo) GetLocation() string {
 	return f.Location
 }
 
+// FanInfoForDevice returns information about all fans.
+func FanInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]FanInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
 
+	return info.HardwareInfo.Fans, nil
+}
+
+// FanTrayInfoForDevice returns information about all fan trays.
+func FanTrayInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]FanTrayInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+
+	return info.HardwareInfo.Fantrays, nil
+}
 
 // GetName returns the PCIe device name.
 func (p PCIeInfo) GetName() string {
 	return p.Name
+}
+
+// PcieInfoForDevice returns information about all PCIe devices.
+func PcieInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]PCIeInfo, error) {
+	info, err := platformInfoForDevice(t, d)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
+	}
+	return info.HardwareInfo.PCIe, nil
 }
