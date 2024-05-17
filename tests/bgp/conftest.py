@@ -780,3 +780,16 @@ def gather_info(tbinfo, duthost, nbrhosts):
         if v['description'] == neigh:
             logger.debug(v['description'])
             assert v['state'] == 'established'
+
+            
+@pytest.fixture(scope="module")
+def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Return True if current bgp is using Quagga."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    show_res = duthost.asic_instance().run_vtysh("-c 'show version'")
+    return "Quagga" in show_res["stdout"]
+
+
+@pytest.fixture(scope="module")
+def is_dualtor(tbinfo):
+    return "dualtor" in tbinfo["topo"]["name"]

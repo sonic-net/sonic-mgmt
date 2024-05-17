@@ -1639,7 +1639,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                              'xmit_counters {}\n\txmit_counters_base {}\n'.format(                     # noqa F523
                                  test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port no pfc
-            assert(recv_counters[pg] == recv_counters_base[pg]), \
+            assert (recv_counters[pg] == recv_counters_base[pg]), \
                 'unexpectedly PFC counter increase, {}'.format(test_stage)
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
@@ -1650,11 +1650,11 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                     assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
                         'unexpectedly RX drop counter increase, {}'.format(test_stage)
                 else:
-                    assert(recv_counters[cntr] == recv_counters_base[cntr]),\
+                    assert (recv_counters[cntr] == recv_counters_base[cntr]),\
                         'unexpectedly RX drop counter increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), \
+                assert (xmit_counters[cntr] == xmit_counters_base[cntr]), \
                     'unexpectedly TX drop counter increase, {}'.format(test_stage)
 
             # send 1 packet to trigger pfc
@@ -1678,7 +1678,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                     xmit_counters,
                     xmit_counters_base))
             # recv port pfc
-            assert(recv_counters[pg] > recv_counters_base[pg]), \
+            assert (recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
@@ -1689,11 +1689,11 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                     assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
                         'unexpectedly RX drop counter increase, {}'.format(test_stage)
                 else:
-                    assert(recv_counters[cntr] == recv_counters_base[cntr]),\
+                    assert (recv_counters[cntr] == recv_counters_base[cntr]),\
                         'unexpectedly RX drop counter increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), \
+                assert (xmit_counters[cntr] == xmit_counters_base[cntr]), \
                     'unexpectedly TX drop counter increase, {}'.format(test_stage)
 
             # send packets short of ingress drop
@@ -1713,7 +1713,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                              'xmit_counters {}\n\txmit_counters_base {}\n'.format(                        # noqa F841
                                  test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port pfc
-            assert(recv_counters[pg] > recv_counters_base[pg]), \
+            assert (recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
@@ -1724,11 +1724,11 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                     assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
                         'unexpectedly RX drop counter increase, {}'.format(test_stage)
                 else:
-                    assert(recv_counters[cntr] == recv_counters_base[cntr]),\
+                    assert (recv_counters[cntr] == recv_counters_base[cntr]),\
                         'unexpectedly RX drop counter increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), \
+                assert (xmit_counters[cntr] == xmit_counters_base[cntr]), \
                     'unexpectedly TX drop counter increase, {}'.format(test_stage)
 
             # send 1 packet to trigger ingress drop
@@ -1747,21 +1747,21 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                              'xmit_counters {}\n\txmit_counters_base {}\n'.format(                           # noqa F841
                                  test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port pfc
-            assert(recv_counters[pg] > recv_counters_base[pg]), \
+            assert (recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port ingress drop
             if self.hwsku not in ['Cisco-8800-LC-48H-C48']:
                 for cntr in ingress_counters:
                     if platform_asic and platform_asic == "broadcom-dnx":
                         if cntr == 1:
-                            assert(recv_counters[cntr] > recv_counters_base[cntr]), \
+                            assert (recv_counters[cntr] > recv_counters_base[cntr]), \
                                 'unexpectedly RX drop counter not increase, {}'.format(test_stage)
                     else:
-                        assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
+                        assert (recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
                                                                             ' not increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr]),\
+                assert (xmit_counters[cntr] == xmit_counters_base[cntr]),\
                     'unexpectedly TX drop counter increase, {}'.format(test_stage)
 
             if '201811' not in sonic_version and 'mellanox' in asic_type:
@@ -2291,7 +2291,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_port_vlan
             )
             pkt2 = construct_ip_pkt(packet_length,
-                                    pkt_dst_mac,
+                                    pkt_dst_mac2,
                                     src_port_mac,
                                     src_port_ip,
                                     dst_port_2_ip,
@@ -2514,7 +2514,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
                             port_counter_fields[cntr], step_id, step_desc)
                 else:
-                    assert(recv_counters[cntr] == recv_counters_base[cntr]),\
+                    assert (recv_counters[cntr] == recv_counters_base[cntr]),\
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
                             port_counter_fields[cntr], step_id, step_desc)
             # xmit port no egress drop
@@ -2628,7 +2628,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.write('{}\n'.format(port_cnt_tbl))
 
             # recv port no pfc
-            assert(
+            assert (
                 recv_counters[pg] == recv_counters_base[pg]
                 ), 'unexpectedly trigger PFC for PG {} (counter: {}), at step {} {}'.format(
                 pg, port_counter_fields[pg], step_id, step_desc)
@@ -2954,7 +2954,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     if self.platform_asic and self.platform_asic == "broadcom-dnx":
                         self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, self.uniq_dst_ports)
                     sys.exit("Too many pkts needed to trigger pfc: %d" % (pkt_cnt))
-                assert(recv_counters[sidx_dscp_pg_tuples[i][2]] >
+                assert (recv_counters[sidx_dscp_pg_tuples[i][2]] >
                        recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
                 print("%d packets for sid: %d, pg: %d to trigger pfc" % (
                     pkt_cnt, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], sidx_dscp_pg_tuples[i][2] - 2),
@@ -3031,8 +3031,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     print("pkts sent: %d, lower bound: %d, actual headroom pool watermark: %d, upper_bound: %d" % (
                         wm_pkt_num, expected_wm, hdrm_pool_wm, upper_bound_wm), file=sys.stderr)
                     if 'innovium' not in self.asic_type:
-                        assert(expected_wm <= hdrm_pool_wm)
-                    assert(hdrm_pool_wm <= upper_bound_wm)
+                        assert (expected_wm <= hdrm_pool_wm)
+                    assert (hdrm_pool_wm <= upper_bound_wm)
             if self.platform_asic and self.platform_asic == "broadcom-dnx":
                 time.sleep(8)
                 for i in range(0, self.pgs_num):
@@ -3075,7 +3075,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 # assert ingress drop
                 for cntr in self.ingress_counters:
-                    assert(recv_counters[cntr] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr])
+                    assert (recv_counters[cntr] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr])
 
             # assert no egress drop at the dut xmit port
             if self.platform_asic != "broadcom-dnx":
@@ -3096,14 +3096,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 sys.stderr.write('After PG headroom filled, actual headroom pool watermark {}, upper_bound {}\n'.format(
                     hdrm_pool_wm, upper_bound_wm))
                 if 'innovium' not in self.asic_type:
-                    assert(expected_wm <= hdrm_pool_wm)
-                assert(hdrm_pool_wm <= upper_bound_wm)
+                    assert (expected_wm <= hdrm_pool_wm)
+                assert (hdrm_pool_wm <= upper_bound_wm)
                 # at this point headroom pool should be full. send few more packets to continue causing drops
                 print("overflow headroom pool", file=sys.stderr)
                 send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
                 hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
                     self.src_client, self.buf_pool_roid)
-                assert(hdrm_pool_wm <= self.max_headroom)
+                assert (hdrm_pool_wm <= self.max_headroom)
             sys.stderr.flush()
 
         finally:
@@ -3690,7 +3690,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 cell_occupancy = (packet_length + cell_size - 1) // cell_size
                 pkts_num_trig_egr_drp //= cell_occupancy
                 # It is possible that pkts_num_trig_egr_drp * cell_occupancy < original pkts_num_trig_egr_drp,
-                # which probably can fail the assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
+                # which probably can fail the assert (xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
                 # due to not sending enough packets.
                 # To avoid that we need a larger margin
         else:
@@ -3809,9 +3809,9 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                     if cntr == 1:
                         print("recv_counters_base: %d, recv_counters: %d" % (recv_counters_base[cntr],
                                                                              recv_counters[cntr]), file=sys.stderr)
-                        assert(recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
+                        assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
                 else:
-                    assert(recv_counters[cntr] == recv_counters_base[cntr])
+                    assert (recv_counters[cntr] == recv_counters_base[cntr])
             # xmit port no egress drop
             for cntr in egress_counters:
                 assert (xmit_counters[cntr] == xmit_counters_base[cntr])
@@ -4877,7 +4877,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     logging.info("On J2C+ don't support SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES " +
                                  "stat - so ignoring this step for now")
                 else:
-                    assert(q_wm_res[queue] <= 1 * cell_size)
+                    assert (q_wm_res[queue] <= 1 * cell_size)
 
             # send packet batch of fixed packet numbers to fill queue shared
             # first round sends only 1 packet
@@ -4901,7 +4901,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 if 'cisco-8000' in asic_type:
                     self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
-                    assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
+                    assert (fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
                     pkts_total += pkts_num
                     pkts_num = pkts_total - 1
 
@@ -4916,7 +4916,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 time.sleep(8)
 
-                if(
+                if (
                     que_min_pkts_num == 0
                     and pkts_num <= 1 + margin
                     and check_leackout_compensation_support(asic_type, hwsku)
@@ -5189,9 +5189,8 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                       ),
                       file=sys.stderr,
                 )
-                assert(buffer_pool_wm <= (expected_wm +
-                                          upper_bound_margin) * cell_size)
-                assert((expected_wm - lower_bound_margin)
+                assert (buffer_pool_wm <= (expected_wm + upper_bound_margin) * cell_size)
+                assert ((expected_wm - lower_bound_margin)
                        * cell_size <= buffer_pool_wm)
 
                 pkts_num = pkts_inc
@@ -5386,7 +5385,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             if 'cisco-8000' in asic_type:
                 # Queue is always the inner_dscp due to the TC_TO_QUEUE_MAP redirection
                 queue = inner_dscp
-                assert(fill_leakout_plus_one(self, src_port_id,
+                assert (fill_leakout_plus_one(self, src_port_id,
                        dst_port_id, pkt, queue, asic_type))
                 num_pkts = pkts_num_trig_pfc - pkts_num_margin - 1
                 send_packet(self, src_port_id, pkt, num_pkts)
