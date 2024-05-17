@@ -11,6 +11,7 @@ pytestmark = [ pytest.mark.topology('t1') ]
 pid_sku = [{"x86_64-8102_64h_o-r0" : ["Cisco-8102-C64"]},
            {"x86_64-8101_32h_o-r0" : ["32x100Gb"]},
            {"x86_64-8111_32eh_o-r0": ["Cisco-8111-O32", "Cisco-8111-O64", "Cisco-8111-O62C2"]},
+           {"x86_64-8122_64eh_o-r0": ["Cisco-8122-64x800G", "Cisco-8122-C512", "Cisco-8122-O128", "Cisco-8122-O64"]},
            {"x86_64-88_lc0_36fh_mo-r0" : [("Cisco-88-LC0-36FH-M-O36", [0,1,2])]},
            {"x86_64-88_lc0_36fh_m-r0" : [("Cisco-88-LC0-36FH-M-O36", [0,1,2])]},
            {"x86_64-88_lc0_36fh_o-r0" : [("Cisco-88-LC0-36FH-O36", [0,1,2])]},
