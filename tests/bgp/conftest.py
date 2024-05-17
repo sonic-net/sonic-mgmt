@@ -781,7 +781,7 @@ def gather_info(tbinfo, duthost, nbrhosts):
             logger.debug(v['description'])
             assert v['state'] == 'established'
 
-            
+
 @pytest.fixture(scope="module")
 def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Return True if current bgp is using Quagga."""
