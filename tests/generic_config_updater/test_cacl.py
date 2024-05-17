@@ -55,7 +55,7 @@ def disable_port_toggle(duthosts, tbinfo):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
+def setup_env(duthosts, rand_one_dut_hostname):
     """
     Setup/teardown fixture for acl config
     Args:
