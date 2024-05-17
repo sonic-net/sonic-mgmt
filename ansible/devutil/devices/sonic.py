@@ -1,8 +1,11 @@
 import logging
+import time
+
 import yaml
 
 from .ansible_hosts import AnsibleHosts
 from .ansible_hosts import RunAnsibleModuleFailed
+from .chassis_utils import is_chassis, get_chassis_hostnames, ChassisCardType
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +29,40 @@ class SonicHosts(AnsibleHosts):
             return {}
 
 
-def upgrade_by_sonic(sonichosts, image_url, disk_used_percent):
+def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent):
     try:
         sonichosts.reduce_and_add_sonic_images(
             disk_used_pcent=disk_used_percent,
             new_image_url=image_url,
             module_attrs={"become": True}
         )
-        sonichosts.shell("reboot", module_attrs={"become": True, "async": 300, "poll": 0})
+        if is_chassis(sonichosts):
+            logger.info("Upgrading image on chassis device...")
+            # Chassis DUT need to firstly upgrade and reboot supervisor cards.
+            # Until supervisor cards back online, then upgrade and reboot line cards.
+            rp_hostnames = get_chassis_hostnames(sonichosts, ChassisCardType.SUPERVISOR_CARD)
+            lc_hostnames = get_chassis_hostnames(sonichosts, ChassisCardType.LINE_CARD)
+            sonichosts.shell("reboot", target_hosts=rp_hostnames,
+                             module_attrs={"become": True, "async": 300, "poll": 0})
+            logger.info("Sleep 900s to wait for supervisor card to be ready...")
+            time.sleep(900)
+            for i in range(len(sonichosts.ips)):
+                localhost.wait_for(
+                    host=sonichosts.ips[i],
+                    port=22,
+                    state="started",
+                    search_regex="OpenSSH",
+                    delay=0,
+                    timeout=600,
+                    module_attrs={"changed_when": False}
+                )
+            sonichosts.shell("reboot", target_hosts=lc_hostnames,
+                             module_attrs={"become": True, "async": 300, "poll": 0})
+            logger.info("Sleep 300s to wait for line cards to be ready...")
+            time.sleep(300)
+        else:
+            sonichosts.shell("reboot", module_attrs={"become": True, "async": 300, "poll": 0})
+
         return True
     except RunAnsibleModuleFailed as e:
         logger.error(
@@ -205,7 +234,7 @@ def upgrade_image(sonichosts, localhost, image_url, upgrade_type="sonic", disk_u
         return False
 
     if upgrade_type == "sonic":
-        upgrade_result = upgrade_by_sonic(sonichosts, image_url, disk_used_percent)
+        upgrade_result = upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent)
     elif upgrade_type == "onie":
         upgrade_result = upgrade_by_onie(sonichosts, localhost, image_url, onie_pause_time)
     if not upgrade_result:
