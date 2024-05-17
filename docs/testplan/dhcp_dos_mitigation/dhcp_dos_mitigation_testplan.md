@@ -1,4 +1,4 @@
-# DHCP DOS Mitigation 
+# DHCP DOS Mitigation
 
 ## Test Plan Revision History
 
@@ -86,5 +86,3 @@ Verify whether DHCP rate limit is applied to a specified interface.
 2. Verify that the specified dhcp rate limit is applied to the specified interface.
 3. Delete the dhcp rate limit from an interface.
 4. Verify that the specified dhcp rate limit is removed from the specified interface.
-
-
