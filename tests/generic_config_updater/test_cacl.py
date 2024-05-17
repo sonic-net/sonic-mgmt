@@ -42,6 +42,18 @@ def get_iptable_rules(duthost):
     return rules_chain
 
 
+@pytest.fixture(scope="module", autouse=True)
+def disable_port_toggle(duthosts, tbinfo):
+    # set mux mode to manual on both TORs to avoid port state change during test
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode manual all")
+    yield
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode auto all")
+
+
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     """
@@ -51,13 +63,6 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    # Set mux mode to manual for dualtor testbed,
-    # in case that dualtor oscillation feature will toggle the port
-    # and cause iptables rules to change
-    if "dualtor" in tbinfo['topo']['name']:
-        for dut in duthosts:
-            dut.shell("sudo config mux mode manual all")
-    time.sleep(3)
     original_iptable_rules = get_iptable_rules(duthost)
     original_cacl_tables = get_cacl_tables(duthost)
     create_checkpoint(duthost)
@@ -97,10 +102,6 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
         )
     finally:
         delete_checkpoint(duthost)
-        # change mux mode back to auto
-        if "dualtor" in tbinfo['topo']['name']:
-            for dut in duthosts:
-                dut.shell("sudo config mux mode manual all")
 
 
 def expect_acl_table_match(duthost, table_name, expected_content_list):
