@@ -43,7 +43,7 @@ def get_iptable_rules(duthost):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname):
+def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Setup/teardown fixture for acl config
     Args:
@@ -51,6 +51,13 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    # Set mux mode to manual for dualtor testbed,
+    # in case that dualtor oscillation feature will toggle the port
+    # and cause iptables rules to change
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode manual all")
+    time.sleep(3)
     original_iptable_rules = get_iptable_rules(duthost)
     original_cacl_tables = get_cacl_tables(duthost)
     create_checkpoint(duthost)
@@ -90,6 +97,10 @@ def setup_env(duthosts, rand_one_dut_hostname):
         )
     finally:
         delete_checkpoint(duthost)
+        # change mux mode back to auto
+        if "dualtor" in tbinfo['topo']['name']:
+            for dut in duthosts:
+                dut.shell("sudo config mux mode manual all")
 
 
 def expect_acl_table_match(duthost, table_name, expected_content_list):
