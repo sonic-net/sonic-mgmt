@@ -25,6 +25,7 @@ go_library(
         "port_management.go",
 	      "results.go",
 <<<<<<< HEAD
+<<<<<<< HEAD
       	"ssh.go",
 =======
 >>>>>>> [sdn_tests]: Adding results testhelper to pins_ondatra. (#12675)
@@ -61,6 +62,9 @@ go_library(
         "port_management.go",
         "//infrastructure/testhelper/platform_info:platform_info",
 >>>>>>> [sdn_tests]: Adding Platform and port_management testhelper infra to pins_ondatra. (#12672)
+=======
+      	"ssh.go",
+>>>>>>> [sdn_tests]: Adding ssh testhelper to pins_ondatra. (#12676)
     ],
     data = [
         "//infrastructure/data",
