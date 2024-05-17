@@ -127,6 +127,11 @@ def send_and_verify_traffic(ptfadapter,
         logger.info("Received packet(s) on port {}".format(ptf_dst_port_ids[port_index]))
         global packet_egressed_success
         packet_egressed_success = True
+<<<<<<< HEAD
+=======
+        # Wait for packets to be processed by the DUT
+        time.sleep(8)
+>>>>>>> increase sleep time for packet send/receive (#12720)
         return ptf_dst_port_ids[port_index]
 
     except AssertionError as detail:
