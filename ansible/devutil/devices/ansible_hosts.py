@@ -741,6 +741,7 @@ class AnsibleHostsBase(object):
                 }
         """
         caller_info = kwargs.pop("caller_info", None)
+        target_hosts = kwargs.pop("target_hosts", None)
         if not caller_info:
             previous_frame = inspect.currentframe().f_back
             caller_info = inspect.getframeinfo(previous_frame)
@@ -763,7 +764,10 @@ class AnsibleHostsBase(object):
         self._log_modules(caller_info, module_info, verbosity)
 
         task = self.build_task(**module_info)
-        results = self.run_tasks(self.host_pattern, self.loader, self.im, self.vm, self.options, tasks=[task])
+        host_pattern = self.host_pattern
+        if target_hosts:
+            host_pattern = target_hosts
+        results = self.run_tasks(host_pattern, self.loader, self.im, self.vm, self.options, tasks=[task])
 
         self._log_results(caller_info, module_info, results, verbosity)
         self._check_results(caller_info, module_info, results, module_ignore_errors, verbosity)
