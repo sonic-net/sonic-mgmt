@@ -41,20 +41,20 @@ var stringToEnumSpeedMap = map[string]oc.E_IfEthernet_ETHERNET_SPEED{
 }
 
 var enumToSpeedInfoMap = map[oc.E_IfEthernet_ETHERNET_SPEED]speedEnumInfo{
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_10MB:   speedEnumInfo{"10M", 10_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_100MB:  speedEnumInfo{"100M", 100_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_1GB:    speedEnumInfo{"1G", 1_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_2500MB: speedEnumInfo{"2500M", 2500_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_5GB:    speedEnumInfo{"5G", 5_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_10GB:   speedEnumInfo{"10G", 10_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_25GB:   speedEnumInfo{"25G", 25_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_40GB:   speedEnumInfo{"40G", 40_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_50GB:   speedEnumInfo{"50G", 50_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_100GB:  speedEnumInfo{"100G", 100_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_200GB:  speedEnumInfo{"200G", 200_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_400GB:  speedEnumInfo{"400G", 400_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_600GB:  speedEnumInfo{"600G", 600_000_000_000},
-	oc.IfEthernet_ETHERNET_SPEED_SPEED_800GB:  speedEnumInfo{"800G", 800_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_10MB:   {"10M", 10_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_100MB:  {"100M", 100_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_1GB:    {"1G", 1_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_2500MB: {"2500M", 2500_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_5GB:    {"5G", 5_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_10GB:   {"10G", 10_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_25GB:   {"25G", 25_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_40GB:   {"40G", 40_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_50GB:   {"50G", 50_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_100GB:  {"100G", 100_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_200GB:  {"200G", 200_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_400GB:  {"400G", 400_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_600GB:  {"600G", 600_000_000_000},
+	oc.IfEthernet_ETHERNET_SPEED_SPEED_800GB:  {"800G", 800_000_000_000},
 }
 
 // Indices for slot, port and lane number in Ethernet<slot/port/lane> port naming format.
