@@ -1,21 +1,19 @@
-CE1:
+spine0:
     sonic:
       config: |
-        sudo config interface startup Ethernet0
-        sudo config interface startup Ethernet8
-        sudo config interface ipv6 enable use-link-local-only Ethernet0
-        sudo config interface ip add Ethernet0 10.1.1.1/24
+        sudo config interface startup D1D3P1
+        sudo config interface startup D1D3P2
+        sudo config interface ipv6 enable use-link-local-only D1D3P1
+        sudo config interface ip add D1D3P1 10.1.1.1/24
         sudo config interface ip add Loopback0 192.168.1.1/32
-        sudo config interface ip add Ethernet8 10::1/64
+        sudo config interface ip add D1D3P2 10::1/64
         sudo config interface ip add Loopback1 192::1/128
       deconfig: |
         sudo config interface ip rem Loopback0 192.168.1.1/32
-        sudo config interface ip rem Ethernet0 10.1.1.1/24
-        sudo config interface ip rem Ethernet8 10::1/64
+        sudo config interface ip rem D1D3P1 10.1.1.1/24
+        sudo config interface ip rem D1D3P2 10::1/64
         sudo config interface ip rem Loopback1 192::1/128
-        sudo config interface ipv6 disable use-link-local-only Ethernet8
-        sudo config interface shutdown Ethernet0
-        sudo config interface shutdown Ethernet8
+        sudo config interface ipv6 disable use-link-local-only D1D3P1
 
     bgp:
       config: |
@@ -44,22 +42,22 @@ CE1:
       deconfig: |
         no router bgp 1001
 
-PE1:
+leaf0:
     sonic:
       config: |
-        sudo config interface startup Ethernet0
-        sudo config interface startup Ethernet8
-        sudo config interface startup Ethernet16
-        sudo config interface startup Ethernet24
+        sudo config interface startup D3D1P1
+        sudo config interface startup D3D1P2
+        sudo config interface startup D3D2P1
+        sudo config interface startup D3D2P2
         sudo config vrf add Vrf01
-        sudo config interface vrf bind Ethernet8 Vrf01
+        sudo config interface vrf bind D3D2P1 Vrf01
         sudo config interface vrf bind Loopback1 Vrf01
-        sudo config interface vrf bind Ethernet24 Vrf01
+        sudo config interface vrf bind D3D2P2 Vrf01
         sudo config interface vrf bind Loopback3 Vrf01
-        sudo config interface ip add Ethernet0 10.1.1.2/24
-        sudo config interface ip add Ethernet8 20.1.1.1/24
-        sudo config interface ip add Ethernet16 10::2/24
-        sudo config interface ip add Ethernet24 20::1/64
+        sudo config interface ip add D3D1P1 10.1.1.2/24
+        sudo config interface ip add D3D2P1 20.1.1.1/24
+        sudo config interface ip add D3D1P2 10::2/24
+        sudo config interface ip add D3D2P2 20::1/64
         sudo config interface ip add Loopback0 192.168.1.2/32
         sudo config interface ip add Loopback1 192.168.0.2/32
         sudo config interface ip add Loopback2 192::2/128
@@ -69,15 +67,11 @@ PE1:
         sudo config interface ip rem Loopback1 192.168.0.2/32
         sudo config interface ip rem Loopback2 192::2/128
         sudo config interface ip rem Loopback3 192::1:2/128
-        sudo config interface ip rem Ethernet0 10.1.1.2/24
-        sudo config interface ip rem Ethernet8 20.1.1.1/24
-        sudo config interface ip rem Ethernet16 10::2/24
-        sudo config interface ip rem Ethernet24 20::1/64
+        sudo config interface ip rem D3D1P1 10.1.1.2/24
+        sudo config interface ip rem D3D2P1 20.1.1.1/24
+        sudo config interface ip rem D3D1P2 10::2/24
+        sudo config interface ip rem D3D2P2 20::1/64
         sudo config vrf del Vrf01
-        sudo config interface shutdown Ethernet24
-        sudo config interface shutdown Ethernet16
-        sudo config interface shutdown Ethernet0
-        sudo config interface shutdown Ethernet8
 
     bgp:
       config: |
@@ -124,23 +118,23 @@ PE1:
         no router bgp 1002
         no router bgp 2002 vrf Vrf01
 
-P1:
+spine1:
     sonic:
       config: |
-        sudo config interface startup Ethernet0
-        sudo config interface startup Ethernet8
-        sudo config interface startup Ethernet16
+        sudo config interface startup D2D3P1
+        sudo config interface startup D2D3P2
+        sudo config interface startup D2D4P1
         sudo config vrf add Vrf01
         sudo config vrf add Vrf02
-        sudo config interface vrf bind Ethernet0 Vrf01
-        sudo config interface vrf bind Ethernet8 Vrf02
-        sudo config interface vrf bind Ethernet16 Vrf01
+        sudo config interface vrf bind D2D3P1 Vrf01
+        sudo config interface vrf bind D2D4P1 Vrf02
+        sudo config interface vrf bind D2D3P2 Vrf01
         sudo config interface vrf bind Loopback0 Vrf01
         sudo config interface vrf bind Loopback1 Vrf01
         sudo config interface vrf bind Loopback2 Vrf02
-        sudo config interface ip add Ethernet0 20.1.1.2/24
-        sudo config interface ip add Ethernet8 30.1.1.1/24
-        sudo config interface ip add Ethernet16 20::2/24
+        sudo config interface ip add D2D3P1 20.1.1.2/24
+        sudo config interface ip add D2D4P1 30.1.1.1/24
+        sudo config interface ip add D2D3P2 20::2/24
         sudo config interface ip add Loopback0 192.168.1.3/32
         sudo config interface ip add Loopback1 192::3/128
         sudo config interface ip add Loopback2 192.168.0.3/32
@@ -148,14 +142,11 @@ P1:
         sudo config interface ip rem Loopback0 192.168.1.3/32
         sudo config interface ip rem Loopback1 192::3/128
         sudo config interface ip rem Loopback2 192.168.0.3/32
-        sudo config interface ip rem Ethernet0 20.1.1.2/24
-        sudo config interface ip rem Ethernet8 30.1.1.1/24
-        sudo config interface ip rem Ethernet16 20::2/24
+        sudo config interface ip rem D2D3P1 20.1.1.2/24
+        sudo config interface ip rem D2D4P1 30.1.1.1/24
+        sudo config interface ip rem D2D3P2 20::2/24
         sudo config vrf del Vrf01
         sudo config vrf del Vrf02
-        sudo config interface shutdown Ethernet0
-        sudo config interface shutdown Ethernet8
-        sudo config interface shutdown Ethernet16
 
     bgp:
       config: |
@@ -189,23 +180,22 @@ P1:
         exit-address-family
         exit
       deconfig: |
-        no router bgp 1003 vrf Vfr01
-        no router bgp 1004 vrf Vfr02
+        no router bgp 1003 vrf Vrf01
+        no router bgp 1004 vrf Vrf02
 
-PE2:
+leaf1:
     sonic:
       config: |
-        sudo config interface startup Ethernet0
+        sudo config interface startup D4D2P1
         sudo config vrf add Vrf02
-        sudo config interface vrf bind Ethernet0 Vrf02
+        sudo config interface vrf bind D4D2P1 Vrf02
         sudo config interface vrf bind Loopback0 Vrf02
-        sudo config interface ip add Ethernet0 30.1.1.2/24
+        sudo config interface ip add D4D2P1 30.1.1.2/24
         sudo config interface ip add Loopback0 192.168.1.4/32
       deconfig: |
         sudo config interface ip rem Loopback0 192.168.1.4/32
-        sudo config interface ip rem Ethernet0 30.1.1.2/24
+        sudo config interface ip rem D4D2P1 30.1.1.2/24
         sudo config vrf del Vrf02
-        sudo config interface shutdown Ethernet0
 
     bgp:
       config: |
@@ -223,4 +213,4 @@ PE2:
         exit-address-family
         exit
       deconfig: |
-        no router bgp 1004 vrf Vfr02
+        no router bgp 1004 vrf Vrf02

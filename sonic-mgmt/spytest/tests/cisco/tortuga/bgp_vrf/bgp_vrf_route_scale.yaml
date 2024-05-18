@@ -1,4 +1,4 @@
-P1:
+spine1:
     bgp:
       config: |
         router bgp 1003 vrf Vrf01
