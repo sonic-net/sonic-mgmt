@@ -363,6 +363,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig[xoffProfile]["dscp"],
             "ecn": qosConfig[xoffProfile]["ecn"],
@@ -635,6 +636,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig[xonProfile]["dscp"],
             "ecn": qosConfig[xonProfile]["ecn"],
@@ -1163,6 +1165,7 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
             "dscp": qosConfig["lossy_queue_1"]["dscp"],
             "ecn": qosConfig["lossy_queue_1"]["ecn"],
