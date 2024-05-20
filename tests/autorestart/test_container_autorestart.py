@@ -4,7 +4,6 @@ Test the auto-restart feature of containers
 import logging
 import re
 from collections import defaultdict
-import contextlib
 
 import pytest
 
@@ -31,6 +30,9 @@ PROGRAM_STATUS = "RUNNING"
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
+    if tbinfo["topo"]["type"] == "mx":
+        duthost.shell("config feature state dhcp_server enabled")
+        duthost.shell("sudo systemctl restart dhcp_relay.service")
     # Enable autorestart for all features before the test begins
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
@@ -43,6 +45,9 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         config_reload(duthost, config_source='config_db', safe_reload=True)
+    if tbinfo["topo"]["type"] == "mx":
+        duthost.shell("config feature state dhcp_server disabled")
+        duthost.shell("sudo systemctl restart dhcp_relay.service")
 
 
 def enable_autorestart(duthost):
@@ -555,17 +560,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     logger.info("End of testing the container '{}'".format(container_name))
 
 
-@contextlib.contextmanager
-def dhcp_server_enabled(duthost):
-    duthost.shell("config feature state dhcp_server enabled")
-    duthost.shell("sudo systemctl restart dhcp_relay.service")
-
-    yield
-
-    duthost.shell("config feature state dhcp_server disabled")
-    duthost.shell("sudo systemctl restart dhcp_relay.service")
-
-
 @pytest.mark.disable_loganalyzer
 def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
                                 enum_dut_feature, tbinfo):
@@ -578,8 +572,6 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     service_name = asic.get_service_name(enum_dut_feature)
     container_name = asic.get_docker_name(enum_dut_feature)
-    if tbinfo["topo"]["type"] == "mx":
-        with dhcp_server_enabled(duthost):
-            run_test_on_single_container(duthost, container_name, service_name, tbinfo)
-    else:
-        run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+
+
