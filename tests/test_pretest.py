@@ -357,11 +357,52 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
         logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
 
 
+def test_disable_startup_tsa_tsb_service(duthosts, localhost):
+    """disable startup-tsa-tsb.service.
+    Args:
+        duthosts: Fixture returns a list of Ansible object DuT.
+
+    Returns:
+        None.
+    """
+    for duthost in duthosts.frontend_nodes:
+        platform = duthost.facts['platform']
+        file_check = {}
+        startup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/startup-tsa-tsb.conf".format(platform)
+        backup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/backup-startup-tsa-tsb.bck".format(platform)
+        file_check = duthost.shell("[ -f {} ]".format(startup_tsa_tsb_file_path), module_ignore_errors=True)
+        if file_check.get('rc') == 0:
+            out = duthost.shell("cat {}".format(startup_tsa_tsb_file_path), module_ignore_errors=True)['rc']
+            if not out:
+                duthost.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path))
+                output = duthost.shell("TSB", module_ignore_errors=True)
+                pytest_assert(not output['rc'], "Failed TSB")
+        else:
+            logger.info("{} file does not exist in the specified path on dut {}".
+                        format(startup_tsa_tsb_file_path, duthost.hostname))
+
+
 """
     Separator for internal pretests.
     Please add public pretest above this comment and keep internal
     pretests below this comment.
 """
+
+
+def test_backend_acl_load(duthosts, enum_dut_hostname, tbinfo):
+    duthost = duthosts[enum_dut_hostname]
+    pytest_require("t0-backend" in tbinfo["topo"]["name"],
+                   "Skip 'test_backend_acl_load' on non t0-backend testbeds.")
+    out = duthost.command("systemctl restart backend-acl.service")
+    pytest_assert(out["rc"] == 0, "Failed to load backend acl: {}".format(out["stderr"]))
+    rules = duthost.show_and_parse("show acl rule DATAACL")
+    for rule in rules:
+        if "DATAACL" not in rule["table"]:
+            continue
+        if ((rule["rule"].startswith("RULE") and rule["action"] != "FORWARD")
+                or (rule["rule"].startswith("DEFAULT") and rule["action"] != "DROP")
+                or rule["status"] != "Active"):
+            pytest.fail("Backend acl not installed succesfully: {}".format(rule))
 
 
 # This one is special. It is public, but we need to ensure that it is the last one executed in pre-test.
