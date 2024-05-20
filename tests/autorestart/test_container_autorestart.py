@@ -573,5 +573,3 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     service_name = asic.get_service_name(enum_dut_feature)
     container_name = asic.get_docker_name(enum_dut_feature)
     run_test_on_single_container(duthost, container_name, service_name, tbinfo)
-
-
