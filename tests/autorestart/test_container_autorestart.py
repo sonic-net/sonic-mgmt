@@ -4,6 +4,7 @@ Test the auto-restart feature of containers
 import logging
 import re
 from collections import defaultdict
+import contextlib
 
 import pytest
 
@@ -554,6 +555,17 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     logger.info("End of testing the container '{}'".format(container_name))
 
 
+@contextlib.contextmanager
+def dhcp_server_enabled(duthost):
+    duthost.shell("config feature state dhcp_server enabled")
+    duthost.shell("sudo systemctl restart dhcp_relay.service")
+
+    yield
+    
+    duthost.shell("config feature state dhcp_server disabled")
+    duthost.shell("sudo systemctl restart dhcp_relay.service")
+
+
 @pytest.mark.disable_loganalyzer
 def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
                                 enum_dut_feature, tbinfo):
@@ -566,4 +578,8 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     service_name = asic.get_service_name(enum_dut_feature)
     container_name = asic.get_docker_name(enum_dut_feature)
-    run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    if tbinfo["topo"]["type"] == "mx":
+        with dhcp_server_enabled(duthost):
+            run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    else:
+        run_test_on_single_container(duthost, container_name, service_name, tbinfo)
