@@ -17,6 +17,18 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope="module", autouse=True)
+def disable_port_toggle(duthosts, tbinfo):
+    # set mux mode to manual on both TORs to avoid port state change during test
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode manual all")
+    yield
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode auto all")
+
+
 @pytest.fixture(scope="function", params=["active_tor", "standby_tor"])
 def duthost_dualtor(request, upper_tor_host, lower_tor_host):       # noqa F811
     which_tor = request.param
@@ -28,9 +40,7 @@ def duthost_dualtor(request, upper_tor_host, lower_tor_host):       # noqa F811
     else:
         logger.info("Select upper tor...")
         dut = upper_tor_host
-    dut.shell("sudo config mux mode manual all")
-    yield dut
-    dut.shell("sudo config mux mode auto all")
+    return dut
 
 
 @pytest.fixture
