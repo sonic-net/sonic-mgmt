@@ -2,7 +2,6 @@ import logging
 import pytest
 import json
 import re
-import time
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
@@ -105,19 +104,13 @@ def listen_for_event(ptfhost, cmd, results):
 
 
 def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout, update_count=1,
-                      match_number=0, trigger=None):
+                      match_number=0):
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=update_count, xpath="all[heartbeat=2]",
                               target="EVENTS", filter_event_regex=filter_event_regex)
     results = [""]
     event_thread = InterruptableThread(target=listen_for_event, args=(ptfhost, cmd, results,))
     event_thread.start()
-    # Wait for some time for the PTF docker to start listening to events
-    time.sleep(5)
-    if trigger is not None:  # no trigger for heartbeat
-        trigger(duthost)  # add events to cache
-    # Wait for some time for the heartbeat to stop
-    time.sleep(5)
     event_thread.join(thread_timeout)  # close thread after 30 sec, was not able to find event within reasonable time
     assert results[0] != "", "No output from PTF docker, thread timed out after {} seconds".format(thread_timeout)
     # regex logic and then to write to file

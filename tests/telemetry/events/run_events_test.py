@@ -13,8 +13,10 @@ logger = logging.getLogger(__name__)
 def run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger, json_file,
              filter_event_regex, tag, heartbeat=False, thread_timeout=30):
     op_file = os.path.join(data_dir, json_file)
+    if trigger is not None:  # no trigger for heartbeat
+        trigger(duthost)  # add events to cache
     listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file,
-                      thread_timeout, trigger=trigger)  # listen from cache
+                      thread_timeout)  # listen from cache
     data = {}
     with open(op_file, "r") as f:
         data = json.load(f)
