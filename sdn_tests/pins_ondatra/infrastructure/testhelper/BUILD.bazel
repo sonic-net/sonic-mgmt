@@ -19,7 +19,7 @@ go_library(
         "platform_info.go",
         "port_management.go",
 	      "results.go",
-	      "ssh.go",
+      	"ssh.go",
         "//infrastructure/testhelper/platform_info:platform_info",
     ],
     data = [
