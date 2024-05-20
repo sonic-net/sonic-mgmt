@@ -28,6 +28,13 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
+    def get_bgp_memory_usage(self, duthost):
+        bgp_memory_output = duthost.shell('vtysh -c "show memory bgp"')["stdout"]
+        logging.info("BGP Memory Status: \n%s", bgp_memory_output)
+        bgp_memory = duthost.shell(
+            'vtysh -c "show memory bgp" | grep "Used ordinary blocks"')["stdout"].split()[-2]
+        return bgp_memory
+
     def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname,
                             fanouthosts, bring_up_dut_interfaces, tbinfo):
         """
@@ -38,11 +45,11 @@ class TestContLinkFlap(object):
                 to cause BGP Flaps.
             2.) Flap all interfaces on peer (FanOutLeaf) one by one 1-3 iteration
                 to cause BGP Flaps.
-            3.) Watch for memory (show system-memory) ,orchagent CPU Utilization
-                and Redis_memory.
+            3.) Watch for memory (show system-memory), BGP memory(vtysh -c "show memory bgp"),
+                orchagent CPU Utilization and Redis_memory.
 
         Pass Criteria: All routes must be re-learned with < 5% increase in Redis and
-            ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
+            ORCH agent CPU consumption below threshold after 3 mins after stopping flaps. No bgp memory increment.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         duthost.command("sonic-clear arp")
@@ -68,6 +75,10 @@ class TestContLinkFlap(object):
         start_time_ipv6_route_counts = totalsv6.get('routes', 0)
         logging.info("IPv4 routes: start {}, summary {}".format(start_time_ipv4_route_counts, sumv4))
         logging.info("IPv6 routes: start {}, summary {}".format(start_time_ipv6_route_counts, sumv6))
+
+        # Record BGP memory status at start
+        start_time_bgp_memory = self.get_bgp_memory_usage(duthost)
+        logging.info("BGP Memory Usage at start: \n%s", start_time_bgp_memory)
 
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
         logging.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
@@ -127,6 +138,18 @@ class TestContLinkFlap(object):
         # Record memory status at end
         memory_output = duthost.shell("show system-memory")["stdout"]
         logging.info("Memory Status at end: %s", memory_output)
+
+        # Record BGP memory status at end
+        end_time_bgp_memory = self.get_bgp_memory_usage(duthost)
+        logging.info("BGP Memory Usage at end: \n%s", end_time_bgp_memory)
+
+        # Calculate diff in BGP memory
+        incr_bgp_memory = int(end_time_bgp_memory) - int(start_time_bgp_memory)
+        logging.info("BGP absolute difference: %d", incr_bgp_memory)
+
+        # Check BGP memory is not increased
+        pytest_assert(incr_bgp_memory <= 0,
+                      "BGP memory increased unexpectedly: {}".format(incr_bgp_memory))
 
         # Record orchagent CPU utilization at end
         orch_cpu = duthost.shell(
