@@ -91,6 +91,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc1(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask
         )
 
@@ -131,6 +132,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc2(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask,
             refresh_fdb_ptf_port='eth'+str(ptf_port_index)
         )
@@ -174,6 +176,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc3(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask,
             refresh_fdb_ptf_port='eth'+str(ptf_mac_port_index)
         )
@@ -220,6 +223,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc4(
             dhcp_interface=vlan_name,
             expected_assigned_ip=None,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask,
             refresh_fdb_ptf_port='eth'+str(unconfigured_ptf_port_index)
         )
@@ -264,6 +268,7 @@ def test_dhcp_server_port_based_assignment_range_ip(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask,
             refresh_fdb_ptf_port='eth'+str(ptf_port_index)
         )
@@ -311,6 +316,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_0,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask
         )
         verify_discover_and_request_then_release(
@@ -324,6 +330,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_1,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask
         )
 
@@ -370,6 +377,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_0,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask
         )
         verify_discover_and_request_then_release(
@@ -383,6 +391,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_1,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask
         )
         verify_discover_and_request_then_release(
@@ -396,6 +405,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_1,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask
         )
         verify_discover_and_request_then_release(
@@ -409,6 +419,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_0,
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask
         )
 
@@ -517,6 +528,7 @@ def test_dhcp_server_config_change_dhcp_interface(
         dhcp_interface=vlan_name,
         expected_assigned_ip=expected_assigned_ip,
         exp_gateway=gateway,
+        server_id=gateway,
         net_mask=net_mask
     )
     # disable dhcp interface and validate no packet can be received
@@ -539,6 +551,7 @@ def test_dhcp_server_config_change_dhcp_interface(
         dhcp_interface=vlan_name,
         expected_assigned_ip=None,
         exp_gateway=gateway,
+        server_id=gateway,
         net_mask=net_mask
     )
 
@@ -571,6 +584,7 @@ def test_dhcp_server_config_change_common(
         dhcp_interface=vlan_name,
         expected_assigned_ip=expected_assigned_ip,
         exp_gateway=gateway,
+        server_id=gateway,
         net_mask=net_mask
     )
     # change config on dhcp interface and validate the change can take effect
@@ -609,6 +623,7 @@ def test_dhcp_server_config_change_common(
         dhcp_interface=vlan_name,
         expected_assigned_ip=changed_expected_assigned_ip,
         exp_gateway=changed_gateway,
+        server_id=gateway,
         net_mask=net_mask,
         exp_lease_time=changed_lease_time
     )
@@ -650,6 +665,7 @@ def test_dhcp_server_config_vlan_member_change(
         dhcp_interface=vlan_name,
         expected_assigned_ip=None,
         exp_gateway=gateway,
+        server_id=gateway,
         net_mask=net_mask
     )
     # restore deleted member
@@ -675,6 +691,7 @@ def test_dhcp_server_config_vlan_member_change(
         dhcp_interface=vlan_name,
         expected_assigned_ip=expected_assigned_ip,
         exp_gateway=gateway,
+        server_id=gateway,
         net_mask=net_mask
     )
 
@@ -707,6 +724,7 @@ def test_dhcp_server_lease_config_change(
         dhcp_interface=vlan_name,
         expected_assigned_ip=expected_assigned_ip,
         exp_gateway=gateway,
+        server_id=gateway,
         net_mask=net_mask,
         release_needed=False
     )
@@ -796,6 +814,7 @@ def test_dhcp_server_config_vlan_intf_change(
             dhcp_interface=None,
             expected_assigned_ip=None,
             exp_gateway=None,
+            server_id=None,
             net_mask=None
         )
     except Exception as e:
@@ -814,5 +833,6 @@ def test_dhcp_server_config_vlan_intf_change(
         dhcp_interface=vlan_name_1,
         expected_assigned_ip=expected_assigned_ip_1,
         exp_gateway=gateway_1,
+        server_id=gateway_1,
         net_mask=net_mask_1
     )
