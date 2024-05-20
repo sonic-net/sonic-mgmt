@@ -3,9 +3,8 @@ import ipaddress
 import pytest
 import random
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
 from dhcp_server_test_common import create_common_config_patch, append_common_config_patch, \
-    verify_discover_and_request_then_release, apply_dhcp_server_config_gcu
+    verify_discover_and_request_then_release, apply_dhcp_server_config_gcu, empty_config_patch
 
 
 pytestmark = [
@@ -29,6 +28,7 @@ def setup_multiple_vlans_and_teardown(duthost, tbinfo):
     vlan_member_with_ptf_idx = [(member, connected_dut_intf_to_ptf_index[member])
                                 for member in vlan_members if member in connected_dut_intf_to_ptf_index]
     pytest_assert(len(vlan_member_with_ptf_idx) >= 8, 'Vlan member is too litte for testing')
+    random.shuffle(vlan_member_with_ptf_idx)
     vlan_net = ipaddress.ip_network(address=first_vlan_ipv4_prefix, strict=False)
     pytest_assert(vlan_net.num_addresses >= 12, 'Vlan size is too small for testing')
 
@@ -46,13 +46,13 @@ def setup_multiple_vlans_and_teardown(duthost, tbinfo):
     )
 
     logging.info("The patch for setup is %s" % patch_setup)
-    apply_vlan_config_patch(duthost, patch_setup)
+    apply_dhcp_server_config_gcu(duthost, patch_setup)
 
     logging.info("The four_vlans_info after setup is %s" % four_vlans_info)
     yield four_vlans_info
 
     logging.info("The patch for restore is %s" % patch_restore)
-    apply_vlan_config_patch(duthost, patch_restore)
+    apply_dhcp_server_config_gcu(duthost, patch_restore)
 
 
 def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx):
@@ -72,7 +72,7 @@ def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_
     vlan_net = ipaddress.ip_network(address=vlan_prefix, strict=False)
     vlan_nets = list(vlan_net.subnets(prefixlen_diff=2))
     member_count = len(vlan_member_with_ptf_idx)//4
-    for i in range(3):
+    for i in range(4):
         if i == 3:
             # change the fourth vlan to a smaller subnet
             smaller_prefix_length = 30
@@ -113,16 +113,6 @@ def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_
             + [remove_vlan_member_patch(new_vlan_name, member)[0] for member, _ in new_members_with_ptf_idx]
 
     return four_vlans_info, patch_setup, patch_restore
-
-
-def apply_vlan_config_patch(duthost, config_patch_to_apply):
-    logging.info("The vlan config patch for dhcp_server test: %s" % config_patch_to_apply)
-    tmpfile = generate_tmpfile(duthost)
-    try:
-        output = apply_patch(duthost, json_data=config_patch_to_apply, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
 
 
 def vlan_i2n(vlan_id):
@@ -218,68 +208,47 @@ def test_single_ip_assignment(
     """
     four_vlans_info = setup_multiple_vlans_and_teardown
 
-    test_xid_1 = 111
-    vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
-    logging.info("vlan_info_1 is %s, vlan_info_2 is %s" % (vlan_info_1, vlan_info_2))
-    vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = vlan_info_1['vlan_name'], \
-        vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], vlan_info_1['vlan_hosts'], \
-        vlan_info_1['members_with_ptf_idx']
-    expected_assigned_ip_1 = random.choice(vlan_hosts_1)
-    dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
-    logging.info("expected_assigned_ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
-                 (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
-
-    test_xid_2 = 112
-    vlan_name_2, gateway_2, net_mask_2, vlan_hosts_2, vlan_members_with_ptf_idx_2 = vlan_info_2['vlan_name'], \
-        vlan_info_2['vlan_gateway'], vlan_info_2['vlan_subnet_mask'], vlan_info_2['vlan_hosts'], \
-        vlan_info_2['members_with_ptf_idx']
-    expected_assigned_ip_2 = random.choice(vlan_hosts_2)
-    dut_port_2, ptf_port_index_2 = random.choice(vlan_members_with_ptf_idx_2)
-    logging.info("expected_assigned_ip_2 is %s, dut_port_2 is %s, ptf_port_index_2 is %s" %
-                 (expected_assigned_ip_2, dut_port_2, ptf_port_index_2))
-    config_to_apply = create_common_config_patch(
-        vlan_name_1,
-        gateway_1,
-        net_mask_1,
-        [dut_port_1],
-        [[expected_assigned_ip_1]]
-    )
-    append_common_config_patch(
-        config_to_apply,
-        vlan_name_2,
-        gateway_2,
-        net_mask_2,
-        [dut_port_2],
-        [[expected_assigned_ip_2]]
-    )
+    test_sets = []
+    config_to_apply = empty_config_patch()
+    for vlan_info in four_vlans_info:
+        vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = vlan_info['vlan_name'], \
+            vlan_info['vlan_gateway'], vlan_info['vlan_subnet_mask'], vlan_info['vlan_hosts'], \
+            vlan_info['members_with_ptf_idx']
+        exp_assigned_ip_ranges = [[ip] for ip in vlan_hosts[:len(vlan_members_with_ptf_idx)]]
+        dut_ports, ptf_port_indexs = zip(*vlan_members_with_ptf_idx)
+        logging.info("expected_assigned_ip_rangs is %s, dut_ports is %s, ptf_port_indexs is %s" %
+                     (exp_assigned_ip_ranges, dut_ports, ptf_port_indexs))
+        append_common_config_patch(
+            config_to_apply,
+            vlan_name,
+            gateway,
+            net_mask,
+            dut_ports,
+            exp_assigned_ip_ranges
+        )
+        for index in range(len(dut_ports)):
+            test_xid = 1000 + index
+            test_sets.append((vlan_name, gateway, net_mask, dut_ports[index], ptf_port_indexs[index],
+                              exp_assigned_ip_ranges[index], test_xid))
 
     apply_dhcp_server_config_gcu(duthost, config_to_apply)
-    verify_discover_and_request_then_release(
-        duthost=duthost,
-        ptfhost=ptfhost,
-        ptfadapter=ptfadapter,
-        dut_port_to_capture_pkt=dut_port_1,
-        ptf_port_index=ptf_port_index_1,
-        ptf_mac_port_index=ptf_port_index_1,
-        test_xid=test_xid_1,
-        dhcp_interface=vlan_name_1,
-        expected_assigned_ip=expected_assigned_ip_1,
-        exp_gateway=gateway_1,
-        net_mask=net_mask_1
-    )
-    verify_discover_and_request_then_release(
-        duthost=duthost,
-        ptfhost=ptfhost,
-        ptfadapter=ptfadapter,
-        dut_port_to_capture_pkt=dut_port_2,
-        ptf_port_index=ptf_port_index_2,
-        ptf_mac_port_index=ptf_port_index_2,
-        test_xid=test_xid_2,
-        dhcp_interface=vlan_name_2,
-        expected_assigned_ip=expected_assigned_ip_2,
-        exp_gateway=gateway_2,
-        net_mask=net_mask_2
-    )
+    for vlan_name, gateway, net_mask, dut_port, ptf_port_index, exp_assigned_ip_range, test_xid in test_sets:
+        logging.info("Testing for vlan %s, gateway %s, net_mask %s dut_port %s, ptf_port_index %s, \
+                     expected_assigned_ip %s, test_xid %s" % (vlan_name, gateway, net_mask, dut_port,
+                                                              ptf_port_index, exp_assigned_ip_range, test_xid))
+        verify_discover_and_request_then_release(
+            duthost=duthost,
+            ptfhost=ptfhost,
+            ptfadapter=ptfadapter,
+            dut_port_to_capture_pkt=dut_port,
+            ptf_port_index=ptf_port_index,
+            ptf_mac_port_index=ptf_port_index,
+            test_xid=test_xid,
+            dhcp_interface=vlan_name,
+            expected_assigned_ip=exp_assigned_ip_range[0],
+            exp_gateway=gateway,
+            net_mask=net_mask
+        )
 
 
 def test_range_ip_assignment(
@@ -358,177 +327,4 @@ def test_range_ip_assignment(
         expected_assigned_ip=expected_assigned_ip_2,
         exp_gateway=gateway_2,
         net_mask=net_mask_2
-    )
-
-
-def test_dhcp_server_config_vlan_intf_change_tc1(
-    duthost,
-    ptfhost,
-    ptfadapter,
-    setup_multiple_vlans_and_teardown
-):
-    """
-        When dhcp server congifurate a subnet not belong to current VLAN,
-        the dhcp server can't  assign IP from the subnet
-    """
-    four_vlans_info = setup_multiple_vlans_and_teardown
-
-    test_xid_1 = 115
-    vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
-    logging.info("vlan_info_1 is %s, vlan_info_2 is %s" % (vlan_info_1, vlan_info_2))
-    vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = vlan_info_1['vlan_name'], \
-        vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], vlan_info_1['vlan_hosts'], \
-        vlan_info_1['members_with_ptf_idx']
-    expected_assigned_ip_1 = random.choice(vlan_hosts_1)
-    dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
-    logging.info("expected_assigned_ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
-                 (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
-
-    _, gateway_2, net_mask_2, vlan_hosts_2, _ = vlan_info_2['vlan_name'], vlan_info_2['vlan_gateway'], \
-        vlan_info_2['vlan_subnet_mask'], vlan_info_2['vlan_hosts'], vlan_info_2['members_with_ptf_idx']
-    expected_assigned_ip_2 = random.choice(vlan_hosts_2)
-    logging.info("expected_assigned_ip_2 is %s" % expected_assigned_ip_2)
-    config_to_apply = create_common_config_patch(
-        vlan_name_1,
-        gateway_2,
-        net_mask_2,
-        [dut_port_1],
-        [[expected_assigned_ip_2]]
-    )
-
-    # when the subnet not match to VLAN, client won't get IP
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
-    verify_discover_and_request_then_release(
-        duthost=duthost,
-        ptfhost=ptfhost,
-        ptfadapter=ptfadapter,
-        dut_port_to_capture_pkt=dut_port_1,
-        ptf_port_index=ptf_port_index_1,
-        ptf_mac_port_index=ptf_port_index_1,
-        test_xid=test_xid_1,
-        dhcp_interface=None,
-        expected_assigned_ip=None,
-        exp_gateway=None,
-        net_mask=None
-    )
-    # When the subnet is changed to match VLAN, client can get IP
-    patch_subnet = [
-        {
-            "op": "replace",
-            "path": "/DHCP_SERVER_IPV4_RANGE/range_%s/range/0" % expected_assigned_ip_2,
-            "value": expected_assigned_ip_1
-        },
-        {
-            "op": "replace",
-            "path": "/DHCP_SERVER_IPV4/%s/netmask" % vlan_name_1,
-            "value": net_mask_1
-        },
-        {
-            "op": "replace",
-            "path": "/DHCP_SERVER_IPV4/%s/gateway" % vlan_name_1,
-            "value": gateway_1
-        }
-    ]
-    apply_dhcp_server_config_gcu(duthost, patch_subnet)
-    verify_discover_and_request_then_release(
-        duthost=duthost,
-        ptfhost=ptfhost,
-        ptfadapter=ptfadapter,
-        dut_port_to_capture_pkt=dut_port_1,
-        ptf_port_index=ptf_port_index_1,
-        ptf_mac_port_index=ptf_port_index_1,
-        test_xid=test_xid_1,
-        dhcp_interface=vlan_name_1,
-        expected_assigned_ip=expected_assigned_ip_1,
-        exp_gateway=gateway_1,
-        net_mask=net_mask_1
-    )
-
-
-def test_dhcp_server_config_vlan_intf_change_tc2(
-    duthost,
-    ptfhost,
-    ptfadapter,
-    setup_multiple_vlans_and_teardown
-):
-    """
-        When dhcp server congifurate a subnet not belong to current VLAN,
-        the dhcp server can't assign IP from the subnet
-    """
-
-    four_vlans_info = setup_multiple_vlans_and_teardown
-
-    test_xid_1 = 116
-    vlan_info_1, vlan_info_2 = random.sample(four_vlans_info, 2)
-    logging.info("vlan_info_1 is %s, vlan_info_2 is %s" % (vlan_info_1, vlan_info_2))
-    vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1, vlan_ipv4_1 = \
-        vlan_info_1['vlan_name'], vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], \
-        vlan_info_1['vlan_hosts'], vlan_info_1['members_with_ptf_idx'], vlan_info_1['interface_ipv4']
-    expected_assigned_ip_1 = random.choice(vlan_hosts_1)
-    dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
-    logging.info("expected_assigned_ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
-                 (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
-
-    vlan_ipv4_2 = vlan_info_2['interface_ipv4']
-    config_to_apply = create_common_config_patch(
-        vlan_name_1,
-        gateway_1,
-        net_mask_1,
-        [dut_port_1],
-        [[expected_assigned_ip_1]]
-    )
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
-
-    # When the subnet not match to VLAN, client won't get IP
-    patch_replace_subnet = [
-        {
-            "op": "remove",
-            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_1.replace('/', '~1'))
-        },
-        {
-            "op": "add",
-            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_2.replace('/', '~1')),
-            "value": {}
-        }
-    ]
-    apply_dhcp_server_config_gcu(duthost, patch_replace_subnet)
-    verify_discover_and_request_then_release(
-        duthost=duthost,
-        ptfhost=ptfhost,
-        ptfadapter=ptfadapter,
-        dut_port_to_capture_pkt=dut_port_1,
-        ptf_port_index=ptf_port_index_1,
-        ptf_mac_port_index=ptf_port_index_1,
-        test_xid=test_xid_1,
-        dhcp_interface=None,
-        expected_assigned_ip=None,
-        exp_gateway=None,
-        net_mask=None
-    )
-
-    # When the subnet is changed to match VLAN, client can get IP
-    patch_restore_subnet = [
-        {
-            "op": "remove",
-            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_2.replace('/', '~1'))
-        },
-        {
-            "op": "add",
-            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_1.replace('/', '~1')),
-            "value": {}
-        }
-    ]
-    apply_dhcp_server_config_gcu(duthost, patch_restore_subnet)
-    verify_discover_and_request_then_release(
-        duthost=duthost,
-        ptfhost=ptfhost,
-        ptfadapter=ptfadapter,
-        dut_port_to_capture_pkt=dut_port_1,
-        ptf_port_index=ptf_port_index_1,
-        ptf_mac_port_index=ptf_port_index_1,
-        test_xid=test_xid_1,
-        dhcp_interface=vlan_name_1,
-        expected_assigned_ip=expected_assigned_ip_1,
-        exp_gateway=gateway_1,
-        net_mask=net_mask_1
     )
