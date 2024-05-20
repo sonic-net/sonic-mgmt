@@ -561,7 +561,7 @@ def dhcp_server_enabled(duthost):
     duthost.shell("sudo systemctl restart dhcp_relay.service")
 
     yield
-    
+
     duthost.shell("config feature state dhcp_server disabled")
     duthost.shell("sudo systemctl restart dhcp_relay.service")
 
