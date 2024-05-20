@@ -18,12 +18,18 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, delete_running_config
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fix: add topology mark for test_bgp_peer_shutdown.py (#12891)
 pytestmark = [
     pytest.mark.topology('t0', 't1'),
 ]
 
+<<<<<<< HEAD
 =======
 >>>>>>> feat: add bgp shutdown test (#12479)
+=======
+>>>>>>> fix: add topology mark for test_bgp_peer_shutdown.py (#12891)
 TEST_ITERATIONS = 5
 BGP_DOWN_LOG_TMPL = "/tmp/bgp_down.pcap"
 WAIT_TIMEOUT = 120
