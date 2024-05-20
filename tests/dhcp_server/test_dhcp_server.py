@@ -722,3 +722,97 @@ def test_dhcp_server_lease_config_change(
     apply_dhcp_server_config_gcu(duthost, change_to_apply)
     client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
     verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip, DHCP_DEFAULT_LEASE_TIME)
+
+
+def test_dhcp_server_config_vlan_intf_change(
+    duthost,
+    ptfhost,
+    ptfadapter,
+    parse_vlan_setting_from_running_config
+):
+    """
+        When dhcp server congifurate a subnet not belong to current VLAN,
+        the dhcp server can't  assign IP from the subnet
+    """
+    test_xid_1 = 13
+    vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = \
+        parse_vlan_setting_from_running_config
+    expected_assigned_ip_1 = random.choice(vlan_hosts_1)
+    dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
+    logging.info("expected_assigned_ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
+                 (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
+
+    vlan_net_1 = ipaddress.ip_network(address=gateway_1+'/'+net_mask_1, strict=False)
+    vlan_ipv4_1 = gateway_1 + '/' + str(vlan_net_1.prefixlen)
+    vlan_net_2 = [vlan for vlan in list(vlan_net_1.supernet(prefixlen_diff=1).subnets(prefixlen_diff=1))
+                  if ipaddress.ip_address(gateway_1) not in vlan][0]
+    vlan_net_hosts_2 = list(vlan_net_2.hosts())
+    vlan_ipv4_2 = str(vlan_net_hosts_2[0]) + '/' + str(vlan_net_2.prefixlen)
+
+    config_to_apply = create_common_config_patch(
+        vlan_name_1,
+        gateway_1,
+        net_mask_1,
+        [dut_port_1],
+        [[expected_assigned_ip_1]]
+    )
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+
+    # When the subnet not match to VLAN, client won't get IP
+    patch_replace_subnet = [
+        {
+            "op": "remove",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_1.replace('/', '~1'))
+        },
+        {
+            "op": "add",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_2.replace('/', '~1')),
+            "value": {}
+        }
+    ]
+
+    # When the subnet is changed to match VLAN, client can get IP
+    patch_restore_subnet = [
+        {
+            "op": "remove",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_2.replace('/', '~1'))
+        },
+        {
+            "op": "add",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_1.replace('/', '~1')),
+            "value": {}
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, patch_replace_subnet)
+    try:
+        verify_discover_and_request_then_release(
+            duthost=duthost,
+            ptfhost=ptfhost,
+            ptfadapter=ptfadapter,
+            dut_port_to_capture_pkt=dut_port_1,
+            ptf_port_index=ptf_port_index_1,
+            ptf_mac_port_index=ptf_port_index_1,
+            test_xid=test_xid_1,
+            dhcp_interface=None,
+            expected_assigned_ip=None,
+            exp_gateway=None,
+            net_mask=None
+        )
+    except Exception as e:
+        apply_dhcp_server_config_gcu(duthost, patch_restore_subnet)
+        raise e
+
+    apply_dhcp_server_config_gcu(duthost, patch_restore_subnet)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port_1,
+        ptf_port_index=ptf_port_index_1,
+        ptf_mac_port_index=ptf_port_index_1,
+        test_xid=test_xid_1,
+        dhcp_interface=vlan_name_1,
+        expected_assigned_ip=expected_assigned_ip_1,
+        exp_gateway=gateway_1,
+        net_mask=net_mask_1
+    )
