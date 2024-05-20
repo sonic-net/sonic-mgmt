@@ -1,6 +1,7 @@
 import logging
 import pytest
 import time
+import difflib
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
@@ -22,8 +23,6 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-T0_CACL_TABLE = ["NTP_ACL", "SNMP_ACL", "SSH_ONLY"]
-
 
 def get_cacl_tables(duthost):
     """Get acl control palne tables
@@ -43,6 +42,18 @@ def get_iptable_rules(duthost):
     return rules_chain
 
 
+@pytest.fixture(scope="module", autouse=True)
+def disable_port_toggle(duthosts, tbinfo):
+    # set mux mode to manual on both TORs to avoid port state change during test
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode manual all")
+    yield
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode auto all")
+
+
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
@@ -53,6 +64,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     original_iptable_rules = get_iptable_rules(duthost)
+    original_cacl_tables = get_cacl_tables(duthost)
     create_checkpoint(duthost)
 
     yield
@@ -62,12 +74,32 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rollback_or_reload(duthost)
 
         current_iptable_rules = get_iptable_rules(duthost)
-        pytest_assert(set(original_iptable_rules) == set(current_iptable_rules),
-                      "iptable rules are not suppose to change after test")
+        logger.info("original iptable rules: {}, current iptable rules: {}".format(
+            original_iptable_rules, current_iptable_rules)
+        )
+        iptable_rules_diff = [
+            li for li in difflib.ndiff(original_iptable_rules, current_iptable_rules) if li[0] != ' '
+        ]
+        logger.info("iptable_rules_diff {}".format(iptable_rules_diff))
+        pytest_assert(
+            set(original_iptable_rules) == set(current_iptable_rules),
+            "iptable rules are not suppose to change after test. diff: {}".format(
+                iptable_rules_diff)
+        )
 
         current_cacl_tables = get_cacl_tables(duthost)
-        pytest_assert(set(T0_CACL_TABLE) == set(current_cacl_tables),
-                      "iptable rules are not suppose to change after test")
+        logger.info("original cacl tables: {}, current cacl tables: {}".format(
+            original_cacl_tables, current_cacl_tables)
+        )
+        cacl_tables_diff = [
+            li for li in difflib.ndiff(original_cacl_tables, current_cacl_tables) if li[0] != ' '
+        ]
+        logger.info("cacl_tables_diff {}".format(iptable_rules_diff))
+        pytest_assert(
+            set(original_cacl_tables) == set(current_cacl_tables),
+            "cacl tables are not suppose to change after test. diff: {}".format(
+                cacl_tables_diff)
+        )
     finally:
         delete_checkpoint(duthost)
 

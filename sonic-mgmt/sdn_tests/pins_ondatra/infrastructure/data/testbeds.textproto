@@ -1,0 +1,216 @@
+# proto-message: ondatra.Testbed
+
+# DUT device with 20 ports.
+duts {
+  id: "DUT"
+  ports {
+    id: "port1"
+  }
+  ports {
+    id: "port2"
+  }
+  ports {
+    id: "port3"
+  }
+  ports {
+    id: "port4"
+  }
+  ports {
+    id: "port5"
+  }
+  ports {
+    id: "port6"
+  }
+  ports {
+    id: "port7"
+  }
+  ports {
+    id: "port8"
+  }
+  ports {
+    id: "port9"
+  }
+  ports {
+    id: "port10"
+  }
+  ports {
+    id: "port11"
+  }
+  ports {
+    id: "port12"
+  }
+  ports {
+    id: "port13"
+  }
+  ports {
+    id: "port14"
+  }
+  ports {
+    id: "port15"
+  }
+  ports {
+    id: "port16"
+  }
+  ports {
+    id: "port17"
+  }
+  ports {
+    id: "port18"
+  }
+  ports {
+    id: "port19"
+  }
+  ports {
+    id: "port20"
+  }
+}
+
+# CONTROL device with 20 ports.
+duts {
+  id: "CONTROL"
+  ports {
+    id: "port1"
+  }
+  ports {
+    id: "port2"
+  }
+  ports {
+    id: "port3"
+  }
+  ports {
+    id: "port4"
+  }
+  ports {
+    id: "port5"
+  }
+  ports {
+    id: "port6"
+  }
+  ports {
+    id: "port7"
+  }
+  ports {
+    id: "port8"
+  }
+  ports {
+    id: "port9"
+  }
+  ports {
+    id: "port10"
+  }
+  ports {
+    id: "port11"
+  }
+  ports {
+    id: "port12"
+  }
+  ports {
+    id: "port13"
+  }
+  ports {
+    id: "port14"
+  }
+  ports {
+    id: "port15"
+  }
+  ports {
+    id: "port16"
+  }
+  ports {
+    id: "port17"
+  }
+  ports {
+    id: "port18"
+  }
+  ports {
+    id: "port19"
+  }
+  ports {
+    id: "port20"
+  }
+}
+
+# Specify the links between DUT and CONTROL.
+
+# Below link represents DUT:port1 mapped to CONTROL:port1
+links {
+  a: "DUT:port1"
+  b: "CONTROL:port1"
+}
+# Below link represents DUT:port2 mapped to CONTROL:port2
+links {
+  a: "DUT:port2"
+  b: "CONTROL:port2"
+}
+links {
+  a: "DUT:port3"
+  b: "CONTROL:port3"
+}
+links {
+  a: "DUT:port4"
+  b: "CONTROL:port4"
+}
+links {
+  a: "DUT:port5"
+  b: "CONTROL:port5"
+}
+links {
+  a: "DUT:port6"
+  b: "CONTROL:port6"
+}
+links {
+  a: "DUT:port7"
+  b: "CONTROL:port7"
+}
+links {
+  a: "DUT:port8"
+  b: "CONTROL:port8"
+}
+links {
+  a: "DUT:port9"
+  b: "CONTROL:port9"
+}
+links {
+  a: "DUT:port10"
+  b: "CONTROL:port10"
+}
+links {
+  a: "DUT:port11"
+  b: "CONTROL:port11"
+}
+links {
+  a: "DUT:port12"
+  b: "CONTROL:port12"
+}
+links {
+  a: "DUT:port13"
+  b: "CONTROL:port13"
+}
+links {
+  a: "DUT:port14"
+  b: "CONTROL:port14"
+}
+links {
+  a: "DUT:port15"
+  b: "CONTROL:port15"
+}
+links {
+  a: "DUT:port16"
+  b: "CONTROL:port16"
+}
+links {
+  a: "DUT:port17"
+  b: "CONTROL:port17"
+}
+links {
+  a: "DUT:port18"
+  b: "CONTROL:port18"
+}
+links {
+  a: "DUT:port19"
+  b: "CONTROL:port19"
+}
+links {
+  a: "DUT:port20"
+  b: "CONTROL:port20"
+}

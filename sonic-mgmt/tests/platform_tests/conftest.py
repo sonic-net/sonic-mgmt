@@ -19,9 +19,12 @@ from .mellanox.mellanox_thermal_control_test_helper import suspend_hw_tc_service
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), "templates")
+
 FMT = "%b %d %H:%M:%S.%f"
+FMT_YEAR = "%Y %b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
+
 LOGS_ON_TMPFS_PLATFORMS = [
     "x86_64-arista_7050_qx32",
     "x86_64-arista_7050_qx32s",
@@ -35,14 +38,13 @@ LOGS_ON_TMPFS_PLATFORMS = [
 
 
 def _parse_timestamp(timestamp):
-    try:
-        time = datetime.strptime(timestamp, FMT)
-    except ValueError:
+    for format in [FMT, FMT_YEAR, FMT_SHORT, FMT_ALT]:
         try:
-            time = datetime.strptime(timestamp, FMT_SHORT)
+            time = datetime.strptime(timestamp, format)
+            return time
         except ValueError:
-            time = datetime.strptime(timestamp, FMT_ALT)
-    return time
+            continue
+    raise ValueError("Unable to parse {} with any known format".format(timestamp))
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -56,7 +58,7 @@ def skip_on_simx(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def xcvr_skip_list(duthosts):
+def xcvr_skip_list(duthosts, dpu_npu_port_list):
     intf_skip_list = {}
     for dut in duthosts:
         platform = dut.facts['platform']
@@ -70,6 +72,9 @@ def xcvr_skip_list(duthosts):
             hwsku_info = json.loads(out["stdout"])
             for int_n in hwsku_info['interfaces']:
                 if hwsku_info['interfaces'][int_n].get('port_type') == "RJ45":
+                    intf_skip_list[dut.hostname].append(int_n)
+            for int_n in dpu_npu_port_list[dut.hostname]:
+                if int_n not in intf_skip_list[dut.hostname]:
                     intf_skip_list[dut.hostname].append(int_n)
 
         except Exception:
@@ -756,3 +761,22 @@ def suspend_and_resume_hw_tc_on_mellanox_device(duthosts, enum_rand_one_per_hwsk
 
     if is_mellanox_device(duthost) and duthost.is_host_service_running("hw-management-tc"):
         resume_hw_tc_service(duthost)
+
+
+@pytest.fixture(scope="module")
+def dpu_npu_port_list(duthosts):
+    dpu_npu_port_list = {}
+    cmd_get_config_db_port_key_list = 'redis-cli --raw -n 4 keys "PORT|Ethernet*"'
+    cmd_dump_config_db = "sonic-db-dump -n CONFIG_DB -y"
+    dpu_npu_role = 'Dpc'
+    for dut in duthosts:
+        dpu_npu_port_list[dut.hostname] = []
+        port_key_list = dut.command(cmd_get_config_db_port_key_list)['stdout'].split('\n')
+        config_db_res = json.loads(dut.command(cmd_dump_config_db)["stdout"])
+
+        for port_key in port_key_list:
+            if port_key in config_db_res:
+                if dpu_npu_role == config_db_res[port_key].get('value').get('role'):
+                    dpu_npu_port_list[dut.hostname].append(port_key.split("|")[-1])
+    logging.info(f"dpu npu port list: {dpu_npu_port_list}")
+    return dpu_npu_port_list

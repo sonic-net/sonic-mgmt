@@ -116,9 +116,9 @@ bgp/test_bgp_multipath_relax.py:
 
 bgp/test_bgp_queue.py:
   skip:
-    reason: "Unsupported topology"
+    reason: "1. Not support on mgmt device 2. Known issue on Mellanox platform with T1-LAG topology"
     conditions:
-      - "topo_type in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx'] or ((topo_name in ['t1-lag']) and (asic_type in ['mellanox']))"
 
 bgp/test_bgp_slb.py:
   skip:
@@ -639,6 +639,16 @@ generic_config_updater/test_dhcp_relay.py:
       - "platform in ['x86_64-8111_32eh_o-r0']"
       - "'backend' in topo_name"
 
+generic_config_updater/test_dynamic_acl.py:
+  skip:
+    reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test
+    on m0-2vlan testbed causes consistent failures"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "release in ['202311', '202405'] and platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "hwsku in ['Cisco-8111-O64']"
+      - "topo_name in ['m0-2vlan']"
+
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     reason: "This test is not run on this asic type, topology, or version currently"
@@ -1013,7 +1023,8 @@ platform_tests/daemon/test_chassisd.py:
 platform_tests/mellanox/test_check_sfp_using_ethtool.py:
   skip:
     reason: "Deprecated as Mellanox do not use ethtool in release 202305 or higher"
-    conditions: "release in ['202305', 'master']"
+    conditions:
+      - "asic_type in ['mellanox']"
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:

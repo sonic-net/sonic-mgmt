@@ -1,10 +1,15 @@
 #!python
 
+from itertools import zip_longest
+
+
 class TextTable():
 
-    def __init__(self, field_names=None):
+    def __init__(self, field_names=None, attr_name=None, attr_value=None):
         self.widths = []
         self.table = []
+        self.attr_name = attr_name
+        self.attr_value = attr_value
         self._field_names = None
         if field_names:
             self._field_names = field_names
@@ -60,6 +65,31 @@ class TextTable():
             buf += '\n' + line
 
         return buf
+
+    def get_rows(self):
+        return self.table
+
+    @staticmethod
+    def merge_table(current, base=None):
+        if base is None:
+            return current
+
+        if len(current._field_names) != len(base._field_names) or \
+           any(cf != bf for cf, bf in zip(current._field_names, base._field_names)):
+            return current
+
+        if (current.attr_name or base.attr_name) and current.attr_name != base.attr_name:
+            return current
+
+        new_fields = [current.attr_name] + current._field_names if current.attr_name else current._field_names
+
+        merged = TextTable(new_fields)
+        for cr, br in zip_longest(current.get_rows(), base.get_rows(), fillvalue=[]):
+            if br:
+                merged.add_row([base.attr_value] + br if base.attr_value else br)
+            if cr:
+                merged.add_row([current.attr_value] + cr if current.attr_value else cr)
+        return merged
 
 
 if __name__ == '__main__':

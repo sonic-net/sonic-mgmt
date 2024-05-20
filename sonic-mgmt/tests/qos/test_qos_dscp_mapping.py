@@ -128,7 +128,7 @@ def send_and_verify_traffic(ptfadapter,
         global packet_egressed_success
         packet_egressed_success = True
         # Wait for packets to be processed by the DUT
-        time.sleep(7)
+        time.sleep(8)
         return ptf_dst_port_ids[port_index]
 
     except AssertionError as detail:

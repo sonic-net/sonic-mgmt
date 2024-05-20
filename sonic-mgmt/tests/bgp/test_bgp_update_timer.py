@@ -1,17 +1,17 @@
 """Check how fast FRR or QUAGGA will send updates to neighbors."""
 
-import contextlib
 import ipaddress
 import logging
 import os
 import pytest
-import tempfile
 import time
 import six
 
 from datetime import datetime
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
+
+from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete_pcap_file
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until, delete_running_config
 
@@ -31,7 +31,6 @@ pytestmark = [
 PEER_COUNT = 2
 BGP_LOG_TMPL = "/tmp/bgp%d.pcap"
 BGP_DOWN_LOG_TMPL = "/tmp/bgp_down.pcap"
-local_pcap_file_template = "%s_dump.pcap"
 ANNOUNCED_SUBNETS = [
     "10.10.100.0/27",
     "10.10.100.32/27",
@@ -44,61 +43,6 @@ NEIGHBOR_ASN1 = 61001
 NEIGHBOR_PORT0 = 11000
 NEIGHBOR_PORT1 = 11001
 WAIT_TIMEOUT = 120
-TCPDUMP_WAIT_TIMEOUT = 20
-
-
-def is_tcpdump_running(duthost, cmd):
-    check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
-    if cmd in duthost.shell(check_cmd)["stdout"]:
-        return True
-    return False
-
-
-@contextlib.contextmanager
-def log_bgp_updates(duthost, iface, save_path, ns):
-    """Capture bgp packets to file."""
-    if iface == "any":
-        # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
-        # defaults to writing in that format when listening on any interface. Therefore,
-        # have it use LINUX_SLL (Linux cooked) instead.
-        start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
-    else:
-        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
-    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
-    stop_pcap = "sudo pkill -f '%s%s'" % (
-        duthost.asic_instance_from_namespace(ns).ns_arg,
-        start_pcap,
-    )
-    start_pcap_cmd = "nohup {}{} &".format(
-        duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap
-    )
-
-    duthost.file(path=save_path, state="absent")
-
-    duthost.shell(start_pcap_cmd)
-    # wait until tcpdump process created
-    if not wait_until(
-        WAIT_TIMEOUT,
-        5,
-        1,
-        lambda: is_tcpdump_running(duthost, start_pcap),
-    ):
-        pytest.fail("Could not start tcpdump")
-    # sleep and wait for tcpdump ready to sniff packets
-    time.sleep(TCPDUMP_WAIT_TIMEOUT)
-
-    try:
-        yield
-    finally:
-        duthost.shell(stop_pcap, module_ignore_errors=True)
-
-
-@pytest.fixture
-def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """Return True if current bgp is using Quagga."""
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    show_res = duthost.asic_instance().run_vtysh("-c 'show version'")
-    return "Quagga" in show_res["stdout"]
 
 
 @pytest.fixture
@@ -110,11 +54,6 @@ def has_suppress_feature(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         in duthost.shell("show runningconfiguration bgp")["stdout"]
     )
     return suppress_enabled
-
-
-@pytest.fixture
-def is_dualtor(tbinfo):
-    return "dualtor" in tbinfo["topo"]["name"]
 
 
 @pytest.fixture
@@ -308,7 +247,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route):
 def is_neighbor_sessions_established(duthost, neighbors):
     is_established = True
 
-    # handle both multi-sic and single-asic
+    # handle both multi-asic and single-asic
     bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
         "ansible_facts"
     ]
@@ -350,7 +289,7 @@ def test_bgp_update_timer_single_route(
         withdraw_intervals = []
         for i, route in enumerate(constants.routes):
             bgp_pcap = BGP_LOG_TMPL % i
-            with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
+            with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
                 duthost.shell(
@@ -380,15 +319,7 @@ def test_bgp_update_timer_single_route(
                 )
                 time.sleep(constants.sleep_interval)
 
-            if constants.log_dir:
-                local_pcap_filename = os.path.join(
-                    constants.log_dir, local_pcap_file_template % request.node.name
-                )
-            else:
-                local_pcap_file = tempfile.NamedTemporaryFile()
-                local_pcap_filename = local_pcap_file.name
-            duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
-            duthost.file(path=bgp_pcap, state="absent")
+            local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
             bgp_updates = bgp_update_packets(local_pcap_filename)
 
             announce_from_n0_to_dut = []
@@ -486,20 +417,12 @@ def test_bgp_update_timer_session_down(
                 pytest.fail("announce route %s from n0 to dut failed" % route["prefix"])
         # close bgp session n0, monitor withdraw info from dut to n1
         bgp_pcap = BGP_DOWN_LOG_TMPL
-        with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
+        with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
             result = duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
             bgp_shutdown_time = datetime.strptime(result['end'], "%Y-%m-%d %H:%M:%S.%f").timestamp()
             time.sleep(constants.sleep_interval)
 
-        if constants.log_dir:
-            local_pcap_filename = os.path.join(
-                constants.log_dir, local_pcap_file_template % request.node.name
-            )
-        else:
-            local_pcap_file = tempfile.NamedTemporaryFile()
-            local_pcap_filename = local_pcap_file.name
-        duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
-        duthost.file(path=bgp_pcap, state="absent")
+        local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
         bgp_updates = bgp_update_packets(local_pcap_filename)
 
         for bgp_update in bgp_updates:
