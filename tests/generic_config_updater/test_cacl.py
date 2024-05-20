@@ -42,6 +42,18 @@ def get_iptable_rules(duthost):
     return rules_chain
 
 
+@pytest.fixture(scope="module", autouse=True)
+def disable_port_toggle(duthosts, tbinfo):
+    # set mux mode to manual on both TORs to avoid port state change during test
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode manual all")
+    yield
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode auto all")
+
+
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
