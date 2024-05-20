@@ -42,8 +42,8 @@ def pytest_configure(config):
         allowed values: 'physical', 'vs'"
     )
     config.addinivalue_line(
-        "markers", "supported_completeness_level(TEST_LEVEL): mark test to specify the completeness level for the test. \
-        Allowed values: 'debug', 'basic' ,'confident', 'thorough'"
+        "markers", "supported_completeness_level(TEST_LEVEL): mark test to specify the completeness level for the \
+        test. Allowed values: 'debug', 'basic' ,'confident', 'thorough'"
     )
 
 
@@ -122,8 +122,7 @@ def check_device_type(item):
     if dev:
         if item.config.getoption("--device_type") not in dev:
             pytest.skip("test requires device type in {!r}".format(dev))
-    else:
-        pytest.skip("test does not match device type")
+    # Else, test case not specify device_type explicitly, by default run on all devices
 
 
 def check_test_completeness(item):
