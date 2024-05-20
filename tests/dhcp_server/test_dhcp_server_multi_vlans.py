@@ -247,6 +247,7 @@ def test_single_ip_assignment(
             dhcp_interface=vlan_name,
             expected_assigned_ip=exp_assigned_ip_range[0],
             exp_gateway=gateway,
+            server_id=gateway,
             net_mask=net_mask
         )
 
@@ -313,6 +314,7 @@ def test_range_ip_assignment(
         dhcp_interface=vlan_name_1,
         expected_assigned_ip=expected_assigned_ip_1,
         exp_gateway=gateway_1,
+        server_id=gateway_1,
         net_mask=net_mask_1
     )
     verify_discover_and_request_then_release(
@@ -326,5 +328,6 @@ def test_range_ip_assignment(
         dhcp_interface=vlan_name_2,
         expected_assigned_ip=expected_assigned_ip_2,
         exp_gateway=gateway_2,
+        server_id=gateway_2,
         net_mask=net_mask_2
     )
