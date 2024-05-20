@@ -190,7 +190,7 @@ class TestPlanManager(object):
             "scope": get_scope(self.url)
         }
         attempt = 0
-        while(attempt < MAX_GET_TOKEN_RETRY_TIMES):
+        while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
             try:
                 resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
                 self._token = resp["access_token"]
@@ -222,6 +222,21 @@ class TestPlanManager(object):
         print(json.dumps(scripts, indent=4))
 
         common_extra_params = common_extra_params + " --completeness_level=confident --allow_recover"
+
+        # Add topo and device type args for PR test
+        if test_plan_type == "PR":
+            # Add topo arg
+            if topology in ["t0", "t0-64-32"]:
+                common_extra_params = common_extra_params + " --topology=t0,any"
+            elif topology in ["t1-lag", "t1-8-lag"]:
+                common_extra_params = common_extra_params + " --topology=t1,any"
+            elif topology == "dualtor":
+                common_extra_params = common_extra_params + " --topology=t0,dualtor,any"
+            elif topology == "dpu":
+                common_extra_params = common_extra_params + " --topology=dpu,any"
+
+            # Add device type arg
+            common_extra_params = common_extra_params + " --device_type=vs"
 
         # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
         sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
