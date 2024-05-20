@@ -27,6 +27,7 @@ go_library(
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
       	"ssh.go",
 =======
 >>>>>>> [sdn_tests]: Adding results testhelper to pins_ondatra. (#12675)
@@ -68,6 +69,9 @@ go_library(
 >>>>>>> [sdn_tests]: Adding ssh testhelper to pins_ondatra. (#12676)
 =======
 	      "ssh.go",
+=======
+      	"ssh.go",
+>>>>>>> [sdn_tests]: Adding testrunner to pins_ondatra. (#12678)
         "//infrastructure/testhelper/platform_info:platform_info",
 >>>>>>> [sdn_tests]: Adding ondatra tests bazel to pins_ondatra. (#12677)
     ],
