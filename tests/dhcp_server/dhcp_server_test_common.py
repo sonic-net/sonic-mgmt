@@ -363,6 +363,7 @@ def verify_discover_and_request_then_release(
         ptf_mac_port_index,
         expected_assigned_ip,
         exp_gateway,
+        server_id,
         net_mask,
         refresh_fdb_ptf_port=None,
         exp_lease_time=DHCP_DEFAULT_LEASE_TIME,
@@ -400,7 +401,7 @@ def verify_discover_and_request_then_release(
         message_type=DHCP_MESSAGE_TYPE_REQUEST_NUM,
         client_options=[
             ("requested_addr", expected_assigned_ip),
-            ("server_id", exp_gateway)
+            ("server_id", server_id)
         ],
         xid=test_xid
     )
