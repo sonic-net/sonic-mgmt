@@ -192,7 +192,10 @@ class TestPlanManager(object):
         cmd = 'az account get-access-token --resource {}'.format(self.client_id)
         attempt = 0
         while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
+<<<<<<< HEAD
             stdout, stderr, return_code = self.cmd(cmd.split())
+=======
+>>>>>>> [CI/CD] Add topo and device_type args for PR test scripts (#12731)
             try:
                 if return_code != 0:
                     raise Exception("Failed to get token: rc: {}, error: {}".format(return_code, stderr))
