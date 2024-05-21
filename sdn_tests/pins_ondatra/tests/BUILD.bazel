@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("//tests:ondatra_test.bzl", "ondatra_test", "ondatra_test_suite")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+
+# Ethernet Counter Tests (two switches)
+ondatra_test(
+    name = "ethcounter_sw_dual_switch_test",
+    srcs = ["ethcounter_sw_dual_switch_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_google_gopacket//:gopacket",
+        "@com_github_google_gopacket//layers",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_pkg_errors//:errors",
+    ],
+)
