@@ -192,6 +192,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
 
         # To get file in decent size. Force a rotate
 <<<<<<< HEAD
+<<<<<<< HEAD
         log_rotate(duthost)
 =======
         try:
@@ -203,6 +204,9 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
             else:
                 raise e
 >>>>>>> [TACACS] Handle log rotate failed issue (#12821)
+=======
+        log_rotate(duthost)
+>>>>>>> Update test_ro_disk.py (#12913)
 
         res = duthost.shell("systemctl restart rsyslog")
         assert res["rc"] == 0, "failed to restart rsyslog"
