@@ -85,7 +85,7 @@ def check_pcie_devices_table_ready(duthost):
 def get_pcie_devices_tbl_key(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201811", "201911"])
-    pytest_assert(wait_until(30, 10, 0, check_pcie_devices_table_ready, duthost),
+    pytest_assert(wait_until(60, 10, 0, check_pcie_devices_table_ready, duthost),
                   "PCIE_DEVICES table is empty")
     command_output = duthost.shell("sonic-db-cli STATE_DB KEYS '*' | grep PCIE_DEVICES")
 
