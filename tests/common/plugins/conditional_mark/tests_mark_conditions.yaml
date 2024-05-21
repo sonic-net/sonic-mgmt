@@ -1144,10 +1144,12 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
 
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_pipe_mode:
-  xfail:
+  skip:
     reason: "Pipe decap mode not supported due to either SAI or platform limitation"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'broadcom', 'cisco-8000']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/12906
 
 qos/test_qos_masic.py:
   skip:
@@ -1170,8 +1172,10 @@ qos/test_qos_sai.py::TestQosSai:
 qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
   skip:
     reason: "For DSCP to PG mapping on IPinIP traffic , mellanox device has different behavior to community. For mellanox device, testQosSaiDscpToPgMapping can cover the scenarios"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/12906
 
 qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
   skip:
