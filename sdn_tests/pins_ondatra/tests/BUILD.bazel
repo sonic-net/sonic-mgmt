@@ -22,3 +22,28 @@ ondatra_test(
         "@com_github_pkg_errors//:errors",
     ],
 )
+
+# gNMI Features: Long Stress Test
+ondatra_test(
+    name = "gnmi_long_stress_test",
+    srcs = ["gnmi_long_stress_test.go"],
+    run_timeout = "500m",
+    deps = [
+        ":gnmi_stress_helper",
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_ondatra//:go_default_library",
+    ],
+)
+
+# Gnoi File tests
+ondatra_test(
+    name = "gnoi_file_test",
+    srcs = ["gnoi_file_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_gnoi//file:file_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+    ],
+)
