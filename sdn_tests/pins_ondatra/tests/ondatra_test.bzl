@@ -27,8 +27,8 @@ def ondatra_test(
       data: List of labels; optional
       visibility: List of visibility labels; optional
     """
-    data = (data or []) + ["//ondatra/data"]
-    testbed = testbed or "ondatra/data/testbeds.textproto"
+    data = (data or []) + ["//infrastructure/data"]
+    testbed = testbed or "infrastructure/data/testbeds.textproto"
     testbed_arg = "--testbed=%s" % testbed
 
     args = (args or []) + [
@@ -79,7 +79,7 @@ def ondatra_test_suite(
       visibility: List of visibility labels; optional
     """
     if len(testbeds) == 0:
-        testbeds = {"dualnode" : "ondatra/data/testbeds.textproto"}
+        testbeds = {"dualnode" : "infrastructure/data/testbeds.textproto"}
 
     tests = []
     for testbed_name, testbed_src in testbeds.items():
