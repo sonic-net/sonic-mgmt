@@ -1339,15 +1339,15 @@ sonic_cisco_lc_100G:
     num_asics: 2
     frontend_asics: [0, 1]
   hosts:
-    str2-8800-lc1-3:
+    str2-8800-lc2-3:
       hwsku: Cisco-8800-LC-48H-C48
       sonic_hwsku: Cisco-8800-LC-48H-C48
       sonic_hw_platform: x86_64-8800_lc_48h-r0
       slot_num: slot2
-      loopback4096_ip: [3.3.3.3/32, 3.3.3.4/32]
-      loopback4096_ipv6: [2603:10e2:400::3/128, 2603:10e2:400::4/128]
-      ansible_host: 10.3.146.201
-      ansible_hostv6: 2a01:111:e210:3000::a03:92c9
+      loopback4096_ip: [3.3.3.12/32, 3.3.3.13/32]
+      loopback4096_ipv6: [2603:10e2:400::c/128, 2603:10e2:400::d/128]
+      ansible_host: 10.3.146.200
+      ansible_hostv6: 2a01:111:e210:3000::a03:92c8
       mgmt_subnet_mask_length: 24
       serial: FOC2601NALA
       base_mac: CC:ED:4D:82:39:F0
@@ -1377,15 +1377,15 @@ sonic_cisco_lc_100G:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 60
-    str2-8800-lc2-3:
+    str2-8800-lc3-3:
       hwsku: Cisco-8800-LC-48H-C48
       sonic_hwsku: Cisco-8800-LC-48H-C48
       sonic_hw_platform: x86_64-8800_lc_48h-r0
       slot_num: slot3
-      loopback4096_ip: [3.3.3.5/32, 3.3.3.6/32]
-      loopback4096_ipv6: [2603:10e2:400::5/128, 2603:10e2:400::6/128]
-      ansible_host: 10.3.146.205
-      ansible_hostv6: 2a01:111:e210:3000::a03:92cd
+      loopback4096_ip: [3.3.3.14/32, 3.3.3.15/32]
+      loopback4096_ipv6: [2603:10e2:400::e/128, 2603:10e2:400::f/128]
+      ansible_host: 10.3.146.201
+      ansible_hostv6: 2a01:111:e210:3000::a03:92c9
       mgmt_subnet_mask_length: 24
       serial: FOC2602N0GP
       base_mac: CC:ED:4D:82:38:60
@@ -1402,44 +1402,6 @@ sonic_cisco_lc_100G:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x58BD87C5"
-      plt_reboot_dict:
-        cold:
-          timeout: 300
-          wait: 360
-        watchdog:
-          timeout: 300
-          wait: 360
-        acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
-          wait: 600
-        platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 60
-    str2-8800-lc3-3:
-      hwsku: Cisco-8800-LC-48H-C48
-      sonic_hwsku: Cisco-8800-LC-48H-C48
-      sonic_hw_platform: x86_64-8800_lc_48h-r0
-      slot_num: slot4
-      loopback4096_ip: [3.3.3.7/32, 3.3.3.8/32]
-      loopback4096_ipv6: [2603:10e2:400::7/128, 2603:10e2:400::8/128]
-      ansible_host: 10.3.146.214
-      ansible_hostv6: 2a01:111:e210:3000::a03:92d6
-      mgmt_subnet_mask_length: 24
-      serial: FOC2601NARV
-      base_mac: CC:ED:4D:86:C1:50
-      model: '8800-LC-48H'
-      syseeprom_info:
-        "0x21": "8800-LC-48H"
-        "0x22": "1A5235"
-        "0x23": "FOC2601NARV"
-        "0x24": "CC:ED:4D:86:C1:50"
-        "0x26": "2"
-        "0x28": "x86_64-8800_lc_48h-r2"
-        "0x2A": "200"
-        "0x2B": "Cisco"
-        "0x2C": "US"
-        "0x2D": "Cisco"
-        "0xFE": "0x5AFD7304"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -1504,8 +1466,8 @@ sonic_cisco_lc_400G:
       slot_num: slot5
       loopback4096_ip: [3.3.3.6/32, 3.3.3.7/32, 3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::6/128, 2603:10e2:400::7/128, 2603:10e2:400::8/128]
-      ansible_host: 10.3.146.200
-      ansible_hostv6: 2a01:111:e210:3000::a03:92c8
+      ansible_host: 10.3.146.214
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d6
       mgmt_subnet_mask_length: 24
       serial: FOC2601N5SZ
       base_mac: 14:A2:A0:C6:34:38
@@ -1536,6 +1498,44 @@ sonic_cisco_lc_400G:
           timeout: 300
           wait: 60
       asics_present: [0, 2]
+    str2-8800-lc1-3:
+      hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hwsku: Cisco-88-LC0-36FH-O36
+      sonic_hw_platform: x86_64-88_lc0_36fh-r0
+      slot_num: slot4
+      loopback4096_ip: [3.3.3.9/32, 3.3.3.10/32, 3.3.3.11/32]
+      loopback4096_ipv6: [2603:10e2:400::9/128, 2603:10e2:400::a/128, 2603:10e2:400::b/128]
+      ansible_host: 10.3.146.205
+      ansible_hostv6: 2a01:111:e210:3000::a03:92cd
+      mgmt_subnet_mask_length: 24
+      serial: FOC2648N1BB
+      base_mac: 5C:B1:2E:DE:A7:D8
+      model: '8800-LC-48H'
+      syseeprom_info:
+        "0x21": "88-LC0-36FH"
+        "0x22": "1B1431"
+        "0x23": "FOC2648N1BB"
+        "0x24": "5C:B1:2E:DE:A7:D8"
+        "0x26": "3"
+        "0x28": "x86_64-88_lc0_36fh-r"
+        "0x2A": "296"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xE01C07F1"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
 sonic_nokia_lc_400G:
   vars:
     max_cores: 48
