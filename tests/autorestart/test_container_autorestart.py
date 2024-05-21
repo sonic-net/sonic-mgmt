@@ -33,22 +33,18 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
     # Enable autorestart for all features before the test begins
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
-        # Enable dhcp_server feature for mx topo
-        if tbinfo["topo"]["type"] == "mx":
-            duthost.shell("config feature state dhcp_server enabled")
-            duthost.shell("sudo systemctl restart dhcp_relay.service")
         feature_list, _ = duthost.get_feature_status()
         for feature, status in list(feature_list.items()):
             if status == 'enabled':
                 duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+        # Enable dhcp_server feature for mx topo
+        if tbinfo["topo"]["type"] == "mx" and "enabled" not in feature_list.get("dhcp_server", ""):
+            duthost.shell("config feature state dhcp_server enabled")
+            duthost.shell("sudo systemctl restart dhcp_relay.service")
     yield
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
-        # Disable dhcp_server feature for mx topo
-        if tbinfo["topo"]["type"] == "mx":
-            duthost.shell("config feature state dhcp_server disabled")
-            duthost.shell("sudo systemctl restart dhcp_relay.service")
         config_reload(duthost, config_source='config_db', safe_reload=True)
 
 
