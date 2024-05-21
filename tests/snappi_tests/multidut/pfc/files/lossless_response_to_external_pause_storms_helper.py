@@ -27,6 +27,10 @@ PAUSE_FLOW_DURATION_SEC = 10
 PAUSE_FLOW_DELAY_SEC = 5
 DATA_FLOW_DELAY_SEC = 0
 SNAPPI_POLL_DELAY_SEC = 2
+<<<<<<< HEAD
+=======
+TOLERANCE_THRESHOLD = 0.05
+>>>>>>> [Snappi] Adding Lossless Response to External pause storm test case (#8024)
 PAUSE_FLOW_RATE = 15
 PAUSE_FLOW_NAME = 'PFC Traffic'
 
@@ -109,6 +113,7 @@ def run_lossless_response_to_external_pause_storms_test(api,
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
     """ Run traffic """
+<<<<<<< HEAD
     flow_stats, switch_flow_stats, _ = run_traffic(duthost=duthost1,
                                                    api=api,
                                                    config=testbed_config,
@@ -116,6 +121,15 @@ def run_lossless_response_to_external_pause_storms_test(api,
                                                    all_flow_names=all_flow_names,
                                                    exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                    snappi_extra_params=snappi_extra_params)
+=======
+    flow_stats, switch_flow_stats = run_traffic(duthost=duthost1,
+                                                api=api,
+                                                config=testbed_config,
+                                                data_flow_names=data_flow_names,
+                                                all_flow_names=all_flow_names,
+                                                exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
+                                                snappi_extra_params=snappi_extra_params)
+>>>>>>> [Snappi] Adding Lossless Response to External pause storm test case (#8024)
     flag = {
         'Test Flow': {
             'loss': '0'
@@ -125,9 +139,18 @@ def run_lossless_response_to_external_pause_storms_test(api,
         }
     }
 
+<<<<<<< HEAD
     verify_m2o_oversubscribtion_results(rows=flow_stats,
                                         test_flow_name=TEST_FLOW_NAME,
                                         bg_flow_name=BG_FLOW_NAME,
+=======
+    verify_m2o_oversubscribtion_results(duthost=duthost2,
+                                        rows=flow_stats,
+                                        test_flow_name=TEST_FLOW_NAME,
+                                        bg_flow_name=BG_FLOW_NAME,
+                                        rx_port=rx_port,
+                                        rx_frame_count_deviation=TOLERANCE_THRESHOLD,
+>>>>>>> [Snappi] Adding Lossless Response to External pause storm test case (#8024)
                                         flag=flag)
 
     # Verify pause flows

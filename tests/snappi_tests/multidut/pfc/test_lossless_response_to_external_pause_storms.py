@@ -5,10 +5,18 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts                                                                      # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
+<<<<<<< HEAD
     get_multidut_tgen_peer_port_set                                         # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list                                                                      # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
+=======
+    get_multidut_tgen_peer_port_set, cleanup_config                                         # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
+    lossless_prio_list                                                                      # noqa: F401
+from tests.snappi_tests.variables import config_set, line_card_choice
+from tests.common.config_reload import config_reload
+>>>>>>> [Snappi] Adding Lossless Response to External pause storm test case (#8024)
 from tests.snappi_tests.multidut.pfc.files.lossless_response_to_external_pause_storms_helper import (
      run_lossless_response_to_external_pause_storms_test,
     )
@@ -60,7 +68,11 @@ def test_lossless_response_to_external_pause_storms_test(snappi_api,            
     if line_card_choice not in linecard_configuration_set.keys():
         assert False, "Invalid line_card_choice value passed in parameter"
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
+<<<<<<< HEAD
         dut_list = random.sample(list(duthosts), 2)
+=======
+        dut_list = random.sample(duthosts, 2)
+>>>>>>> [Snappi] Adding Lossless Response to External pause storm test case (#8024)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
         dut_list = [dut for dut in duthosts if
@@ -99,3 +111,11 @@ def test_lossless_response_to_external_pause_storms_test(snappi_api,            
                                                         bg_prio_list=bg_prio_list,
                                                         prio_dscp_map=prio_dscp_map,
                                                         snappi_extra_params=snappi_extra_params)
+<<<<<<< HEAD
+=======
+
+    # Teardown config through a reload
+    logger.info("Reloading config to teardown")
+    config_reload(sonic_host=duthost1, config_source='config_db', safe_reload=True)
+    config_reload(sonic_host=duthost2, config_source='config_db', safe_reload=True)
+>>>>>>> [Snappi] Adding Lossless Response to External pause storm test case (#8024)
