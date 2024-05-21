@@ -34,7 +34,7 @@ def teardown_module(duthosts, enum_supervisor_dut_hostname, conn_graph_facts, xc
     yield
 
     logging.info("Tearing down: to make sure all the critical services, interfaces and transceivers are good")
-    interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
     check_critical_processes(duthost, watch_secs=10)
     check_interfaces_and_services(duthost, interfaces, xcvr_skip_list, INTERFACE_WAIT_TIME)
 
@@ -117,7 +117,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
             poweroff_reboot_kwargs["all_outlets"] = all_outlets
             poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
             poweroff_reboot_kwargs["delay_time"] = power_off_delay
-            reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+            reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                              xcvr_skip_list, REBOOT_TYPE_POWEROFF,
                              _power_off_reboot_helper, poweroff_reboot_kwargs)
     except Exception as e:

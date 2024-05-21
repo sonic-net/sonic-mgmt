@@ -269,6 +269,9 @@ dpu:
 
 onboarding_t0:
   - console/test_console_availability.py
+  - platform_tests/test_power_off_reboot.py
+  - platform_tests/test_sequential_restart.py
+  - platform_tests/test_xcvr_info_in_db.py
 
 
 specific_param:
