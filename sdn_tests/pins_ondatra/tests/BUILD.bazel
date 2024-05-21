@@ -23,6 +23,9 @@ ondatra_test(
     ],
 )
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]:Adding GNOI File Test to pins_ondatra. (#12905)
 
 # gNMI Features: Long Stress Test
 ondatra_test(
@@ -37,6 +40,7 @@ ondatra_test(
     ],
 )
 
+<<<<<<< HEAD
 go_library(
     name = "gnmi_stress_helper",
     testonly = 1,
@@ -53,6 +57,8 @@ go_library(
     ],
 )
 
+=======
+>>>>>>> [sdn_tests]:Adding GNOI File Test to pins_ondatra. (#12905)
 # Gnoi File tests
 ondatra_test(
     name = "gnoi_file_test",
@@ -64,6 +70,7 @@ ondatra_test(
         "@com_github_openconfig_ondatra//:go_default_library",
     ],
 )
+<<<<<<< HEAD
 
 #lacp time-out test
 ondatra_test(
@@ -412,3 +419,5 @@ ondatra_test(
 )
 =======
 >>>>>>> [sdn_tests]:Adding Dual switch EthernetCounter Test to pins_ondatra. (#12901)
+=======
+>>>>>>> [sdn_tests]:Adding GNOI File Test to pins_ondatra. (#12905)
