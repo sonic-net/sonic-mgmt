@@ -112,7 +112,7 @@ def test_bgp_bfd_basic():
     else: 
         for bs in js:
             if bs["status"] != "up":
-                report_fail(nodes['leaf0'], msg='bfd sessions is not up')
+                report_fail(nodes['leaf0'], msg='bfd session is not up')
 
     cmd_output = st.show(nodes['leaf1'], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
     print("************************leaf1 bfdd output************************")
@@ -125,7 +125,7 @@ def test_bgp_bfd_basic():
     else: 
         for bs in js:
             if bs["status"] != "up":
-                report_fail(nodes['leaf0'], msg='bfd sessions is not up')
+                report_fail(nodes['leaf1'], msg='bfd session is not up')
 
     cmd_output = st.show(nodes['spine0'], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
     print("************************spine0 bfdd output json************************")
@@ -234,12 +234,12 @@ def test_bgp_bfd_basic():
     bfd0_output = st.show(nodes['leaf0'], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
     bfd1_output = st.show(nodes['leaf1'], 'show bfd peers json', type='vtysh', skip_tmpl=True, skip_error_check=True)
 
-    #Neighbor Ethernet16 will be down in leaf0 and leaf1
+    #Neighbor D3D2P1 will be down in leaf0 and leaf1
     print("************************leaf0 bfdd output************************")
     print(bfd0_output)
     js = json.loads(bfd0_output[:bfd0_output.rfind(']')+1])
     print(js)
-    # Expectng both bfd sessions are UP
+    # Expecting one bfd session is UP and another is DOWN
     if len(js) < 2:
         report_fail(nodes['leaf0'], msg='number of bfd sessions less than 2 (2 bfd sessions for 2 spine)')
     else: 
@@ -253,7 +253,7 @@ def test_bgp_bfd_basic():
     print(bfd1_output)
     js = json.loads(bfd1_output[:bfd1_output.rfind(']')+1])
     print(js)
-    # Expectng both bfd sessions are UP
+    # Expecting one bfd session is UP and another is DOWN
     if len(js) < 2:
         report_fail(nodes['leaf1'], msg='number of bfd sessions less than 2 (2 bfd sessions for 2 spine)')
     else: 
