@@ -1026,6 +1026,12 @@ platform_tests/mellanox/test_check_sfp_using_ethtool.py:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/mellanox/test_reboot_cause.py:
+  skip:
+    reason: "sn4280 driver doesn't support reset_from_asic and reset_reload_bios"
+    conditions:
+      - "'sn4280' in platform"
+
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform or in bluefield platform"
