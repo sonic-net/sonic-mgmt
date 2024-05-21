@@ -36,14 +36,14 @@ def initial_setup():
 
     if  dut_type == "sim":
         data.transmit_mode = "single_burst"
-        data.pkts_per_burst = "500"
+        data.pkts_per_burst = "100"
         ### Using lower line rate for SIM tgen ###
         data.rate_percent = "0.01"
         data.circuit_endpoint_type = "ipv4"
         data.frame_size = "100"
     else:
         data.transmit_mode = "single_burst"
-        data.pkts_per_burst = "2000"
+        data.pkts_per_burst = "1000"
         data.rate_percent = "10"
         data.circuit_endpoint_type = "ipv4"
         data.frame_size = "1000"
@@ -69,8 +69,16 @@ data.tp4d4_mac_addr = "00:0a:01:00:12:02"
 LEAF0_VXLAN_IP = '10.200.200.200'
 LEAF1_VXLAN_IP = '10.200.200.201'
 
+SAG1_VLAN = '3'
+SAG2_VLAN = '4'
+
+SAG_MAC = "00:11:22:33:44:55"
+SAG1_IP = data.d3tp3_ip_addr
+SAG2_IP = data.d3tp1_ip_addr 
+VRF_NAME = "Vrf43"
+
 ####################
-@pytest.fixture()
+@pytest.fixture(scope="module", autouse=True)
 def setup_teardown_l2vni_sag():
     vars = st.get_testbed_vars()
     global updated_config_file
@@ -100,21 +108,251 @@ def setup_teardown_l2vni_sag():
     ### Remove the temp config file after the test ###
     vxlan_obj.remove_temp_config(updated_config_file)
     
-def test_l2vni_sym_irb_sag_with_traffic(setup_teardown_l2vni_sag, traffic_setup):
+def test_l2vni_sym_irb_sag_with_traffic():
     
     st.banner("Start to test sag with ping and traffic")
-    
+    streams, handles = traffic_setup()
+
     ## Verify Vtep state
     vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
     ## Run Traffic: Bi-directional Burst of 100 Packets
-    result = vxlan_obj.check_traffic(traffic_setup)
+    result = vxlan_obj.check_traffic(streams, timeout=10)
+    traffic_cleanup(streams, handles)
 	
     if result:
         st.report_pass("test_case_passed", "test_l2vni_sym_irb_sag_with_traffic passed")
     else:
         st.report_fail("test_case_failed", "test_l2vni_sym_irb_sag_with_traffic failed")
 
-@pytest.fixture(scope="function")
+def test_l2vni_sym_irb_sag_change_ip():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+
+    st.banner("Start to test sag ip change")
+
+    ## Verify Vtep state
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
+
+    '''
+    remove existed SAG IP
+    '''
+    st.config(nodes['leaf0'], 'sudo config interface ip rem {} {}/24'.format('Vlan' + SAG1_VLAN, SAG1_IP))
+    st.config(nodes['leaf1'], 'sudo config interface ip rem {} {}/24'.format('Vlan' + SAG1_VLAN, SAG1_IP))
+
+    '''
+    change to new SAG IP
+    '''
+    old_sag1_ip = data.d3tp3_ip_addr
+
+    new_sag_ip = "200.200.200.10"
+    st.config(nodes['leaf0'], 'sudo config interface ip add {} {}/24'.format('Vlan' + SAG1_VLAN, new_sag_ip))
+    st.config(nodes['leaf1'], 'sudo config interface ip add {} {}/24'.format('Vlan' + SAG1_VLAN, new_sag_ip))
+
+    data.d3tp3_ip_addr = new_sag_ip
+    data.d4tp4_ip_addr = new_sag_ip
+    streams, handles = traffic_setup()
+
+    ## Verify Vtep state
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
+    ## Run Traffic: Bi-directional Burst of 100 Packets
+    result = vxlan_obj.check_traffic(streams, timeout=10)
+
+    traffic_cleanup(streams, handles)
+
+    ## recover SAG ip
+    data.d3tp3_ip_addr = old_sag1_ip
+    data.d4tp4_ip_addr = old_sag1_ip
+	
+    '''
+    remove SAG IP
+    '''
+    st.config(nodes['leaf0'], 'sudo config interface ip rem {} {}/24'.format('Vlan' + SAG1_VLAN, new_sag_ip))
+    st.config(nodes['leaf1'], 'sudo config interface ip rem {} {}/24'.format('Vlan' + SAG1_VLAN, new_sag_ip))
+
+    '''
+    recover to old SAG IP
+    '''
+    st.config(nodes['leaf0'], 'sudo config interface ip add {} {}/24'.format('Vlan' + SAG1_VLAN, old_sag1_ip))
+    st.config(nodes['leaf1'], 'sudo config interface ip add {} {}/24'.format('Vlan' + SAG1_VLAN, old_sag1_ip))
+
+
+    if result:
+        st.report_pass("test_case_passed", "test_l2vni_sym_irb_sag_change_ip passed")
+    else:
+        st.report_fail("test_case_failed", "test_l2vni_sym_irb_sag_change_ip failed")
+
+
+
+def test_l2vni_sym_irb_sag_change_mac():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+
+    st.banner("Start to test sag mac change")
+
+    ## Verify Vtep state
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
+
+    '''
+    remove SAG MAC
+    '''
+    st.config(nodes['leaf0'], 'sudo config static-anycast-gateway mac_address del')
+    st.config(nodes['leaf1'], 'sudo config static-anycast-gateway mac_address del')
+
+    '''
+    add new SAG MAC
+    '''
+    new_sag_mac = "00:22:44:66:88:99"
+    st.config(nodes['leaf0'], 'sudo config static-anycast-gateway mac_address add {}'.format(new_sag_mac))
+    st.config(nodes['leaf1'], 'sudo config static-anycast-gateway mac_address add {}'.format(new_sag_mac))
+
+    streams, handles = traffic_setup()
+
+    ## Verify Vtep state
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
+    ## Run Traffic: Bi-directional Burst of 100 Packets
+    result = vxlan_obj.check_traffic(streams, timeout=10)
+
+    traffic_cleanup(streams, handles)
+
+    '''
+    remove SAG MAC
+    '''
+    st.config(nodes['leaf0'], 'sudo config static-anycast-gateway mac_address del')
+    st.config(nodes['leaf1'], 'sudo config static-anycast-gateway mac_address del')
+
+    '''
+    recover SAG MAC
+    '''
+    st.config(nodes['leaf0'], 'sudo config static-anycast-gateway mac_address add {}'.format(SAG_MAC))
+    st.config(nodes['leaf1'], 'sudo config static-anycast-gateway mac_address add {}'.format(SAG_MAC))
+
+    if result:
+        st.report_pass("test_case_passed", "test_l2vni_sym_irb_sag_change_mac passed")
+    else:
+        st.report_fail("test_case_failed", "test_l2vni_sym_irb_sag_change_mac failed")
+
+
+def test_l2vni_sym_irb_sag_unbind_vrf():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+
+    st.banner("Start to test unbind vrf")
+
+    ## Verify Vtep state
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
+
+    '''
+    unbind vlan from vrf
+    '''
+    st.config(nodes['leaf0'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG1_VLAN))
+    st.config(nodes['leaf0'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG2_VLAN))
+    st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG1_VLAN))
+    st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG2_VLAN))
+
+    st.wait(2)
+
+    '''
+    re-bind vlan to vrf
+    '''
+    st.config(nodes['leaf0'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG1_VLAN, VRF_NAME))
+    st.config(nodes['leaf0'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG2_VLAN, VRF_NAME))
+    st.config(nodes['leaf1'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG1_VLAN, VRF_NAME))
+    st.config(nodes['leaf1'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG2_VLAN, VRF_NAME))
+
+    '''
+    re-config SAG IP
+    '''
+    st.config(nodes['leaf0'], 'sudo config interface ip add {} {}/24'.format('Vlan' + SAG1_VLAN, data.d3tp3_ip_addr))
+    st.config(nodes['leaf1'], 'sudo config interface ip add {} {}/24'.format('Vlan' + SAG1_VLAN, data.d4tp4_ip_addr))
+
+    st.config(nodes['leaf0'], 'sudo config interface ip add {} {}/24'.format('Vlan' + SAG2_VLAN, data.d3tp1_ip_addr))
+    st.config(nodes['leaf1'], 'sudo config interface ip add {} {}/24'.format('Vlan' + SAG2_VLAN, data.d4tp2_ip_addr))
+
+    '''
+    re-enable SAG
+    '''
+    st.config(nodes['leaf0'], 'sudo config vlan static-anycast-gateway enable {}'.format(SAG1_VLAN))
+    st.config(nodes['leaf1'], 'sudo config vlan static-anycast-gateway enable {}'.format(SAG1_VLAN))
+
+    st.config(nodes['leaf0'], 'sudo config vlan static-anycast-gateway enable {}'.format(SAG2_VLAN))
+    st.config(nodes['leaf1'], 'sudo config vlan static-anycast-gateway enable {}'.format(SAG2_VLAN))
+
+    streams, handles = traffic_setup()
+
+    ## Verify Vtep state
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
+    ## Run Traffic: Bi-directional Burst of 100 Packets
+    result = vxlan_obj.check_traffic(streams, timeout=10)
+
+    traffic_cleanup(streams, handles)
+
+    if result:
+        st.report_pass("test_case_passed", "test_l2vni_sym_irb_sag_unbind_vrf passed")
+    else:
+        st.report_fail("test_case_failed", "test_l2vni_sym_irb_sag_unbind_vrf failed")
+
+def test_l2vni_sym_irb_sag_del_add_vlan_member():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+
+    st.banner("Start to test remove/add vlan member")
+
+    ## Verify Vtep state
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
+
+    leaf0_vlan_member = vxlan_obj.get_replacement(vars, "D3T1P2")
+    leaf1_vlan_member = vxlan_obj.get_replacement(vars, "D4T1P2")
+
+    '''
+    remove vlan member
+    '''
+    st.config(nodes['leaf0'], 'sudo config vlan member del {} {}'.format(SAG1_VLAN, leaf0_vlan_member))
+    st.config(nodes['leaf1'], 'sudo config vlan member del {} {}'.format(SAG1_VLAN, leaf1_vlan_member))
+
+    st.wait(1)
+
+    '''
+    re-add vlan member
+    '''
+    st.config(nodes['leaf0'], 'sudo config vlan member add -u {} {}'.format(SAG1_VLAN, leaf0_vlan_member))
+    st.config(nodes['leaf1'], 'sudo config vlan member add -u {} {}'.format(SAG1_VLAN, leaf1_vlan_member))
+
+    streams, handles = traffic_setup()
+
+    ## Verify Vtep state
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
+    ## Run Traffic: Bi-directional Burst of 100 Packets
+    result = vxlan_obj.check_traffic(streams, timeout=10)
+
+    traffic_cleanup(streams, handles)
+
+    if result:
+        st.report_pass("test_case_passed", "test_l2vni_sym_irb_sag_del_add_vlan_member passed")
+    else:
+        st.report_fail("test_case_failed", "test_l2vni_sym_irb_sag_del_add_vlan_member failed")
+
+
+
 def traffic_setup():
     ### Config tgen interface and get tg handle, port handle and interface handles ###
     int_dict = {"T1D3P1": {"host_ip": data.tp1d3_ip_addr, "gateway": data.d3tp1_ip_addr, "mac" : data.tp1d3_mac_addr }, 
@@ -129,8 +367,17 @@ def traffic_setup():
     # T1D3P1 --- SAG + L3VNI +SAG ---T1D4P2
     # T1D3P2 --- SAG + L3VNI +SAG ---T1D4P1
     stream_list = [("T1D3P1","T1D4P1"), ("T1D3P1", "T1D3P2"),("T1D3P1", "T1D4P2"),("T1D3P2", "T1D4P2"),("T1D3P2", "T1D4P1")]
-    streams = vxlan_obj.config_traffic_item(stream_list, handles, int_dict, data, ping=False)
-    yield streams
+    streams = vxlan_obj.config_traffic_item(stream_list, handles, int_dict, data, ping=True)
+    return streams, handles
+
+def traffic_cleanup(streams, handles):
+    int_dict = {"T1D3P1": {"host_ip": data.tp1d3_ip_addr, "gateway": data.d3tp1_ip_addr, "mac" : data.tp1d3_mac_addr }, 
+                "T1D3P2" : {"host_ip": data.tp3d3_ip_addr, "gateway": data.d3tp3_ip_addr, "mac" : data.tp3d3_mac_addr },
+                "T1D4P1": {"host_ip": data.tp2d4_ip_addr, "gateway": data.d4tp2_ip_addr, "mac" : data.tp2d4_mac_addr},
+                "T1D4P2": {"host_ip": data.tp4d4_ip_addr, "gateway": data.d4tp4_ip_addr, "mac" :data.tp4d4_mac_addr}}
+ 
+    vxlan_obj.cleanup_traffic(int_dict, streams, handles)
+ 
 
 def router_preconfig_cleanup():
     vrf_obj.clear_vrf_configuration(st.get_dut_names())

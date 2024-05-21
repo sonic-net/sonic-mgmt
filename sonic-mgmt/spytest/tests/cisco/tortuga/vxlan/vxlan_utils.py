@@ -214,7 +214,7 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True):
     return traffic_item_dict
 
 
-def check_traffic(streams_info):
+def check_traffic(streams_info, timeout=30):
     '''
     Author:Ramsiddarth Ragurajan (rraguraj@cisco.com)
 
@@ -222,7 +222,7 @@ def check_traffic(streams_info):
     flag = True
     for traffic_item, values in streams_info.items(): 
         values['tg_handle'].tg_traffic_control(action='run', stream_handle=values['stream_id'])
-        st.wait(30)
+        st.wait(timeout)
         values['tg_handle'].tg_traffic_control(action='stop', stream_handle=values['stream_id'])
         st.wait(5)
         traffic_stat = tgapi.get_traffic_stats(values['tg_handle'], mode='streams', port_handle=values['port_handle'], direction='tx', stream_handle=values['stream_id'])
@@ -238,6 +238,21 @@ def check_traffic(streams_info):
             flag = False
     return flag
 
+
+def cleanup_traffic(int_dict, streams_info, handles):
+    for traffic_item, values in streams_info.items(): 
+        values['tg_handle'].tg_traffic_control(action='reset', stream_handle=values['stream_id'])
+
+    for port, values in int_dict.items():
+        tg_handle, port_handle = tgapi.get_handle_byname(port)
+        tg_handle.tg_interface_config(port_handle=port_handle, handle=handles[port]["int_handle"], mode='destroy')
+
+def get_replacement(var_dict, target_string):
+    for item, value in var_dict.items():
+        if target_string == item:
+            return value
+
+    return ''			
 
 def modify_config_file(config_file,var_dict):
     '''
