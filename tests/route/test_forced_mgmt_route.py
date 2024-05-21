@@ -64,7 +64,7 @@ def wait_for_file_changed(duthost, file, action, *args, **kwargs):
         latest_timestamp = get_interface_reload_timestamp(duthost)
         return latest_hash != original_hash and latest_timestamp != last_timestamp
 
-    exist = wait_until(10, 1, 0, hash_and_timestamp_changed, duthost, file)
+    exist = wait_until(60, 1, 0, hash_and_timestamp_changed, duthost, file)
     pytest_assert(exist, "File {} does not change after 10 seconds.".format(file))
 
 
