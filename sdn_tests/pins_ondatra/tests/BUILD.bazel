@@ -22,6 +22,7 @@ ondatra_test(
         "@com_github_pkg_errors//:errors",
     ],
 )
+<<<<<<< HEAD
 
 # gNMI Features: Long Stress Test
 ondatra_test(
@@ -409,3 +410,5 @@ ondatra_test(
         "@org_golang_google_protobuf//encoding/prototext",
     ],
 )
+=======
+>>>>>>> [sdn_tests]:Adding Dual switch EthernetCounter Test to pins_ondatra. (#12901)

@@ -311,6 +311,9 @@ def binding_deps():
 
     go_repository(
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]:Adding Dual switch EthernetCounter Test to pins_ondatra. (#12901)
         name = "com_github_jstemmer_go_junit_report_v2",
         importpath = "github.com/jstemmer/go-junit-report/v2",
         sum = "h1:BVBb1o0TfOuRCMykVAYJ1r2yoZ+ByE0f19QNF4ngQ0M=",
@@ -325,8 +328,11 @@ def binding_deps():
     )
 
     go_repository(
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+>>>>>>> [sdn_tests]:Adding Dual switch EthernetCounter Test to pins_ondatra. (#12901)
         name = "com_github_pkg_errors",
         importpath = "github.com/pkg/errors",
         sum = "h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=",
