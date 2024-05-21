@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 import logging
 import ipaddress
 import pytest
@@ -16,15 +17,26 @@ import binascii
 import contextlib
 from datetime import datetime
 import json
+=======
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
 import logging
 import ipaddress
 import pytest
-import ptf.packet as scapy
-import ptf.testutils as testutils
 import random
+<<<<<<< HEAD
 from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+import time
+from tests.common.helpers.assertions import pytest_assert
+from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI, \
+    create_common_config_patch, generate_common_config_cli_commands, dhcp_server_config, \
+    validate_dhcp_server_pkts_custom_option, verify_lease, \
+    verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
+    DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
+    apply_dhcp_server_config_gcu, create_dhcp_client_packet
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
 
 
 pytestmark = [
@@ -32,6 +44,7 @@ pytestmark = [
 ]
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 MINIMUM_HOSTS_COUNT = 2
@@ -88,6 +101,8 @@ def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
 
 
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
 @pytest.fixture(scope="module")
 def parse_vlan_setting_from_running_config(duthost, tbinfo):
     vlan_brief = duthost.get_vlan_brief()
@@ -103,22 +118,31 @@ def parse_vlan_setting_from_running_config(duthost, tbinfo):
     vlan_members = first_vlan_info['members']
     vlan_member_with_ptf_idx = [(member, connected_dut_intf_to_ptf_index[member])
 <<<<<<< HEAD
+<<<<<<< HEAD
                                 for member in vlan_members if member in connected_dut_intf_to_ptf_index]
     pytest_assert(len(vlan_member_with_ptf_idx) >= 2, 'Vlan members is too little for testing')
 =======
                                 for member in vlan_members if member in dut_intf_to_ptf_index]
     pytest_assert(len(vlan_members) >= MINIMUM_INTERFACE_MEMBERS_COUNT, 'Vlan size is too small for testing')
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+                                for member in vlan_members if member in connected_dut_intf_to_ptf_index]
+    pytest_assert(len(vlan_member_with_ptf_idx) >= 2, 'Vlan members is too little for testing')
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
     vlan_net = ipaddress.ip_network(address=first_vlan_prefix, strict=False)
     vlan_gateway = first_vlan_prefix.split('/')[0]
     vlan_hosts = [str(host) for host in vlan_net.hosts()]
     # to avoid configurate an range contains gateway ip, simply ignore all ip before gateway and gateway itself
     vlan_hosts_after_gateway = vlan_hosts[vlan_hosts.index(vlan_gateway) + 1:]
 <<<<<<< HEAD
+<<<<<<< HEAD
     pytest_assert(len(vlan_hosts_after_gateway) >= 2, 'Vlan size is too small for testing')
 =======
     pytest_assert(len(vlan_hosts_after_gateway) >= MINIMUM_HOSTS_COUNT, 'Vlan size is too small for testing')
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+    pytest_assert(len(vlan_hosts_after_gateway) >= 2, 'Vlan size is too small for testing')
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
     vlan_setting = {
         'vlan_name': first_vlan_name,
         'vlan_gateway': vlan_gateway,
@@ -135,6 +159,7 @@ def parse_vlan_setting_from_running_config(duthost, tbinfo):
         vlan_setting['vlan_member_with_ptf_idx']
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 @contextlib.contextmanager
@@ -435,6 +460,8 @@ def verify_discover_and_request_then_release(
 
 
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
 @pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI])
 def test_dhcp_server_port_based_assignment_single_ip_tc1(
     duthost,
@@ -451,6 +478,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc1(
     expected_assigned_ip = random.choice(vlan_hosts)
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
 <<<<<<< HEAD
+<<<<<<< HEAD
     logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
                  (expected_assigned_ip, dut_port, ptf_port_index))
     config_cli = generate_common_config_cli_commands(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
@@ -459,6 +487,12 @@ def test_dhcp_server_port_based_assignment_single_ip_tc1(
     config_cli = generate_common_config_cli_commands(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     config_gcu = generate_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
+    config_cli = generate_common_config_cli_commands(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
+    config_gcu = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
     config_to_apply = None
     if config_tool == DHCP_SERVER_CONFIG_TOOL_CLI:
         config_to_apply = config_cli
@@ -476,11 +510,16 @@ def test_dhcp_server_port_based_assignment_single_ip_tc1(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip,
 <<<<<<< HEAD
+<<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
 =======
             exp_server_ip=gateway,
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             net_mask=net_mask
         )
 
@@ -501,6 +540,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc2(
     expected_assigned_ip = random.choice(vlan_hosts)
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
 <<<<<<< HEAD
+<<<<<<< HEAD
     logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
                  (expected_assigned_ip, dut_port, ptf_port_index))
     config_cli = generate_common_config_cli_commands(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
@@ -509,6 +549,12 @@ def test_dhcp_server_port_based_assignment_single_ip_tc2(
     config_cli = generate_common_config_cli_commands(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     config_gcu = generate_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
+    config_cli = generate_common_config_cli_commands(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
+    config_gcu = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
     config_to_apply = None
     if config_tool == DHCP_SERVER_CONFIG_TOOL_CLI:
         config_to_apply = config_cli
@@ -526,11 +572,16 @@ def test_dhcp_server_port_based_assignment_single_ip_tc2(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip,
 <<<<<<< HEAD
+<<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
 =======
             exp_server_ip=gateway,
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             net_mask=net_mask,
             refresh_fdb_ptf_port='eth'+str(ptf_port_index)
         )
@@ -555,12 +606,18 @@ def test_dhcp_server_port_based_assignment_single_ip_tc3(
     config_cli = generate_common_config_cli_commands(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     _, ptf_mac_port_index = random.choice([m for m in vlan_members_with_ptf_idx if m[0] != dut_port])
 <<<<<<< HEAD
+<<<<<<< HEAD
     logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s, ptf_mac_port_index is %s" %
                  (expected_assigned_ip, dut_port, ptf_port_index, ptf_mac_port_index))
     config_gcu = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
 =======
     config_gcu = generate_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s, ptf_mac_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index, ptf_mac_port_index))
+    config_gcu = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
     config_to_apply = None
     if config_tool == DHCP_SERVER_CONFIG_TOOL_CLI:
         config_to_apply = config_cli
@@ -578,11 +635,16 @@ def test_dhcp_server_port_based_assignment_single_ip_tc3(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip,
 <<<<<<< HEAD
+<<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
 =======
             exp_server_ip=gateway,
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             net_mask=net_mask,
             refresh_fdb_ptf_port='eth'+str(ptf_mac_port_index)
         )
@@ -605,10 +667,14 @@ def test_dhcp_server_port_based_assignment_single_ip_tc4(
     unconfigured_dut_port, unconfigured_ptf_port_index = random.choice(vlan_members_with_ptf_idx)
     configured_dut_port, _ = random.choice([m for m in vlan_members_with_ptf_idx if m[0] != unconfigured_dut_port])
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
     logging.info(
         "assigned ip is %s, unconfigured_dut_port is %s, unconfigured_ptf_port_index is %s, configured_dut_port is %s" %
         (assigned_ip, unconfigured_dut_port, unconfigured_ptf_port_index, configured_dut_port)
     )
+<<<<<<< HEAD
     config_cli = generate_common_config_cli_commands(
         vlan_name, gateway, net_mask, [configured_dut_port], [[assigned_ip]])
     config_gcu = create_common_config_patch(
@@ -617,6 +683,11 @@ def test_dhcp_server_port_based_assignment_single_ip_tc4(
         vlan_name, gateway, net_mask, [configured_dut_port], [[assigned_ip]])
     config_gcu = generate_common_config_patch(
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+    config_cli = generate_common_config_cli_commands(
+        vlan_name, gateway, net_mask, [configured_dut_port], [[assigned_ip]])
+    config_gcu = create_common_config_patch(
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
         vlan_name, gateway, net_mask, [configured_dut_port], [[assigned_ip]])
     config_to_apply = None
     if config_tool == DHCP_SERVER_CONFIG_TOOL_CLI:
@@ -629,21 +700,30 @@ def test_dhcp_server_port_based_assignment_single_ip_tc4(
             ptfhost=ptfhost,
             ptfadapter=ptfadapter,
 <<<<<<< HEAD
+<<<<<<< HEAD
             dut_port_to_capture_pkt=unconfigured_dut_port,
 =======
             dut_port_to_capture_pkt='any',
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            dut_port_to_capture_pkt=unconfigured_dut_port,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             ptf_port_index=unconfigured_ptf_port_index,
             ptf_mac_port_index=unconfigured_ptf_port_index,
             test_xid=test_xid,
             dhcp_interface=vlan_name,
             expected_assigned_ip=None,
 <<<<<<< HEAD
+<<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
 =======
             exp_server_ip=gateway,
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             net_mask=net_mask,
             refresh_fdb_ptf_port='eth'+str(unconfigured_ptf_port_index)
         )
@@ -659,16 +739,21 @@ def test_dhcp_server_port_based_assignment_range_ip(
 ):
     """
 <<<<<<< HEAD
+<<<<<<< HEAD
         Verify configured interface can successfully get IP from an IP range
 =======
        Test single ip assignment with different scenarios, each scenario has a description in scenario_context.
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+        Verify configured interface can successfully get IP from an IP range
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
     """
     test_xid = 5
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     expected_assigned_ip = random.choice(vlan_hosts[:-1])
     last_ip_in_range = random.choice(vlan_hosts[vlan_hosts.index(expected_assigned_ip) + 1:])
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+<<<<<<< HEAD
 <<<<<<< HEAD
     logging.info("expected assigned ip is %s, last_ip_in_range is %s, dut_port is %s, ptf_port_index is %s" %
                  (expected_assigned_ip, last_ip_in_range, dut_port, ptf_port_index))
@@ -680,6 +765,13 @@ def test_dhcp_server_port_based_assignment_range_ip(
         vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip, last_ip_in_range]])
     config_gcu = generate_common_config_patch(
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+    logging.info("expected assigned ip is %s, last_ip_in_range is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, last_ip_in_range, dut_port, ptf_port_index))
+    config_cli = generate_common_config_cli_commands(
+        vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip, last_ip_in_range]])
+    config_gcu = create_common_config_patch(
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
         vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip, last_ip_in_range]])
     config_to_apply = None
     if config_tool == DHCP_SERVER_CONFIG_TOOL_CLI:
@@ -698,11 +790,16 @@ def test_dhcp_server_port_based_assignment_range_ip(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip,
 <<<<<<< HEAD
+<<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
 =======
             exp_server_ip=gateway,
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             net_mask=net_mask,
             refresh_fdb_ptf_port='eth'+str(ptf_port_index)
         )
@@ -726,10 +823,14 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
     expected_assigned_ip_1 = random.choice([v for v in vlan_hosts if v != expected_assigned_ip_0])
     dut_port_1, ptf_port_index_1 = random.choice([m for m in vlan_members_with_ptf_idx if m[0] != dut_port_0])
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
     logging.info("expected assigned ip_0 is %s, dut_port_0 is %s, ptf_port_index_0 is %s" %
                  (expected_assigned_ip_0, dut_port_0, ptf_port_index_0))
     logging.info("expected assigned ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
                  (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
+<<<<<<< HEAD
     config_cli = generate_common_config_cli_commands(
         vlan_name, gateway, net_mask, [dut_port_0, dut_port_1], [[expected_assigned_ip_0], [expected_assigned_ip_1]])
     config_gcu = create_common_config_patch(
@@ -738,6 +839,11 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
         vlan_name, gateway, net_mask, [dut_port_0, dut_port_1], [[expected_assigned_ip_0], [expected_assigned_ip_1]])
     config_gcu = generate_common_config_patch(
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+    config_cli = generate_common_config_cli_commands(
+        vlan_name, gateway, net_mask, [dut_port_0, dut_port_1], [[expected_assigned_ip_0], [expected_assigned_ip_1]])
+    config_gcu = create_common_config_patch(
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
         vlan_name, gateway, net_mask, [dut_port_0, dut_port_1], [[expected_assigned_ip_0], [expected_assigned_ip_1]])
     config_to_apply = None
     if config_tool == DHCP_SERVER_CONFIG_TOOL_CLI:
@@ -756,11 +862,16 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_0,
 <<<<<<< HEAD
+<<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
 =======
             exp_server_ip=gateway,
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             net_mask=net_mask
         )
         verify_discover_and_request_then_release(
@@ -774,11 +885,16 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_1,
 <<<<<<< HEAD
+<<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
 =======
             exp_server_ip=gateway,
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             net_mask=net_mask
         )
 
@@ -801,10 +917,14 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
     expected_assigned_ip_1 = random.choice([v for v in vlan_hosts if v != expected_assigned_ip_0])
     dut_port_1, ptf_port_index_1 = random.choice([m for m in vlan_members_with_ptf_idx if m[0] != dut_port_0])
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
     logging.info("expected assigned ip_0 is %s, dut_port_0 is %s, ptf_port_index_0 is %s" %
                  (expected_assigned_ip_0, dut_port_0, ptf_port_index_0))
     logging.info("expected assigned ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
                  (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
+<<<<<<< HEAD
     config_cli = generate_common_config_cli_commands(
         vlan_name, gateway, net_mask, [dut_port_0, dut_port_1], [[expected_assigned_ip_0], [expected_assigned_ip_1]])
     config_gcu = create_common_config_patch(
@@ -813,6 +933,11 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
         vlan_name, gateway, net_mask, [dut_port_0, dut_port_1], [[expected_assigned_ip_0], [expected_assigned_ip_1]])
     config_gcu = generate_common_config_patch(
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+    config_cli = generate_common_config_cli_commands(
+        vlan_name, gateway, net_mask, [dut_port_0, dut_port_1], [[expected_assigned_ip_0], [expected_assigned_ip_1]])
+    config_gcu = create_common_config_patch(
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
         vlan_name, gateway, net_mask, [dut_port_0, dut_port_1], [[expected_assigned_ip_0], [expected_assigned_ip_1]])
     config_to_apply = None
     if config_tool == DHCP_SERVER_CONFIG_TOOL_CLI:
@@ -831,11 +956,16 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_0,
 <<<<<<< HEAD
+<<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
 =======
             exp_server_ip=gateway,
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             net_mask=net_mask
         )
         verify_discover_and_request_then_release(
@@ -849,11 +979,16 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_1,
 <<<<<<< HEAD
+<<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
 =======
             exp_server_ip=gateway,
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             net_mask=net_mask
         )
         verify_discover_and_request_then_release(
@@ -867,11 +1002,16 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_1,
 <<<<<<< HEAD
+<<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
 =======
             exp_server_ip=gateway,
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
             net_mask=net_mask
         )
         verify_discover_and_request_then_release(
@@ -884,6 +1024,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
             test_xid=test_xid,
             dhcp_interface=vlan_name,
             expected_assigned_ip=expected_assigned_ip_0,
+<<<<<<< HEAD
 <<<<<<< HEAD
             exp_gateway=gateway,
             server_id=gateway,
@@ -1286,3 +1427,423 @@ def test_dhcp_server_config_vlan_intf_change(
             net_mask=net_mask
         )
 >>>>>>> [dhcp_server] test ip assignment with single and range ip configuration (#12427)
+=======
+            exp_gateway=gateway,
+            server_id=gateway,
+            net_mask=net_mask
+        )
+
+
+@pytest.mark.parametrize("option_info", [["string", "#hello, i'm dhcp_server!"]])
+def test_dhcp_server_port_based_customize_options(
+    duthost,
+    ptfhost,
+    ptfadapter,
+    parse_vlan_setting_from_running_config,
+    option_info
+):
+    """
+        Test dhcp server packets if carry the customized options as expected
+    """
+    test_xid = 8
+    vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
+    expected_assigned_ip = random.choice(vlan_hosts)
+    dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
+    random_option_id = random.choice(DHCP_SERVER_SUPPORTED_OPTION_ID)
+    customized_options = {
+        "test_customized_option_1": {
+            "id": random_option_id,
+            "type": option_info[0],
+            "value": option_info[1]
+        }
+    }
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s, random_option_id is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index, random_option_id))
+    config_patch = create_common_config_patch(
+        vlan_name,
+        gateway,
+        net_mask,
+        [dut_port],
+        [[expected_assigned_ip]],
+        customized_options
+    )
+    with dhcp_server_config(duthost, DHCP_SERVER_CONFIG_TOOL_GCU, config_patch):
+        pkts_validator = validate_dhcp_server_pkts_custom_option
+        pkts_validator_args = [test_xid]
+        pkts_validator_kwargs = {"%s" % random_option_id: option_info[1].encode('ascii')}
+        discover_pkt = create_dhcp_client_packet(
+            src_mac=client_mac,
+            message_type=DHCP_MESSAGE_TYPE_DISCOVER_NUM,
+            client_options=[],
+            xid=test_xid
+        )
+        send_and_verify(
+            duthost=duthost,
+            ptfhost=ptfhost,
+            ptfadapter=ptfadapter,
+            test_pkt=discover_pkt,
+            dut_port_to_capture_pkt=dut_port,
+            ptf_port_index=ptf_port_index,
+            pkts_validator=pkts_validator,
+            pkts_validator_args=pkts_validator_args,
+            pkts_validator_kwargs=pkts_validator_kwargs,
+            refresh_fdb_ptf_port='eth'+str(ptf_port_index)
+        )
+        request_pkt = create_dhcp_client_packet(
+            src_mac=client_mac,
+            message_type=DHCP_MESSAGE_TYPE_REQUEST_NUM,
+            client_options=[("requested_addr", expected_assigned_ip), ("server_id", gateway)],
+            xid=test_xid
+        )
+        send_and_verify(
+            duthost=duthost,
+            ptfhost=ptfhost,
+            ptfadapter=ptfadapter,
+            dut_port_to_capture_pkt=dut_port,
+            ptf_port_index=ptf_port_index,
+            test_pkt=request_pkt,
+            pkts_validator=pkts_validator,
+            pkts_validator_args=pkts_validator_args,
+            pkts_validator_kwargs=pkts_validator_kwargs,
+            refresh_fdb_ptf_port='eth'+str(ptf_port_index)
+        )
+
+
+def test_dhcp_server_config_change_dhcp_interface(
+    duthost,
+    ptfhost,
+    ptfadapter,
+    parse_vlan_setting_from_running_config
+):
+    """
+        Test if config change on dhcp interface status can take effect
+    """
+    test_xid = 9
+    vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
+    expected_assigned_ip = random.choice(vlan_hosts)
+    dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
+    config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port,
+        ptf_port_index=ptf_port_index,
+        ptf_mac_port_index=ptf_port_index,
+        test_xid=test_xid,
+        dhcp_interface=vlan_name,
+        expected_assigned_ip=expected_assigned_ip,
+        exp_gateway=gateway,
+        server_id=gateway,
+        net_mask=net_mask
+    )
+    # disable dhcp interface and validate no packet can be received
+    config_to_apply = [
+        {
+            "op": "replace",
+            "path": "/DHCP_SERVER_IPV4/%s/state" % vlan_name,
+            "value": "disabled"
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port,
+        ptf_port_index=ptf_port_index,
+        ptf_mac_port_index=ptf_port_index,
+        test_xid=test_xid,
+        dhcp_interface=vlan_name,
+        expected_assigned_ip=None,
+        exp_gateway=gateway,
+        server_id=gateway,
+        net_mask=net_mask
+    )
+
+
+def test_dhcp_server_config_change_common(
+    duthost,
+    ptfhost,
+    ptfadapter,
+    parse_vlan_setting_from_running_config
+):
+    """
+        Test if config change on dhcp interface status can take effect
+    """
+    test_xid = 10
+    vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
+    expected_assigned_ip = random.choice(vlan_hosts)
+    dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
+    config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port,
+        ptf_port_index=ptf_port_index,
+        ptf_mac_port_index=ptf_port_index,
+        test_xid=test_xid,
+        dhcp_interface=vlan_name,
+        expected_assigned_ip=expected_assigned_ip,
+        exp_gateway=gateway,
+        server_id=gateway,
+        net_mask=net_mask
+    )
+    # change config on dhcp interface and validate the change can take effect
+    changed_expected_assigned_ip = random.choice([v for v in vlan_hosts if v != expected_assigned_ip])
+    changed_gateway = random.choice([v for v in vlan_hosts
+                                     if v != expected_assigned_ip and v != changed_expected_assigned_ip])
+    changed_lease_time = random.randint(DHCP_DEFAULT_LEASE_TIME, 1000)
+    logging.info("changed expected assigned ip is %s, changed_gateway is %s, changed_lease_time is %s" %
+                 (changed_expected_assigned_ip, changed_gateway, changed_lease_time))
+    change_to_apply = [
+        {
+            "op": "replace",
+            "path": "/DHCP_SERVER_IPV4_RANGE/%s/range/0" % ("range_" + expected_assigned_ip),
+            "value": "%s" % changed_expected_assigned_ip
+        },
+        {
+            "op": "replace",
+            "path": "/DHCP_SERVER_IPV4/%s/lease_time" % vlan_name,
+            "value": "%s" % changed_lease_time
+        },
+        {
+            "op": "replace",
+            "path": "/DHCP_SERVER_IPV4/%s/gateway" % vlan_name,
+            "value": "%s" % changed_gateway
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, change_to_apply)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port,
+        ptf_port_index=ptf_port_index,
+        ptf_mac_port_index=ptf_port_index,
+        test_xid=test_xid,
+        dhcp_interface=vlan_name,
+        expected_assigned_ip=changed_expected_assigned_ip,
+        exp_gateway=changed_gateway,
+        server_id=gateway,
+        net_mask=net_mask,
+        exp_lease_time=changed_lease_time
+    )
+
+
+def test_dhcp_server_config_vlan_member_change(
+    duthost,
+    ptfhost,
+    ptfadapter,
+    parse_vlan_setting_from_running_config
+):
+    """
+        Test if config change on dhcp interface status can take effect
+    """
+    test_xid = 11
+    vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
+    expected_assigned_ip = random.choice(vlan_hosts)
+    dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
+    config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    # delete member
+    config_to_apply = [
+        {
+            "op": "remove",
+            "path": "/VLAN_MEMBER/%s|%s" % (vlan_name, dut_port)
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port,
+        ptf_port_index=ptf_port_index,
+        ptf_mac_port_index=ptf_port_index,
+        test_xid=test_xid,
+        dhcp_interface=vlan_name,
+        expected_assigned_ip=None,
+        exp_gateway=gateway,
+        server_id=gateway,
+        net_mask=net_mask
+    )
+    # restore deleted member
+    config_to_apply = [
+        {
+            "op": "add",
+            "path": "/VLAN_MEMBER/%s|%s" % (vlan_name, dut_port),
+            "value": {
+                "tagging_mode": "untagged"
+            }
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    time.sleep(3)  # wait for vlan member change take effect
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port,
+        ptf_port_index=ptf_port_index,
+        ptf_mac_port_index=ptf_port_index,
+        test_xid=test_xid,
+        dhcp_interface=vlan_name,
+        expected_assigned_ip=expected_assigned_ip,
+        exp_gateway=gateway,
+        server_id=gateway,
+        net_mask=net_mask
+    )
+
+
+def test_dhcp_server_lease_config_change(
+    duthost,
+    ptfhost,
+    ptfadapter,
+    parse_vlan_setting_from_running_config
+):
+    """
+        Verify lease change won't effect the existing lease
+    """
+    test_xid = 12
+    vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
+    expected_assigned_ip = random.choice(vlan_hosts)
+    dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
+                 (expected_assigned_ip, dut_port, ptf_port_index))
+    config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port,
+        ptf_port_index=ptf_port_index,
+        ptf_mac_port_index=ptf_port_index,
+        test_xid=test_xid,
+        dhcp_interface=vlan_name,
+        expected_assigned_ip=expected_assigned_ip,
+        exp_gateway=gateway,
+        server_id=gateway,
+        net_mask=net_mask,
+        release_needed=False
+    )
+    changed_lease_time = random.randint(DHCP_DEFAULT_LEASE_TIME, 1000)
+    logging.info("changed_lease_time is %s" % changed_lease_time)
+    change_to_apply = [
+        {
+            "op": "replace",
+            "path": "/DHCP_SERVER_IPV4/%s/lease_time" % vlan_name,
+            "value": "%s" % changed_lease_time
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, change_to_apply)
+    client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
+    verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip, DHCP_DEFAULT_LEASE_TIME)
+
+
+def test_dhcp_server_config_vlan_intf_change(
+    duthost,
+    ptfhost,
+    ptfadapter,
+    parse_vlan_setting_from_running_config
+):
+    """
+        When dhcp server congifurate a subnet not belong to current VLAN,
+        the dhcp server can't  assign IP from the subnet
+    """
+    test_xid_1 = 13
+    vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = \
+        parse_vlan_setting_from_running_config
+    expected_assigned_ip_1 = random.choice(vlan_hosts_1)
+    dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
+    logging.info("expected_assigned_ip_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
+                 (expected_assigned_ip_1, dut_port_1, ptf_port_index_1))
+
+    vlan_net_1 = ipaddress.ip_network(address=gateway_1+'/'+net_mask_1, strict=False)
+    vlan_ipv4_1 = gateway_1 + '/' + str(vlan_net_1.prefixlen)
+    vlan_net_2 = [vlan for vlan in list(vlan_net_1.supernet(prefixlen_diff=1).subnets(prefixlen_diff=1))
+                  if ipaddress.ip_address(gateway_1) not in vlan][0]
+    vlan_net_hosts_2 = list(vlan_net_2.hosts())
+    vlan_ipv4_2 = str(vlan_net_hosts_2[0]) + '/' + str(vlan_net_2.prefixlen)
+
+    config_to_apply = create_common_config_patch(
+        vlan_name_1,
+        gateway_1,
+        net_mask_1,
+        [dut_port_1],
+        [[expected_assigned_ip_1]]
+    )
+    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+
+    # When the subnet not match to VLAN, client won't get IP
+    patch_replace_subnet = [
+        {
+            "op": "remove",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_1.replace('/', '~1'))
+        },
+        {
+            "op": "add",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_2.replace('/', '~1')),
+            "value": {}
+        }
+    ]
+
+    # When the subnet is changed to match VLAN, client can get IP
+    patch_restore_subnet = [
+        {
+            "op": "remove",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_2.replace('/', '~1'))
+        },
+        {
+            "op": "add",
+            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_1.replace('/', '~1')),
+            "value": {}
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, patch_replace_subnet)
+    try:
+        verify_discover_and_request_then_release(
+            duthost=duthost,
+            ptfhost=ptfhost,
+            ptfadapter=ptfadapter,
+            dut_port_to_capture_pkt=dut_port_1,
+            ptf_port_index=ptf_port_index_1,
+            ptf_mac_port_index=ptf_port_index_1,
+            test_xid=test_xid_1,
+            dhcp_interface=None,
+            expected_assigned_ip=None,
+            exp_gateway=None,
+            server_id=None,
+            net_mask=None
+        )
+    except Exception as e:
+        apply_dhcp_server_config_gcu(duthost, patch_restore_subnet)
+        raise e
+
+    apply_dhcp_server_config_gcu(duthost, patch_restore_subnet)
+    verify_discover_and_request_then_release(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ptfadapter=ptfadapter,
+        dut_port_to_capture_pkt=dut_port_1,
+        ptf_port_index=ptf_port_index_1,
+        ptf_mac_port_index=ptf_port_index_1,
+        test_xid=test_xid_1,
+        dhcp_interface=vlan_name_1,
+        expected_assigned_ip=expected_assigned_ip_1,
+        exp_gateway=gateway_1,
+        server_id=gateway_1,
+        net_mask=net_mask_1
+    )
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)

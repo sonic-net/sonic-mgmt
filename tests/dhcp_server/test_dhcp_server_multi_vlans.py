@@ -4,8 +4,12 @@ import pytest
 import random
 from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import create_common_config_patch, append_common_config_patch, \
+<<<<<<< HEAD
     verify_discover_and_request_then_release, apply_dhcp_server_config_gcu, empty_config_patch, \
     vlan_n2i
+=======
+    verify_discover_and_request_then_release, apply_dhcp_server_config_gcu, empty_config_patch
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
 
 
 pytestmark = [
@@ -116,6 +120,23 @@ def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_
     return four_vlans_info, patch_setup, patch_restore
 
 
+<<<<<<< HEAD
+=======
+def vlan_i2n(vlan_id):
+    """
+        Convert vlan id to vlan name
+    """
+    return "Vlan%s" % vlan_id
+
+
+def vlan_n2i(vlan_name):
+    """
+        Convert vlan name to vlan id
+    """
+    return vlan_name.replace("Vlan", "")
+
+
+>>>>>>> [dhcp_server_test] Add multiple vlans test and config change test (#12775)
 def add_vlan_patch(vlan_name):
     patch = [
         {
