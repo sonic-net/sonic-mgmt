@@ -130,6 +130,17 @@ def fetch_into_file(localhost, remote_ip, rwuser, rwpass, src_file, dst_file):
     logger.info("ret={} cmd={}".format(ret, scp_cmd))
 
 
+def log_rotate(duthost):
+    try:
+        duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
+    except RunAnsibleModuleFail as e:
+        if "logrotate does not support parallel execution on the same set of logfiles" in e.message:
+            # command will failed when log already in rotating
+            logger.warning("logrotate command failed: {}".format(e))
+        else:
+            raise e
+
+
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
                  tacacs_creds, check_tacacs):
     """test tacacs rw user
@@ -180,14 +191,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         duthost.copy(src=conf_path, dest="/etc/rsyslog.d/000-ro_disk.conf")
 
         # To get file in decent size. Force a rotate
-        try:
-            duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
-        except RunAnsibleModuleFail as e:
-            if "logrotate does not support parallel execution on the same set of logfiles" in e.message:
-                # command will failed when log already in rotating
-                logger.warning("logrotate command failed: {}".format(e))
-            else:
-                raise e
+        log_rotate(duthost)
 
         res = duthost.shell("systemctl restart rsyslog")
         assert res["rc"] == 0, "failed to restart rsyslog"
@@ -239,3 +243,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         do_reboot(duthost, localhost, duthosts)
         logger.debug("  END: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
+
+        # log rotate during ro disk may cause syslog file contains garbled content
+        # garbled content will break loganalyzer, rotate again to cleanup syslog file.
+        log_rotate(duthost)
