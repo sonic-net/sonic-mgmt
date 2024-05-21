@@ -10,7 +10,11 @@ import (
 	"github.com/openconfig/ondatra/gnmi"
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
+<<<<<<< HEAD
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
+=======
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure//testhelper/testhelper"
+>>>>>>> [sdn_tests]: Adding LACP time-out test to pins_ondatra. (#12917)
 	"github.com/pkg/errors"
 )
 
@@ -131,10 +135,16 @@ func verifyLACPTimeout(t *testing.T, hostActivity oc.E_Lacp_LacpActivityType, ho
 
 	// Choose a random port to test, and get the LACPDU count.
 	peerportslen := len(peerPorts)
+<<<<<<< HEAD
 	max := big.NewInt(int64(peerportslen))
         randomIndex, _ := rand.Int(rand.Reader, max)
         port_64 := randomIndex.Int64()
 	port := int(port_64)
+=======
+	max := big.NewInt(peerportslen)
+        randomIndex, _ := rand.Int(rand.Reader, max)
+        port := randomIndex
+>>>>>>> [sdn_tests]: Adding LACP time-out test to pins_ondatra. (#12917)
 	hostBefore := gnmi.Get(t, host, gnmi.OC().Lacp().Interface(portChannel).Member(peerPorts[port].Host).Counters().State())
 	peerBefore := gnmi.Get(t, peer, gnmi.OC().Lacp().Interface(portChannel).Member(peerPorts[port].Peer).Counters().State())
 

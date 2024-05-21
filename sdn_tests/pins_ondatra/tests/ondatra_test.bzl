@@ -28,12 +28,17 @@ def ondatra_test(
       visibility: List of visibility labels; optional
     """
 <<<<<<< HEAD
+<<<<<<< HEAD
     data = (data or []) + ["//infrastructure/data"]
     testbed = testbed or "infrastructure/data/testbeds.textproto"
 =======
     data = (data or []) + ["//ondatra/data"]
     testbed = testbed or "ondatra/data/testbeds.textproto"
 >>>>>>> [sdn_tests]: Adding ondatra tests bazel to pins_ondatra. (#12677)
+=======
+    data = (data or []) + ["//infrastructure/data"]
+    testbed = testbed or "infrastructure/data/testbeds.textproto"
+>>>>>>> [sdn_tests]: Adding LACP time-out test to pins_ondatra. (#12917)
     testbed_arg = "--testbed=%s" % testbed
 
     args = (args or []) + [
@@ -85,10 +90,14 @@ def ondatra_test_suite(
     """
     if len(testbeds) == 0:
 <<<<<<< HEAD
+<<<<<<< HEAD
         testbeds = {"dualnode" : "infrastructure/data/testbeds.textproto"}
 =======
         testbeds = {"dualnode" : "ondatra/data/testbeds.textproto"}
 >>>>>>> [sdn_tests]: Adding ondatra tests bazel to pins_ondatra. (#12677)
+=======
+        testbeds = {"dualnode" : "infrastructure/data/testbeds.textproto"}
+>>>>>>> [sdn_tests]: Adding LACP time-out test to pins_ondatra. (#12917)
 
     tests = []
     for testbed_name, testbed_src in testbeds.items():
