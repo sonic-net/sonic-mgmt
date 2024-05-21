@@ -37,22 +37,24 @@ slot0:
         ASIC7:
           asic_intfs:
           - Eth128-ASIC0
-          - Eth138-ASIC0
-          - Eth160-ASIC0
+          - Eth132-ASIC0
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC0
           - Eth136-ASIC0
-          - Eth166-ASIC0
+          - Eth140-ASIC0
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC0
+          - Eth164-ASIC0
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC0
           - Eth100-ASIC0
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC0
           - Eth108-ASIC0
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC0
           - Eth116-ASIC0
@@ -102,23 +104,23 @@ slot0:
           asic_intfs:
           - Eth128-ASIC1
           - Eth132-ASIC1
-          - Eth138-ASIC1
-          - Eth164-ASIC1
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC1
           - Eth136-ASIC1
           - Eth140-ASIC1
-          - Eth162-ASIC1
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC1
+          - Eth164-ASIC1
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC1
           - Eth100-ASIC1
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC1
           - Eth108-ASIC1
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC1
           - Eth116-ASIC1
@@ -163,22 +165,24 @@ slot0:
         ASIC7:
           asic_intfs:
           - Eth128-ASIC2
-          - Eth138-ASIC2
-          - Eth160-ASIC2
+          - Eth132-ASIC2
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC2
           - Eth136-ASIC2
-          - Eth166-ASIC2
+          - Eth140-ASIC2
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC2
+          - Eth164-ASIC2
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC2
           - Eth100-ASIC2
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC2
           - Eth108-ASIC2
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC2
           - Eth116-ASIC2
@@ -228,23 +232,23 @@ slot0:
           asic_intfs:
           - Eth128-ASIC3
           - Eth132-ASIC3
-          - Eth138-ASIC3
-          - Eth164-ASIC3
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC3
           - Eth136-ASIC3
           - Eth140-ASIC3
-          - Eth162-ASIC3
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC3
+          - Eth164-ASIC3
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC3
           - Eth100-ASIC3
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC3
           - Eth108-ASIC3
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC3
           - Eth116-ASIC3
@@ -289,22 +293,24 @@ slot0:
         ASIC7:
           asic_intfs:
           - Eth128-ASIC4
-          - Eth138-ASIC4
-          - Eth160-ASIC4
+          - Eth132-ASIC4
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC4
           - Eth136-ASIC4
-          - Eth166-ASIC4
+          - Eth140-ASIC4
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC4
+          - Eth164-ASIC4
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC4
           - Eth100-ASIC4
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC4
           - Eth108-ASIC4
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC4
           - Eth116-ASIC4
@@ -354,23 +360,23 @@ slot0:
           asic_intfs:
           - Eth128-ASIC5
           - Eth132-ASIC5
-          - Eth138-ASIC5
-          - Eth164-ASIC5
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC5
           - Eth136-ASIC5
           - Eth140-ASIC5
-          - Eth162-ASIC5
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC5
+          - Eth164-ASIC5
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC5
           - Eth100-ASIC5
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC5
           - Eth108-ASIC5
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC5
           - Eth116-ASIC5
@@ -415,22 +421,24 @@ slot0:
         ASIC7:
           asic_intfs:
           - Eth128-ASIC6
-          - Eth138-ASIC6
-          - Eth160-ASIC6
+          - Eth132-ASIC6
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC6
           - Eth136-ASIC6
-          - Eth166-ASIC6
+          - Eth140-ASIC6
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC6
+          - Eth164-ASIC6
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC6
           - Eth100-ASIC6
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC6
           - Eth108-ASIC6
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC6
           - Eth116-ASIC6
@@ -480,23 +488,23 @@ slot0:
           asic_intfs:
           - Eth128-ASIC7
           - Eth132-ASIC7
-          - Eth138-ASIC7
-          - Eth164-ASIC7
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC7
           - Eth136-ASIC7
           - Eth140-ASIC7
-          - Eth162-ASIC7
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC7
+          - Eth164-ASIC7
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC7
           - Eth100-ASIC7
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC7
           - Eth108-ASIC7
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC7
           - Eth116-ASIC7
@@ -541,22 +549,24 @@ slot0:
         ASIC7:
           asic_intfs:
           - Eth128-ASIC8
-          - Eth138-ASIC8
-          - Eth160-ASIC8
+          - Eth132-ASIC8
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC8
           - Eth136-ASIC8
-          - Eth166-ASIC8
+          - Eth140-ASIC8
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC8
+          - Eth164-ASIC8
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC8
           - Eth100-ASIC8
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC8
           - Eth108-ASIC8
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC8
           - Eth116-ASIC8
@@ -606,23 +616,23 @@ slot0:
           asic_intfs:
           - Eth128-ASIC9
           - Eth132-ASIC9
-          - Eth138-ASIC9
-          - Eth164-ASIC9
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC9
           - Eth136-ASIC9
           - Eth140-ASIC9
-          - Eth162-ASIC9
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC9
+          - Eth164-ASIC9
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC9
           - Eth100-ASIC9
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC9
           - Eth108-ASIC9
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC9
           - Eth116-ASIC9
@@ -667,22 +677,24 @@ slot0:
         ASIC7:
           asic_intfs:
           - Eth128-ASIC10
-          - Eth138-ASIC10
-          - Eth160-ASIC10
+          - Eth132-ASIC10
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC10
           - Eth136-ASIC10
-          - Eth166-ASIC10
+          - Eth140-ASIC10
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC10
+          - Eth164-ASIC10
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC10
           - Eth100-ASIC10
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC10
           - Eth108-ASIC10
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC10
           - Eth116-ASIC10
@@ -732,23 +744,23 @@ slot0:
           asic_intfs:
           - Eth128-ASIC11
           - Eth132-ASIC11
-          - Eth138-ASIC11
-          - Eth164-ASIC11
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC11
           - Eth136-ASIC11
           - Eth140-ASIC11
-          - Eth162-ASIC11
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC11
+          - Eth164-ASIC11
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC11
           - Eth100-ASIC11
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC11
           - Eth108-ASIC11
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC11
           - Eth116-ASIC11
@@ -793,22 +805,24 @@ slot0:
         ASIC7:
           asic_intfs:
           - Eth128-ASIC12
-          - Eth138-ASIC12
-          - Eth160-ASIC12
+          - Eth132-ASIC12
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC12
           - Eth136-ASIC12
-          - Eth166-ASIC12
+          - Eth140-ASIC12
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC12
+          - Eth164-ASIC12
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC12
           - Eth100-ASIC12
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC12
           - Eth108-ASIC12
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC12
           - Eth116-ASIC12
@@ -858,23 +872,23 @@ slot0:
           asic_intfs:
           - Eth128-ASIC13
           - Eth132-ASIC13
-          - Eth138-ASIC13
-          - Eth164-ASIC13
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC13
           - Eth136-ASIC13
           - Eth140-ASIC13
-          - Eth162-ASIC13
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC13
+          - Eth164-ASIC13
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC13
           - Eth100-ASIC13
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC13
           - Eth108-ASIC13
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC13
           - Eth116-ASIC13
@@ -919,22 +933,24 @@ slot0:
         ASIC7:
           asic_intfs:
           - Eth128-ASIC14
-          - Eth138-ASIC14
-          - Eth160-ASIC14
+          - Eth132-ASIC14
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC14
           - Eth136-ASIC14
-          - Eth166-ASIC14
+          - Eth140-ASIC14
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC14
+          - Eth164-ASIC14
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC14
           - Eth100-ASIC14
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC14
           - Eth108-ASIC14
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC14
           - Eth116-ASIC14
@@ -984,23 +1000,23 @@ slot0:
           asic_intfs:
           - Eth128-ASIC15
           - Eth132-ASIC15
-          - Eth138-ASIC15
-          - Eth164-ASIC15
         ASIC8:
           asic_intfs:
-          - Eth134-ASIC15
           - Eth136-ASIC15
           - Eth140-ASIC15
-          - Eth162-ASIC15
         ASIC9:
+          asic_intfs:
+          - Eth160-ASIC15
+          - Eth164-ASIC15
+        ASIC10:
           asic_intfs:
           - Eth96-ASIC15
           - Eth100-ASIC15
-        ASIC10:
+        ASIC11:
           asic_intfs:
           - Eth104-ASIC15
           - Eth108-ASIC15
-        ASIC11:
+        ASIC12:
           asic_intfs:
           - Eth112-ASIC15
           - Eth116-ASIC15
