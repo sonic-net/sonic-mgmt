@@ -23,6 +23,7 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_STOP_THRESHOLD_SECS = 60
 CONTAINER_RESTART_THRESHOLD_SECS = 300
 CONTAINER_NAME_REGEX = r"([a-zA-Z_-]+)(\d*)([a-zA-Z_-]+)(\d*)$"
+DHCP_SERVER = "dhcp_server"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 PROGRAM_STATUS = "RUNNING"
@@ -30,6 +31,7 @@ PROGRAM_STATUS = "RUNNING"
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tbinfo):
+    dhcp_server_hosts = []
     # Enable autorestart for all features before the test begins
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
@@ -38,14 +40,17 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
             if status == 'enabled':
                 duthost.shell("sudo config feature autorestart {} enabled".format(feature))
         # Enable dhcp_server feature for mx topo
-        if tbinfo["topo"]["type"] == "mx" and "enabled" not in feature_list.get("dhcp_server", ""):
-            duthost.shell("config feature state dhcp_server enabled")
-            duthost.shell("sudo systemctl restart dhcp_relay.service")
+        remove_dhcp_server = False
+        if tbinfo["topo"]["type"] == "mx" and DHCP_SERVER in feature_list and "enabled" not in feature_list.get(DHCP_SERVER, ""):
+            dhcp_server_hosts.append(hostname)
+            duthost.shell("config feature state %s enabled" % DHCP_SERVER)
     yield
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         config_reload(duthost, config_source='config_db', safe_reload=True)
+        if hostname in dhcp_server_hosts:
+            duthost.shell("docker rm %s" % DHCP_SERVER, module_ignore_errors=True)
 
 
 def enable_autorestart(duthost):
