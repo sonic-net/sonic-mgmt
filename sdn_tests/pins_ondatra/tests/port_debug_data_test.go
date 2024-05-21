@@ -17,8 +17,12 @@ func TestMain(m *testing.M) {
 func TestGetPortDebugDataInvalidInterface(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("dba77fa7-b0d1-4412-8136-22dea24ed935").Teardown(t)
 	var intfName = "Ethernet99999"
+<<<<<<< HEAD
 	err := testhelper.HealthzGetPortDebugData(t, ondatra.DUT(t, "DUT"), intfName);
 	if err == nil {
+=======
+	if _, err := testhelper.HealthzGetPortDebugData(t, ondatra.DUT(t, "DUT"), intfName); err == nil {
+>>>>>>> [sdn_tests]: Adding port debug data test to pins_ondatra (#12921)
 		t.Fatalf("Expected RPC failure due to invalid interface %v", intfName)
 	}
 }
@@ -40,11 +44,31 @@ func TestGetPortDebugDataWithTranscevierInserted(t *testing.T) {
 		}
 
 		t.Logf("Get port debug data from interface %v on xcvr present port %v", intfName, xcvrName)
+<<<<<<< HEAD
 		err := testhelper.HealthzGetPortDebugData(t, dut, intfName)
+=======
+		data, err := testhelper.HealthzGetPortDebugData(t, dut, intfName)
+>>>>>>> [sdn_tests]: Adding port debug data test to pins_ondatra (#12921)
 		if err != nil {
 			t.Fatalf("Expected RPC success, got error %v", err)
 		}
 
+<<<<<<< HEAD
+=======
+		if data.GetPhyData() == "" {
+			t.Errorf("Got empty phy_data from PortDebugData for intfName %v", intfName)
+		}
+
+		if len(data.GetTransceiverEepromPages()) == 0 {
+			t.Errorf("Got empty transceiver_eeprom_pages from PortDebugData for intfName %v", intfName)
+		}
+
+		for _, eepromPage := range data.GetTransceiverEepromPages() {
+			if len(eepromPage.GetEepromContent()) == 0 {
+				t.Errorf("Got empty eeprom_content on page %v from PortDebugData for intfName %v", eepromPage.GetPageNum(), intfName)
+			}
+		}
+>>>>>>> [sdn_tests]: Adding port debug data test to pins_ondatra (#12921)
 	}
 }
 
@@ -65,10 +89,24 @@ func TestGetPortDebugDataWithoutTranscevierInserted(t *testing.T) {
 		}
 
 		t.Logf("Get port debug data from interface %v on xcvr empty port %v", intfName, xcvrName)
+<<<<<<< HEAD
 		err := testhelper.HealthzGetPortDebugData(t, dut, intfName)
+=======
+		data, err := testhelper.HealthzGetPortDebugData(t, dut, intfName)
+>>>>>>> [sdn_tests]: Adding port debug data test to pins_ondatra (#12921)
 		if err != nil {
 			t.Fatalf("Expected RPC success, got error %v", err)
 		}
 
+<<<<<<< HEAD
+=======
+		if data.GetPhyData() == "" {
+			t.Errorf("Got empty phy_data from PortDebugData for intfName %v", intfName)
+		}
+
+		if len(data.GetTransceiverEepromPages()) != 0 {
+			t.Errorf("Got non-empty transceiver_eeprom_pages from PortDebugData for intfName %v", intfName)
+		}
+>>>>>>> [sdn_tests]: Adding port debug data test to pins_ondatra (#12921)
 	}
 }
