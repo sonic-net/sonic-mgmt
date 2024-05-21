@@ -6,7 +6,11 @@ import (
 	"testing"
 	"time"
 
+<<<<<<< HEAD
 	"github.com/openconfig/ondatra"
+=======
+	"github.com/openconfigondatra"
+>>>>>>> [sdn_tests]: Adding Link event damping test to pins_ondatra. (#12919)
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
 	"github.com/pkg/errors"
