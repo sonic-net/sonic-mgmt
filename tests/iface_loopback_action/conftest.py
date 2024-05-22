@@ -183,7 +183,7 @@ def generate_ip_list():
 
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthost, ptfhost, orig_ports_configuration, ports_configuration,
-          backup_and_restore_config_db_package, nbrhosts, tbinfo):                # noqa: F811
+          backup_and_restore_config_db_package, nbrhosts, tbinfo, is_sonic_mlnx_leaf_fanout):                # noqa: F811
     """
     Config: Cleanup the original port configuration and add new configurations before test
     Cleanup: restore the config on the VMs
@@ -195,6 +195,9 @@ def setup(duthost, ptfhost, orig_ports_configuration, ports_configuration,
     :param nbrhosts: nbrhosts fixture.
     :param tbinfo: Testbed object
     """
+    if is_sonic_mlnx_leaf_fanout:
+        pytest.skip("Not supporteds on Mellanox leaf-fanout running SONiC")
+        return
     peer_shutdown_ports = get_portchannel_peer_port_map(duthost, orig_ports_configuration, tbinfo, nbrhosts)
     remove_orig_dut_port_config(duthost, orig_ports_configuration)
     for vm_host, peer_ports in list(peer_shutdown_ports.items()):
@@ -209,19 +212,22 @@ def setup(duthost, ptfhost, orig_ports_configuration, ports_configuration,
 
 
 @pytest.fixture(scope="module", autouse=True)
-def recover(duthost, ptfhost, ports_configuration):
+def recover(duthost, ptfhost, ports_configuration, is_sonic_mlnx_leaf_fanout):
     """
     restore the original configurations
     :param duthost: DUT host object
     :param ptfhost: PTF host object
     :param ports_configuration: ports configuration parameters
     """
+    if is_sonic_mlnx_leaf_fanout:
+        yield
+        return
     yield
     recover_config(duthost, ptfhost, ports_configuration)
 
 
-@pytest.fixture(scope='module', autouse=True)
-def skip_sonic_mlnx_leaf_fanout(fanouthosts):
+@pytest.fixture(scope='module')
+def is_sonic_mlnx_leaf_fanout(fanouthosts):
     """
     The test sends QinQ packet for testing purpose. However, the QinQ packet will be dropped on leaf fanout
     if it's running SONiC and Mellanox ASIC.
@@ -231,4 +237,6 @@ def skip_sonic_mlnx_leaf_fanout(fanouthosts):
         os = fanouthost.get_fanout_os()
         asic_type = fanouthost.facts['asic_type']
         if os == 'sonic' and asic_type in ["mellanox"]:
-            pytest.skip("Not supporteds on SONiC leaf-fanout platform")
+            return True
+    return False
+
