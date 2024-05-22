@@ -71,6 +71,9 @@ ondatra_test(
     ],
 )
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding module reset test to pins_ondatra. (#12928)
 
 #lacp time-out test
 ondatra_test(
@@ -115,6 +118,7 @@ ondatra_test(
     ],
 )
 
+<<<<<<< HEAD
 # Hardware Platform Component Tests
 ondatra_test(
     name = "platforms_hardware_component_test",
@@ -131,6 +135,8 @@ ondatra_test(
     ],
 )
 
+=======
+>>>>>>> [sdn_tests]: Adding module reset test to pins_ondatra. (#12928)
 #module reset test
 ondatra_test_suite(
     name = "module_reset_test",
@@ -145,6 +151,7 @@ ondatra_test_suite(
         "@com_github_openconfig_ondatra//gnmi/oc",
     ],
 )
+<<<<<<< HEAD
 
 # Installation Test
 ondatra_test(
@@ -421,3 +428,5 @@ ondatra_test(
 >>>>>>> [sdn_tests]:Adding Dual switch EthernetCounter Test to pins_ondatra. (#12901)
 =======
 >>>>>>> [sdn_tests]:Adding GNOI File Test to pins_ondatra. (#12905)
+=======
+>>>>>>> [sdn_tests]: Adding module reset test to pins_ondatra. (#12928)
