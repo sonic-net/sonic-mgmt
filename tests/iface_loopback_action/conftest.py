@@ -218,3 +218,17 @@ def recover(duthost, ptfhost, ports_configuration):
     """
     yield
     recover_config(duthost, ptfhost, ports_configuration)
+
+
+@pytest.fixture(scope='module', autouse=True)
+def skip_sonic_mlnx_leaf_fanout(fanouthosts):
+    """
+    The test sends QinQ packet for testing purpose. However, the QinQ packet will be dropped on leaf fanout
+    if it's running SONiC and Mellanox ASIC.
+    More info https://github.com/sonic-net/SONiC/blob/master/doc/tpid/SonicTPIDSettingHLD1.md
+    """
+    for fanouthost in list(fanouthosts.values()):
+        os = fanouthost.get_fanout_os()
+        asic_type = fanouthost.facts['asic_type']
+        if os == 'sonic' and asic_type in ["mellanox"]:
+            pytest.skip("Not supporteds on SONiC leaf-fanout platform")
