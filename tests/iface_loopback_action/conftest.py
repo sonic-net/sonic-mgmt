@@ -183,7 +183,7 @@ def generate_ip_list():
 
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthost, ptfhost, orig_ports_configuration, ports_configuration,
-          backup_and_restore_config_db_package, nbrhosts, tbinfo, is_sonic_mlnx_leaf_fanout):                # noqa: F811
+          backup_and_restore_config_db_package, nbrhosts, tbinfo, is_sonic_mlnx_leaf_fanout):  # noqa: F811
     """
     Config: Cleanup the original port configuration and add new configurations before test
     Cleanup: restore the config on the VMs
@@ -239,4 +239,3 @@ def is_sonic_mlnx_leaf_fanout(fanouthosts):
         if os == 'sonic' and asic_type in ["mellanox"]:
             return True
     return False
-
