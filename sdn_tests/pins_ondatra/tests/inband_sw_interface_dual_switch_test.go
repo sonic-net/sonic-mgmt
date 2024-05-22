@@ -25,7 +25,11 @@ type counters struct {
 var (
 	inbandSwIntfName           = "Loopback0"
 	interfaceIndex             = uint32(0)
+<<<<<<< HEAD
 	configuredIPv4Path         = "10.10.10.10"
+=======
+	configuredIPv4Path         = "6.7.8.9"
+>>>>>>> [sdn_tests]: Adding inband sw interface dual switch test to pins_ondatra. (#12946)
 	configuredIPv4PrefixLength = uint8(32)
 	configuredIPv6Path         = "3000::2"
 	configuredIPv6PrefixLength = uint8(128)
@@ -105,6 +109,7 @@ func mockConfigPush(t *testing.T) {
 
 	calledMockConfigPush = true
 }
+<<<<<<< HEAD
 
 // Tests start here.
 func TestMain(m *testing.M) {
@@ -353,3 +358,5 @@ func TestGNMIInbandSwLoopbackOutCnts(t *testing.T) {
 
 	t.Logf("\n\n----- TestGNMIInbandSwLoopbackOutCnts: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+=======
+>>>>>>> [sdn_tests]: Adding inband sw interface dual switch test to pins_ondatra. (#12946)
