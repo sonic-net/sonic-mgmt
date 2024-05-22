@@ -162,7 +162,7 @@ steps:
             encoded_var=$(echo -n "$(MSSONIC-TOKEN)" | base64)
             echo "Encoded variable: $encoded_var"
             echo "Use MSSONIC-TOKEN in sonicbld"
-            curl -u $(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+            curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           fi
         displayName: "Download pr script"
   - ${{ else }}:
