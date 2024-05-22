@@ -160,9 +160,12 @@ steps:
           # Else, internal build image repo, download from internal sonic-mgmt repo
           else
             if [ -z "$(MSSONIC-TOKEN)" ]; then
+              echo "Use AZP_REPO_ACCESS_TOKEN"
               curl -u $(AZP_REPO_ACCESS_TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
             else
+              echo "Use MSSONIC-TOKEN"
               curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+            fi
           fi
         displayName: "Download pr script"
   - ${{ else }}:
