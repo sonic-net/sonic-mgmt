@@ -159,8 +159,8 @@ steps:
 
           # Else, internal build image repo, download from internal sonic-mgmt repo
           else
-            echo "Use ACCESS_TOKEN"
-            curl -u $(ACCESS_TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+            echo "Use MSAZURE-TOKEN in sonicbld"
+            curl -u $(MSAZURE-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           fi
         displayName: "Download pr script"
   - ${{ else }}:
