@@ -47,3 +47,61 @@ ondatra_test(
         "@com_github_openconfig_ondatra//:go_default_library",
     ],
 )
+
+#lacp time-out test
+ondatra_test(
+    name = "lacp_timeout_test",
+    srcs = ["lacp_timeout_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_pkg_errors//:errors",
+    ],
+)
+
+# Link event damping tests
+ondatra_test(
+    name = "link_event_damping_test",
+    srcs = ["link_event_damping_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_openconfig_ygnmi//ygnmi",
+        "@com_github_pkg_errors//:errors",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+#port debug test
+ondatra_test(
+    name = "port_debug_data_test",
+    srcs = ["port_debug_data_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+    ],
+)
+
+#module reset test
+ondatra_test_suite(
+    name = "module_reset_test",
+    srcs = ["module_reset_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_gnoi//system:system_go_proto",
+        "@com_github_openconfig_gnoi//types:types_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+    ],
+)
