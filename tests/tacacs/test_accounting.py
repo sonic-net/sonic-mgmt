@@ -6,13 +6,13 @@ from tests.common.devices.ptf import PTFHost
 import pytest
 
 
-from .test_authorization import ssh_connect_remote_retry, ssh_run_command, \
+from .test_authorization import ssh_connect_remote_retry, \
         remove_all_tacacs_server
 from .utils import stop_tacacs_server, start_tacacs_server, \
         check_server_received, per_command_accounting_skip_versions, \
         change_and_wait_aaa_config_update, get_auditd_config_reload_timestamp, \
+        cleanup_tacacs_log, ssh_run_command, \
         ensure_tacacs_server_running_after_ut  # noqa: F401
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 
@@ -25,18 +25,6 @@ pytestmark = [
 
 
 logger = logging.getLogger(__name__)
-
-
-def cleanup_tacacs_log(ptfhost, rw_user_client):
-    try:
-        ptfhost.command('rm /var/log/tac_plus.acct')
-    except RunAnsibleModuleFail:
-        logger.info("/var/log/tac_plus.acct does not exist.")
-
-    res = ptfhost.command('touch /var/log/tac_plus.acct')
-    logger.info(res["stdout_lines"])
-
-    ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
 
 
 def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):

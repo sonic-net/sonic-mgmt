@@ -4,13 +4,13 @@ import pytest
 from _pytest.outcomes import Failed
 import time
 
-from tests.tacacs.utils import stop_tacacs_server, start_tacacs_server
 from tests.tacacs.utils import per_command_authorization_skip_versions, \
         remove_all_tacacs_server, get_ld_path, change_and_wait_aaa_config_update, \
-        ensure_tacacs_server_running_after_ut                             # noqa: F401
+        stop_tacacs_server, start_tacacs_server, ssh_run_command, \
+        cleanup_tacacs_log, check_server_received, count_authorization_request, \
+        ensure_tacacs_server_running_after_ut  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until, paramiko_ssh
-from .utils import check_server_received
 from tests.override_config_table.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
 from tests.common.helpers.dut_utils import is_container_running
@@ -51,12 +51,6 @@ def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password)
         logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
 
     pytest_assert(login_failed)
-
-
-def ssh_run_command(ssh_client, command):
-    stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
-    exit_code = stdout.channel.recv_exit_status()
-    return exit_code, stdout, stderr
 
 
 def check_ssh_output_any_of(res_stream, exp_vals, timeout=10):
@@ -682,3 +676,68 @@ def test_fallback_to_local_authorization_with_config_reload(
 
     #  Restore config after test finish
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+
+
+def test_tacacs_authorization_commands_during_login(
+                                                ptfhost,
+                                                duthosts,
+                                                enum_rand_one_per_hwsku_hostname,
+                                                setup_authorization_tacacs,
+                                                tacacs_creds,
+                                                check_tacacs,
+                                                remote_rw_user_client):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.shell("sudo config aaa authentication debug disable")
+    duthost.shell("sudo service auditd stop")
+    duthost.shell("sudo service auditd start")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting local")
+
+    # Clean tacacs log
+    cleanup_tacacs_log(ptfhost, remote_rw_user_client)
+
+    # Create a new SSH session
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dutip = duthost.mgmt_ip
+    test_user = tacacs_creds['tacacs_authorization_user']
+    with ssh_connect_remote_retry(
+        dutip,
+        test_user,
+        tacacs_creds['tacacs_authorization_user_passwd'],
+        duthost
+    ) as ssh_client:
+        ssh_client.exec_command("grep")
+        ssh_client.exec_command("/usr/bin/run-parts")
+        ssh_client.exec_command("grep")
+        # get authorization command count during user login
+        count = count_authorization_request(ptfhost)
+        if count > 10:
+            """
+                Get local accounting log for debug
+
+                Remove all ansible command log with /D command,
+                which will match following format:
+                    "ansible.legacy.command Invoked"
+
+                Remove all usermod command with /D command,
+                which will match following format:
+                    "usermod"
+
+                Remove all command exit log with /D command,
+                which will match following format:
+                    "exit=.*"
+
+                Find logs run by test user from syslog:
+                    Find logs match following format:
+                        "INFO audisp-tacplus: Accounting: user: ,.*, command: .*command,"
+                    Print matched logs with /P command.
+            """
+            log_pattern = "/ansible.legacy.command Invoked/D;\
+                            /usermod/D;\
+                            /exit=.*/D;\
+                            /INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*,/P" \
+                        .format(test_user)
+
+            res = duthost.shell("sed -nE '{0}' /var/log/syslog".format(log_pattern))["stdout"]
+            logger.warning("Found {} commands during login, local accounting log: {}".format(count, res))
+            pytest_assert(False, "Device execute {} commands during login,\
+                           please check and remove unecessary login commands: {}".format(count, res))
