@@ -82,10 +82,10 @@ bfd/test_bfd.py::test_bfd_scale:
 
 bfd/test_bfd_static_route.py:
   skip:
-    reason: "Only supported on chassis system & cisco platform."
+    reason: "Test not supported on single-asic systems"
     conditions:
       - "is_multi_asic is False"
-      - "asic_type in ['cisco-8000']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/12948
 
 #######################################
 #####            bgp              #####
