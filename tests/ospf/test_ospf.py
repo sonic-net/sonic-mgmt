@@ -57,6 +57,7 @@ def test_ospf_neighborship(ospf_setup, duthosts, rand_one_dut_hostname):
         if (neighbor != "") and ("Neighbor ID" not in neighbor):
             assert "Full" in neighbor
 
+    # Compare new OSPF prefixes with old BGP prefixes
     cmd = "show ip route ospf"
     ospf_routes = duthost.shell(cmd)['stdout']
     ospf_routes_pattern = re.compile(r'O>\*(\d+\.\d+\.\d+\.\d+/\d+)')
