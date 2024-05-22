@@ -380,10 +380,14 @@ def format_and_apply_template(duthost, template_name, extra_vars, setup):
     duts_to_apply = [duthost]
     outputs = []
 <<<<<<< HEAD
+<<<<<<< HEAD
     if setup["is_dualtor"]:
 =======
     if setup["is_dualtor_aa"]:
 >>>>>>> Fix dualtor-aa bug in GCU Dynamic ACL tests and skip unhealthy testbeds (#12784)
+=======
+    if setup["is_dualtor"]:
+>>>>>>> Changed all references to 'is_dualtor_aa' to just 'is_dualtor' (#12927)
         duts_to_apply.append(setup["rand_unselected_dut"])
 
     for dut in duts_to_apply:
@@ -409,10 +413,14 @@ def load_and_apply_json_patch(duthost, file_name, setup):
     duts_to_apply = [duthost]
     outputs = []
 <<<<<<< HEAD
+<<<<<<< HEAD
     if setup["is_dualtor"]:
 =======
     if setup["is_dualtor_aa"]:
 >>>>>>> Fix dualtor-aa bug in GCU Dynamic ACL tests and skip unhealthy testbeds (#12784)
+=======
+    if setup["is_dualtor"]:
+>>>>>>> Changed all references to 'is_dualtor_aa' to just 'is_dualtor' (#12927)
         duts_to_apply.append(setup["rand_unselected_dut"])
 
     for dut in duts_to_apply:
@@ -434,10 +442,14 @@ def apply_formed_json_patch(duthost, json_patch, setup):
     duts_to_apply = [duthost]
     outputs = []
 <<<<<<< HEAD
+<<<<<<< HEAD
     if setup["is_dualtor"]:
 =======
     if setup["is_dualtor_aa"]:
 >>>>>>> Fix dualtor-aa bug in GCU Dynamic ACL tests and skip unhealthy testbeds (#12784)
+=======
+    if setup["is_dualtor"]:
+>>>>>>> Changed all references to 'is_dualtor_aa' to just 'is_dualtor' (#12927)
         duts_to_apply.append(setup["rand_unselected_dut"])
 
     for dut in duts_to_apply:
@@ -473,10 +485,14 @@ def expect_acl_table_match_multiple_bindings(duthost,
 
     duts_to_check = [duthost]
 <<<<<<< HEAD
+<<<<<<< HEAD
     if setup["is_dualtor"]:
 =======
     if setup["is_dualtor_aa"]:
 >>>>>>> Fix dualtor-aa bug in GCU Dynamic ACL tests and skip unhealthy testbeds (#12784)
+=======
+    if setup["is_dualtor"]:
+>>>>>>> Changed all references to 'is_dualtor_aa' to just 'is_dualtor' (#12927)
         duts_to_check.append(setup["rand_unselected_dut"])
 
     for dut in duts_to_check:
@@ -499,10 +515,14 @@ def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
 
     duts_to_check = [duthost]
 <<<<<<< HEAD
+<<<<<<< HEAD
     if setup["is_dualtor"]:
 =======
     if setup["is_dualtor_aa"]:
 >>>>>>> Fix dualtor-aa bug in GCU Dynamic ACL tests and skip unhealthy testbeds (#12784)
+=======
+    if setup["is_dualtor"]:
+>>>>>>> Changed all references to 'is_dualtor_aa' to just 'is_dualtor' (#12927)
         duts_to_check.append(setup["rand_unselected_dut"])
 
     for dut in duts_to_check:
@@ -530,10 +550,14 @@ def expect_acl_rule_removed(duthost, rulename, setup):
 
     duts_to_check = [duthost]
 <<<<<<< HEAD
+<<<<<<< HEAD
     if setup["is_dualtor"]:
 =======
     if setup["is_dualtor_aa"]:
 >>>>>>> Fix dualtor-aa bug in GCU Dynamic ACL tests and skip unhealthy testbeds (#12784)
+=======
+    if setup["is_dualtor"]:
+>>>>>>> Changed all references to 'is_dualtor_aa' to just 'is_dualtor' (#12927)
         duts_to_check.append(setup["rand_unselected_dut"])
 
     for dut in duts_to_check:
