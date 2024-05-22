@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 # https://github.com/sonic-net/sonic-buildimage/blob/master/files/image_config/interfaces/interfaces.j2#L82
 FORCED_MGMT_ROUTE_PRIORITY = 32764
 
+
 FILE_CHANGE_TIMEOUT = 60
+
 
 @pytest.fixture
 def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
