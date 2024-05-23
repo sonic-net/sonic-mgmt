@@ -234,7 +234,7 @@ class VMTopology(object):
             self.pid = None
 
         self.VMs = {}
-        if 'VMs' in self.topo:
+        if 'VMs' in self.topo and len(self.topo['VMs']) > 0:
             self.vm_base = vm_base
             if vm_base in self.vm_names:
                 self.vm_base_index = self.vm_names.index(vm_base)
