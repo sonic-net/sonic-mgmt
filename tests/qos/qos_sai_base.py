@@ -129,7 +129,7 @@ class QosBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        custom_options = " --disable-vxlan --disable-geneve" \
+        custom_options = " --disable-ipv6 --disable-vxlan --disable-geneve" \
                          " --disable-erspan --disable-mpls --disable-nvgre"
         ptf_runner(
             ptfhost,
@@ -767,9 +767,7 @@ class QosSaiBase(QosBase):
         dstVlan3 = dst_test_port_ips[dstPort3]['vlan_id'] if 'vlan_id' in dst_test_port_ips[dstPort3] else None
         srcPort = srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]
         srcVlan = src_test_port_ips[srcPort]['vlan_id'] if 'vlan_id' in src_test_port_ips[srcPort] else None
-
-        src_port_ip = src_test_port_ips[srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]]
-        testPorts = {
+        return {
          "dst_port_id": dstPort,
          "dst_port_ip": dst_test_port_ips[dstPort]['peer_addr'],
          "dst_port_vlan": dstVlan,
@@ -780,19 +778,9 @@ class QosSaiBase(QosBase):
          "dst_port_3_ip": dst_test_port_ips[dstPort3]['peer_addr'],
          "dst_port_3_vlan": dstVlan3,
          "src_port_id": srcPort,
-         "src_port_ip": src_port_ip["peer_addr"],
+         "src_port_ip": src_test_port_ips[srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]]["peer_addr"],
          "src_port_vlan": srcVlan
         }
-
-        if 'peer_addr_ipv6' in dst_test_port_ips[dstPort]:
-            testPorts.update({"dst_port_ipv6": dst_test_port_ips[dstPort]['peer_addr_ipv6']})
-        if 'peer_addr_ipv6' in dst_test_port_ips[dstPort2]:
-            testPorts.update({"dst_port_2_ipv6": dst_test_port_ips[dstPort2]['peer_addr_ipv6']})
-        if 'peer_addr_ipv6' in dst_test_port_ips[dstPort3]:
-            testPorts.update({"dst_port_3_ipv6": dst_test_port_ips[dstPort3]['peer_addr_ipv6']})
-        if 'peer_addr_ipv6' in src_port_ip:
-            testPorts.update({"src_port_ipv6": src_port_ip["peer_addr_ipv6"]})
-        return testPorts
 
     def __buildPortSpeeds(self, config_facts):
         port_speeds = collections.defaultdict(list)
@@ -907,15 +895,6 @@ class QosSaiBase(QosBase):
                             uplinkPortIds.append(portIndex)
                             uplinkPortIps.append(portConfig["peer_addr"])
                             uplinkPortNames.append(intf)
-                elif ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 6:
-                    portIndex = src_mgFacts["minigraph_ptf_indices"][intf]
-                    if portIndex in testPortIds[src_dut_index][src_asic_index]:
-                        if portIndex in dutPortIps[src_dut_index][src_asic_index]:
-                            dutPortIps[src_dut_index][src_asic_index][portIndex].update(
-                                {'peer_addr_ipv6': portConfig['peer_addr']})
-                        else:
-                            portIpMap = {'peer_addr_ipv6': portConfig['peer_addr']}
-                            dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
 
             testPortIps[src_dut_index] = {}
             testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
@@ -938,14 +917,14 @@ class QosSaiBase(QosBase):
             testPortIds[src_dut_index] = {}
             for dut_asic in get_src_dst_asic_and_duts['all_asics']:
                 dutPortIps[src_dut_index][dut_asic.asic_index] = {}
-                for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo, include_ipv6=True).items():
+                for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
                     vlan_id = None
                     if iface.startswith("Ethernet"):
                         portName = iface
                         if "." in iface:
                             portName, vlan_id = iface.split(".")
                         portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr["peer_ipv6"]}
+                        portIpMap = {'peer_addr': addr["peer_ipv4"]}
                         if vlan_id is not None:
                             portIpMap['vlan_id'] = vlan_id
                         dutPortIps[src_dut_index][dut_asic.asic_index].update({portIndex: portIpMap})
@@ -954,7 +933,7 @@ class QosSaiBase(QosBase):
                             iter(src_mgFacts["minigraph_portchannels"][iface]["members"])
                         )
                         portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr["peer_ipv6"]}
+                        portIpMap = {'peer_addr': addr["peer_ipv4"]}
                         dutPortIps[src_dut_index][dut_asic.asic_index].update({portIndex: portIpMap})
                     # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
                     # we also need to test them separately
@@ -997,20 +976,18 @@ class QosSaiBase(QosBase):
             dutPortIps[src_dut_index] = {}
             testPortIds[src_dut_index] = {}
             dutPortIps[src_dut_index][src_asic_index] = {}
-            active_ips = src_asic.get_active_ip_interfaces(tbinfo, include_ipv6=True)
+            active_ips = src_asic.get_active_ip_interfaces(tbinfo)
             for iface, addr in active_ips.items():
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                     portIndex = src_mgFacts["minigraph_ptf_indices"][iface]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
-                                 'port': iface}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
                 elif iface.startswith("PortChannel"):
                     portName = next(
                         iter(src_mgFacts["minigraph_portchannels"][iface]["members"])
                     )
                     portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
-                                 'port': portName}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
 
             testPortIds[src_dut_index][src_asic_index] = sorted(dutPortIps[src_dut_index][src_asic_index].keys())
@@ -1026,20 +1003,18 @@ class QosSaiBase(QosBase):
                 else:
                     dst_mgFacts = src_mgFacts
                 dutPortIps[dst_dut_index][dst_asic_index] = {}
-                active_ips = dst_asic.get_active_ip_interfaces(tbinfo, include_ipv6=True)
+                active_ips = dst_asic.get_active_ip_interfaces(tbinfo)
                 for iface, addr in active_ips.items():
                     if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                         portIndex = dst_mgFacts["minigraph_ptf_indices"][iface]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
-                                     'port': iface}
+                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
                     elif iface.startswith("PortChannel"):
                         portName = next(
                             iter(dst_mgFacts["minigraph_portchannels"][iface]["members"])
                         )
                         portIndex = dst_mgFacts["minigraph_ptf_indices"][portName]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
-                                     'port': portName}
+                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
 
                 testPortIds[dst_dut_index][dst_asic_index] = sorted(dutPortIps[dst_dut_index][dst_asic_index].keys())
