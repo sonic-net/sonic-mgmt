@@ -253,7 +253,8 @@ class QosParamCisco(object):
                       "ecn": 1,
                       "pg": dscp_pg,
                       "pkts_num_trig_pfc": (self.pause_thr // self.buffer_size // packet_buffs) - 1,
-                      "pkts_num_hysteresis": int(((self.pause_thr - self.reduced_pause_thr) // self.buffer_size // packet_buffs) - 2),
+                      "pkts_num_hysteresis": int(((self.pause_thr - self.reduced_pause_thr)
+                                                  // self.buffer_size // packet_buffs) - 2),
                       "pkts_num_dismiss_pfc": 2,
                       "packet_size": packet_size}
             self.write_params("xon_{}".format(param_i), params)
