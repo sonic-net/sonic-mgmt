@@ -71,8 +71,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "acl/test_acl.py, \
-              acl/test_stress_acl.py, \
+    default: "acl/test_stress_acl.py, \
               disk/test_disk_exhaustion.py, \
               dut_console/test_console_baud_rate.py, \
               platform_tests/link_flap/test_cont_link_flap.py, \
