@@ -17,8 +17,6 @@ spine0:
         sudo config vlan member del 20 D1D4P1
         sudo config vlan del 10
         sudo config vlan del 20
-        sudo config interface shutdown D1D3P1
-        sudo config interface shutdown D1D4P1
 
 leaf0:
     sonic:
@@ -38,9 +36,6 @@ leaf0:
         sudo config vlan del 10
         sudo config vlan member del 20 D3D1P1
         sudo config vlan del 20
-        sudo config interface shutdown D3D1P1
-        sudo config interface shutdown D3T1P1
-        sudo config interface shutdown D3T1P2
 leaf1:
     sonic:
       config: |
@@ -59,8 +54,6 @@ leaf1:
         sudo config vlan del 10
         sudo config vlan member del 20 D4D1P1
         sudo config vlan del 20
-        sudo config interface shutdown D4D1P1
-        sudo config interface shutdown D4T1P1
 
 
 

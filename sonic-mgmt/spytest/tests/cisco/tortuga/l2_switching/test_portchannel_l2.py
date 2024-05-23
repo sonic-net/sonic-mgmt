@@ -58,8 +58,8 @@ data_vid_10.t1d4_mac_addr = "00:0a:01:00:12:01"
 
 data_vid_10.pkts_per_burst = '500'
 data_vid_10.transmit_mode = 'continuous'
-data_vid_10.tgen_stats_threshold = 100
-data_vid_10.tgen_rate_pps = '1000'
+data_vid_10.tgen_stats_threshold = 50
+data_vid_10.tgen_rate_pps = '100'
 data_vid_10.tgen_l3_len = '500'
 data_vid_10.traffic_run_time = 20
 ##L2 stream config
@@ -78,8 +78,8 @@ data_vid_20.t1d4_mac_addr = "00:0a:01:00:14:01"
 
 data_vid_20.pkts_per_burst = '500'
 data_vid_20.transmit_mode = 'continuous'
-data_vid_20.tgen_stats_threshold = 100
-data_vid_20.tgen_rate_pps = '1000'
+data_vid_20.tgen_stats_threshold = 50
+data_vid_20.tgen_rate_pps = '100'
 data_vid_20.tgen_l3_len = '500'
 data_vid_20.traffic_run_time = 20
 ##L2 stream config

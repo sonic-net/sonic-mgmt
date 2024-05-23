@@ -7,7 +7,6 @@ spine0:
       deconfig: |
         sudo config interface ip rem D1D4P1 12.1.1.1/24
         sudo config interface ip rem D1D4P1 12:1:1::1/120
-        sudo config interface shutdown D1D4P1
     bgp:
       config: |
         no router bgp
@@ -45,7 +44,6 @@ leaf0:
       deconfig: |
         sudo config interface ip rem D3T1P1 10.1.1.1/24
         sudo config interface ip rem D3T1P1 10:1:1::1/120
-        sudo config interface shutdown D3T1P1
     bgp:
       config: |
         no router bgp
@@ -83,8 +81,6 @@ leaf1:
         sudo config interface ip rem D4T1P1 11:1:1::1/120
         sudo config interface ip rem D4D1P1 12.1.1.2/24
         sudo config interface ip rem D4D1P1 12:1:1::2/120
-        sudo config interface shutdown D4T1P1
-        sudo config interface shutdown D4D1P1
     bgp:
       config: |
         no router bgp

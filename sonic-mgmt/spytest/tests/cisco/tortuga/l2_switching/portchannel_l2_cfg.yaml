@@ -26,7 +26,6 @@ spine0:
         sudo config portchannel member del PortChannel01 D1D3P1
         sudo config portchannel member del PortChannel01 D1D3P2
         sudo config portchannel del PortChannel01
-        sudo config interface shutdown D1D4P1
         sudo config vlan del 10
         sudo config vlan del 20
 
@@ -60,8 +59,6 @@ leaf0:
         sudo config portchannel member del PortChannel01 D3D1P1
         sudo config portchannel member del PortChannel01 D3D1P2
         sudo config portchannel del PortChannel01
-        sudo config interface shutdown D3T1P1
-        sudo config interface shutdown D3T1P2
         sudo config vlan del 10
         sudo config vlan del 20
 
@@ -85,8 +82,5 @@ leaf1:
         sudo config vlan member del 20 D4D1P1
         sudo config vlan member del 10 D4T1P1
         sudo config vlan member del 20 D4T1P2
-        sudo config interface shutdown D4D1P1
-        sudo config interface shutdown D4T1P1
-        sudo config interface shutdown D4T1P2
         sudo config vlan del 10
         sudo config vlan del 20
