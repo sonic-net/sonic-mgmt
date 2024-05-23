@@ -94,15 +94,4 @@
     pip: name=docker version=6.1.0 state=forcereinstall executable={{ pip_executable }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
-    # Workaround for '"Error connecting: Error while fetching server API version: Not supported URL scheme http+docker'
-    # See https://github.com/docker/docker-py/issues/3256
-  - name: Remove old requests package >=2.32.0
-    pip: name=requests state=absent executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
-    ignore_errors: yes
-  - name: Install requests package <2.32.0
-    pip: name=requests version=2.31.0 state=present executable={{ pip_executable }}
-    become: yes
-    environment: "{{ proxy_env | default({}) }}"
   when: pip_executable=="pip3"
