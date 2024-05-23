@@ -46,7 +46,10 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
                 and "enabled" not in feature_list.get(DHCP_SERVER, ""):
             dhcp_server_hosts.append(hostname)
             duthost.shell("config feature state %s enabled" % DHCP_SERVER)
+<<<<<<< HEAD
             duthost.shell("sudo config feature autorestart %s enabled" % DHCP_SERVER)
+=======
+>>>>>>> [dhcp_server_test] support dhcp server container auto restarted test on mx topo (#12897)
             duthost.shell("sudo systemctl restart %s.service" % DHCP_RELAY)
             pytest_require(
                 wait_until(120, 1, 1,
