@@ -43,7 +43,7 @@ def agg_configuration(config, asn, duthost, cli_options, commandv4, commandv6):
     time.sleep(establish_bgp_session_time)
 
 
-def verify_route_agg(dut, neigh_ip_v4, neigh_ip_v6, num_matches, suppress):
+def verify_route_agg(dut, neigh_ip_v4, neigh_ip_v6, num_matches, suppress, as_set=False):
     output = dut.shell('show ip bgp neighbors {} advertised-routes | grep -c "*> 1.1."'.format(neigh_ip_v4),
                        module_ignore_errors=True)['stdout']
     logger.debug(output)
@@ -64,6 +64,11 @@ def verify_route_agg(dut, neigh_ip_v4, neigh_ip_v6, num_matches, suppress):
         assert "1.1.2.0/24" not in output4
         assert "1:1:1:1::/64" not in output6
         assert "1:1:1:2::/64" not in output6
+    if as_set:
+        assert "11111" in output4
+        assert "22222" in output4
+        assert "11111" in output6
+        assert "22222" in output6
 
 
 def check_baseline(dut, neigh_ip_v4, neigh_ip_v6, base_v4, base_v6):
@@ -120,6 +125,7 @@ def test_ebgp_route_aggregation(gather_info):
     # Configure summary-only route aggregation
     agg_configuration(True, gather_info['dut_asn'], gather_info['duthost'],
                       gather_info['cli_options'], "summary-only", "summary-only")
+    logger.debug(gather_info['duthost'].shell('vtysh -c "show run bgp"', module_ignore_errors=True)['stdout'])
     verify_route_agg(gather_info['duthost'], gather_info['neigh_ip_v4'], gather_info['neigh_ip_v6'], "1", False)
 
     # Remove the aggregate configuration
@@ -132,7 +138,9 @@ def test_ebgp_route_aggregation(gather_info):
     # Configure as-set summary-only route aggregation
     agg_configuration(True, gather_info['dut_asn'], gather_info['duthost'],
                       gather_info['cli_options'], "as-set summary-only", "as-set summary-only")
-    verify_route_agg(gather_info['duthost'], gather_info['neigh_ip_v4'], gather_info['neigh_ip_v6'], "1", False)
+    logger.debug(gather_info['duthost'].shell('vtysh -c "show run bgp"', module_ignore_errors=True)['stdout'])
+    verify_route_agg(gather_info['duthost'], gather_info['neigh_ip_v4'], gather_info['neigh_ip_v6'], "1", False,
+                     as_set=True)
 
     # Remove the aggregate configuration
     agg_configuration(False, gather_info['dut_asn'], gather_info['duthost'],
@@ -160,8 +168,6 @@ def test_ebgp_route_aggregation(gather_info):
     gather_info['duthost'].shell(cmd, module_ignore_errors=True)
     agg_configuration(True, gather_info['dut_asn'], gather_info['duthost'],
                       gather_info['cli_options'], "suppress-map SUPPRESS_RM_V4", "suppress-map SUPPRESS_RM_V6")
-    logger.debug(gather_info['neighhost'].shell("show ip bgp summary", module_ignore_errors=True)['stdout'])
-    logger.debug(gather_info['neighhost'].shell("show ipv6 bgp summary", module_ignore_errors=True)['stdout'])
     logger.debug(gather_info['duthost'].shell('vtysh -c "show run bgp"', module_ignore_errors=True)['stdout'])
     verify_route_agg(gather_info['duthost'], gather_info['neigh_ip_v4'], gather_info['neigh_ip_v6'], "4", True)
 
