@@ -609,7 +609,8 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_dut, mux_server_url, tbinfo):
+def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_dut, mux_server_url, tbinfo,
+                                                      active_standby_ports):
     """
     A function level fixture to toggle all ports to randomly unselected tor
 
@@ -617,7 +618,7 @@ def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
     # Skip on non dualtor testbed
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         return
 
     _toggle_all_simulator_ports_to_target_dut(rand_unselected_dut.hostname, duthosts, mux_server_url, tbinfo)
