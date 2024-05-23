@@ -293,6 +293,7 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
 
 def test_no_pfc(pfc_test_setup, fanouthosts, rand_selected_dut, ptfhost, conn_graph_facts,        # noqa F811
                 fanout_graph_facts, lossless_prio_dscp_map, enum_dut_lossless_prio, # noqa F811
+                setup_standby_ports_on_rand_unselected_tor,       # noqa F811
                 toggle_all_simulator_ports_to_rand_selected_tor): # noqa F811
     """
     Test if lossless and lossy priorities can forward packets in the absence of PFC pause frames
