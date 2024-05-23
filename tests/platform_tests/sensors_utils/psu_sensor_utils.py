@@ -15,7 +15,8 @@ logger = logging.getLogger()
 def update_sensor(sensor_path, psu_num, bus_num, bus_address, psu_side):
     """
     Updates the sensor_path (original format can be seen in psu-data.yml) to contain platform related information
-    :param sensor_path: Sensor path as taken from psu-data.yml (contains * in places where platform related data is needed)
+    :param sensor_path: Sensor path as taken from psu-data.yml (contains * in places where platform
+    related data is needed)
     :param psu_num: The psu number
     :param bus_num: bus number of sensors from this psu number
     :param bus_address: bus address of sensors from this psu number
@@ -215,7 +216,8 @@ class SensorHelper:
     def get_sensor_psu_prefix(self):
         """
         This function will fetch the sensor bus pattern prefix from psu_sensors_data.
-        :return: sensor psu sensor prefix without buss num and address of dut - for example, dps460-i2c of dps460-i2c-4-58"
+        :return: sensor psu sensor prefix without buss num and address of dut - for example,
+        dps460-i2c of dps460-i2c-4-58"
         """
         psu_bus_path = list(self.psu_platform_data["default"]["chip"].keys())[0]  # grab some key from the chip part
         # the psu_bus_path will look something like dps460-i2c-*-58 - we want to generalize it - dps460-i2c-*-*
@@ -249,13 +251,14 @@ class SensorHelper:
 
     def parse_psu_json_mapping(self, psu_nums_to_replace, hardware_version):
         """
-        This function returns a dictionary that contains for each PSU slot in the device, the bus number, bus address and
-        psu side
+        This function returns a dictionary that contains for each PSU slot in the device, the bus number,
+        bus address and psu side
         :param psu_json_mapping: mapping from platform to relevant data regarding the psu sensors
         :param psu_nums_to_replace: set  of psu numbers we want to fetch sensors for
         :param platform: the platform of the dut
         :param hardware_version: hardware version as retrieved from mellanox_data.get_hardware_version
-        :returns: A dictionary containing for each psu number, the bus number, bus address and PSU slot side (empty if doesn't exist)
+        :returns: A dictionary containing for each psu number, the bus number, bus address and PSU slot side (empty
+         if doesn't exist)
         """
 
         psu_json_data = dict()
