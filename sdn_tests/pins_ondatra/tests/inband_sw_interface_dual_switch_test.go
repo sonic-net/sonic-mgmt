@@ -110,6 +110,9 @@ func mockConfigPush(t *testing.T) {
 	calledMockConfigPush = true
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackInCnts test. (#12951)
 
 // Tests start here.
 func TestMain(m *testing.M) {
@@ -165,7 +168,11 @@ func TestGNMIInbandSwLoopbackInCnts(t *testing.T) {
 			Version:  4,
 			TTL:      64,
 			Protocol: layers.IPProtocolTCP,
+<<<<<<< HEAD
 			SrcIP:    net.ParseIP("10.10.20.30").To4(),
+=======
+			SrcIP:    net.ParseIP("2.2.2.2").To4(),
+>>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackInCnts test. (#12951)
 			DstIP:    net.ParseIP(configuredIPv4Path).To4(),
 		}
 		tcp := &layers.TCP{
@@ -237,6 +244,7 @@ func TestGNMIInbandSwLoopbackInCnts(t *testing.T) {
 
 	t.Logf("\n\n----- TestGNMIInbandSwLoopbackInCnts: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+<<<<<<< HEAD
 
 // TestGNMIInbandSwLoopbackOutCnts - Check Loopback0 out-traffic counters
 func TestGNMIInbandSwLoopbackOutCnts(t *testing.T) {
@@ -360,3 +368,5 @@ func TestGNMIInbandSwLoopbackOutCnts(t *testing.T) {
 }
 =======
 >>>>>>> [sdn_tests]: Adding inband sw interface dual switch test to pins_ondatra. (#12946)
+=======
+>>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackInCnts test. (#12951)
