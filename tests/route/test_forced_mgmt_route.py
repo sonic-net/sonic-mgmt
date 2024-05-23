@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 FORCED_MGMT_ROUTE_PRIORITY = 32764
 
 
-FILE_CHANGE_TIMEOUT = 60
+# Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
+# interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
+FILE_CHANGE_TIMEOUT = 300
 
 
 @pytest.fixture
