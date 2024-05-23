@@ -12,8 +12,6 @@ SKIPPED_CHECK_TYPES = ["psu_skips", "sensor_skip_per_version"]
 logger = logging.getLogger()
 
 
-# TODO - after RM issue #3831189 is fixed, add affected PSUs to psu_data.yml
-# TODO - after RM issue #3816778 is fixed, add MTEF-PSR-AC-C-SS1 to psu_Data.yml and remove skip on r-anaconda-15.
 def update_sensor(sensor_path, psu_num, bus_num, bus_address, psu_side):
     """
     Updates the sensor_path (original format can be seen in psu-data.yml) to contain platform related information
