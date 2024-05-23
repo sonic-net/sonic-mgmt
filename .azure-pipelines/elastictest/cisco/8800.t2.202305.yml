@@ -59,7 +59,7 @@ parameters:
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
-    default: " "
+    default: "platform_tests/test_kdump.py"
     displayName: "Scripts to be executed"
 
   - name: FEATURES
