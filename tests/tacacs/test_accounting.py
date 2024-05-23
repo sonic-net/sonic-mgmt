@@ -118,7 +118,11 @@ def check_local_log_exist(duthost, tacacs_creds, command):
 
     if len(logs) == 0:
         # print recent logs for debug
+<<<<<<< HEAD
         recent_logs = duthost.command("tail /var/log/syslog -n 1000")
+=======
+        recent_logs = duthost.command("cat /var/log/syslog | tail -n 500")
+>>>>>>> [TACACS] Increase check local log wait time and print debug info. (#12822)
         logger.debug("Found logs: %s", recent_logs)
 
     pytest_assert(len(logs) > 0)
