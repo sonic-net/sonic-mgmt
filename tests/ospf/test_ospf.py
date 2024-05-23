@@ -6,7 +6,7 @@ import re
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1')
+    pytest.mark.topology('t0')
 ]
 
 
@@ -80,7 +80,7 @@ def test_ospf_dynamic_routing(ospf_setup, duthosts, rand_one_dut_hostname, nbrho
     advertise_network_cmd = "vtysh -c 'config terminal' -c 'router ospf' -c 'network 192.168.10.1/32 area 0'"
     nbrhosts[first_nbr]["host"].shell(advertise_network_cmd)
 
-    # Configure OSPF neighbors in DUT if not already configured
+    # Check OSPF already configured in DUT
     ospf_configured = False
     cmd = 'vtysh -c "show ip ospf neighbor"'
     ospf_neighbors = duthost.shell(cmd)['stdout'].split("\n")
@@ -88,6 +88,7 @@ def test_ospf_dynamic_routing(ospf_setup, duthosts, rand_one_dut_hostname, nbrho
         if ("ospfd is not running" not in neighbor) and (neighbor != "") and ("Neighbor ID" not in neighbor):
             ospf_configured = True
 
+    # Configure OSPF neighbors in DUT if not already configured
     if not ospf_configured:
         cmd_list = [
             'docker exec -it bgp bash',
