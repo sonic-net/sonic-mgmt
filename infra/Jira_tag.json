@@ -1,1526 +1,2182 @@
 {
-    "NAME": "cisco/saitests",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "cisco/pfc",
-    "SCRUM_LEAD": "Alpesh Patel",
-    "TEAM": "SONIC-PFC",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "cisco/syslog",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "cisco/qos",
-    "SCRUM_LEAD": "Alpesh Patel",
-    "TEAM": "SONIC-PFC",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "cisco/dsf",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "Sunesh Rustagi",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "cisco/ipfwd",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "cisco/auto_triage",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "cisco/platform_tests",
-    "TEAM": "SONIC-PLAT-INFRA",
-    "SCRUM_LEAD": "Shivu Vibhuti",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "cisco/tortuga",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "Aravind Subbaroyan",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "log_fidelity",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "pc",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "decap",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "dualtor_io",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "database",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "saitests",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "testbed_setup",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "vs_voq_cfgs",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "cacl",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "mvrf",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "dhcp_server",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "ecmp",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "mpls",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "syslog",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "flow_counter",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "snmp",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "system_health",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "route",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "ixia",
-    "SCRUM_LEAD": "Alpesh Patel",
-    "TEAM": "SONIC-PFC",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "bfd",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "show_techsupport",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "passw_hardening",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "gnmi",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "container_checker",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "iface_namingmode",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "autorestart",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "sai_qualify",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "override_config_table",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "plugins",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "lldp",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "dut_console",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "sflow",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "k8s",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "mclag",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "qos",
-    "SCRUM_LEAD": "Alpesh Patel",
-    "TEAM": "SONIC-PFC",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "nat",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "vxlan",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "crm",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "snappi_tests",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "container_hardening",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "pipelines",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "cisco",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "docs",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "restapi",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "ntp",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "dhcp_relay",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "minigraph",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "vlan",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "process_monitoring",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "common",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "read_mac",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "ssh",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "span",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "voq",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "dualtor",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "http",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "ptftests",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "pfcwd",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "wan",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "drop_packets",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "scripts",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "sub_port_interfaces",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "acstests",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "iface_loopback_action",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "monit",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "fib",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "vrf",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "reset_factory",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "templates",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "dash",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "disk",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "portstat",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "memory_checker",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "copp",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "upgrade_path",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "fwutil-fw",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "dualtor_mgmt",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "ipfwd",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "telemetry",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "everflow",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "radv",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "arp",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "scp",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "macsec",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "fdb",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "bgp",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "ip",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "dns",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "sonic",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "platform_tests",
-    "TEAM": "SONIC-PLAT-INFRA",
-    "SCRUM_LEAD": "Shivu Vibhuti",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "generic_config_updater",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "tacacs",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "metadata",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "eos",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "configlet",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "acl",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "clock",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "stress",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "console",
-    "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
-    "SCRUM_LEAD": "James An",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
-},
-{
-    "NAME": "pfc_asym",
-    "SCRUM_LEAD": "Alpesh Patel",
-    "TEAM": "SONIC-PFC",
-    "202305_LABEL": "202305",
-    "202311_LABEL": "202311",
-    "MASTER_LABEL": "MASTER",
-    "T0_LABEL": "T0",
-    "T1_LABEL": "T1",
-    "T2_LABEL": "T2-PASS%",
-    "EXTRA_LABEL": [
-        "CICD"
-    ]
+    "cisco/saitests": {
+        "NAME": "cisco/saitests",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "cisco/pfc": {
+        "NAME": "cisco/pfc",
+        "TEAM": "SONIC-PFC",
+        "SCRUM_LEAD": {
+            "NAME": "Alpesh Patel",
+            "USER_ID": "alpesh",
+            "EMAIL": "alpesh@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "cisco/syslog": {
+        "NAME": "cisco/syslog",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "cisco/qos": {
+        "NAME": "cisco/qos",
+        "TEAM": "SONIC-PFC",
+        "SCRUM_LEAD": {
+            "NAME": "Alpesh Patel",
+            "USER_ID": "alpesh",
+            "EMAIL": "alpesh@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "cisco/dsf": {
+        "NAME": "cisco/dsf",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "Sunesh Rustagi",
+            "USER_ID": "sunrusta",
+            "EMAIL": "sunrusta@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "cisco/ipfwd": {
+        "NAME": "cisco/ipfwd",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "cisco/auto_triage": {
+        "NAME": "cisco/auto_triage",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "cisco/platform_tests": {
+        "NAME": "cisco/platform_tests",
+        "TEAM": "SONIC-PLAT-INFRA",
+        "SCRUM_LEAD": {
+            "NAME": "Shivu Vibhuti",
+            "USER_ID": "svibhuti",
+            "EMAIL": "svibhuti@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "cisco/tortuga": {
+        "NAME": "cisco/tortuga",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "Aravind Subbaroyan",
+            "USER_ID": "asubbaro",
+            "EMAIL": "asubbaro@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "log_fidelity": {
+        "NAME": "log_fidelity",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "pc": {
+        "NAME": "pc",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "decap": {
+        "NAME": "decap",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "dualtor_io": {
+        "NAME": "dualtor_io",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "database": {
+        "NAME": "database",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "saitests": {
+        "NAME": "saitests",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "testbed_setup": {
+        "NAME": "testbed_setup",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "vs_voq_cfgs": {
+        "NAME": "vs_voq_cfgs",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "cacl": {
+        "NAME": "cacl",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "mvrf": {
+        "NAME": "mvrf",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "dhcp_server": {
+        "NAME": "dhcp_server",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "ecmp": {
+        "NAME": "ecmp",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "mpls": {
+        "NAME": "mpls",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "syslog": {
+        "NAME": "syslog",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "flow_counter": {
+        "NAME": "flow_counter",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "snmp": {
+        "NAME": "snmp",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "system_health": {
+        "NAME": "system_health",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "route": {
+        "NAME": "route",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "ixia": {
+        "NAME": "ixia",
+        "TEAM": "SONIC-PFC",
+        "SCRUM_LEAD": {
+            "NAME": "Alpesh Patel",
+            "USER_ID": "alpesh",
+            "EMAIL": "alpesh@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "bfd": {
+        "NAME": "bfd",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "show_techsupport": {
+        "NAME": "show_techsupport",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "passw_hardening": {
+        "NAME": "passw_hardening",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "gnmi": {
+        "NAME": "gnmi",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "container_checker": {
+        "NAME": "container_checker",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "iface_namingmode": {
+        "NAME": "iface_namingmode",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "autorestart": {
+        "NAME": "autorestart",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "sai_qualify": {
+        "NAME": "sai_qualify",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "override_config_table": {
+        "NAME": "override_config_table",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "plugins": {
+        "NAME": "plugins",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "lldp": {
+        "NAME": "lldp",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "dut_console": {
+        "NAME": "dut_console",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "sflow": {
+        "NAME": "sflow",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "k8s": {
+        "NAME": "k8s",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "mclag": {
+        "NAME": "mclag",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "qos": {
+        "NAME": "qos",
+        "TEAM": "SONIC-PFC",
+        "SCRUM_LEAD": {
+            "NAME": "Alpesh Patel",
+            "USER_ID": "alpesh",
+            "EMAIL": "alpesh@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "nat": {
+        "NAME": "nat",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "vxlan": {
+        "NAME": "vxlan",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "crm": {
+        "NAME": "crm",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "snappi_tests": {
+        "NAME": "snappi_tests",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "container_hardening": {
+        "NAME": "container_hardening",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "pipelines": {
+        "NAME": "pipelines",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "cisco": {
+        "NAME": "cisco",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "docs": {
+        "NAME": "docs",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "restapi": {
+        "NAME": "restapi",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "ntp": {
+        "NAME": "ntp",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "dhcp_relay": {
+        "NAME": "dhcp_relay",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "minigraph": {
+        "NAME": "minigraph",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "vlan": {
+        "NAME": "vlan",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "process_monitoring": {
+        "NAME": "process_monitoring",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "common": {
+        "NAME": "common",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "read_mac": {
+        "NAME": "read_mac",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "ssh": {
+        "NAME": "ssh",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "span": {
+        "NAME": "span",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "voq": {
+        "NAME": "voq",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "dualtor": {
+        "NAME": "dualtor",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "http": {
+        "NAME": "http",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "ptftests": {
+        "NAME": "ptftests",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "pfcwd": {
+        "NAME": "pfcwd",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "wan": {
+        "NAME": "wan",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "drop_packets": {
+        "NAME": "drop_packets",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "scripts": {
+        "NAME": "scripts",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "sub_port_interfaces": {
+        "NAME": "sub_port_interfaces",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "acstests": {
+        "NAME": "acstests",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "iface_loopback_action": {
+        "NAME": "iface_loopback_action",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "monit": {
+        "NAME": "monit",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "fib": {
+        "NAME": "fib",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "vrf": {
+        "NAME": "vrf",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "reset_factory": {
+        "NAME": "reset_factory",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "templates": {
+        "NAME": "templates",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "dash": {
+        "NAME": "dash",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "disk": {
+        "NAME": "disk",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "portstat": {
+        "NAME": "portstat",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "memory_checker": {
+        "NAME": "memory_checker",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "copp": {
+        "NAME": "copp",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "upgrade_path": {
+        "NAME": "upgrade_path",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "fwutil-fw": {
+        "NAME": "fwutil-fw",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "dualtor_mgmt": {
+        "NAME": "dualtor_mgmt",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "ipfwd": {
+        "NAME": "ipfwd",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "telemetry": {
+        "NAME": "telemetry",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "everflow": {
+        "NAME": "everflow",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "radv": {
+        "NAME": "radv",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "arp": {
+        "NAME": "arp",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "scp": {
+        "NAME": "scp",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "macsec": {
+        "NAME": "macsec",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "fdb": {
+        "NAME": "fdb",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "bgp": {
+        "NAME": "bgp",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "ip": {
+        "NAME": "ip",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "dns": {
+        "NAME": "dns",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "sonic": {
+        "NAME": "sonic",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "platform_tests": {
+        "NAME": "platform_tests",
+        "TEAM": "SONIC-PLAT-INFRA",
+        "SCRUM_LEAD": {
+            "NAME": "Shivu Vibhuti",
+            "USER_ID": "svibhuti",
+            "EMAIL": "svibhuti@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "generic_config_updater": {
+        "NAME": "generic_config_updater",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "tacacs": {
+        "NAME": "tacacs",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "metadata": {
+        "NAME": "metadata",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "eos": {
+        "NAME": "eos",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "configlet": {
+        "NAME": "configlet",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "acl": {
+        "NAME": "acl",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "clock": {
+        "NAME": "clock",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "stress": {
+        "NAME": "stress",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "console": {
+        "NAME": "console",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
+    "pfc_asym": {
+        "NAME": "pfc_asym",
+        "TEAM": "SONIC-PFC",
+        "SCRUM_LEAD": {
+            "NAME": "Alpesh Patel",
+            "USER_ID": "alpesh",
+            "EMAIL": "alpesh@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    }
 }
