@@ -315,7 +315,6 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # For M0_VLAN/MX/T0/dual ToR scenario, we need to use the VLAN MAC to interact with downstream ports
     # For T1/M0_L3 scenario, no VLANs are present so using the router MAC is acceptable
     downlink_dst_mac = vlan_mac if vlan_mac is not None else rand_selected_dut.facts["router_mac"]
-
     if topo == "t2":
         t2_info = get_t2_info(duthosts, tbinfo)
         downstream_port_ids = t2_info['downstream_port_ids']
@@ -372,7 +371,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
                 acl_table_ports[''] += port
 
     if topo in ["t0", "m0_vlan", "m0_l3"] or tbinfo["topo"]["name"] in ("t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                                                                        "t1-56-lag", "t1-28-lag"):
+                                                                        "t1-56-lag", "t1-28-lag", "t1-32-lag"):
         for k, v in list(port_channels.items()):
             acl_table_ports[v['namespace']].append(k)
             # In multi-asic we need config both in host and namespace.
