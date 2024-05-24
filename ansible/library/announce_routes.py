@@ -10,6 +10,7 @@ import json
 import sys
 import socket
 import random
+import time
 from multiprocessing.pool import ThreadPool
 from ansible.module_utils.basic import AnsibleModule
 
@@ -150,6 +151,7 @@ def change_routes(action, ptf_ip, port, routes):
     url = "http://%s:%d" % (ptf_ip, port)
     data = {"commands": ";".join(messages)}
     # nosemgrep-next-line
+    time.sleep(0.1)
     r = requests.post(url, data=data, timeout=360, proxies={"http": None, "https": None})
     if r.status_code != 200:
         raise Exception(
