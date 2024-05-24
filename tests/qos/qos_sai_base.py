@@ -772,7 +772,6 @@ class QosSaiBase(QosBase):
         srcPort = srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]
         srcVlan = src_test_port_ips[srcPort]['vlan_id'] if 'vlan_id' in src_test_port_ips[srcPort] else None
 
-        src_port_ip = src_test_port_ips[srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]]
         # collecting the system ports associated with dst ports
         # In case of PortChannel as dst port, all lag ports will be added to the list
         # ex. {dstPort: system_port, dstPort1:system_port1 ...}
