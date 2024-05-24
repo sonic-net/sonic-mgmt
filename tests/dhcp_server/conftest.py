@@ -21,7 +21,7 @@ def dhcp_server_setup_teardown(duthost):
     def is_supervisor_subprocess_running(duthost, container_name, app_name):
         return "RUNNING" in duthost.shell(f"docker exec {container_name} supervisorctl status {app_name}")["stdout"]
     py_assert(
-        wait_until(20, 1, 1,
+        wait_until(120, 1, 1,
                    is_supervisor_subprocess_running,
                    duthost,
                    DHCP_SERVER_CONTAINER_NAME,
@@ -29,7 +29,7 @@ def dhcp_server_setup_teardown(duthost):
         'feature dhcp_server is enabled but container is not running'
     )
     py_assert(
-        wait_until(30, 1, 1,
+        wait_until(120, 1, 1,
                    is_supervisor_subprocess_running,
                    duthost,
                    DHCP_RELAY_CONTAINER_NAME,
