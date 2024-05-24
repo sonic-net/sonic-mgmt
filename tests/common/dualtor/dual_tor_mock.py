@@ -456,5 +456,5 @@ def cleanup_mocked_configs(duthost, tbinfo):
     yield
 
     if is_t0_mocked_dualtor(tbinfo):
-        logger.info("Load minigraph to reset the DUT %s", duthost.hostname)
-        config_reload(duthost, config_source="minigraph", safe_reload=True)
+        logger.info("Load config_db to reset the DUT %s", duthost.hostname)
+        config_reload(duthost, safe_reload=True)
