@@ -579,8 +579,9 @@ class AdvancedReboot:
                     self.postboot_setup()
             except Exception:
                 traceback_msg = traceback.format_exc()
-                logger.error("Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg))
-                test_results[test_case_name].append("Exception caught while running advanced-reboot test on ptf")
+                err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
+                logger.error(err_msg)
+                test_results[test_case_name].append(err_msg)
             finally:
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper)
