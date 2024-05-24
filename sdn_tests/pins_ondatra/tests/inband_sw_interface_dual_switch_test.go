@@ -245,6 +245,9 @@ func TestGNMIInbandSwLoopbackInCnts(t *testing.T) {
 	t.Logf("\n\n----- TestGNMIInbandSwLoopbackInCnts: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackOutCnts test. (#12955)
 
 // TestGNMIInbandSwLoopbackOutCnts - Check Loopback0 out-traffic counters
 func TestGNMIInbandSwLoopbackOutCnts(t *testing.T) {
@@ -295,7 +298,11 @@ func TestGNMIInbandSwLoopbackOutCnts(t *testing.T) {
 			TTL:      64,
 			Protocol: layers.IPProtocolTCP,
 			SrcIP:    net.ParseIP(configuredIPv4Path).To4(),
+<<<<<<< HEAD
 			DstIP:    net.ParseIP("10.10.20.30").To4(),
+=======
+			DstIP:    net.ParseIP("2.2.2.2").To4(),
+>>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackOutCnts test. (#12955)
 		}
 		tcp := &layers.TCP{
 			SrcPort: 10000,
@@ -366,7 +373,10 @@ func TestGNMIInbandSwLoopbackOutCnts(t *testing.T) {
 
 	t.Logf("\n\n----- TestGNMIInbandSwLoopbackOutCnts: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding inband sw interface dual switch test to pins_ondatra. (#12946)
 =======
 >>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackInCnts test. (#12951)
+=======
+>>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackOutCnts test. (#12955)

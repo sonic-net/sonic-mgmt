@@ -152,6 +152,9 @@ ondatra_test_suite(
     ],
 )
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackOutCnts test. (#12955)
 
 # Installation Test
 ondatra_test(
@@ -184,6 +187,7 @@ ondatra_test(
         "@com_github_openconfig_ondatra//gnmi/oc",
     ],
 )
+<<<<<<< HEAD
 
 # gNMI Features: GET Modes
 ondatra_test(
@@ -430,3 +434,5 @@ ondatra_test(
 >>>>>>> [sdn_tests]:Adding GNOI File Test to pins_ondatra. (#12905)
 =======
 >>>>>>> [sdn_tests]: Adding module reset test to pins_ondatra. (#12928)
+=======
+>>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackOutCnts test. (#12955)
