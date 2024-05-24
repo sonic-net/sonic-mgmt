@@ -226,3 +226,156 @@ func TestGetChassisDefaultMacAddress(t *testing.T) {
 		t.Errorf("Chassis component pool size match failed! got:%v, want:(value >= 1)", poolSize)
 	}
 }
+
+func TestGetChassisDefaultInformation(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("1fdac1f2-c790-4871-9e44-89c91e0b0161").Teardown(t)
+
+	dut := ondatra.DUT(t, "DUT")
+	key := "chassis"
+	componentPath := gnmi.OC().Component(key)
+
+	firmwareVersion := gnmi.Get(t, dut, componentPath.FirmwareVersion().State())
+	if err := verifyImageVersion(firmwareVersion); err != nil {
+		t.Errorf("Chassis component firmware version match failed! got:%v, want(Regex):%v", firmwareVersion, testhelper.ImageVersionRegex())
+	}
+
+	fqdn := testhelper.GetFullyQualifiedName(t, dut, key)
+	fqdnRegex := testhelper.SwitchNameRegex()
+	if match, err := regexp.MatchString(fqdnRegex, fqdn); err != nil || !match {
+		t.Errorf("Chassis component fully-qualified-name match failed! got:%v, want(Regex):%v %v", fqdn, fqdnRegex, err)
+	}
+
+	hardwareVersionStr := gnmi.Get(t, dut, componentPath.HardwareVersion().State())
+	hardwareVersion, err := strconv.Atoi(hardwareVersionStr)
+	if err != nil {
+		t.Fatalf("Failed to convert chassis hardware version %v to int", hardwareVersionStr)
+	}
+	if !((hardwareVersion >= 0) && (hardwareVersion <= 255)) {
+		t.Errorf("Chassis component hardware version match failed! got:%v, want:[0, 255]", hardwareVersion)
+	}
+
+	// mfg-date format is verified by the Get() API. If the format is incorrect, the
+	// Get() API would fail the test. Therefore, no additional validation is required.
+	gnmi.Get(t, dut, componentPath.MfgDate().State())
+
+	name := gnmi.Get(t, dut, componentPath.Name().State())
+	if name != key {
+		t.Errorf("Chassis component name match failed! got:%v, want:%v", name, key)
+	}
+
+	partNo := gnmi.Get(t, dut, componentPath.PartNo().State())
+	maxLength := 20
+	if len(partNo) > maxLength {
+		t.Errorf("Chassis component part-no length validation failed! got:%v, want:%v(atmost)", len(partNo), maxLength)
+	}
+
+	if platform := testhelper.ComponentChassisPlatform(t, dut, name); platform != "BRIXIA" {
+		t.Errorf("Chassis component platform match failed! got:%v, want:BRIXIA", platform)
+	}
+
+	serialNo := gnmi.Get(t, dut, componentPath.SerialNo().State())
+	if len(serialNo) > maxLength {
+		t.Errorf("Chassis component serial-no length validation failed! got:%v, want:%v(atmost)", len(serialNo), maxLength)
+	}
+
+	compType := gnmi.Get(t, dut, componentPath.Type().State())
+	if expectedCompType := oc.PlatformTypes_OPENCONFIG_HARDWARE_COMPONENT_CHASSIS; compType != expectedCompType {
+		t.Errorf("Chassis component type match failed! got:%v, want%v", compType, expectedCompType)
+	}
+
+	if modelName := testhelper.ComponentChassisModelName(t, dut, name); modelName == "" {
+		t.Errorf("Chassis component model-name match failed! got:%v, want:non-empty string", modelName)
+	}
+}
+
+func TestSetChassisNamePaths(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("6c7dc60b-1b11-459c-8f80-0c8c7bcc0375").Teardown(t)
+
+	dut := ondatra.DUT(t, "DUT")
+	key := "chassis"
+	componentPath := gnmi.OC().Component(key)
+
+	testStrings := []string{
+		"ju09u1m1.sqs99.net.google.com",
+		"df50f001.mtv16.net.google.com",
+		"mn120ab012.xyz16.prod.google.com",
+	}
+
+	for _, fqdn := range testStrings {
+		testhelper.ReplaceFullyQualifiedName(t, dut, key, fqdn)
+		testhelper.AwaitFullyQualifiedName(t, dut, key, 5*time.Second, fqdn)
+		if got, want := testhelper.GetFullyQualifiedNameFromConfig(t, dut, key), fqdn; got != want {
+			t.Errorf("Chassis component (config) fully-qualified-name match failed! got:%v, want:%v", got, want)
+		}
+	}
+
+	// Verify that the switch is able to configure the same chassis name.
+	name := gnmi.Get(t, dut, componentPath.Name().State())
+	gnmi.Replace(t, dut, componentPath.Name().Config(), name)
+	gnmi.Await(t, dut, componentPath.Name().State(), 5*time.Second, name)
+	if got, want := gnmi.Get(t, dut, componentPath.Name().Config()), name; got != want {
+		t.Errorf("Chassis component (config) name match failed! got:%v, want:%v", got, want)
+	}
+}
+
+func TestSetChassisInvalidName(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("af16797f-e1e1-4aa6-9414-56d2a0b52052").Teardown(t)
+
+	dut := ondatra.DUT(t, "DUT")
+	key := "chassis"
+	configPath := gnmi.OC().Component(key).Name()
+	statePath := gnmi.OC().Component(key).Name()
+
+	// Set config path so that the corresponding Get() works later on in the test.
+	gnmi.Replace(t, dut, configPath.Config(), key)
+	gnmi.Await(t, dut, statePath.State(), 5*time.Second, key)
+
+	invalidNames := []string{
+		"xyz",
+		"mychassis",
+		"invalidchassisname",
+	}
+
+	for _, name := range invalidNames {
+		testt.ExpectFatal(t, func(t testing.TB) {
+			gnmi.Replace(t, dut, configPath.Config(), name)
+		})
+		// Verify that config path doesn't reflect the invalid name.
+		if got, want := gnmi.Get(t, dut, configPath.Config()), key; got != want {
+			t.Errorf("Chassis component (config) name match failed! got:%v, want:%v", got, want)
+		}
+		// Verify that state path doesn't reflect the invalid name.
+		if got, want := gnmi.Get(t, dut, statePath.State()), key; got != want {
+			t.Errorf("Chassis component (state) name match failed! got:%v, want:%v", got, want)
+		}
+	}
+}
+
+func TestChassisInfoPersistsAfterReboot(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("8c3c4325-4459-473b-90b6-a919fbd0ddfe").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	key := "chassis"
+
+	// Configure fully-qualified-name on the chassis.
+	fqdn := "mn120ab012.xyz16.prod.google.com"
+	testhelper.ReplaceFullyQualifiedName(t, dut, key, fqdn)
+	testhelper.AwaitFullyQualifiedName(t, dut, key, 5*time.Second, fqdn)
+
+	// Reboot switch and verify that the previous fully-qualified-name persists
+	// after reboot.
+	waitTime, err := testhelper.RebootTimeForDevice(t, dut)
+	if err != nil {
+		t.Fatalf("Unable to get reboot wait time: %v", err)
+	}
+	params := testhelper.NewRebootParams().WithWaitTime(waitTime).WithCheckInterval(30 * time.Second).WithRequest(syspb.RebootMethod_COLD)
+	if err := testhelper.Reboot(t, dut, params); err != nil {
+		t.Fatalf("Failed to reboot DUT: %v", err)
+	}
+
+	if got, want := testhelper.GetFullyQualifiedName(t, dut, key), fqdn; got != want {
+		t.Errorf("fully-qualified-name state match failed! got:%v, want:%v", got, want)
+	}
+	if got, want := testhelper.GetFullyQualifiedNameFromConfig(t, dut, key), fqdn; got != want {
+		t.Errorf("fully-qualified-name config match failed! got:%v, want:%v", got, want)
+	}
+}
