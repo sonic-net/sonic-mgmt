@@ -292,12 +292,9 @@ def main(args):
         device_inventories, args.testbed_file_path, args.testbed_pattern
     )
 
-    print(
-        "\nLoading ansible host inventory for getting SSH info: {}".format(
-            args.inventory_file_paths
-        )
-    )
+    print(f"\nLoading ansible host inventory for getting SSH info: {args.inventory_file_paths}")
     ansible_hosts = HostManager(args.inventory_file_paths)
+
     ssh_info_solver = SSHInfoSolver(
         ansible_hosts,
         args.dut_user,
