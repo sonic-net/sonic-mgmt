@@ -105,3 +105,35 @@ ondatra_test_suite(
         "@com_github_openconfig_ondatra//gnmi/oc",
     ],
 )
+
+# Installation Test
+ondatra_test(
+    name = "installation_test",
+    srcs = ["installation_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_gnoi//system:system_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)
+
+# Inband SW Interface Counter Tests (two switches)
+ondatra_test(
+    name = "inband_sw_interface_dual_switch_test",
+    srcs = ["inband_sw_interface_dual_switch_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_google_gopacket//:gopacket",
+        "@com_github_google_gopacket//layers",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+    ],
+)
