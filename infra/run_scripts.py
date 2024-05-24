@@ -41,7 +41,7 @@ def _create_parser():
     parser.add_argument('-b', '--build_id', type=str, help='Jenkins Build ID associated with the test',
                       required=False, default=None)
     parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
-                      default=False)  
+                      default=False)
     parser.add_argument('--additional_tests', type=str, help='Additional Sanity Test to run',
                       required=False, default="")
     parser.add_argument('-k', '--skip_sanity', action='store_true', help='Skip sanity check',
@@ -89,18 +89,18 @@ def get_testcases(script_file, additional_tests=''):
                 tcs.append(tc)
                 tcs_dict[tc] = ""
         tcs_file.close()
-    
+
     if additional_tests:
         for tc in additional_tests.split(","):
             if tc not in tcs_dict:
                 tcs.append(tc)
                 tcs_dict[tc] = ""
 
-    
+
     print("script files are '{}', additional testscases are: '{}'".format(script_file, additional_tests))
     print("\nTestcases are:")
     print("".join(tcs))
-    
+
     return tcs
 
 def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests='', run_options=''):
@@ -180,12 +180,12 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
         cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
         cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-    
+
     if not int(passed):
         current_result_file.write("{}, {} total, {} Pass, {} Fail, {} Skip, {} Error \n".format(tc_name,total_tests,passed,failed,skipped,errored))
         current_result_file.flush()
         report_file.write("{}     , {} total, {} Pass, {} Fail, {} Skip, {} Error\n".format(tc_name,total_tests,passed,failed,skipped,errored))
-        report_file.flush()    
+        report_file.flush()
         current_result_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
         current_result_file.flush()
         report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
@@ -195,7 +195,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             generate_allure_report(build_id, current_result_file)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
-    current_result_file.write(" -------------- Running Sanity File(s) {}, additional tests: {} ------------- \n".format(script_file, additional_tests)) 
+    current_result_file.write(" -------------- Running Sanity File(s) {}, additional tests: {} ------------- \n".format(script_file, additional_tests))
     current_result_file.flush()
     for tc in tcs:
         if '#' in tc:
@@ -350,6 +350,9 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
 
     current_result_file.write(" -------------- Running Sanity File(s) {}, additional tests: {} ------------- \n".format(script_file, additional_tests))
     current_result_file.flush()
+    cmd_list.append('mkdir techsupport_logs\n')
+    run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+
     for tc in tcs:
         if '#' in tc:
             continue
@@ -361,6 +364,16 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
 
         print("Executing: {}\n".format(tc))
         current_result_file.write("Executing: {}\n".format(tc));current_result_file.flush()
+
+        cmd_list = list()
+        cmd_list.append('sudo rm /var/log/swss/sairedis.rec.*\n')
+        cmd_list.append('sudo rm /var/log/swss/swss.rec.*\n')
+        cmd_list.append('sudo rm /var/log/syslog*.gz\n')
+        cmd_list.append('sudo rm /var/log/syslog.*\n')
+        cmd_list.append("sudo sh -c '> /var/log/swss/sairedis.rec'\n")
+        cmd_list.append("sudo sh -c '> /var/log/swss/swss.rec'\n")
+        cmd_list.append("sudo sh -c '> /var/log/syslog'\n")
+        run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
         if collect_logs and dut_address is not None:
             cmd_list = list()
@@ -376,6 +389,14 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
 
         cmd = "./run_tests.sh -n {} {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,run_options,log_dir,tc,tc_name)
         os.system("bash -c '{}'".format(cmd))
+        failed = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
+        error = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
+
+        if int(failed) or int(error):
+            cmd_list = list()
+            cmd_list.append("show techsupport")
+            cmd_list.append('mv /var/dump/* techsupport_logs/{}_tecsupport.tar.gz.\n'.format(drop_version,tc_name))
+            run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
         if collect_logs and dut_address is not None:
             cmd_list = list()
@@ -472,7 +493,7 @@ def main():
 
     if dut_name != 'sfd' and dut_name != 'aaa14-t2':
         run_options += '-d {} '.format(dut_name)
-    
+
     if dut_name == 'aaa14-t2':
         run_options += '-t t2,any'.format(dut_name)
 
@@ -497,5 +518,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-
-
