@@ -1085,7 +1085,7 @@ def main():
             log_dir,
             device_type,
             create_allure_report,
-            ssh_port=data['sonic_mgmt']['xr_redir22']
+            ssh_port=data['sonic_mgmt']['xr_redir22'],
             additional_tests=additional_tests,
             skip_sanity=skip_sanity,
             dut_mgmt_address=data['sonic_mgmt']['xr_mgmt_ip']
