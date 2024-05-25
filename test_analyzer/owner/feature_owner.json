@@ -1402,7 +1402,16 @@
                     "syslog.test_syslog_rate_limit"
                 ],
                 "owner": "Qi Luo",
-                "email": "qiluo@microsoft.com"
+                "email": "qiluo@microsoft.com",
+                "cases" : [
+                    {
+                        "cases": [
+                            "test_orchagent_logrotate"
+                        ],
+                        "owner": "Lawrence Lee",
+                        "email": "lawlee@microsoft.com"
+                    }
+                ]
             }
         ]
     },
