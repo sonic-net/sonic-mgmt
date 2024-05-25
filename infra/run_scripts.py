@@ -51,16 +51,20 @@ def _create_parser():
 def run_exec_cmds(host,port,user,passwd,cmd_list):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    print(host, port, user, passwd)
+    ssh.connect(host, port, user, passwd)
     for cmd in cmd_list:
-        ssh.connect(host, port, user, passwd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         stdout.channel.recv_exit_status()
-        out = stdout.read().decode("ascii").strip()
-        error = stderr.read()
-        print(out)
-        if error:
-            print('There was an error pulling the runtime: {}'.format(error))
-        ssh.close()
+        try:
+            out = stdout.read().decode("ascii").strip()
+            error = stderr.read()
+            print(out)
+            if error:
+                print('There was an error pulling the runtime: {}'.format(error))
+        except:
+            print("Problem decoding output of ssh command")
+    ssh.close()
 
 # Generate allure report using data in ALLURE_DIR
 def generate_allure_report(build_id, current_result_file):
@@ -136,6 +140,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     delta1 = datetime.datetime.now()
+
     tc_name = "bgp_fact"
     cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,run_options,log_dir)
     os.system("bash -c '{}'".format(cmd))
@@ -265,6 +270,44 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
 
     print("Total time : {} mins".format(minutes))
 
+def get_techsupport(dut_address, tc_name):
+    ssh_port = 22
+    dut_uname = 'cisco'
+    dut_passwd = 'cisco123'
+    ts_dir='/var/dump'
+
+    try:
+        # Establish SSH connection
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(dut_address, port=ssh_port, username=dut_uname, password=dut_passwd)
+
+        # Open an SFTP session
+        sftp = ssh.open_sftp()
+
+        # List all files in the remote directory
+        files = sftp.listdir_attr(ts_dir)
+
+        if not files:
+            print("No files found in the directory.")
+            return None
+
+        # Find the latest file by modification time
+        latest_file = max(files, key=lambda x: x.st_mtime)
+        latest_file_path = os.path.join(ts_dir, latest_file.filename)
+        print(latest_file_path)
+        sftp.get(latest_file_path, f'{tc_name}_{latest_file.filename}')
+
+        # Close the SFTP session and SSH connection
+        sftp.close()
+        ssh.close()
+
+        return latest_file_path
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
 def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options=''):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
@@ -298,6 +341,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     delta1 = datetime.datetime.now()
+
     tc_name = "bgp_fact"
     cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,run_options)
     os.system("bash -c '{}'".format(cmd))
@@ -350,8 +394,6 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
 
     current_result_file.write(" -------------- Running Sanity File(s) {}, additional tests: {} ------------- \n".format(script_file, additional_tests))
     current_result_file.flush()
-    cmd_list.append('mkdir techsupport_logs\n')
-    run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     for tc in tcs:
         if '#' in tc:
@@ -370,6 +412,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         cmd_list.append('sudo rm /var/log/swss/swss.rec.*\n')
         cmd_list.append('sudo rm /var/log/syslog*.gz\n')
         cmd_list.append('sudo rm /var/log/syslog.*\n')
+        cmd_list.append('sudo rm /var/dump/*\n')
         cmd_list.append("sudo sh -c '> /var/log/swss/sairedis.rec'\n")
         cmd_list.append("sudo sh -c '> /var/log/swss/swss.rec'\n")
         cmd_list.append("sudo sh -c '> /var/log/syslog'\n")
@@ -381,6 +424,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             cmd_list.append('sudo rm /var/log/swss/swss.rec.*\n')
             cmd_list.append('sudo rm /var/log/syslog*.gz\n')
             cmd_list.append('sudo rm /var/log/syslog.*\n')
+            cmd_list.append('sudo rm /var/dump/*\n')
             cmd_list.append("sudo sh -c '> /var/log/swss/sairedis.rec'\n")
             cmd_list.append("sudo sh -c '> /var/log/swss/swss.rec'\n")
             cmd_list.append("sudo sh -c '> /var/log/syslog'\n")
@@ -395,8 +439,8 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         if int(failed) or int(error):
             cmd_list = list()
             cmd_list.append("show techsupport")
-            cmd_list.append('mv /var/dump/* techsupport_logs/{}_tecsupport.tar.gz.\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+            get_techsupport(dut_address, tc_name)
 
         if collect_logs and dut_address is not None:
             cmd_list = list()
@@ -507,7 +551,10 @@ def main():
         parse_results()
     else:
         if not collect_logs:
-            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,run_options=run_options,additional_tests=additional_tests)
+            if dut_address is None:
+                print('Missing DUT Address, specify DUT address for collecting logs')
+                exit
+            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,dut_address=dut_address,run_options=run_options,additional_tests=additional_tests)
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
