@@ -1085,10 +1085,10 @@ def main():
             log_dir,
             device_type,
             create_allure_report,
-            ssh_port=data['sonic_mgmt']['xr_redir22'],
+            ssh_port=data['sonic_mgmt']['xr_redir22']
             additional_tests=additional_tests,
             skip_sanity=skip_sanity,
-            test_file=test_file
+            dut_mgmt_address=data['sonic_mgmt']['xr_mgmt_ip']
         )
 
     sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()

@@ -61,12 +61,12 @@ def get_build_project_name():
         build_id = os.getenv("BUILD_ID")
     else:
         build_id = 99999
-    
+
     if os.getenv("PLATFORM"):
         platform = os.getenv("PLATFORM").replace("_", "")
     else:
         platform = "unknownPlatform"
-    
+
     if os.getenv("TOPOLOGY"):
         topology = os.getenv("TOPOLOGY").replace("_", "")
     else:
@@ -134,7 +134,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
 
     delta1 = datetime.datetime.now()
 
-    additional_params = "" 
+    additional_params = ""
 
     if create_allure_report:
         additional_params += " --create_allure_report "
@@ -147,7 +147,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     print('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name, additional_params))
 
     chan.send('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name, additional_params))
-    
+
     time.sleep(3)
     resp = chan.recv(9999)
 
@@ -182,7 +182,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
                 break
         else:
             break
-    
+
     chan.send('cat /data/tests/{} \n'.format(result_file))
     time.sleep(3)
     resp = chan.recv(9999)
@@ -208,7 +208,7 @@ def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_po
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
-    
+
     chan = ssh.invoke_shell()
     resp = ''
     while ':~$' not in resp:
@@ -292,7 +292,7 @@ def get_report_file(host, username, password, sonic_test_dir, ssh_port=22):
         ftp_client.get('{}/sonic-test/sonic-mgmt/tests/allure_report_url.log'.format(sonic_test_dir),'allure_report_url.log')
     except Exception as e:
         print("Error! Could not get allure report url file!")
-    ftp_client.close() 
+    ftp_client.close()
 
 
 def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
@@ -325,11 +325,11 @@ def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22
 
     ftp_client=ssh.open_sftp()
     ftp_client.get('{}/sonic-test/sonic-mgmt/tests/{}/sanity_logs.tar.gz'.format(sonic_test_dir, log_dir),'sanity_logs.tar.gz')
-    ftp_client.close() 
+    ftp_client.close()
     ssh.close()
 
 def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', additional_tests='',
-            sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False):
+            sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_mgmt_address=None):
     sanity_start_time = datetime.datetime.now()
     print("Running scripts remotely on host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
     print("Device type: {}, topo_name: {}".format(device_type, topo_name))
@@ -349,7 +349,7 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     out = stdout.read().decode("ascii").strip()
 
     print(f"resp for docker inspect is {out}")
-    sys.stdout.flush()    
+    sys.stdout.flush()
     out = out.strip('"')
     sonic_test_dir = out.split("/sonic-test")[0]
     print("sonic-test dir is: ", sonic_test_dir)
@@ -376,7 +376,7 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
 
     print("Running Sanity Scripts : '{}', additional tests: '{}'".format(uploaded_script_files_str, additional_tests))
     run_result = run_scripts(host, username, password, uploaded_script_files_str,drop_version,log_dir,device_type,create_allure_report, additional_tests,
-                        ssh_port, topo_name, docker_mgmt_container, skip_sanity)
+                        ssh_port, topo_name, docker_mgmt_container, skip_sanity, dut_address=dut_mgmt_address)
     sanity_end_time = datetime.datetime.now()
 
 
@@ -399,7 +399,7 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     print("Time taken for the sanity tests to run : {} mins".format(sanity_time_delta/60))
     if not run_result:
         print("Sanity run unsuccesful !!!, Check log files for more details")
-    
+
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
     parser.add_argument('-a', '--host_address', type=str, help='host address to ssh into',
@@ -425,17 +425,19 @@ def _create_parser():
     parser.add_argument('-t', '--sonic_test_dir', type=str, help='Directory of sonic-test on DUT',
                       required=False, default='golden-code')
     parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
-                      default=False)           
+                      default=False)
     parser.add_argument('--additional_tests', type=str, help='Additional Testscases to test',
                       required=False, default='')
     parser.add_argument('-k', '--skip_sanity', action='store_true', help='skip sanity check',
                       default=False)
+    parser.add_argument('-m', '--dut_mgmt_address', type=str, help='host mgmt address to ssh into',
+                      required=True,default=None)
     return parser
 
 
 if __name__ == '__main__':
     parser = _create_parser()
-                      
+
     args = vars(parser.parse_args())
     host_address = args['host_address']
     ssh_port = args['ssh_port']
@@ -451,19 +453,20 @@ if __name__ == '__main__':
     create_allure_report = args['create_allure_report']
     additional_tests = args['additional_tests']
     skip_sanity = args['skip_sanity']
+    dut_mgmt_address = args['dut_mgmt_address']
     run_scripts_remote(
-        host_address, 
-        username, 
-        password,  
+        host_address,
+        username,
+        password,
         script_file,
         drop_version,
         log_dir,
         device_type,
-        create_allure_report, 
+        create_allure_report,
         ssh_port,
         topo_name,
         additional_tests,
         sonic_test_dir,
         docker_mgmt_container,
-        skip_sanity 
+        skip_sanity
     )
