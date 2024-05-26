@@ -46,6 +46,8 @@ def _create_parser():
                       required=False, default="")
     parser.add_argument('-k', '--skip_sanity', action='store_true', help='Skip sanity check',
                       default=False)
+    parser.add_argument('-dd', '--dut_data', type=str, help='Give all dut data',
+                      required=False,default=None)
     return parser
 
 def run_exec_cmds(host,port,user,passwd,cmd_list):
@@ -270,7 +272,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
 
     print("Total time : {} mins".format(minutes))
 
-def get_techsupport(dut_address, tc_name):
+def get_techsupport(dut_address, tc_name, dut_name):
     ssh_port = 22
     dut_uname = 'cisco'
     dut_passwd = 'cisco123'
@@ -296,7 +298,7 @@ def get_techsupport(dut_address, tc_name):
         latest_file = max(files, key=lambda x: x.st_mtime)
         latest_file_path = os.path.join(ts_dir, latest_file.filename)
         print(latest_file_path)
-        sftp.get(latest_file_path, f'{tc_name}_{latest_file.filename}')
+        sftp.get(latest_file_path, f'{dut_name}_{tc_name}_{latest_file.filename}')
 
         # Close the SFTP session and SSH connection
         sftp.close()
@@ -308,7 +310,7 @@ def get_techsupport(dut_address, tc_name):
         print(f"An error occurred: {e}")
         return None
 
-def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options=''):
+def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data=None):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -341,7 +343,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     delta1 = datetime.datetime.now()
-
+    '''
     tc_name = "bgp_fact"
     cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,run_options)
     os.system("bash -c '{}'".format(cmd))
@@ -391,9 +393,13 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         if create_allure_report:
             generate_allure_report(build_id, current_result_file)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
-
+    '''
     current_result_file.write(" -------------- Running Sanity File(s) {}, additional tests: {} ------------- \n".format(script_file, additional_tests))
     current_result_file.flush()
+    def get_dut_names(data):
+        return [key for key in data if key.startswith('sonic_dut')]
+
+    dut_data = json.loads(dut_data)
 
     for tc in tcs:
         if '#' in tc:
@@ -407,16 +413,18 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         print("Executing: {}\n".format(tc))
         current_result_file.write("Executing: {}\n".format(tc));current_result_file.flush()
 
-        cmd_list = list()
-        cmd_list.append('sudo rm /var/log/swss/sairedis.rec.*\n')
-        cmd_list.append('sudo rm /var/log/swss/swss.rec.*\n')
-        cmd_list.append('sudo rm /var/log/syslog*.gz\n')
-        cmd_list.append('sudo rm /var/log/syslog.*\n')
-        cmd_list.append('sudo rm /var/dump/*\n')
-        cmd_list.append("sudo sh -c '> /var/log/swss/sairedis.rec'\n")
-        cmd_list.append("sudo sh -c '> /var/log/swss/swss.rec'\n")
-        cmd_list.append("sudo sh -c '> /var/log/syslog'\n")
-        run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+        for dname in get_dut_names(dut_data):
+            device = dut_data[dname]
+            cmd_list = list()
+            cmd_list.append('sudo rm /var/log/swss/sairedis.rec.*\n')
+            cmd_list.append('sudo rm /var/log/swss/swss.rec.*\n')
+            cmd_list.append('sudo rm /var/log/syslog*.gz\n')
+            cmd_list.append('sudo rm /var/log/syslog.*\n')
+            cmd_list.append('sudo rm /var/dump/*\n')
+            cmd_list.append("sudo sh -c '> /var/log/swss/sairedis.rec'\n")
+            cmd_list.append("sudo sh -c '> /var/log/swss/swss.rec'\n")
+            cmd_list.append("sudo sh -c '> /var/log/syslog'\n")
+            run_exec_cmds(device['xr_mgmt_ip'], ssh_port, dut_uname, dut_passwd, cmd_list)
 
         if collect_logs and dut_address is not None:
             cmd_list = list()
@@ -437,10 +445,12 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         error = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
 
         if int(failed) or int(error):
-            cmd_list = list()
-            cmd_list.append("show techsupport")
-            run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-            get_techsupport(dut_address, tc_name)
+            for dname in get_dut_names(dut_data):
+                device = dut_data[dname]
+                cmd_list = list()
+                cmd_list.append("show techsupport")
+                run_exec_cmds(device['xr_mgmt_ip'], ssh_port, dut_uname, dut_passwd, cmd_list)
+                get_techsupport(device['xr_mgmt_ip'], tc_name, dut_name)
 
         if collect_logs and dut_address is not None:
             cmd_list = list()
@@ -518,6 +528,7 @@ def main():
     create_allure_report = args['create_allure_report']
     additional_tests = args['additional_tests']
     skip_sanity = args['skip_sanity']
+    dut_data = args['dut_data']
 
     run_options = ''
     if device_type == 'sherman':
@@ -554,7 +565,7 @@ def main():
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,dut_address=dut_address,run_options=run_options,additional_tests=additional_tests)
+            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,dut_data=dut_data,run_options=run_options,additional_tests=additional_tests)
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')

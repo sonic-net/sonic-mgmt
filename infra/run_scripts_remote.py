@@ -80,9 +80,9 @@ def get_build_project_name():
     return build_project_name
 
 def run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, additional_tests='', ssh_port=22,
-            topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False):
+            topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data=None):
     print("starting run_scripts, params: ", host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report,
-            ssh_port, topo_name, docker_mgmt_container, skip_sanity)
+            ssh_port, topo_name, docker_mgmt_container, skip_sanity, dut_data)
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
@@ -144,9 +144,10 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         additional_params += " -k "
 
     print("Run command:")
-    print('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name, additional_params))
+    json_str = json.dumps(dut_data)
+    print('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} -dd {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name,json_str,additional_params))
 
-    chan.send('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name, additional_params))
+    chan.send('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} -dd \'{}\' {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name,json_str,additional_params))
 
     time.sleep(3)
     resp = chan.recv(9999)
@@ -329,7 +330,7 @@ def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22
     ssh.close()
 
 def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', additional_tests='',
-            sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_mgmt_address=None):
+            sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data=None):
     sanity_start_time = datetime.datetime.now()
     print("Running scripts remotely on host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
     print("Device type: {}, topo_name: {}".format(device_type, topo_name))
@@ -376,7 +377,7 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
 
     print("Running Sanity Scripts : '{}', additional tests: '{}'".format(uploaded_script_files_str, additional_tests))
     run_result = run_scripts(host, username, password, uploaded_script_files_str,drop_version,log_dir,device_type,create_allure_report, additional_tests,
-                        ssh_port, topo_name, docker_mgmt_container, skip_sanity, dut_address=dut_mgmt_address)
+                        ssh_port, topo_name, docker_mgmt_container, skip_sanity, dut_data)
     sanity_end_time = datetime.datetime.now()
 
 
@@ -430,7 +431,7 @@ def _create_parser():
                       required=False, default='')
     parser.add_argument('-k', '--skip_sanity', action='store_true', help='skip sanity check',
                       default=False)
-    parser.add_argument('-m', '--dut_mgmt_address', type=str, help='host mgmt address to ssh into',
+    parser.add_argument('-m', '--dut_data', type=str, help='Dut Data',
                       required=True,default=None)
     return parser
 
@@ -453,7 +454,7 @@ if __name__ == '__main__':
     create_allure_report = args['create_allure_report']
     additional_tests = args['additional_tests']
     skip_sanity = args['skip_sanity']
-    dut_mgmt_address = args['dut_mgmt_address']
+    dut_data = args['dut_data']
     run_scripts_remote(
         host_address,
         username,
@@ -468,5 +469,6 @@ if __name__ == '__main__':
         additional_tests,
         sonic_test_dir,
         docker_mgmt_container,
-        skip_sanity
+        skip_sanity,
+        dut_data
     )
