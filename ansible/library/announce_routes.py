@@ -151,7 +151,7 @@ def change_routes(action, ptf_ip, port, routes):
     url = "http://%s:%d" % (ptf_ip, port)
     data = {"commands": ";".join(messages)}
     # nosemgrep-next-line
-    time.sleep(0.1)
+    time.sleep(0.01)
     r = requests.post(url, data=data, timeout=360, proxies={"http": None, "https": None})
     if r.status_code != 200:
         raise Exception(
