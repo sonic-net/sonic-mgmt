@@ -153,7 +153,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
             elapsed_time = time.time() - start_time
 
     if elapsed_time >= timeout:
-        logger.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
+        logger.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, elapsed_time))
         return False
 
 
