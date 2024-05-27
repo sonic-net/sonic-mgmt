@@ -1,6 +1,6 @@
 name: Test Gap Issue Template
 description: File a test gap issue.
-title: "[Test Gap][{Feature}]: "
+title: "[Test Gap][{Feature:}][{topo:}][{title}]"
 labels: ["Test Gap"]
 projects: ["sonic-mgmt"]
 body:
@@ -11,9 +11,6 @@ body:
 
         If you are reporting a new test gap, make sure that we do not have any duplicates already open. You can ensure this by searching the issue list in this repository. If there is a duplicate, please close your issue and add a comment to the existing issue instead.
 
-        If you suspect your issue is a bug, please edit your issue description to include the BUG REPORT INFORMATION shown below. If you fail to provide this information within 7 days, we cannot debug your issue and will close it. We will however, reopen it if you later provide the information.
-
-        For more information about reporting issues, see [SONiC Issue Reporting Page](https://github.com/sonic-net/SONiC/wiki#report-issues)
   - type: markdown
     id: tc-contact-links
     attributes:
@@ -22,9 +19,9 @@ body:
   - type: textarea
     id: tc-description
     attributes:
-      label: Issue Description
-      description: What happened?
-      placeholder: Describe the issue and step to reproduce the issue
+      label: Test Gap Description
+      description: Why do we need this test gap?
+      placeholder: Describe the test gap
     validations:
       required: true
   - type: textarea
@@ -46,8 +43,8 @@ body:
   - type: dropdown
     id: tc-platform
     attributes:
-      label: Is it platform specific
-      description: Platform name
+      label: Is it platform/topology specific?
+      description: Platform or Topology name
       options:
         - generic
         - barefoot
@@ -77,7 +74,7 @@ body:
     id: tc-attach-logs
     attributes:
       value: |
-        Attach debug file (if any) from: `sudo generate_dump` or other logs.
+        Attach files if you need.
   - type: textarea
     id: tc-attachments
     attributes:
