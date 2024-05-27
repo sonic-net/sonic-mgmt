@@ -272,7 +272,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
 
     print("Total time : {} mins".format(minutes))
 
-def get_techsupport(dut_address, tc_name, dut_name):
+def get_techsupport(dut_address, tc_name, dut_name, log_dir):
     ssh_port = 22
     dut_uname = 'cisco'
     dut_passwd = 'cisco123'
@@ -298,7 +298,7 @@ def get_techsupport(dut_address, tc_name, dut_name):
         latest_file = max(files, key=lambda x: x.st_mtime)
         latest_file_path = os.path.join(ts_dir, latest_file.filename)
         print(latest_file_path)
-        sftp.get(latest_file_path, f'{dut_name}_{tc_name}_{latest_file.filename}')
+        sftp.get(latest_file_path, f'{log_dir}/{dut_name}_{tc_name}_{latest_file.filename}')
 
         # Close the SFTP session and SSH connection
         sftp.close()
@@ -343,7 +343,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     delta1 = datetime.datetime.now()
-    '''
+
     tc_name = "bgp_fact"
     cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,run_options)
     os.system("bash -c '{}'".format(cmd))
@@ -393,7 +393,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         if create_allure_report:
             generate_allure_report(build_id, current_result_file)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
-    '''
+
     current_result_file.write(" -------------- Running Sanity File(s) {}, additional tests: {} ------------- \n".format(script_file, additional_tests))
     current_result_file.flush()
     def get_dut_names(data):
@@ -450,7 +450,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
                 cmd_list = list()
                 cmd_list.append("show techsupport")
                 run_exec_cmds(device['xr_mgmt_ip'], ssh_port, dut_uname, dut_passwd, cmd_list)
-                get_techsupport(device['xr_mgmt_ip'], tc_name, dut_name)
+                get_techsupport(device['xr_mgmt_ip'], tc_name, dut_name, log_dir)
 
         if collect_logs and dut_address is not None:
             cmd_list = list()
