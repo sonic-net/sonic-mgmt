@@ -1,4 +1,24 @@
 {
+    "default": {
+        "NAME": "default",
+        "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
+        "SCRUM_LEAD": {
+            "NAME": "James An",
+            "USER_ID": "jamesan",
+            "EMAIL": "jamesan@cisco.com"
+        },
+        "labels": {
+            "202305_LABEL": "202305",
+            "202311_LABEL": "202311",
+            "MASTER_LABEL": "MASTER",
+            "T0_LABEL": "T0",
+            "T1_LABEL": "T1",
+            "T2_LABEL": "T2-PASS%",
+            "EXTRA_LABELS": [
+                "CICD"
+            ]
+        }
+    },
     "cisco/saitests": {
         "NAME": "cisco/saitests",
         "TEAM": "SONIC-MSFT-T2-FWD-FEAT",
