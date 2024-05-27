@@ -1497,7 +1497,6 @@ sonic_cisco_lc_400G:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 60
-      asics_present: [0, 2]
     str2-8800-lc1-3:
       hwsku: Cisco-88-LC0-36FH-O36
       sonic_hwsku: Cisco-88-LC0-36FH-O36
