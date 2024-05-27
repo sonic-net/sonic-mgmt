@@ -89,13 +89,13 @@ def send_dhcp_release(ptfhost):
 
 def dhcp_setup(duthost, ptfhost, config, ptf_index_port, intf_count):
     duthost.shell("sonic-clear fdb all")
+    duthost.shell("docker exec -i dhcp_relay cat /dev/null > /etc/dnsmasq.hosts", module_ignore_errors=True)
     # Frequent restarts dhcp_relay service may cause start-limit-hit error, use this command to ignore and restart
     duthost.shell("systemctl reset-failed dhcp_relay", module_ignore_errors=True)
     duthost.restart_service("dhcp_relay")
 
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "dhcp_relay"),
                   "dhcp_relay not started")
-    duthost.shell("docker exec -i dhcp_relay cat /dev/null > /etc/dnsmasq.hosts", module_ignore_errors=True)
     refresh_dut_mac_table(ptfhost, config, ptf_index_port)
     pytest_assert(wait_until(600, 3, 0, check_dnsmasq, duthost, intf_count), "Can't generate dnsmasq.hosts")
 
