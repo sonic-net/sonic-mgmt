@@ -16,11 +16,19 @@ import (
 var (
 	inbandSwIntfName              = "Loopback0"
 	interfaceIndex                = uint32(0)
+<<<<<<< HEAD
 	configuredIPv4Path            = "10.10.40.20"
 	configuredIPv4PrefixLength    = uint8(32)
 	configuredIPv6Path            = "3000::2"
 	configuredIPv6PrefixLength    = uint8(128)
 	newConfiguredIPv4Path         = "10.10.50.15"
+=======
+	configuredIPv4Path            = "6.7.8.9"
+	configuredIPv4PrefixLength    = uint8(32)
+	configuredIPv6Path            = "3000::2"
+	configuredIPv6PrefixLength    = uint8(128)
+	newConfiguredIPv4Path         = "7.8.9.6"
+>>>>>>> [sdn_tests]: Adding inband sw interface test to pins_ondatra. (#12984)
 	newConfiguredIPv4PrefixLength = uint8(32)
 	newConfiguredIPv6Path         = "3022::2345"
 	newConfiguredIPv6PrefixLength = uint8(128)
@@ -104,6 +112,7 @@ func TestGNMIInbandSwIntfType(t *testing.T) {
 		t.Errorf("Inband sw interface state Type is %v, wanted %v", stateType, "software loopback")
 	}
 }
+<<<<<<< HEAD
 
 // TestGNMIInbandSwIntfMacAddr - Check inband sw interface MAC address is expected format
 // TODO: remove this comment: Currently this test fails due to b/192485691.
@@ -271,3 +280,5 @@ func TestGNMIInbandSwIntfSetInvalidIPv6AddrOrPrefixLength(t *testing.T) {
 		t.Errorf("Negative IPv6 prefix length configure failed! got:%v, want:%v", got, newConfiguredIPv6PrefixLength)
 	}
 }
+=======
+>>>>>>> [sdn_tests]: Adding inband sw interface test to pins_ondatra. (#12984)
