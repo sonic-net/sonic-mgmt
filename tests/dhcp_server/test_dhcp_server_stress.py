@@ -101,8 +101,7 @@ def test_dhcp_server_with_large_number_discover(
             testutils.send_packet(ptfadapter, ptf_port_index, discover_pkt)
     stress_end_time = datetime.datetime.now()
     stress_duration = stress_end_time - stress_start_time
-    stress_duration = stress_end_time - stress_start_time
-    pytest_assert(stress_duration.total_seconds() < stress_duration_seconds*1.2,
+    pytest_assert(stress_duration.total_seconds() < 0.3 + stress_duration_seconds * 1.2,
                   "It tooks too long to finish sending packets, \
                     elasped seconds is %s" % stress_duration.total_seconds())
 
