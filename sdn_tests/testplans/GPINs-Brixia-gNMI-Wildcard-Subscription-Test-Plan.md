@@ -343,11 +343,7 @@ Wait for sync_response
 </pre></p></td>
       <td><ul>
 <li><code>Not timed out</code></li>
-</ul>
-<ul>
 <li><code>Receive sync_response</code></li>
-</ul>
-<ul>
 <li><code>No update received</code></li>
 </ul>
 </td>
@@ -388,16 +384,9 @@ tdset1
       <td><p><pre>
 WS_TDSET:
 </pre></p>
-
 <ul>
 <li><code>timeout</code></li>
-</ul>
-<br>
-<ul>
 <li><code>Configs to initialize DUT</code></li>
-</ul>
-<br>
-<ul>
 <li><code>SubscribeRequest</code></li>
 </ul>
 </td>
@@ -421,8 +410,11 @@ WS_TDSET:
       <td><p><pre>
 1
 </pre></p></td>
-      <td></td>
-      <td><ul>
+      <td><p><pre>
+Initialize DUT with tdset1 if needed
+</pre></p>
+
+<ul>
 <li><code>Succeed</code></li>
 </ul>
 </td>
@@ -1240,8 +1232,6 @@ tdset2
 
 Verify TARGET_DEFINED subscription uses SAMPLE (with periodic updates)
 
-Refer
-[gNMI spec](https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#35152-stream-subscriptions)
 for the requirements.
 
 ##### Input & WS_TDSETs
@@ -1265,16 +1255,9 @@ tdset1
       <td><p><pre>
 WS_TDSET:
 </pre></p>
-
 <ul>
 <li><code>timeout</code></li>
-</ul>
-<ul>
 <li><code>Configs to initialize DUT</code></li>
-</ul>
-
-
-<ul>
 <li><code>SubscribeRequest</code></li>
 </ul>
 </td>
@@ -1326,9 +1309,12 @@ WS_TDSET:
       <td><p><pre>
 1
 </pre></p></td>
-      <td>
-      </td>
-      <td><ul>
+      <td><p><pre>
+Initialize DUT with tdset1 if needed
+</pre></p></td>
+
+<td>
+<ul>
 <li><code>Succeed</code></li>
 </ul>
 </td>
@@ -1420,18 +1406,31 @@ tdset3:
 
 #### WS-NF-1 Subscribe to paths without wildcard subscription support
 
-##### Test Scenario
-
-Verify error response for paths with no wildcard subscription support.
-
 ##### Input & WS_TDSETs
 
-|   ``` path ```                     | `Path to be tested.\ \ *Example\:  |   |
-:                                    : `/openconfig/interfaces/interface[name=*]/state/admin-status* :   :
-:                                    :                                    :   :
-| ---------------------------------- | ---------------------------------- | - |
-|   ``` Subscription mode ```        |   ``` ON_CHANGE and/or             |   |
-:                                    : TARGET_DEFINED ```                 :   :
+<table>
+  <thead>
+    <tr>
+      <th><p><pre>
+Path to be tested.
+</pre></p></th>
+      <th>
+<em>Example: </code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><p><pre>
+Subscription mode
+</pre></p></td>
+      <td><p><pre>
+ON_CHANGE and/or TARGET_DEFINED
+</pre></p></td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
 
 ##### Test Steps
 
@@ -1502,11 +1501,6 @@ tdset1
       <td><p><pre>
 WS_TDSET:
 </pre></p>
-
-<p><pre>
-Timeout
-</pre></p>
-
 <table>
   <thead>
     <tr>
@@ -1549,9 +1543,6 @@ tdset1
 </pre></p></td>
       <td><p><pre>
 WS_TDSET:
-</pre></p>
-<p><pre>
-Timeout
 </pre></p>
 <table>
   <thead>
@@ -1597,9 +1588,6 @@ WS_TDSET:
 </pre></p>
 
 <br>
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -1624,10 +1612,6 @@ tdset2
 </pre></p></td>
       <td><p><pre>
 WS_TDSET:
-</pre></p>
-
-<p><pre>
-Timeout
 </pre></p>
 
 <table>
@@ -1756,10 +1740,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
-
 <table>
   <thead>
     <tr>
@@ -1783,10 +1763,6 @@ tdset2
 </pre></p></td>
       <td><p><pre>
 WS_TDSET:
-</pre></p>
-
-<p><pre>
-Timeout
 </pre></p>
 
 <table>
@@ -1900,10 +1876,6 @@ WS_TDSET:
 </pre></p>
 
 <br>
-<p><pre>
-Timeout
-</pre></p>
-
 <table>
   <thead>
     <tr>
@@ -1927,11 +1899,6 @@ tdset2
 </pre></p></td>
       <td><p><pre>
 WS_TDSET:
-</pre></p>
-
-<br>
-<p><pre>
-Timeout
 </pre></p>
 
 <table>
@@ -2030,10 +1997,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
-
 <table>
   <thead>
     <tr>
@@ -2078,9 +2041,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2126,9 +2086,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2155,9 +2112,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2277,9 +2231,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2306,9 +2257,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2404,9 +2352,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2433,9 +2378,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2555,9 +2497,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2582,10 +2521,6 @@ tdset2
 </pre></p></td>
       <td><p><pre>
 WS_TDSET:
-</pre></p>
-
-<p><pre>
-Timeout
 </pre></p>
 
 <table>
@@ -2686,9 +2621,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2732,10 +2664,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<br>
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2780,10 +2708,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<br>
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2810,10 +2734,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<br>
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2943,9 +2863,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -2972,9 +2889,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3086,9 +3000,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3115,9 +3026,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3215,9 +3123,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3263,9 +3168,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3311,9 +3213,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3340,9 +3239,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3462,9 +3358,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3491,9 +3384,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3589,9 +3479,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3618,9 +3505,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3732,9 +3616,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3761,9 +3642,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3861,9 +3739,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3909,9 +3784,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3957,9 +3829,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -3984,10 +3853,6 @@ tdset2
 </pre></p></td>
       <td><p><pre>
 WS_TDSET:
-</pre></p>
-
-<p><pre>
-Timeout
 </pre></p>
 
 <table>
@@ -4087,10 +3952,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
-
 <table>
   <thead>
     <tr>
@@ -4114,10 +3975,6 @@ tdset2
 </pre></p></td>
       <td><p><pre>
 WS_TDSET:
-</pre></p>
-
-<p><pre>
-Timeout
 </pre></p>
 
 <table>
@@ -4210,9 +4067,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4239,9 +4093,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4341,9 +4192,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4370,9 +4218,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4470,9 +4315,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4517,9 +4359,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4565,9 +4404,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4594,9 +4430,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4716,9 +4549,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4745,9 +4575,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4843,9 +4670,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4872,9 +4696,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -4994,9 +4815,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5023,9 +4841,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5123,9 +4938,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5171,9 +4983,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5219,9 +5028,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5248,9 +5054,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5404,9 +5207,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5433,9 +5233,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5555,9 +5352,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5584,9 +5378,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5684,9 +5475,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5732,9 +5520,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5780,9 +5565,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5809,9 +5591,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5943,9 +5722,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -5972,9 +5748,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6070,9 +5843,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6099,9 +5869,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6221,9 +5988,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6250,9 +6014,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6350,9 +6111,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6398,9 +6156,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6446,9 +6201,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6475,9 +6227,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6596,9 +6345,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6625,9 +6371,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6723,9 +6466,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6752,9 +6492,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -6874,10 +6611,6 @@ dset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
-
 <table>
   <thead>
     <tr>
@@ -6901,10 +6634,6 @@ tdset2
 </pre></p></td>
       <td><p><pre>
 WS_TDSET:
-</pre></p>
-
-<p><pre>
-Timeout
 </pre></p>
 
 <table>
@@ -7003,9 +6732,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7051,9 +6777,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7109,9 +6832,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7157,9 +6877,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7209,9 +6926,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7238,9 +6952,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7360,9 +7071,6 @@ dset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7389,9 +7097,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7489,9 +7194,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7537,9 +7239,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7589,9 +7288,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7618,9 +7314,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7732,9 +7425,6 @@ dset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7761,9 +7451,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7861,9 +7548,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7909,9 +7593,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7957,9 +7638,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -7986,9 +7664,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8096,9 +7771,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8125,9 +7797,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8219,9 +7888,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8248,9 +7914,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8370,9 +8033,6 @@ dset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8399,9 +8059,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8499,9 +8156,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8547,9 +8201,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8605,9 +8256,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8653,9 +8301,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8703,9 +8348,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8732,9 +8374,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8859,9 +8498,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8907,9 +8543,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8955,9 +8588,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -8984,9 +8614,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9095,9 +8722,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9124,9 +8748,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9242,9 +8863,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9271,9 +8889,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9369,9 +8984,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9396,10 +9008,6 @@ tdset2
 </pre></p></td>
       <td><p><pre>
 WS_TDSET:
-</pre></p>
-
-<p><pre>
-Timeout
 </pre></p>
 
 <table>
@@ -9427,9 +9035,6 @@ tdset3
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9477,9 +9082,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9506,9 +9108,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9618,9 +9217,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9647,9 +9243,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9759,9 +9352,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9788,9 +9378,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9900,9 +9487,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -9929,9 +9513,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10041,9 +9622,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10070,9 +9648,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10182,9 +9757,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10211,9 +9783,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10323,9 +9892,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10352,9 +9918,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10464,9 +10027,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10493,9 +10053,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10605,9 +10162,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10634,9 +10188,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10746,10 +10297,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
-
 <table>
   <thead>
     <tr>
@@ -10775,9 +10322,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10887,9 +10431,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -10916,9 +10457,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -11028,9 +10566,6 @@ tdset1
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -11057,9 +10592,6 @@ tdset2
 WS_TDSET:
 </pre></p>
 
-<p><pre>
-Timeout
-</pre></p>
 
 <table>
   <thead>
@@ -11153,10 +10685,26 @@ Increased
 
 Input & WS_TDSETs
 
-|   ``` path ```               |   ```                                        |
-:                              : /openconfig/interfaces/interface[name=*]/state/ethernet :
-:                              : ```                                          :
-| ---------------------------- | -------------------------------------------- |
-|   ``` Subscription mode ```  |   ``` ON_CHANGE ```                          |
+<table>
+  <thead>
+    <tr>
+      <th><p><pre>
+path
+</pre></p></th>
+      <th><p><pre>
+/openconfig/interfaces/interface[name=*]/state/ethernet
+</pre></p></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><p><pre>
+Subscription mode
+</pre></p></td>
+      <td><p><pre>
+ON_CHANGE
+</pre></p></td>
+    </tr>
+  </tbody>
+</table>
 
-# Related Links
