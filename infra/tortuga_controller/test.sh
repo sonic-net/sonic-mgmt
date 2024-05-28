@@ -33,6 +33,7 @@ fi
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:32398
 START_TIME=$(date +%s)
 TEST_TAGS=sonic-test
+CGEN_TEST=extended
 
 # Disable SSH based pre/post checks in prod mode.
 if [[ "${TEST_NAME}" == "prod" ]]; then
@@ -66,7 +67,7 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
     --lldp \
     --auto \
     --prefix \
-    --verify \
+    --test "${CGEN_TEST}" \
     --cloud "${CLOUD_URL}" \
     --fabric "${FABRIC_NAME}" \
     --pyvxr "${PYVXR_HOST}" \
@@ -75,7 +76,7 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
     --leaves "${LEAF_PORTS}" \
     --ports "${PORTS1x3}" \
     --routes "${ROUTES1x3}" \
-    --tags "${TEST_TAGS},add-sag,ipv4,ipv6,l3vni"
+    --tags "${TEST_TAGS},add-sag,ipv4,ipv6,l3vni,loopback"
 fi
 
 # Test multi-VNI with single vlan in each VNI.

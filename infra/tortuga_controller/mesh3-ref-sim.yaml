@@ -92,7 +92,7 @@ devices:
       - 8101-32FH
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.18/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.22/npl
         ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
@@ -133,7 +133,7 @@ devices:
       - 8101-32FH
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.18/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.22/npl
         ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
@@ -174,7 +174,7 @@ devices:
       - 8101-32FH
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.18/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.22/npl
         ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
