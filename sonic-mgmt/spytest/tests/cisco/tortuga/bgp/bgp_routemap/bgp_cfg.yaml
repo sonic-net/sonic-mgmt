@@ -1,13 +1,13 @@
-SD1:
+spine0:
     sonic:
       config: |
-        sudo config interface startup Ethernet0
-        sudo config interface ip add Ethernet0 10.1.3.1/24
+        sudo config interface startup D1D3P1
+        sudo config interface ip add D1D3P1 10.1.3.1/24
         sudo config interface ip add Loopback0 1.1.1.1/32
       deconfig: |
         sudo config interface ip rem Loopback0 1.1.1.1/32
-        sudo config interface ip rem Ethernet0 10.1.3.1/24
-        sudo config interface shutdown Ethernet0
+        sudo config interface ip rem D1D3P1 10.1.3.1/24
+        sudo config interface shutdown D1D3P1
 
     bgp:
       config: |
@@ -25,17 +25,16 @@ SD1:
       deconfig: |
         no router bgp 1001
 
-
-SD3:
+leaf0:
     sonic:
       config: |
-        sudo config interface startup Ethernet0
-        sudo config interface ip add Ethernet0 10.1.3.3/24
+        sudo config interface startup D3D1P1
+        sudo config interface ip add D3D1P1 10.1.3.3/24
         sudo config interface ip add Loopback0 3.3.3.3/32
       deconfig: |
         sudo config interface ip rem Loopback0 3.3.3.3/32
-        sudo config interface ip rem Ethernet0 10.1.3.3/24
-        sudo config interface startup Ethernet0
+        sudo config interface ip rem D3D1P1 10.1.3.3/24
+        sudo config interface startup D3D1P1
 
     bgp:
       config: |
