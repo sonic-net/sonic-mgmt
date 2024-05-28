@@ -225,6 +225,7 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
                 " '''.format(http_proxy, https_proxy, syncd_docker_name)
         dut.command(cmd)
 
+
 def _install_nano(dut, creds,  syncd_docker_name):
     """
         Install nanomsg package to syncd container.
@@ -234,7 +235,8 @@ def _install_nano(dut, creds,  syncd_docker_name):
             creds (dict): Credential information according to the dut inventory
     """
 
-    if "bookworm" in self.duthost.shell("docker exec {} grep VERSION_CODENAME /etc/os-release")['stdout'].lower():
+    if "bookworm" in dut.shell("docker exec {} grep VERSION_CODENAME /etc/os-release"
+                               .format(syncd_docker_name))['stdout'].lower():
         _install_nano_bookworm(dut, creds, syncd_docker_name)
         return
 
