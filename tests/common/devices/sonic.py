@@ -740,11 +740,11 @@ class SonicHost(AnsibleHostBase):
             # 2. Check status is not running
             elif status != 'RUNNING':
                 # 3. Check process is critical
-                if pname in critical_group_list or pname in critical_process_list:
+                if pname.split(':')[0] in critical_group_list or pname in critical_process_list:
                     service_critical_process['exited_critical_process'].append(pname)
                     service_critical_process['status'] = False
             else:
-                if pname in critical_group_list or pname in critical_process_list:
+                if pname.split(':')[0] in critical_group_list or pname in critical_process_list:
                     service_critical_process['running_critical_process'].append(pname)
 
         return service_critical_process
@@ -1968,7 +1968,7 @@ Totals               6450                 6449
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert(timeout >= 0)
+        assert timeout >= 0
 
         return crm_facts
 
