@@ -1,4 +1,6 @@
 import random
+import sys
+
 import pytest
 import re
 import time
@@ -14,7 +16,11 @@ class BfdBase:
         data_rows = sample_list[3:]
         for data in data_rows:
             data_dict = {}
-            data = data.encode("utf-8").split()
+            if sys.version_info.major < 3:
+                data = data.encode("utf-8").split()
+            else:
+                data = data.split()
+
             data_dict["Peer Addr"] = data[0]
             data_dict["Interface"] = data[1]
             data_dict["Vrf"] = data[2]
@@ -142,12 +148,12 @@ class BfdBase:
         )
         logger.info("Verifying BFD status on {}".format(dut))
         logger.info(bfd_peer_command)
-        bfd_peer_output = (
-            dut.shell(bfd_peer_command, module_ignore_errors=True)["stdout"]
-            .encode("utf-8")
-            .strip()
-            .split("\n")
-        )
+        bfd_peer_status = dut.shell(bfd_peer_command, module_ignore_errors=True)["stdout"]
+        if sys.version_info.major < 3:
+            bfd_peer_output = bfd_peer_status.encode("utf-8").strip().split("\n")
+        else:
+            bfd_peer_output = bfd_peer_status.strip().split("\n")
+
         if "No BFD sessions found" in bfd_peer_output[0]:
             return "No BFD sessions found"
         else:
@@ -156,15 +162,15 @@ class BfdBase:
 
     def find_bfd_peers_with_given_state(self, dut, dut_asic, expected_bfd_state):
         # Expected BFD states: Up, Down, No BFD sessions found
-        peer_count = []
         bfd_cmd = "ip netns exec asic{} show bfd sum"
         result = True
-        bfd_peer_output = (
-            dut.shell(bfd_cmd.format(dut_asic))["stdout"]
-            .encode("utf-8")
-            .strip()
-            .split("\n")
-        )
+        asic_bfd_sum = dut.shell(bfd_cmd.format(dut_asic))["stdout"]
+        if sys.version_info.major < 3:
+            bfd_peer_output = asic_bfd_sum.encode("utf-8").strip().split("\n")
+        else:
+            bfd_peer_output = asic_bfd_sum.strip().split("\n")
+
+        invalid_peers = []
         if any(
             keyword in bfd_peer_output[0]
             for keyword in ("Total number of BFD sessions: 0", "No BFD sessions found")
@@ -173,9 +179,10 @@ class BfdBase:
         else:
             bfd_output = _parse_bfd_output(bfd_peer_output)
             for peer in bfd_output:
-                if not bfd_output[peer]["State"] == expected_bfd_state:
-                    peer_count.append(peer)
-        if len(peer_count) > 0:
+                if bfd_output[peer]["State"] != expected_bfd_state:
+                    invalid_peers.append(peer)
+
+        if len(invalid_peers) > 0:
             result = False
         return result
 
@@ -226,10 +233,6 @@ class BfdBase:
         scope="class", name="select_src_dst_dut_and_asic", params=(["multi_dut"])
     )
     def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo):
-        src_dut_index = 0
-        dst_dut_index = 0
-        src_asic_index = 0
-        dst_asic_index = 0
         if (len(duthosts.frontend_nodes)) < 2:
             pytest.skip("Don't have 2 frontend nodes - so can't run multi_dut tests")
         # Random selection of dut indices based on number of front end nodes
