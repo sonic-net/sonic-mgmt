@@ -226,6 +226,7 @@ func TestGetChassisDefaultMacAddress(t *testing.T) {
 		t.Errorf("Chassis component pool size match failed! got:%v, want:(value >= 1)", poolSize)
 	}
 }
+<<<<<<< HEAD
 
 func TestGetChassisDefaultInformation(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("1fdac1f2-c790-4871-9e44-89c91e0b0161").Teardown(t)
@@ -379,3 +380,5 @@ func TestChassisInfoPersistsAfterReboot(t *testing.T) {
 		t.Errorf("fully-qualified-name config match failed! got:%v, want:%v", got, want)
 	}
 }
+=======
+>>>>>>> [sdn_tests]: Adding Software Platform Components Tests to pins_ondatra. (#12985)
