@@ -1340,6 +1340,7 @@ class TestQosSai(QosSaiBase):
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
         if ip_version == "ipv6":
@@ -1358,6 +1359,8 @@ class TestQosSai(QosSaiBase):
             })
 
 >>>>>>> Skip IPV6 variant of testQosSaiDscpQueueMapping if IPV6 is not configured. (#12834)
+=======
+>>>>>>> Revert "Add IPv6 TC to queue mapping test #10941" from master (#12980)
         testParams.update({
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
