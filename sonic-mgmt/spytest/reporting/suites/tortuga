@@ -1,7 +1,5 @@
 # Modules
 +file:cisco/tortuga/test_neighbor_ping.py
-+file:cisco/tortuga/vxlan/test_bgp_bfd.py
-+file:cisco/tortuga/vxlan/test_bgp_bfd_evpn.py
 +file:cisco/tortuga/vxlan/test_subint_basic.py
 +file:cisco/tortuga/vxlan/test_l2vni.py
 +file:cisco/tortuga/vxlan/test_l2vni_sag_irb.py

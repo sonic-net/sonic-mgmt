@@ -13,6 +13,12 @@ devices:
   SD1: &sonic_router
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types: [8101-32FH]
+    port_breakout:
+      lc0:
+        0..7: 1x400
+        8..15: 1x100
+        16..23: 4x25
+        24..31: 4x10
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/10652/sonic-cisco-8000.bin
@@ -36,7 +42,7 @@ devices:
   SD4:
       <<: *sonic_router
 
-  SD5: 
+  SD5:
       <<: *sonic_router
 
   ixia:
@@ -47,7 +53,7 @@ devices:
       load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_9.20_KVM.qcow2
     data_ports:
       - data[0..7]
-  
+
   sonic_mgmt :
     platform: linux
     image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
