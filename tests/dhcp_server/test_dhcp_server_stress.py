@@ -7,7 +7,7 @@ import random
 import re
 import time
 from tests.common.helpers.assertions import pytest_assert
-from dhcp_server_test_common import create_common_config_patch, DHCP_MESSAGE_TYPE_DISCOVER_NUM, DHCP_MESSAGE_TYPE_REQUEST_NUM, \
+from dhcp_server_test_common import create_common_config_patch, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     apply_dhcp_server_config_gcu, create_dhcp_client_packet
 
 
