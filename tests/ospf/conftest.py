@@ -1,7 +1,10 @@
+<<<<<<< HEAD
 '''
 Conftest file for OSPF tests
 '''
 
+=======
+>>>>>>> Test case for OSPF with BFD (#12661)
 import pytest
 import re
 from tests.common.config_reload import config_reload
@@ -77,6 +80,7 @@ def get_ospf_neighbor_interface(host):
                 ':')[1]  # Return the interface name
     # Return None if interface name is not found or not PortChannels.
     return nbr_int_info
+<<<<<<< HEAD
 
 
 @pytest.fixture(scope='module')
@@ -137,3 +141,5 @@ def ospf_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, request):
     time.sleep(10)
     for neigh_name in list(nbrhosts.keys()):
         config_reload(nbrhosts[neigh_name]["host"], is_dut=False)
+=======
+>>>>>>> Test case for OSPF with BFD (#12661)
