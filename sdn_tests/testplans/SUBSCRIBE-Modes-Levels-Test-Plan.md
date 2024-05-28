@@ -334,12 +334,12 @@ Validate</td>
   </tbody>
 </table>
 
--   ONCE w/ Updates Only\
+-   ONCE w/ Updates Only
 
     -   Condition to test: ONCE subscription with updates_only
-    -   For each of the tested cases in [Simple ONCE](#heading=h.koa28sv6mqt4):
+    -   For each of the tested cases in Simple ONCE:
 1.  subscribe with { updates_only: true }.
-1.  In step 2 validation, only need to check sync_response
+2.  In step 2 validation, only need to check sync_response
 
 > Example:\
 Xpath: /openconfig/interfaces/interface[name=${INTERFACE}/config\
@@ -978,7 +978,7 @@ Validate</td>
 
 -   SAMPLE w/ invalid sample_interval
     -   Condition to test: Switch should reject invalid intervals. The unit for intervals is nano seconds and a 0 indicates as fast as possible. A 1 ns interval should always be considered infeasible.
-    -   Test for each test case in [Simple SAMPLE](#heading=h.8dmhysjceaiw) and use validation below.
+    -   Test for each test case in Simple SAMPLE and use validation below.
     -   Validation:
         -   Verify that an InvalidArgument is returned
 
@@ -991,8 +991,7 @@ Condition to test: Simple SUBSCRIPTION with updates_only.
 -   With updates_only: true
 -   Validation in step 2 for sync_response only
 
-		Example:\
-Xpath: /openconfig/${CONTAINER}\
+Example: Xpath: /openconfig/${CONTAINER}\
 ${CONTAINER} is one of [ "interfaces", "components", "qos", "system"]
 
 > Test Procedure
@@ -1133,8 +1132,7 @@ Condition to test: Simple SUBSCRIPTION with supress_redundant.
 -   With supress_redundant: true
 -   Add two more steps to validate update with changed value only
 
-		Example:\
-Xpath: /openconfig/${CONTAINER}\
+Example:\Xpath: /openconfig/${CONTAINER}\
 ${CONTAINER} is one of [ "interfaces", "components", "qos", "system"]
 
 > Test Procedure
@@ -2078,7 +2076,6 @@ Restore </td>
 Condition to test: TARGET_DEFINED for on_change and sample path
 
 1.  Test interface oper-status change on subtree
-
 Xpath: /openconfig/interfaces/interface[name=${INTERFACE}]/state
 
 ### Test Procedure
