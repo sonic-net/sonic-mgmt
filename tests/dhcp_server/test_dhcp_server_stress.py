@@ -90,6 +90,7 @@ def test_dhcp_server_with_large_number_discover(
     stress_duration_seconds = 1
     count_per_second = 200
     for i in range(stress_duration_seconds):
+        time.sleep(1)
         for j in range(count_per_second):
             discover_pkt = create_dhcp_client_packet(
                 src_mac=client_mac,
@@ -98,7 +99,6 @@ def test_dhcp_server_with_large_number_discover(
                 xid=i*count_per_second+j
             )
             testutils.send_packet(ptfadapter, ptf_port_index, discover_pkt)
-        time.sleep(1)
     stress_end_time = datetime.datetime.now()
     stress_duration = stress_end_time - stress_start_time
     stress_duration = stress_end_time - stress_start_time
