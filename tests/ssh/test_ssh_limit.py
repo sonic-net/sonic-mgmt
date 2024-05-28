@@ -156,14 +156,16 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
     login_message_1 = get_login_result(ssh_session_1)
 
     logging.debug("Login session 1 result:\n{0}\n".format(login_message_1))
-    pytest_assert("There were too many logins for" not in login_message_1)
+    pytest_assert("There were too many logins for" not in login_message_1,
+                  "The first login was rejected due to too many logins")
 
     # The second session will be disconnect by device
     ssh_session_2 = paramiko_ssh(dut_ip, local_user, local_user_password)
     login_message_2 = get_login_result(ssh_session_2)
 
     logging.debug("Login session 2 result:\n{0}\n".format(login_message_2))
-    pytest_assert("There were too many logins for" in login_message_2)
+    pytest_assert("There were too many logins for" in login_message_2,
+                  "The second login was not rejected by ssh limit")
 
     ssh_session_1.close()
     ssh_session_2.close()
