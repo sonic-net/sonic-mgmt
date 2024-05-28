@@ -101,12 +101,14 @@ def test_dhcp_server_with_large_number_discover(
         time.sleep(1)
     stress_end_time = datetime.datetime.now()
     stress_duration = stress_end_time - stress_start_time
+    stress_duration = stress_end_time - stress_start_time
     pytest_assert(stress_duration.total_seconds() < stress_duration_seconds*1.2,
-                  "It tooks too long to finish sending packets, elasped seconds is %s" % stress_duration.total_seconds())
+                  "It tooks too long to finish sending packets, \
+                    elasped seconds is %s" % stress_duration.total_seconds())
 
     # verify client can get IP from dhcp server within 10 seconds
     try:
-        time_output = ptfhost.shell('bash -c "time dhclient eth%s"'% ptf_port_index)
+        time_output = ptfhost.shell('bash -c "time dhclient eth%s"' % ptf_port_index)
         ip_addr_output = ptfhost.shell("ip addr show eth%s" % ptf_port_index)['stdout']
         logging.info("Output of ip addr show eth%s is %s" % (ptf_port_index, ip_addr_output))
         pytest_assert(expected_assigned_ip in ip_addr_output,
