@@ -78,6 +78,10 @@ The T0 type topology has different variations. The differences are just the numb
 * t0-116
 * t0-120
 * t0-backend
+* t0-standalone-32
+* t0-standalone-64
+* t0-standalone-128
+* t0-standalone-256
 
 Below are details of some of the T0 variations:
 
