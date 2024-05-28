@@ -11,19 +11,27 @@ index ecb3f3f..c6216b8 100644
 +      returns (stream InstallAuthzResponse);
  }
 <<<<<<< HEAD
- 
-=======
-
->>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
- // Request messages to rotate existing gRPC-level Authorization Policy on
-@@ -152,6 +155,16 @@ message RotateAuthzRequest {
-   bool force_overwrite = 3;
- }
 <<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
+ // Request messages to rotate existing gRPC-level Authorization Policy on
+@@ -152,6 +155,16 @@ message RotateAuthzRequest {
+   bool force_overwrite = 3;
+ }
+<<<<<<< HEAD
+<<<<<<< HEAD
+ 
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
 +// Request messages to install a new Authz Policy on
 +// the target.
 +message InstallAuthzRequest {
@@ -41,10 +49,14 @@ index ecb3f3f..c6216b8 100644
    }
  }
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
 +// Response messages from the target.
 +message InstallAuthzResponse {
 +  // Response messages.

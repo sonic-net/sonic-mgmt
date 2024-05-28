@@ -6,10 +6,14 @@ index f471488..14a242b 100755
      licenses = ["notice"],
  )
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
 +proto_library(
 +    name = "gnmi_internal_proto",
 +    srcs = ["gnmi.proto"],
@@ -26,20 +30,28 @@ index f471488..14a242b 100755
      srcs = ["gnmi.proto"],
 @@ -35,12 +46,12 @@ proto_library(
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
  cc_proto_library(
      name = "gnmi_cc_proto",
 -    deps = [":gnmi_proto"],
 +    deps = [":gnmi_internal_proto"],
  )
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
  cc_grpc_library(
      name = "gnmi_cc_grpc_proto",
 -    srcs = [":gnmi_proto"],
@@ -47,7 +59,11 @@ index f471488..14a242b 100755
      generate_mocks = True,
      grpc_only = True,
 <<<<<<< HEAD
+<<<<<<< HEAD
      deps = [":gnmi_cc_proto"],
 =======
      deps = [":gnmi_cc_proto"],
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+     deps = [":gnmi_cc_proto"],
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)

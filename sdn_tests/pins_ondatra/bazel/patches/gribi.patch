@@ -36,10 +36,14 @@ index 7ef4d9d..18f7324 100644
 +    deps = ["@com_github_openconfig_ygot//proto/yext:yext_proto"],
  )
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
  go_proto_library(
 @@ -14,7 +14,7 @@ go_proto_library(
      importpath = "github.com/openconfig/gribi/v1/proto/gribi_aft/enums",
@@ -49,8 +53,12 @@ index 7ef4d9d..18f7324 100644
 +        deps = ["@com_github_openconfig_ygot//proto/yext:go_default_library"],
  )
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
  go_library(

@@ -5,6 +5,7 @@ index badddd9..079f258 100644
 @@ -15,7 +15,7 @@
  syntax = "proto3";
 <<<<<<< HEAD
+<<<<<<< HEAD
  
  import "google/protobuf/any.proto";
 -import "p4/config/v1/p4types.proto";
@@ -17,6 +18,13 @@ index badddd9..079f258 100644
 +import "proto/p4/config/v1/p4types.proto";
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+ import "google/protobuf/any.proto";
+-import "p4/config/v1/p4types.proto";
++import "proto/p4/config/v1/p4types.proto";
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
  // This package and its contents are a work-in-progress.
 
 diff --git a/go/p4/v1/BUILD.bazel b/go/p4/v1/BUILD.bazel
@@ -31,6 +39,10 @@ index 6445fff..17a350c 100644
      ],
  )
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)

@@ -11,7 +11,11 @@ index a152057..3a2ee21 100644
          "@com_github_openconfig_gocloser//:go_default_library",
          "@com_github_openconfig_goyang//pkg/yang:go_default_library",
 <<<<<<< HEAD
+<<<<<<< HEAD
          "@com_github_openconfig_ygot//util:go_default_library",
 =======
          "@com_github_openconfig_ygot//util:go_default_library",
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+         "@com_github_openconfig_ygot//util:go_default_library",
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)

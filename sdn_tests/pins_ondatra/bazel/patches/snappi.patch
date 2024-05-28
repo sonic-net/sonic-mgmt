@@ -20,10 +20,14 @@ index d72ce05..91b14e9 100644
 +    ],
  )
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
  alias(
 
 diff --git a/gosnappi/otg/BUILD.bazel b/gosnappi/otg/BUILD.bazel
@@ -56,6 +60,10 @@ index c0c81d6..5c4fc59 100644
      visibility = ["//visibility:public"],
  )
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 =======
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)

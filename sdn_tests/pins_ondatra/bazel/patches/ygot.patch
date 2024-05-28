@@ -5,10 +5,14 @@ index 4ebd593..cd1f209 100644
 @@ -1,5 +1,13 @@
  load("@io_bazel_rules_go//go:def.bzl", "go_library")
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
 +proto_library(
 +    name = "yext_proto",
 +    srcs = ["yext.proto"],
@@ -32,10 +36,14 @@ index 4537c63..51fb410 100644
 @@ -1,5 +1,12 @@
  load("@io_bazel_rules_go//go:def.bzl", "go_library")
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
 +proto_library(
 +    name = "ywrapper_proto",
 +    srcs = ["ywrapper.proto"],

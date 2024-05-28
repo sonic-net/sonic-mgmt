@@ -8,19 +8,27 @@ index ca5484e..238dde9 100644
  # Supporting infrastructure for implementing and testing PINS.
 +load("@bazel_gazelle//:def.bzl", "gazelle")
 <<<<<<< HEAD
- 
-=======
-
->>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
- package(
-     default_visibility = ["//visibility:public"],
-@@ -20,3 +21,6 @@ package(
- )
 <<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
+ package(
+     default_visibility = ["//visibility:public"],
+@@ -20,3 +21,6 @@ package(
+ )
+<<<<<<< HEAD
+<<<<<<< HEAD
+ 
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
  exports_files(["LICENSE"])
 +
 +# gazelle:prefix github.com/openconfig/gnmi
@@ -83,19 +91,27 @@ index f471488..f6bd3bd 100644
 @@ -16,6 +16,9 @@
  #
 <<<<<<< HEAD
- 
-=======
-
->>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
- load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
-+load("@io_bazel_rules_go//go:def.bzl", "go_library")
-+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-+load("@rules_proto//proto:defs.bzl", "proto_library")
 <<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
+ load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
++load("@rules_proto//proto:defs.bzl", "proto_library")
+<<<<<<< HEAD
+<<<<<<< HEAD
+ 
+=======
+
+>>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
  package(
      default_visibility = ["//visibility:public"],
 @@ -45,3 +48,13 @@ cc_grpc_library(

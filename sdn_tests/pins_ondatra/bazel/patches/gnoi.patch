@@ -6,10 +6,14 @@ index 039f3b5..7c9940b 100644
      ],
  )
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
 -go_proto_library(
 +go_grpc_library(
      name = "healthz_go_proto",
@@ -24,10 +28,14 @@ index 921d7c1..995dd1e 100644
      deps = ["@com_google_protobuf//:descriptor_proto"],
  )
 <<<<<<< HEAD
+<<<<<<< HEAD
  
 =======
 
 >>>>>>> [sdn_tests]: Adding Build support for pins_ondatra (#12658)
+=======
+ 
+>>>>>>> [sdn-tests]: Adding patches to pins_ondatra. (#13012)
 +proto_library(
 +    name = "gnoi_types_proto",
 +    srcs = ["types.proto"],
