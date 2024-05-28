@@ -51,12 +51,10 @@ This test plan focuses on wildcard feature requirements above. The purpose is no
 
 <tr>
   <td>_/openconfig/interfaces/interface[name=\*]/state/admin-status_
-
   </td>
 </tr>
 <tr>
    <td>_/openconfig/interfaces/interface[name=\*]/state/id _
-
    </td>
   </tr>
   <tr>
@@ -285,10 +283,7 @@ Example: /openconfig/interfaces/interface[name=*]/state/admin-status
 WS_TDSET:
 *   `timeout`
 *   `Configs to initialize DUT`
-    Optional. Only needed if the test needs some specific config/state
-
 *   `SubscribeRequest`
-    Optional. Only needed if the test requires a specific SubscribeRequest
 ```
 ##### Input & WS_TDSETs
 
@@ -296,12 +291,9 @@ WS_TDSET:
   <thead>
     <tr>
       <th><p><pre>
-path
+Path to be tested
 </pre></p></th>
-      <th><code>Path to be tested.<br>
-<br>
-<em>Example:
-</code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
+      <th>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
       <th></th>
     </tr>
   </thead>
@@ -310,22 +302,12 @@ path
       <td><p><pre>
 tdset1
 </pre></p></td>
-      <td><p><pre>
+      <td>
 WS_TDSET:
-</pre></p>
-
 <ul>
 <li><code>timeout</code></li>
-</ul>
-<br>
-<ul>
 <li><code>SubscribeRequest</code></li>
 </ul>
-<p><pre>
-Optional. Only needed if the test requires a specific SubscribeRequest
-</pre></p></td>
-      <td></td>
-    </tr>
   </tbody>
 </table>
 
@@ -391,12 +373,10 @@ Verify initial updates and sync_response:
   <thead>
     <tr>
       <th><p><pre>
-path
+Path to be tested.
 </pre></p></th>
-      <th><code>Path to be tested.<br>
-<br>
-<em>Example:
-</code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
+      <th>
+<em></code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
       <th></th>
     </tr>
   </thead>
@@ -416,17 +396,11 @@ WS_TDSET:
 <ul>
 <li><code>Configs to initialize DUT</code></li>
 </ul>
-<p><pre>
-Optional. Only needed if the test needs some specific config/state
-</pre></p>
-
 <br>
 <ul>
 <li><code>SubscribeRequest</code></li>
 </ul>
-<p><pre>
-Optional. Only needed if the test requires a specific SubscribeRequest
-</pre></p></td>
+</td>
       <td></td>
     </tr>
   </tbody>
@@ -447,9 +421,7 @@ Optional. Only needed if the test requires a specific SubscribeRequest
       <td><p><pre>
 1
 </pre></p></td>
-      <td><p><pre>
-Initialize DUT with tdset1 if needed (optional)
-</pre></p></td>
+      <td></td>
       <td><ul>
 <li><code>Succeed</code></li>
 </ul>
@@ -560,12 +532,10 @@ This test can be done after WS-CF-1 to save setup time.
   <thead>
     <tr>
       <th><p><pre>
-path
+Path to be tested.
 </pre></p></th>
       <th><p><pre>
-Path to be tested.
-
-Example: /openconfig/interfaces/interface[name=*]/state/admin-status
+/openconfig/interfaces/interface[name=*]/state/admin-status
 </pre></p></th>
       <th></th>
     </tr>
@@ -585,16 +555,10 @@ WS_TDSET:
 <ul>
 <li><code>Configs to initialize DUT</code></li>
 </ul>
-<p><pre>
-Optional
-</pre></p>
-
 <ul>
 <li><code>SubscribeRequest</code></li>
 </ul>
-<p><pre>
-Optional
-</pre></p></td>
+</td>
       <td></td>
     </tr>
     <tr>
@@ -752,12 +716,10 @@ This test can be done after WS-CF-1 to save setup time.
   <thead>
     <tr>
       <th><p><pre>
-path
+Path to be tested.
 </pre></p></th>
-      <th><code>Path to be tested.<br>
-<br>
-<em>Example:
-</code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
+      <th>
+<em></code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
       <th></th>
     </tr>
   </thead>
@@ -776,17 +738,11 @@ WS_TDSET:
 <ul>
 <li><code>Configs to initialize DUT </code></li>
 </ul>
-<p><pre>
-Optional
-</pre></p>
-
 <ul>
 <li><code>SubscribeRequest</code></li>
 </ul>
-<p><pre>
-Optional
-</pre></p></td>
-      <td></td>
+</td>
+ <td></td>
     </tr>
     <tr>
       <td><p><pre>
@@ -936,12 +892,10 @@ for the requirements.
   <thead>
     <tr>
       <th><p><pre>
-path
+Path to be tested.
 </pre></p></th>
-      <th><code>Path to be tested.<br>
-<br>
-<em>Example:
-</code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
+      <th>
+<em></code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
       <th></th>
     </tr>
   </thead>
@@ -960,16 +914,10 @@ WS_TDSET:
 <ul>
 <li><code>Configs to initialize DUT </code></li>
 </ul>
-<p><pre>
-optional
-</pre></p>
-
 <ul>
 <li><code>SubscribeRequest</code></li>
 </ul>
-<p><pre>
-Optional
-</pre></p></td>
+</td>
       <td></td>
     </tr>
     <tr>
@@ -1124,12 +1072,10 @@ original switch state.**
   <thead>
     <tr>
       <th><p><pre>
-path
+Path to be tested.
 </pre></p></th>
-      <th><code>Path to be tested.<br>
-<br>
-<em>Example:
-</code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
+      <th><
+<em></code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
       <th></th>
     </tr>
   </thead>
@@ -1148,16 +1094,12 @@ WS_TDSET:
 <ul>
 <li><code>Configs to initialize DUT</code></li>
 </ul>
-<p><pre>
-Optional
-</pre></p>
+
 
 <ul>
 <li><code>SubscribeRequest</code></li>
 </ul>
-<p><pre>
-Optional
-</pre></p></td>
+</td>
       <td></td>
     </tr>
     <tr>
@@ -1308,12 +1250,10 @@ for the requirements.
   <thead>
     <tr>
       <th><p><pre>
-path
+Path to be tested.
 </pre></p></th>
-      <th><code>Path to be tested.<br>
-<br>
-<em>Example:
-</code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
+      <th><
+<em></code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
       <th></th>
     </tr>
   </thead>
@@ -1332,16 +1272,12 @@ WS_TDSET:
 <ul>
 <li><code>Configs to initialize DUT</code></li>
 </ul>
-<p><pre>
-Optional
-</pre></p>
+
 
 <ul>
 <li><code>SubscribeRequest</code></li>
 </ul>
-<p><pre>
-Optional
-</pre></p></td>
+</td>
       <td></td>
     </tr>
     <tr>
@@ -1390,9 +1326,8 @@ WS_TDSET:
       <td><p><pre>
 1
 </pre></p></td>
-      <td><p><pre>
-Initialize DUT with tdset1 if needed (optional)
-</pre></p></td>
+      <td>
+      </td>
       <td><ul>
 <li><code>Succeed</code></li>
 </ul>
@@ -1540,7 +1475,7 @@ Wait for response
 
 # Test Cases (Per Path)
 
-## ON_CHANGE Paths
+### ON_CHANGE Paths
 
 ### /openconfig/interfaces/interface[name=*]/state/admin-status
 
@@ -1592,7 +1527,7 @@ timeout
   </tbody>
 </table>
 
-1.  WS-CF-2 sync_response with Initial Updates
+2.  WS-CF-2 sync_response with Initial Updates
 
 Input & WS_TDSETs
 
@@ -1615,11 +1550,9 @@ tdset1
       <td><p><pre>
 WS_TDSET:
 </pre></p>
-
 <p><pre>
 Timeout
 </pre></p>
-
 <table>
   <thead>
     <tr>
@@ -1640,7 +1573,7 @@ timeout
   </tbody>
 </table>
 
-1.  WS-CF-3 Leaf Value Change
+3.  WS-CF-3 Leaf Value Change
 Input & WS_TDSETs
 
 <table>
@@ -1799,11 +1732,7 @@ value
   </tbody>
 </table>
 
-1.  WS-CF-4 Leaf Node Deletion
-
-> Not Applicable
-
-1.  WS-CF-5 New Key Creation
+4.  WS-CF-5 New Key Creation
 
 Input & WS_TDSETs
 
