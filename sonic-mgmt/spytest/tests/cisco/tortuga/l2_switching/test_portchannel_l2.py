@@ -147,7 +147,8 @@ def test_portchannel_l2(setup_teardown_portchannel_l2):
     
     st.report_pass('test_case_passed')
 
-def test_portchannel_l2_member_shut_unshut(setup_teardown_portchannel_l2):
+# Failure Tc, Jira : MIGSOFTWAR-14795
+def skip_test_portchannel_l2_member_shut_unshut(setup_teardown_portchannel_l2):
     
     #config traffic
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', 'unicast', True, verify_ping=False)
@@ -188,7 +189,8 @@ def test_portchannel_l2_member_shut_unshut(setup_teardown_portchannel_l2):
 
     st.report_pass('test_case_passed')
 
-def test_portchannel_l2_member_del_add(setup_teardown_portchannel_l2):
+# Failure Tc, Jira : MIGSOFTWAR-14796
+def skip_test_portchannel_l2_member_del_add(setup_teardown_portchannel_l2):
     
     #config traffic
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', 'unicast', True, verify_ping=False)

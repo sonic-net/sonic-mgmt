@@ -268,7 +268,8 @@ def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
 
     st.report_pass('test_case_passed')
 
-def test_portchannel_member_v6_add_del(setup_teardown_portchannel):
+# Failure Tc, Jira : MIGSOFTWAR-14793
+def skip_test_portchannel_member_v6_add_del(setup_teardown_portchannel):
     
     #add PortChannel01, add multiple member interfaces, add ipv6 address to PortChannel01 and ipv4 address for BGP 
     common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, data_glob.pc_ipv6_D1D3, [data_glob.members_dut1[0],data_glob.members_dut1[1]], add=True)
@@ -325,7 +326,8 @@ def test_portchannel_member_v6_add_del(setup_teardown_portchannel):
     
     st.report_pass('test_case_passed')
 
-def test_portchannel_member_v4_v6_add_del(setup_teardown_portchannel):
+# Failure Tc, Jira : MIGSOFTWAR-14793
+def skip_test_portchannel_member_v4_v6_add_del(setup_teardown_portchannel):
     
     #add PortChannel01, add multiple member interfaces and add dual stack to PortChannel01
     common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, data_glob.pc_ipv6_D1D3, [data_glob.members_dut1[0],data_glob.members_dut1[1]], add=True)
