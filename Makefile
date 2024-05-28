@@ -68,7 +68,7 @@ run_sanity:
 		--sonic_test_dir='${SONIC_TEST_DIR}' \
 		--create_allure_report \
 		--additional_tests='${ADDITIONAL_TESTS}' \
-		--dut_data_file='vxr_ports.yaml'
+		--dut_data_file='vxr_ports.yaml' \
 		$(SIM_ADDITIONAL_PARAMS) \
 	"
 
