@@ -1088,7 +1088,7 @@ def main():
             ssh_port=data['sonic_mgmt']['xr_redir22'],
             additional_tests=additional_tests,
             skip_sanity=skip_sanity,
-            dut_data=data
+            dut_data_file=input_file
         )
 
     sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()

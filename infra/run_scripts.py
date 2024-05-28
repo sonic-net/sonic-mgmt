@@ -12,6 +12,7 @@ import requests
 import base64
 from allure_server import AllureServer
 import paramiko
+import yaml
 
 ALLURE_SERVER_HOST, ALLURE_DIR = 'sonic-ci-vip-lnx.cisco.com', '/tmp/allure_results'
 ALLURE_REPORT_URL_FILE = 'allure_report_url.log'
@@ -46,7 +47,7 @@ def _create_parser():
                       required=False, default="")
     parser.add_argument('-k', '--skip_sanity', action='store_true', help='Skip sanity check',
                       default=False)
-    parser.add_argument('-dd', '--dut_data', type=str, help='Give all dut data',
+    parser.add_argument('-dd', '--dut_data_file', type=str, help='path to file containing DUT acess info',
                       required=False,default=None)
     return parser
 
@@ -310,7 +311,7 @@ def get_techsupport(dut_address, tc_name, dut_name, log_dir):
         print(f"An error occurred: {e}")
         return None
 
-def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data=None):
+def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data_file=None):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -399,7 +400,8 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
     def get_dut_names(data):
         return [key for key in data if key.startswith('sonic_dut')]
 
-    dut_data = json.loads(dut_data)
+    with open(dut_data_file) as f:
+        dut_data = yaml.load(f, Loader=yaml.FullLoader)
 
     for tc in tcs:
         if '#' in tc:
@@ -528,7 +530,7 @@ def main():
     create_allure_report = args['create_allure_report']
     additional_tests = args['additional_tests']
     skip_sanity = args['skip_sanity']
-    dut_data = args['dut_data']
+    dut_data_file = args['dut_data_file']
 
     run_options = ''
     if device_type == 'sherman':
@@ -565,7 +567,7 @@ def main():
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,dut_data=dut_data,run_options=run_options,additional_tests=additional_tests)
+            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,dut_data_file=dut_data_file,run_options=run_options,additional_tests=additional_tests)
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
