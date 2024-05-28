@@ -1,5 +1,9 @@
 import logging
 import random
+<<<<<<< HEAD
+=======
+import sys
+>>>>>>> fix: fix bfd static route tests (#12995)
 
 import pytest
 
@@ -12,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class BfdBase:
+<<<<<<< HEAD
     @pytest.fixture(autouse=True, scope="class")
     def modify_bfd_sessions(self, duthosts):
         """
@@ -37,6 +42,78 @@ class BfdBase:
             for dut in duts:
                 asics = [
                     asic.split("asic")[1] for asic in dut.get_asic_namespace_list()
+=======
+    def list_to_dict(self, sample_list):
+        data_rows = sample_list[3:]
+        for data in data_rows:
+            data_dict = {}
+            if sys.version_info.major < 3:
+                data = data.encode("utf-8").split()
+            else:
+                data = data.split()
+
+            data_dict["Peer Addr"] = data[0]
+            data_dict["Interface"] = data[1]
+            data_dict["Vrf"] = data[2]
+            data_dict["State"] = data[3]
+            data_dict["Type"] = data[4]
+            data_dict["Local Addr"] = data[5]
+            data_dict["TX Interval"] = data[6]
+            data_dict["RX Interval"] = data[7]
+            data_dict["Multiplier"] = data[8]
+            data_dict["Multihop"] = data[9]
+            data_dict["Local Discriminator"] = data[10]
+        return data_dict
+
+    def selecting_route_to_delete(self, asic_routes, nexthops):
+        for asic in asic_routes:
+            for prefix in asic_routes[asic]:
+                nexthops_in_static_route_output = asic_routes[asic][prefix]
+                # If nexthops on source dut are same destination dut's interfaces, we are picking that static route
+                if sorted(nexthops_in_static_route_output) == sorted(nexthops):
+                    time.sleep(2)
+                    logger.info("Nexthops from static route output")
+                    logger.info(sorted(nexthops_in_static_route_output))
+                    logger.info("Given Nexthops")
+                    logger.info(sorted(nexthops))
+                    logger.info("Prefix")
+                    logger.info(prefix)
+                    return prefix
+
+    def modify_all_bfd_sessions(self, dut, flag):
+        # Extracting asic count
+        cmd = "show platform summary"
+        logging.info("Verifying output of '{}' on '{}'...".format(cmd, dut.hostname))
+        summary_output_lines = dut.command(cmd)["stdout_lines"]
+        summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
+        asic_count = int(summary_dict["ASIC Count"])
+
+        # Creating bfd.json, bfd0.json, bfd1.json, bfd2.json ...
+        for i in range(asic_count):
+            file_name = "config_db{}.json".format(i)
+            dut.shell("cp /etc/sonic/{} /etc/sonic/{}.bak".format(file_name, file_name))
+            if flag == "false":
+                command = """sed -i 's/"bfd": "true"/"bfd": "false"/' {}""".format(
+                    "/etc/sonic/" + file_name
+                )
+            elif flag == "true":
+                command = """sed -i 's/"bfd": "false"/"bfd": "true"/' {}""".format(
+                    "/etc/sonic/" + file_name
+                )
+            dut.shell(command)
+
+    def extract_backend_portchannels(self, dut):
+        output = dut.show_and_parse("show int port -d all")
+        port_channel_dict = {}
+
+        for item in output:
+            if "BP" in item.get("ports", ""):
+                port_channel = item.get("team dev", "")
+                ports_with_status = [
+                    port.strip()
+                    for port in item.get("ports", "").split()
+                    if "BP" in port
+>>>>>>> fix: fix bfd static route tests (#12995)
                 ]
                 for asic in asics:
                     assert wait_until(
@@ -48,6 +125,7 @@ class BfdBase:
                         ),
                     )
 
+<<<<<<< HEAD
             yield
 
         finally:
@@ -71,6 +149,114 @@ class BfdBase:
                             dut, asic, "Up"
                         ),
                     )
+=======
+    def delete_bfd(self, asic_number, prefix, dut):
+        command = "sonic-db-cli -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'false'".format(
+            asic_number, prefix
+        ).replace(
+            "\\", ""
+        )
+        logger.info(command)
+        dut.shell(command)
+        time.sleep(15)
+
+    def add_bfd(self, asic_number, prefix, dut):
+        command = "sonic-db-cli -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'true'".format(
+            asic_number, prefix
+        ).replace(
+            "\\", ""
+        )
+        logger.info(command)
+        dut.shell(command)
+        time.sleep(15)
+
+    def extract_current_bfd_state(self, nexthop, asic_number, dut):
+        bfd_peer_command = "ip netns exec asic{} show bfd peer {}".format(
+            asic_number, nexthop
+        )
+        logger.info("Verifying BFD status on {}".format(dut))
+        logger.info(bfd_peer_command)
+        bfd_peer_status = dut.shell(bfd_peer_command, module_ignore_errors=True)["stdout"]
+        if sys.version_info.major < 3:
+            bfd_peer_output = bfd_peer_status.encode("utf-8").strip().split("\n")
+        else:
+            bfd_peer_output = bfd_peer_status.strip().split("\n")
+
+        if "No BFD sessions found" in bfd_peer_output[0]:
+            return "No BFD sessions found"
+        else:
+            entry = self.list_to_dict(bfd_peer_output)
+            return entry["State"]
+
+    def find_bfd_peers_with_given_state(self, dut, dut_asic, expected_bfd_state):
+        # Expected BFD states: Up, Down, No BFD sessions found
+        bfd_cmd = "ip netns exec asic{} show bfd sum"
+        result = True
+        asic_bfd_sum = dut.shell(bfd_cmd.format(dut_asic))["stdout"]
+        if sys.version_info.major < 3:
+            bfd_peer_output = asic_bfd_sum.encode("utf-8").strip().split("\n")
+        else:
+            bfd_peer_output = asic_bfd_sum.strip().split("\n")
+
+        invalid_peers = []
+        if any(
+            keyword in bfd_peer_output[0]
+            for keyword in ("Total number of BFD sessions: 0", "No BFD sessions found")
+        ):
+            return result
+        else:
+            bfd_output = _parse_bfd_output(bfd_peer_output)
+            for peer in bfd_output:
+                if bfd_output[peer]["State"] != expected_bfd_state:
+                    invalid_peers.append(peer)
+
+        if len(invalid_peers) > 0:
+            result = False
+        return result
+
+    def verify_bfd_state(self, dut, dut_nexthops, dut_asic, expected_bfd_state):
+        logger.info("Verifying BFD state on {} ".format(dut))
+        for nexthop in dut_nexthops:
+            current_bfd_state = self.extract_current_bfd_state(
+                nexthop, dut_asic.asic_index, dut
+            )
+            logger.info("current_bfd_state: {}".format(current_bfd_state))
+            logger.info("expected_bfd_state: {}".format(expected_bfd_state))
+            if current_bfd_state != expected_bfd_state:
+                return False
+        return True
+
+    def extract_routes(self, static_route_output, version):
+        asic_routes = {}
+        asic = None
+
+        for line in static_route_output:
+            if line.startswith("asic"):
+                asic = line.split(":")[0]
+                asic_routes[asic] = {}
+            elif line.startswith("S>*") or line.startswith("  *"):
+                parts = line.split(",")
+                if line.startswith("S>*"):
+                    if version == "ipv4":
+                        prefix_match = re.search(r"(\d+\.\d+\.\d+\.\d+/\d+)", parts[0])
+                    elif version == "ipv6":
+                        prefix_match = re.search(r"([0-9a-fA-F:.\/]+)", parts[0])
+                    if prefix_match:
+                        prefix = prefix_match.group(1)
+                    else:
+                        continue
+                if version == "ipv4":
+                    next_hop_match = re.search(r"via\s+(\d+\.\d+\.\d+\.\d+)", parts[0])
+                elif version == "ipv6":
+                    next_hop_match = re.search(r"via\s+([0-9a-fA-F:.\/]+)", parts[0])
+                if next_hop_match:
+                    next_hop = next_hop_match.group(1)
+                else:
+                    continue
+
+                asic_routes[asic].setdefault(prefix, []).append(next_hop)
+        return asic_routes
+>>>>>>> fix: fix bfd static route tests (#12995)
 
     @pytest.fixture(scope="class", name="select_src_dst_dut_and_asic", params=(["multi_dut"]))
     def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo):

@@ -1,4 +1,11 @@
 import logging
+<<<<<<< HEAD
+=======
+
+from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
+from tests.common.utilities import wait_until
+from tests.common.config_reload import config_reload
+>>>>>>> fix: fix bfd static route tests (#12995)
 
 import pytest
 
@@ -44,7 +51,16 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
     for dut in duts:
         assert wait_until(
             120, 4, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
+<<<<<<< HEAD
         ), "Orch CPU utilization exceeds orch cpu threshold {} after finishing the test".format(orch_cpu_threshold)
+=======
+        ), "Orch CPU utilization {} > orch cpu threshold {} after the test".format(
+            dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")[
+                "stdout"
+            ],
+            orch_cpu_threshold,
+        )
+>>>>>>> fix: fix bfd static route tests (#12995)
 
     logger.info("Verifying swss container status on RP")
     rp = duthosts[enum_supervisor_dut_hostname]
@@ -97,3 +113,34 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
 
         for interface in selected_interfaces:
             ensure_interface_is_up(dut, asic, interface)
+<<<<<<< HEAD
+=======
+
+
+def ensure_interface_is_up(dut, asic, interface):
+    int_oper_status = dut.show_interface(
+        command="status", include_internal_intfs=True, asic_index=asic.asic_index
+    )["ansible_facts"]["int_status"][interface]["oper_state"]
+    if int_oper_status == "down":
+        logger.info(
+            "Starting downed interface {} on {} asic{}".format(interface, dut, asic.asic_index)
+        )
+        exec_cmd = (
+            "sudo ip netns exec asic{} config interface -n asic{} startup {}".format(
+                asic.asic_index, asic.asic_index, interface
+            )
+        )
+
+        logger.info("Command: {}".format(exec_cmd))
+        dut.shell(exec_cmd)
+        assert wait_until(
+            180,
+            10,
+            0,
+            lambda: dut.show_interface(
+                command="status",
+                include_internal_intfs=True,
+                asic_index=asic.asic_index,
+            )["ansible_facts"]["int_status"][interface]["oper_state"] == "up",
+        )
+>>>>>>> fix: fix bfd static route tests (#12995)

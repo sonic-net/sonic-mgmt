@@ -1,4 +1,5 @@
 import logging
+<<<<<<< HEAD
 import random
 import re
 import sys
@@ -9,10 +10,16 @@ from ptf import testutils
 
 from tests.common.utilities import wait_until
 from tests.platform_tests.cli import util
+=======
+import sys
+
+from tests.common.utilities import wait_until
+>>>>>>> fix: fix bfd static route tests (#12995)
 
 logger = logging.getLogger(__name__)
 
 
+<<<<<<< HEAD
 def get_dut_asic_static_routes(version, dut):
     if version == "ipv4":
         static_route_command = "show ip route static"
@@ -35,6 +42,10 @@ def get_dut_asic_static_routes(version, dut):
 
 def select_src_dst_dut_with_asic(
     request, get_src_dst_asic_and_duts, version
+=======
+def select_src_dst_dut_with_asic(
+    request, get_src_dst_asic_and_duts, bfd_base_instance, version
+>>>>>>> fix: fix bfd static route tests (#12995)
 ):
     logger.debug("Selecting source and destination DUTs with ASICs...")
     # Random selection of dut & asic.
@@ -53,12 +64,50 @@ def select_src_dst_dut_with_asic(
     request.config.src_dut = src_dut
     request.config.dst_dut = dst_dut
 
+<<<<<<< HEAD
     src_asic_routes = get_dut_asic_static_routes(version, src_dut)
     dst_asic_routes = get_dut_asic_static_routes(version, dst_dut)
 
     # Extracting nexthops
     dst_dut_nexthops = (
         extract_ip_addresses_for_backend_portchannels(
+=======
+    # Extracting static routes
+    if version == "ipv4":
+        static_route_command = "show ip route static"
+    elif version == "ipv6":
+        static_route_command = "show ipv6 route static"
+    else:
+        assert False, "Invalid version"
+
+    src_dut_static_route = src_dut.shell(static_route_command, module_ignore_errors=True)["stdout"]
+    if sys.version_info.major < 3:
+        src_dut_static_route_output = src_dut_static_route.encode("utf-8").strip().split("\n")
+    else:
+        src_dut_static_route_output = src_dut_static_route.strip().split("\n")
+
+    src_asic_routes = bfd_base_instance.extract_routes(
+        src_dut_static_route_output, version
+    )
+    logger.info("Source asic routes, {}".format(src_asic_routes))
+    assert len(src_asic_routes) > 0, "static routes on source dut are empty"
+
+    dst_dut_static_route = dst_dut.shell(static_route_command, module_ignore_errors=True)["stdout"]
+    if sys.version_info.major < 3:
+        dst_dut_static_route_output = dst_dut_static_route.encode("utf-8").strip().split("\n")
+    else:
+        dst_dut_static_route_output = dst_dut_static_route.strip().split("\n")
+
+    dst_asic_routes = bfd_base_instance.extract_routes(
+        dst_dut_static_route_output, version
+    )
+    logger.info("Destination asic routes, {}".format(dst_asic_routes))
+    assert len(dst_asic_routes) > 0, "static routes on destination dut are empty"
+
+    # Extracting nexthops
+    dst_dut_nexthops = (
+        bfd_base_instance.extract_ip_addresses_for_backend_portchannels(
+>>>>>>> fix: fix bfd static route tests (#12995)
             src_dut, src_asic, version
         )
     )
@@ -66,7 +115,11 @@ def select_src_dst_dut_with_asic(
     assert len(dst_dut_nexthops) != 0, "Destination Nexthops are empty"
 
     src_dut_nexthops = (
+<<<<<<< HEAD
         extract_ip_addresses_for_backend_portchannels(
+=======
+        bfd_base_instance.extract_ip_addresses_for_backend_portchannels(
+>>>>>>> fix: fix bfd static route tests (#12995)
             dst_dut, dst_asic, version
         )
     )
@@ -74,14 +127,22 @@ def select_src_dst_dut_with_asic(
     assert len(src_dut_nexthops) != 0, "Source Nexthops are empty"
 
     # Picking a static route to delete correspinding BFD session
+<<<<<<< HEAD
     src_prefix = selecting_route_to_delete(
+=======
+    src_prefix = bfd_base_instance.selecting_route_to_delete(
+>>>>>>> fix: fix bfd static route tests (#12995)
         src_asic_routes, src_dut_nexthops.values()
     )
     logger.info("Source prefix: %s", src_prefix)
     request.config.src_prefix = src_prefix
     assert src_prefix is not None and src_prefix != "", "Source prefix not found"
 
+<<<<<<< HEAD
     dst_prefix = selecting_route_to_delete(
+=======
+    dst_prefix = bfd_base_instance.selecting_route_to_delete(
+>>>>>>> fix: fix bfd static route tests (#12995)
         dst_asic_routes, dst_dut_nexthops.values()
     )
     logger.info("Destination prefix: %s", dst_prefix)
@@ -102,6 +163,7 @@ def select_src_dst_dut_with_asic(
     )
 
 
+<<<<<<< HEAD
 def verify_bfd_state(dut, dut_nexthops, dut_asic, expected_bfd_state):
     logger.info("Verifying BFD state on {} ".format(dut))
     for nexthop in dut_nexthops:
@@ -115,12 +177,18 @@ def verify_bfd_state(dut, dut_nexthops, dut_asic, expected_bfd_state):
     return True
 
 
+=======
+>>>>>>> fix: fix bfd static route tests (#12995)
 def verify_static_route(
     request,
     asic,
     prefix,
     dut,
     expected_prefix_state,
+<<<<<<< HEAD
+=======
+    bfd_base_instance,
+>>>>>>> fix: fix bfd static route tests (#12995)
     version,
 ):
     # Verification of static route
@@ -137,7 +205,11 @@ def verify_static_route(
     else:
         static_route_output = static_route.strip().split("\n")
 
+<<<<<<< HEAD
     asic_routes = extract_routes(static_route_output, version)
+=======
+    asic_routes = bfd_base_instance.extract_routes(static_route_output, version)
+>>>>>>> fix: fix bfd static route tests (#12995)
     logger.info("Here are asic routes, {}".format(asic_routes))
 
     if expected_prefix_state == "Route Removal":
@@ -199,6 +271,7 @@ def control_interface_state(dut, asic, interface, action):
 def check_bgp_status(request):
     check_bgp = request.getfixturevalue("check_bgp")
     results = check_bgp()
+<<<<<<< HEAD
     failed = [
         result for result in results if "failed" in result and result["failed"]
     ]
@@ -856,3 +929,15 @@ def wait_until_bfd_up(dut, src_asic_next_hops, src_asic, dst_asic_next_hops, dst
         0,
         lambda: verify_bfd_state(dut, dst_asic_next_hops.values(), dst_asic, "Up"),
     )
+=======
+    bgp_failures = []
+    for result in results:
+        if "failed" in result and result["failed"]:
+            bgp_failures.append(result)
+
+    if bgp_failures:
+        logger.info("BGP check failed: {}".format(bgp_failures))
+        return False
+    else:
+        return True
+>>>>>>> fix: fix bfd static route tests (#12995)
