@@ -1,13 +1,17 @@
 package gnmi_get_modes_test
 
 import (
+<<<<<<< HEAD
 	"fmt"
+=======
+>>>>>>> [sdn_tests]:Adding GNMI Get Modes test to pins_ondatra. (#12983)
 	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+<<<<<<< HEAD
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/openconfig/gnmi/value"
 	"github.com/openconfig/ondatra"
@@ -18,6 +22,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/encoding/prototext"
+=======
+	"github.com/openconfig/gnmi/value"
+	"github.com/openconfig/ondatra"
+	"github.com/openconfig/ygot/ygot"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
+	"google.golang.org/grpc"
+>>>>>>> [sdn_tests]:Adding GNMI Get Modes test to pins_ondatra. (#12983)
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 )
@@ -56,6 +68,7 @@ type getDataTypeTest struct {
 	wantNotVal string
 }
 
+<<<<<<< HEAD
 func TestGNMIGetModes(t *testing.T) {
         dut := ondatra.DUT(t, "DUT")
         // Select a random front panel interface EthernetX.
@@ -366,6 +379,8 @@ func TestGNMIGetModes(t *testing.T) {
         }
 }
 
+=======
+>>>>>>> [sdn_tests]:Adding GNMI Get Modes test to pins_ondatra. (#12983)
 // Helper function to create the Get Request.
 func createGetRequest(dut *ondatra.DUTDevice, paths []*gpb.Path, dataType gpb.GetRequest_DataType) *gpb.GetRequest {
 	// Add Prefix information for the GetRequest.
@@ -461,6 +476,7 @@ func (c getDataTypeTest) dataTypeForLeafNonEmpty(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 // Test for gNMI Get for Data Type for path when empty subtree is returned.
 func (c getDataTypeTest) dataTypeForPathEmpty(t *testing.T) {
         t.Helper()
@@ -1112,4 +1128,13 @@ func TestMissingTypeAssumesAll(t *testing.T) {
                         }
                 }
         }
+=======
+func containsOneOfTheseSubstrings(haystack string, needles []string) bool {
+	for i := range needles {
+		if strings.Contains(haystack, needles[i]) {
+			return true
+		}
+	}
+	return false
+>>>>>>> [sdn_tests]:Adding GNMI Get Modes test to pins_ondatra. (#12983)
 }
