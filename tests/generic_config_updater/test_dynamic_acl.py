@@ -1087,8 +1087,6 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
         output = rand_selected_dut.show_and_parse("nbrshow -6")
         logger.info("Result of nbrshow -6 is: " + str(output))
 
-
-
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup, port_name)
 
     rand_selected_dut.shell("ping -c 3 {} {}".format(ipv6_ping_option, ip_address_for_test), module_ignore_errors=True)
