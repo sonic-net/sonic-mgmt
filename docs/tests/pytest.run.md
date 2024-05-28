@@ -16,10 +16,14 @@
     * executed t1 test cases.
 
 
-### Run a single test case ###
+### Run a single test file ###
 * ./run_tests.sh -d <dut_name> -n <testbed_name> [-s <list of test cases or files to skip>] -u -c platform_tests/test_link_flap.py
     * execute link flap test case.
     * when specifying test cast list, no need to specify topology with -t.
+
+### Run a single test case ###
+* ./run_tests.sh -d <dut_name> -n <testbed_name> [-s <list of test cases or files to skip>] -u -c qos/test_qos_sai.py -C "testParameter[single_asic]"
+    * execute testParameter[single_asic] in qos/test_qos_sai.py.
 
 ### Run scripts under a folder ###
 * ./run_tests.sh -d <dut_name> -n <testbed_name> -u -c "snmp/test_*.py" -s "snmp/test_snmp_cpu.py"
