@@ -2,6 +2,7 @@
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 
 import re
+import subprocess
 
 from spytest import st
 
@@ -10,7 +11,7 @@ from apis.system.connection import execute_command
 import apis.routing.ip as ip_api
 
 from utilities.common import filter_and_select, to_string, remove_last_line_from_string
-from utilities.common import process_popen, get_query_params, make_list
+from utilities.common import get_query_params, make_list
 import utilities.utils as utils_obj
 
 try:
@@ -232,7 +233,8 @@ def get_snmp_operation(**kwargs):
         return False
 
     if version in ["1", "2"]:
-        pprocess = process_popen(snmp_command)
+        pprocess = subprocess.Popen(snmp_command, shell=True, encoding='UTF-8', stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
         stdout, stderr = pprocess.communicate()
         st.log("SNMPv{} output: {}".format(version, stdout))
         if pprocess.poll() is not None:
@@ -373,7 +375,8 @@ def walk_snmp_operation(**kwargs):
         return False
     if not skip_error:
         if version in ["1", "2", "3"]:
-            pprocess = process_popen(snmp_command)
+            pprocess = subprocess.Popen(snmp_command, shell=True, encoding='UTF-8', stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
             result = []
             while True:
                 output = pprocess.stdout.readline()
@@ -1581,7 +1584,8 @@ def get_auth_priv_keys(**kwargs):
     if st.is_dry_run():
         return False
 
-    pprocess1 = process_popen(command)
+    pprocess1 = subprocess.Popen(command, shell=True, encoding='UTF-8', stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
     stdout, _ = pprocess1.communicate()
     st.log("Auth Priv Keys output: {}".format(stdout))
     if pprocess1.returncode == 0:
@@ -1677,7 +1681,8 @@ def set_snmp_operation(**kwargs):
         if st.is_dry_run():
             return False
 
-        pprocess = process_popen(snmp_command)
+        pprocess = subprocess.Popen(snmp_command, shell=True, encoding='UTF-8', stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
         stdout, stderr = pprocess.communicate()
         st.log("SNMP stdout: {}".format(stdout))
         if pprocess.poll() is not None:

@@ -4,6 +4,7 @@
 import re
 import time
 import ipaddress
+import subprocess
 
 from spytest import st
 
@@ -43,7 +44,7 @@ time_out = 125
 
 get_phy_port = lambda intf: re.search(r"(\S+)\.\d+", intf).group(1) if re.search(r"(\S+)\.\d+", intf) else intf
 
-sonichooks=SonicHooks()   
+sonichooks=SonicHooks()
 
 def force_cli_type_to_klish(cli_type):
     cli_type = "klish" if cli_type in get_supported_ui_type_list() else cli_type
@@ -106,10 +107,10 @@ def ping(dut, addresses, family='ipv4', **kwargs):
     external = kwargs.get("external", False)
     distributed = kwargs.get("distributed", False)
     if cli_type == 'vtysh-multi-asic':
-        distributed = True 
+        distributed = True
 
     # add defaults
-    
+
     kwargs['tgen'] = kwargs.get('tgen', False)
     kwargs['count'] = kwargs.get('count', 3)
     asic = kwargs.get('asic',0)
@@ -187,7 +188,8 @@ def ping(dut, addresses, family='ipv4', **kwargs):
 
     if external:
         st.log(command)
-        p = utils.process_popen(command)
+        p = subprocess.Popen(command, shell=True, encoding='UTF-8', stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
         rv, err = p.communicate()
         st.log(rv)
         st.log(err)
@@ -228,8 +230,8 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
 
     if cli_type == 'vtysh-multi-asic' or kwargs.get('is_multi_asic'):
         asic_ns=kwargs.get('asic_ns')
-        if not asic_ns: 
-            asic_ns=sonichooks.get_asic_instance_for_interface(dut,interface_name) 
+        if not asic_ns:
+            asic_ns=sonichooks.get_asic_instance_for_interface(dut,interface_name)
             if not asic_ns:
                 st.error('asic namespace is not provided for multi-asic platform')
 
@@ -589,7 +591,7 @@ def delete_ip_interface(dut, interface_name, ip_address, subnet="32", family="ip
             return False
         return True
     elif cli_type=='vtysh-multi-asic':
-        if interface_name.startswith('Ethernet'):      
+        if interface_name.startswith('Ethernet'):
             asic_ns=kwargs.get('asic_ns')
             if not asic_ns:
                 asic_ns=sonichooks.get_asic_instance_for_interface(dut, interface_name)
@@ -598,7 +600,7 @@ def delete_ip_interface(dut, interface_name, ip_address, subnet="32", family="ip
                     st.error('asic namespace is not provided for multi-asic Ethernet Interface')
 
             command="config interface -n {} ip remove {} {}/{}".format(asic_ns,interface_name, ip_address, subnet)
-        else: 
+        else:
             command="config interface ip remove {} {}/{}".format(interface_name, ip_address, subnet)
 
         st.config(dut, command, skip_error_check=skip_error)
@@ -621,7 +623,7 @@ def get_interface_ip_address(dut, interface_name=None, family="ipv4", cli_type='
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type=='vtysh-multi-asic':
-        cli_type='click' 
+        cli_type='click'
 
     if cli_type == 'click':
         interface_name = get_intf_short_name(interface_name)
@@ -811,7 +813,7 @@ def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", famil
         st.log("shell parameter is obsolete and will be ignored. Please use cli_type.")
     if kwargs.get('cli_type'):
         cli_type=kwargs.get('cli_type')
-    else: 
+    else:
         cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
 
     if cli_type == 'click':
@@ -1792,7 +1794,8 @@ def traceroute(dut, addresses, family='ipv4', vrf_name=None, timeout=None, gatew
 
     if external:
         st.log(command)
-        p = utils.process_popen(command)
+        p = subprocess.Popen(command, shell=True, encoding='UTF-8', stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
         rv, err = p.communicate()
         st.log(rv)
         st.log(err)
