@@ -6,7 +6,7 @@ This document also covers testing for different subscription levels. The covered
 
 # Background
 
-With SONiC as the network operating system (NOS) for GPINS, gNMI is responsible for monitoring, streaming telemetry, and configuration management.  Broadcom's Unified Management Framework (UMF) provides gNMI streaming telemetry based on the standard OpenConfig model. More details on gNMI for GPINs can be found [here](http://go/gpins-gnmi-hld).
+With SONiC as the network operating system (NOS) for GPINS, gNMI is responsible for monitoring, streaming telemetry, and configuration management.  Broadcom's Unified Management Framework (UMF) provides gNMI streaming telemetry based on the standard OpenConfig model.
 
 SUBSCRIBE is broken into 3 modes with further submodes for STREAM:
 
@@ -140,7 +140,6 @@ For TARGET_DEFINED subscription, current UMF implementation will use SAMPLE on t
 To achieve optionality, it is important to address any gaps to the gNMI specification in the GPINS program. This test plan focuses on the verification of functional aspects of the Subscribe RPC of different types only. Other gNMI features are covered in different GPINS test plans.\
 The major use case for this feature in GPINS is when Pictor sets up telemetry reporting.\
 
-
 # E2E Test Cases
 
 ## SUBSCRIBE ONCE
@@ -157,7 +156,7 @@ Condition to test: Simple ONCE subscription
 
 1.  Root level subscription
 
-> Xpath: /openconfig\
+Xpath: /openconfig
 Test Procedure
 
 <table>
@@ -194,9 +193,8 @@ interfaces, components, qos, system<br>
   </tbody>
 </table>
 
-1.  Top container level subscription
-
-> Xpath: /openconfig/${CONTAINER}\
+2.  Top container level subscription
+Xpath: /openconfig/${CONTAINER}
 ${CONTAINER} is one of [ "interfaces", "components", "qos", "system"]
 
 > Test Procedure
@@ -237,11 +235,10 @@ Validate</td>
   </tbody>
 </table>
 
-1.  Subtree level subscription with key
+3.  Subtree level subscription with key
+Xpath: /openconfig/interfaces/interface[name=${INTERFACE}/config
 
-> Xpath: /openconfig/interfaces/interface[name=${INTERFACE}/config
-
-> Test Procedure
+Test Procedure
 
 <table>
   <thead>
@@ -287,7 +284,7 @@ Validate</td>
   </tbody>
 </table>
 
-1.  Leaf level subscription
+4.  Leaf level subscription
 
 > Xpath: /openconfig/interfaces/interface[name=${INTERFACE}/config/enabled
 
@@ -477,7 +474,7 @@ interfaces, components, qos, system</td>
   </tbody>
 </table>
 
-1.  Top container level subscription
+2.  Top container level subscription
 
 > Xpath: /openconfig/${CONTAINER}\
 ${CONTAINER} is one of [ "interfaces", "components", "qos", "system"]
@@ -555,7 +552,7 @@ Validate</td>
   </tbody>
 </table>
 
-1.  Subtree level subscription with key
+3.  Subtree level subscription with key
 
 > Xpath: /openconfig/interfaces/interface[name=${INTERFACE}/config
 
@@ -640,7 +637,7 @@ Validate</td>
   </tbody>
 </table>
 
-1.  Leaf level subscription
+4.  Leaf level subscription
 
 > Xpath: /openconfig/interfaces/interface[name=${INTERFACE}/config/enabled
 
@@ -728,12 +725,13 @@ Validate</td>
 -   POLL w/ Updates Only
 
 Condition to test: Same as Simple Poll but with updates only.\
-For each test case in [Simple POLL](#heading=h.34zavbokl9h6):
+For each test case in Simple POLL:
 
 1.  Subscribe with { updates_only: true }
-1.  The step 2 validation only needs to check sync_response.
+2.  The step 2 validation only needs to check sync_response.
 
 For example:\
+
 Test Procedure
 
 <table>
@@ -847,7 +845,7 @@ interfaces, components, qos, system<br>
   </tbody>
 </table>
 
-1.  Top container level subscription
+2.  Top container level subscription
 
 > Xpath: /openconfig/${CONTAINER}\
 ${CONTAINER} is one of [ "interfaces", "components", "qos", "system"]
@@ -886,7 +884,7 @@ Validate</td>
   </tbody>
 </table>
 
-1.  Subtree level subscription with key
+3.  Subtree level subscription with key
 
 > Xpath: /openconfig/interfaces/interface[name=${INTERFACE}/config
 
@@ -928,7 +926,7 @@ Validate</td>
   </tbody>
 </table>
 
-1.  Leaf level subscription
+4.  Leaf level subscription
 
 > Xpath: /openconfig/interfaces/interface[name=${INTERFACE}/config/enabled
 
@@ -988,7 +986,7 @@ Validate</td>
 
 Condition to test: Simple SUBSCRIPTION with updates_only.
 
-1.  Test each case in [Simple SAMPLE](#heading=h.8dmhysjceaiw) with the following modifications:
+1.  Test each case in [Simple SAMPLE]with the following modifications:
 -   With fixed sample_interval: 3000000000
 -   With updates_only: true
 -   Validation in step 2 for sync_response only
@@ -1028,7 +1026,7 @@ Validate</td>
   </tbody>
 </table>
 
-1.  Test with MTU change
+2.  Test with MTU change
 
 > Xpath: /openconfig/interfaces/interface[name=${INTERFACE}]/config
 
@@ -1131,7 +1129,7 @@ Restore</td>
 
 Condition to test: Simple SUBSCRIPTION with supress_redundant.
 
-1.  Test each case in [Simple SAMPLE](#heading=h.8dmhysjceaiw) with the following modifications:
+1.  Test each case with the following modifications:
 -   With supress_redundant: true
 -   Add two more steps to validate update with changed value only
 
@@ -1192,7 +1190,7 @@ OR<br>
   </tbody>
 </table>
 
-1.  Test with MTU changes
+2.  Test with MTU changes
 
 > Xpath: /openconfig/interfaces/interface[name=${INTERFACE}]/config
 
@@ -1433,7 +1431,7 @@ Restore</td>
   </tbody>
 </table>
 
-1.  No subscribe level testing for this scenario.
+2.  No subscribe level testing for this scenario.
 
 -   SAMPLE w/ deleted Subtree
 
@@ -1631,7 +1629,7 @@ Condition to test: Simple SUBSCRIPTION with updates_only.
 
 1.  Test MTU change
 
-		Xpath: /openconfig/interfaces/interface[name=${INTERFACE}]/config
+Xpath: /openconfig/interfaces/interface[name=${INTERFACE}]/config
 
 > Test Procedure
 
@@ -1709,7 +1707,7 @@ Condition to test: Simple SUBSCRIPTION with heartbeat
 
 1.  Test MTU change
 
-		Xpath: /openconfig/interfaces/interface[name=${INTERFACE}]/config
+Xpath: /openconfig/interfaces/interface[name=${INTERFACE}]/config
 
 > Test Procedure
 
@@ -1865,7 +1863,7 @@ interfaces, components, qos, system<br>
   </tbody>
 </table>
 
-1.  Top container level subscription
+2.  Top container level subscription
 
 > Xpath: /openconfig/${CONTAINER}\
 ${CONTAINER} is one of [ "interfaces", "components", "qos", "system"]
@@ -1904,7 +1902,7 @@ Validate</td>
   </tbody>
 </table>
 
-1.  Subtree level subscription with key
+3.  Subtree level subscription with key
 
 > Xpath: /openconfig/interfaces/interface[name=${INTERFACE}/config
 
@@ -1942,7 +1940,7 @@ Validate</td>
   </tbody>
 </table>
 
-1.  Leaf level subscription
+4.  Leaf level subscription
 
 > Xpath: /openconfig/interfaces/interface[name=${INTERFACE}/config/enabled
 
@@ -2081,10 +2079,9 @@ Condition to test: TARGET_DEFINED for on_change and sample path
 
 1.  Test interface oper-status change on subtree
 
-> Xpath: /openconfig/interfaces/interface[name=${INTERFACE}]/state
+Xpath: /openconfig/interfaces/interface[name=${INTERFACE}]/state
 
-> Test Procedure
-
+### Test Procedure
 <table>
   <thead>
     <tr>
@@ -2154,8 +2151,3 @@ Restore </td>
     </tr>
   </tbody>
 </table>
-
-# References
-
--   [gNMI SUBSCRIBE specification](https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md#35-subscribing-to-telemetry-updates)
--   [gNMI SUBSCRIBE proto](https://github.com/openconfig/gnmi/blob/8eae1937bf841842e2e0864c34562c8352d56bb2/proto/gnmi/gnmi.proto#L208)
