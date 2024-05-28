@@ -77,6 +77,10 @@ func FindPresentOpticalTransceiver(t *testing.T, dut *ondatra.DUTDevice) (string
 // Check if a transceiver is optical by getting cable-length,
 // which should only be positive only for copper tranceivers.
 // If cable-length is 0, then the transceiver is optical.
+<<<<<<< HEAD
+=======
+// Since cable-length is only defined in buzznik's
+>>>>>>> [sdn_tests]: Adding Transceiver test to pins_ondatra. (#12988)
 // openconfig-platform-ext.yang which is unavailable to Ondatra,
 // it is necessary to use raw gNMI get.
 func IsOptical(gnmiClient gpb.GNMIClient, dut *ondatra.DUTDevice, xcvrName string) (bool, error) {
@@ -129,6 +133,7 @@ func TestReadName(t *testing.T) {
 		t.Errorf("Component key name (%v) does not match config name path value: %v", xcvrName, configNamePath)
 	}
 }
+<<<<<<< HEAD
 
 func TestIndex(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("2e63771a-4414-459b-a4ef-d56ed0de6a7a").Teardown(t)
@@ -323,3 +328,5 @@ func TestReadParentPath(t *testing.T) {
 		}
 	}
 }
+=======
+>>>>>>> [sdn_tests]: Adding Transceiver test to pins_ondatra. (#12988)
