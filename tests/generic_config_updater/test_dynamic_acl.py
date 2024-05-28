@@ -1078,14 +1078,16 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
         show_cmd = "show arp"
         ipv6_ping_option = ""
         dynamic_acl_create_arp_forward_rule(rand_selected_dut, setup)
+        output = rand_selected_dut.show_and_parse("show arp")
+        logger.info("Result of show arp is: " + str(output))
     else:
         show_cmd = "nbrshow -6 -ip"
         ipv6_ping_option = "-6"
         dynamic_acl_create_ndp_forward_rule(rand_selected_dut, setup)
+        output = rand_selected_dut.show_and_parse("nbrshow -6")
+        logger.info("Result of nbrshow -6 is: " + str(output))
 
-    output = rand_selected_dut.show_and_parse(show_cmd)
 
-    logger.info("Result of " + show_cmd + " is: " + str(output))
 
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup, port_name)
 
