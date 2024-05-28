@@ -7,12 +7,12 @@ index ca5484e..238dde9 100644
  #
  # Supporting infrastructure for implementing and testing PINS.
 +load("@bazel_gazelle//:def.bzl", "gazelle")
-
+ 
  package(
      default_visibility = ["//visibility:public"],
 @@ -20,3 +21,6 @@ package(
  )
-
+ 
  exports_files(["LICENSE"])
 +
 +# gazelle:prefix github.com/openconfig/gnmi
@@ -74,12 +74,12 @@ index f471488..f6bd3bd 100644
 +++ b/proto/gnmi/BUILD.bazel
 @@ -16,6 +16,9 @@
  #
-
+ 
  load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 +load("@io_bazel_rules_go//go:def.bzl", "go_library")
 +load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 +load("@rules_proto//proto:defs.bzl", "proto_library")
-
+ 
  package(
      default_visibility = ["//visibility:public"],
 @@ -45,3 +48,13 @@ cc_grpc_library(
