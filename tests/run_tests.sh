@@ -103,6 +103,7 @@ function setup_environment()
     SKIP_FOLDERS="ptftests acstests saitests scripts k8s sai_qualify"
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.yaml"
     TEST_CASES=""
+    TEST_FILTER=""
     TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
@@ -193,6 +194,10 @@ function setup_test_options()
         fi
     done
 
+    if [[ ! -z $TEST_FILTER ]]; then
+        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} -k ${TEST_FILTER}"
+    fi
+
     if [[ -d ${LOG_PATH} ]]; then
         rm -rf ${LOG_PATH}
     fi
@@ -245,6 +250,7 @@ function run_debug_tests()
     echo "SKIP_SCRIPTS:          ${SKIP_SCRIPTS}"
     echo "SKIP_FOLDERS:          ${SKIP_FOLDERS}"
     echo "TEST_CASES:            ${TEST_CASES}"
+    echo "TEST_FILTER:           ${TEST_FILTER}"
     echo "TEST_INPUT_ORDER:      ${TEST_INPUT_ORDER}"
     echo "TEST_MAX_FAIL:         ${TEST_MAX_FAIL}"
     echo "TEST_METHOD:           ${TEST_METHOD}"
@@ -348,7 +354,7 @@ function run_individual_tests()
 setup_environment
 
 
-while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
+while getopts "h?a:b:c:C:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -362,6 +368,9 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             ;;
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
+            ;;
+        C )
+            TEST_FILTER="${TEST_FILTER} ${OPTARG}"
             ;;
         d )
             DUT_NAME=${OPTARG}
