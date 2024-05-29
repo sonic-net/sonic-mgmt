@@ -16,10 +16,19 @@
     * executed t1 test cases.
 
 
-### Run a single test case ###
+### Run all tests in a single test file ###
 * ./run_tests.sh -d <dut_name> -n <testbed_name> [-s <list of test cases or files to skip>] -u -c platform_tests/test_link_flap.py
     * execute link flap test case.
     * when specifying test cast list, no need to specify topology with -t.
+
+### Run test cases in a single test file with filter ###
+* ./run_tests.sh -d <dut_name> -n <testbed_name> [-s <list of test cases or files to skip>] -u -c arp/test_arpall.py -C garp
+    * execute all tests that has garp in the name in arp/test_arpall.py
+* ./run_tests.sh -d <dut_name> -n <testbed_name> [-s <list of test cases or files to skip>] -u -c arp/test_arpall.py -C "garp or unicast"
+    * execute all tests that has garp or unicast in the name in arp/test_arpall.py
+* ./run_tests.sh -d <dut_name> -n <testbed_name> [-s <list of test cases or files to skip>] -u -c arp/test_arpall.py -C "not garp"
+    * execute all tests that don't have garp in the name in arp/test_arpall.py
+* For more information on the filter, please refer to the [pytest documentation](https://docs.pytest.org/en/latest/example/markers.html#using-k-expr-to-select-tests-based-on-their-name)
 
 ### Run scripts under a folder ###
 * ./run_tests.sh -d <dut_name> -n <testbed_name> -u -c "snmp/test_*.py" -s "snmp/test_snmp_cpu.py"
