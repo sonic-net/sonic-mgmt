@@ -4,7 +4,11 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+<<<<<<< HEAD
 from tests.common.utilities import wait_until
+=======
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
+>>>>>>> Enable TACACS on test cases. (#12433)
 
 logger = logging.getLogger(__name__)
 
