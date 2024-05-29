@@ -103,6 +103,7 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
     """ Run traffic """
+<<<<<<< HEAD
     flow_stats, switch_flow_stats, _ = run_traffic(duthost=duthost1,
                                                    api=api,
                                                    config=testbed_config,
@@ -110,6 +111,15 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
                                                    all_flow_names=all_flow_names,
                                                    exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                    snappi_extra_params=snappi_extra_params)
+=======
+    flow_stats, switch_flow_stats = run_traffic(duthost=duthost1,
+                                                api=api,
+                                                config=testbed_config,
+                                                data_flow_names=data_flow_names,
+                                                all_flow_names=all_flow_names,
+                                                exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
+                                                snappi_extra_params=snappi_extra_params)
+>>>>>>> [Snappi] Adding Many To One Oversubscribe Lossless Lossy Testcase (#9650)
 
     flag = {
         'Test Flow 1 -> 0 Rate:40': {
@@ -126,9 +136,18 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
         },
     }
     # Background Flow 2 -> 0 Rate:40
+<<<<<<< HEAD
     verify_m2o_oversubscribtion_results(rows=flow_stats,
                                         test_flow_name=TEST_FLOW_NAME,
                                         bg_flow_name=BG_FLOW_NAME,
+=======
+    verify_m2o_oversubscribtion_results(duthost=duthost2,
+                                        rows=flow_stats,
+                                        test_flow_name=TEST_FLOW_NAME,
+                                        bg_flow_name=BG_FLOW_NAME,
+                                        rx_port=rx_port,
+                                        rx_frame_count_deviation=TOLERANCE_THRESHOLD,
+>>>>>>> [Snappi] Adding Many To One Oversubscribe Lossless Lossy Testcase (#9650)
                                         flag=flag)
 
 
