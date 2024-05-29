@@ -26,9 +26,13 @@ from ipaddress import ip_network, IPv6Network, IPv4Network
 from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa F401
 =======
 >>>>>>> Fix dualtor-aa bug in GCU Dynamic ACL tests and skip unhealthy testbeds (#12784)
+=======
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa F401
+>>>>>>> Fix GCU Dynamic ACL ARP bug caused by stale ip config in PTFhost (#13014)
 from tests.generic_config_updater.gu_utils import expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
@@ -1113,19 +1117,29 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
         ipv6_ping_option = ""
         dynamic_acl_create_arp_forward_rule(rand_selected_dut, setup)
 <<<<<<< HEAD
+<<<<<<< HEAD
         output = rand_selected_dut.show_and_parse("show arp")
         logger.info("Result of show arp is: " + str(output))
 =======
 >>>>>>> Fix dualtor-aa bug in GCU Dynamic ACL tests and skip unhealthy testbeds (#12784)
+=======
+        output = rand_selected_dut.show_and_parse("show arp")
+        logger.info("Result of show arp is: " + str(output))
+>>>>>>> Fix GCU Dynamic ACL ARP bug caused by stale ip config in PTFhost (#13014)
     else:
         show_cmd = "nbrshow -6 -ip"
         ipv6_ping_option = "-6"
         dynamic_acl_create_ndp_forward_rule(rand_selected_dut, setup)
 <<<<<<< HEAD
+<<<<<<< HEAD
         output = rand_selected_dut.show_and_parse("nbrshow -6")
         logger.info("Result of nbrshow -6 is: " + str(output))
 =======
 >>>>>>> Fix dualtor-aa bug in GCU Dynamic ACL tests and skip unhealthy testbeds (#12784)
+=======
+        output = rand_selected_dut.show_and_parse("nbrshow -6")
+        logger.info("Result of nbrshow -6 is: " + str(output))
+>>>>>>> Fix GCU Dynamic ACL ARP bug caused by stale ip config in PTFhost (#13014)
 
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup, port_name)
 
