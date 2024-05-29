@@ -113,6 +113,9 @@ func TestGNMIInbandSwIntfType(t *testing.T) {
 	}
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding inband sw interface check tests to pins_ondatra. (#12991)
 
 // TestGNMIInbandSwIntfMacAddr - Check inband sw interface MAC address is expected format
 // TODO: remove this comment: Currently this test fails due to b/192485691.
@@ -219,7 +222,11 @@ func TestGNMIInbandSwIntfSetInvalidIPv4AddrOrPrefixLength(t *testing.T) {
 	}
 
 	// Set IPv4 address with invalid prefix length for the loopback0 interface.
+<<<<<<< HEAD
 	var tryConfiguredIPv4Path = "10.10.60.30"
+=======
+	var tryConfiguredIPv4Path = "70.80.90.60"
+>>>>>>> [sdn_tests]: Adding inband sw interface check tests to pins_ondatra. (#12991)
 	var badConfiguredIPv4PrefixLength = uint8(24)
 	newV4 := iface.GetOrCreateIpv4().GetOrCreateAddress(tryConfiguredIPv4Path)
 	newV4.Ip = &tryConfiguredIPv4Path
@@ -280,5 +287,8 @@ func TestGNMIInbandSwIntfSetInvalidIPv6AddrOrPrefixLength(t *testing.T) {
 		t.Errorf("Negative IPv6 prefix length configure failed! got:%v, want:%v", got, newConfiguredIPv6PrefixLength)
 	}
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding inband sw interface test to pins_ondatra. (#12984)
+=======
+>>>>>>> [sdn_tests]: Adding inband sw interface check tests to pins_ondatra. (#12991)
