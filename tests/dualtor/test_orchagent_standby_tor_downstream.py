@@ -25,6 +25,7 @@ from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa: F401
 from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions            # noqa: F401
 from tests.common.utilities import wait_until
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [

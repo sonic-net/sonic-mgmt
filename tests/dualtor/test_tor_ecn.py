@@ -33,6 +33,7 @@ from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp,
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby      # noqa F401
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup             # noqa F401
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology("dualtor")
