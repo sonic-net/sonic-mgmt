@@ -772,6 +772,7 @@ def sai_thrift_port_tx_enable(client, asic_type, port_ids, target='dst'):
     for port_id in port_ids:
         client.sai_thrift_set_port_attribute(port_list[target][port_id], attr)
 
+
 def sai_thrift_credit_wd_disable(client):
     # Disable credit-watchdog on target asic index
     attr_value = sai_thrift_attribute_value_t(booldata=0)
@@ -780,6 +781,7 @@ def sai_thrift_credit_wd_disable(client):
     status = client.sai_thrift_set_switch_attribute(attr)
     return status
 
+
 def sai_thrift_credit_wd_enable(client):
     # Enable credit-watchdog  on target asic-index
     attr_value = sai_thrift_attribute_value_t(booldata=1)
@@ -787,6 +789,7 @@ def sai_thrift_credit_wd_enable(client):
         id=SAI_SWITCH_ATTR_CREDIT_WD, value=attr_value)
     status = client.sai_thrift_set_switch_attribute(attr)
     return status
+
 
 def sai_thrift_read_port_counters(client, asic_type, port):
     port_cnt_ids = []
