@@ -21,6 +21,7 @@
       - [Module 6 	Power down and hardware failure](#module-6--power-down-and-hardware-failure)
       - [Module 7 	Operations](#module-7--operations)
     - [Upstream (T0->T2) Traffic Verification](#upstream-t0t2-traffic-verification)
+      - [Module 1 Normal OP](#module-1-normal-op)
   - [Test Utilities](#test-utilities)
 
 ## Scope 
@@ -128,7 +129,7 @@ For each case in this module, there are 2 variations:
 ### Upstream (T0->T2) Traffic Verification
 Upstream traffic verification can be trivial due to the nature of this test topology. We will add a case in the normal operation module.
 
-#### Module 1 	Normal OP
+#### Module 1 Normal OP
 
 | Case       | Goal                                   | Test Steps                               | Expected Control Plane Behavior                   | Expected Data Plane Behavior                      |
 |------------|----------------------------------------|------------------------------------------|--------------------------------------------------|---------------------------------------------------|
