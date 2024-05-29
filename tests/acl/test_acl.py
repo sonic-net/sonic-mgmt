@@ -25,6 +25,7 @@ from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 

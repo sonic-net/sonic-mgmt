@@ -24,7 +24,7 @@ def tacacs_creds(creds_all_duts):
 
 
 def collect_artifact(duthost, module_name):
-    logger.Warning("collect_artifact for failed model: {}".format(module_name))
+    logger.warning("collect_artifact for failed model: {}".format(module_name))
     files = ["/etc/passwd", "/var/log/auth.log", "/var/log/syslog"]
     dst_patch = "logs/tacacs/{}".format(module_name)
     for file in files:
