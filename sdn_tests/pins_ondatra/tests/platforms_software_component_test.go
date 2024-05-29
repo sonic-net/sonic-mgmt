@@ -227,6 +227,9 @@ func TestGetChassisDefaultMacAddress(t *testing.T) {
 	}
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Software Platform Components Get Set Tests to pins_ondatra. (#12992)
 
 func TestGetChassisDefaultInformation(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("1fdac1f2-c790-4871-9e44-89c91e0b0161").Teardown(t)
@@ -270,8 +273,13 @@ func TestGetChassisDefaultInformation(t *testing.T) {
 		t.Errorf("Chassis component part-no length validation failed! got:%v, want:%v(atmost)", len(partNo), maxLength)
 	}
 
+<<<<<<< HEAD
 	if platform := testhelper.ComponentChassisPlatform(t, dut, name); platform != "experimental" {
 		t.Errorf("Chassis component platform match failed! got:%v, want:experimental", platform)
+=======
+	if platform := testhelper.ComponentChassisPlatform(t, dut, name); platform != "BRIXIA" {
+		t.Errorf("Chassis component platform match failed! got:%v, want:BRIXIA", platform)
+>>>>>>> [sdn_tests]: Adding Software Platform Components Get Set Tests to pins_ondatra. (#12992)
 	}
 
 	serialNo := gnmi.Get(t, dut, componentPath.SerialNo().State())
@@ -297,9 +305,15 @@ func TestSetChassisNamePaths(t *testing.T) {
 	componentPath := gnmi.OC().Component(key)
 
 	testStrings := []string{
+<<<<<<< HEAD
                   "abc.s1.test.com",
                   "def.s2.test.com",
                   "xyz.xyz16.test.com",
+=======
+		"ju09u1m1.sqs99.net.google.com",
+		"df50f001.mtv16.net.google.com",
+		"mn120ab012.xyz16.prod.google.com",
+>>>>>>> [sdn_tests]: Adding Software Platform Components Get Set Tests to pins_ondatra. (#12992)
 	}
 
 	for _, fqdn := range testStrings {
@@ -358,7 +372,11 @@ func TestChassisInfoPersistsAfterReboot(t *testing.T) {
 	key := "chassis"
 
 	// Configure fully-qualified-name on the chassis.
+<<<<<<< HEAD
 	fqdn := "xy120ab012.xyz.test.com"
+=======
+	fqdn := "mn120ab012.xyz16.prod.google.com"
+>>>>>>> [sdn_tests]: Adding Software Platform Components Get Set Tests to pins_ondatra. (#12992)
 	testhelper.ReplaceFullyQualifiedName(t, dut, key, fqdn)
 	testhelper.AwaitFullyQualifiedName(t, dut, key, 5*time.Second, fqdn)
 
@@ -380,5 +398,8 @@ func TestChassisInfoPersistsAfterReboot(t *testing.T) {
 		t.Errorf("fully-qualified-name config match failed! got:%v, want:%v", got, want)
 	}
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Software Platform Components Tests to pins_ondatra. (#12985)
+=======
+>>>>>>> [sdn_tests]: Adding Software Platform Components Get Set Tests to pins_ondatra. (#12992)
