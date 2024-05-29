@@ -12,7 +12,7 @@ from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
 from tests.common.helpers.backend_acl import bind_acl_table
-from tests.common.checkpoint import create_checkpoint, rollback
+from tests.common.config_reload import config_reload
 from tests.common.utilities import check_skip_release
 
 
@@ -411,7 +411,6 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
         return
     # --------------------- Setup -----------------------
     try:
-        create_checkpoint(duthost, SETUP_ENV_CP)
         dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict)
 
         vp_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
@@ -420,5 +419,5 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
         yield
     # --------------------- Teardown -----------------------
     finally:
-        rollback(duthost, SETUP_ENV_CP)
+        config_reload(duthost, safe_reload=True)
         ptf_teardown(ptfhost, ptf_lag_map)
