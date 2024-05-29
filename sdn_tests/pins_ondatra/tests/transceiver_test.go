@@ -134,6 +134,9 @@ func TestReadName(t *testing.T) {
 	}
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Transceiver check tests to pins_ondatra. (#12993)
 
 func TestIndex(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("2e63771a-4414-459b-a4ef-d56ed0de6a7a").Teardown(t)
@@ -328,5 +331,8 @@ func TestReadParentPath(t *testing.T) {
 		}
 	}
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding Transceiver test to pins_ondatra. (#12988)
+=======
+>>>>>>> [sdn_tests]: Adding Transceiver check tests to pins_ondatra. (#12993)

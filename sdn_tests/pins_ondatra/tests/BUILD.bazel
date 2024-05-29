@@ -188,6 +188,9 @@ ondatra_test(
     ],
 )
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Transceiver check tests to pins_ondatra. (#12993)
 
 # gNMI Features: GET Modes
 ondatra_test(
@@ -254,6 +257,7 @@ ondatra_test(
         "@com_github_pkg_errors//:errors",
     ],
 )
+<<<<<<< HEAD
 
 # Gnoi Reboot tests
 ondatra_test(
@@ -436,3 +440,5 @@ ondatra_test(
 >>>>>>> [sdn_tests]: Adding module reset test to pins_ondatra. (#12928)
 =======
 >>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackOutCnts test. (#12955)
+=======
+>>>>>>> [sdn_tests]: Adding Transceiver check tests to pins_ondatra. (#12993)
