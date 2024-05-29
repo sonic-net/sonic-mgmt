@@ -1,12 +1,12 @@
 # Overview
 
-This document aims to outline the approach for testing the functionality of different SUBSCRIBE modes of the gNMI protocol as part of GPINs OpenConfig end-to-end testing. Subscriptions in gNMI can be periodic or event driven. Modifiers can also be applied to request heartbeat updates or filter out unchanged values.
+This document aims to outline the approach for testing the functionality of different SUBSCRIBE modes of the gNMI protocol as part of OpenConfig end-to-end testing. Subscriptions in gNMI can be periodic or event driven. Modifiers can also be applied to request heartbeat updates or filter out unchanged values.
 
 This document also covers testing for different subscription levels. The covered subscription levels are root, subtree and leaf. They will be tested for each subscription mode.
 
 # Background
 
-With SONiC as the network operating system (NOS) for GPINS, gNMI is responsible for monitoring, streaming telemetry, and configuration management.  Broadcom's Unified Management Framework (UMF) provides gNMI streaming telemetry based on the standard OpenConfig model.
+gNMI is responsible for monitoring, streaming telemetry, and configuration management. Sonic-Gnmi streaming telemetry is based on the standard OpenConfig model.
 
 SUBSCRIBE is broken into 3 modes with further submodes for STREAM:
 
@@ -133,12 +133,11 @@ Yes (if it is a Sample leaf)</td>
   </tbody>
 </table>
 
-For TARGET_DEFINED subscription, current UMF implementation will use SAMPLE on the whole subtree if any node in the subtree doesn't support ON_CHANGE. So for root and subtree level TARGET_DEFINED subscription, only SAMPLE is covered. Mixed-use of ON_CHANGE and SAMPLE may be added in the future if it is required and implemented.
+For TARGET_DEFINED subscription, current Sonic-Gnmi implementation will use SAMPLE on the whole subtree if any node in the subtree doesn't support ON_CHANGE. So for root and subtree level TARGET_DEFINED subscription, only SAMPLE is covered. Mixed-use of ON_CHANGE and SAMPLE may be added in the future if it is required and implemented.
 
 # gNMI Feature Requirements to be tested
 
-To achieve optionality, it is important to address any gaps to the gNMI specification in the GPINS program. This test plan focuses on the verification of functional aspects of the Subscribe RPC of different types only. Other gNMI features are covered in different GPINS test plans.\
-The major use case for this feature in GPINS is when Pictor sets up telemetry reporting.\
+It is important to address any gaps to the gNMI specification in Sonic-Gnmi. This test plan focuses on the verification of functional aspects of the Subscribe RPC of different types and levels. Other gNMI features are covered in other test plans.
 
 # E2E Test Cases
 
