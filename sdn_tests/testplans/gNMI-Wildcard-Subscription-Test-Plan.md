@@ -1,6 +1,6 @@
 # **Objective**
 
-This document outlines gNMI wildcard subscription feature testing for GPINs on Brixia, and defines test cases for all paths that need wildcards subscription for SB400 switch.
+This document outlines gNMI wildcard subscription feature testing for Sonic-Gnmi, and defines test cases for paths that support wildcards subscription.
 
 
 # **Overview**
@@ -260,7 +260,7 @@ Note:
 
 ## Common Features for ON\_CHANGE and TARGET\_DEFINED
 
-For TARGET\_DEFINED subscription, UMF uses SAMPLE mode for paths with no ON\_CHANGE support. Most features are the same for ON\_CHANGE and TARGET\_DEFINED(SAMPLE) subscriptions, with the difference of update speed. By adjusting the timeout value of the update, we can use the same set of feature tests for both subscription modes.
+For TARGET\_DEFINED subscription, Sonic-Gnmi uses SAMPLE mode for paths with no ON\_CHANGE support. Most features are the same for ON\_CHANGE and TARGET\_DEFINED(SAMPLE) subscriptions, with the difference of update speed. By adjusting the timeout value of the update, we can use the same set of feature tests for both subscription modes.
 
 
 #### WS-CF-1 sync\_response and updates\_only
