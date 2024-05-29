@@ -1,0 +1,2 @@
+route-map TO_BGP_PEER_V4_NEW permit 200
+route-map TO_BGP_PEER_V6_NEW permit 200

@@ -1,0 +1,21 @@
+{
+    "ACL_TABLE": {
+        "TEST_CONFIG": {
+            "policy_desc": "contorl plane acl v4",
+            "services":[
+                "MATCH"
+            ],
+            "stage": "ingress",
+            "type": "CTRLPLANE"
+        }
+    },
+    "ACL_RULE": {
+        "TEST_CONFIG|10-TEST": {
+            "IP_PROTOCOL": "17",
+            "SRC_IP": "0.0.0.0/0",
+            "L4_DST_PORT_RANGE": "45000",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9998"
+        }
+    }
+}

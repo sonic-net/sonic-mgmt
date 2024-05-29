@@ -1,0 +1,12 @@
+{
+    "TACPLUS_SERVER": {
+        "172.168.10.10": {
+            "auth_type": "pap",
+            "passkey": "testsonic",
+            "priority": "3",
+            "tcp_port": "49",
+            "timeout": "5",
+            "vrf": "mgmt"
+        }
+    }
+}
