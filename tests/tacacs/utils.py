@@ -219,22 +219,31 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
                   'tacacs_jit_user_membership': tacacs_creds['tacacs_jit_user_membership']}
 
     dut_options = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    dut_creds = tacacs_creds[duthost.hostname]
     logger.debug("setup_tacacs_server: dut_options:{}".format(dut_options))
     if 'ansible_user' in dut_options and 'ansible_password' in dut_options:
         duthost_admin_user = dut_options['ansible_user']
         duthost_admin_passwd = dut_options['ansible_password']
-        logger.debug("setup_tacacs_server: update extra_vars with duthost_admin_user and duthost_admin_passwd.")
+        logger.debug("setup_tacacs_server: update extra_vars with ansible_user and ansible_password.")
         extra_vars['duthost_admin_user'] = duthost_admin_user
         extra_vars['duthost_admin_passwd'] = crypt.crypt(duthost_admin_passwd, 'abc')
+    elif 'sonicadmin_user' in dut_creds and 'sonicadmin_password' in dut_creds:
+        logger.debug("setup_tacacs_server: update extra_vars with sonicadmin_user and sonicadmin_password.")
+        extra_vars['duthost_admin_user'] = dut_creds['sonicadmin_user']
+        extra_vars['duthost_admin_passwd'] = crypt.crypt(dut_creds['sonicadmin_password'], 'abc')
+    elif 'sonicadmin_user' in dut_creds and 'ansible_altpasswords' in dut_creds:
+        logger.debug("setup_tacacs_server: update extra_vars with sonicadmin_user and ansible_altpasswords.")
+        extra_vars['duthost_admin_user'] = dut_creds['sonicadmin_user']
+        extra_vars['duthost_admin_passwd'] = crypt.crypt(dut_creds['ansible_altpasswords'][0], 'abc')
     else:
-        logger.debug("setup_tacacs_server: duthost options does not contains config for duthost_admin_user.")
-        extra_vars['duthost_admin_user'] = tacacs_creds[duthost.hostname]['sonic_login']
-        extra_vars['duthost_admin_passwd'] = crypt.crypt(tacacs_creds[duthost.hostname]['sonic_password'], 'abc')
+        logger.debug("setup_tacacs_server: update extra_vars with sonic_login and sonic_password.")
+        extra_vars['duthost_admin_user'] = dut_creds['sonic_login']
+        extra_vars['duthost_admin_passwd'] = crypt.crypt(dut_creds['sonic_password'], 'abc')
 
     if 'ansible_ssh_user' in dut_options and 'ansible_ssh_pass' in dut_options:
         duthost_ssh_user = dut_options['ansible_ssh_user']
         duthost_ssh_passwd = dut_options['ansible_ssh_pass']
-        logger.debug("setup_tacacs_server: update extra_vars with duthost_ssh_user and duthost_ssh_passwd.")
+        logger.debug("setup_tacacs_server: update extra_vars with ansible_ssh_user and ansible_ssh_pass.")
         extra_vars['duthost_ssh_user'] = duthost_ssh_user
         extra_vars['duthost_ssh_passwd'] = crypt.crypt(duthost_ssh_passwd, 'abc')
     else:

@@ -17,6 +17,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import wait_until
 from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, \
                                                   is_route_flow_counter_supported   # noqa F401
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [

@@ -11,6 +11,7 @@ from dash_utils import render_template
 from gnmi_utils import apply_gnmi_file
 import packets
 import ptf.testutils as testutils
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 

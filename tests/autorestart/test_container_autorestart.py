@@ -12,6 +12,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common import config_reload
 from tests.common.helpers.dut_utils import get_disabled_container_list
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 

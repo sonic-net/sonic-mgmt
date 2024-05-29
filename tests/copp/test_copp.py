@@ -37,6 +37,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401

@@ -13,6 +13,7 @@ from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.parallel import parallel_run
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')
