@@ -137,3 +137,69 @@ ondatra_test(
         "@com_github_openconfig_ondatra//gnmi/oc",
     ],
 )
+
+# gNMI Features: GET Modes
+ondatra_test(
+    name = "gnmi_get_modes_test",
+    srcs = ["gnmi_get_modes_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_gnmi//value",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ygot//ygot",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_protobuf//encoding/prototext",
+        "@org_golang_google_protobuf//testing/protocmp",
+    ],
+)
+
+#Transceiver test
+ondatra_test(
+    name = "transceiver_test",
+    srcs = ["transceiver_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_openconfig_ygot//ygot",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+# Inband SW Interface Tests
+ondatra_test(
+    name = "inband_sw_interface_test",
+    srcs = ["inband_sw_interface_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_openconfig_testt//:testt",
+    ],
+)
+
+# Software Platform Component Tests
+ondatra_test(
+    name = "platforms_software_component_test",
+    srcs = ["platforms_software_component_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_gnoi//system:system_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_openconfig_testt//:testt",
+        "@com_github_pkg_errors//:errors",
+    ],
+)
