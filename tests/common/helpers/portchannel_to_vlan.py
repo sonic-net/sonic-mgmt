@@ -383,7 +383,7 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
 def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
                ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, fanouthosts):  # noqa F811
 
-    if any(topo in tbinfo["topo"]["name"] for topo in ["dualtor", "t0-backend"]):
+    if any(topo in tbinfo["topo"]["name"] for topo in ["dualtor", "t0-backend", "t0-standalone"]):
         yield
         return
 
