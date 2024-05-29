@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.tacacs.utils import check_output
 from tests.bgp.test_bgp_fact import run_bgp_facts
 from tests.test_features import run_show_features
-from tests.tacacs.test_ro_user import ssh_remote_run
+from tests.tacacs.test_ro_user import ssh_remote_run_retry
 from tests.ntp.test_ntp import run_ntp, setup_ntp_func # noqa F401
 from tests.common.helpers.assertions import pytest_require
 from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6_func # noqa F401
@@ -128,29 +128,29 @@ def test_snmp_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname, localhost, c
 
 # use function scope fixture so that convert_and_restore_config_db_to_ipv6_only will setup before check_tacacs_v6_func.
 # Otherwise, tacacs_v6 config may be lost after config reload in ipv6_only fixture.
-def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+def test_ro_user_ipv6_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
                            tacacs_creds, convert_and_restore_config_db_to_ipv6_only, check_tacacs_v6_func): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
 
-    res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_ro_user'],
-                         tacacs_creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
+    res = ssh_remote_run_retry(localhost, dutipv6, ptfhost, tacacs_creds['tacacs_ro_user'],
+                               tacacs_creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
     check_output(res, 'test', 'remote_user')
 
 
 # use function scope fixture so that convert_and_restore_config_db_to_ipv6_only will setup before check_tacacs_v6_func.
 # Otherwise, tacacs_v6 config may be lost after config reload in ipv6_only fixture.
-def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+def test_rw_user_ipv6_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
                            tacacs_creds, convert_and_restore_config_db_to_ipv6_only, check_tacacs_v6_func): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
 
-    res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_rw_user'],
-                         tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")
+    res = ssh_remote_run_retry(localhost, dutipv6, ptfhost, tacacs_creds['tacacs_rw_user'],
+                               tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")
     check_output(res, 'testadmin', 'remote_user_su')
 
 
