@@ -10,9 +10,13 @@ from scapy.contrib import bgp
 
 from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete_pcap_file
 <<<<<<< HEAD
+<<<<<<< HEAD
 from tests.common.errors import RunAnsibleModuleFail
 =======
 >>>>>>> feat: add bgp shutdown test (#12479)
+=======
+from tests.common.errors import RunAnsibleModuleFail
+>>>>>>> fix: update syslog timestamp parsing logic (#13023)
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, delete_running_config
@@ -174,6 +178,7 @@ def get_bgp_down_timestamp(duthost, peer_ip, timestamp_before_teardown):
         "grep \"[b]gp#bgpcfgd: Peer 'default|{}' admin state is set to 'down'\" /var/log/syslog | tail -1"
     ).format(peer_ip)
 <<<<<<< HEAD
+<<<<<<< HEAD
 
     bgp_down_msg_list = duthost.shell(cmd)['stdout'].split()
     try:
@@ -191,6 +196,20 @@ def get_bgp_down_timestamp(duthost, peer_ip, timestamp_before_teardown):
     timestamp = " ".join(bgp_down_msg_list[0:3])
     timestamp_in_sec = float(duthost.shell("date -d \"{}\" +%s.%6N".format(timestamp))['stdout'])
 >>>>>>> feat: add bgp shutdown test (#12479)
+=======
+
+    bgp_down_msg_list = duthost.shell(cmd)['stdout'].split()
+    try:
+        timestamp = " ".join(bgp_down_msg_list[1:4])
+        timestamp_in_sec = float(duthost.shell("date -d \"{}\" +%s.%6N".format(timestamp))['stdout'])
+    except RunAnsibleModuleFail:
+        timestamp = " ".join(bgp_down_msg_list[0:3])
+        timestamp_in_sec = float(duthost.shell("date -d \"{}\" +%s.%6N".format(timestamp))['stdout'])
+    except Exception as e:
+        logging.error("Error when parsing syslog message timestamp: {}".format(repr(e)))
+        pytest.fail("Failed to parse syslog message timestamp")
+
+>>>>>>> fix: update syslog timestamp parsing logic (#13023)
     if timestamp_in_sec < timestamp_before_teardown:
         pytest.fail("Could not find the BGP session down time")
 
