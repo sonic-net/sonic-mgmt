@@ -240,6 +240,9 @@ func TestMain(m *testing.M) {
 	ondatra.RunTests(m, pinsbind.New)
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]:Adding LACP port channel test. (#13067)
 
 func TestCreatingPortChannel(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("b280a73c-c8e9-411b-b5ef-a22240463377").Teardown(t)
@@ -376,6 +379,7 @@ func TestCreatingPortChannel(t *testing.T) {
 	gnmi.Await(t, peer, gnmi.OC().Lacp().Interface(portChannel).Member(peerPorts[0].Peer).PartnerId().State(), defaultGNMIWait, expectedSystemMac)
 	gnmi.Await(t, peer, gnmi.OC().Lacp().Interface(portChannel).Member(peerPorts[0].Peer).PartnerKey().State(), defaultGNMIWait, lacpKey)
 }
+<<<<<<< HEAD
 
 func TestAddingInterfaceToAnExistingPortChannel(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("cda6bc3d-9bfa-44f2-8851-53d42ab2c5bb").Teardown(t)
@@ -688,3 +692,5 @@ func TestPortDownEvent(t *testing.T) {
 }
 =======
 >>>>>>> [sdn_tests]: Adding LACP tests to pins_ondatra. (#13037)
+=======
+>>>>>>> [sdn_tests]:Adding LACP port channel test. (#13067)
