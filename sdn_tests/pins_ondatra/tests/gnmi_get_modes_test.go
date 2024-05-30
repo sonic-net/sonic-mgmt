@@ -477,10 +477,17 @@ func (c getDataTypeTest) dataTypeForLeafNonEmpty(t *testing.T) {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 // Test for gNMI Get for Data Type for path when empty subtree is returned.
 func (c getDataTypeTest) dataTypeForPathEmpty(t *testing.T) {
         t.Helper()
         defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+=======
+// Test for gNMI Get for Data Type for path when empty subtree is returned.
+func (c getDataTypeTest) dataTypeForPathEmpty(t *testing.T) {
+        t.Helper()
+        defer pinstesthelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+>>>>>>> [sdn_tests]:Adding gNMI Get test for Data Type for paths when 'non-empty and empty subtree is returned' to pins_ondatra. (#13068)
         dut := ondatra.DUT(t, "DUT")
 
         // Create Get Request.
@@ -522,7 +529,11 @@ func (c getDataTypeTest) dataTypeForPathEmpty(t *testing.T) {
 // Test for gNMI Get for Data Type for non-leaf path when non-empty subtree is returned.
 func (c getDataTypeTest) dataTypeForNonLeafNonEmpty(t *testing.T) {
         t.Helper()
+<<<<<<< HEAD
         defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+=======
+        defer pinstesthelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+>>>>>>> [sdn_tests]:Adding gNMI Get test for Data Type for paths when 'non-empty and empty subtree is returned' to pins_ondatra. (#13068)
         dut := ondatra.DUT(t, "DUT")
 
         // Create Get Request.
@@ -580,6 +591,7 @@ func (c getDataTypeTest) dataTypeForNonLeafNonEmpty(t *testing.T) {
         }
 }
 
+<<<<<<< HEAD
 func containsOneOfTheseSubstrings(haystack string, needles []string) bool {
         for i := range needles {
                 if strings.Contains(haystack, needles[i]) {
@@ -1137,4 +1149,80 @@ func containsOneOfTheseSubstrings(haystack string, needles []string) bool {
 	}
 	return false
 >>>>>>> [sdn_tests]:Adding GNMI Get Modes test to pins_ondatra. (#12983)
+=======
+func containsOneOfTheseSubstrings(haystack string, needles []string) bool {
+        for i := range needles {
+                if strings.Contains(haystack, needles[i]) {
+                        return true
+                }
+        }
+        return false
+}
+
+// Test for gNMI Get for Data Type for root path when non-empty subtree is returned.
+func (c getDataTypeTest) dataTypeForRootNonEmpty(t *testing.T) {
+        t.Helper()
+        defer pinstesthelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        var paths []*gpb.Path
+        getRequest := createGetRequest(dut, paths, c.dataType)
+        t.Logf("GetRequest:\n%v", getRequest)
+
+        // Send Get request using the raw gNMI client.
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        getResp, err := gnmiClient.Get(ctx, getRequest)
+        if err != nil {
+                t.Fatalf("(%v): Error while calling Get Raw API: (%v)", "dataTypeForRootNonEmpty", err)
+        }
+        t.Logf("GetResponse:\n%v", getResp)
+
+        // Validate GET response.
+        notifs := getResp.GetNotification()
+        if len(notifs) < 6 {
+                t.Fatalf("(%v): for path(%v) and type(%v), got %d notifications, want >= 6",
+                        "dataTypeForRootNonEmpty", c.reqPath, c.dataType, len(notifs))
+        }
+        wantVal, ok := c.wantVal.([]string)
+        if !ok {
+                t.Fatalf("(%v): Error with interface to map conversion (%v)", "dataTypeForRootNonEmpty", c.wantVal)
+        }
+        for u := range notifs {
+                updates := notifs[u].GetUpdate()
+                if len(updates) == 0 {
+                        continue
+                }
+                for _, update := range updates {
+                        updatePath, err := ygot.PathToString(update.GetPath())
+                        if err != nil {
+                                t.Fatalf("(%v): failed to convert path (%v) to string (%v): %v", "dataTypeForRootNonEmpty", updatePath, prototext.Format(update), err)
+                        }
+                        if containsOneOfTheseSubstrings(updatePath, ignorePaths) {
+                                continue
+                        }
+                        if !containsOneOfTheseSubstrings(updatePath, wantVal) {
+                                if c.wantNotVal != "" && strings.Contains(updatePath, c.wantNotVal) {
+                                        t.Fatalf("(%v): path compare failed to match; got (%v), want contains (%v)", "dataTypeForRootNonEmpty", updatePath, c.wantNotVal)
+                                }
+                        }
+                }
+        }
+}
+
+func notificationsFromGetRequest(t *testing.T, dut *ondatra.DUTDevice, getRequest *gpb.GetRequest) ([]*gpb.Notification, error) {
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        getResp, err := gnmiClient.Get(ctx, getRequest)
+        if err != nil {
+                return nil, err
+        }
+        return getResp.GetNotification(), nil
+>>>>>>> [sdn_tests]:Adding gNMI Get test for Data Type for paths when 'non-empty and empty subtree is returned' to pins_ondatra. (#13068)
 }
