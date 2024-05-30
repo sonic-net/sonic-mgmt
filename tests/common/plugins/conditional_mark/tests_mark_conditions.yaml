@@ -158,6 +158,12 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
       - "asic_type in ['vs']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6471
 
+bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
+  skip:
+    reason: "Warmboot-finalizer service failed on DUT, skipping for now."
+    conditions:
+      - "'SN4700' in hwsku and 't0' in topo_type"
+
 #######################################
 #####            cacl             #####
 #######################################
