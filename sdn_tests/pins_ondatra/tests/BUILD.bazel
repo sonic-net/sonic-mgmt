@@ -258,6 +258,9 @@ ondatra_test(
     ],
 )
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding LACP tests to pins_ondatra. (#13037)
 
 # Gnoi Reboot tests
 ondatra_test(
@@ -347,6 +350,7 @@ ondatra_test(
         "@com_github_pkg_errors//:errors",
     ],
 )
+<<<<<<< HEAD
 
 # gNMI Features: Stress Test
 ondatra_test(
@@ -442,3 +446,5 @@ ondatra_test(
 >>>>>>> [sdn_tests]: Adding GNMI inband sw interface dual switch LoopbackOutCnts test. (#12955)
 =======
 >>>>>>> [sdn_tests]: Adding Transceiver check tests to pins_ondatra. (#12993)
+=======
+>>>>>>> [sdn_tests]: Adding LACP tests to pins_ondatra. (#13037)

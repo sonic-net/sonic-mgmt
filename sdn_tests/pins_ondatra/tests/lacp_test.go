@@ -25,7 +25,11 @@ import (
 const defaultGNMIWait = 15 * time.Second
 
 // IEEE 802.3ad defines the Link Aggregation standard used by LACP where connected ports can
+<<<<<<< HEAD
 // experimental control packets between each other. Based on these packets the switch can group matching
+=======
+// exchange control packets between each other. Based on these packets the switch can group matching
+>>>>>>> [sdn_tests]: Adding LACP tests to pins_ondatra. (#13037)
 // ports into a LAG/Trunk/PortChannel.
 //
 // Local state is maintained for each member of a LAG to monitor the health of that given member.
@@ -235,6 +239,7 @@ func aggregatedPortSpeed(t *testing.T, dut *ondatra.DUTDevice, ports []string) (
 func TestMain(m *testing.M) {
 	ondatra.RunTests(m, pinsbind.New)
 }
+<<<<<<< HEAD
 
 func TestCreatingPortChannel(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("b280a73c-c8e9-411b-b5ef-a22240463377").Teardown(t)
@@ -681,3 +686,5 @@ func TestPortDownEvent(t *testing.T) {
                 t.Errorf("LACP state is not blocking: %v", err)
         }
 }
+=======
+>>>>>>> [sdn_tests]: Adding LACP tests to pins_ondatra. (#13037)
