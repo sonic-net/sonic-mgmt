@@ -1692,19 +1692,25 @@ def config_active_active_dualtor_active_standby(duthosts, active_active_ports, t
 @pytest.fixture
 def toggle_all_aa_ports_to_lower_tor(config_active_active_dualtor_active_standby,
                                      lower_tor_host, upper_tor_host, active_active_ports):  # noqa F811
-    config_active_active_dualtor_active_standby(lower_tor_host, upper_tor_host, active_active_ports)
+    if active_active_ports:
+        config_active_active_dualtor_active_standby(lower_tor_host, upper_tor_host, active_active_ports)
+    return
 
 
 @pytest.fixture
 def toggle_all_aa_ports_to_rand_selected_tor(config_active_active_dualtor_active_standby,
                                              rand_selected_dut, rand_unselected_dut, active_active_ports):  # noqa F811
-    config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports)
+    if active_active_ports:
+        config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports)
+    return
 
 
 @pytest.fixture
 def toggle_all_aa_ports_to_rand_unselected_tor(config_active_active_dualtor_active_standby,
                                                rand_selected_dut, rand_unselected_dut, active_active_ports):  # noqa F811
-    config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
+    if active_active_ports:
+        config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
+    return
 
 
 @pytest.fixture(autouse=True)
