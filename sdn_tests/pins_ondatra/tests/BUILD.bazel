@@ -203,3 +203,92 @@ ondatra_test(
         "@com_github_pkg_errors//:errors",
     ],
 )
+
+# Gnoi Reboot tests
+ondatra_test(
+    name = "gnoi_reboot_test",
+    srcs = ["gnoi_reboot_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_gnoi//system:system_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ygnmi//ygnmi",
+        "@com_github_pkg_errors//:errors",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)
+
+# CPU Tests
+ondatra_test(
+    name = "cpu_sw_single_switch_test",
+    srcs = ["cpu_sw_single_switch_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_google_gopacket//:gopacket",
+        "@com_github_google_gopacket//layers",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+    ],
+)
+
+# Ethernet Counter Tests (single switch)
+ondatra_test(
+    name = "ethcounter_sw_single_switch_test",
+    srcs = ["ethcounter_sw_single_switch_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_google_gopacket//:gopacket",
+        "@com_github_google_gopacket//layers",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+    ],
+)
+
+# gNMI Features: GET/SET Operations
+ondatra_test(
+    name = "gnmi_set_get_test",
+    srcs = ["gnmi_set_get_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_openconfig_testt//:testt",
+        "@com_github_openconfig_ygnmi//ygnmi",
+        "@com_github_openconfig_ygot//ygot",
+        "@org_golang_google_protobuf//encoding/prototext",
+        "@org_golang_x_sync//errgroup",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+# LACP tests
+ondatra_test(
+    name = "lacp_test",
+    srcs = ["lacp_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_golang_glog//:glog",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_openconfig_ygnmi//ygnmi",
+        "@com_github_pkg_errors//:errors",
+    ],
+)
