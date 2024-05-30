@@ -176,8 +176,12 @@ stages:
     displayName: "onboarding testcases by Elastictest"
     timeoutInMinutes: 240
     continueOnError: true
+<<<<<<< HEAD
     pool: ubuntu-20.04
 >>>>>>> Add a separate non-blocking PR check for onboarding new tests (#12729)
+=======
+    pool: sonic-ubuntu-1c
+>>>>>>> [ci] Migrate agent pool. (#13059)
     steps:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
