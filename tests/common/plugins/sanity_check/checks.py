@@ -212,6 +212,13 @@ def check_bgp(duthosts, tbinfo):
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
 
+        # If the topology doesn't have any VMs, it is not using BGP feature at all, hence skip checking
+        # the BGP status here.
+        if len(tbinfo['topo']['properties']['topology']['VMs']) == 0:
+            logger.info("No VMs in topology, skip checking bgp status on host %s ..." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
+
         networking_uptime = dut.get_networking_uptime().seconds
         if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:
             # If max_timeout is higher than 600, it will exceed parallel_run's timeout
