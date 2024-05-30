@@ -114,6 +114,9 @@ func TestGNMICPURole(t *testing.T) {
 	}
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]:Adding CPU parent paths Test to pins_ondatra. (#13058)
 
 // TestGNMICPUParentPaths - Check the CPU parent paths.
 func TestGNMICPUParentPaths(t *testing.T) {
@@ -272,6 +275,7 @@ func TestGNMICPUParentPaths(t *testing.T) {
 		t.Errorf("CPU Type is unexpected: %v", stateIntf.Type)
 	}
 }
+<<<<<<< HEAD
 
 // TestGNMICPUInDiscards - Check CPU In-Discards
 // Because the systems we're testing on have existing traffic flowing at random
@@ -386,3 +390,5 @@ func TestGNMICPUInDiscards(t *testing.T) {
 }
 =======
 >>>>>>> [sdn_tests]: Adding CPU single switch tests to pins_ondatra. (#13030)
+=======
+>>>>>>> [sdn_tests]:Adding CPU parent paths Test to pins_ondatra. (#13058)
