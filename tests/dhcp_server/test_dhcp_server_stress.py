@@ -6,6 +6,7 @@ import ptf.testutils as testutils
 import random
 import re
 import time
+import uuid
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import create_common_config_patch, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
@@ -101,9 +102,10 @@ def test_dhcp_server_with_large_number_discover(
                  (expected_assigned_ip, dut_port, ptf_port_index))
     apply_dhcp_server_config_gcu(duthost, config_to_apply)
 
-    test_pkts_count = [10, 20, 40, 70, 100, 200, 300, 400, 600, 800, 1000, 2000]
+    test_pkts_count = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 130, 160, 200, 300, 400, 600, 800, 1000, 2000]
+    test_uuid = str(uuid.uuid4())
     for count in test_pkts_count:
-        test_once_and_dump_pcap(ptfadapter, duthost, configurated_ports, count)
+        test_once_and_dump_pcap(ptfadapter, duthost, configurated_ports, count, test_uuid)
         time.sleep(60)
     raise Exception("Test failed")
 
@@ -169,7 +171,7 @@ def test_dhcp_server_with_large_number_discover(
     raise Exception("Test failed")
 
 
-def test_once_and_dump_pcap(ptfadapter, duthost, configurated_ports, N):
+def test_once_and_dump_pcap(ptfadapter, duthost, configurated_ports, N, test_uuid):
     pkts_ports = []
     for idx in range(N):
         rand_one_port = random.choice(configurated_ports)
@@ -186,7 +188,7 @@ def test_once_and_dump_pcap(ptfadapter, duthost, configurated_ports, N):
                 rand_ptf_port_index
             )
         )
-    pcap_save_path = "/tmp/stress_test_%s.pcap" % (str(N))
+    pcap_save_path = "/tmp/stress_test_%s_%s.pcap" % (str(N), test_uuid)
     pkts_filter = "udp portrange 67-68"
     cmd_capture_pkts = "sudo nohup tcpdump --immediate-mode -U -i any -w %s >/dev/null 2>&1 %s & echo $!" \
         % (pcap_save_path, pkts_filter)
@@ -199,6 +201,7 @@ def test_once_and_dump_pcap(ptfadapter, duthost, configurated_ports, N):
     stress_start_time = datetime.datetime.now()
     for idx in range(N):
         testutils.send_packet(ptfadapter, pkts_ports[idx][1], pkts_ports[idx][0])
+    time.sleep(60) #  wait some time for dhcp server to handle all packets
     duthost.shell("kill -s 2 %s" % tcpdump_pid)
     stress_end_time = datetime.datetime.now()
     stress_duration = stress_end_time - stress_start_time
