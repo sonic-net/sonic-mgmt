@@ -16,6 +16,7 @@ all:
           - t1
           - t1-lag
           - t1-28-lag
+          - t1-32-lag
           - t1-56-lag
           - t1-64-lag
           - t1-64-lag-clet
