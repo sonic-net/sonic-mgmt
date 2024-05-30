@@ -1404,8 +1404,8 @@ class TestVrfCapacity():
         # -------- Teardown ----------
 
         # remove cfg on ptf
-        ptfhost.shell("ip address flush dev eth{}".format(ptf_port1))
-        ptfhost.shell("ip address flush dev eth{}".format(ptf_port2))
+        ptfhost.shell("ip address flush dev eth{} scope global".format(ptf_port1))
+        ptfhost.shell("ip address flush dev eth{} scope global".format(ptf_port2))
         ptfhost.template(src='vrf/vrf_capacity_del_ptf_cfg.j2',
                          dest='/tmp/vrf_capacity_del_ptf_cfg.sh', mode="0755")
         ptfhost.shell('/tmp/vrf_capacity_del_ptf_cfg.sh')

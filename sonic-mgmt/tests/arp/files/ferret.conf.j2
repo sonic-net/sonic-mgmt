@@ -1,5 +1,5 @@
 [program:ferret]
-command=/usr/bin/python /opt/ferret.py {{ ferret_args }}
+command=/root/env-python3/bin/python3 /opt/ferret.py {{ ferret_args }}
 process_name=ferret
 stdout_logfile=/tmp/ferret.out.log
 stderr_logfile=/tmp/ferret.err.log
