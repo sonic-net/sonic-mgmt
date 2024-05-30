@@ -209,6 +209,7 @@ func TestRebootSuccess(t *testing.T) {
 		t.Fatalf("Failed to reboot DUT: %v", err)
 	}
 }
+<<<<<<< HEAD
 
 func TestRebootStatus(t *testing.T) {
 	// Verify RebootStatus when there is no active reboot.
@@ -468,3 +469,5 @@ func TestRebootRequestWhenGnoiUnreachable(t *testing.T) {
         }
 
 }
+=======
+>>>>>>> [sdn_tests]: Adding Gnoi Reboot tests to pins_ondatra. (#13029)
