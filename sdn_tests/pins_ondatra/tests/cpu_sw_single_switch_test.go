@@ -113,6 +113,7 @@ func TestGNMICPURole(t *testing.T) {
 		t.Errorf("CPU state CPU is %v, wanted true", stateCPU)
 	}
 }
+<<<<<<< HEAD
 
 // TestGNMICPUParentPaths - Check the CPU parent paths.
 func TestGNMICPUParentPaths(t *testing.T) {
@@ -383,3 +384,5 @@ func TestGNMICPUInDiscards(t *testing.T) {
 
         t.Logf("\n\n----- TestGNMICPUInDiscards: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+=======
+>>>>>>> [sdn_tests]: Adding CPU single switch tests to pins_ondatra. (#13030)
