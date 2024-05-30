@@ -235,3 +235,139 @@ func aggregatedPortSpeed(t *testing.T, dut *ondatra.DUTDevice, ports []string) (
 func TestMain(m *testing.M) {
 	ondatra.RunTests(m, pinsbind.New)
 }
+
+func TestCreatingPortChannel(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("b280a73c-c8e9-411b-b5ef-a22240463377").Teardown(t)
+
+	host := ondatra.DUT(t, "DUT")
+	peer := ondatra.DUT(t, "CONTROL")
+	t.Logf("Host Device: %v", host.Name())
+	t.Logf("Peer Device: %v", peer.Name())
+
+	// Find a set of peer ports between the 2 switches.
+	peerPorts, err := testhelper.PeerPortGroupWithNumMembers(t, host, peer, 2)
+	if err != nil {
+		t.Fatalf("Failed to get enough peer ports: %v", err)
+	}
+	t.Logf("Using peer ports: %v", peerPorts)
+
+	// The PortChannel configs will be the same on both the host and peer devices so we can reuse
+	// them. Since this is a sanity test to verify PortChannels can be created we manually set most of
+	// the configuration variables.
+	portChannel := "PortChannel200"
+	portChannelID := uint32(2001)
+	portChannelDescription := "PortChanne200 used for sanity testing."
+	portChannelMinLinks := uint16(2)
+	portChannelMtu := uint16(1514)
+	lacpInterval := oc.Lacp_LacpPeriodType_FAST
+	lacpMode := oc.Lacp_LacpActivityType_ACTIVE
+	lacpKey := uint16(85)
+
+	portChannelConfig := testhelper.GeneratePortChannelInterface(portChannel)
+	portChannelConfig.Id = &portChannelID
+	portChannelConfig.Mtu = &portChannelMtu
+	portChannelConfig.Description = &portChannelDescription
+	portChannelConfig.Aggregation.MinLinks = &portChannelMinLinks
+	portChannelConfigs := map[string]*oc.Interface{portChannel: &portChannelConfig}
+
+	lacpConfig := testhelper.GenerateLACPInterface(portChannel)
+	lacpConfig.Interval = lacpInterval
+
+	lacpConfig.LacpMode = lacpMode
+	var lacpConfigs oc.Lacp
+	lacpConfigs.AppendInterface(&lacpConfig)
+
+	deviceConfig := &oc.Root{
+		Interface: portChannelConfigs,
+		Lacp:      &lacpConfigs,
+	}
+
+	// Push the same device config to both switches under test.
+	gnmi.Replace(t, host, gnmi.OC().Config(), deviceConfig)
+	testhelper.UpdateLacpKey(t, host, portChannel, lacpKey)
+	defer func() {
+		if err := testhelper.RemovePortChannelFromDevice(t, defaultGNMIWait, host, portChannel); err != nil {
+			t.Fatalf("Failed to remove %v:%v: %v", host.Name(), portChannel, err)
+		}
+	}()
+	gnmi.Replace(t, peer, gnmi.OC().Config(), deviceConfig)
+	testhelper.UpdateLacpKey(t, peer, portChannel, lacpKey)
+	defer func() {
+		if err := testhelper.RemovePortChannelFromDevice(t, defaultGNMIWait, peer, portChannel); err != nil {
+			t.Fatalf("Failed to remove %v:%v: %v", peer.Name(), portChannel, err)
+		}
+	}()
+
+	// Ethernet ports are added to the PortChannel with its ID. Once this is done we expect the
+	// PortChannel to be active. Notice that the LAG member's MTU must match the PortChannel's.
+	// Otherwise, the FE will reject the request.
+	origMtuHostPort0 := gnmi.Get(t, host, gnmi.OC().Interface(peerPorts[0].Host).Mtu().Config())
+	origMtuHostPort1 := gnmi.Get(t, host, gnmi.OC().Interface(peerPorts[1].Host).Mtu().Config())
+	defer func() {
+		gnmi.Replace(t, host, gnmi.OC().Interface(peerPorts[0].Host).Mtu().Config(), origMtuHostPort0)
+		gnmi.Replace(t, host, gnmi.OC().Interface(peerPorts[1].Host).Mtu().Config(), origMtuHostPort1)
+	}()
+	gnmi.Replace(t, host, gnmi.OC().Interface(peerPorts[0].Host).Mtu().Config(), portChannelMtu)
+	gnmi.Replace(t, host, gnmi.OC().Interface(peerPorts[1].Host).Mtu().Config(), portChannelMtu)
+	testhelper.AssignPortsToAggregateID(t, host, portChannel, peerPorts[0].Host, peerPorts[1].Host)
+
+	origMtuPeerPort0 := gnmi.Get(t, peer, gnmi.OC().Interface(peerPorts[0].Peer).Mtu().Config())
+	origMtuPeerPort1 := gnmi.Get(t, peer, gnmi.OC().Interface(peerPorts[1].Peer).Mtu().Config())
+	defer func() {
+		gnmi.Replace(t, peer, gnmi.OC().Interface(peerPorts[0].Peer).Mtu().Config(), origMtuPeerPort0)
+		gnmi.Replace(t, peer, gnmi.OC().Interface(peerPorts[1].Peer).Mtu().Config(), origMtuPeerPort1)
+	}()
+	gnmi.Replace(t, peer, gnmi.OC().Interface(peerPorts[0].Peer).Mtu().Config(), portChannelMtu)
+	gnmi.Replace(t, peer, gnmi.OC().Interface(peerPorts[1].Peer).Mtu().Config(), portChannelMtu)
+	testhelper.AssignPortsToAggregateID(t, peer, portChannel, peerPorts[0].Peer, peerPorts[1].Peer)
+
+	// Verify that the Ethernet interfaces are enabled, and assigned to the correct PortChannel.
+	gnmi.Await(t, host, gnmi.OC().Interface(peerPorts[0].Host).Enabled().State(), defaultGNMIWait, true)
+	gnmi.Await(t, host, gnmi.OC().Interface(peerPorts[0].Host).Ethernet().AggregateId().State(), defaultGNMIWait, portChannel)
+	gnmi.Await(t, host, gnmi.OC().Interface(peerPorts[1].Host).Enabled().State(), defaultGNMIWait, true)
+	gnmi.Await(t, host, gnmi.OC().Interface(peerPorts[1].Host).Ethernet().AggregateId().State(), defaultGNMIWait, portChannel)
+
+	// Verify the PortChannel interface state.
+	gnmi.Await(t, host, gnmi.OC().Interface(portChannel).Enabled().State(), defaultGNMIWait, true)
+	gnmi.Await(t, host, gnmi.OC().Interface(portChannel).AdminStatus().State(), defaultGNMIWait, oc.Interface_AdminStatus_UP)
+	gnmi.Await(t, host, gnmi.OC().Interface(portChannel).OperStatus().State(), defaultGNMIWait, oc.Interface_OperStatus_UP)
+	gnmi.Await(t, host, gnmi.OC().Interface(portChannel).Type().State(), defaultGNMIWait, oc.IETFInterfaces_InterfaceType_ieee8023adLag)
+	gnmi.Await(t, host, gnmi.OC().Interface(portChannel).Id().State(), defaultGNMIWait, portChannelID)
+	gnmi.Await(t, host, gnmi.OC().Interface(portChannel).Description().State(), defaultGNMIWait, portChannelDescription)
+	gnmi.Await(t, host, gnmi.OC().Interface(portChannel).Mtu().State(), defaultGNMIWait, portChannelMtu)
+	expectedHostPorts := []string{peerPorts[0].Host, peerPorts[1].Host}
+	if err := comparePortChannelMemberList(t, defaultGNMIWait, host, portChannel, expectedHostPorts); err != nil {
+		t.Errorf("PortChannel member list is invalid: %v", err)
+	}
+	// expectedLagSpeed, err := aggregatedPortSpeed(t, host, expectedHostPorts)
+	// if err != nil {
+	// 	t.Fatalf("Could not get expected LAG speed: %v", err)
+	// }
+
+	// TODO: enable after the bug is fixed.
+	// Monitoring tools will SAMPLE data from /interfaces/interface[name=<trunk>]/aggregation/state/,
+	// and the gNMI FE does not support ON_CHANGE in this case. So we update the subscription mode.
+	//gnmi.Await(t, host.GNMIOpts().WithYGNMIOpts(ygnmi.WithSubscriptionMode(gpb.SubscriptionMode_SAMPLE)), gnmi.OC().Interface(portChannel).Aggregation().LagSpeed().State(), defaultGNMIWait, expectedLagSpeed)
+	gnmi.Await(t, host.GNMIOpts().WithYGNMIOpts(ygnmi.WithSubscriptionMode(gpb.SubscriptionMode_SAMPLE)), gnmi.OC().Interface(portChannel).Aggregation().MinLinks().State(), defaultGNMIWait, portChannelMinLinks)
+	gnmi.Await(t, host.GNMIOpts().WithYGNMIOpts(ygnmi.WithSubscriptionMode(gpb.SubscriptionMode_SAMPLE)), gnmi.OC().Interface(portChannel).Aggregation().LagType().State(), defaultGNMIWait, oc.IfAggregate_AggregationType_LACP)
+
+	// Verify the LACP settings for the PortChannel.
+	gnmi.Await(t, host, gnmi.OC().Lacp().Interface(portChannel).Interval().State(), defaultGNMIWait, lacpInterval)
+	gnmi.Await(t, host, gnmi.OC().Lacp().Interface(portChannel).LacpMode().State(), defaultGNMIWait, lacpMode)
+	testhelper.AwaitLacpKey(t, host, portChannel, defaultGNMIWait, lacpKey)
+
+	// We don't explicitly configure the LACP system MAC or priority. Therefore, the MAC should match
+	// whatever the ethernet ports were configured to, and the priority will default to 0xFFFF.
+	expectedSystemMac := gnmi.Get(t, host, gnmi.OC().Interface(peerPorts[0].Host).Ethernet().MacAddress().State())
+	gnmi.Await(t, host, gnmi.OC().Lacp().Interface(portChannel).SystemIdMac().State(), defaultGNMIWait, expectedSystemMac)
+	gnmi.Await(t, host, gnmi.OC().Lacp().Interface(portChannel).SystemPriority().State(), defaultGNMIWait, 0xFFFF)
+
+	// Verify the LACP settings for each member of the PortChannel.
+	if err := verifyInSyncState(t, host, portChannel, peerPorts[0].Host); err != nil {
+		t.Errorf("LACP state is not in-sync: %v", err)
+	}
+	gnmi.Await(t, host, gnmi.OC().Lacp().Interface(portChannel).Member(peerPorts[0].Host).SystemId().State(), defaultGNMIWait, expectedSystemMac)
+	gnmi.Await(t, host, gnmi.OC().Lacp().Interface(portChannel).Member(peerPorts[0].Host).OperKey().State(), defaultGNMIWait, lacpKey)
+	gnmi.Await(t, peer, gnmi.OC().Lacp().Interface(portChannel).Member(peerPorts[0].Peer).PartnerId().State(), defaultGNMIWait, expectedSystemMac)
+	gnmi.Await(t, peer, gnmi.OC().Lacp().Interface(portChannel).Member(peerPorts[0].Peer).PartnerKey().State(), defaultGNMIWait, lacpKey)
+}
