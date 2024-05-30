@@ -21,10 +21,6 @@ spine0:
         sudo config interface ip rem D1D4P2 13:1:1::1/120
         sudo config vlan member del 10 D1D3P1
         sudo config vlan member del 10 D1D4P1
-        sudo config interface shutdown D1D3P1
-        sudo config interface shutdown D1D3P3
-        sudo config interface shutdown D1D4P1
-        sudo config interface shutdown D1D4P2
         sudo config vlan del 10
     sonic_bd_pc:
       config: |
@@ -60,9 +56,6 @@ spine0:
         sudo config portchannel member del PortChannel01 D1D3P4
         sudo config portchannel del PortChannel01
         sudo config vlan member del 10 D1D4P1
-        sudo config interface shutdown D1D3P3
-        sudo config interface shutdown D1D4P1
-        sudo config interface shutdown D1D4P2
         sudo config vlan del 10
     sonic_pc:
       config: |
@@ -95,8 +88,6 @@ spine0:
         sudo config portchannel member del PortChannel01 D1D3P2
         sudo config portchannel member del PortChannel01 D1D3P4
         sudo config portchannel del PortChannel01
-        sudo config interface shutdown D1D4P1
-        sudo config interface shutdown D1D3P1
         sudo config vlan del 10
         sudo config vlan del 20
     sonic:
@@ -118,9 +109,6 @@ spine0:
         sudo config vlan member del 10 D1D3P1
         sudo config vlan member del 20 D1D4P1
         sudo config vlan member del 20 D1D3P2
-        sudo config interface shutdown D1D4P1
-        sudo config interface shutdown D1D3P2
-        sudo config interface shutdown D1D3P1
         sudo config vlan del 10
         sudo config vlan del 20
     bgp:
@@ -178,10 +166,6 @@ leaf0:
         sudo config interface ip rem D3D1P3 12:1:1::2/120
         sudo config vlan member del 10 D3D1P1
         sudo config vlan member del 10 D3T1P1
-        sudo config interface shutdown D3D1P1
-        sudo config interface shutdown D3D1P3
-        sudo config interface shutdown D3T1P1
-        sudo config interface shutdown D3T1P2
         sudo config vlan del 10
     sonic_bd_pc:
       config: |
@@ -221,9 +205,6 @@ leaf0:
         sudo config portchannel member del PortChannel01 D3D1P2
         sudo config portchannel member del PortChannel01 D3D1P4
         sudo config portchannel del PortChannel01
-        sudo config interface shutdown D3D1P3
-        sudo config interface shutdown D3T1P1
-        sudo config interface shutdown D3T1P2
         sudo config vlan del 10
     sonic_pc:
       config: |
@@ -266,9 +247,6 @@ leaf0:
         sudo config portchannel member del PortChannel01 D3D1P2
         sudo config portchannel member del PortChannel01 D3D1P4
         sudo config portchannel del PortChannel01
-        sudo config interface shutdown D3D1P1
-        sudo config interface shutdown D3T1P1
-        sudo config interface shutdown D3T1P2
         sudo config vlan del 10
         sudo config vlan del 20
     sonic:
@@ -300,10 +278,6 @@ leaf0:
         sudo config vlan member del 10 D3T1P1
         sudo config vlan member del 20 D3D1P2
         sudo config vlan member del 20 D3T1P2
-        sudo config interface shutdown D3D1P1
-        sudo config interface shutdown D3D1P2
-        sudo config interface shutdown D3T1P1
-        sudo config interface shutdown D3T1P2
         sudo config vlan del 10
         sudo config vlan del 20
     bgp:
@@ -352,10 +326,6 @@ leaf1:
         sudo config interface ip rem D4D1P2 13:1:1::2/120
         sudo config vlan member del 10 D4D1P1
         sudo config vlan member del 10 D4T1P1
-        sudo config interface shutdown D4D1P1
-        sudo config interface shutdown D4D1P2
-        sudo config interface shutdown D4T1P1
-        sudo config interface shutdown D4T1P2
         sudo config vlan del 10
     sonic_bd_pc:
       config: |
@@ -379,10 +349,6 @@ leaf1:
         sudo config interface ip rem D4D1P2 13:1:1::2/120
         sudo config vlan member del 10 D4D1P1
         sudo config vlan member del 10 D4T1P1
-        sudo config interface shutdown D4D1P1
-        sudo config interface shutdown D4D1P2
-        sudo config interface shutdown D4T1P1
-        sudo config interface shutdown D4T1P2
         sudo config vlan del 10
     sonic_pc:
       config: |
@@ -403,9 +369,6 @@ leaf1:
         sudo config vlan member del 10 D4T1P1
         sudo config vlan member del 20 D4D1P1
         sudo config vlan member del 20 D4T1P2
-        sudo config interface shutdown D4D1P1
-        sudo config interface shutdown D4T1P1
-        sudo config interface shutdown D4T1P2
         sudo config vlan del 10
         sudo config vlan del 20
     sonic:
@@ -427,9 +390,6 @@ leaf1:
         sudo config vlan member del 10 D4T1P1
         sudo config vlan member del 20 D4D1P1
         sudo config vlan member del 20 D4T1P2
-        sudo config interface shutdown D4D1P1
-        sudo config interface shutdown D4T1P1
-        sudo config interface shutdown D4T1P2
         sudo config vlan del 10
         sudo config vlan del 20
     bgp:

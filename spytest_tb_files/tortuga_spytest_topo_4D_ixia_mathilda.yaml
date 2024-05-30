@@ -45,33 +45,42 @@ topology:
     spine0:
         interfaces:
             Ethernet0: {EndDevice: leaf0, EndPort: Ethernet0, params: def_link}
+            Ethernet4: {EndDevice: leaf0, EndPort: Ethernet4, params: def_link}
             Ethernet8: {EndDevice: leaf0, EndPort: Ethernet8, params: def_link}
-            Ethernet16: {EndDevice: leaf1, EndPort: Ethernet16, params: def_link}
-            Ethernet24: {EndDevice: leaf1, EndPort: Ethernet24, params: def_link}
+            Ethernet12: {EndDevice: leaf0, EndPort: Ethernet12, params: def_link}
+            Ethernet16: {EndDevice: leaf1, EndPort: Ethernet0, params: def_link}
+            Ethernet20: {EndDevice: leaf1, EndPort: Ethernet4, params: def_link}
+            Ethernet24: {EndDevice: leaf1, EndPort: Ethernet8, params: def_link}
+            Ethernet28: {EndDevice: leaf1, EndPort: Ethernet12, params: def_link}
     spine1:
         interfaces:
             Ethernet0: {EndDevice: leaf0, EndPort: Ethernet16, params: def_link}
+            Ethernet4: {EndDevice: leaf0, EndPort: Ethernet20, params: def_link}
             Ethernet8: {EndDevice: leaf0, EndPort: Ethernet24, params: def_link}
-            Ethernet16: {EndDevice: leaf1, EndPort: Ethernet0, params: def_link}
-            Ethernet24: {EndDevice: leaf1, EndPort: Ethernet8, params: def_link}
+            Ethernet12: {EndDevice: leaf0, EndPort: Ethernet28, params: def_link}
+            Ethernet16: {EndDevice: leaf1, EndPort: Ethernet16, params: def_link}
+            Ethernet20: {EndDevice: leaf1, EndPort: Ethernet20, params: def_link}
+            Ethernet24: {EndDevice: leaf1, EndPort: Ethernet24, params: def_link}
+            Ethernet28: {EndDevice: leaf1, EndPort: Ethernet28, params: def_link}
+
     leaf0:
         interfaces:
             Ethernet32: {EndDevice: T1, EndPort: 1/1, params: def_tg_link}
-            Ethernet40: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}
-            Ethernet48: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}
-            Ethernet56: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
+            Ethernet36: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}
+            Ethernet40: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}
+            Ethernet44: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
   
     leaf1:
         interfaces:
             Ethernet32: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
-            Ethernet40: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}
-            Ethernet48: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
-            Ethernet56: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}
+            Ethernet36: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}
+            Ethernet40: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
+            Ethernet44: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}
            
 
-# ('D1D3P1', 'Ethernet0'), ('D3D1P1', 'Ethernet0'), ('D1D3P2', 'Ethernet8'), ('D3D1P2', 'Ethernet8'), 
-# ('D1D4P1', 'Ethernet16'), ('D4D1P1', 'Ethernet16'), ('D1D4P2', 'Ethernet24'), ('D4D1P2', 'Ethernet24'),
-# ('D2D3P1', 'Ethernet0'), ('D3D2P1', 'Ethernet16'), ('D2D3P2', 'Ethernet8'), ('D3D2P2', 'Ethernet24'), 
-# ('D2D4P1', 'Ethernet16'), ('D4D2P1', 'Ethernet0'), ('D2D4P2', 'Ethernet24'), ('D4D2P2', 'Ethernet8'), 
-# ('T1D3P1', '1/1'), ('D3T1P1', 'Ethernet32'), ('T1D3P2', '1/2'), ('D3T1P2', 'Ethernet40'), ('T1D3P3', '1/3'), ('D3T1P3', 'Ethernet48'), ('T1D3P4', '1/4'), ('D3T1P4', 'Ethernet56')
-# ('T1D4P1', '1/5'), ('D4T1P1', 'Ethernet32'), ('T1D4P2', '1/6'), ('D4T1P2', 'Ethernet40'), ('T1D4P3', '1/7'), ('D4T1P3', 'Ethernet48'), ('T1D4P4', '1/8'), ('D4T1P4', 'Ethernet56')
+# ('D1D3P1', 'Ethernet0'), ('D3D1P1', 'Ethernet0'), ('D1D3P2', 'Ethernet4'), ('D3D1P2', 'Ethernet4'), ('D1D3P3', 'Ethernet8'), ('D3D1P3', 'Ethernet8'), ('D1D3P4', 'Ethernet12'), ('D3D1P4', 'Ethernet12'),
+# ('D1D4P1', 'Ethernet16'), ('D4D1P1', 'Ethernet0'), ('D1D4P2', 'Ethernet20'), ('D4D1P2', 'Ethernet4'), ('D1D4P3', 'Ethernet24'), ('D4D1P3', 'Ethernet8'), ('D1D4P4', 'Ethernet28'), ('D4D1P4', 'Ethernet12'),
+# ('D2D3P1', 'Ethernet0'), ('D3D2P1', 'Ethernet16'), ('D2D3P2', 'Ethernet4'), ('D3D2P2', 'Ethernet20'), ('D2D3P3', 'Ethernet8'), ('D3D2P3', 'Ethernet24'), ('D2D3P4', 'Ethernet16'), ('D3D2P4', 'Ethernet28'), 
+# ('D2D4P1', 'Ethernet16'), ('D4D2P1', 'Ethernet16'), ('D2D4P2', 'Ethernet4'), ('D4D2P2', 'Ethernet20'), ('D2D4P3', 'Ethernet8'), ('D4D2P3', 'Ethernet24'), ('D2D4P4', 'Ethernet16'), ('D4D2P4', 'Ethernet28'), 
+# ('T1D3P1', '1/1'), ('D3T1P1', 'Ethernet32'), ('T1D3P2', '1/2'), ('D3T1P2', 'Ethernet36'), ('T1D3P3', '1/3'), ('D3T1P3', 'Ethernet40'), ('T1D3P4', '1/4'), ('D3T1P4', 'Ethernet44')
+# ('T1D4P1', '1/5'), ('D4T1P1', 'Ethernet32'), ('T1D4P2', '1/6'), ('D4T1P2', 'Ethernet36'), ('T1D4P3', '1/7'), ('D4T1P3', 'Ethernet40'), ('T1D4P4', '1/8'), ('D4T1P4', 'Ethernet44')

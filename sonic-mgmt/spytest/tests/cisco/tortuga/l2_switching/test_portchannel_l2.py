@@ -107,6 +107,12 @@ def setup_teardown_portchannel_l2():
     nodes['spine0'] = vars.D1
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
+    
+    #Set mac address for intra vlan traffic
+    data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
+    data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr
+    data_vid_20.t1d3_dest_mac_addr = data_vid_20.t1d4_mac_addr
+    data_vid_20.t1d4_dest_mac_addr = data_vid_20.t1d3_mac_addr
 
     with open(updated_path) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
@@ -126,7 +132,7 @@ def test_portchannel_l2(setup_teardown_portchannel_l2):
     
     #Test BUM traffic for VLAN 10
     for traffic_type in traffic_types:
-        handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', traffic_type, True)
+        handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', traffic_type, True, is_l2=True)
         common_obj.traffic_start(handles, data_vid_10, data_vid_10)
         common_obj.traffic_stop(handles)
         if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
@@ -136,7 +142,7 @@ def test_portchannel_l2(setup_teardown_portchannel_l2):
         common_obj.traffic_cleanup(handles)
         
     #Test trunk traffic for Vlan 20
-    handles = common_obj.traffic_test_config(data_vid_20, data_vid_20, 'T1D3P2', 'T1D4P2', 'unicast', True)
+    handles = common_obj.traffic_test_config(data_vid_20, data_vid_20, 'T1D3P2', 'T1D4P2', 'unicast', True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_20, data_vid_20)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P2', 'T1D4P2', data_vid_20, data_vid_20):
@@ -147,11 +153,11 @@ def test_portchannel_l2(setup_teardown_portchannel_l2):
     
     st.report_pass('test_case_passed')
 
-# Failure Tc, Jira : MIGSOFTWAR-14795
-def skip_test_portchannel_l2_member_shut_unshut(setup_teardown_portchannel_l2):
+@pytest.mark.skip(reason = "Traffic Loss during PC member shut carrying traffic, Jira : MIGSOFTWAR-14795")
+def test_portchannel_l2_member_shut_unshut(setup_teardown_portchannel_l2):
     
     #config traffic
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', 'unicast', True, verify_ping=False)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', 'unicast', True, verify_ping=False, is_l2=True)
 
     #start traffic
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -189,11 +195,11 @@ def skip_test_portchannel_l2_member_shut_unshut(setup_teardown_portchannel_l2):
 
     st.report_pass('test_case_passed')
 
-# Failure Tc, Jira : MIGSOFTWAR-14796
-def skip_test_portchannel_l2_member_del_add(setup_teardown_portchannel_l2):
+@pytest.mark.skip(reason = "Traffic Loss during PC member remove carrying traffic, Jira : MIGSOFTWAR-14796")
+def test_portchannel_l2_member_del_add(setup_teardown_portchannel_l2):
     
     #config traffic
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', 'unicast', True, verify_ping=False)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', 'unicast', True, verify_ping=False, is_l2=True)
 
     #start traffic
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)

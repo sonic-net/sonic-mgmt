@@ -4,12 +4,11 @@ import pytest
 from spytest import st, SpyTestDict
 
 import apis.routing.ip as ip_obj
+import apis.system.basic as basic_obj
 import apis.switching.vlan as vlan_obj
 import apis.switching.portchannel as portchannel_obj
 import apis.switching.mac as mac_obj
-import tests.cisco.tortuga.common.tortuga_common_utils as common_obj
-
-#SIM File : tortuga_spytest_5D_linux_stc.yaml
+import tortuga_common_utils as common_obj
 
 data_glob = SpyTestDict()
 data_glob.portchannel_name = "PortChannel01"
@@ -17,7 +16,8 @@ data_glob.vlan = ['10','20']
 data_glob.vlan_intf = ['Vlan10','Vlan20']
 data_glob.vlan_ip = ['10.0.1.10/24','10.0.2.20/24']
 data_glob.vlan_ipv6 = ['10:0:1::10/64', '10:0:2::20/64']
-data_glob.mac_aging_time = 600
+data_glob.mac_aging_time_orig = 600
+data_glob.mac_aging_time_new = 120
 
 @pytest.fixture(scope='function', autouse=True)
 def bvi_func_hooks(request):
@@ -180,6 +180,13 @@ def setup_teardown_bvi(setup_teardown_basic):
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             common_obj.config_static(node, 'sonic', True, updated_path)
+            
+    #Set mac address for inter vlan traffic
+    data_vid_10.t1d3_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[0])
+    data_vid_10.t1d4_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[0])
+    data_vid_20.t1d3_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[1])
+    data_vid_20.t1d4_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[1])
+
 
     yield 'setup_teardown_bvi'
 
@@ -196,6 +203,12 @@ def setup_teardown_bvi_pc(setup_teardown_basic):
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             common_obj.config_static(node, 'sonic_pc', True, updated_path)
+            
+    #Set mac address for inter vlan traffic
+    data_vid_10.t1d3_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[0])
+    data_vid_10.t1d4_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[0])
+    data_vid_20.t1d3_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[1])
+    data_vid_20.t1d4_dest_mac_addr = basic_obj.get_ifconfig_ether(vars.D3, data_glob.vlan_intf[1])
 
     yield 'setup_teardown_bvi_pc'
 
@@ -208,6 +221,10 @@ def setup_teardown_bvi_pc(setup_teardown_basic):
 # Single Vlan, L2 + L3 
 @pytest.fixture()
 def setup_teardown_bvi_bd(setup_teardown_bgp):
+    #Set mac address for intra vlan traffic
+    data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
+    data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr
+    
     with open(updated_path) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
@@ -224,6 +241,10 @@ def setup_teardown_bvi_bd(setup_teardown_bgp):
 # Single Vlan, L2 + L3 
 @pytest.fixture()
 def setup_teardown_bvi_bd_pc(setup_teardown_bgp):
+    #Set mac address for intra vlan traffic
+    data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
+    data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr
+    
     with open(updated_path) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
@@ -241,7 +262,7 @@ def test_bvi_ipv4(setup_teardown_bvi_bd):
     
     #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
@@ -263,11 +284,226 @@ def test_bvi_ipv4(setup_teardown_bvi_bd):
     
     st.report_pass('test_case_passed')
     
+def test_bvi_ipv4_pc_member_add_remove(setup_teardown_bvi_bd_pc):
+    
+    #Check intra vlan traffic
+    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #traffic check
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, is_l2=True)
+    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
+    common_obj.traffic_stop(handles)
+    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
+        st.log("Traffic verification for L2 traffic Passed")
+    else:
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('failed_traffic_verification', "for L2 traffic")
+        
+    #Check L2 <----> L3 traffic
+    #leaf0 (10.0.1.1) -----> leaf1(11.1.1.2)
+    #traffic check
+    handles = common_obj.traffic_test_config(data_vid_10, data_l3, "T1D3P1", "T1D4P2", 'unicast',True)
+    common_obj.traffic_start(handles, data_vid_10, data_l3)
+    common_obj.traffic_stop(handles)
+    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_l3):
+        st.log("Traffic verification for L2 <-> L3 Passed")
+    else:
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('failed_traffic_verification', "for L2 <-> L3")
+        
+    #Remove one members from portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[3]], add=False)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[3]], add=False)
+    
+    #Add multiple members to portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0],data_glob.members_dut1[3]], add=True)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0],data_glob.members_dut2[3]], add=True)
+    
+    #Remove first original member from portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=False)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=False)
+    
+    #Check intra vlan traffic
+    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #traffic check
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, is_l2=True)
+    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
+    common_obj.traffic_stop(handles)
+    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
+        st.log("Traffic verification for L2 traffic after removing original member Passed")
+    else:
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('failed_traffic_verification', "for L2 traffic after removing original member")
+    
+    #Check L2 <----> L3 traffic
+    #leaf0 (10.0.1.1) -----> leaf1(11.1.1.2)
+    #traffic check
+    handles = common_obj.traffic_test_config(data_vid_10, data_l3, "T1D3P1", "T1D4P2", 'unicast',True)
+    common_obj.traffic_start(handles, data_vid_10, data_l3)
+    common_obj.traffic_stop(handles)
+    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_l3):
+        st.log("Traffic verification for L2 <-> L3 after removing original member Passed")
+    else:
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('failed_traffic_verification', "for L2 <-> L3 after removing original member")
+        
+    #Add back member to portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=True)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=True)
+    
+    #Remove additional member from portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=False)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=False)
+     
+    st.report_pass('test_case_passed')
+
+def test_bvi_new_mac_advertised(setup_teardown_bvi_bd):
+    
+    #Update mac aging time to 2 mins 
+    dut_list = [data_glob.spine0, data_glob.leaf0, data_glob.leaf1]
+    for dut in dut_list:
+        common_obj.update_mac_aging(dut, data_glob.mac_aging_time_new, verify=True)
+    
+    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #traffic check
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, verify_ping=False, is_l2=True)
+    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
+    common_obj.traffic_stop(handles)
+    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
+        st.log("Traffic verification for L2 traffic Passed")
+    else:
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('failed_traffic_verification', "for L2 traffic")  
+        
+    #Check mac table
+    if not mac_obj.verify_mac_address(data_glob.spine0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
+    if not mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
+    if not mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
+    common_obj.traffic_cleanup(handles)  
+        
+    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    temp_mac = data_vid_10.t1d3_mac_addr
+    data_vid_10.t1d3_mac_addr = data_vid_10.t1d3_mac_addr_mac_move
+    data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr_mac_move
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, cl_count=False, is_l2=True)
+    data_vid_10.t1d3_mac_addr = temp_mac
+    data_vid_10.t1d4_dest_mac_addr = temp_mac
+    
+    #wait for old mac to get aged
+    st.wait(data_glob.mac_aging_time_new)
+    
+    #Check mac table for old mac aged
+    if mac_obj.verify_mac_address(data_glob.spine0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "old MAC present for host for node {}".format(data_glob.spine0))
+    if mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "old MAC present for host for node {}".format(data_glob.leaf0))
+    if mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "old MAC present for host for node {}".format(data_glob.leaf1))
+    
+    #check traffic
+    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
+    common_obj.traffic_stop(handles)
+    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
+        st.log("Traffic verification for L2 traffic with new mac advertised  Passed")
+    else:
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('failed_traffic_verification', "for L2 traffic with new mac advertised") 
+        
+    #Check mac table for new mac advertised
+    if not mac_obj.verify_mac_address(data_glob.spine0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
+    if not mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
+    if not mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
+    common_obj.traffic_cleanup(handles)
+        
+    #Update mac aging time to 2 mins 
+    dut_list = [data_glob.spine0, data_glob.leaf0, data_glob.leaf1]
+    for dut in dut_list:
+        common_obj.update_mac_aging(dut, data_glob.mac_aging_time_orig, verify=True)
+        
+    st.report_pass('test_case_passed')   
+
+def test_bvi_pc_new_mac_advertised(setup_teardown_bvi_bd_pc):
+    
+    #Update mac aging time to 2 mins 
+    dut_list = [data_glob.spine0, data_glob.leaf0, data_glob.leaf1]
+    for dut in dut_list:
+        common_obj.update_mac_aging(dut, data_glob.mac_aging_time_new, verify=True)
+    
+    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    #traffic check
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, verify_ping=False, is_l2=True)
+    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
+    common_obj.traffic_stop(handles)
+    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
+        st.log("Traffic verification for L2 traffic Passed")
+    else:
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('failed_traffic_verification', "for L2 traffic ")   
+        
+    #Check mac table
+    if not mac_obj.verify_mac_address_table(data_glob.spine0, data_vid_10.t1d3_mac_addr, vlan=data_glob.vlan[0], port=data_glob.portchannel_name):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
+    if not mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
+    if not mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
+    common_obj.traffic_cleanup(handles) 
+        
+    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
+    temp_mac = data_vid_10.t1d3_mac_addr
+    data_vid_10.t1d3_mac_addr = data_vid_10.t1d3_mac_addr_mac_move
+    data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr_mac_move
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, cl_count=False, is_l2=True)
+    data_vid_10.t1d3_mac_addr = temp_mac
+    data_vid_10.t1d4_dest_mac_addr = temp_mac
+    
+    #wait for old mac to get aged
+    st.wait(data_glob.mac_aging_time_new)
+    
+    #Check mac table for old mac aged
+    if mac_obj.verify_mac_address(data_glob.spine0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "old MAC present for host for node {}".format(data_glob.spine0))
+    if mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "old MAC present for host for node {}".format(data_glob.leaf0))
+    if mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
+        st.report_fail('msg', "old MAC present for host for node {}".format(data_glob.leaf1)) 
+        
+    #check traffic
+    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
+    common_obj.traffic_stop(handles)
+    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
+        st.log("Traffic verification for L2 traffic with new mac advertised  Passed")
+    else:
+        common_obj.traffic_cleanup(handles)
+        st.report_fail('failed_traffic_verification', "for L2 traffic with new mac advertised") 
+    
+    #Check mac table for new mac advertised
+    if not mac_obj.verify_mac_address(data_glob.spine0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
+    if not mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
+    if not mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
+        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
+    common_obj.traffic_cleanup(handles)
+    
+    #Update mac aging time to 2 mins 
+    dut_list = [data_glob.spine0, data_glob.leaf0, data_glob.leaf1]
+    for dut in dut_list:
+        common_obj.update_mac_aging(dut, data_glob.mac_aging_time_orig, verify=True)
+        
+    st.report_pass('test_case_passed')
+
+@pytest.mark.skip(reason = "Ping Failed for L2<--->L3 Traffic, Jira : MIGSOFTWAR-14793")
 def test_bvi_ipv6(setup_teardown_bvi_bd):
     
     #leaf0 (10:0:1::1) -----> leaf1(10:0:1::2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',False)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
@@ -289,76 +525,13 @@ def test_bvi_ipv6(setup_teardown_bvi_bd):
     
     st.report_pass('test_case_passed')
     
-def test_bvi_ipv4_pc_member_add_remove(setup_teardown_bvi_bd_pc):
-    
-    #Check intra vlan traffic
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
-    #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True)
-    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
-        st.log("Traffic verification for L2 traffic Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "for L2 traffic")
-        
-    #Check L2 <----> L3 traffic
-    #leaf0 (10.0.1.1) -----> leaf1(11.1.1.2)
-    #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_l3, "T1D3P1", "T1D4P2", 'unicast',True)
-    common_obj.traffic_start(handles, data_vid_10, data_l3)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_l3):
-        st.log("Traffic verification for L2 <-> L3 Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "for L2 <-> L3")
-        
-    #Remove one members from portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[3]], add=False)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[3]], add=False)
-    
-    #Add multiple members to portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0],data_glob.members_dut1[3]], add=True)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0],data_glob.members_dut2[3]], add=True)
-    
-    #Remove first original member from portchannel
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=False)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=False)
-    
-    #Check intra vlan traffic
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
-    #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True)
-    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
-        st.log("Traffic verification for L2 traffic after removing original member Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "for L2 traffic after removing original member")
-    
-    #Check L2 <----> L3 traffic
-    #leaf0 (10.0.1.1) -----> leaf1(11.1.1.2)
-    #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_l3, "T1D3P1", "T1D4P2", 'unicast',True)
-    common_obj.traffic_start(handles, data_vid_10, data_l3)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_l3):
-        st.log("Traffic verification for L2 <-> L3 after removing original member Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "for L2 <-> L3 after removing original member")
-     
-    st.report_pass('test_case_passed')
-    
+@pytest.mark.skip(reason = "Ping Failed for L2<--->L3 Traffic, Jira : MIGSOFTWAR-14793")
 def test_bvi_ipv6_pc_member_add_remove(setup_teardown_bvi_bd_pc):
     
     #Check intra vlan traffic
     #leaf0 (10:0:1::1) -----> leaf1(10:0:1::2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',False)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
@@ -394,7 +567,7 @@ def test_bvi_ipv6_pc_member_add_remove(setup_teardown_bvi_bd_pc):
     #Check intra vlan traffic
     #leaf0 (10:0:1::1) -----> leaf1(10:0:1::2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',False)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
@@ -414,6 +587,14 @@ def test_bvi_ipv6_pc_member_add_remove(setup_teardown_bvi_bd_pc):
     else:
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for L2 <-> L3 after removing original member")
+        
+    #Add back member to portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=True)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=True)
+    
+    #Remove additional member from portchannel
+    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=False)
+    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=False)
     
     st.report_pass('test_case_passed')
     
@@ -421,7 +602,7 @@ def test_bvi_multicast(setup_teardown_bvi_bd):
     
     #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'multicast',True, verify_ping=False)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'multicast',True, verify_ping=False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
@@ -436,7 +617,7 @@ def test_bvi_config_unconfig(setup_teardown_bvi_bd):
     
     #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, verify_ping=False)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, verify_ping=False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
@@ -469,7 +650,7 @@ def test_bvi_config_unconfig(setup_teardown_bvi_bd):
     
     #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, verify_ping=False)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, verify_ping=False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
@@ -490,130 +671,12 @@ def test_bvi_config_unconfig(setup_teardown_bvi_bd):
         st.report_fail('failed_traffic_verification', "for L2 <-> L3 after removing/adding vlan interface") 
      
     st.report_pass('test_case_passed')
-    
-def test_bvi_mac_move(setup_teardown_bvi_bd):
-    
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
-    #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, verify_ping=False)
-    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
-        st.log("Traffic verification for L2 traffic Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "for L2 traffic")  
-    common_obj.traffic_cleanup(handles)  
-        
-    #Check mac table
-    if not mac_obj.verify_mac_address(data_glob.spine0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
-    if not mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
-    if not mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
-        
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
-    temp_mac = data_vid_10.t1d3_mac_addr
-    data_vid_10.t1d3_mac_addr = data_vid_10.t1d3_mac_addr_mac_move
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, cl_count=False)
-    data_vid_10.t1d3_mac_addr = temp_mac
-    
-    #wait for old mac to get age
-    st.wait(data_glob.mac_aging_time)
-    
-    #Check mac table for old mac aged
-    if mac_obj.verify_mac_address(data_glob.spine0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
-    if mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
-    if mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
-    
-    #check traffic
-    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
-        st.log("Traffic verification for L2 traffic with new mac advertised  Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "for L2 traffic with new mac advertised") 
-    common_obj.traffic_cleanup(handles)
-    
-    #Check mac table for new mac advertised
-    if not mac_obj.verify_mac_address(data_glob.spine0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
-    if not mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
-    if not mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
-        
-    st.report_pass('test_case_passed')   
 
-def test_bvi_pc_mac_move(setup_teardown_bvi_bd_pc):
-    
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
-    #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, verify_ping=False)
-    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
-        st.log("Traffic verification for L2 traffic Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "for L2 traffic ")  
-    common_obj.traffic_cleanup(handles)  
-        
-    #Check mac table
-    if not mac_obj.verify_mac_address_table(data_glob.spine0, data_vid_10.t1d3_mac_addr, vlan=data_glob.vlan[0], port=data_glob.portchannel_name):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
-    if not mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
-    if not mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
-        
-    #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
-    temp_mac = data_vid_10.t1d3_mac_addr
-    data_vid_10.t1d3_mac_addr = data_vid_10.t1d3_mac_addr_mac_move
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, cl_count=False)
-    data_vid_10.t1d3_mac_addr = temp_mac
-    
-    #wait for old mac to get age
-    st.wait(data_glob.mac_aging_time)
-    
-    #Check mac table for old mac aged
-    if mac_obj.verify_mac_address(data_glob.spine0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
-    if mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
-    if mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1)) 
-        
-    #check traffic
-    common_obj.traffic_start(handles, data_vid_10, data_vid_10)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
-        st.log("Traffic verification for L2 traffic with new mac advertised  Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "for L2 traffic with new mac advertised") 
-    common_obj.traffic_cleanup(handles)
-    
-    #Check mac table for new mac advertised
-    if not mac_obj.verify_mac_address_table(data_glob.spine0, data_vid_10.t1d3_mac_addr_mac_move, vlan=data_glob.vlan[0], port=data_glob.portchannel_name):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.spine0))
-    if not mac_obj.verify_mac_address(data_glob.leaf0, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf0))
-    if not mac_obj.verify_mac_address(data_glob.leaf1, data_glob.vlan[0], data_vid_10.t1d3_mac_addr_mac_move):
-        st.report_fail('msg', "MAC absent for host for node {}".format(data_glob.leaf1))
-        
-    st.report_pass('test_case_passed')
-    
 def test_bvi_inter_vlan_ipv4(setup_teardown_bvi):
     
     #leaf0 (10.0.1.1) -----> leaf1(10.0.2.2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast', True)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast', True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_20)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_vid_20):
@@ -624,7 +687,7 @@ def test_bvi_inter_vlan_ipv4(setup_teardown_bvi):
      
     #leaf0 (10.0.2.1) -----> leaf1(10.0.1.2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast', True)
+    handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast', True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_20, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P2', 'T1D4P1', data_vid_20, data_vid_10):
@@ -634,12 +697,12 @@ def test_bvi_inter_vlan_ipv4(setup_teardown_bvi):
         st.report_fail('failed_traffic_verification', "for Inter VLAN routing")
     
     st.report_pass('test_case_passed')
- 
+
 def test_bvi_inter_vlan_ipv6(setup_teardown_bvi):
     
     #leaf0 (10:0:1::1) -----> leaf1(10:0:2::2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast',False)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast',False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_20)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_vid_20):
@@ -650,7 +713,7 @@ def test_bvi_inter_vlan_ipv6(setup_teardown_bvi):
      
     #leaf0 (10:0:2::1) -----> leaf1(10:0:1::2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast',False)
+    handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast',False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_20, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P2', 'T1D4P1', data_vid_20, data_vid_10):
@@ -660,12 +723,12 @@ def test_bvi_inter_vlan_ipv6(setup_teardown_bvi):
         st.report_fail('failed_traffic_verification', "for Inter VLAN routing v6")
     
     st.report_pass('test_case_passed')
-       
+
 def test_bvi_inter_vlan_ipv4_pc(setup_teardown_bvi_pc):
     
     #leaf0 (10.0.1.1) -----> leaf1(10.0.2.2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast', True)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast', True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_20)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_vid_20):
@@ -676,7 +739,7 @@ def test_bvi_inter_vlan_ipv4_pc(setup_teardown_bvi_pc):
     
     #leaf0 (10.0.2.1) -----> leaf1(10.0.1.2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast', True)
+    handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast', True, is_l2=True)
     common_obj.traffic_start(handles, data_vid_20, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P2', 'T1D4P1', data_vid_20, data_vid_10):
@@ -686,12 +749,13 @@ def test_bvi_inter_vlan_ipv4_pc(setup_teardown_bvi_pc):
         st.report_fail('failed_traffic_verification', "for Inter VLAN routing")
     
     st.report_pass('test_case_passed')
-    
+
+# Failure Tc, Jira : MIGSOFTWAR-14794    
 def test_bvi_inter_vlan_ipv6_pc(setup_teardown_bvi_pc):
     
     #leaf0 (10:0:1::1) -----> leaf1(10:0:2::2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast',False)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, "T1D3P1", "T1D4P2", 'unicast',False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_10, data_vid_20)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_vid_20):
@@ -702,7 +766,7 @@ def test_bvi_inter_vlan_ipv6_pc(setup_teardown_bvi_pc):
     
     #leaf0 (10:0:2::1) -----> leaf1(10:0:1::2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast',False)
+    handles = common_obj.traffic_test_config(data_vid_20, data_vid_10, "T1D3P2", "T1D4P1", 'unicast',False, is_l2=True)
     common_obj.traffic_start(handles, data_vid_20, data_vid_10)
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P2', 'T1D4P1', data_vid_20, data_vid_10):
