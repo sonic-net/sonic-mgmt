@@ -30,7 +30,8 @@ INVENTORY_POOL = ["../../ansible/str",
                   "../../ansible/str2", 
                   "../../ansible/str3", 
                   "../../ansible/strsvc", 
-                  "../../ansible/bjw"]
+                  "../../ansible/bjw",
+                  "../../ansible/bjw2"]
 
 
 def get_testbeds_list():

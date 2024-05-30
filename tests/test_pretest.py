@@ -393,7 +393,7 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
 def test_conn_graph_valid(localhost):
 
     base_path = os.path.dirname(os.path.realpath(__file__))
-    invs_need_test = ["str", "str2", "str3", "bjw", "strsvc", "strsvc2"]
+    invs_need_test = ["str", "str2", "str3", "bjw", "bjw2", "strsvc", "strsvc2"]
 
     # graph_groups.yml file must exist and can be loaded
     graph_groups_file = os.path.join(base_path, "../ansible/files/graph_groups.yml")

@@ -36,6 +36,8 @@ parameters:
         pool: nightly-tk5
       bjw:
         pool: nightly-bjw
+      bjw2:
+        pool: nightly-bjw
 
 
 jobs:

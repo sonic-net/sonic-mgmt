@@ -96,7 +96,7 @@ class Nightly_hawk_branch_verify(object):
 
 
     def _parse_dut_inventory(self, dut_to_tb):
-        for inv_filename in ('str', 'str2', 'str3', 'strsvc', 'strsvc2', 'bjw'):
+        for inv_filename in ('str', 'str2', 'str3', 'strsvc', 'strsvc2', 'bjw', 'bjw2'):
             with open(os.path.join(SONIC_MGMT_DIR, 'ansible/{}'.format(inv_filename)), "r") as inv:
                 yml = yaml.load(inv, Loader=SafeLoader)
                 for section in yml.values():
