@@ -383,7 +383,7 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
 def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
                ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, fanouthosts):  # noqa F811
 
-    if any(topo in tbinfo["topo"]["name"] for topo in ["dualtor", "t0-backend"]):
+    if any(topo in tbinfo["topo"]["name"] for topo in ["dualtor", "t0-backend", "t0-standalone"]):
         yield
         return
 
@@ -400,7 +400,8 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
                 pytest.skip("OS Version of fanout is older than 202205, unsupported")
             asic_type = fanouthost.facts['asic_type']
             platform = fanouthost.facts["platform"]
-            if not (asic_type in ["broadcom"] or platform in ["armhf-nokia_ixs7215_52x-r0"]):
+            if not (asic_type in ["broadcom"] or platform in
+                    ["armhf-nokia_ixs7215_52x-r0", "arm64-nokia_ixs7215_52xb-r0"]):
                 pytest.skip("Not supporteds on SONiC leaf-fanout platform")
 
     duthost = duthosts[rand_one_dut_hostname]
