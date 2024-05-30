@@ -116,7 +116,7 @@ def check_queue_counter(duthost, intfs, queue, counter):
     for line in output:
         fields = line.split()
         if len(fields) == 6 and fields[0] in intfs and fields[1] == 'UC{}'.format(queue):
-            if int(fields[2]) >= counter:
+            if int(fields[2].replace(',', '')) >= counter:
                 return True
 
     return False
