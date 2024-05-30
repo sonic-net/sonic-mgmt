@@ -209,3 +209,111 @@ func TestRebootSuccess(t *testing.T) {
 		t.Fatalf("Failed to reboot DUT: %v", err)
 	}
 }
+
+func TestRebootStatus(t *testing.T) {
+	// Verify RebootStatus when there is no active reboot.
+	defer testhelper.NewTearDownOptions(t).WithID("dcc5d482-9417-42a5-9801-b51cbf7c9ff3").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	req := &syspb.RebootStatusRequest{}
+
+	resp, err := dut.RawAPIs().GNOI(t).System().RebootStatus(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Failed to send RebootStatus RPC: %v", err)
+	}
+
+	if got, want := resp.GetActive(), false; got != want {
+		t.Errorf("RebootStatus(whenInactiveReboot).active = %v, want:%v", got, want)
+	}
+	if got, want := resp.GetWhen(), uint64(0); got != want {
+		t.Errorf("RebootStatus(whenInactiveReboot).when = %v, want:%v", got, want)
+	}
+	if got, want := resp.GetReason(), ""; got != want {
+		t.Errorf("RebootStatus(whenInactiveReboot).reason = %v, want:%v", got, want)
+	}
+}
+
+func TestCancelRebootNotSupported(t *testing.T) {
+	// This test is Google specific as other vendors might support CancelReboot.
+	// Validate that CancelReboot RPC is not supported.
+	defer testhelper.NewTearDownOptions(t).WithID("54890e78-97c2-4c08-b03c-0822870691e7").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	req := &syspb.CancelRebootRequest{
+		Message: "Test message to cancel reboot",
+	}
+
+	wantError := grpcErr{code: codes.Unimplemented, desc: "Method System.CancelReboot is unimplemented"}
+	if _, err := dut.RawAPIs().GNOI(t).System().CancelReboot(context.Background(), req); !wantError.Is(err) {
+		t.Errorf("Failed to validate that CancelReboot is not supported: %v", err)
+	}
+}
+
+func TestScheduledRebootNotSupported(t *testing.T) {
+	// Validate that scheduled Reboot RPC is not supported.
+	defer testhelper.NewTearDownOptions(t).WithID("9d5c0ded-7474-47cf-8310-9444189928cd").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	waitTime, err := testhelper.RebootTimeForDevice(t, dut)
+	if err != nil {
+		t.Fatalf("Unable to get reboot wait time: %v", err)
+	}
+
+	req := &syspb.RebootRequest{
+		Method:  syspb.RebootMethod_COLD,
+		Delay:   10, // in nanoseconds
+		Message: "Test Delayed Reboot",
+	}
+
+	params := testhelper.NewRebootParams().WithWaitTime(waitTime).WithCheckInterval(30 * time.Second).WithRequest(req)
+	if err := testhelper.Reboot(t, dut, params); err == nil || extractCanonicalCodeString(err) != codes.InvalidArgument.String() {
+		t.Errorf("Failed to validate that delayed reboot is not supported: %v", err)
+	}
+}
+
+func TestRebootMethodsValidation(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("c416cba7-12f0-4efa-a341-0c5d1c806fc1").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	waitTime, err := testhelper.RebootTimeForDevice(t, dut)
+	if err != nil {
+		t.Fatalf("Unable to get reboot wait time: %v", err)
+	}
+
+	tests := []struct {
+		method  syspb.RebootMethod
+		wantErr grpcErr
+	}{
+		{
+			method:  syspb.RebootMethod_UNKNOWN,
+			wantErr: errMethodNotSupported,
+		},
+		{
+			method:  syspb.RebootMethod_HALT,
+			wantErr: errMethodNotSupported,
+		},
+		{
+			method:  syspb.RebootMethod_WARM,
+			wantErr: grpcErr{code: errHostService.code, desc: errHostService.desc + "Warm reboot is currently not supported."},
+		},
+		{
+			method:  syspb.RebootMethod_NSF,
+			wantErr: errMethodNotSupported,
+		},
+		{
+			method:  syspb.RebootMethod_POWERUP,
+			wantErr: errMethodNotSupported,
+		},
+		{
+			method:  syspb.RebootMethod_POWERDOWN,
+			wantErr: grpcErr{code: errHostService.code, desc: errHostService.desc + "Invalid reboot method: 2"},
+		},
+	}
+
+	for _, tt := range tests {
+		params := testhelper.NewRebootParams().WithWaitTime(waitTime).WithCheckInterval(30 * time.Second).WithRequest(tt.method)
+		if err := testhelper.Reboot(t, dut, params); !tt.wantErr.Is(err) {
+			t.Errorf("Failed to validate that %v reboot method is not supported: %v", tt.method, err)
+		}
+	}
+}
