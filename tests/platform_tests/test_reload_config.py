@@ -56,7 +56,7 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     @summary: This test case is to reload the configuration and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
     asic_type = duthost.facts["asic_type"]
 
     if config_force_option_supported(duthost):
