@@ -31,6 +31,15 @@ steps:
 
 - script: |
     set -x
+    ls -l /agent/_work/1/s
+
+    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect who
+
+    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect ls -l
+  displayName: 'Debug [chunangli]'
+
+- script: |
+    set -x
     sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
       python2 -m pytest --inventory ../ansible/veos_vtb --host-pattern all \
       --testbed_file vtestbed.yaml --testbed vms-kvm-t0 \
