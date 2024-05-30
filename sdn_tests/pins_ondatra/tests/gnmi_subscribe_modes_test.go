@@ -98,6 +98,7 @@ var skipTest = map[string]bool{
         "TestGNMISubscribeModes/subscribeDeleteSubtreeLevel": true,
 }
 
+<<<<<<< HEAD
 func TestGNMISubscribeModes(t *testing.T) {
         testCases := []struct {
                 name     string
@@ -404,6 +405,8 @@ func TestGNMISubscribeModes(t *testing.T) {
         }
 }
 
+=======
+>>>>>>> [sdn_tests]:Adding GNMI subscribe modes test to pins_ondatra. (#13034)
 // Test for gNMI Subscribe Stream mode for OnChange subscriptions.
 func (c subscribeTest) subModeOnChangeTest(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
@@ -486,6 +489,7 @@ func (c subscribeTest) subModeOnChangeTest(t *testing.T) {
                 }
         }
 }
+<<<<<<< HEAD
 
 // Test for gNMI Subscriptions with UpdatesOnly flag.
 func (c subscribeTest) subModeUpdatesTest(t *testing.T) {
@@ -1035,3 +1039,5 @@ func buildRequest(t *testing.T, params subscribeTest, target string) *gpb.Subscr
                 },
         }
 }
+=======
+>>>>>>> [sdn_tests]:Adding GNMI subscribe modes test to pins_ondatra. (#13034)
