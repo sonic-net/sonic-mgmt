@@ -7,19 +7,33 @@ import (
 	"testing"
 	"time"
 
+<<<<<<< HEAD
         "github.com/google/go-cmp/cmp"
         "github.com/google/go-cmp/cmp/cmpopts"
+=======
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+>>>>>>> [sdn_tests]:Adding Gnmi set get tests to pins_ondatra. (#13036)
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/openconfig/testt"
 	"github.com/openconfig/ygnmi/ygnmi"
+<<<<<<< HEAD
         "github.com/openconfig/ygot/ygot"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
         "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
         "golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
         "google.golang.org/protobuf/encoding/prototext"
+=======
+	"github.com/openconfig/ygot/ygot"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
+        "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/prototext"
+>>>>>>> [sdn_tests]:Adding Gnmi set get tests to pins_ondatra. (#13036)
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 )
@@ -185,6 +199,7 @@ func TestGNMISetUpdateNonExistingLeaf(t *testing.T) {
 		t.Errorf("MTU matched failed! mtuAfterSet:%v, want:%v", got, mtu)
 	}
 }
+<<<<<<< HEAD
 
 func TestGNMISetUpdateMultipleLeafs(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("fc046164-bd3f-44f5-8056-7ff8df404909").Teardown(t)
@@ -1767,3 +1782,5 @@ func TestGNMISetReplaceRootPath(t *testing.T) {
                 t.Fatalf("Failed to fetch valid parent interface.")
         }
 }
+=======
+>>>>>>> [sdn_tests]:Adding Gnmi set get tests to pins_ondatra. (#13036)
