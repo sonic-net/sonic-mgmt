@@ -94,6 +94,13 @@ armhf-nokia_ixs7215_52x-r0:
     greater_timeout: 170
     too_big_timeout: 200
 
+# Nokia IXS-7215-A1 watchdog
+arm64-nokia_ixs7215_52xb-r0:
+  default:
+    valid_timeout: 30
+    greater_timeout: 170
+    too_big_timeout: 400
+
 # Cisco-8000 watchdog
 x86_64-8102_64h_o-r0:
   default:
