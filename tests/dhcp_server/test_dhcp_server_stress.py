@@ -6,9 +6,10 @@ import ptf.testutils as testutils
 import random
 import re
 import time
+from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import create_common_config_patch, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
-    apply_dhcp_server_config_gcu, create_dhcp_client_packet
+    apply_dhcp_server_config_gcu, create_dhcp_client_packet, empty_config_patch, append_common_config_patch
 
 
 pytestmark = [
@@ -75,45 +76,86 @@ def test_dhcp_server_with_large_number_discover(
     """
         Verify configured interface with client mac not in FDB table can successfully get IP
     """
+    config_to_apply = empty_config_patch()
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
-    expected_assigned_ip = random.choice(vlan_hosts)
-    dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
+    exp_assigned_ip_ranges = [[ip] for ip in vlan_hosts[:len(vlan_members_with_ptf_idx)]]
+    dut_ports, ptf_port_indexs = zip(*vlan_members_with_ptf_idx)
+    logging.info("expected_assigned_ip_rangs is %s, dut_ports is %s, ptf_port_indexs is %s" %
+                    (exp_assigned_ip_ranges, dut_ports, ptf_port_indexs))
+    append_common_config_patch(
+        config_to_apply,
+        vlan_name,
+        gateway,
+        net_mask,
+        dut_ports,
+        exp_assigned_ip_ranges
+    )
+    configurated_ports = []
+    for index in range(len(dut_ports)):
+        test_xid = index
+        configurated_ports.append((vlan_name, gateway, net_mask, dut_ports[index], ptf_port_indexs[index],
+                                   exp_assigned_ip_ranges[index], test_xid))
+    random_one_port = random.choice(configurated_ports)
+    dut_port, ptf_port_index, expected_assigned_ip = random_one_port[3], random_one_port[4], random_one_port[5][0]
     logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
                  (expected_assigned_ip, dut_port, ptf_port_index))
-    config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
-
     apply_dhcp_server_config_gcu(duthost, config_to_apply)
-    client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
 
+    test_pkts_count = [10, 20, 40, 70, 100, 200, 300, 400, 600, 800, 1000, 2000]
+    for count in test_pkts_count:
+        test_once_and_dump_pcap(ptfadapter, duthost, configurated_ports, count)
+        time.sleep(60)
+    raise Exception("Test failed")
+
+
+    temp_file = "/tmp/duration_for_assign_ip.log"
     # put stress on the dhcp server
     stress_start_time = datetime.datetime.now()
-    stress_duration_seconds = 1
-    count_per_second = 200
-    for i in range(stress_duration_seconds):
-        time.sleep(1)
-        for j in range(count_per_second):
-            discover_pkt = create_dhcp_client_packet(
-                src_mac=client_mac,
-                message_type=DHCP_MESSAGE_TYPE_DISCOVER_NUM,
-                client_options=[],
-                xid=i*count_per_second+j
+    concurrency_count = 200
+    pkts_ports = []
+    for idx in range(concurrency_count):
+        rand_one_port = random.choice(configurated_ports)
+        rand_ptf_port_index = rand_one_port[4]
+        rand_client_mac = ptfadapter.dataplane.get_mac(0, rand_ptf_port_index).decode('utf-8')
+        pkts_ports.append(
+            (
+                create_dhcp_client_packet(
+                    src_mac=rand_client_mac,
+                    message_type=DHCP_MESSAGE_TYPE_DISCOVER_NUM,
+                    client_options=[],
+                    xid=idx
+                ),
+                rand_ptf_port_index
             )
-            testutils.send_packet(ptfadapter, ptf_port_index, discover_pkt)
-    stress_end_time = datetime.datetime.now()
-    stress_duration = stress_end_time - stress_start_time
-    pytest_assert(stress_duration.total_seconds() < 0.3 + stress_duration_seconds * 1.2,
-                  "It tooks too long to finish sending packets, \
-                    elasped seconds is %s" % stress_duration.total_seconds())
+        )
+    for idx in range(len(pkts_ports)):
+        if idx == concurrency_count//2:
+            ptfhost.shell("bash -c 'time dhclient eth%s' >%s 2>&1 &" % (ptf_port_index, temp_file))
+        testutils.send_packet(ptfadapter, pkts_ports[idx][1], pkts_ports[idx][0])
+
+    # stress_end_time = datetime.datetime.now()
+    # stress_duration = stress_end_time - stress_start_time
+    # pytest_assert(stress_duration.total_seconds() < 3,
+    #               "It tooks too long to finish sending packets, \
+    #                 elasped seconds is %s" % stress_duration.total_seconds())
 
     # verify client can get IP from dhcp server within 10 seconds
     try:
-        time_output = ptfhost.shell('bash -c "time dhclient eth%s"' % ptf_port_index)
-        ip_addr_output = ptfhost.shell("ip addr show eth%s" % ptf_port_index)['stdout']
-        logging.info("Output of ip addr show eth%s is %s" % (ptf_port_index, ip_addr_output))
-        pytest_assert(expected_assigned_ip in ip_addr_output,
-                      "Client didn't get expected IP from dhcp server")
+        def has_expected_ip_assigned(ptfhost, ptf_port_index, expected_assigned_ip):
+            ip_addr_output = ptfhost.shell("ip addr show eth%s" % ptf_port_index)['stdout']
+            logging.info("Output of ip addr show eth%s is %s" % (ptf_port_index, ip_addr_output))
+            return expected_assigned_ip in ip_addr_output
+        pytest_assert(
+            wait_until(30, 1, 1,
+                    has_expected_ip_assigned,
+                    ptfhost,
+                    ptf_port_index,
+                    expected_assigned_ip),
+            'client didnt get expected IP from dhcp server'
+        )
+        time_output = ptfhost.shell("cat %s" % temp_file)['stdout_lines']
         pattern = r'(\d+.?\d*)m(\d+.?\d*)s'
-        real_time = [o for o in time_output['stderr_lines'] if 'real' in o][0]
+        real_time = [o for o in time_output if 'real' in o][0]
         match = re.search(pattern, real_time)
         if match:
             minutes_str, seconds_str = match.groups()
@@ -123,3 +165,41 @@ def test_dhcp_server_with_large_number_discover(
     finally:
         ptfhost.shell("dhclient -r eth%s" % ptf_port_index, module_ignore_errors=True)
         ptfhost.shell("killall dhclient", module_ignore_errors=True)
+
+    raise Exception("Test failed")
+
+
+def test_once_and_dump_pcap(ptfadapter, duthost, configurated_ports, N):
+    pkts_ports = []
+    for idx in range(N):
+        rand_one_port = random.choice(configurated_ports)
+        rand_ptf_port_index = rand_one_port[4]
+        rand_client_mac = ptfadapter.dataplane.get_mac(0, rand_ptf_port_index).decode('utf-8')
+        pkts_ports.append(
+            (
+                create_dhcp_client_packet(
+                    src_mac=rand_client_mac,
+                    message_type=DHCP_MESSAGE_TYPE_DISCOVER_NUM,
+                    client_options=[],
+                    xid=idx
+                ),
+                rand_ptf_port_index
+            )
+        )
+    pcap_save_path = "/tmp/stress_test_%s.pcap" % (str(N))
+    pkts_filter = "udp portrange 67-68"
+    cmd_capture_pkts = "sudo nohup tcpdump --immediate-mode -U -i any -w %s >/dev/null 2>&1 %s & echo $!" \
+        % (pcap_save_path, pkts_filter)
+    tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
+    cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
+    pytest_assert(duthost.shell(cmd_check_if_process_running)["stdout"] == "1",
+                  "Failed to start tcpdump on DUT")
+    logging.info("Start to capture packet on DUT, tcpdump pid: %s, pcap save path: %s, with command: %s"
+                 % (tcpdump_pid, pcap_save_path, cmd_capture_pkts))
+    stress_start_time = datetime.datetime.now()
+    for idx in range(N):
+        testutils.send_packet(ptfadapter, pkts_ports[idx][1], pkts_ports[idx][0])
+    duthost.shell("kill -s 2 %s" % tcpdump_pid)
+    stress_end_time = datetime.datetime.now()
+    stress_duration = stress_end_time - stress_start_time
+    logging.info("When pkts count==%s, the stress duration seconds==%s" % (N, stress_duration.total_seconds()))
