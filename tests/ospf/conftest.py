@@ -95,6 +95,7 @@ def ospf_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, request):
     for bgp_nbr in mg_facts['minigraph_bgp']:
         setup_info['nbr_addr'][bgp_nbr['name']] = bgp_nbr['addr']
 
+    # gather original BGP routes
     cmd = "show ip route bgp"
     bgp_routes = duthost.shell(cmd)['stdout']
     bgp_routes_pattern = re.compile(r'B>\*(\d+\.\d+\.\d+\.\d+/\d+)')
