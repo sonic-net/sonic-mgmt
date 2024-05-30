@@ -1,6 +1,6 @@
 name: Test Gap Issue Template
 description: File a test gap issue.
-title: "[Test Gap][{Feature:}][{topo:}][{title}]"
+title: "[Test Gap][<Feature:>][<Topo:>]<Test Gap Title>"
 labels: ["Test Gap"]
 projects: ["sonic-mgmt"]
 body:
@@ -16,66 +16,34 @@ body:
     attributes:
       value: |
         Please ask and answer questions here at the [SONiC Support Forums](https://groups.google.com/forum/#!forum/sonicproject)
+
   - type: textarea
     id: tc-description
     attributes:
       label: Test Gap Description
-      description: Why do we need this test gap?
-      placeholder: Describe the test gap
+      description: Describe the test gap in the test coverage.
+      placeholder:
+        Why do we need this test gap? What part of the functionality is not covered by existing tests?
+        Explain the impact of this test gap. What potential issues or risks could introduce from not having this test?
     validations:
       required: true
-  - type: textarea
-    id: tc-results
-    attributes:
-      label: Results you see
-      description: Results you see
-      placeholder: Describe the results you saw
-    validations:
-      required: true
-  - type: textarea
-    id: tc-expected-results
-    attributes:
-      label: Results you expected to see
-      description: Results you expected to see
-      placeholder: Describe the results you expected to see
-    validations:
-      required: true
-  - type: dropdown
-    id: tc-platform
-    attributes:
-      label: Is it platform/topology specific?
-      description: Platform or Topology name
-      options:
-        - generic
-        - barefoot
-        - broadcom
-        - cavium
-        - centec
-        - innovium
-        - marvell
-        - mellanox
-        - nephos
-      default: 0
-    validations:
-      required: true
-  - type: textarea
-    id: tc-logs
-    attributes:
-      label: Relevant log output
-      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
-      render: shell
-  - type: textarea
-    id: tc-output
-    attributes:
-      label: Output of `show version`
-      description: Please copy and paste output of `show version`. This will be automatically formatted into code, so no need for backticks
-      render: shell
+
   - type: markdown
-    id: tc-attach-logs
+    id: tc-test-environment
     attributes:
-      value: |
-        Attach files if you need.
+      label: Test environment
+      description: Provide details about the test environment where the test gap was identified.
+      placeholder:
+        * SONiC version
+        * Platform
+        * Topology
+        * HardwareSKU
+        * Testbed setup details
+    validations:
+      required: false
+
   - type: textarea
     id: tc-attachments
     attributes:
       label: Attach files (if any)
+      description: If applicable, add logs or screenshots to help explain this test gap issue.
