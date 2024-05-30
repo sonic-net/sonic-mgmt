@@ -1,16 +1,16 @@
 # Kusto script to setup a Kusto database for storing test results
 
 ###############################################################################
-# TestScript TABLE SETUP                                                      #
-# 1. Create a TestScript table to store test scripts                          #
+# TestScripts TABLE SETUP                                                      #
+# 1. Create a TestScripts table to store test scripts                          #
 #    and record if they are included in PR checker                            #
 # 2. Add a JSON mapping for the table                                         #
 ###############################################################################
-.create table TestScript (TestScript: string, Topology: string, Category: string,
+.create table TestScripts (TestScript: string, Topology: string, Category: string,
                          PRCheckCovered: bool, ScanTime: datetime, UploadTime: datetime,
                          TrackId: string)
 
-.create table TestScript ingestion json mapping 'TestScriptMapping' @'[{"column":"TestScript","Properties":{"path":"$.testscript"}},'
+.create table TestScripts ingestion json mapping 'TestScriptMapping' @'[{"column":"TestScript","Properties":{"path":"$.testscript"}},'
                                                                                 '{"column":"Topology","Properties":{"path":"$.topology"}},'
                                                                                 '{"column":"Category","Properties":{"path":"$.category"}},'
                                                                                 '{"column":"PRCheckCovered","Properties":{"path":"$.covered"}},'
