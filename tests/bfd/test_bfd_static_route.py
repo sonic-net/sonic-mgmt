@@ -171,7 +171,7 @@ class TestBfdStaticRoute(BfdBase):
         delete_bfd(src_asic.asic_index, src_prefix, src_dut)
         delete_bfd(dst_asic.asic_index, dst_prefix, dst_dut)
 
-        # Savings the configs
+        # Save the configs
         src_dut.shell("sudo config save -y")
 
         # Config reload of Source dut
