@@ -28,7 +28,7 @@ from openpyxl.styles import Font, colors, Alignment, PatternFill, Border, Side
 # from dateutil.tz import tzutc
 
 from nightly_hawk_autoRecovery_cfg import curr_convert_to_trusty_images_dict
-from nightly_hawk_autoRecovery_cfg import nightly_pipeline_internal, nightly_pipeline_master, nightly_pipeline_202012, nightly_pipeline_202205, nightly_pipeline_202305
+from nightly_hawk_autoRecovery_cfg import nightly_pipeline_internal, nightly_pipeline_master, nightly_pipeline_202012, nightly_pipeline_202205, nightly_pipeline_202305, nightly_pipeline_202311
 
 
 from nightly_hawk_common import NightlyPipelineCheck, TbShare, KustoChecker, KustoUploader
@@ -122,6 +122,8 @@ class Nightly_hawk_pipeline_analyzer(object):
             nightly_pipeline_branch_dict = nightly_pipeline_202205.copy()
         elif 'internal-202305' == branch :
             nightly_pipeline_branch_dict = nightly_pipeline_202305.copy()
+        elif 'internal-202311' == branch :
+            nightly_pipeline_branch_dict = nightly_pipeline_202311.copy()
         else:
             logger.error("ERROR: branch {} mismatch ".format(branch))
             raise RuntimeError('collect_pipeline_build_images, branch {} mismatch'.format(branch))
@@ -194,6 +196,10 @@ class Nightly_hawk_pipeline_analyzer(object):
 
         self.collect_nightly_pipeline_build_by_branch('internal-202305')
         logger.info("nightly 202305 {}  ".format(self.sorted_key_dict(self.nightly_pipelines_dict['internal-202305'])))
+
+        self.collect_nightly_pipeline_build_by_branch('internal-202311')
+        logger.info("nightly 202311 {}  ".format(self.sorted_key_dict(self.nightly_pipelines_dict['internal-202311'])))
+
 
         # logger.info("nightly {}  ".format(self.sorted_key_dict(self.nightly_pipelines_dict)))
         # logger.info("nightly_pipeline_testbeds {}  ".format(self.nightly_pipeline_testbeds))
@@ -699,6 +705,11 @@ class Nightly_hawk_pipeline_analyzer(object):
                 for index, index_info in self.nightly_pipelines_dict['internal-202305'].items():
                     self.parser_pipeline_status_result_by_pipeline_id(index_info['pipeline_id'])
                 # logger.info("internal-202205 pipeline_build_result_dict {}".format(self.pipeline_build_result_dict))
+        elif 'internal-202311' == branch :
+            if self.nightly_pipelines_dict.get('internal-202311', None):
+                for index, index_info in self.nightly_pipelines_dict['internal-202311'].items():
+                    self.parser_pipeline_status_result_by_pipeline_id(index_info['pipeline_id'])
+                # logger.info("internal-202205 pipeline_build_result_dict {}".format(self.pipeline_build_result_dict))
         else:
             logger.error("ERROR: branch {} mismatch ".format(branch))
 
@@ -720,6 +731,7 @@ class Nightly_hawk_pipeline_analyzer(object):
         self.parser_pipeline_status_result_by_branch('internal-202012')
         self.parser_pipeline_status_result_by_branch('internal-202205')
         self.parser_pipeline_status_result_by_branch('internal-202305')
+        self.parser_pipeline_status_result_by_branch('internal-202311')
 
         logger.info("pipeline_build_result_dict {}".format(self.pipeline_build_result_dict))
 
@@ -786,6 +798,9 @@ class Nightly_hawk_pipeline_analyzer(object):
         self.curr_row = 1
         self.curr_col = 1
         self.excel_sheet_create(wb, 'internal-202305', nightly_pipeline_202305)
+        self.curr_row = 1
+        self.curr_col = 1
+        self.excel_sheet_create(wb, 'internal-202311', nightly_pipeline_202311)
         wb.save(self.save_file_name)
 
         return

@@ -17,6 +17,7 @@ trigger:
     - '../../ansible/strsvc'
     - '../../ansible/strsvc2'
     - '../../ansible/bjw'
+    - '../../ansible/bjw2'
     - '../../ansible/ixia'
     - '../../ansible/strtk5'
     - '../../ansible/testbed.yaml'

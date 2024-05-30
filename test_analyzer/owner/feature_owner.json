@@ -161,6 +161,20 @@
         ]
     },
     {
+        "feature": "clock",
+        "owner": "Shiyan Wang",
+        "email": "shiyanwang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "clock.test_clock"
+                ],
+                "owner": "Shiyan Wang",
+                "email": "shiyanwang@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "configlet",
         "owner": "Jingwen Xie",
         "email": "jingwenxie@microsoft.com",
@@ -881,15 +895,15 @@
     },
     {
         "feature": "ntp",
-        "owner": "Saikrishna Arcot",
-        "email": "sarcot@microsoft.com",
+        "owner": "Shiyan Wang",
+        "email": "shiyanwang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "ntp.test_ntp"
                 ],
-                "owner": "Saikrishna Arcot",
-                "email": "sarcot@microsoft.com"
+                "owner": "Shiyan Wang",
+                "email": "shiyanwang@microsoft.com"
             }
         ]
     },
@@ -1037,7 +1051,16 @@
                     "platform_tests.test_xcvr_info_in_db"
                 ],
                 "owner": "Prince George",
-                "email": "prgeor@microsoft.com"
+                "email": "prgeor@microsoft.com",
+                "cases" : [
+                    {
+                        "cases": [
+                            "test_warm_reboot"
+                        ],
+                        "owner": "Vaibhav Hemant Dixit",
+                        "email": "vadixit@microsoft.com"
+                    }
+                ]
             },
             {
                 "scripts": [
@@ -1117,8 +1140,8 @@
     },
     {
         "feature": "qos",
-        "owner": "Xu Chen",
-        "email": "xuchen3@microsoft.com",
+        "owner": "Dev Ojha",
+        "email": "devojha@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1127,8 +1150,8 @@
                     "qos.test_qos_sai",
                     "qos.test_tunnel_qos_remap"
                 ],
-                "owner": "Xu Chen",
-                "email": "xuchen3@microsoft.com"
+                "owner": "Dev Ojha",
+                "email": "devojha@microsoft.com"
             },
             {
                 "scripts": [
