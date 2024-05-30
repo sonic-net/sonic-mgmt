@@ -162,6 +162,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     # to removing buffer queues
     data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
         = "true"
+    data['BUFFER_QUEUE']["Ethernet0|3-4"]["profile"] = "egress_lossless_profile"
     load_new_cfg(duthost, data)
     pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, env.gnmi_port)
 
