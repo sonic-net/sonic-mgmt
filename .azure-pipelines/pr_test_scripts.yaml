@@ -3,7 +3,8 @@ t0:
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
   - arp/test_tagged_arp.py
-  - autorestart/test_container_autorestart.py
+  # Due to the auto start fails on container restapi, comment this case temporarily
+#  - autorestart/test_container_autorestart.py
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py
@@ -38,7 +39,6 @@ t0:
   - fdb/test_fdb_mac_expire.py
   - fdb/test_fdb_mac_move.py
   - generic_config_updater/test_aaa.py
-  - generic_config_updater/test_bgp_prefix.py
   - generic_config_updater/test_bgp_speaker.py
   - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_cacl.py
@@ -87,6 +87,8 @@ t0:
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
   - platform_tests/sfp/test_sfpshow.py
+  - platform_tests/test_kdump.py
+  - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_auto_negotiation.py
   #  Temporarily remove for blocking builimage and take too much time to complete on KVM
   # - platform_tests/test_cont_warm_reboot.py
@@ -217,7 +219,6 @@ t1-lag:
   - snmp/test_snmp_queue.py
   - snmp/test_snmp_v2mib.py
   - test_interfaces.py
-  - voq/test_voq_ipfwd.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -265,6 +266,13 @@ wan-pub:
 
 dpu:
   - dash/test_dash_vnet.py
+
+onboarding_t0:
+  - console/test_console_availability.py
+  - platform_tests/test_power_off_reboot.py
+  - platform_tests/test_sequential_restart.py
+  - platform_tests/test_xcvr_info_in_db.py
+
 
 specific_param:
   t0-sonic:

@@ -232,14 +232,19 @@ def set_drop_all(url, recover_directions_all):
     A helper function is returned to make fixture accept arguments
     """
     def _set_drop_all(directions):
+        nonlocal is_dropped
         server_url = url(action=DROP)
         data = {"out_sides": directions}
         logger.info("Dropping all packets to {}".format(directions))
         pytest_assert(_post(server_url, data), "Failed to set drop all on {}".format(directions))
+        is_dropped = True
+
+    is_dropped = False
 
     yield _set_drop_all
 
-    recover_directions_all()
+    if is_dropped:
+        recover_directions_all()
 
 
 @pytest.fixture(scope='function')
@@ -609,7 +614,9 @@ def toggle_all_simulator_ports_to_rand_selected_tor(duthosts, mux_server_url,
 
 
 @pytest.fixture
-def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_dut, mux_server_url, tbinfo):
+def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_dut,
+                                                      mux_server_url, tbinfo,
+                                                      active_standby_ports):
     """
     A function level fixture to toggle all ports to randomly unselected tor
 
@@ -617,7 +624,7 @@ def toggle_all_simulator_ports_to_rand_unselected_tor(duthosts, rand_unselected_
     is imported in test script. The run_icmp_responder fixture is defined in tests.common.fixtures.ptfhost_utils
     """
     # Skip on non dualtor testbed
-    if 'dualtor' not in tbinfo['topo']['name']:
+    if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         return
 
     _toggle_all_simulator_ports_to_target_dut(rand_unselected_dut.hostname, duthosts, mux_server_url, tbinfo)
@@ -805,7 +812,7 @@ def simulator_flap_counter(url):
     def _simulator_flap_counter(interface_name):
         server_url = url(interface_name, FLAP_COUNTER)
         counter = _get(server_url)
-        assert(counter and len(counter) == 1)
+        assert (counter and len(counter) == 1)
         return list(counter.values())[0]
 
     return _simulator_flap_counter

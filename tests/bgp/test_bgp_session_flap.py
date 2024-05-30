@@ -12,6 +12,7 @@ import time
 from tests.common.utilities import InterruptableThread
 import textfsm
 import traceback
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 from natsort import natsorted
 
@@ -125,7 +126,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
 
 
 def flap_neighbor_session(neigh):
-    while(True):
+    while (True):
         neigh.kill_bgpd()
         neigh.start_bgpd()
         if stop_threads:
