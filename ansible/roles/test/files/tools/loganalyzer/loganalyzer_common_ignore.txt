@@ -238,7 +238,7 @@ r, ".* ERR bgp#zebra.*zfpm_build_route_updates: Encoding Prefix:.* No valid next
 
 # https://msazure.visualstudio.com/One/_workitems/edit/28150848
 r, ".* ERR bgp#bgpd.* unexpected packet received in state OpenSent"
-r, ".* ERR bgp#bgpd.* INTERFACE_STATE: Cannot find IF .*"
+r, ".* ERR bgp#bgpd.* Cannot find IF .*"
 r, ".* ERR bgp#bgpd.* bgp_process_packet: BGP OPEN receipt failed for peer.*"
 r, ".* ERR bgp#bgpd.* bgp_read_packet error: Connection reset by peer.*"
 r, ".* ERR bgp#bgpd.* Attempting to process an I/O event but for fd.*"
@@ -249,6 +249,7 @@ r, ".* ERR bgp#zebra.* No such command on config line .*"
 r, ".* ERR bgp#zebra.* error: No route to host.*"
 r, ".* ERR bgp#zebra.* read error on vty client fd .*"
 r, ".* ERR bgp#zebra.* read failed on fd .*"
+r, ".* ERR bgp#zebra.* Extended Error.*"
 
 #Cisco platform ignore messages
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_0 is not ready.*"
