@@ -18,7 +18,10 @@ import (
         "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
         "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
 )
+<<<<<<< HEAD
 
+=======
+>>>>>>> [sdn_tests]:Adding single switch Ethernet Counter test to pins_ondatra. (#13035)
 // These are the counters we track in these tests.
 type Counters struct {
         inPkts           uint64
@@ -368,6 +371,7 @@ func TestGNMIEthParentPaths(t *testing.T) {
                 t.Errorf("%v Type is unexpected: %v", intf, stateIntf.Type)
         }
 }
+<<<<<<< HEAD
 
 // ----------------------------------------------------------------------------
 // TestGNMIEthSubinterfaceIndex - Check EthernetX subinterface index
@@ -1448,3 +1452,5 @@ func TestGNMIEthernetInIPv6Discards(t *testing.T) {
 
         t.Logf("\n\n----- TestGNMIEthernetInIPv6Discards: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+=======
+>>>>>>> [sdn_tests]:Adding single switch Ethernet Counter test to pins_ondatra. (#13035)
