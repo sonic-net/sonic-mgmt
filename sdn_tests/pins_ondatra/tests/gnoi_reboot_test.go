@@ -210,6 +210,9 @@ func TestRebootSuccess(t *testing.T) {
 	}
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]:Adding GNOI reboot schedule tests. (#13053)
 
 func TestRebootStatus(t *testing.T) {
 	// Verify RebootStatus when there is no active reboot.
@@ -318,6 +321,7 @@ func TestRebootMethodsValidation(t *testing.T) {
 		}
 	}
 }
+<<<<<<< HEAD
 
 func TestRebootStatusWhenActiveReboot(t *testing.T) {
         // Verify RebootStatus response when there is an active reboot.
@@ -471,3 +475,5 @@ func TestRebootRequestWhenGnoiUnreachable(t *testing.T) {
 }
 =======
 >>>>>>> [sdn_tests]: Adding Gnoi Reboot tests to pins_ondatra. (#13029)
+=======
+>>>>>>> [sdn_tests]:Adding GNOI reboot schedule tests. (#13053)
