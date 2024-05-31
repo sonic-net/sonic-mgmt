@@ -48,12 +48,11 @@ body:
       label: Test environment
       description: Provide details about the test environment where the test gap was identified.
       placeholder:
-        * SONiC version
-        * Platform
-        * Topology
-        * HardwareSKU
-        * Testbed setup details
-        ...
+        SONiC version
+        Platform
+        Topology
+        HardwareSKU
+        Testbed setup details
     validations:
       required: false
 
