@@ -61,7 +61,11 @@ class SSHInfoSolver(object):
             "PTF": {"user": ptf_user, "pass": ptf_pass},
         }
 
+<<<<<<< HEAD
     def get_ssh_cred(self, device: DeviceInfo) -> Tuple[str, str, str, str]:
+=======
+    def get_ssh_cred(self, device: DeviceInfo) -> Tuple[str, str, str]:
+>>>>>>> Make SSH session generator support generating session files for all devices, like fanout switches. (#12974)
         """
         Get SSH info for a testbed node.
 
@@ -72,7 +76,10 @@ class SSHInfoSolver(object):
             tuple: SSH IP, user and password.
         """
         ssh_ip = device.management_ip
+<<<<<<< HEAD
         ssh_ipv6 = None
+=======
+>>>>>>> Make SSH session generator support generating session files for all devices, like fanout switches. (#12974)
         ssh_user = (
             self.ssh_overrides[device.device_type]["user"]
             if device.device_type in self.ssh_overrides
@@ -84,12 +91,19 @@ class SSHInfoSolver(object):
             else ""
         )
 
+<<<<<<< HEAD
         if not ssh_ip or not ssh_user or not ssh_pass or not ssh_ipv6:
+=======
+        if not ssh_ip or not ssh_user or not ssh_pass:
+>>>>>>> Make SSH session generator support generating session files for all devices, like fanout switches. (#12974)
             try:
                 host_vars = self.ansible_hosts.get_host_vars(device.hostname)
 
                 ssh_ip = host_vars["ansible_host"] if not ssh_ip else ssh_ip
+<<<<<<< HEAD
                 ssh_ipv6 = host_vars["ansible_hostv6"] if not ssh_ipv6 and "ansible_hostv6" in host_vars else ssh_ipv6
+=======
+>>>>>>> Make SSH session generator support generating session files for all devices, like fanout switches. (#12974)
                 ssh_user = host_vars["creds"]["username"] if not ssh_user else ssh_user
                 ssh_pass = (
                     host_vars["creds"]["password"][-1] if not ssh_pass else ssh_pass
@@ -100,11 +114,18 @@ class SSHInfoSolver(object):
                 )
 
         ssh_ip = "" if ssh_ip is None else ssh_ip
+<<<<<<< HEAD
         ssh_ipv6 = "" if ssh_ipv6 is None else ssh_ipv6
         ssh_user = "" if ssh_user is None else ssh_user
         ssh_pass = "" if ssh_pass is None else ssh_pass
 
         return ssh_ip, ssh_ipv6, ssh_user, ssh_pass
+=======
+        ssh_user = "" if ssh_user is None else ssh_user
+        ssh_pass = "" if ssh_pass is None else ssh_pass
+
+        return ssh_ip, ssh_user, ssh_pass
+>>>>>>> Make SSH session generator support generating session files for all devices, like fanout switches. (#12974)
 
 
 class DeviceSshSessionRepoGenerator(object):
@@ -124,8 +145,13 @@ class DeviceSshSessionRepoGenerator(object):
         if not device.is_ssh_supported():
             return
 
+<<<<<<< HEAD
         ssh_ip, ssh_ipv6, ssh_user, ssh_pass = self.ssh_info_solver.get_ssh_cred(device)
         if not ssh_ip and not ssh_ipv6:
+=======
+        ssh_ip, ssh_user, ssh_pass = self.ssh_info_solver.get_ssh_cred(device)
+        if ssh_ip is None:
+>>>>>>> Make SSH session generator support generating session files for all devices, like fanout switches. (#12974)
             print(
                 f"WARNING: Management IP is not specified for testbed node, skipped: {device.hostname}"
             )
@@ -141,7 +167,10 @@ class DeviceSshSessionRepoGenerator(object):
         self.repo_generator.generate(
             session_path,
             ssh_ip,
+<<<<<<< HEAD
             ssh_ipv6,
+=======
+>>>>>>> Make SSH session generator support generating session files for all devices, like fanout switches. (#12974)
             ssh_user,
             ssh_pass,
         )
