@@ -33,8 +33,8 @@ steps:
     set -x
     ls -l /agent/_work/1/s
     sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect whoami
-    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect id -u lca
-    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect id -g lca
+    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect id -u AzDevOps
+    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect id -g AzDevOps
     sudo docker exec -t -w /var/src/sonic-mgmt sonic-mgmt-collect ls -l
   displayName: 'Debug [chunangli]'
 
