@@ -22,7 +22,7 @@ body:
     attributes:
       label: Test Gap Description
       description: Describe the test gap in the test coverage.
-      placeholder:
+      placeholder: |
         Why do we need to address this test gap?
         What part of the functionality is not covered by existing tests?
         Explain the impact of this test gap. What potential issues or risks could introduce from not having this test?
@@ -34,7 +34,7 @@ body:
     attributes:
       label: Test Plan
       description: Describe the test plan to address this test gap.
-      placeholder:
+      placeholder: |
         What test cases need to be added or modified?
         What is the test coverage goal?
         What is the expected outcome?
@@ -47,7 +47,7 @@ body:
     attributes:
       label: Test environment
       description: Provide details about the test environment where the test gap was identified.
-      placeholder:
+      placeholder: |
         SONiC version
         Platform
         Topology
