@@ -48,7 +48,7 @@ On T0 topology, the default vlan (Vlan1000) is required for testing. The IP of V
 #### IPV4 positive scenario
 1. Craft `IPinIP` packet with signature as below.
 
-  - Outer DIP: Any IP in `192.168.0.1/21`
+  - Outer DIP: Any IP in `192.168.0.0/21` but **NOT** `192.168.0.1` as that IP will hit the regular IPinIP tunnel.
   - Outer SIP: Any IP in `20.20.20.0/24`
   - Inner DIP: Any dummy IP routed by default route
   - Inner SIP: Any IP
@@ -59,7 +59,7 @@ On T0 topology, the default vlan (Vlan1000) is required for testing. The IP of V
 #### IPV4 negative scenario
 1. Craft `IPinIP` packet with signature as below.
 
-  - Outer DIP: Any IP in `192.168.0.1/21`
+  - Outer DIP: Any IP in `192.168.0.0/21` but **NOT** `192.168.0.1`.
   - Outer SIP: Any IP **NOT** in `20.20.20.0/24`
   - Inner DIP: Any dummy IP routed by default route
   - Inner SIP: Any IP
@@ -70,7 +70,7 @@ On T0 topology, the default vlan (Vlan1000) is required for testing. The IP of V
 #### IPV6 positive scenario
 1. Craft `IPV6inIPV6` packet with signature as below.
 
-  - Outer DIP: Any IP in `fc02:1000::1/64`
+  - Outer DIP: Any IP in `fc02:1000::1/64` but **NOT** `fc02:1000::1`.
   - Outer SIP: Any IP in `fc01::0/120`
   - Inner DIP: Any dummy IP routed by default route
   - Inner SIP: Any IP
@@ -81,7 +81,7 @@ On T0 topology, the default vlan (Vlan1000) is required for testing. The IP of V
 #### IPV6 negative scenario
 1. Craft `IPV6inIPV6` packet with signature as below.
 
-  - Outer DIP: Any IP in `fc02:1000::1/64`
+  - Outer DIP: Any IP in `fc02:1000::1/64` but **NOT** `fc02:1000::1`.
   - Outer SIP: Any IP **NOT** in `fc01::0/120`
   - Inner DIP: Any dummy IP routed by default route
   - Inner SIP: Any IP
@@ -122,10 +122,13 @@ On T0 topology, the default vlan (Vlan1000) is required for testing. The IP of V
 7. Ingress the same packet and verify decapsulation is not happening.
 
 ### Test case 3 - Verify IPinIP packet targeting at vnet route is decapsulated (T1 only)
+#### Test setup
+1. Setup VxLAN tunnel on DUT.
+2. Configure Vnet and its VNI.
 #### Test steps
 #### IPV4 scenario
 1. Configure IPv4 vnet routes with RESTAPI on DUT.
-2. Verify `STATE_DB` entries are created as expected.
+2. Verify `STATE_DB` entries for the VxLAN tunnel routes are created as expected.
 3. Craft packet with below signature
   - Outer DIP: Any IP in the vnet routes configured in step 1.
   - Outer SIP: Any IP in `20.20.20.0/24`
