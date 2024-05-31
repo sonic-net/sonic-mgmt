@@ -393,7 +393,7 @@ func TestGNMISubscribeModes(t *testing.T) {
 
         // Check if the switch is responsive with Get API, which will panic if the switch does not return
         // state value for specified interface Openconfig path resulting in a test failure.
-        intf, err := pinstesthelper.RandomInterface(t, dut, &pinstesthelper.RandomInterfaceParams{OperDownOk: true})
+        intf, err := testhelper.RandomInterface(t, dut, &testhelper.RandomInterfaceParams{OperDownOk: true})
         if err != nil {
                 t.Fatalf("Failed to fetch random interface: %v", err)
         }
