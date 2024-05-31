@@ -65,11 +65,13 @@ def snappi_api(duthosts,
     # Going forward, we should be able to specify extension
     # from command line while running pytest.
     api = snappi.api(location=location, ext="ixnetwork")
-    api._username = duthost.host.options['variable_manager'].\
-        _hostvars[duthost.hostname]['secret_group_vars']['snappi_api_server']['user']
-    api._password = duthost.host.options['variable_manager'].\
-        _hostvars[duthost.hostname]['secret_group_vars']['snappi_api_server']['password']
+    # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
+    # api._username = "<please mention the username if other than default username>"
+    # api._password = "<please mention the password if other than default password>"
     yield api
+
+    if getattr(api, 'assistant', None) is not None:
+        api.assistant.Session.remove()
 
 
 def __gen_mac(id):
