@@ -5,7 +5,6 @@ import sys
 from tests.common.utilities import skip_release
 from .util.base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
 from .util.helpers import log_info
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
         pytest.mark.topology("t1")

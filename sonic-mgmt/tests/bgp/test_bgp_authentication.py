@@ -7,7 +7,6 @@ import time
 
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
