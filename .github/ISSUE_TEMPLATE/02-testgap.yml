@@ -38,11 +38,11 @@ body:
         What test cases need to be added or modified?
         What is the test coverage goal?
         What is the expected outcome?
-        Attach files or PR links if applicable.
+        Attach any files or PR links if applicable.
     validations:
-      required: true
+      required: false
 
-  - type: markdown
+  - type: textarea
     id: tc-test-environment
     attributes:
       label: Test environment
