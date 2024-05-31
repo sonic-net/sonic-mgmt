@@ -33,6 +33,16 @@ steps:
 
 - script: |
     set -x
+    ls -l /agent/_work/1/s
+    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect whoami
+    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect id -u AzDevOps
+    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect id -g AzDevOps
+    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect getent passwd
+    sudo docker exec -t -w /var/src/sonic-mgmt sonic-mgmt-collect ls -l
+  displayName: 'Debug [chunangli]'
+
+- script: |
+    set -x
 
     sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
       python3 -m pytest --inventory ../ansible/veos_vtb --host-pattern all \
