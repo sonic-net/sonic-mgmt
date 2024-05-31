@@ -33,6 +33,7 @@ from tests.common.dualtor.dual_tor_common import mux_config                     
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side    # noqa F401
 from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator                # noqa F401
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
