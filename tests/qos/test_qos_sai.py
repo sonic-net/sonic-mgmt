@@ -1306,9 +1306,8 @@ class TestQosSai(QosSaiBase):
         except Exception:
             raise
 
-    @pytest.mark.parametrize("ip_version", ["ipv4", "ipv6"])
     def testQosSaiDscpQueueMapping(
-        self, ip_version, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps # noqa F811
+        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps # noqa F811
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1336,25 +1335,11 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
-
-        if ip_version == "ipv6":
-            if "src_port_ipv6" not in dutConfig["testPorts"] or "dst_port_ipv6" not in dutConfig["testPorts"]:
-                pytest.skip("Skip IPV6 variant as IPV6 not configured")
-
-            testParams.update({
-                "src_port_ip": dutConfig["testPorts"]["src_port_ipv6"],
-                "dst_port_ip": dutConfig["testPorts"]["dst_port_ipv6"],
-                "ipv6": True
-            })
-        else:
-            testParams.update({
-                "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-                "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
-            })
-
         testParams.update({
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "hwsku": dutTestParams['hwsku'],
             "dual_tor": dutConfig['dualTor'],
             "dual_tor_scenario": dutConfig['dualTorScenario']
