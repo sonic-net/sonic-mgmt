@@ -1,6 +1,6 @@
 ###############################################################################
-# TestScripts TABLE SETUP                                                      #
-# 1. Create a TestScripts table to store test scripts                          #
+# TestScripts TABLE SETUP                                                     #
+# 1. Create a TestScripts table to store test scripts                         #
 #    and record if they are included in PR checker                            #
 # 2. Add a JSON mapping for the table                                         #
 ###############################################################################
