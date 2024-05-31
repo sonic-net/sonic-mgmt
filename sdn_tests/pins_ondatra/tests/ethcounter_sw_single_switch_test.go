@@ -372,6 +372,9 @@ func TestGNMIEthParentPaths(t *testing.T) {
         }
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]:Adding Ethernet Counter subinterface index and unicast out-packets test to pins_ondatra. (#13083)
 
 // ----------------------------------------------------------------------------
 // TestGNMIEthSubinterfaceIndex - Check EthernetX subinterface index
@@ -492,6 +495,7 @@ func TestGNMIEthernetOut(t *testing.T) {
         }
         t.Logf("\n\n----- TestGNMIEthernetOut: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+<<<<<<< HEAD
 
 // ----------------------------------------------------------------------------
 // TestGNMIEthernetOutMulticast - Check EthernetX Out-Multicast-Pkts
@@ -1454,3 +1458,5 @@ func TestGNMIEthernetInIPv6Discards(t *testing.T) {
 }
 =======
 >>>>>>> [sdn_tests]:Adding single switch Ethernet Counter test to pins_ondatra. (#13035)
+=======
+>>>>>>> [sdn_tests]:Adding Ethernet Counter subinterface index and unicast out-packets test to pins_ondatra. (#13083)
