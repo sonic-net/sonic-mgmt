@@ -76,6 +76,7 @@ SAG_MAC = "00:11:22:33:44:55"
 SAG1_IP = data.d3tp3_ip_addr
 SAG2_IP = data.d3tp1_ip_addr 
 VRF_NAME = "Vrf43"
+VRF_VNI = "5043"
 
 ####################
 @pytest.fixture(scope="module", autouse=True)
@@ -264,7 +265,29 @@ def test_l2vni_sym_irb_sag_unbind_vrf():
     st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG1_VLAN))
     st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG2_VLAN))
 
+    '''
+    Remove VRF
+    a. Remove all config from FRR
+    b. Remove from SONiC
+    '''
+    config_static(nodes['leaf0'], 'bgp', add=False)
+    st.config(nodes['leaf0'], 'sudo config vrf del {}'.format(VRF_NAME))
+
+    config_static(nodes['leaf1'], 'bgp', add=False)
+    st.config(nodes['leaf1'], 'sudo config vrf del {}'.format(VRF_NAME))
+
     st.wait(2)
+
+    '''
+    Add VRF
+    a. Add in SONiC
+    b. Add all config in FRR
+    '''
+    config_static(nodes['leaf0'], 'bgp')
+    st.config(nodes['leaf0'], 'sudo config vrf add {}'.format(VRF_NAME))
+
+    config_static(nodes['leaf1'], 'bgp')
+    st.config(nodes['leaf1'], 'sudo config vrf add {}'.format(VRF_NAME))
 
     '''
     re-bind vlan to vrf
@@ -273,6 +296,12 @@ def test_l2vni_sym_irb_sag_unbind_vrf():
     st.config(nodes['leaf0'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG2_VLAN, VRF_NAME))
     st.config(nodes['leaf1'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG1_VLAN, VRF_NAME))
     st.config(nodes['leaf1'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG2_VLAN, VRF_NAME))
+
+    '''
+    re-config vrf to vni map
+    '''
+    st.config(nodes['leaf0'], 'sudo config vrf add_vrf_vni_map {} {}'.format(VRF_NAME, VRF_VNI))
+    st.config(nodes['leaf1'], 'sudo config vrf add_vrf_vni_map {} {}'.format(VRF_NAME, VRF_VNI))
 
     '''
     re-config SAG IP
