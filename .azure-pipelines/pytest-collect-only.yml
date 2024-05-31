@@ -35,6 +35,10 @@ steps:
 
     sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect whoami
 
+    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect id -u lca
+      
+    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect id -g lca
+
     sudo docker exec -t -w /var/src/sonic-mgmt sonic-mgmt-collect ls -l
   displayName: 'Debug [chunangli]'
 
