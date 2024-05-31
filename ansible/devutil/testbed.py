@@ -5,19 +5,27 @@ Utility classes for loading and managing testbed data.
 import os
 import re
 import yaml
+from typing import Any, Dict, List, Optional
+
+from devutil.device_inventory import DeviceInfo, DeviceInventory
 
 
 class TestBed(object):
     """Data model that represents a testbed object."""
 
     @classmethod
-    def from_file(cls, testbed_file="testbed.yaml", testbed_pattern=None, hosts=None):
+    def from_file(
+        cls,
+        device_inventories: List[DeviceInventory],
+        testbed_file: str = "testbed.yaml",
+        testbed_pattern: Optional[str] = None,
+    ) -> Dict[str, "TestBed"]:
         """Load all testbed objects from YAML file.
 
         Args:
             testbed_file (str): Path to testbed file.
             testbed_pattern (str): Regex pattern to filter testbeds.
-            hosts (AnsibleHosts): AnsibleHosts object that contains all hosts in the testbed.
+            hosts (HostManager): AnsibleHosts object that contains all hosts in the testbed.
 
         Returns:
             dict: Testbed name to testbed object mapping.
@@ -39,11 +47,11 @@ class TestBed(object):
         for raw_testbed in raw_testbeds:
             if testbed_pattern and not testbed_pattern.match(raw_testbed["conf-name"]):
                 continue
-            testbeds[raw_testbed["conf-name"]] = cls(raw_testbed, hosts=hosts)
+            testbeds[raw_testbed["conf-name"]] = cls(raw_testbed, device_inventories)
 
         return testbeds
 
-    def __init__(self, raw_dict, hosts=None):
+    def __init__(self, raw_dict: Any, device_inventories: List[DeviceInventory]):
         """Initialize a testbed object.
 
         Args:
@@ -55,46 +63,26 @@ class TestBed(object):
             setattr(self, key.replace("-", "_"), value)
 
         # Create a PTF node object
-        self.ptf_node = TestBedNode(self.ptf, hosts)
+        self.ptf_node = DeviceInfo(
+            hostname=self.ptf,
+            management_ip=self.ptf_ip.split("/")[0],
+            hw_sku="Container",
+            device_type="PTF",
+            protocol="ssh",
+        )
 
-        # Loop through each DUT in the testbed and create TestBedNode object
+        # Loop through each DUT in the testbed and find the device info
         self.dut_nodes = {}
         for dut in raw_dict["dut"]:
-            self.dut_nodes[dut] = TestBedNode(dut, hosts)
+            for inv in device_inventories:
+                device = inv.get_device(dut)
+                if device is not None:
+                    self.dut_nodes[dut] = device
+                    break
+            else:
+                print(f"Error: Failed to find device info for DUT {dut}")
 
         # Some testbeds are dummy ones and doesn't have inv_name specified,
         # so we need to use "unknown" as inv_name instead.
         if not hasattr(self, "inv_name"):
             self.inv_name = "unknown"
-
-
-class TestBedNode(object):
-    """Data model that represents a testbed node object."""
-
-    def __init__(self, name, hosts=None):
-        """Initialize a testbed node object.
-
-        Args:
-            name (str): Node name.
-            ansible_vars (dict): Ansible variables of the node.
-        """
-        self.name = name
-        self.ssh_ip = None
-        self.ssh_user = None
-        self.ssh_pass = None
-
-        if hosts:
-            try:
-                host_vars = hosts.get_host_vars(self.name)
-                self.ssh_ip = host_vars["ansible_host"]
-                self.ssh_user = host_vars["creds"]["username"]
-                self.ssh_pass = host_vars["creds"]["password"][0]
-            except Exception as e:
-                print(
-                    "Error: Failed to get host vars for {}: {}".format(
-                        self.name, str(e)
-                    )
-                )
-                self.ssh_ip = None
-                self.ssh_user = None
-                self.ssh_pass = None
