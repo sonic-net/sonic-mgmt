@@ -24,6 +24,7 @@ The return value is formatted as below:
     }
 ]
 """
+
 import yaml
 import re
 import os
