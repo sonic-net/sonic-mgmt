@@ -155,8 +155,13 @@ def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     logger.info("Local time %d, DUT time %d" % (local_time, dut_time))
     time_diff = local_time - dut_time
 <<<<<<< HEAD
+<<<<<<< HEAD
     if time_diff >= GNMI_SERVER_START_WAIT_TIME:
         logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
 =======
     assert (time_diff < GNMI_SERVER_START_WAIT_TIME), "DUT time is wrong (%d), please check NTP" % (-time_diff)
 >>>>>>> Add fixture to detect NTP issue for gnmi testing (#12584)
+=======
+    if time_diff >= GNMI_SERVER_START_WAIT_TIME:
+        logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
+>>>>>>> Generate warning for NTP issue (#13031)
