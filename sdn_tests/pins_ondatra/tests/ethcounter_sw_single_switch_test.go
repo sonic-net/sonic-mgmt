@@ -367,3 +367,123 @@ func TestGNMIEthParentPaths(t *testing.T) {
                 t.Errorf("%v Type is unexpected: %v", intf, stateIntf.Type)
         }
 }
+
+// ----------------------------------------------------------------------------
+// TestGNMIEthSubinterfaceIndex - Check EthernetX subinterface index
+func TestGNMIEthSubinterfaceIndex(t *testing.T) {
+        // Reports results to TestTracker at the end.
+        defer testhelper.NewTearDownOptions(t).WithID("4a985794-a347-4bed-a50f-29a7f25b514f").Teardown(t)
+
+        // Select the dut, or device under test.
+        dut := ondatra.DUT(t, "DUT")
+
+        // Pick a random interface, EthernetX
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        stateIndex := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Subinterface(0).Index().State())
+
+        if stateIndex != 0 {
+                t.Errorf("%v Subinterface Index is unexpected: %d", intf, stateIndex)
+        }
+}
+
+// ----------------------------------------------------------------------------
+// TestGNMIEthernetOut - Check EthernetX Out-Pkts, Out-Octets and Out-Unicast-Pkts
+// Because the systems we're testing on have existing traffic flowing at random
+// intervals, we'll run the test a number of times looking for the expected
+// changes.  If we get a run with the exact counter increments we expect then
+// we exit successfully.  If we get a run with more changes than expected to
+// the counters then we try again up to the limit.
+func TestGNMIEthernetOut(t *testing.T) {
+        // Report results to TestTracker at the end.
+        defer testhelper.NewTearDownOptions(t).WithID("c8eb77e8-12fd-44f9-a0fa-784b06d91491").Teardown(t)
+
+        // Select the dut, or device under test.
+        dut := ondatra.DUT(t, "DUT")
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+        CheckInitial(t, dut, intf)
+
+        var bad bool
+        var i int
+
+        // Iterate up to 5 times to get a successful test.
+        for i = 1; i <= 5; i++ {
+                t.Logf("\n----- TestGNMIEthernetOut: Iteration %v -----\n", i)
+                bad = false
+
+                // Read all the relevant counters initial values.
+                before := ReadCounters(t, dut, intf)
+
+                // Compute the expected counters after the test.
+                expect := before
+                expect.outPkts += pktsPer
+                expect.outOctets += 64 * pktsPer
+                expect.outUnicastPkts += pktsPer
+
+                // Construct a simple unicast Ethernet L2 packet.
+                eth := &layers.Ethernet{
+                        SrcMAC:       net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+                        DstMAC:       net.HardwareAddr{0x00, 0x1A, 0x11, 0x17, 0x5F, 0x80},
+                        EthernetType: layers.EthernetTypeEthernetCTP,
+                }
+
+                buf := gopacket.NewSerializeBuffer()
+
+                // Enable reconstruction of length and checksum fields.
+                opts := gopacket.SerializeOptions{
+                        FixLengths:       true,
+                        ComputeChecksums: true,
+                }
+
+                if err := gopacket.SerializeLayers(buf, opts, eth); err != nil {
+                        t.Fatalf("Failed to serialize packet (%v)", err)
+                }
+
+                packetOut := &testhelper.PacketOut{
+                        EgressPort: intf,
+                        Count:      uint(pktsPer),
+                        Interval:   1 * time.Millisecond,
+                        Packet:     buf.Bytes(),
+                }
+
+                p4rtClient, err := testhelper.FetchP4RTClient(t, dut, dut.RawAPIs().P4RT(t), nil)
+                if err != nil {
+                        t.Fatalf("Failed to create P4RT client: %v", err)
+                }
+                if err := p4rtClient.SendPacketOut(t, packetOut); err != nil {
+                        t.Fatalf("SendPacketOut operation failed for %+v (%v)", packetOut, err)
+                }
+
+                // Sleep for enough time that the counters are polled after the
+                // transmit completes sending bytes.  At 500ms we frequently
+                // read the counters before they're updated.  Even at 1 second
+                // I have seen counter increases show up on a subsequent
+                // iteration rather than this one.
+                time.Sleep(counterUpdateDelay)
+
+                // Read all the relevant counters again.
+                after := ReadCounters(t, dut, intf)
+
+                if after != expect {
+                        ShowCountersDelta(t, before, after, expect)
+                        bad = true
+                }
+
+                if !bad {
+                        break
+                }
+        }
+
+        if bad {
+                t.Fatalf("\n\n----- TestGNMIEthernetOut: FAILED after %v Iterations -----\n\n", i-1)
+        }
+        t.Logf("\n\n----- TestGNMIEthernetOut: SUCCESS after %v Iteration(s) -----\n\n", i)
+}
