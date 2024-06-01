@@ -30,6 +30,7 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_ses
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                        # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active         # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session              # noqa F401
+from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby# noqa F401
 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
@@ -2175,6 +2176,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             # The keys that we don't care
             # Current skipped keys:
             # 1. "MUX_LINKMGR|LINK_PROBER"
+            # 2. "MUX_LINKMGR|TIMED_OSCILLATION"
             # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
             # to account for the lower performance of the ICMP responder/mux simulator compared to
             # real servers and mux cables.
@@ -2183,7 +2185,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             # let's skip checking it.
             if "dualtor" in tbinfo["topo"]["name"]:
                 EXCLUDE_CONFIG_KEY_NAMES = [
-                    'MUX_LINKMGR|LINK_PROBER'
+                    'MUX_LINKMGR|LINK_PROBER',
+                    'MUX_LINKMGR|TIMED_OSCILLATION'
                 ]
             else:
                 EXCLUDE_CONFIG_KEY_NAMES = []
