@@ -71,7 +71,7 @@ parameters:
   - name: SCRIPTS_EXCLUDE
     type: string
     default: "qos/test_qos_sai.py, \
-              iface_namingmode/test_iface_namingmode.py::TestConfigInterface \
+              iface_namingmode/test_iface_namingmode.py::TestConfigInterface, \
               copp/test_copp.py"
     displayName: "Scripts to be excluded"
 
