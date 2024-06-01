@@ -92,6 +92,12 @@ all:
         vms66-5:
           ansible_host: 10.64.247.82
           ansible_hostv6: 2a01:111:e210:b000::a40:f752
+        vms66-6:
+          ansible_host: 10.64.247.84
+          ansible_hostv6: 2a01:111:e210:b000::a40:f74f
+        vms66-7:
+          ansible_host: 10.64.247.85
+          ansible_hostv6: 2a01:111:e210:b000::a40:f750
         vms68-1:
           ansible_host: 10.64.247.51
           ansible_hostv6: 2a01:111:e210:b000::a40:f733
@@ -307,6 +313,14 @@ fanout:
       ansible_host: 10.3.146.131
       ansible_hostv6: 2a01:111:e210:3000::a03:9283
       os: sonic
+    str3-7060x6-64pe-fan-1:
+      ansible_host: 10.64.246.3
+      ansible_hostv6: 
+      os: sonic
+    str3-7060x6-64pe-fan-2:
+      ansible_host: 10.64.246.8
+      ansible_hostv6: 
+      os: sonic
 
 sonic:
   vars:
@@ -330,6 +344,7 @@ sonic:
     sonic_mlnx_4700:
     sonic_dell64_40:
     sonic_arista_400:
+    sonic_arista_7060x6:
 
 sonic_mlnx_4600C:
   vars:
@@ -1444,6 +1459,49 @@ sonic_arista_400:
       base_mac: 2c:dd:e9:bf:b5:7e
   vars:
     iface_speed: 400000
+
+sonic_arista_7060x6:
+  hosts:
+    str3-7060x6-64pe-1:
+      ansible_host: 10.64.246.2
+      ansible_hostv6: 2a01:111:e210:3000::a03:92a9
+      mgmt_subnet_mask_length: 24
+      hwsku: Arista-7060X6-64PE-256x200G
+      model: DCS-7060X6-64PE
+      serial: HBG240808QJ
+      base_mac: 68:8b:f4:bc:b8:9f
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE"
+        "0x22": "ASY0783903A0"
+        "0x23": "HBG240808QJ"
+        "0x24": "68:8b:f4:bc:b8:9f"
+        "0x25": "2024/04/04 11:40:18"
+        "0x26": "11.00"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7060x6_64pe"
+        "0x2D": "Arista Networks"
+        "0x2B": "Arista Networks"
+        "0x2F": "HBG240808QJ"
+    str3-7060x6-64pe-2:
+      ansible_host: 10.64.246.4
+      ansible_hostv6: 2a01:111:e210:3000::a03:92aa
+      mgmt_subnet_mask_length: 24
+      hwsku: Arista-7060X6-64PE-256x200G
+      model: DCS-7060X6-64PE
+      serial: HBG240808QH
+      base_mac: 68:8b:f4:bd:31:53
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE"
+        "0x22": "ASY0783903A0"
+        "0x23": "HBG240808QH"
+        "0x24": "68:8b:f4:bd:31:53"
+        "0x25": "2024/04/08 08:01:55"
+        "0x26": "11.00"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7060x6_64pe"
+        "0x2D": "Arista Networks"
+        "0x2B": "Arista Networks"
+        "0x2F": "HBG240808QH"
 
 sonic_dell64_40:
   hosts:
