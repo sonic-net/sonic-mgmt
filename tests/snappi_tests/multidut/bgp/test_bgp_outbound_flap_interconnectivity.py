@@ -51,8 +51,7 @@ def test_bgp_outbound_flap_interconnectivity(cvg_api,                           
                                              fanout_graph_facts,                           # noqa: F811
                                              duthosts,
                                              traffic_type,                                 # noqa: F811
-                                             route_range
-                                            ):
+                                             route_range):
     """
     Test if IEEE 802.3X pause (a.k.a., global pause) will impact any priority
 
