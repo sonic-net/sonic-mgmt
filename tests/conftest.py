@@ -2184,7 +2184,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             # Current skipped keys:
             # 1. "MUX_LINKMGR|LINK_PROBER"
             # 2. "MUX_LINKMGR|TIMED_OSCILLATION"
+<<<<<<< HEAD
             # 3. "LOGGER|linkmgrd"
+=======
+>>>>>>> [dualtor][active-standby] disable timed oscillation  (#13004)
             # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
             # to account for the lower performance of the ICMP responder/mux simulator compared to
             # real servers and mux cables.
@@ -2194,8 +2197,12 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if "dualtor" in tbinfo["topo"]["name"]:
                 EXCLUDE_CONFIG_KEY_NAMES = [
                     'MUX_LINKMGR|LINK_PROBER',
+<<<<<<< HEAD
                     'MUX_LINKMGR|TIMED_OSCILLATION',
                     'LOGGER|linkmgrd'
+=======
+                    'MUX_LINKMGR|TIMED_OSCILLATION'
+>>>>>>> [dualtor][active-standby] disable timed oscillation  (#13004)
                 ]
             else:
                 EXCLUDE_CONFIG_KEY_NAMES = []
