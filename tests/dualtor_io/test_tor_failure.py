@@ -20,6 +20,7 @@ from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 logger = logging.getLogger(__name__)
@@ -67,26 +68,28 @@ def test_active_tor_reboot_upstream(
     Send upstream traffic and reboot the active ToR. Confirm switchover
     occurred and disruption lasts < 1 second
     """
-    send_server_to_t1_with_action(
-        upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=toggle_upper_tor_pdu, stop_after=60
-    )
-    wait_for_device_reachable(upper_tor_host)
-    wait_for_mux_container(upper_tor_host)
-    wait_for_pmon_container(upper_tor_host)
+    with LogAnalyzer(ansible_host=lower_tor_host,
+                     marker_prefix="test_active_tor_reboot_upstream"):
+        send_server_to_t1_with_action(
+            upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+            action=toggle_upper_tor_pdu, stop_after=60
+        )
+        wait_for_device_reachable(upper_tor_host)
+        wait_for_mux_container(upper_tor_host)
+        wait_for_pmon_container(upper_tor_host)
 
-    if cable_type == CableType.active_standby:
-        verify_tor_states(
-            expected_active_host=lower_tor_host,
-            expected_standby_host=upper_tor_host
-        )
-    elif cable_type == CableType.active_active:
-        verify_tor_states(
-            expected_active_host=[upper_tor_host, lower_tor_host],
-            expected_standby_host=None,
-            cable_type=cable_type,
-            verify_db_timeout=60
-        )
+        if cable_type == CableType.active_standby:
+            verify_tor_states(
+                expected_active_host=lower_tor_host,
+                expected_standby_host=upper_tor_host
+            )
+        elif cable_type == CableType.active_active:
+            verify_tor_states(
+                expected_active_host=[upper_tor_host, lower_tor_host],
+                expected_standby_host=None,
+                cable_type=cable_type,
+                verify_db_timeout=60
+            )
 
 
 @pytest.mark.disable_loganalyzer
@@ -100,17 +103,19 @@ def test_active_tor_reboot_downstream_standby(
     Send downstream traffic to the standby ToR and reboot the active ToR.
     Confirm switchover occurred and disruption lasts < 1 second
     """
-    send_t1_to_server_with_action(
-        lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=toggle_upper_tor_pdu, stop_after=60
-    )
-    wait_for_device_reachable(upper_tor_host)
-    wait_for_mux_container(upper_tor_host)
-    wait_for_pmon_container(upper_tor_host)
-    verify_tor_states(
-        expected_active_host=lower_tor_host,
-        expected_standby_host=upper_tor_host
-    )
+    with LogAnalyzer(ansible_host=lower_tor_host,
+                     marker_prefix="test_active_tor_reboot_downstream_standby"):
+        send_t1_to_server_with_action(
+            lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
+            action=toggle_upper_tor_pdu, stop_after=60
+        )
+        wait_for_device_reachable(upper_tor_host)
+        wait_for_mux_container(upper_tor_host)
+        wait_for_pmon_container(upper_tor_host)
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host
+        )
 
 
 @pytest.mark.disable_loganalyzer
@@ -124,17 +129,19 @@ def test_standby_tor_reboot_upstream(
     Send upstream traffic and reboot the standby ToR. Confirm no switchover
     occurred and no disruption
     """
-    send_server_to_t1_with_action(
-        upper_tor_host, verify=True,
-        action=toggle_lower_tor_pdu, stop_after=60
-    )
-    wait_for_device_reachable(lower_tor_host)
-    wait_for_mux_container(lower_tor_host)
-    wait_for_pmon_container(lower_tor_host)
-    verify_tor_states(
-        expected_active_host=upper_tor_host,
-        expected_standby_host=lower_tor_host
-    )
+    with LogAnalyzer(ansible_host=upper_tor_host,
+                     marker_prefix="test_standby_tor_reboot_upstream"):
+        send_server_to_t1_with_action(
+            upper_tor_host, verify=True,
+            action=toggle_lower_tor_pdu, stop_after=60
+        )
+        wait_for_device_reachable(lower_tor_host)
+        wait_for_mux_container(lower_tor_host)
+        wait_for_pmon_container(lower_tor_host)
+        verify_tor_states(
+            expected_active_host=upper_tor_host,
+            expected_standby_host=lower_tor_host
+        )
 
 
 @pytest.mark.disable_loganalyzer
@@ -148,17 +155,19 @@ def test_standby_tor_reboot_downstream_active(
     Send downstream traffic to the active ToR and reboot the standby ToR.
     Confirm no switchover occurred and no disruption
     """
-    send_t1_to_server_with_action(
-        upper_tor_host, verify=True,
-        action=toggle_lower_tor_pdu, stop_after=60
-    )
-    wait_for_device_reachable(lower_tor_host)
-    wait_for_mux_container(lower_tor_host)
-    wait_for_pmon_container(lower_tor_host)
-    verify_tor_states(
-        expected_active_host=upper_tor_host,
-        expected_standby_host=lower_tor_host
-    )
+    with LogAnalyzer(ansible_host=upper_tor_host,
+                     marker_prefix="test_standby_tor_reboot_downstream_active"):
+        send_t1_to_server_with_action(
+            upper_tor_host, verify=True,
+            action=toggle_lower_tor_pdu, stop_after=60
+        )
+        wait_for_device_reachable(lower_tor_host)
+        wait_for_mux_container(lower_tor_host)
+        wait_for_pmon_container(lower_tor_host)
+        verify_tor_states(
+            expected_active_host=upper_tor_host,
+            expected_standby_host=lower_tor_host
+        )
 
 
 @pytest.mark.enable_active_active

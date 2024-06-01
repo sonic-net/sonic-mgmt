@@ -9,6 +9,7 @@ from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsm
                       in6_getnsma, inet_pton, inet_ntop, socket
 from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 ARP_BASE_IP = "172.16.0.1/16"
 ARP_SRC_MAC = "00:00:01:02:03:04"
@@ -17,7 +18,7 @@ ENTRIES_NUMBERS = 12000
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 LOOP_TIMES_LEVEL_MAP = {

@@ -229,6 +229,13 @@ def check_bgp(duthosts, tbinfo):
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
 
+        # If the topology doesn't have any VMs, it is not using BGP feature at all, hence skip checking
+        # the BGP status here.
+        if len(tbinfo['topo']['properties']['topology']['VMs']) == 0:
+            logger.info("No VMs in topology, skip checking bgp status on host %s ..." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
+
         networking_uptime = dut.get_networking_uptime().seconds
         if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:
             # If max_timeout is higher than 600, it will exceed parallel_run's timeout
@@ -799,10 +806,14 @@ def check_processes(duthosts):
             processes_status = dut.all_critical_process_status()
             check_result["processes_status"] = processes_status
             check_result["services_status"] = {}
-            for k, v in list(processes_status.items()):
-                if v['status'] is False or len(v['exited_critical_process']) > 0:
+            for container_name, processes in list(processes_status.items()):
+                if processes['status'] is False or len(processes['exited_critical_process']) > 0:
+                    logger.info("The status of checking process in container '{}' is: {}"
+                                .format(container_name, processes["status"]))
+                    logger.info("The processes not running in container '{}' are: '{}'"
+                                .format(container_name, processes["exited_critical_process"]))
                     check_result['failed'] = True
-                check_result["services_status"].update({k: v['status']})
+                check_result["services_status"].update({container_name: processes['status']})
         else:  # Retry checking processes status
             start = time.time()
             elapsed = 0
@@ -811,10 +822,14 @@ def check_processes(duthosts):
                 processes_status = dut.all_critical_process_status()
                 check_result["processes_status"] = processes_status
                 check_result["services_status"] = {}
-                for k, v in list(processes_status.items()):
-                    if v['status'] is False or len(v['exited_critical_process']) > 0:
+                for container_name, processes in list(processes_status.items()):
+                    if processes['status'] is False or len(processes['exited_critical_process']) > 0:
+                        logger.info("The status of checking process in container '{}' is: {}"
+                                    .format(container_name, processes["status"]))
+                        logger.info("The processes not running in container '{}' are: '{}'"
+                                    .format(container_name, processes["exited_critical_process"]))
                         check_result['failed'] = True
-                    check_result["services_status"].update({k: v['status']})
+                    check_result["services_status"].update({container_name: processes['status']})
 
                 if check_result["failed"]:
                     wait(interval,

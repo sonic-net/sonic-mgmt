@@ -16,6 +16,7 @@ from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -617,6 +618,7 @@ def init_counter(duthost, ifname):
 
 
 def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                            setup_standby_ports_on_rand_unselected_tor,
                             toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     testing_mode, duthost, testbed_mode = testing_config
 
@@ -649,7 +651,7 @@ def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file="/tmp/dhcp_relay_test_counter.DHCPTest.log", is_python3=True)
         for type in dhcp_message_types:
             if type in ["Discover", "Request"]:
                 cnt = get_dhcp_relay_counter(duthost, dhcp_relay['client_iface']['name'], type, "RX")

@@ -7,6 +7,7 @@ from ptf import testutils
 from scapy.layers.dhcp6 import DHCP6_Solicit
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import capture_and_check_packet_on_dut
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('mx')
@@ -37,7 +38,9 @@ class Dhcpv6PktRecvBase:
 
     @pytest.fixture(scope="class")
     def setup_teardown(self, duthost, tbinfo):
-        ptf_indices = tbinfo['topo']['properties']['topology']['host_interfaces']
+        disabled_host_interfaces = tbinfo['topo']['properties']['topology'].get('disabled_host_interfaces', [])
+        ptf_indices = [interface for interface in tbinfo['topo']['properties']['topology'].get('host_interfaces', [])
+                       if interface not in disabled_host_interfaces]
         dut_intf_ptf_index = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
         yield ptf_indices, dut_intf_ptf_index
 

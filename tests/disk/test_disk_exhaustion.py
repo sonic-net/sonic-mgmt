@@ -9,12 +9,14 @@ from paramiko.ssh_exception import AuthenticationException
 from ptf import mask, packet
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import paramiko_ssh
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 
@@ -58,6 +60,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     Construct data packet and get related params
     """
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    is_backend_topo = 'backend' in tbinfo['topo']['name']
 
     # generate peer_ip and port channel pair, be like:[("10.0.0.57", "PortChannel0001")]
     peer_ip_pc_pair = [(pc["peer_addr"], pc["attachto"]) for pc in mg_facts["minigraph_portchannel_interfaces"]
@@ -67,7 +70,13 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     pc_ports_map = {pair[1]: mg_facts["minigraph_portchannels"][pair[1]]["members"] for pair in
                     peer_ip_pc_pair}
 
-    if len(mg_facts["minigraph_interfaces"]) >= 2:
+    if is_backend_topo:
+        # generate peer_ip and subinterfaces pair ex. [("10.0.0.57", ["Ethernet48.10"])]
+        peer_ip_ifaces_pair = [(subintf_info["peer_addr"], [subintf_info["attachto"]]) for subintf_info in
+                               mg_facts["minigraph_vlan_sub_interfaces"]
+                               if ipaddress.ip_address(subintf_info['peer_addr']).version == 4]
+
+    elif len(mg_facts["minigraph_interfaces"]) >= 2:
         # generate peer_ip and interfaces pair,
         # be like:[("10.0.0.57", ["Ethernet48"])]
         peer_ip_ifaces_pair = [(intf["peer_addr"], [intf["attachto"]]) for intf in mg_facts["minigraph_interfaces"]
@@ -82,7 +91,16 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
 
     # use first port of first peer_ip_ifaces pair as input port
     # all ports in second peer_ip_ifaces pair will be output/forward port
-    ptf_port_idx = mg_facts["minigraph_ptf_indices"][peer_ip_ifaces_pair[0][1][0]]
+    ptf_port_idx = mg_facts["minigraph_ptf_indices"][peer_ip_ifaces_pair[0][1][0].split(".")[0]]
+
+    # get router mac per asic for multi-asic dut
+    if duthost.is_multi_asic:
+        namespace = mg_facts['minigraph_neighbors'][peer_ip_ifaces_pair[0][1][0]]['namespace']
+        asic_idx = duthost.get_asic_id_from_namespace(namespace)
+        router_mac = duthost.asic_instance(asic_idx).get_router_mac()
+    else:
+        router_mac = duthost.facts["router_mac"]
+
     # Some platforms do not support rif counter
     try:
         rif_counter_out = parse_rif_counters(duthost.show_and_parse("show interfaces counters rif"))
@@ -93,7 +111,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
         rif_support = False
 
     pkt = testutils.simple_ip_packet(
-        eth_dst=duthost.facts["router_mac"],
+        eth_dst=router_mac,
         eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
         ip_src=peer_ip_ifaces_pair[0][0],
         ip_dst=peer_ip_ifaces_pair[1][0])
