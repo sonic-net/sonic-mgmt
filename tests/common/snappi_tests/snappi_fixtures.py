@@ -941,7 +941,8 @@ def multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):      
                     if port['peer_port'] in t2_asic_port_map[asic_value]:
                         port['asic_value'] = asic_value
                 if 'asic_value' not in port.keys():
-                    pytest_assert(False, 'Port: {} not found in t2_asic_port_map from variables file'.format(port['peer_port']))
+                    pytest_assert(False, 'Port: {} not found in t2_asic_port_map from variables file'.
+                                  format(port['peer_port']))
 
         try:
             for port in snappi_ports:
