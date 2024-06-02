@@ -385,6 +385,7 @@ def ignore_expected_loganalyzer_exceptions_lag2(duthosts, rand_one_dut_hostname,
         ignoreRegex = [
             # Valid test_lag_db_status and test_lag_db_status_with_po_update
             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
+            r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
