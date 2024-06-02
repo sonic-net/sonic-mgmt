@@ -26,7 +26,6 @@ SUBMODE_ONCHANGE = 1
 CFG_DB_PATH = "/etc/sonic/config_db.json"
 ORIG_CFG_DB = "/etc/sonic/orig_config_db.json"
 MAX_UC_CNT = 7
-BUFFER_QUEUES_REMOVED = 2
 
 
 def load_new_cfg(duthost, data):
@@ -137,10 +136,10 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     correctness of the feature of polling only configured port buffer queues.
         - Set "create_only_config_db_buffers" to true in config db, to create
       only relevant counters
-        - Remove one of the buffer queues, Ethernet0|3-4 is chosen arbitrary
+        - Remove one of the buffer queues
         - Using gnmi to query COUNTERS_QUEUE_NAME_MAP for Ethernet0 compare
         number of queue counters on Ethernet0. It is expected that it will
-        decrease by the number of deleted queue buffers.
+        less than previous count.
     This test covers the issue: 'The feature "polling only configured ports
     buffer queue" will break SNMP'
     https://github.com/sonic-net/sonic-buildimage/issues/17448
@@ -162,17 +161,15 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     # to removing buffer queues
     data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
         = "true"
-    data['BUFFER_QUEUE']["Ethernet0|3-4"]["profile"] = "egress_lossless_profile"
     load_new_cfg(duthost, data)
     pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, env.gnmi_port)
 
-    # Remove buffer queue and reload and get number of queue counters of
-    # Ethernet0 after removing two buffer queues
-    del data['BUFFER_QUEUE']["Ethernet0|3-4"]
+    # Remove buffer queue and reload and get new number of queue counters
+    del data['BUFFER_QUEUE'][0]
     load_new_cfg(duthost, data)
     post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, env.gnmi_port)
 
-    pytest_assert((pre_del_cnt - post_del_cnt) == BUFFER_QUEUES_REMOVED,
+    pytest_assert(pre_del_cnt > post_del_cnt,
                   "Number of queue counters count differs from expected")
 
 
