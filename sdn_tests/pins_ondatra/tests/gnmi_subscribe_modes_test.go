@@ -99,6 +99,9 @@ var skipTest = map[string]bool{
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]:Adding GNMI subscribe modes test [TestGNMISubscribeModes] to pins_ondatra. (#13073)
 func TestGNMISubscribeModes(t *testing.T) {
         testCases := []struct {
                 name     string
@@ -405,8 +408,11 @@ func TestGNMISubscribeModes(t *testing.T) {
         }
 }
 
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]:Adding GNMI subscribe modes test to pins_ondatra. (#13034)
+=======
+>>>>>>> [sdn_tests]:Adding GNMI subscribe modes test [TestGNMISubscribeModes] to pins_ondatra. (#13073)
 // Test for gNMI Subscribe Stream mode for OnChange subscriptions.
 func (c subscribeTest) subModeOnChangeTest(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
