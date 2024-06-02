@@ -7,6 +7,7 @@ import tempfile
 import time
 import six
 
+from datetime import datetime
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
@@ -417,8 +418,9 @@ def test_bgp_update_timer_session_down(
         # close bgp session n0, monitor withdraw info from dut to n1
         bgp_pcap = BGP_DOWN_LOG_TMPL
         with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
-            duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
-            current_time = time.time()
+            result = duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
+            dt_obj = datetime.strptime(result['end'], "%Y-%m-%d %H:%M:%S.%f")
+            bgp_shutdown_time = time.mktime(dt_obj.timetuple()) + dt_obj.microsecond / 1e6
             time.sleep(constants.sleep_interval)
 
         with tempfile.NamedTemporaryFile() as tmp_pcap:
@@ -429,7 +431,7 @@ def test_bgp_update_timer_session_down(
         for bgp_update in bgp_updates:
             for i, route in enumerate(constants.routes):
                 if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route):
-                    withdraw_intervals[i] = bgp_update.time - current_time
+                    withdraw_intervals[i] = bgp_update.time - bgp_shutdown_time
 
         for i, route in enumerate(constants.routes):
             if withdraw_intervals[i] >= constants.update_interval_threshold:
