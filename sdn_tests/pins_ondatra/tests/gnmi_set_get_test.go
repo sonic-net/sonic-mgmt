@@ -398,6 +398,9 @@ func TestGNMISetUpdateInvalidLeaf(t *testing.T) {
 
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]:Adding GNMI set replace leaf tests. (#13087)
 
 /**********************************************************
 * gNMI SET Replace operations
@@ -577,6 +580,7 @@ func TestGNMISetReplaceInvalidLeaf(t *testing.T) {
         }
 
 }
+<<<<<<< HEAD
 
 func TestGNMISetReplaceMultipleLeafsValid(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("c1f9dd81-d509-405f-bed2-e108e619b5f6").Teardown(t)
@@ -1790,3 +1794,5 @@ func TestGNMISetReplaceRootPath(t *testing.T) {
 >>>>>>> [sdn_tests]:Adding Gnmi set get tests to pins_ondatra. (#13036)
 =======
 >>>>>>> [sdn_tests]:Adding GNMI set update leaf tests. (#13061)
+=======
+>>>>>>> [sdn_tests]:Adding GNMI set replace leaf tests. (#13087)
