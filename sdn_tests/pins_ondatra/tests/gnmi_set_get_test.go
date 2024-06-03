@@ -379,3 +379,182 @@ func TestGNMISetUpdateInvalidLeaf(t *testing.T) {
 	}
 
 }
+
+/**********************************************************
+* gNMI SET Replace operations
+**********************************************************/
+// Sample test that performs gNMI SET replace on leaf.
+func TestGNMISetReplaceSingleLeaf(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("162ec144-03b2-45ba-8bab-975ae4d09f7a").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        enabled := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Enabled().Config())
+        oldMtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config())
+        defer func() {
+                // Replace the old MTU value as a test cleanup.
+                gnmi.Replace(t, dut, gnmi.OC().Interface(intf).Mtu().Config(), oldMtu)
+                gnmi.Await(t, dut, gnmi.OC().Interface(intf).Mtu().State(), 5*time.Second, oldMtu)
+        }()
+
+        // Configure port MTU and verify that state path reflects configured MTU.
+        mtu := uint16(1500)
+        gnmi.Replace(t, dut, gnmi.OC().Interface(intf).Mtu().Config(), mtu)
+
+        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
+                t.Errorf("MTU matched failed! got:%v, want:%v", got, mtu)
+        }
+        // Verify that other leaf nodes are not changed.
+        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Enabled().Config()); got != enabled {
+                t.Errorf("enabled matched failed! idAfterSet:%v, want:%v", got, enabled)
+        }
+
+}
+
+func TestGNMISetReplaceMoreThanOneLeaf(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("d89eb043-3594-4265-bf91-5e71477f98b9").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        oldEnabled := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Enabled().Config())
+        oldMtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config())
+        intfType := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Type().Config())
+        mtu := oldMtu + 22
+        enabled := strconv.FormatBool(!oldEnabled)
+
+        defer func() {
+                // Replace the old values as a test cleanup.
+                gnmi.Replace(t, dut, gnmi.OC().Interface(intf).Enabled().Config(), oldEnabled)
+                gnmi.Replace(t, dut, gnmi.OC().Interface(intf).Mtu().Config(), oldMtu)
+                // Wait for the port to be operationally up.
+                gnmi.Await(t, dut.GNMIOpts().WithYGNMIOpts(ygnmi.WithSubscriptionMode(gpb.SubscriptionMode_ON_CHANGE)), gnmi.OC().Interface(intf).OperStatus().State(), 30*time.Second, oc.Interface_OperStatus_UP)
+                gnmi.Await(t, dut, gnmi.OC().Interface(intf).Enabled().State(), 1*time.Second, oldEnabled)
+                gnmi.Await(t, dut, gnmi.OC().Interface(intf).Mtu().State(), 5*time.Second, oldMtu)
+        }()
+
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+
+        path := &gpb.Path{Elem: []*gpb.PathElem{{Name: "interfaces"}, {Name: "interface", Key: map[string]string{"name": intf}}, {Name: "openconfig-interfaces:config"}}}
+        setRequest := &gpb.SetRequest{
+                Prefix: prefix,
+                Replace: []*gpb.Update{{
+                        Path: path,
+                        Val: &gpb.TypedValue{
+                                Value: &gpb.TypedValue_JsonIetfVal{
+                                        JsonIetfVal: []byte("{\"enabled\":" + enabled + ",\"mtu\":" + strconv.FormatUint(uint64(mtu), 10) + "}"),
+                                },
+                        },
+                }},
+        }
+        ctx := context.Background()
+
+        // Fetch raw gNMI client and call Set API to send Set Request.
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        setResp, err := gnmiClient.Set(ctx, setRequest)
+        if err != nil {
+                t.Fatalf("Unable to fetch set client (%v)", err)
+        }
+        t.Logf("SetResponse:\n%v", setResp)
+
+        // Verify the value is being set properly using get.
+        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
+                t.Errorf("MTU matched failed! got:%v, want:%v", got, mtu)
+        }
+        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Enabled().Config()); got == oldEnabled {
+                t.Errorf("Enabled matched failed! got:%v, want:%v", got, !oldEnabled)
+        }
+        // Verify that other leaf nodes are not changed.
+        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Type().Config()); got != intfType {
+                t.Errorf("Type matched failed! got type :%v, want:%v", got, intfType)
+        }
+}
+
+func TestGNMISetReplaceInvalidDataLeaf(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("31509436-ddc5-405b-9008-0b71d28fbb92").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+
+        path := &gpb.Path{Elem: []*gpb.PathElem{{Name: "platform"}}}
+        setRequest := &gpb.SetRequest{
+                Prefix: prefix,
+                Replace: []*gpb.Update{{
+                        Path: path,
+                        Val: &gpb.TypedValue{
+                                Value: &gpb.TypedValue_JsonIetfVal{
+                                        JsonIetfVal: []byte("{\"openconfig-interfaces:description:\":\"test\"}"),
+                                },
+                        },
+                }},
+        }
+        ctx := context.Background()
+
+        // Fetch raw gNMI client and call Set API to send Set Request.
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        setResp, err := gnmiClient.Set(ctx, setRequest)
+        if err == nil {
+                t.Fatalf("Set request is expected to fail but it didn't")
+        }
+        t.Logf("SetResponse:\n%v", setResp)
+}
+
+func TestGNMISetReplaceInvalidLeaf(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("a9e707cf-4872-4066-ab38-8fe2c14af892").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        path := &gpb.Path{Elem: []*gpb.PathElem{{Name: "interfaces"}, {Name: "interface", Key: map[string]string{"name": intf}}, {Name: "config"}, {Name: "xyz"}}}
+        setRequest := &gpb.SetRequest{
+                Prefix: prefix,
+                Replace: []*gpb.Update{{
+                        Path: path,
+                        Val: &gpb.TypedValue{
+                                Value: &gpb.TypedValue_JsonIetfVal{
+                                        JsonIetfVal: []byte("123"),
+                                },
+                        },
+                }},
+        }
+
+        mtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config())
+        ctx := context.Background()
+
+        // Fetch raw gNMI client and call Set API to send Set Request.
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        if _, err = gnmiClient.Set(ctx, setRequest); err == nil {
+                t.Fatalf("Set request is expected to fail but it didn't")
+        }
+
+        // Verify that other leaf nodes are not changed.
+        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
+                t.Errorf("MTU matched failed! got:%v, want:%v", got, mtu)
+        }
+
+}
