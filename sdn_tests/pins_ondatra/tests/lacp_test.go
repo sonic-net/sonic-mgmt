@@ -380,6 +380,9 @@ func TestCreatingPortChannel(t *testing.T) {
 	gnmi.Await(t, peer, gnmi.OC().Lacp().Interface(portChannel).Member(peerPorts[0].Peer).PartnerKey().State(), defaultGNMIWait, lacpKey)
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding LACP tests [add/remove interface into port channel] to pins_ondatra. (#13089)
 
 func TestAddingInterfaceToAnExistingPortChannel(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("cda6bc3d-9bfa-44f2-8851-53d42ab2c5bb").Teardown(t)
@@ -565,6 +568,7 @@ func TestLacpConfiguredOnOnlyOneSwitch(t *testing.T) {
                 t.Errorf("LACP state is not blocking: %v", err)
         }
 }
+<<<<<<< HEAD
 
 func TestMembersArePartiallyConfigured(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("42eea9f9-043c-45c4-95fd-5c1e00fef959").Teardown(t)
@@ -694,3 +698,5 @@ func TestPortDownEvent(t *testing.T) {
 >>>>>>> [sdn_tests]: Adding LACP tests to pins_ondatra. (#13037)
 =======
 >>>>>>> [sdn_tests]:Adding LACP port channel test. (#13067)
+=======
+>>>>>>> [sdn_tests]: Adding LACP tests [add/remove interface into port channel] to pins_ondatra. (#13089)
