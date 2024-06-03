@@ -165,7 +165,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, env.gnmi_port)
 
     # Remove buffer queue and reload and get new number of queue counters
-    buffer_queues = data['BUFFER_QUEUE'].keys()
+    buffer_queues = list(data['BUFFER_QUEUE'].keys())
     del data['BUFFER_QUEUE'][buffer_queues[0]]
     load_new_cfg(duthost, data)
     post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, env.gnmi_port)
