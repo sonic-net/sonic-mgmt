@@ -496,6 +496,9 @@ func TestGNMIEthernetOut(t *testing.T) {
         t.Logf("\n\n----- TestGNMIEthernetOut: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding multicast out-packets test in Ethernet counter. (#13090)
 
 // ----------------------------------------------------------------------------
 // TestGNMIEthernetOutMulticast - Check EthernetX Out-Multicast-Pkts
@@ -588,6 +591,7 @@ func TestGNMIEthernetOutMulticast(t *testing.T) {
 
         t.Logf("\n\n----- TestGNMIEthernetOutMulticast: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+<<<<<<< HEAD
 
 // ----------------------------------------------------------------------------
 // TestGNMIEthernetOutBroadcast - Check EthernetX Out-Broadcast-Pkts
@@ -1460,3 +1464,5 @@ func TestGNMIEthernetInIPv6Discards(t *testing.T) {
 >>>>>>> [sdn_tests]:Adding single switch Ethernet Counter test to pins_ondatra. (#13035)
 =======
 >>>>>>> [sdn_tests]:Adding Ethernet Counter subinterface index and unicast out-packets test to pins_ondatra. (#13083)
+=======
+>>>>>>> [sdn_tests]: Adding multicast out-packets test in Ethernet counter. (#13090)
