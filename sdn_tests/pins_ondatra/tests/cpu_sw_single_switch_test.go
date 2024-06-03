@@ -276,6 +276,9 @@ func TestGNMICPUParentPaths(t *testing.T) {
 	}
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding CPU In-Discards test to pins_ondatra. (#13086)
 
 // TestGNMICPUInDiscards - Check CPU In-Discards
 // Because the systems we're testing on have existing traffic flowing at random
@@ -388,7 +391,10 @@ func TestGNMICPUInDiscards(t *testing.T) {
 
         t.Logf("\n\n----- TestGNMICPUInDiscards: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]: Adding CPU single switch tests to pins_ondatra. (#13030)
 =======
 >>>>>>> [sdn_tests]:Adding CPU parent paths Test to pins_ondatra. (#13058)
+=======
+>>>>>>> [sdn_tests]: Adding CPU In-Discards test to pins_ondatra. (#13086)
