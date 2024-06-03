@@ -1,7 +1,7 @@
 # SmartSwitch PMON Test Plan
 
 - [Introduction](#introduction)
-- [Scope](#scope)
+- [Scope](#scope)C
 - [Definitions and Abbreviations](#definitions-and-abbreviations)
 - [Test Cases](#test-cases)
     - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-chassis-apis)
@@ -16,7 +16,11 @@
     - [1.10 Check the show system-health summary CLI on the SWITCH](#110-check-switch-system-health-summary-cli)
     - [1.11 Check the show system-health monitor-list CLI on the SWITCH](#111-check-switch-system-health-monitorlist-cli)
     - [1.12 Check the show system-health detail CLI on the SWITCH](#112-check-switch-system-health-detail-cli)
-    - [1.13 Check the show system-health dpu DPUx CLI on the SWITCH](#112-check-dpu-state-cli)
+    - [1.13 Check the show system-health dpu DPUx CLI on the SWITCH](#113-check-dpu-state-cli)
+    - [1.14 Check the cold startup of the DPUs and SWITCH](#114-check-startup-config)
+    - [1.15 Check the startup config CLI](#115-check-startup-config-cli)
+    - [1.16 Check the shutdown config CLI](#116-check-shutdown-config-cli)
+    - [1.17 Check the reboot config CLI](#117-check-reboot-config-cli)
 
 ## Introduction
 
@@ -42,9 +46,26 @@ The primary goal is to cover SmartSwitch specific PMON APIs. The corresponding C
 | ---------- | ---------- | ---------------------------------------- |
 | 1.1 | Check SmartSwitch specific ChassisClass APIs      | To verify the newly implemented SmartSwitch specific ChassisClass APIs |
 | 1.2 | Check modified ChassisClass APIs for SmartSwitch       |  To verify the existing ChassisClass APIs that undergo minor changes with the addition of SmartSwitch|
-| 1.3 | Check DpuModule APIs for SmartSwitch       |  To Verify the newly implemented  DpuModule APIs for SmartSwitch|
+| 1.3 | Check DpuModule APIs for SmartSwitch       |  To verify the newly implemented  DpuModule APIs for SmartSwitch|
 | 1.4 | Check modified ModuleClass APIs for SmartSwitch       |  To verify the existing ModuleClass APIs that undergo minor changes with the addition of SmartSwitch|
-| 1.5 | Check SwitchModule APIs for SmartSwitch       |  To Verify the newly implemented  SwitchModule APIs for SmartSwitch|
+| 1.5 | Check SwitchModule APIs for SmartSwitch       |  To verify the newly implemented  SwitchModule APIs for SmartSwitch|
+
+| 1.6 | Check the show reboot-cause CLI on the DPU       |  To verify the reboot-cause CLI on the DPU is unaffected |
+| 1.7 | Check the show reboot-cause history CLI on the DPU       |  To verify the reboot-cause history CLI on the DPU is unaffected|
+| 1.8 | Check the show reboot-cause CLI on the SWITCH       |  To verify the reboot-cause CLI on the SWITCH is unaffected and the new extensions of the CLI work as intended|
+| 1.9 | Check the show reboot-cause history CLI on the SWITCH       |  To verify the reboot-cause history CLI on the SWITCH is unaffected and the new extensions of the CLI work as intended|
+| 1.10 | Check the show system-health summary CLI on the SWITCH       |  To verify the new extensions such as "all, SWITCH, DPUx" of the show system-health summary" CLI work as expected |
+
+
+| 1.11 | Check the show system-health monitor-list CLI on the SWITCH        |  To verify the new extensions such as "all, SWITCH, DPUx" of the show system-health monitor-list" CLI work as expected|
+| 1.12 | Check the show system-health detail CLI on the SWITCH       |  To verify the new extensions such as "all, SWITCH, DPUx" of the show system-health detail" CLI work as expected|
+| 1.13 | Check the show system-health dpu DPUx CLI on the SWITCH       |  To verify the newly implemented  show system-health dpu DPUx CLI for SmartSwitch reflects the midplane, control-plane, data-plane states of the DPU|
+| 1.14 | Check the cold startup of the DPUs and SWITCH       |  To verify the "chassisd", "chassis instance o database" are created and the admin state of the DPUs as defined in the config_db.json are applied properly |
+| 1.15 |  Check the startup config CLI       |  To verify the "config chassis modules startup DPUx" CLI does startup the DPU|
+
+
+| 1.16 | Check the shutdown config CLI        |   To verify the "config chassis modules shutdown DPUx" CLI does shutdown the DPU|
+| 1.17 | Check the reboot config CLI       |  To verify the "config chassis modules reboot SWITCH " CLI does reboot the SWITCH|
 
 ## Test Cases
 
@@ -418,6 +439,7 @@ SWITCH    2024_05_24_04_13_41  Power Loss  N/A                              N/A 
 #### Sample Output
 ```
 On Switch: “show system-health summary"
+Output: TBD
 
 On Switch: “show system-health summary DPU0"
 
@@ -442,6 +464,7 @@ On Switch: “show system-health summary all"
 #### Sample Output
 ```
 On Switch: “show system-health monitor-list"
+Output: TBD
 
 On Switch: “show system-health monitor-list DPU0"
 
@@ -466,6 +489,7 @@ On Switch: “show system-health monitor-list all"
 #### Sample Output
 ```
 On Switch: “show system-health detail"
+Output: TBD
 
 On Switch: “show system-health detail DPU0"
 
@@ -492,7 +516,102 @@ On Switch: “show system-health detail all"
 #### Sample Output
 ```
 On Switch: “show system-health dpu DPU0"
+Output: TBD
 
 ```
 #### Pass/Fail Criteria
  *  A proper output should be delayed without any error
+
+### 1.14 Check the cold startup of the DPUs and SWITCH
+
+#### Steps
+ * Set the config_db.json such that some DPUs are powered down
+ * Cold start the system with the config
+ * Verify if the expected DPUs  are ON and the remaining are OFF and the  admin_status is set properly
+ 
+#### Verify in
+ * Switch
+   
+#### Sample Output
+```
+Once the all the containers are up, (give enough time for the DPUs to boot up as well) and the system is stable
+On Switch: “show platform inventory"
+Output: TBD
+
+On Switch: "show chassis modules status"
+Output: TBD
+
+```
+#### Pass/Fail Criteria
+ * Verify if the expected DPUs are ON and the remaining are OFF and the  admin_status is set properly
+
+### 1.15 Check the startup config CLI
+
+#### Steps
+ * Boot the system
+ * Change config such that DPU3 which is OFF will be shutdown with the CLI “config chassis modules startup DPU3”
+ * Wait for the DPU to boot fully and the midplane IP is established
+ * Verify if the expected DPU "DPU3"  is ON and the  admin_status is set properly
+ 
+#### Verify in
+ * Switch
+   
+#### Sample Output
+```
+On Switch: “show platform inventory"
+Output: TBD
+
+On Switch: "show chassis modules status"
+Output: TBD
+
+```
+#### Pass/Fail Criteria
+ * Verify if the expected DPU "DPU3"  is ON and the  admin_status is set properly
+
+### 1.16 Check the shutdown config CLI
+
+#### Steps
+ * Boot the system
+ * Change config such that DPU1 which is ON will be shutdown with the CLI “config chassis modules shutdown DPU1”
+ * Wait for the DPU to shutdown fully and the midplane IP is detached
+ * Verify if the expected DPU "DPU1"  is OFF and the  admin_status is set properly
+ 
+#### Verify in
+ * Switch
+   
+#### Sample Output
+```
+On Switch: “show platform inventory"
+Output: TBD
+
+On Switch: "show chassis modules status"
+Output: TBD
+
+```
+#### Pass/Fail Criteria
+ * Verify if the expected DPU "DPU1" is OFF and the  admin_status is set properly
+
+### 1.17 Check the reboot config CLI
+* TBD
+
+#### Steps
+ * Boot the system
+ * TBD: Change config such that "SWITCH" module is rebooted with the CLI “config chassis modules reboot SWITCH”
+ * Wait for the system to reboot fully
+ * Verify if the SWITCH and the DPUs that were ON rebooted properly
+ 
+#### Verify in
+ * Switch
+   
+#### Sample Output
+```
+Once the all the containers are up, (give enough time for the DPUs to boot up as well) and the system is stable
+On Switch: “show platform inventory"
+Output: TBD
+
+On Switch: "show chassis modules status"
+Output: TBD
+
+```
+#### Pass/Fail Criteria
+ * Verify if the expected DPUs are ON and the remaining are OFF and the admin_status is set properly
