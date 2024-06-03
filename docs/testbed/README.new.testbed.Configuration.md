@@ -192,11 +192,10 @@ docker_registry_password: root
 The inventory file contains all device host/IP information for testbeds within its inventory.
 For example, the testbed `vms-sn2700-t1` uses the inventory file lab (`inv_name: lab` in `testbed.yaml`).
 
-The `ansible/lab` inventory file includes four sections of devices:
+The `ansible/lab` inventory file includes three sections of devices:
 - sonic
-- fanout
-- server
-- pdu
+- fanout/pdu/mgmt/server
+- ptf
 
 Under `sonic` sections, it has several different SONiC platforms, such as `sonic_sn2700_40`.
 Please ensure that the following fields are correctly filled for your DUT. The test case `tests/platform_tests/api/test_chassis.py` will verify the correctness of these fields.
@@ -234,6 +233,7 @@ Those devices are also recorded in the following csv files:
 - `ansible/files/sonic_lab_console_links.csv`
 
 For `ptf` section, the `ansible_ssh_user` and `ansible_ssh_pass` variables are the credentials for the PTF container.
+`ansible_host` should be same with `ptf_ip` in `testbed.yaml`.
 
 ```
     ptf:
