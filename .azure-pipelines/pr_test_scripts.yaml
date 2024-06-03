@@ -35,6 +35,7 @@ t0:
   - dut_console/test_console_baud_rate.py
   - dut_console/test_escape_character.py
   - dut_console/test_idle_timeout.py
+  - everflow/test_everflow_ipv6.py
   - fdb/test_fdb.py
   - fdb/test_fdb_flush.py
   - fdb/test_fdb_mac_expire.py
