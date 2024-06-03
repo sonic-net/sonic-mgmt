@@ -15,6 +15,10 @@ from .util import parse_output
 from .util import get_dev_conn
 from tests.common.utilities import skip_release
 from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa F401
+from .conftest import StopXcvrd
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.port_toggle import default_port_toggle_wait_time
 
 cmd_sfp_presence = "sudo sfputil show presence"
 cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -100,15 +104,70 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
 def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                              enum_frontend_asic_index, conn_graph_facts,
-                             tbinfo, xcvr_skip_list, shutdown_ebgp, stop_xcvrd):    # noqa F811
+                             tbinfo, xcvr_skip_list, shutdown_ebgp):    # noqa F811
     """
-    @summary: Check SFP presence using 'sfputil show presence'
+    @summary: Check SFP reset using 'sfputil reset'
     """
+    def __get_down_ports(expect_up=True):
+        """Check and return the down ports"""
+        ports_down = duthost.interface_facts(up_ports=ports)["ansible_facts"][
+            "ansible_interface_link_down_ports"]
+        db_ports_down = duthost.show_interface(command="status", up_ports=ports)["ansible_facts"][
+            "ansible_interface_link_down_ports"]
+        if expect_up:
+            return set(ports_down) | set(db_ports_down)
+        else:
+            return set(ports_down) & set(db_ports_down)
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     global ans_host
     ans_host = duthost
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
     tested_physical_ports = set()
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    ports = mg_facts["minigraph_ports"]
+    stop_xcvrd = StopXcvrd(duthost)
+    port_down_wait_time, port_up_wait_time = default_port_toggle_wait_time(duthost, len(ports))
+    wait_after_restore_lpmode = 10
+    wait_after_restore_xcvrd = 15
+    wait_after_ports_up = 60
+
+    # Form cmds to shutdown and startup ports
+    cmds_down = []
+    cmds_up = []
+    for port in ports:
+        namespace = '-n {}'.format(mg_facts["minigraph_neighbors"][port]['namespace']) \
+            if mg_facts["minigraph_neighbors"][port]['namespace'] else ''
+        cmds_down.append("config interface {} shutdown {}".format(namespace, port))
+        cmds_up.append("config interface {} startup {}".format(namespace, port))
+
+    # It's needed to shutdown ports before reset and startup ports after reset,
+    # to get config/state machine/etc replayed, so that the modules can be fully
+    # restored.
+    logging.info("Shutdown ports before sfp reset")
+    shutdown_ok = False
+    shutdown_err_msg = ""
+    try:
+        duthost.shell_cmds(cmds=cmds_down)
+
+        logging.info("Wait for ports to go down")
+        shutdown_ok = wait_until(port_down_wait_time, 5, 0,
+                                 lambda: len(__get_down_ports(expect_up=False)) == len(ports))
+
+        if not shutdown_ok:
+            up_ports = __get_down_ports(expect_up=True)
+            shutdown_err_msg = "Some ports did not go down as expected: {}".format(str(up_ports))
+    except Exception as e:
+        shutdown_err_msg = "Shutdown ports failed with exception: {}".format(repr(e))
+    pytest_assert(shutdown_ok, shutdown_err_msg)
+
+    logging.info("Check output of '{}' before sfp reset".format(cmd_sfp_show_lpmode))
+    lpmode_show = duthost.command(cmd_sfp_show_lpmode)
+    original_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
+
+    # Stop xcvrd to avoid race condition with eeprom polling thread in xcvrd
+    logging.info("Stop xcvrd before sfp reset")
+    stop_xcvrd.setup()
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             phy_intf = portmap[intf][0]
@@ -136,11 +195,54 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
             assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
-    logging.info("Check interface status")
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    intf_facts = duthost.interface_facts(up_ports=mg_facts["minigraph_ports"])["ansible_facts"]
-    assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
-        "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])
+    # Restore lpmode if needed, because sfp reset will reset lpmode to default
+    logging.info("Check output of '{}' after sfp reset".format(cmd_sfp_show_lpmode))
+    lpmode_show = duthost.command(cmd_sfp_show_lpmode)
+    after_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
+    physical_ports_restored_lpmode = set()
+    for intf, after_lpmode_state in after_lpmode.items():
+        physical_port = portmap[intf][0]
+        after_lpmode_state = after_lpmode_state.lower()
+        original_lpmode_state = original_lpmode[intf].lower()
+        if physical_port not in tested_physical_ports \
+            or physical_port in physical_ports_restored_lpmode:
+            continue
+        if after_lpmode_state == original_lpmode_state:
+            continue
+        logging.info("Restoring {} physical interface {} to lpmode {}".format(
+            intf, physical_port, original_lpmode_state))
+        lpmode_set_result = duthost.command("{} {} {}".format(cmd_sfp_set_lpmode, original_lpmode_state, intf))
+        assert lpmode_set_result["rc"] == 0, "'{} {} {}' failed".format(cmd_sfp_set_lpmode, original_lpmode_state, intf)
+        physical_ports_restored_lpmode.add(physical_port)
+    if physical_ports_restored_lpmode:
+        time.sleep(wait_after_restore_lpmode)
+    else:
+        logging.info("No physical ports to restore lpmode")
+
+    # Restore xcvrd
+    logging.info("Start xcvrd after sfp reset")
+    stop_xcvrd.teardown()
+    logging.info("Wait some time for xcvrd to fully recover after restart")
+    time.sleep(wait_after_restore_xcvrd)
+
+    logging.info("Startup ports after sfp reset to restore modules")
+    startup_ok = False
+    startup_err_msg = ""
+    try:
+        duthost.shell_cmds(cmds=cmds_up)
+
+        logging.info("Wait for ports to come up")
+        startup_ok = wait_until(port_up_wait_time, 5, 0, lambda: len(__get_down_ports()) == 0)
+
+        if not startup_ok:
+            down_ports = __get_down_ports()
+            startup_err_msg = "Some ports did not come up as expected: {}".format(str(down_ports))
+    except Exception as e:
+        startup_err_msg = "Startup ports failed with exception: {}".format(repr(e))
+    pytest_assert(startup_ok, startup_err_msg)
+
+    logging.info("Wait %d seconds for system to stabilize", wait_after_ports_up)
+    time.sleep(wait_after_ports_up)
 
 
 def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
