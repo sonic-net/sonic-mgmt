@@ -33,13 +33,13 @@ def load_new_cfg(duthost, data):
     config_reload(duthost, config_source='config_db', safe_reload=True)
 
 
-def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, gnmi_port):
+def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface, gnmi_port):
     cnt = 0
     for i in range(MAX_UC_CNT):
         cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} \
-            -p {1} -m get -x COUNTERS_QUEUE_NAME_MAP/Ethernet0:{2} \
+            -p {1} -m get -x COUNTERS_QUEUE_NAME_MAP/{2}:{3} \
             -xt COUNTERS_DB -o "ndastreamingservertest" \
-            '.format(dut_ip, gnmi_port, i)
+            '.format(dut_ip, gnmi_port, iface, i)
 
         cmd_output = ptfhost.shell(cmd, module_ignore_errors=True)
 
@@ -155,6 +155,9 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     duthost.shell("sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB))
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                     verbose=False)['stdout'])
+    buffer_queues = list(data['BUFFER_QUEUE'].keys())
+    iface_to_check = buffer_queues[0].split('|')[0]
+    iface_buffer_queues = [bq for bq in buffer_queues if any(val in iface_to_check for val in bq.split('|'))]
 
     # Add create_only_config_db_buffers entry to device metadata to enable
     # counters optimization and get number of queue counters of Ethernet0 prior
@@ -162,15 +165,12 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
         = "true"
     load_new_cfg(duthost, data)
-    pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, env.gnmi_port)
+    pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface_to_check, env.gnmi_port)
 
     # Remove buffer queue and reload and get new number of queue counters
-    buffer_queues = list(data['BUFFER_QUEUE'].keys())
-    eth0 = "Ethernet0"
-    eth0_buffer_queues = [bq for bq in buffer_queues if any(val in eth0 for val in bq.split('|'))]
-    del data['BUFFER_QUEUE'][eth0_buffer_queues[0]]
+    del data['BUFFER_QUEUE'][iface_buffer_queues[0]]
     load_new_cfg(duthost, data)
-    post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, env.gnmi_port)
+    post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface_to_check, env.gnmi_port)
 
     pytest_assert(pre_del_cnt > post_del_cnt,
                   "Number of queue counters count differs from expected")
