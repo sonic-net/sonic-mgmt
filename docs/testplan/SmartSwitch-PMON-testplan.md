@@ -49,21 +49,16 @@ The primary goal is to cover SmartSwitch specific PMON APIs. The corresponding C
 | 1.3 | Check DpuModule APIs for SmartSwitch       |  To verify the newly implemented  DpuModule APIs for SmartSwitch|
 | 1.4 | Check modified ModuleClass APIs for SmartSwitch       |  To verify the existing ModuleClass APIs that undergo minor changes with the addition of SmartSwitch|
 | 1.5 | Check SwitchModule APIs for SmartSwitch       |  To verify the newly implemented  SwitchModule APIs for SmartSwitch|
-
 | 1.6 | Check the show reboot-cause CLI on the DPU       |  To verify the reboot-cause CLI on the DPU is unaffected |
 | 1.7 | Check the show reboot-cause history CLI on the DPU       |  To verify the reboot-cause history CLI on the DPU is unaffected|
 | 1.8 | Check the show reboot-cause CLI on the SWITCH       |  To verify the reboot-cause CLI on the SWITCH is unaffected and the new extensions of the CLI work as intended|
 | 1.9 | Check the show reboot-cause history CLI on the SWITCH       |  To verify the reboot-cause history CLI on the SWITCH is unaffected and the new extensions of the CLI work as intended|
 | 1.10 | Check the show system-health summary CLI on the SWITCH       |  To verify the new extensions such as "all, SWITCH, DPUx" of the show system-health summary" CLI work as expected |
-
-
 | 1.11 | Check the show system-health monitor-list CLI on the SWITCH        |  To verify the new extensions such as "all, SWITCH, DPUx" of the show system-health monitor-list" CLI work as expected|
 | 1.12 | Check the show system-health detail CLI on the SWITCH       |  To verify the new extensions such as "all, SWITCH, DPUx" of the show system-health detail" CLI work as expected|
 | 1.13 | Check the show system-health dpu DPUx CLI on the SWITCH       |  To verify the newly implemented  show system-health dpu DPUx CLI for SmartSwitch reflects the midplane, control-plane, data-plane states of the DPU|
 | 1.14 | Check the cold startup of the DPUs and SWITCH       |  To verify the "chassisd", "chassis instance o database" are created and the admin state of the DPUs as defined in the config_db.json are applied properly |
 | 1.15 |  Check the startup config CLI       |  To verify the "config chassis modules startup DPUx" CLI does startup the DPU|
-
-
 | 1.16 | Check the shutdown config CLI        |   To verify the "config chassis modules shutdown DPUx" CLI does shutdown the DPU|
 | 1.17 | Check the reboot config CLI       |  To verify the "config chassis modules reboot SWITCH " CLI does reboot the SWITCH|
 
