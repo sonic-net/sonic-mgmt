@@ -487,3 +487,95 @@ func TestGNMIEthernetOut(t *testing.T) {
         }
         t.Logf("\n\n----- TestGNMIEthernetOut: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+
+// ----------------------------------------------------------------------------
+// TestGNMIEthernetOutMulticast - Check EthernetX Out-Multicast-Pkts
+func TestGNMIEthernetOutMulticast(t *testing.T) {
+        // Report results to TestTracker at the end.
+        defer testhelper.NewTearDownOptions(t).WithID("a7bb8eb2-eb78-4658-926a-9f053f27adc6").Teardown(t)
+
+        // Select the dut, or device under test.
+        dut := ondatra.DUT(t, "DUT")
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+        CheckInitial(t, dut, intf)
+
+        var bad bool
+        var i int
+
+        // Iterate up to 5 times to get a successful test.
+        for i = 1; i <= 5; i++ {
+                t.Logf("\n----- TestGNMIEthernetOutMulticast: Iteration %v -----\n", i)
+                bad = false
+
+                // Read all the relevant counters initial values.
+                before := ReadCounters(t, dut, intf)
+
+                // Compute the expected counters after the test.
+                expect := before
+                expect.outPkts += pktsPer
+                expect.outOctets += 64 * pktsPer
+                expect.outMulticastPkts += pktsPer
+
+
+                // Construct a simple multicast Ethernet L2 packet.
+                eth := &layers.Ethernet{
+                        SrcMAC:       net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+                        DstMAC:       net.HardwareAddr{0x01, 0x00, 0x5E, 0xFF, 0xFF, 0xFF},
+                        EthernetType: layers.EthernetTypeEthernetCTP,
+                }
+
+                buf := gopacket.NewSerializeBuffer()
+
+                // Enable reconstruction of length and checksum fields.
+                opts := gopacket.SerializeOptions{
+                        FixLengths:       true,
+                        ComputeChecksums: true,
+                }
+
+                if err := gopacket.SerializeLayers(buf, opts, eth); err != nil {
+                        t.Fatalf("Failed to serialize packet (%v)", err)
+                }
+
+                packetOut := &testhelper.PacketOut{
+                        EgressPort: intf,
+                        Count:      uint(pktsPer),
+                        Interval:   1 * time.Millisecond,
+                        Packet:     buf.Bytes(),
+                }
+
+                p4rtClient, err := testhelper.FetchP4RTClient(t, dut, dut.RawAPIs().P4RT(t), nil)
+                if err != nil {
+                        t.Fatalf("Failed to create P4RT client: %v", err)
+                }
+                if err := p4rtClient.SendPacketOut(t, packetOut); err != nil {
+                        t.Fatalf("SendPacketOut operation failed for %+v (%v)", packetOut, err)
+                }
+
+                // Sleep for enough time that the counters are polled after the
+                // transmit completes sending bytes.
+                time.Sleep(counterUpdateDelay)
+
+                // Read all the relevant counters again.
+                after := ReadCounters(t, dut, intf)
+
+                if after != expect {
+                        ShowCountersDelta(t, before, after, expect)
+                        bad = true
+                }
+
+                if !bad {
+                        break
+                }
+        }
+
+        if bad {
+                t.Fatalf("\n\n----- TestGNMIEthernetOutMulticast: FAILED after %v Iterations -----\n\n", i-1)
+        }
+
+        t.Logf("\n\n----- TestGNMIEthernetOutMulticast: SUCCESS after %v Iteration(s) -----\n\n", i)
+}
