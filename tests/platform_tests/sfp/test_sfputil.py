@@ -205,7 +205,7 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         after_lpmode_state = after_lpmode_state.lower()
         original_lpmode_state = original_lpmode[intf].lower()
         if physical_port not in tested_physical_ports \
-            or physical_port in physical_ports_restored_lpmode:
+           or physical_port in physical_ports_restored_lpmode:
             continue
         if after_lpmode_state == original_lpmode_state:
             continue
