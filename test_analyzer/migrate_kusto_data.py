@@ -144,9 +144,7 @@ class KustoConnector(object):
 
     def query_missing_testplan(self, upload_time_start, upload_time_end):
         query_str = '''
-            let ExcludeTestbedList = dynamic(['ixia', 't2', '3132', '7280', 'slx', '3164', 'azd']);
-            let IncludeBranchList = dynamic(['20191130', '20201231', '20220531', '20230531', '20231105','internal','master']);
-            let ExcludeTopoList = dynamic(['t2']);
+            let ExcludeTestbedList = dynamic(['ixia', '3132', '7280', 'slx', '3164', 'azd']);
             let ExcludeAsicList = dynamic(['barefoot']);
             let newTestBeds = TestBeds
             | where UploadTime between (datetime({}) .. datetime({}))
@@ -225,7 +223,6 @@ class KustoConnector(object):
             | extend Pipeline=case(strlen(BuildId)>10,strcat(Pipeline,URL),Pipeline)
             | project-away URL
             | where not(TestbedName has_any(ExcludeTestbedList))
-            | where not(TopologyType has_any(ExcludeTopoList))
             | where not(AsicType has_any(ExcludeAsicList))
             | project-away CancelledTasks,CreatedByType,FailedTasks,ImageSrc,ImageSrcType,JenkinsId,RawTestbed,RawTestCase,RawTestPlan,ReportId,Server,SuccessTasks,TestbedPlatform,TestbedType,TestPlanName,TestPlanType,TestRepo,TrackingId,VmType
             | order by UploadTimestamp desc
