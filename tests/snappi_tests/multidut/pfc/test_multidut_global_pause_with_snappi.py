@@ -11,7 +11,6 @@ from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test                      # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +53,7 @@ def test_global_pause(snappi_api,                                   # noqa: F811
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
         dut_list = [dut for dut in duthosts if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]      # noqa: E501
         duthost1, duthost2 = dut_list[0], dut_list[0]
-    else:
+    elif len(linecard_configuration_set[line_card_choice]['hostname']) == 0:
         pytest_assert(False, "Hostname can't be an empty list")
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
@@ -87,8 +86,3 @@ def test_global_pause(snappi_api,                                   # noqa: F811
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
                  snappi_extra_params=snappi_extra_params)
-
-    # Teardown config through a reload
-    logger.info("Reloading config to teardown")
-    for duthost in dut_list:
-        config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)

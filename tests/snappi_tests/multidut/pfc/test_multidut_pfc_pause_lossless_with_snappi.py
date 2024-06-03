@@ -10,7 +10,6 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list,
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test
 from tests.common.reboot import reboot
-from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
 import logging
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -53,8 +52,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
     Returns:
         N/A
     """
-    if line_card_choice not in linecard_configuration_set.keys():
-        pytest_require(False, "Invalid line_card_choice value passed in parameter")
+    pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
         dut_list = random.sample(duthosts, 2)
@@ -63,13 +61,12 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
         dut_list = [dut for dut in duthosts
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1 = duthost2 = dut_list[0]
-    else:
+    elif len(linecard_configuration_set[line_card_choice]['hostname']) == 0:
         pytest_require(False, "Hostname can't be an empty list")
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
-    if len(snappi_port_list) < 2:
-        pytest_require(False, "Need Minimum of 2 ports for the test")
+    pytest_require(len(snappi_port_list) >= 2, "Need Minimum of 2 ports for the test")
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
@@ -103,11 +100,6 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                  test_traffic_pause=True,
                  snappi_extra_params=snappi_extra_params)
 
-    # Teardown config through a reload
-    logger.info("Reloading config to teardown")
-    for duthost in dut_list:
-        config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
-
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
@@ -139,8 +131,7 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
     Returns:
         N/A
     """
-    if line_card_choice not in linecard_configuration_set.keys():
-        pytest_require(False, "Invalid line_card_choice value passed in parameter")
+    pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
         dut_list = random.sample(duthosts, 2)
@@ -149,13 +140,12 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
         dut_list = [dut for dut in duthosts
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1 = duthost2 = dut_list[0]
-    else:
+    elif len(linecard_configuration_set[line_card_choice]['hostname']) == 0:
         pytest_require(False, "Hostname can't be an empty list")
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
-    if len(snappi_port_list) < 2:
-        pytest_require(False, "Need Minimum of 2 ports for the test")
+    pytest_require(len(snappi_port_list) >= 2, "Need Minimum of 2 ports for the test")
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
 
@@ -185,11 +175,6 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
                  snappi_extra_params=snappi_extra_params)
-
-    # Teardown config through a reload
-    logger.info("Reloading config to teardown")
-    for duthost in dut_list:
-        config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
 
 @pytest.mark.disable_loganalyzer
@@ -228,8 +213,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
     Returns:
         N/A
     """
-    if line_card_choice not in linecard_configuration_set.keys():
-        pytest_require(False, "Invalid line_card_choice value passed in parameter")
+    pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
         dut_list = random.sample(duthosts, 2)
@@ -238,13 +222,12 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
         dut_list = [dut for dut in duthosts
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1 = duthost2 = dut_list[0]
-    else:
+    elif len(linecard_configuration_set[line_card_choice]['hostname']) == 0:
         pytest_require(False, "Hostname can't be an empty list")
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
-    if len(snappi_port_list) < 2:
-        pytest_require(False, "Need Minimum of 2 ports for the test")
+    pytest_require(len(snappi_port_list) >= 2, "Need Minimum of 2 ports for the test")
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
@@ -286,11 +269,6 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
                  snappi_extra_params=snappi_extra_params)
-
-    # Teardown config through a reload
-    logger.info("Reloading config to teardown")
-    for duthost in dut_list:
-        config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
 
 @pytest.mark.disable_loganalyzer
@@ -330,8 +308,7 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
         N/A
     """
 
-    if line_card_choice not in linecard_configuration_set.keys():
-        pytest_require(False, "Invalid line_card_choice value passed in parameter")
+    pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
         dut_list = random.sample(duthosts, 2)
@@ -340,13 +317,12 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
         dut_list = [dut for dut in duthosts
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1 = duthost2 = dut_list[0]
-    else:
+    elif len(linecard_configuration_set[line_card_choice]['hostname']) == 0:
         pytest_require(False, "Hostname can't be an empty list")
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
-    if len(snappi_port_list) < 2:
-        pytest_require(False, "Need Minimum of 2 ports for the test")
+    pytest_require(len(snappi_port_list) >= 2, "Need Minimum of 2 ports for the test")
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
 
@@ -384,8 +360,3 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
                  snappi_extra_params=snappi_extra_params)
-
-    # Teardown config through a reload
-    logger.info("Reloading config to teardown")
-    for duthost in dut_list:
-        config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
