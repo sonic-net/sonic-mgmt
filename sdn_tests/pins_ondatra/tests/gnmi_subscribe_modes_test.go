@@ -496,6 +496,9 @@ func (c subscribeTest) subModeOnChangeTest(t *testing.T) {
         }
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]:Adding GNMI subscribe modes test [sub Mode Update/Suppress/Sample/Once tests] in pins ondatra. (#13098)
 
 // Test for gNMI Subscriptions with UpdatesOnly flag.
 func (c subscribeTest) subModeUpdatesTest(t *testing.T) {
@@ -530,6 +533,7 @@ func (c subscribeTest) subModeUpdatesTest(t *testing.T) {
         }
         expectedPaths[syncResponse] = operStatus{}
 
+<<<<<<< HEAD
         foundPaths, _ := collectResponse(t, subscribeClient, expectedPaths)
         if diff := cmp.Diff(expectedPaths, foundPaths, cmpopts.IgnoreUnexported(operStatus{})); diff != "" {
                 t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
@@ -544,6 +548,8 @@ func (c subscribeTest) subModeUpdatesTest(t *testing.T) {
 
         expectedPaths = c.buildExpectedPaths(t, dut)
 
+=======
+>>>>>>> [sdn_tests]:Adding GNMI subscribe modes test [sub Mode Update/Suppress/Sample/Once tests] in pins ondatra. (#13098)
         foundPaths, delay := collectResponse(t, subscribeClient, expectedPaths)
         if diff := cmp.Diff(expectedPaths, foundPaths, cmpopts.IgnoreUnexported(operStatus{})); diff != "" {
                 t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
@@ -701,6 +707,7 @@ func (c subscribeTest) subModeOnceTest(t *testing.T) {
                 t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
         }
 }
+<<<<<<< HEAD
 
 // Test for gNMI Subscribe Stream mode node deletions.
 func (c subscribeTest) subModeDeleteTest(t *testing.T) {
@@ -1047,3 +1054,5 @@ func buildRequest(t *testing.T, params subscribeTest, target string) *gpb.Subscr
 }
 =======
 >>>>>>> [sdn_tests]:Adding GNMI subscribe modes test to pins_ondatra. (#13034)
+=======
+>>>>>>> [sdn_tests]:Adding GNMI subscribe modes test [sub Mode Update/Suppress/Sample/Once tests] in pins ondatra. (#13098)
