@@ -167,7 +167,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     # Remove buffer queue and reload and get new number of queue counters
     buffer_queues = list(data['BUFFER_QUEUE'].keys())
     eth0 = "Ethernet0"
-    eth0_buffer_queues = [bq for bq in buffer_queues if eth0 in bq]
+    eth0_buffer_queues = [bq for bq in buffer_queues if any(val in eth0 for val in bq.split('|'))]
     del data['BUFFER_QUEUE'][eth0_buffer_queues[0]]
     load_new_cfg(duthost, data)
     post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, env.gnmi_port)
