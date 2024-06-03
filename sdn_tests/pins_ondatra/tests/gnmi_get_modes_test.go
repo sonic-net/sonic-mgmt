@@ -69,6 +69,9 @@ type getDataTypeTest struct {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]:Adding gNMI Get test [check all GNMI Get Modes] to pins_ondatra. (#13109)
 func TestGNMIGetModes(t *testing.T) {
         dut := ondatra.DUT(t, "DUT")
         // Select a random front panel interface EthernetX.
@@ -379,8 +382,11 @@ func TestGNMIGetModes(t *testing.T) {
         }
 }
 
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]:Adding GNMI Get Modes test to pins_ondatra. (#12983)
+=======
+>>>>>>> [sdn_tests]:Adding gNMI Get test [check all GNMI Get Modes] to pins_ondatra. (#13109)
 // Helper function to create the Get Request.
 func createGetRequest(dut *ondatra.DUTDevice, paths []*gpb.Path, dataType gpb.GetRequest_DataType) *gpb.GetRequest {
 	// Add Prefix information for the GetRequest.
