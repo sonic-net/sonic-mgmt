@@ -271,3 +271,115 @@ func TestGNMICPUParentPaths(t *testing.T) {
 		t.Errorf("CPU Type is unexpected: %v", stateIntf.Type)
 	}
 }
+
+// TestGNMICPUInDiscards - Check CPU In-Discards
+// Because the systems we're testing on have existing traffic flowing at random
+// intervals, we'll run the test a number of times looking for the expected
+// changes.  If we get a run with the exact counter increments we expect then
+// we exit successfully.  If we get a run with more changes than expected to
+// the counters then we try again up to the limit.
+func TestGNMICPUInDiscards(t *testing.T) {
+        // Report results to TestTracker at the end.
+        defer testhelper.NewTearDownOptions(t).WithID("c6e2ef27-d893-451b-9f65-db3e742780fd").Teardown(t)
+
+        // Select the dut, or device under test.
+        dut := ondatra.DUT(t, "DUT")
+
+        var bad bool
+        var i int
+
+        // Iterate up to 5 times to get a successful test.
+        for i = 1; i <= 5; i++ {
+                t.Logf("\n----- TestGNMICPUInDiscards: Iteration %v -----\n", i)
+                bad = false
+
+                // Read all the relevant counters initial values.
+                cpuStruct := gnmi.Get(t, dut, gnmi.OC().Interface(cpuName).Counters().State())
+                beforeInDiscards := cpuStruct.GetInDiscards()
+                beforeOutDiscards := cpuStruct.GetOutDiscards()
+                beforeInPkts := cpuStruct.GetInPkts()
+                beforeInErrors := cpuStruct.GetInErrors()
+
+                // Construct a simple IP packet to an address that the switch
+                // doesn't know how to route
+                eth := &layers.Ethernet{
+                        SrcMAC:       net.HardwareAddr{0x02, 0x02, 0x02, 0x02, 0x02, 0x02},
+                        DstMAC:       net.HardwareAddr{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF},
+                        EthernetType: layers.EthernetTypeIPv4,
+                }
+
+                ip := &layers.IPv4{
+                        Version:  4,
+                        TTL:      0,
+                        Protocol: layers.IPProtocol(0),
+                        SrcIP:    net.ParseIP("192.168.0.10").To4(),
+                        DstIP:    net.ParseIP("192.168.0.20").To4(),
+                }
+
+                buf := gopacket.NewSerializeBuffer()
+
+                // Enable reconstruction of length and checksum fields.
+                opts := gopacket.SerializeOptions{
+                        FixLengths:       true,
+                        ComputeChecksums: true,
+                }
+
+                if err := gopacket.SerializeLayers(buf, opts, eth, ip); err != nil {
+                        t.Fatalf("Failed to serialize packet (%v)", err)
+                }
+
+                packetOut := &testhelper.PacketOut{
+                        SubmitToIngress: true,
+                        Count:           uint(pktsPer),
+                        Interval:        1 * time.Millisecond,
+                        Packet:          buf.Bytes(),
+                }
+
+                p4rtClient, err := testhelper.FetchP4RTClient(t, dut, dut.RawAPIs().P4RT(t), nil)
+                if err != nil {
+                        t.Fatalf("Failed to create P4RT client: %v", err)
+                }
+                if err := p4rtClient.SendPacketOut(t, packetOut); err != nil {
+                        t.Fatalf("SendPacketOut operation failed for %+v (%v)", packetOut, err)
+                }
+
+                // Sleep for enough time that the counters are polled after the
+                // transmit completes sending bytes.  At 500ms we frequently
+                // read the counters before they're updated.  Even at 1 second
+                // I have seen counter increases show up on a subsequent
+                // iteration rather than this one.
+                time.Sleep(counterUpdateDelay)
+
+                // Read all the relevant counters again.
+                cpuStruct = gnmi.Get(t, dut, gnmi.OC().Interface("CPU").Counters().State())
+                afterInDiscards := cpuStruct.GetInDiscards()
+                afterOutDiscards := cpuStruct.GetOutDiscards()
+                afterInPkts := cpuStruct.GetInPkts()
+                afterInErrors := cpuStruct.GetInErrors()
+                deltaInDiscards := afterInDiscards - beforeInDiscards
+                deltaOutDiscards := afterOutDiscards - beforeOutDiscards
+
+                if deltaInDiscards != pktsPer {
+                        t.Logf("beforeIndiscards is %d, afterInDiscards is %d", beforeInDiscards, afterInDiscards)
+                        t.Logf("beforeInPkts %d, afterInPkts %d, beforeInErrors %d, afterInErrors %d",
+                                beforeInPkts, afterInPkts, beforeInErrors, afterInErrors)
+                        t.Logf("deltaInDiscards is %d, expected %d", deltaInDiscards, pktsPer)
+                        bad = true
+                }
+                if deltaOutDiscards != 0 {
+                        t.Logf("beforeOutdiscards is %d, afterOutDiscards is %d", beforeOutDiscards, afterOutDiscards)
+                        t.Logf("deltaOutDiscards is %d, expected %d", deltaOutDiscards, 0)
+                        bad = true
+                }
+
+                if !bad {
+                        break
+                }
+        }
+
+        if bad {
+                t.Fatalf("\n\n----- TestGNMICPUInDiscards: FAILED after %v Iterations -----\n\n", i-1)
+        }
+
+        t.Logf("\n\n----- TestGNMICPUInDiscards: SUCCESS after %v Iteration(s) -----\n\n", i)
+}
