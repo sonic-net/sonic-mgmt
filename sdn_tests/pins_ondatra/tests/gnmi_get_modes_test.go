@@ -149,7 +149,7 @@ func (c getDataTypeTest) dataTypeForLeafNonEmpty(t *testing.T) {
 // Test for gNMI Get for Data Type for path when empty subtree is returned.
 func (c getDataTypeTest) dataTypeForPathEmpty(t *testing.T) {
         t.Helper()
-        defer pinstesthelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
         dut := ondatra.DUT(t, "DUT")
 
         // Create Get Request.
@@ -191,7 +191,7 @@ func (c getDataTypeTest) dataTypeForPathEmpty(t *testing.T) {
 // Test for gNMI Get for Data Type for non-leaf path when non-empty subtree is returned.
 func (c getDataTypeTest) dataTypeForNonLeafNonEmpty(t *testing.T) {
         t.Helper()
-        defer pinstesthelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
         dut := ondatra.DUT(t, "DUT")
 
         // Create Get Request.
@@ -261,7 +261,7 @@ func containsOneOfTheseSubstrings(haystack string, needles []string) bool {
 // Test for gNMI Get for Data Type for root path when non-empty subtree is returned.
 func (c getDataTypeTest) dataTypeForRootNonEmpty(t *testing.T) {
         t.Helper()
-        defer pinstesthelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
         dut := ondatra.DUT(t, "DUT")
 
         var paths []*gpb.Path
@@ -323,4 +323,272 @@ func notificationsFromGetRequest(t *testing.T, dut *ondatra.DUTDevice, getReques
                 return nil, err
         }
         return getResp.GetNotification(), nil
+}
+
+// Test for gNMI Get for Data Type for root path when non-empty subtree is returned.
+func (c getDataTypeTest) operationalUpdateNotInConfigCheck(t *testing.T) {
+        t.Helper()
+        defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        var paths []*gpb.Path
+        if c.reqPath != "/" {
+                sPath, err := ygot.StringToStructuredPath(c.reqPath)
+                if err != nil {
+                        t.Fatalf("Unable to convert string to path (%v)", err)
+                }
+                paths = []*gpb.Path{sPath}
+        }
+        configNotifs, err := notificationsFromGetRequest(t, dut, createGetRequest(dut, paths, gpb.GetRequest_CONFIG))
+        if err != nil {
+                t.Fatalf(err.Error())
+        }
+        operNotifs, err := notificationsFromGetRequest(t, dut, createGetRequest(dut, paths, gpb.GetRequest_OPERATIONAL))
+        if err != nil {
+                t.Fatalf(err.Error())
+        }
+
+        if len(operNotifs) < 1 {
+                t.Fatalf("(%v): for path(%v) and type(%v), got %d notifications, want >= 1",
+                        "operationalForRootNonEmpty", c.reqPath, gpb.GetRequest_OPERATIONAL, len(operNotifs))
+        }
+
+        // Build a set from the config updates
+        configUpdatesSet := make(map[string]bool)
+        for u := range configNotifs {
+                updates := configNotifs[u].GetUpdate()
+                if len(updates) == 0 {
+                        continue
+                }
+                for _, update := range updates {
+                        updatePath, err := ygot.PathToString(update.GetPath())
+                        if err != nil {
+                                t.Fatalf("(%v): failed to convert path (%v) to string (%v): %v", "operationalRootCheck", updatePath, prototext.Format(update), err)
+                        }
+                        configUpdatesSet[updatePath] = true
+                }
+        }
+
+        // Check for operational update leaves that have a corresponding config update, none should exist
+        for u := range operNotifs {
+                updates := operNotifs[u].GetUpdate()
+                if len(updates) == 0 {
+                        continue
+                }
+                for _, update := range updates {
+                        updatePath, err := ygot.PathToString(update.GetPath())
+                        if err != nil {
+                                t.Fatalf("(%v): failed to convert path (%v) to string (%v): %v", "operationalRootCheck", updatePath, prototext.Format(update), err)
+                        }
+                        if strings.Contains(updatePath, "\\state\\") {
+                                operPathAsConfig := strings.Replace(updatePath, "\\state\\", "\\config\\", 1)
+                                if _, ok := configUpdatesSet[operPathAsConfig]; ok {
+                                        t.Fatalf("(%v): Found operational update with a corresponding config update: (%v)", "operationalRootCheck", updatePath)
+                                }
+                        }
+                }
+        }
+}
+
+// Helper function to create and validate the GET request.
+func createAndValidateLeafRequest(t *testing.T, dut *ondatra.DUTDevice, paths []*gpb.Path, dataType gpb.GetRequest_DataType, wantPath string) any {
+        t.Helper()
+        getReq := createGetRequest(dut, paths, dataType)
+        // Send Get request using the raw gNMI client.
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        getResp, err := gnmiClient.Get(ctx, getReq)
+        if err != nil {
+                t.Fatalf("Error while calling Get Raw API: (%v)", err)
+        }
+        t.Logf("GetResponse %v for type %v", getResp, dataType)
+
+        // Validate GET response.
+        notifs := getResp.GetNotification()
+        if len(notifs) != 1 {
+                t.Fatalf("got %d notifications, want 1", len(notifs))
+        }
+        notif, updates := notifs[0], notifs[0].GetUpdate()
+        if len(updates) != 1 {
+                t.Fatalf("got %d updates in the notification, want 1", len(updates))
+        }
+        pathStr, err := ygot.PathToString(&gpb.Path{Elem: notif.GetPrefix().GetElem()})
+        if err != nil {
+                t.Fatalf("failed to convert elems (%v) to string: %v", notif.GetPrefix().GetElem(), err)
+        }
+        updatePath, err := ygot.PathToString(updates[0].GetPath())
+        if err != nil {
+                t.Fatalf("failed to convert path to string (%v): %v", updatePath, err)
+        }
+        gotPath := updatePath
+        if pathStr != "/" {
+                gotPath = pathStr + updatePath
+        }
+        if gotPath != wantPath {
+                t.Fatalf("got %s path, want %s path", gotPath, wantPath)
+        }
+
+        val := updates[0].GetVal()
+        var gotVal any
+        if val.GetJsonIetfVal() == nil {
+                // Get Scalar value.
+                gotVal, err = value.ToScalar(val)
+                if err != nil {
+                        t.Errorf("got %v, want scalar value", gotVal)
+                }
+        } else {
+                // Unmarshal json data to container.
+                if err := json.Unmarshal(val.GetJsonIetfVal(), &gotVal); err != nil {
+                        t.Fatalf("could not unmarshal json data to container: %v", err)
+                }
+        }
+        return gotVal
+}
+
+// Test for gNMI GET consistency for specified data type with ALL type at leaf level.
+func (c getDataTypeTest) consistencyCheckLeafLevel(t *testing.T) {
+        t.Helper()
+        defer esthelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        sPath, err := ygot.StringToStructuredPath(c.reqPath)
+        if err != nil {
+                t.Fatalf("Unable to convert string to path (%v)", err)
+        }
+        paths := []*gpb.Path{sPath}
+        wantVal := createAndValidateLeafRequest(t, dut, paths, gpb.GetRequest_ALL, c.reqPath)
+        gotVal := createAndValidateLeafRequest(t, dut, paths, c.dataType, c.reqPath)
+        if !cmp.Equal(gotVal, wantVal) {
+                t.Fatalf("(consistencyCheckLeafLevel): got %v value with type %T, want %v value with type %T", gotVal, gotVal, wantVal, wantVal)
+        }
+        if c.dataType == gpb.GetRequest_OPERATIONAL {
+                wantVal = createAndValidateLeafRequest(t, dut, paths, gpb.GetRequest_STATE, c.reqPath)
+                if !cmp.Equal(gotVal, wantVal) {
+                        t.Fatalf("(consistencyCheckLeafLevel): got %v value with type %T, want %v value with type %T", gotVal, gotVal, wantVal, wantVal)
+                }
+        }
+}
+
+// Helper function to create and validate the GET request for subtrees.
+func createAndValidateSubtreeRequest(t *testing.T, dut *ondatra.DUTDevice, paths []*gpb.Path, dataType gpb.GetRequest_DataType, wantPath string) []*gpb.Update {
+        t.Helper()
+        getReq := createGetRequest(dut, paths, dataType)
+        // Send Get request using the raw gNMI client.
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        getResp, err := gnmiClient.Get(ctx, getReq)
+        if err != nil {
+                t.Fatalf("Error while calling Get Raw API: (%v)", err)
+        }
+        t.Logf("GetResponse %v for type %v", getResp, dataType)
+
+        // Validate GET response.
+        notifs := getResp.GetNotification()
+        if len(notifs) != 1 {
+                t.Fatalf("got %d notifications, want 1", len(notifs))
+        }
+        updates := notifs[0].GetUpdate()
+        if len(updates) == 0 {
+                t.Fatalf("got %d updates in the notification, want >= 1", len(updates))
+        }
+        return updates
+}
+
+// Test for gNMI GET consistency for specified data type with ALL type at subtree level.
+func (c getDataTypeTest) consistencyCheckSubtreeLevel(t *testing.T) {
+        t.Helper()
+        defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        sPath, err := ygot.StringToStructuredPath(c.reqPath)
+        if err != nil {
+                t.Fatalf("Unable to convert string to path (%v)", err)
+        }
+        paths := []*gpb.Path{sPath}
+        wantVal := createAndValidateSubtreeRequest(t, dut, paths, gpb.GetRequest_ALL, c.reqPath)
+        gotVal := createAndValidateSubtreeRequest(t, dut, paths, c.dataType, c.reqPath)
+        sortProtos := cmpopts.SortSlices(func(m1, m2 *gpb.Update) bool { return m1.String() < m2.String() })
+        if diff := cmp.Diff(wantVal, gotVal, protocmp.Transform(), sortProtos); diff != "" {
+                t.Fatalf("(consistencyCheckSubtreeLevel) diff (-want +got):\n%s", diff)
+        }
+}
+
+func verifyGetAllEqualsConfigStateOperational(t *testing.T, tid string, paths []*gpb.Path) {
+        defer testhelper.NewTearDownOptions(t).WithID(tid).Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        csoPathsSet := make(map[string]bool)
+        allPathsSet := make(map[string]bool)
+
+        configNotifs, err := notificationsFromGetRequest(t, dut, createGetRequest(dut, paths, gpb.GetRequest_CONFIG))
+        if err != nil {
+                t.Fatalf(err.Error())
+        }
+        stateNotifs, err := notificationsFromGetRequest(t, dut, createGetRequest(dut, paths, gpb.GetRequest_STATE))
+        if err != nil {
+                t.Fatalf(err.Error())
+        }
+        operNotifs, err := notificationsFromGetRequest(t, dut, createGetRequest(dut, paths, gpb.GetRequest_OPERATIONAL))
+        if err != nil {
+                t.Fatalf(err.Error())
+        }
+        allNotifs, err := notificationsFromGetRequest(t, dut, createGetRequest(dut, paths, gpb.GetRequest_ALL))
+        if err != nil {
+                t.Fatalf(err.Error())
+        }
+
+        // Build a set from the config, state, and operational updates
+        for _, notifs := range [][]*gpb.Notification{configNotifs, stateNotifs, operNotifs} {
+                for _, notif := range notifs {
+                        updates := notif.GetUpdate()
+                        if len(updates) == 0 {
+                                continue
+                        }
+                        for _, update := range updates {
+                                updatePath, err := ygot.PathToString(update.GetPath())
+                                if err != nil {
+                                        t.Fatalf("(%v): failed to convert path (%v) to string (%v): %v", t.Name(), updatePath, prototext.Format(update), err)
+                                }
+                                csoPathsSet[updatePath] = true
+                        }
+                }
+        }
+        // Build a set from the all updates
+        for _, notif := range allNotifs {
+                updates := notif.GetUpdate()
+                if len(updates) == 0 {
+                        continue
+                }
+                for _, update := range updates {
+                        updatePath, err := ygot.PathToString(update.GetPath())
+                        if err != nil {
+                                t.Fatalf("(%v): failed to convert path (%v) to string (%v): %v", t.Name(), updatePath, prototext.Format(update), err)
+                        }
+                        allPathsSet[updatePath] = true
+                }
+        }
+
+        // Check that ALL update leaves that are present in the CSO updates, and vice versa
+        // Filter out `process` updates as they are too volatile.
+        var missesFromCSO []string
+        for path := range allPathsSet {
+                if _, ok := csoPathsSet[path]; !ok {
+                        missesFromCSO = append(missesFromCSO, path)
+                }
+        }
+        var missesFromAll []string
+        for path := range csoPathsSet {
+                if _, ok := allPathsSet[path]; !ok {
+                        missesFromAll = append(missesFromAll, path)
+                }
+        }
+        if len(missesFromCSO) > 0 || len(missesFromAll) > 0 {
+                t.Fatalf("(%v): Found %v ALL updates missing from CSO updates set:\n%v\n\nFound %v CSO updates missing from ALL updates set:\n%v", t.Name(), len(missesFromCSO), missesFromCSO, len(missesFromAll), missesFromAll)
+        }
 }
