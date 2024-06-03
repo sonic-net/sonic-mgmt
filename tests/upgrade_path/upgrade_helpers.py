@@ -3,6 +3,7 @@ import logging
 import time
 import ipaddress
 import json
+import os
 import re
 from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
@@ -77,7 +78,8 @@ def restore_image_to_first_boot(duthost, image_version):
     base_path = os.path.dirname(__file__)
     restore_to_first_boot_script = os.path.join(base_path, "restoreToFirstBoot.sh")
     duthost.copy(src=restore_to_first_boot_script, dest="/tmp/restoreToFirstBoot.sh", mode="preserve")
-    duthost.command("sudo unshare -mnpf /tmp/restoreToFirstBoot.sh {}".format(image_version.replace("SONiC-OS", "image")))
+    duthost.command("sudo unshare -mnpf /tmp/restoreToFirstBoot.sh {}"
+                    .format(image_version.replace("SONiC-OS", "image")))
     duthost.command("sudo sonic-installer set-next-boot {}".format(image_version))
     duthost.file(path="/host/old_config", state="absent")
     duthost.copy(src="/etc/sonic/", dest="/host/old_config/", remote_src=True)

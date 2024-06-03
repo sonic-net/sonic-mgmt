@@ -57,7 +57,8 @@ def cleanup_prev_images(duthost):
 
 def setup_upgrade_test(duthost, localhost, from_image, from_image_version, to_image, to_image_version, tbinfo,
                        upgrade_type, modify_reboot_script=None, allow_fail=False):
-    logger.info("Test upgrade path from {} ({}) to {} ({})".format(from_image, from_image_version, to_image, to_image_version))
+    logger.info("Test upgrade path from {} ({}) to {} ({})".format(from_image, from_image_version,
+                                                                   to_image, to_image_version))
     target_version = None
     if from_image_version and restore_image_to_first_boot(duthost, from_image_version):
         logger.info("Restored existing {} to first boot state".format(from_image_version))

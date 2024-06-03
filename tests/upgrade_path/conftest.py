@@ -2,8 +2,8 @@ import pytest
 
 
 def pytest_runtest_setup(item):
-    from_image = request.config.getoption('base_image')
-    to_image = request.config.getoption('target_image')
+    from_image = item.config.getoption('base_image')
+    to_image = item.config.getoption('target_image')
     if not from_image or not to_image:
         pytest.skip("base_image or target_image is empty")
 
