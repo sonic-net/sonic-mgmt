@@ -1,8 +1,13 @@
 package platforms_hardware_component_test
 
 import (
+<<<<<<< HEAD
         "regexp"
 	"reflect"
+=======
+        "reflect"
+        "regexp"
+>>>>>>> [sdn_tests]: Adding platforms hardware component test to pins ondatra. (#13092)
         "testing"
         "time"
 
@@ -59,6 +64,7 @@ func TestGetICInformation(t *testing.T) {
         }
 }
 
+<<<<<<< HEAD
 func TestGetICErrorInformation(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("bb7e3980-2e6d-4a02-bb42-1872b16d96f7").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
@@ -97,6 +103,8 @@ func TestGetICErrorInformation(t *testing.T) {
         }
 }
 
+=======
+>>>>>>> [sdn_tests]: Adding platforms hardware component test to pins ondatra. (#13092)
 func TestSetValidICName(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("a255135d-66be-43e8-be05-46e746c033c2").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
@@ -113,12 +121,17 @@ func TestSetValidICName(t *testing.T) {
                 gnmi.Replace(t, dut, componentPath.Name().Config(), name)
                 gnmi.Await(t, dut, componentPath.Name().State(), awaitTime, name)
 
+<<<<<<< HEAD
                 fullyQualifiedName := "abc.def.test.com"
+=======
+                fullyQualifiedName := "ju1u1m1b1s1i1.ibs40.net.google.com"
+>>>>>>> [sdn_tests]: Adding platforms hardware component test to pins ondatra. (#13092)
                 testhelper.ReplaceFullyQualifiedName(t, dut, name, fullyQualifiedName)
                 testhelper.AwaitFullyQualifiedName(t, dut, name, awaitTime, fullyQualifiedName)
         }
 }
 
+<<<<<<< HEAD
 func TestSetInvalidICName(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("6632a6dc-eec1-4d8f-9ccb-63b380dc841d").Teardown(t)
 
@@ -160,6 +173,8 @@ func TestSetInvalidICName(t *testing.T) {
         }
 }
 
+=======
+>>>>>>> [sdn_tests]: Adding platforms hardware component test to pins ondatra. (#13092)
 func TestSetNodeID(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("7165b086-5d8f-4283-9e4c-aa4a44fe6fbd").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
@@ -177,6 +192,7 @@ func TestSetNodeID(t *testing.T) {
                 gnmi.Await(t, dut, gnmi.OC().Component(name).IntegratedCircuit().NodeId().State(), awaitTime, nodeID)
         }
 }
+<<<<<<< HEAD
 
 func TestPersistenceAfterReboot(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("0e429a29-d3b1-486b-b3d2-3ca48a9f0c35").Teardown(t)
@@ -906,3 +922,5 @@ func TestPcieInformation(t *testing.T) {
 		}
 	}
 }
+=======
+>>>>>>> [sdn_tests]: Adding platforms hardware component test to pins ondatra. (#13092)
