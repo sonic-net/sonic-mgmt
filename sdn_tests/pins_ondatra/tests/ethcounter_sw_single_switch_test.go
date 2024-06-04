@@ -792,6 +792,9 @@ func TestGNMIEthernetIn(t *testing.T) {
         t.Logf("\n\n----- TestGNMIEthernetIn: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding Multicast and Broadcast in-packets test in Ethernet counter. (#13112)
 
 // ----------------------------------------------------------------------------
 // TestGNMIEthernetInMulticast - Check EthernetX In-Multicast-Pkts
@@ -1002,6 +1005,7 @@ func TestGNMIEthernetInBroadcast(t *testing.T) {
 
         t.Logf("\n\n----- TestGNMIEthernetInBroadcast: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+<<<<<<< HEAD
 
 // ----------------------------------------------------------------------------
 // TestGNMIEthernetInIPv4Pkts - Check EthernetX Subinterface IPv4 in-pkts
@@ -1472,3 +1476,5 @@ func TestGNMIEthernetInIPv6Discards(t *testing.T) {
 >>>>>>> [sdn_tests]: Adding multicast out-packets test in Ethernet counter. (#13090)
 =======
 >>>>>>> [sdn_tests]: Adding in-packets and Broadcast out-packets test in Ethernet counter. (#13104)
+=======
+>>>>>>> [sdn_tests]: Adding Multicast and Broadcast in-packets test in Ethernet counter. (#13112)
