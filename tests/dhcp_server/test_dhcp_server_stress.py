@@ -4,7 +4,7 @@ import ipaddress
 import pytest
 import ptf.testutils as testutils
 import random
-import re
+import time
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
@@ -69,7 +69,6 @@ def parse_vlan_setting_from_running_config(duthost, tbinfo):
 def test_dhcp_server_with_multiple_dhcp_clients(
     duthost,
     ptfhost,
-    ptfadapter,
     parse_vlan_setting_from_running_config
 ):
     """
@@ -101,7 +100,7 @@ def test_dhcp_server_with_multiple_dhcp_clients(
             return True
         expected_assigned_ips = [range[0] for range in exp_assigned_ip_ranges]
         pytest_assert(
-            wait_until(120, 1, 1,
+            wait_until(20, 1, 1,
                        all_ip_shown_up,
                        ptfhost,
                        expected_assigned_ips),
@@ -112,13 +111,14 @@ def test_dhcp_server_with_multiple_dhcp_clients(
         ptfhost.shell("killall dhclient", module_ignore_errors=True)
 
 
+@pytest.mark.parametrize("stress_config", [(20, 1), (40, 1), (80, 2), (100, 7), (200, 8), (400, 10), (700, 10)])
 def test_dhcp_server_with_large_number_of_discover(
     duthost,
     ptfhost,
     ptfadapter,
+    stress_config,
     parse_vlan_setting_from_running_config
 ):
-    temp_file = "/tmp/dhcp_sever_stress_test.log"
     config_to_apply = empty_config_patch()
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     exp_assigned_ip_ranges = [[ip] for ip in vlan_hosts[:len(vlan_members_with_ptf_idx)]]
@@ -143,9 +143,9 @@ def test_dhcp_server_with_large_number_of_discover(
     logging.info("expected assigned ip is %s, dut_port is %s, ptf_port_index is %s" %
                  (expected_assigned_ip, dut_port, ptf_port_index))
     apply_dhcp_server_config_gcu(duthost, config_to_apply)
-    # put stress on the dhcp server
-    stress_start_time = datetime.datetime.now()
-    concurrency_count = 200
+
+    # Select random port with packet to be sent
+    concurrency_count = stress_config[0]
     pkts_ports = []
     for idx in range(concurrency_count):
         rand_one_port = random.choice(configurated_ports)
@@ -162,41 +162,37 @@ def test_dhcp_server_with_large_number_of_discover(
                 rand_ptf_port_index
             )
         )
+
+    # Put stress on DUT
+    stress_start_time = datetime.datetime.now()
     for idx in range(len(pkts_ports)):
-        if idx == concurrency_count//2:
-            ptfhost.shell("bash -c 'time dhclient eth%s' >%s 2>&1 &" % (ptf_port_index, temp_file))
         testutils.send_packet(ptfadapter, pkts_ports[idx][1], pkts_ports[idx][0])
 
+    #  Start dhcp client at background
+    ptfhost.shell("dhclient eth%s &" % ptf_port_index)
+
+    #  Continue to put stress on DUT
+    for second in range(stress_config[1]):
+        #  Skip the first sleep to make sure the stress continues
+        #  And check result immediately after the last packet sent
+        if second != 0:
+            time.sleep(1)
+        for idx in range(len(pkts_ports)):
+            testutils.send_packet(ptfadapter, pkts_ports[idx][1], pkts_ports[idx][0])
     stress_end_time = datetime.datetime.now()
     stress_duration = stress_end_time - stress_start_time
-    pytest_assert(stress_duration.total_seconds() < 3,
-                  "It tooks too long to finish sending packets, \
-                    elasped seconds is %s" % stress_duration.total_seconds())
+    logging.info("Elasped time during send packets is %s seconds" % stress_duration.total_seconds())
 
-    # verify client can get IP from dhcp server within threshold
+    # Verify client can get IP from dhcp server within threshold
     try:
         def has_expected_ip_assigned(ptfhost, ptf_port_index, expected_assigned_ip):
             ip_addr_output = ptfhost.shell("ip addr show eth%s" % ptf_port_index)['stdout']
             logging.info("Output of ip addr show eth%s is %s" % (ptf_port_index, ip_addr_output))
             return expected_assigned_ip in ip_addr_output
         pytest_assert(
-            wait_until(10, 1, 1,
-                       has_expected_ip_assigned,
-                       ptfhost,
-                       ptf_port_index,
-                       expected_assigned_ip),
-            'client didnt get expected IP from dhcp server'
+            has_expected_ip_assigned(ptfhost, ptf_port_index, expected_assigned_ip),
+            'client didnt get expected IP from dhcp server within expected threshold'
         )
-        time_output = ptfhost.shell("cat %s" % temp_file)['stdout_lines']
-        pattern = r'(\d+.?\d*)m(\d+.?\d*)s'
-        real_time = [o for o in time_output if 'real' in o][0]
-        match = re.search(pattern, real_time)
-        if not match:
-            pytest.fail("Failed to parse real time from %s" % real_time)
-        minutes_str, seconds_str = match.groups()
-        elasped_seconds = float(minutes_str) * 60 + float(seconds_str)
-        pytest_assert(elasped_seconds < 10,
-                      "It tooks too long for dhcp server offering packet, total seconds is %s" % elasped_seconds)
     finally:
         ptfhost.shell("dhclient -r eth%s" % ptf_port_index, module_ignore_errors=True)
         ptfhost.shell("killall dhclient", module_ignore_errors=True)
