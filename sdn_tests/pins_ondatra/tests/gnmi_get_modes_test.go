@@ -51,6 +51,316 @@ type getDataTypeTest struct {
 	wantNotVal string
 }
 
+func TestGNMIGetModes(t *testing.T) {
+        dut := ondatra.DUT(t, "DUT")
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        // Check if the switch is responsive with Get API, which will panic if the switch does not return
+        // state value for specified interface Openconfig path resulting in a test failure.
+        mtuVal := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().State())
+
+        testCases := []struct {
+                name     string
+                function func(*testing.T)
+        }{
+                {
+                        name: "GetConfigTypeConfigLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "89f2834b-9ce2-4347-ad08-aa2e5b44e994",
+                                reqPath:  fmt.Sprintf(intfMtuPath, intf, "config"),
+                                dataType: gpb.GetRequest_CONFIG,
+                                wantVal:  uint64(mtuVal),
+                        }.dataTypeForLeafNonEmpty,
+                },
+                {
+                        name: "GetConfigTypeConfigSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "7ee2bf60-8f55-4bdd-a56e-e9a7c37c0611",
+                                reqPath:  fmt.Sprintf(intfConfigPath, intf),
+                                dataType: gpb.GetRequest_CONFIG,
+                                wantVal:  fmt.Sprintf(intfConfigPath, intf),
+                        }.dataTypeForNonLeafNonEmpty,
+                },
+                {
+                        name: "GetConfigTypeStateLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "6cd51db0-b1e5-405b-81b9-6d76b28014c3",
+                                reqPath:  fmt.Sprintf(intfMtuPath, intf, "state"),
+                                dataType: gpb.GetRequest_CONFIG,
+                                wantVal:  `{}`,
+                        }.dataTypeForPathEmpty,
+                },
+                {
+                        name: "GetConfigTypeStateSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "5685f240-67ce-4eaf-a842-0ae5e5ff470b",
+                                reqPath:  fmt.Sprintf(intfStatePath, intf),
+                                dataType: gpb.GetRequest_CONFIG,
+                                wantVal:  `{}`,
+                        }.dataTypeForPathEmpty,
+                },
+                {
+                        name: "GetConfigTypeOperationalLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "ab3bb6f3-a85b-4f61-a1fd-01b338aab111",
+                                reqPath:  fmt.Sprintf(intfCtrsStatePath, intf),
+                                dataType: gpb.GetRequest_CONFIG,
+                                wantVal:  `{}`,
+                        }.dataTypeForPathEmpty,
+                },
+                {
+                        name: "GetConfigTypeOperationalSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "93eff08c-3177-4097-90d3-5bcf42756a96",
+                                reqPath:  fmt.Sprintf(intfCtrsPath, intf),
+                                dataType: gpb.GetRequest_CONFIG,
+                                wantVal:  `{}`,
+                        }.dataTypeForPathEmpty,
+                },
+                {
+                        name: "GetConfigTypeRoot",
+                        function: getDataTypeTest{
+                                uuid:       "88844ea0-328e-4b96-9454-b426d956a7c7",
+                                dataType:   gpb.GetRequest_CONFIG,
+                                wantVal:    []string{"/config/"},
+                                wantNotVal: "/state/",
+                        }.dataTypeForRootNonEmpty,
+                },
+                {
+                        name: "GetStateTypeConfigLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "fda99c23-3f28-49e9-9242-f116f633519a",
+                                reqPath:  fmt.Sprintf(intfMtuPath, intf, "config"),
+                                dataType: gpb.GetRequest_STATE,
+                                wantVal:  `{}`,
+                        }.dataTypeForPathEmpty,
+                },
+                {
+                        name: "GetStateTypeConfigSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "089f5aca-a8ba-4862-9238-96424b67035f",
+                                reqPath:  fmt.Sprintf(intfConfigPath, intf),
+                                dataType: gpb.GetRequest_STATE,
+                                wantVal:  `{}`,
+                        }.dataTypeForPathEmpty,
+                },
+                {
+                        name: "GetStateTypeStateLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "e091452a-ea18-423d-9c57-f42d8737012b",
+                                reqPath:  fmt.Sprintf(intfMtuPath, intf, "state"),
+                                dataType: gpb.GetRequest_STATE,
+                                wantVal:  uint64(mtuVal),
+                        }.dataTypeForLeafNonEmpty,
+                },
+                {
+                        name: "GetStateTypeStateSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "310a421e-eb94-4371-b0a4-557136f51ed9",
+                                reqPath:  fmt.Sprintf(intfStatePath, intf),
+                                dataType: gpb.GetRequest_STATE,
+                                wantVal:  fmt.Sprintf(intfStatePath, intf),
+                        }.dataTypeForNonLeafNonEmpty,
+                },
+                {
+                        name: "GetStateTypeOperationalLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "3b0bd721-0778-4f01-b2ac-927c63f023e1",
+                                reqPath:  fmt.Sprintf(compParentStatePath, "os0"),
+                                dataType: gpb.GetRequest_STATE,
+                                wantVal:  "chassis",
+                        }.dataTypeForLeafNonEmpty,
+                },
+                {
+                        name: "GetStateTypeOperationalSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "3f937fa1-31ae-4338-b3d7-bc7408106040",
+                                reqPath:  fmt.Sprintf(intfCtrsPath, intf),
+                                dataType: gpb.GetRequest_STATE,
+                                wantVal:  fmt.Sprintf(intfCtrsPath, intf),
+                        }.dataTypeForNonLeafNonEmpty,
+                },
+                {
+                        name: "GetStateTypeRoot",
+                        function: getDataTypeTest{
+                                uuid:       "6b876b6c-e589-4611-a9eb-157fd5898e5d",
+                                dataType:   gpb.GetRequest_STATE,
+                                wantVal:    []string{"/state/"},
+                                wantNotVal: "/config/",
+                        }.dataTypeForRootNonEmpty,
+                },
+                {
+                        name: "GetOperationalTypeConfigLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "76209f70-069f-4bb0-b2b3-43e17c1ca955",
+                                reqPath:  fmt.Sprintf(intfNamePath, intf, "config"),
+                                dataType: gpb.GetRequest_OPERATIONAL,
+                                wantVal:  `{}`,
+                        }.dataTypeForPathEmpty,
+                },
+                {
+                        name: "GetOperationalTypeConfigSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "a6bcac89-4cc4-42d9-b1b5-fe8c32389ae4",
+                                reqPath:  fmt.Sprintf(intfConfigPath, intf),
+                                dataType: gpb.GetRequest_OPERATIONAL,
+                                wantVal:  `{}`,
+                        }.dataTypeForPathEmpty,
+                },
+                {
+                        name: "GetOperationalTypeStateLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "45013a6f-bdda-420d-9c7a-fc23e4946fac",
+                                reqPath:  fmt.Sprintf(intfNamePath, intf, "state"),
+                                dataType: gpb.GetRequest_OPERATIONAL,
+                                wantVal:  `{}`,
+                        }.dataTypeForPathEmpty,
+                },
+                {
+                        name: "GetOperationalTypeStateSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "ccc00a4c-8c80-4379-bf41-eb5554a3fad0",
+                                reqPath:  fmt.Sprintf(intfStatePath, intf),
+                                dataType: gpb.GetRequest_OPERATIONAL,
+                                wantVal:  fmt.Sprintf(intfStatePath, intf),
+                        }.dataTypeForNonLeafNonEmpty,
+                },
+                {
+                        name: "GetOperationalTypeOperationalLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "c829fd56-7452-4cf1-8a51-8b6ad80ed109",
+                                reqPath:  fmt.Sprintf(intfMgmtStatePath, intf),
+                                dataType: gpb.GetRequest_OPERATIONAL,
+                                wantVal:  false,
+                        }.dataTypeForLeafNonEmpty,
+                },
+                {
+                        name: "GetOperationalTypeRoot",
+                        function: getDataTypeTest{
+                                uuid:    "1c27789a-de88-4cb4-9b17-6ecc2018423e",
+                                reqPath: "/",
+                        }.operationalUpdateNotInConfigCheck,
+                },
+                {
+                        name: "GetOperationalTypeSubTree",
+                        function: getDataTypeTest{
+                                uuid:    "f65f9291-b695-4f89-b9d8-26443bcd26d1",
+                                reqPath: fmt.Sprintf(intfPath, intf),
+                        }.operationalUpdateNotInConfigCheck,
+                },
+                {
+                        name: "GetAllTypeConfigLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "acbc0dce-9e4c-4005-ae9d-b00e7bfb63ff",
+                                reqPath:  fmt.Sprintf(intfMtuPath, intf, "config"),
+                                dataType: gpb.GetRequest_ALL,
+                                wantVal:  uint64(mtuVal),
+                        }.dataTypeForLeafNonEmpty,
+                },
+                {
+                        name: "GetAllTypeConfigSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "b565e2cb-de9c-4ea1-99b2-88a63ea93981",
+                                reqPath:  fmt.Sprintf(intfConfigPath, intf),
+                                dataType: gpb.GetRequest_ALL,
+                                wantVal:  fmt.Sprintf(intfConfigPath, intf),
+                        }.dataTypeForNonLeafNonEmpty,
+                },
+                {
+                        name: "GetAllTypeStateLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "f010154c-ef5b-4068-b4aa-c5dc54e02303",
+                                reqPath:  fmt.Sprintf(intfMtuPath, intf, "state"),
+                                dataType: gpb.GetRequest_ALL,
+                                wantVal:  uint64(mtuVal),
+                        }.dataTypeForLeafNonEmpty,
+                },
+                {
+                        name: "GetAllTypeStateSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "45e1f65e-02d3-4c7c-a1e0-f84ebcc6db93",
+                                reqPath:  fmt.Sprintf(intfStatePath, intf),
+                                dataType: gpb.GetRequest_ALL,
+                                wantVal:  fmt.Sprintf(intfStatePath, intf),
+                        }.dataTypeForNonLeafNonEmpty,
+                },
+                {
+                        name: "GetAllTypeOperationalLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "35961781-c3d6-4c50-9ea2-bb1b9c09a6f2",
+                                reqPath:  fmt.Sprintf(compParentStatePath, "os0"),
+                                dataType: gpb.GetRequest_ALL,
+                                wantVal:  "chassis",
+                        }.dataTypeForLeafNonEmpty,
+                },
+                {
+                        name: "GetAllTypeOperationalSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "f9e27f17-5bb6-4e04-b07a-181bdb6628b8",
+                                reqPath:  fmt.Sprintf(intfStatePath, intf),
+                                dataType: gpb.GetRequest_ALL,
+                                wantVal:  fmt.Sprintf(intfStatePath, intf),
+                        }.dataTypeForNonLeafNonEmpty,
+                },
+                {
+                        name: "GetAllTypeRoot",
+                        function: getDataTypeTest{
+                                uuid:     "0993eb99-ea29-485d-88b1-694f030ffa1c",
+                                dataType: gpb.GetRequest_STATE,
+                                wantVal:  []string{"/state/", "/config/"},
+                        }.dataTypeForRootNonEmpty,
+                },
+                {
+                        name: "GetConsistencyConfigLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "13068a17-affc-46dc-a9f4-ef8639d70c8f",
+                                reqPath:  fmt.Sprintf(intfMtuPath, intf, "config"),
+                                dataType: gpb.GetRequest_CONFIG,
+                        }.consistencyCheckLeafLevel,
+                },
+                {
+                        name: "GetConsistencyStateLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "1db85b3d-ac1c-422e-a4ea-108a71393773",
+                                reqPath:  fmt.Sprintf(intfMtuPath, intf, "state"),
+                                dataType: gpb.GetRequest_STATE,
+                        }.consistencyCheckLeafLevel,
+                },
+                {
+                        name: "GetConsistencyOperationalLeaf",
+                        function: getDataTypeTest{
+                                uuid:     "319cb11c-70e2-4f59-a39c-8e804685728d",
+                                reqPath:  fmt.Sprintf(compFwVerPath, "chassis"),
+                                dataType: gpb.GetRequest_OPERATIONAL,
+                        }.consistencyCheckLeafLevel,
+                },
+                {
+                        name: "GetConsistencyConfigSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "036b0a6f-91eb-41ce-9efa-92da9812cc29",
+                                reqPath:  fmt.Sprintf(intfConfigPath, intf),
+                                dataType: gpb.GetRequest_CONFIG,
+                        }.consistencyCheckSubtreeLevel,
+                },
+                {
+                        name: "GetConsistencyStateSubtree",
+                        function: getDataTypeTest{
+                                uuid:     "3b215c64-33c7-47b9-8ec5-01f378e09b68",
+                                reqPath:  fmt.Sprintf(compStatePath, "os0"),
+                                dataType: gpb.GetRequest_STATE,
+                        }.consistencyCheckSubtreeLevel,
+                },
+        }
+
+        for _, testCase := range testCases {
+                t.Run(testCase.name, testCase.function) // Calls the sub-test method.
+        }
+}
+
 // Helper function to create the Get Request.
 func createGetRequest(dut *ondatra.DUTDevice, paths []*gpb.Path, dataType gpb.GetRequest_DataType) *gpb.GetRequest {
 	// Add Prefix information for the GetRequest.
