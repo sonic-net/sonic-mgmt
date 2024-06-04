@@ -64,14 +64,15 @@ class MultiAsicSonicHost(object):
         """
         service_list = []
         active_asics = self.asics
-        if self.sonichost.is_supervisor_node() and self.get_facts()['asic_type'] != 'vs':
+        if self.sonichost.is_supervisor_node():
             self._DEFAULT_SERVICES.append("lldp")
-            active_asics = []
-            sonic_db_cli_out = self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
-            for a_asic_line in sonic_db_cli_out["stdout_lines"]:
-                a_asic_name = a_asic_line.split("|")[1]
-                a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
-                active_asics.append(a_asic_instance)
+            if self.get_facts()['asic_type'] != 'vs':
+                active_asics = []
+                sonic_db_cli_out = self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
+                for a_asic_line in sonic_db_cli_out["stdout_lines"]:
+                    a_asic_name = a_asic_line.split("|")[1]
+                    a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
+                    active_asics.append(a_asic_instance)
         service_list += self._DEFAULT_SERVICES
 
         config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
