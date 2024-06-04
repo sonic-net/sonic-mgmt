@@ -6,7 +6,7 @@ import ptf.testutils as testutils
 import random
 import re
 from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_raise
 from dhcp_server_test_common import DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     apply_dhcp_server_config_gcu, create_dhcp_client_packet, empty_config_patch, append_common_config_patch
 
@@ -180,7 +180,7 @@ def test_dhcp_server_with_large_number_of_discover(
             logging.info("Output of ip addr show eth%s is %s" % (ptf_port_index, ip_addr_output))
             return expected_assigned_ip in ip_addr_output
         pytest_assert(
-            wait_until(30, 1, 1,
+            wait_until(10, 1, 1,
                        has_expected_ip_assigned,
                        ptfhost,
                        ptf_port_index,
@@ -191,11 +191,12 @@ def test_dhcp_server_with_large_number_of_discover(
         pattern = r'(\d+.?\d*)m(\d+.?\d*)s'
         real_time = [o for o in time_output if 'real' in o][0]
         match = re.search(pattern, real_time)
-        if match:
-            minutes_str, seconds_str = match.groups()
-            elasped_seconds = float(minutes_str) * 60 + float(seconds_str)
-            pytest_assert(elasped_seconds < 10,
-                          "It tooks too long for dhcp server offering packet, total seconds is %s" % elasped_seconds)
+        if not match:
+            pytest_raise("Failed to parse real time from %s" % real_time)
+        minutes_str, seconds_str = match.groups()
+        elasped_seconds = float(minutes_str) * 60 + float(seconds_str)
+        pytest_assert(elasped_seconds < 10,
+                      "It tooks too long for dhcp server offering packet, total seconds is %s" % elasped_seconds)
     finally:
         ptfhost.shell("dhclient -r eth%s" % ptf_port_index, module_ignore_errors=True)
         ptfhost.shell("killall dhclient", module_ignore_errors=True)
