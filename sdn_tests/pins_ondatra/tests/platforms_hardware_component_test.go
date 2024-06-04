@@ -253,7 +253,233 @@ func TestPersistenceAfterReboot(t *testing.T) {
         }
 }
 
-/ Health-indicator test.
+// FPGA tests.
+func TestGetFPGAInfo(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("52a71049-40dc-4f2d-b074-4b0f649064f0").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        fpgas, err := testhelper.FPGAInfoForDevice(t, dut)
+        if err != nil {
+                t.Fatalf("Failed to fetch FPGA info: %v", err)
+        }
+
+        var fpgaResetCounts []uint8
+        for _, fpga := range fpgas {
+                name := fpga.GetName()
+                componentPath := gnmi.OC().Component(name)
+                wantType := "FPGA"
+                if gotType := testhelper.FPGAType(t, dut, &fpga); gotType != wantType {
+                        t.Errorf("%v type match failed! got:%v, want:%v", name, gotType, wantType)
+                }
+
+                if mfgName := gnmi.Get(t, dut, componentPath.MfgName().State()); mfgName != fpga.GetMfgName() {
+                        t.Errorf("%v manufacturer name match failed! got:%v, want:%v", name, mfgName, fpga.GetMfgName())
+                }
+
+                if description := gnmi.Get(t, dut, componentPath.Description().State()); description != fpga.GetDescription() {
+                        t.Errorf("%v description match failed! got:%v, want:%v", name, description, fpga.GetDescription())
+                }
+
+                if err := verifyRegexMatch(fpga.GetFirmwareVersionRegex(), gnmi.Get(t, dut, componentPath.FirmwareVersion().State())); err != nil {
+                        t.Errorf("%v firmware version match failed! %v", name, err)
+                }
+
+                resetCauseMap := testhelper.FPGAResetCauseMap(t, dut, &fpga) //fpgaInfo.ResetCause
+                if got, want := len(resetCauseMap), fpga.GetResetCauseNum(); got != want {
+                        t.Errorf("%v invalid number of reset causes! got:%v, want:%v", name, got, want)
+                }
+                for index, resetCause := range resetCauseMap {
+                        if got, want := resetCause.GetIndex(), index; got != want {
+                                t.Errorf("%v reset-cause-index: %v index match failed! got:%v, want:%v", name, index, got, want)
+                        }
+                        if got := resetCause.GetCause(); got < testhelper.ResetCause_Cause_POWER || got > testhelper.ResetCause_Cause_CPU {
+                                t.Errorf("%v reset-cause-index: %v cause match failed! got:%v, want:range(%v-%v)", name, index, got, testhelper.ResetCause_Cause_POWER, testhelper.ResetCause_Cause_CPU)
+                        }
+                }
+
+                // Need to know current reset count, since after reboot it should be current count + 1.
+                fpgaResetCounts = append(fpgaResetCounts, testhelper.FPGAResetCount(t, dut, &fpga))
+        }
+
+        // Reboot DUT and verify that the latest reset cause is SOFTWARE.
+        waitTime, err := testhelper.RebootTimeForDevice(t, dut)
+        if err != nil {
+                t.Fatalf("Unable to get reboot wait time: %v", err)
+        }
+        params := testhelper.NewRebootParams().WithWaitTime(waitTime).WithCheckInterval(30 * time.Second).WithRequest(syspb.RebootMethod_COLD)
+        if err := testhelper.Reboot(t, dut, params); err != nil {
+                t.Fatalf("Failed to reboot DUT: %v", err)
+        }
+        // Wait for the switch to update FPGA information.
+        time.Sleep(time.Minute)
+
+        for i, fpga := range fpgas {
+                name := fpga.GetName()
+
+                if got, want := testhelper.FPGAResetCount(t, dut, &fpga), fpgaResetCounts[i]+1; got != want {
+                        t.Errorf("%v latest reset count match failed after reboot! got:%v, want:%v", name, got, want)
+                }
+
+                if fpga.GetResetCauseNum() == 0 {
+                        // This FPGA doesn't support reset causes.
+                        continue
+                }
+                if got, want := testhelper.FPGAResetCause(t, dut, &fpga, 0), testhelper.ResetCause_Cause_SOFTWARE; got != want {
+                        t.Errorf("%v latest reset cause match failed after reboot! got:%v, want:%v", name, got, want)
+                }
+        }
+}
+
+// Temperature sensor tests.
+func TestGetTemperatureSensorDefaultInformation(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("b68ca974-590c-4685-9da4-4c344c74a056").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        type sensorInfo struct {
+                ocType  oc.E_PlatformTypes_OPENCONFIG_HARDWARE_COMPONENT
+                subType string
+        }
+        sensorInfoMap := map[testhelper.TemperatureSensorType]sensorInfo{
+                testhelper.CPUTempSensor: {
+                        ocType: oc.PlatformTypes_OPENCONFIG_HARDWARE_COMPONENT_CPU,
+                },
+                testhelper.HeatsinkTempSensor: {
+                        ocType:  oc.PlatformTypes_OPENCONFIG_HARDWARE_COMPONENT_SENSOR,
+                        subType: "HEAT_SINK_TEMPERATURE_SENSOR",
+                },
+                testhelper.ExhaustTempSensor: {
+                        ocType:  oc.PlatformTypes_OPENCONFIG_HARDWARE_COMPONENT_SENSOR,
+                        subType: "EXHAUST_TEMPERATURE_SENSOR",
+                },
+                testhelper.InletTempSensor: {
+                        ocType:  oc.PlatformTypes_OPENCONFIG_HARDWARE_COMPONENT_SENSOR,
+                        subType: "INLET_TEMPERATURE_SENSOR",
+                },
+                testhelper.DimmTempSensor: {
+                        ocType:  oc.PlatformTypes_OPENCONFIG_HARDWARE_COMPONENT_SENSOR,
+                        subType: "DIMM_TEMPERATURE_SENSOR",
+                },
+        }
+
+        tests := []struct {
+                name       string
+                sensorType testhelper.TemperatureSensorType
+        }{
+                {
+                        name:       "CPUTemperatureSensorInfo",
+                        sensorType: testhelper.CPUTempSensor,
+                },
+                {
+                        name:       "HeatsinkTemperatureSensorInfo",
+                        sensorType: testhelper.HeatsinkTempSensor,
+                },
+                {
+                        name:       "ExhaustTemperatureSensorInfo",
+                        sensorType: testhelper.ExhaustTempSensor,
+                },
+                {
+                        name:       "InletTemperatureSensorInfo",
+                        sensorType: testhelper.InletTempSensor,
+                },
+                {
+                        name:       "DimmTemperatureSensorInfo",
+                        sensorType: testhelper.DimmTempSensor,
+                },
+        }
+
+        for _, tt := range tests {
+                t.Run(tt.name, func(t *testing.T) {
+                        expectedInfo, ok := sensorInfoMap[tt.sensorType]
+                        if !ok {
+                                t.Fatalf("Sensor type: %v not found in expected info map", tt.sensorType)
+                        }
+
+                        sensors, err := testhelper.TemperatureSensorInfoForDevice(t, dut, tt.sensorType)
+                        if err != nil {
+                                t.Fatalf("Failed to fetch temperature info for %v: %v", expectedInfo, err)
+                        }
+
+                        for _, sensor := range sensors {
+                                name := sensor.GetName()
+                                info := gnmi.Get(t, dut, gnmi.OC().Component(name).State())
+
+                                if got, want := info.GetName(), name; got != want {
+                                        t.Errorf("%v name match failed! got:%v, want:%v", name, got, want)
+                                }
+                                if got, want := info.GetParent(), "chassis"; got != want {
+                                        t.Errorf("%v parent match failed! got:%v, want:%v", name, got, want)
+                                }
+                                if got, want := info.GetType(), expectedInfo.ocType; got != want {
+                                        t.Errorf("%v type match failed! got:%v, want:%v", name, got, want)
+                                }
+                                if got, want := info.GetLocation(), sensor.GetLocation(); got != want {
+                                        t.Errorf("%v location match failed! got:%v, want:%v", name, got, want)
+                                }
+
+                                // Sensor sub-type is not applicable for CPU temperature sensor.
+                                if tt.sensorType == testhelper.CPUTempSensor {
+                                        continue
+                                }
+
+                                if got, want := testhelper.SensorType(t, dut, &sensor), expectedInfo.subType; got != want {
+                                        t.Errorf("%v sensor sub-type match failed! got:%v, want:%v", name, got, want)
+                                        continue
+                                }
+                        }
+
+                })
+        }
+}
+
+func TestGetTemperatureSensorTemperatureInformation(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("294bf647-cff4-47d6-a701-ad9dfe7ff8f3").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        tests := []struct {
+                name       string
+                sensorType testhelper.TemperatureSensorType
+        }{
+                {
+                        name:       "CPUTemperatureSensorInfo",
+                        sensorType: testhelper.CPUTempSensor,
+                },
+                {
+                        name:       "HeatsinkTemperatureSensorInfo",
+                        sensorType: testhelper.HeatsinkTempSensor,
+                },
+                {
+                        name:       "ExhaustTemperatureSensorInfo",
+                        sensorType: testhelper.ExhaustTempSensor,
+                },
+                {
+                        name:       "InletTemperatureSensorInfo",
+                        sensorType: testhelper.InletTempSensor,
+                },
+                {
+                        name:       "DimmTemperatureSensorInfo",
+                        sensorType: testhelper.DimmTempSensor,
+                },
+        }
+
+        for _, tt := range tests {
+                t.Run(tt.name, func(t *testing.T) {
+                        sensors, err := testhelper.TemperatureSensorInfoForDevice(t, dut, tt.sensorType)
+                        if err != nil {
+                                t.Fatalf("Failed to fetch temperature info for sensor type %v: %v", tt.sensorType, err)
+                        }
+
+                        for _, sensor := range sensors {
+                                name := sensor.GetName()
+                                if got, want := gnmi.Get(t, dut, gnmi.OC().Component(name).Temperature().Instant().State()), sensor.GetMaxTemperature(); want != 0 && got > want {
+                                        t.Errorf("%v temperature threshold exceeded! got:%v, want:<=%v", name, got, want)
+                                }
+                        }
+
+                })
+        }
+}
+
+// Health-indicator test.
 func TestSetPortHealthIndicator(t *testing.T) {
         defer testhelper.NewTearDownOptions(t).WithID("77865f9c-5919-467f-8be2-19a08d6803f9").Teardown(t)
         dut := ondatra.DUT(t, "DUT")
