@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import create_ip_list  # noqa: F401
 from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_DUT_AS_NUM, T2_DUT_AS_NUM, t1_ports, \
      t2_uplink_portchannel_members, t1_t2_dut_ipv4_list, v4_prefix_length, v6_prefix_length, \
-     t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list,\
+     t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, \
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
      BGP_TYPE, TIMEOUT, portchannel_count, t1_side_interconnected_port, t2_side_interconnected_port  # noqa: F401
@@ -592,20 +592,10 @@ def get_install_time(duthosts,
         avg_pld.append(pkt_loss_duration)
 
         flow_stats = get_flow_stats(cvg_api)
-        pytest_assert(int(flow_stats[0].frames_tx_rate) - int(flow_stats[0].frames_tx_rate) < 500,
+        pytest_assert(float((int(flow_stats[0].frames_tx_rate) - int(flow_stats[0].frames_tx_rate)) /
+                      int(flow_stats[0].frames_tx_rate)) < 0.005,
                       'Traffic has not converged after link flap')
-        logger.info('Stopping Traffic')
-        cs = cvg_api.convergence_state()
-        cs.transmit.state = cs.transmit.STOP
-        cvg_api.set_state(cs)
-        wait(TIMEOUT, "For Traffic To stop")
 
-        """ Stopping Protocols """
-        logger.info("Stopping all protocols ...")
-        cs = cvg_api.convergence_state()
-        cs.protocol.state = cs.protocol.STOP
-        cvg_api.set_state(cs)
-        wait(TIMEOUT, "For Protocols To stop")
         if duthosts[0].hostname == flap_test_port['hostname']:
             logger.info(' Starting up {} port of {} dut !!'.
                         format(flap_test_port['port_name'], flap_test_port['hostname']))
@@ -618,6 +608,23 @@ def get_install_time(duthosts,
             cvg_api.set_state(cs)
             logger.info('Starting up snappi port : {}'.format(flap_test_port['port_name']))
         wait(TIMEOUT, "For link to startup")
+        flow_stats = get_flow_stats(cvg_api)
+        pytest_assert(float((int(flow_stats[0].frames_tx_rate) - int(flow_stats[0].frames_tx_rate)) /
+                      int(flow_stats[0].frames_tx_rate)) < 0.005,
+                      'Loss observed after bringing the link back up')
+
+        logger.info('Stopping Traffic')
+        cs = cvg_api.convergence_state()
+        cs.transmit.state = cs.transmit.STOP
+        cvg_api.set_state(cs)
+        wait(TIMEOUT, "For Traffic To stop")
+
+        """ Stopping Protocols """
+        logger.info("Stopping all protocols ...")
+        cs = cvg_api.convergence_state()
+        cs.protocol.state = cs.protocol.STOP
+        cvg_api.set_state(cs)
+        wait(TIMEOUT, "For Protocols To stop")
         logger.info('\n')
 
     columns = ['Event Name', 'Iterations', 'Traffic Type', 'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
