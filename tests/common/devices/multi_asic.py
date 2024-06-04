@@ -68,7 +68,8 @@ class MultiAsicSonicHost(object):
             self._DEFAULT_SERVICES.append("lldp")
             if self.get_facts()['asic_type'] != 'vs':
                 active_asics = []
-                sonic_db_cli_out = self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
+                sonic_db_cli_out = \
+                    self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
                 for a_asic_line in sonic_db_cli_out["stdout_lines"]:
                     a_asic_name = a_asic_line.split("|")[1]
                     a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
