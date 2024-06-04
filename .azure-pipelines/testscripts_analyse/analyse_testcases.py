@@ -102,6 +102,7 @@ def check_PRChecker_coverd(test_scripts):
 
 def main():
     test_scripts = collect_all_scripts()
+    check_PRChecker_coverd(test_scripts)
 
     trackid = str(uuid.uuid4())
     scantime = str(datetime.now())
@@ -114,7 +115,6 @@ def main():
         else:
             script["category"] = "control"
 
-    check_PRChecker_coverd(test_scripts)
     return test_scripts
 
 
