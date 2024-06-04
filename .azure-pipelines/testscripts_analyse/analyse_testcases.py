@@ -35,6 +35,7 @@ import logging
 from natsort import natsorted
 from datetime import datetime
 from constant import DATAPLANE_FEATURES, PR_TOPOLOGY_TYPE
+from report_data_storage import KustoConnector
 
 
 def collect_all_scripts():
@@ -100,6 +101,11 @@ def check_PRChecker_coverd(test_scripts):
             test_script["covered"] = False
 
 
+def upload_results(test_scripts):
+    kusto_db = KustoConnector("SonicTestData")
+    kusto_db.upload_testscripts(test_scripts)
+
+
 def main():
     test_scripts = collect_all_scripts()
     check_PRChecker_coverd(test_scripts)
@@ -115,7 +121,7 @@ def main():
         else:
             script["category"] = "control"
 
-    return test_scripts
+    upload_results(test_scripts)
 
 
 if __name__ == '__main__':
