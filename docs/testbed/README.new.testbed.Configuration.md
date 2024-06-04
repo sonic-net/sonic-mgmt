@@ -225,7 +225,7 @@ sonic_sn2700_40:
         "0xFE": "0xFBA1E964"
 ```
 
-For the `fanout`, `pdu`, `mgmt`, and `server` sectionss, those record the hostname and IP address of the respective fanout switch, PDU, or console server.
+For the `fanout`, `pdu`, `mgmt`, and `server` sections, those record the hostname and IP address of the respective fanout switch, PDU, or console server.
 Those devices are also recorded in the following csv files:
 
 - `ansible/files/sonic_lab_devices.csv`
