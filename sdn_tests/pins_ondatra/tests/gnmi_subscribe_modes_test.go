@@ -708,6 +708,9 @@ func (c subscribeTest) subModeOnceTest(t *testing.T) {
         }
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding GNMI subscribe modes test [Delete/Poll/Root test] to pins_ondatra. (#13116)
 
 // Test for gNMI Subscribe Stream mode node deletions.
 func (c subscribeTest) subModeDeleteTest(t *testing.T) {
@@ -845,6 +848,7 @@ func (c subscribeTest) subModeRootTest(t *testing.T) {
         }
 
 }
+<<<<<<< HEAD
 
 func collectResponse(t *testing.T, subClient gpb.GNMI_SubscribeClient, expectedPaths map[string]operStatus) (map[string]operStatus, time.Duration) {
         t.Helper()
@@ -1056,3 +1060,5 @@ func buildRequest(t *testing.T, params subscribeTest, target string) *gpb.Subscr
 >>>>>>> [sdn_tests]:Adding GNMI subscribe modes test to pins_ondatra. (#13034)
 =======
 >>>>>>> [sdn_tests]:Adding GNMI subscribe modes test [sub Mode Update/Suppress/Sample/Once tests] in pins ondatra. (#13098)
+=======
+>>>>>>> [sdn_tests]: Adding GNMI subscribe modes test [Delete/Poll/Root test] to pins_ondatra. (#13116)
