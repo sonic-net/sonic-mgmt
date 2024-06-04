@@ -22,6 +22,7 @@ t0:
   - console/test_console_udevrule.py
   - container_checker/test_container_checker.py
   - container_hardening/test_container_hardening.py
+  - database/test_db_config.py
   - database/test_db_scripts.py
   - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py

@@ -91,6 +91,22 @@ ondatra_test(
     ],
 )
 
+# Hardware Platform Component Tests
+ondatra_test(
+    name = "platforms_hardware_component_test",
+    srcs = ["platforms_hardware_component_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_gnoi//system:system_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_openconfig_testt//:testt",
+        "@com_github_pkg_errors//:errors",
+    ],
+)
+
 #module reset test
 ondatra_test_suite(
     name = "module_reset_test",
