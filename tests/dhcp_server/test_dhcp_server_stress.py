@@ -6,7 +6,7 @@ import ptf.testutils as testutils
 import random
 import re
 from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert, pytest_raise
+from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     apply_dhcp_server_config_gcu, create_dhcp_client_packet, empty_config_patch, append_common_config_patch
 
@@ -192,7 +192,7 @@ def test_dhcp_server_with_large_number_of_discover(
         real_time = [o for o in time_output if 'real' in o][0]
         match = re.search(pattern, real_time)
         if not match:
-            pytest_raise("Failed to parse real time from %s" % real_time)
+            pytest.fail("Failed to parse real time from %s" % real_time)
         minutes_str, seconds_str = match.groups()
         elasped_seconds = float(minutes_str) * 60 + float(seconds_str)
         pytest_assert(elasped_seconds < 10,
