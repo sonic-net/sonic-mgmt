@@ -18,7 +18,10 @@ from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
 from tests.common.mellanox_data import is_mellanox_device
+<<<<<<< HEAD
 from tests.common.platform.processes_utils import wait_critical_processes
+=======
+>>>>>>> Fix test_device_checker issue:https://redmine.mellanox.com/issues/3808455 (#12895)
 
 
 logger = logging.getLogger(__name__)
