@@ -84,7 +84,7 @@ def check_PRChecker_coverd(test_scripts):
 
     for test_script in test_scripts:
         topo_type = test_script["topology"]
-        if test_script["testscript"] in pr_test_scripts[topo_type]:
+        if test_script["testscript"] in pr_test_scripts.get(topo_type, ""):
             test_script["covered"] = True
         else:
             test_script["covered"] = False
