@@ -14,6 +14,7 @@ from scapy.contrib import bgp
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -155,8 +156,10 @@ def test_dualtor_bgp_update_delay(duthost, ip_version, select_bgp_neighbor):
         "Could not find any BGP updates to %s" % bgp_neighbor
     )
 
-    first_update_to_peer_time = datetime.fromtimestamp(first_update_to_peer.time)
-    first_update_from_peer_time = datetime.fromtimestamp(first_update_from_peer.time)
+    first_update_to_peer_time = datetime.fromtimestamp(float(first_update_to_peer.time))
+    first_update_from_peer_time = datetime.fromtimestamp(float(first_update_from_peer.time))
+    logging.debug("The BGP update to peer is sent at %s", first_update_to_peer_time)
+    logging.debug("The BGP update from peer is received at %s", first_update_from_peer_time)
     pytest_assert(
         (first_update_to_peer_time - bgp_startup_time).total_seconds() >= 10,
         "There should be at least 10 seconds of delay between startup BGP session and the first out BGP update"

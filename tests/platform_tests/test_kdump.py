@@ -36,7 +36,7 @@ class TestKernelPanic:
 
     @pytest.fixture(autouse=True)
     def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                 localhost, pdu_controller):
+                 localhost, pdu_controller, conn_graph_facts, xcvr_skip_list):
         yield
         # If the SSH connection is not established, or any critical process is exited,
         # try to recover the DUT by PDU reboot.
@@ -53,7 +53,7 @@ class TestKernelPanic:
                           'Recover {} by PDU reboot failed'.format(hostname))
             # Wait until all critical processes are healthy.
             wait_critical_processes(duthost)
-            self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
+            self.wait_lc_healthy_if_sup(duthost, duthosts, localhost, conn_graph_facts, xcvr_skip_list)
 
     def test_kernel_panic(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
                           conn_graph_facts, xcvr_skip_list):

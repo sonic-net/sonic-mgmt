@@ -113,6 +113,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [active_ip_interfaces](sonichost_methods/active_ip_interfaces.md) - Provides information on all active IP (Ethernet or Portchannel) interfaces given a list of interface names.
 
+- [add_acl_table](sonichost_methods/add_acl_table.md) - Add new acl table via command `sudo config acl add table `
+
 - [all_critical_process_status](sonichost_methods/all_critical_process_status.md) - Provides summary and status of all critical services and their processes
 
 - [check_bgp_session_nsf](sonichost_methods/check_bgp_session_nsf.md) - Checks if BGP neighbor session has entered Nonstop Forwarding(NSF) state
@@ -169,6 +171,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [get_interfaces_status](sonichost_methods/get_interfaces_status.md) - Get interfaces status on the DUT and parse the result into a dict.
 
+- [get_intf_link_local_ipv6_addr](sonichost_methods/get_intf_link_local_ipv6_addr.md) - Get the link local ipv6 address of the interface
+
 - [get_ip_route_info](sonichost_methods/get_ip_route_info.md) - Returns route information for a destionation. The destination could an ip address or ip prefix.
 
 - [get_monit_services_status](sonichost_methods/get_monit_services_status.md) - Get metadata on services monitored by Monit.
@@ -206,6 +210,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 - [get_up_time](sonichost_methods/get_up_time.md) - Returns `datetime` object representing date/time that device was started.
 
 - [get_vlan_intfs](sonichost_methods/get_vlan_intfs.md) - Retrieves list of interfaces belonging to a VLAN.
+
+- [get_vlan_brief](sonichost_methods/get_vlan_brief.md) - Returns a dict contians all vlans with their brief information
 
 - [hostname](sonichost_methods/hostname.md) - Provides hostname for device.
 

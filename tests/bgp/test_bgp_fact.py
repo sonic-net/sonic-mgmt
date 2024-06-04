@@ -1,4 +1,5 @@
 import pytest
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -6,7 +7,7 @@ pytestmark = [
 ]
 
 
-def test_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
+def run_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
     """compare the bgp facts between observed states and target state"""
 
     duthost = duthosts[enum_frontend_dut_hostname]
@@ -40,3 +41,7 @@ def test_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
         assert v['name'] == bgp_facts['bgp_neighbors'][k]['description']
         # Compare the bgp neighbors ASN with config db
         assert int(v['asn'].encode().decode("utf-8")) == bgp_facts['bgp_neighbors'][k]['remote AS']
+
+
+def test_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
+    run_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index)

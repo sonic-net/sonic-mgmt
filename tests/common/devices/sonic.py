@@ -1333,6 +1333,23 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         intf_status = self.show_interface(command="status", interfaces=[interface_name])["ansible_facts"]['int_status']
         return intf_status[interface_name]['oper_state'] == 'up'
 
+    def get_intf_link_local_ipv6_addr(self, intf):
+        """
+        Get the link local ipv6 address of the interface
+
+        Args:
+            intf: The SONiC interface name
+
+        Returns:
+            The link local ipv6 address of the interface or empty string if not found
+
+        Sample output:
+            fe80::2edd:e9ff:fefc:dd58
+        """
+        cmd = "ip addr show %s | grep inet6 | grep 'scope link' | awk '{print $2}' | cut -d '/' -f1" % intf
+        addr = self.shell(cmd)["stdout"]
+        return addr
+
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info
@@ -1762,6 +1779,41 @@ Totals               6450                 6449
 
         return vlan_intfs
 
+    def get_vlan_brief(self):
+        """
+        Get vlan brief
+        Sample output:
+            {
+                "Vlan1000": {
+                    "interface_ipv4": [ "192.168.0.1/24" ],
+                    "interface_ipv6": [ "fc02:1000::1/64" ],
+                    "members": ["Ethernet0", "Ethernet1"]
+                },
+                "Vlan2000": {
+                    "interface_ipv4": [ "192.168.1.1/24" ],
+                    "interface_ipv6": [ "fc02:1001::1/64" ],
+                    "members": ["Ethernet3", "Ethernet4"]
+                }
+            }
+        """
+        config = self.get_running_config_facts()
+        vlan_brief = {}
+        for vlan_name, members in config["VLAN_MEMBER"].items():
+            vlan_brief[vlan_name] = {
+                "interface_ipv4": [],
+                "interface_ipv6": [],
+                "members": list(members.keys())
+            }
+        for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
+            if vlan_name not in vlan_brief:
+                continue
+            for prefix in vlan_info.keys():
+                if '.' in prefix:
+                    vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
+                elif ':' in prefix:
+                    vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
+        return vlan_brief
+
     def get_interfaces_status(self):
         '''
         Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
@@ -1916,7 +1968,7 @@ Totals               6450                 6449
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert(timeout >= 0)
+        assert (timeout >= 0)
 
         return crm_facts
 
@@ -2257,6 +2309,34 @@ Totals               6450                 6449
             cli += " -j"
         res = self.shell(cli)['stdout']
         return re.sub(r"Last cached time was.*\d+\n", "", res)
+
+    def add_acl_table(self, table_name, table_type, acl_stage=None, bind_ports=None, description=None):
+        """
+        Add ACL table via 'config acl add table' command.
+        Command sample:
+            config acl add table TEST_TABLE L3 -s ingress -p Ethernet0,Ethernet4 -d "Test ACL table"
+
+        Args:
+            table_name: name of new acl table
+            table_type: type of the acl table
+            acl_stage: acl stage, ingress or egress
+            bind_ports: ports bind to the acl table
+            description: description of the acl table
+        """
+        cmd = "config acl add table {} {}".format(table_name, table_type)
+
+        if acl_stage:
+            cmd += " -s {}".format(acl_stage)
+
+        if bind_ports:
+            if isinstance(bind_ports, list):
+                bind_ports = ",".join(bind_ports)
+            cmd += " -p {}".format(bind_ports)
+
+        if description:
+            cmd += " -d {}".format(description)
+
+        self.command(cmd)
 
     def remove_acl_table(self, acl_table):
         """

@@ -21,6 +21,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.utilities import check_skip_release
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -565,7 +566,7 @@ class AclVlanOuterTest_Base(object):
             pytest_assert(count_after >= count_before + 1,
                           "Unexpected results, counter_after {} > counter_before {}".format(count_after, count_before))
         except Exception as e:
-            raise(e)
+            raise (e)
         finally:
             self._remove_acl_rules(duthost, stage, ip_version)
 
