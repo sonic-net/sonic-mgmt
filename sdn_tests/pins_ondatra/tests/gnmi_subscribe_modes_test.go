@@ -677,3 +677,140 @@ func (c subscribeTest) subModeOnceTest(t *testing.T) {
                 t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
         }
 }
+
+// Test for gNMI Subscribe Stream mode node deletions.
+func (c subscribeTest) subModeDeleteTest(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        if skipTest[t.Name()] {
+                t.Skip()
+        }
+        dut := ondatra.DUT(t, "DUT")
+
+        subscribeRequest := buildRequest(t, c, dut.Name())
+        t.Logf("SubscribeRequest:\n%v", prototext.Format(subscribeRequest))
+
+        ctx, cancel := context.WithCancel(context.Background())
+        defer cancel()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        subscribeClient, err := gnmiClient.Subscribe(ctx)
+        if err != nil {
+                t.Fatalf("Unable to get subscribe client (%v)", err)
+        }
+
+        if err := subscribeClient.Send(subscribeRequest); err != nil {
+                t.Fatalf("Failed to send gNMI subscribe request (%v)", err)
+        }
+
+        expectedPaths := c.buildExpectedPaths(t, dut)
+        expectedPaths[syncResponse] = operStatus{}
+
+        gotName := gnmi.Get(t, dut, gnmi.OC().System().Hostname().State())
+        defer gnmi.Update(t, dut, gnmi.OC().System().Hostname().Config(), gotName)
+
+        foundPaths, _ := collectResponse(t, subscribeClient, expectedPaths)
+        if diff := cmp.Diff(expectedPaths, foundPaths, cmpopts.IgnoreUnexported(operStatus{})); diff != "" {
+                t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
+        }
+
+        if c.reqPath == deletePath {
+                gnmi.Delete(t, dut, gnmi.OC().System().Hostname().Config())
+        }
+        if c.reqPath == deleteTreePath {
+                gnmi.Delete(t, dut, gnmi.OC().System().Config())
+        }
+        delete(expectedPaths, syncResponse)
+        for _, v := range expectedPaths {
+                v.delete = true
+        }
+
+        foundPaths, delay := collectResponse(t, subscribeClient, expectedPaths)
+        if diff := cmp.Diff(expectedPaths, foundPaths, cmpopts.IgnoreUnexported(operStatus{})); diff != "" {
+                t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
+        }
+        if delay > time.Duration(c.sampleInterval+(c.sampleInterval/2)) {
+                t.Errorf("Failed sampleInterval with time of %v", delay)
+        }
+}
+
+// Test for gNMI Subscribe Poll mode for different levels.
+func (c subscribeTest) subModePollTest(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        if skipTest[t.Name()] {
+                t.Skip()
+        }
+        dut := ondatra.DUT(t, "DUT")
+
+        subscribeRequest := buildRequest(t, c, dut.Name())
+        t.Logf("SubscribeRequest:\n%v", prototext.Format(subscribeRequest))
+
+        ctx, cancel := context.WithCancel(context.Background())
+        defer cancel()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        subscribeClient, err := gnmiClient.Subscribe(ctx)
+        if err != nil {
+                t.Fatalf("Unable to get subscribe client (%v)", err)
+        }
+
+        if err := subscribeClient.Send(subscribeRequest); err != nil {
+                t.Fatalf("Failed to send gNMI subscribe request (%v)", err)
+        }
+
+        expectedPaths := c.buildExpectedPaths(t, dut)
+        expectedPaths[syncResponse] = operStatus{}
+
+        foundPaths, _ := collectResponse(t, subscribeClient, expectedPaths)
+        if diff := cmp.Diff(expectedPaths, foundPaths, cmpopts.IgnoreUnexported(operStatus{})); diff != "" {
+                t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
+        }
+
+        delete(expectedPaths, syncResponse)
+        subscribeClient.Send(&gpb.SubscribeRequest{Request: &gpb.SubscribeRequest_Poll{}})
+        foundPaths, _ = collectResponse(t, subscribeClient, expectedPaths)
+        if diff := cmp.Diff(expectedPaths, foundPaths, cmpopts.IgnoreUnexported(operStatus{})); diff != "" {
+                t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
+        }
+}
+
+func (c subscribeTest) subModeRootTest(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        if skipTest[t.Name()] {
+                t.Skip()
+        }
+        dut := ondatra.DUT(t, "DUT")
+
+        req := buildRequest(t, c, dut.Name())
+        t.Logf("SubscribeRequest:\n%v", prototext.Format(req))
+
+        ctx, cancel := context.WithCancel(context.Background())
+        defer cancel()
+
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        subscribeClient, err := gnmiClient.Subscribe(ctx)
+        if err != nil {
+                t.Fatalf("Unable to get subscribe client (%v)", err)
+        }
+
+        if err := subscribeClient.Send(req); err != nil {
+                t.Fatalf("Failed to send gNMI subscribe request (%v)", err)
+        }
+
+        // First listener returns after sync response
+        if err := clientListener(t, subscribeClient); err != nil {
+                t.Errorf("Initial Response failed (%v)", err)
+        }
+
+        // Second listener returns after fixed time with no errors
+        if err := clientListener(t, subscribeClient); err != nil {
+                t.Errorf("Subscribe Response failed (%v)", err)
+        }
+
+}
