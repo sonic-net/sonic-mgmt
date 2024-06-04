@@ -2,11 +2,10 @@
 
 # python t.py -f /tmp/vxlan_decap.json -s 192.168.8.1
 
-import SocketServer
+import socketserver
 import select
-import shutil
 import json
-import BaseHTTPServer
+import http.server
 import time
 import socket
 import ctypes
@@ -16,7 +15,7 @@ import binascii
 import argparse
 import os
 
-from cStringIO import StringIO
+from io import StringIO
 from collections import namedtuple
 
 
@@ -26,7 +25,7 @@ Record = namedtuple(
 ASIC_TYPE = None
 
 
-class Ferret(BaseHTTPServer.BaseHTTPRequestHandler):
+class Ferret(http.server.BaseHTTPRequestHandler):
     server_version = "FerretHTTP/0.1"
 
     def do_POST(self):
@@ -38,7 +37,7 @@ class Ferret(BaseHTTPServer.BaseHTTPRequestHandler):
             self.send_resp(info)
 
     def extract_info(self):
-        c_len = int(self.headers.getheader('content-length', 0))
+        c_len = int(self.headers['content-length'])
         body = self.rfile.read(c_len)
         j = json.loads(body)
         return j
@@ -79,7 +78,7 @@ class Ferret(BaseHTTPServer.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(line))
         self.send_header("Last-Modified", self.date_time_string())
         self.end_headers()
-        shutil.copyfileobj(f, self.wfile)
+        self.wfile.write(bytes(f.read(), encoding='utf-8'))
         f.close()
         return
 
@@ -95,8 +94,8 @@ class RestAPI(object):
     PORT = 448
 
     def __init__(self, obj, db, src_ip):
-        SocketServer.TCPServer.allow_reuse_address = True
-        self.httpd = SocketServer.TCPServer(("", self.PORT), obj)
+        socketserver.TCPServer.allow_reuse_address = True
+        self.httpd = socketserver.TCPServer(("", self.PORT), obj)
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
         self.context.verify_mode = ssl.CERT_NONE
         self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -126,8 +125,10 @@ class Interface(object):
         self.socket = socket.socket(
             socket.AF_PACKET, socket.SOCK_RAW, socket.htons(self.ETH_P_ALL))
         if bpf_src is not None:
-            blob = ctypes.create_string_buffer(
-                ''.join(struct.pack("HBBI", *e) for e in bpf_src))
+            bpf_bytes = bytearray()
+            for e in bpf_src:
+                bpf_bytes.extend(struct.pack("HBBI", *e))
+            blob = ctypes.create_string_buffer(bytes(bpf_bytes))
             address = ctypes.addressof(blob)
             bpf = struct.pack('HL', len(bpf_src), address)
             self.socket.setsockopt(
@@ -156,7 +157,7 @@ class Poller(object):
         self.httpd = httpd
 
     def poll(self):
-        handlers = self.mapping.keys() + [self.httpd.handler()]
+        handlers = list(self.mapping.keys()) + [self.httpd.handler()]
         while True:
             (rdlist, _, _) = select.select(handlers, [], [])
             for handler in rdlist:
@@ -178,11 +179,10 @@ class Responder(object):
         self.vxlan_port = vxlan_port
 
     def hexdump(self, data):
-        print((" ".join("%02x" % ord(d) for d in data)))
+        print(' '.join(str(i) for i in list(data)))
 
     def action(self, interface):
         data = interface.recv()
-
         ext_dst_mac = data[0x00:0x06]
         ext_src_mac = data[0x06:0x0c]
         ext_eth_type = data[0x0c:0x0e]
@@ -243,11 +243,11 @@ class Responder(object):
             return
 
         if r.family == 'ipv4':
-            new_pkt = ext_src_mac + ext_dst_mac + ext_eth_type  # outer eth frame
+            new_pkt = bytearray(ext_src_mac + ext_dst_mac + ext_eth_type)  # outer eth frame
             ipv4 = binascii.unhexlify(
                 '45000060977e400040110000') + dst_ip + src_ip  # ip
             crc = self.calculate_header_crc(ipv4)
-            ipv4 = ipv4[0:10] + crc + ipv4[12:]
+            ipv4 = bytearray(ipv4[0:10] + crc + ipv4[12:])
             new_pkt += ipv4
             if self.vxlan_port:
                 # udp
@@ -272,9 +272,7 @@ class Responder(object):
     def calculate_header_crc(self, ipv4):
         s = 0
         for left, right in zip(ipv4[::2], ipv4[1::2]):
-            l_u = struct.unpack("B", left)[0]
-            r_u = struct.unpack("B", right)[0]
-            s += (l_u << 8) + r_u
+            s += (left << 8) + right
 
         c = s >> 16
         s = s & 0xffff
@@ -285,18 +283,17 @@ class Responder(object):
             s = s & 0xffff
 
         s = 0xffff - s
-
         return binascii.unhexlify("%x" % s)
 
     def extract_arp_info(self, data):
-        vlan_id = ord(data[14]) * 256 + ord(data[15])
+        vlan_id = data[14] * 256 + data[15]
         if vlan_id == 1:
             offset = 0
         else:
             offset = 4
         # vlan_id, remote_mac, remote_ip, request_ip, op_type
         return vlan_id, data[6:12], data[offset+28:offset+32], data[offset+38:offset+42], \
-            (ord(data[offset+20]) * 256 + ord(data[offset+21]))
+            (data[offset+20] * 256 + data[offset+21])
 
     def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip, vlan_id):
         eth_hdr = remote_mac + local_mac
@@ -328,7 +325,7 @@ def extract_iface_names(config_file):
         graph = json.load(fp)
 
     net_ports = []
-    for name, val in graph['minigraph_portchannels'].items():
+    for name, val in list(graph['minigraph_portchannels'].items()):
         members = ['eth%d' % graph['minigraph_port_indices'][member]
                    for member in val['members']]
         net_ports.extend(members)

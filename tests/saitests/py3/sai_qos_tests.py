@@ -21,7 +21,8 @@ from ptf.testutils import (ptf_ports,
                            simple_ip_packet,
                            simple_ipv4ip_packet,
                            hex_dump_buffer,
-                           verify_packet_any_port)
+                           verify_packet_any_port,
+                           port_to_tuple)
 from ptf.mask import Mask
 from switch import (switch_init,
                     sai_thrift_create_scheduler_profile,
@@ -35,7 +36,10 @@ from switch import (switch_init,
                     sai_thrift_read_buffer_pool_watermark,
                     sai_thrift_read_headroom_pool_watermark,
                     sai_thrift_read_queue_occupancy,
-                    sai_thrift_read_pg_occupancy)
+                    sai_thrift_read_pg_occupancy,
+                    sai_thrift_read_port_voq_counters,
+                    sai_thrift_get_voq_port_id
+                    )
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
                                       sai_thrift_attribute_t)
 from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID
@@ -61,24 +65,39 @@ RECEIVED_PKTS = 14
 RECEIVED_NON_UC_PKTS = 15
 TRANSMITTED_NON_UC_PKTS = 16
 EGRESS_PORT_QLEN = 17
-port_counter_fields = ['0 OutDiscard',
-                       '1 InDiscard',
-                       '2 Pfc0TxPkt',
-                       '3 Pfc1TxPkt',
-                       '4 Pfc2TxPkt',
-                       '5 Pfc3TxPkt',
-                       '6 Pfc4TxPkt',
-                       '7 Pfc5TxPkt',
-                       '8 Pfc6TxPkt',
-                       '9 Pfc7TxPkt',
-                       '10 OutOct',
-                       '11 OutUcPkt',
-                       '12 InDropPkt',
-                       '13 OutDropPkt',
-                       '14 InUcPkt',
-                       '15 InNonUcPkt',
-                       '16 OutNonUcPkt',
-                       '17 OutQlen']
+
+port_counter_fields = ['OutDiscard',            # SAI_PORT_STAT_IF_OUT_DISCARDS
+                       'InDiscard',             # SAI_PORT_STAT_IF_IN_DISCARDS
+                       'Pfc0TxPkt',             # SAI_PORT_STAT_PFC_0_TX_PKTS
+                       'Pfc1TxPkt',             # SAI_PORT_STAT_PFC_1_TX_PKTS
+                       'Pfc2TxPkt',             # SAI_PORT_STAT_PFC_2_TX_PKTS
+                       'Pfc3TxPkt',             # SAI_PORT_STAT_PFC_3_TX_PKTS
+                       'Pfc4TxPkt',             # SAI_PORT_STAT_PFC_4_TX_PKTS
+                       'Pfc5TxPkt',             # SAI_PORT_STAT_PFC_5_TX_PKTS
+                       'Pfc6TxPkt',             # SAI_PORT_STAT_PFC_6_TX_PKTS
+                       'Pfc7TxPkt',             # SAI_PORT_STAT_PFC_7_TX_PKTS
+                       'OutOct',                # SAI_PORT_STAT_IF_OUT_OCTETS
+                       'OutUcPkt',              # SAI_PORT_STAT_IF_OUT_UCAST_PKTS
+                       'InDropPkt',             # SAI_PORT_STAT_IN_DROPPED_PKTS
+                       'OutDropPkt',            # SAI_PORT_STAT_OUT_DROPPED_PKTS
+                       'InUcPkt',               # SAI_PORT_STAT_IF_IN_UCAST_PKTS
+                       'InNonUcPkt',            # SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS
+                       'OutNonUcPkt',           # SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS
+                       'OutQlen']               # SAI_PORT_STAT_IF_OUT_QLEN
+
+queue_counter_field_template = 'Que{}Cnt'       # SAI_QUEUE_STAT_PACKETS
+
+# sai_thrift_read_port_watermarks
+queue_share_wm_field_template = 'Que{}ShareWm'  # SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES
+pg_share_wm_field_template = 'Pg{}ShareWm'      # SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES
+pg_headroom_wm_field_template = 'pg{}HdrmWm'    # SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES
+
+# sai_thrift_read_pg_counters
+pg_counter_field_template = 'Pg{}Cnt'           # SAI_INGRESS_PRIORITY_GROUP_STAT_PACKETS
+
+# sai_thrift_read_pg_drop_counters
+pg_drop_field_template = 'Pg{}Drop'             # SAI_INGRESS_PRIORITY_GROUP_STAT_DROPPED_PACKETS
+
 QUEUE_0 = 0
 QUEUE_1 = 1
 QUEUE_2 = 2
@@ -103,6 +122,177 @@ DEFAULT_TTL = 64
 DEFAULT_ECN = 1
 DEFAULT_PKT_COUNT = 10
 PG_TOLERANCE = 2
+
+
+def log_message(message, level='info', to_stderr=False):
+    if to_stderr:
+        sys.stderr.write(message + "\n")
+    log_funcs = {'debug':    logging.debug,
+                 'info':     logging.info,
+                 'warning':  logging.info,
+                 'error':    logging.error,
+                 'critical': logging.error}
+    log_fn = log_funcs.get(level.lower(), logging.info)
+    log_fn(message)
+
+
+def read_ptf_counters(dataplane, port):
+    ptfdev, ptfport = port_to_tuple(port)
+    rx, tx = dataplane.get_counters(ptfdev, ptfport)
+    return [rx, tx]
+
+
+def flat_test_port_ids(hierarchy):
+    if isinstance(hierarchy, int):
+        yield hierarchy
+    elif isinstance(hierarchy, list):
+        for item in hierarchy:
+            yield from flat_test_port_ids(item)
+    elif isinstance(hierarchy, dict):
+        for value in hierarchy.values():
+            yield from flat_test_port_ids(value)
+
+
+class CounterCollector:
+    '''Collect, compare and display counters for test'''
+
+    def __init__(self, ptftest, counter_name):
+        self.ptftest = ptftest
+        if 'dst' in self.ptftest.clients and self.ptftest.clients['src'] != self.ptftest.clients['dst']:
+            # For first revision, tests do not cover chassis device, so not support chassis temporarily
+            # when tests cover chassi device, will open this feature to chassis device
+            self.valid = False
+        else:
+            self.valid = True
+            self.steps = []
+            self.counter_name = counter_name
+            self.asic_type = ptftest.test_params.get('sonic_asic_type', None)
+            self.flat_ports = list(flat_test_port_ids(ptftest.test_params.get('test_port_ids', None)))
+
+    def collect_counter(self, step_name, step_desc=None, compare=True):
+        if not self.valid:
+            return
+        counter_info = {
+            'PortCnt': [
+                port_counter_fields,
+                lambda _ptftest, _asic_type, _port: sai_thrift_read_port_counters(
+                    _ptftest.clients['src'], _asic_type, port_list['src'][_port]
+                )[0]
+            ],
+            'QueCnt': [
+                [queue_counter_field_template.format(i) for i in range(QUEUE_NUM)],
+                lambda _ptftest, _asic_type, _port: sai_thrift_read_port_counters(
+                    _ptftest.clients['src'], _asic_type, port_list['src'][_port]
+                )[1]
+            ],
+            'QueShareWm': [
+                [queue_share_wm_field_template.format(i) for i in range(QUEUE_NUM)],
+                lambda _ptftest, _, _port: sai_thrift_read_port_watermarks(
+                    _ptftest.clients['src'], port_list['src'][_port]
+                )[0]
+            ],
+            'PgShareWm': [
+                [pg_share_wm_field_template.format(i) for i in range(PG_NUM)],
+                lambda _ptftest, _, _port: sai_thrift_read_port_watermarks(
+                    _ptftest.clients['src'], port_list['src'][_port]
+                )[1]
+            ],
+            'PgHdrmWm': [
+                [pg_headroom_wm_field_template.format(i) for i in range(PG_NUM)],
+                lambda _ptftest, _, _port: sai_thrift_read_port_watermarks(
+                    _ptftest.clients['src'], port_list['src'][_port]
+                )[2]
+            ],
+            'PgCnt': [
+                [pg_counter_field_template.format(i) for i in range(PG_NUM)],
+                lambda _ptftest, _, _port: sai_thrift_read_pg_counters(
+                    _ptftest.clients['src'], port_list['src'][_port]
+                )
+            ],
+            'PgDrop': [
+                [pg_drop_field_template.format(i) for i in range(PG_NUM)],
+                lambda _ptftest, _, _port: sai_thrift_read_pg_drop_counters(
+                    _ptftest.clients['src'], port_list['src'][_port]
+                )
+            ],
+            'PtfCnt': [
+                ['rx', 'tx'],
+                lambda _ptftest, _, _port: read_ptf_counters(
+                    _ptftest.dataplane, _port
+                )
+            ]
+        }
+
+        if self.counter_name not in counter_info:
+            return None
+        counter_fields, query_func = counter_info[self.counter_name]
+
+        table = texttable.TextTable(['port'] + counter_fields, attr_name='step', attr_value=step_name)
+        for port in self.flat_ports:
+            data = query_func(self.ptftest, self.asic_type, port)
+            table.add_row([port] + data)
+
+        self.steps.append({'table': table, 'name': step_name, 'desc': step_desc})
+        current = len(self.steps) - 1
+
+        if compare:
+            compare_table = self.__find_table(compare, from_curr_to_prev=current)
+            merged_table = texttable.TextTable.merge_table(table, compare_table)
+            log_message('collect_counter {} {}\n{}\n'.format(
+                self.counter_name,
+                step_name + '({})'.format(step_desc) if step_desc is not None else '',
+                merged_table))
+
+    def __find_table(self, counter, from_curr_to_prev=False):
+        if isinstance(counter, str):
+            return next((s['table'] for s in self.steps if s['name'] == counter), None)
+        elif isinstance(counter, int) and not isinstance(counter, bool):    # True is instance of int, so exclude bool
+            return self.steps[counter]['table'] if counter in list(range(len(self.steps))) or counter == -1 else None
+        if from_curr_to_prev:
+            return self.steps[from_curr_to_prev - 1]['table'] if from_curr_to_prev != 0 else None
+        return None
+
+    def compare_counter(self, changed_counter, base_counter):
+        if not self.valid:
+            return
+        base_table = self.__find_table(base_counter)
+        changed_table = self.__find_table(changed_counter)
+        if base_table and changed_table:
+            merged_table = texttable.TextTable.merge_table(changed_table, base_table)
+            log_message('compare_counter {} {}~{}\n{}\n'.format(
+                self.counter_name, base_counter, changed_counter, merged_table))
+
+
+def initialize_diag_counter(ptftest):
+    ptftest.counter_collectors = {}
+    for counter_name in ['PortCnt', 'QueCnt', 'QueShareWm', 'PgShareWm', 'PgHdrmWm', 'PgCnt', 'PgDrop', 'PtfCnt']:
+        ptftest.counter_collectors[counter_name] = CounterCollector(ptftest, counter_name)
+        # not need to show counter for init stage
+        ptftest.counter_collectors[counter_name].collect_counter('init', compare=False)
+
+
+def capture_diag_counter(ptftest, step_name='run', step_desc=None):
+    if not hasattr(ptftest, 'counter_collectors') or not ptftest.counter_collectors:
+        return
+    for collector in ptftest.counter_collectors.values():
+        if isinstance(collector, CounterCollector):
+            collector.collect_counter(step_name, step_desc)
+
+
+def summarize_diag_counter(ptftest, changed_counter=-1, base_counter=0):
+    if not hasattr(ptftest, 'counter_collectors') or not ptftest.counter_collectors:
+        return
+    for collector in ptftest.counter_collectors.values():
+        if isinstance(collector, CounterCollector):
+            collector.compare_counter(changed_counter, base_counter)
+
+
+def qos_test_assert(ptftest, condition, message=None):
+    try:
+        assert condition, message
+    except AssertionError:
+        summarize_diag_counter(ptftest)
+        raise  # Re-raise the assertion error to maintain the original assert behavior
 
 
 def check_leackout_compensation_support(asic, hwsku):
@@ -505,7 +695,6 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_dut_index = self.test_params['dst_dut_index']
         self.dst_asic_index = self.test_params.get('dst_asic_index', None)
         self.testbed_type = self.test_params['testbed_type']
-        self.is_multi_asic = (self.clients['src'] != self.clients['dst'])
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -513,31 +702,39 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         # ARP Populate
         # Ping only  required for testports
-        if 't2' in self.testbed_type and self.is_multi_asic:
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
-                                                            self.dst_asic_index, self.dst_port_ip))
-            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
-                self.dst_port_ip, self.dst_asic_index, self.dst_server_ip)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
-                                                            self.dst_asic_index, self.dst_port_2_ip))
-            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
-                self.dst_port_2_ip, self.dst_asic_index, self.dst_server_ip)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
-                                                            self.dst_asic_index, self.dst_port_3_ip))
-            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
-                self.dst_port_3_ip, self.dst_asic_index, self.dst_server_ip)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
-                                                            self.src_asic_index, self.src_port_ip))
-            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
-                self.src_port_ip, self.src_asic_index, self.src_server_ip)
+        if 't2' in self.testbed_type:
+            src_is_multi_asic = self.test_params['src_is_multi_asic']
+            dst_is_multi_asic = self.test_params['dst_is_multi_asic']
+            dst_port_ips = [self.dst_port_ip, self.dst_port_2_ip, self.dst_port_3_ip]
+            for ip in dst_port_ips:
+                if dst_is_multi_asic:
+                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip,
+                                                                    self.test_params['dut_username'],
+                                                                    self.test_params['dut_password'],
+                                                                    'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                                        self.dst_asic_index, ip))
+                    assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                        ip, self.dst_asic_index, self.dst_server_ip)
+                else:
+                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip,
+                                                                    self.test_params['dut_username'],
+                                                                    self.test_params['dut_password'],
+                                                                    'ping -q -c 3 {}'.format(ip))
+                    assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on Dut '{}'".format(
+                        ip, self.dst_server_ip)
+            if src_is_multi_asic:
+                stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
+                                                                self.test_params['dut_password'],
+                                                                'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                                    self.src_asic_index, self.src_port_ip))
+                assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                    self.src_port_ip, self.src_asic_index, self.src_server_ip)
+            else:
+                stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
+                                                                self.test_params['dut_password'],
+                                                                'ping -q -c 3 {}'.format(self.src_port_ip))
+                assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on Dut '{}'".format(
+                    self.src_port_ip, self.src_server_ip)
         else:
             arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac,
                                            1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
@@ -913,6 +1110,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         dscp_to_pg_map = self.test_params.get('dscp_to_pg_map', None)
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         asic_type = self.test_params.get("sonic_asic_type")
+        platform_asic = self.test_params['platform_asic']
 
         print("dst_port_id: %d, src_port_id: %d" %
               (dst_port_id, src_port_id), file=sys.stderr)
@@ -981,21 +1179,26 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 print(list(map(operator.sub, pg_cntrs, pg_cntrs_base)),
                       file=sys.stderr)
                 for i in range(0, PG_NUM):
-                    if i == pg:
-                        if i == 0 or i == 4:
-                            assert (pg_cntrs[pg] >=
-                                    pg_cntrs_base[pg] + len(dscps))
+                    # DNX/Chassis:
+                    # pg = 0 => Some extra packets with unmarked TC
+                    # pg = 4 => Extra packets for LACP/BGP packets
+                    # pg = 7 => packets from cpu to front panel ports
+                    if platform_asic and platform_asic == "broadcom-dnx":
+                        if i == pg:
+                            if i == 3:
+                                assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
+                            else:
+                                assert (pg_cntrs[pg] >= pg_cntrs_base[pg] + len(dscps))
                         else:
-                            assert (pg_cntrs[pg] ==
-                                    pg_cntrs_base[pg] + len(dscps))
+                            if i in [0, 4, 7]:
+                                assert (pg_cntrs[i] >= pg_cntrs_base[i])
+                            else:
+                                assert (pg_cntrs[i] == pg_cntrs_base[i])
                     else:
-                        # LACP packets are mapped to queue0 and tcp syn packets for BGP to queue4
-                        # So for those queues the count could be more
-                        if i == 0 or i == 4:
-                            assert (pg_cntrs[i] >= pg_cntrs_base[i])
+                        if i == pg:
+                            assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
                         else:
                             assert (pg_cntrs[i] == pg_cntrs_base[i])
-
                 # confirm that dscp pkts are received
                 total_recv_cnt = 0
                 dscp_recv_cnt = 0
@@ -1433,6 +1636,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         time.sleep(5)
         switch_init(self.clients)
+        initialize_diag_counter(self)
 
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
@@ -1497,15 +1701,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                                ecn=ecn,
                                ttl=ttl)
 
-        print("test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
-            dst_port_id, src_port_id, src_port_vlan
-        ), file=sys.stderr)
+        log_message("test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
+            dst_port_id, src_port_id, src_port_vlan), to_stderr=True)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
             self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
         )
-        print("actual dst_port_id: {}".format(dst_port_id), file=sys.stderr)
+        log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
+
+        capture_diag_counter(self, 'GetRxPort')
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -1563,6 +1768,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 # send packets short of triggering pfc
                 send_packet(self, src_port_id, pkt, (pkts_num_leak_out +
                                                      pkts_num_trig_pfc) // cell_occupancy - 1 - margin)
+            capture_diag_counter(self, 'ShortOfPfc')
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
@@ -1571,6 +1777,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                xmit_counters_base, self, src_port_id, pkt, 10)
+                capture_diag_counter(self, 'Leakout')
 
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
@@ -1579,32 +1786,41 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of triggering PFC'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
-                             'xmit_counters {}\n\txmit_counters_base {}\n'.format(                     # noqa F523
-                                 test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
+            log_message(
+                '{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
+                'xmit_counters {}\n\txmit_counters_base {}\n'.format(
+                    test_stage, recv_counters, recv_counters_base,
+                    xmit_counters, xmit_counters_base),
+                to_stderr=True)
             # recv port no pfc
-            assert(recv_counters[pg] == recv_counters_base[pg]), \
-                'unexpectedly PFC counter increase, {}'.format(test_stage)
+            qos_test_assert(
+                self, recv_counters[pg] == recv_counters_base[pg],
+                'unexpectedly PFC counter increase, {}'.format(test_stage))
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
-                    assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage)
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
                 else:
-                    assert(recv_counters[cntr] == recv_counters_base[cntr]),\
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage)
+                    qos_test_assert(
+                        self, recv_counters[cntr] == recv_counters_base[cntr],
+                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), \
-                    'unexpectedly TX drop counter increase, {}'.format(test_stage)
+                qos_test_assert(
+                    self, xmit_counters[cntr] == xmit_counters_base[cntr],
+                    'unexpectedly TX drop counter increase, {}'.format(test_stage))
 
             # send 1 packet to trigger pfc
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
+            capture_diag_counter(self, 'TrigPfc')
+
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters_base = recv_counters
@@ -1613,38 +1829,40 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send a few packets to trigger PFC'
-            sys.stderr.write(
+            log_message(
                 '{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
                 'xmit_counters {}\n\txmit_counters_base {}\n'.format(
-                    test_stage,
-                    recv_counters,
-                    recv_counters_base,
-                    xmit_counters,
-                    xmit_counters_base))
+                    test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base), to_stderr=True)
             # recv port pfc
-            assert(recv_counters[pg] > recv_counters_base[pg]), \
-                'unexpectedly PFC counter not increase, {}'.format(test_stage)
+            qos_test_assert(
+                self, recv_counters[pg] > recv_counters_base[pg],
+                'unexpectedly PFC counter not increase, {}'.format(test_stage))
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
-                    assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage)
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
                 else:
-                    assert(recv_counters[cntr] == recv_counters_base[cntr]),\
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage)
+                    qos_test_assert(
+                        self, recv_counters[cntr] == recv_counters_base[cntr],
+                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), \
-                    'unexpectedly TX drop counter increase, {}'.format(test_stage)
+                qos_test_assert(
+                    self, xmit_counters[cntr] == xmit_counters_base[cntr],
+                    'unexpectedly TX drop counter increase, {}'.format(test_stage))
 
             # send packets short of ingress drop
             send_packet(self, src_port_id, pkt, (pkts_num_trig_ingr_drp -
                                                  pkts_num_trig_pfc) // cell_occupancy - 1 - 2 * margin)
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
+            capture_diag_counter(self, 'ShortOfIngDrp')
+
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters_base = recv_counters
@@ -1653,32 +1871,39 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of ingress drop'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
-                             'xmit_counters {}\n\txmit_counters_base {}\n'.format(                        # noqa F841
-                                 test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
+            log_message(
+                '{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
+                'xmit_counters {}\n\txmit_counters_base {}\n'.format(
+                    test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base), to_stderr=True)
             # recv port pfc
-            assert(recv_counters[pg] > recv_counters_base[pg]), \
-                'unexpectedly PFC counter not increase, {}'.format(test_stage)
+            qos_test_assert(
+                self, recv_counters[pg] > recv_counters_base[pg],
+                'unexpectedly PFC counter not increase, {}'.format(test_stage))
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
-                    assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage)
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
                 else:
-                    assert(recv_counters[cntr] == recv_counters_base[cntr]),\
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage)
+                    qos_test_assert(
+                        self, recv_counters[cntr] == recv_counters_base[cntr],
+                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), \
-                    'unexpectedly TX drop counter increase, {}'.format(test_stage)
+                qos_test_assert(
+                    self, xmit_counters[cntr] == xmit_counters_base[cntr],
+                    'unexpectedly TX drop counter increase, {}'.format(test_stage))
 
             # send 1 packet to trigger ingress drop
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
+            capture_diag_counter(self, 'TrigIngDrp')
+
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters_base = recv_counters
@@ -1687,26 +1912,31 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send a few packets to trigger drop'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
-                             'xmit_counters {}\n\txmit_counters_base {}\n'.format(                           # noqa F841
-                                 test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
+            log_message(
+                '{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
+                'xmit_counters {}\n\txmit_counters_base {}\n'.format(
+                    test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base), to_stderr=True)
             # recv port pfc
-            assert(recv_counters[pg] > recv_counters_base[pg]), \
-                'unexpectedly PFC counter not increase, {}'.format(test_stage)
+            qos_test_assert(
+                self, recv_counters[pg] > recv_counters_base[pg],
+                'unexpectedly PFC counter not increase, {}'.format(test_stage))
             # recv port ingress drop
             if self.hwsku not in ['Cisco-8800-LC-48H-C48']:
                 for cntr in ingress_counters:
                     if platform_asic and platform_asic == "broadcom-dnx":
                         if cntr == 1:
-                            assert(recv_counters[cntr] > recv_counters_base[cntr]), \
-                                'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                            qos_test_assert(
+                                self, recv_counters[cntr] > recv_counters_base[cntr],
+                                'unexpectedly RX drop counter not increase, {}'.format(test_stage))
                     else:
-                        assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
-                                                                            ' not increase, {}'.format(test_stage)
+                        qos_test_assert(
+                            self, recv_counters[cntr] > recv_counters_base[cntr],
+                            'unexpectedly RX drop counter not increase, {}'.format(test_stage))
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr]),\
-                    'unexpectedly TX drop counter increase, {}'.format(test_stage)
+                qos_test_assert(
+                    self, xmit_counters[cntr] == xmit_counters_base[cntr],
+                    'unexpectedly TX drop counter increase, {}'.format(test_stage))
 
             if '201811' not in sonic_version and 'mellanox' in asic_type:
                 pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(
@@ -1714,7 +1944,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 logging.info("Dropped packet counters on port #{} :{} {} packets, current dscp: {}".format(
                     src_port_id, pg_dropped_cntrs[dscp], pg_dropped_cntrs_old[dscp], dscp))
                 # Check that counters per lossless PG increased
-                assert pg_dropped_cntrs[dscp] > pg_dropped_cntrs_old[dscp]
+                qos_test_assert(self, pg_dropped_cntrs[dscp] > pg_dropped_cntrs_old[dscp])
             if '201811' not in sonic_version and 'cisco-8000' in asic_type:
                 pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(
                     self.src_client, port_list['src'][src_port_id])
@@ -1724,11 +1954,12 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 # Also make sure only relevant dropped pg counter increased and no other pg's
                 for i in range(len(pg_dropped_cntrs)):
                     if i == dscp:
-                        assert pg_dropped_cntrs[i] > pg_dropped_cntrs_old[i]
+                        qos_test_assert(self, pg_dropped_cntrs[i] > pg_dropped_cntrs_old[i])
                     else:
-                        assert pg_dropped_cntrs[i] == pg_dropped_cntrs_old[i]
+                        qos_test_assert(self, pg_dropped_cntrs[i] == pg_dropped_cntrs_old[i])
 
         finally:
+            summarize_diag_counter(self)
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
 
 
@@ -2071,19 +2302,19 @@ class PtfEnableDstPorts(PfcStormTestWithSharedHeadroom):
 class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
     def get_rx_port(self, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_vlan):
-        print("dst_port_id:{}, src_port_id:{}".format(
-            dst_port_id, src_port_id), file=sys.stderr)
+        log_message("dst_port_id:{}, src_port_id:{}".format(dst_port_id, src_port_id), to_stderr=True)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
             self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_vlan
         )
-        print("actual dst_port_id: {}".format(dst_port_id), file=sys.stderr)
+        log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
         return dst_port_id
 
     def runTest(self):
         time.sleep(5)
         switch_init(self.clients)
+        initialize_diag_counter(self)
         last_pfc_counter = 0  # noqa F841
         recv_port_counters = [] # noqa F841
         transmit_port_counters = []  # noqa F841
@@ -2111,6 +2342,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         # TODO: pass in dst_port_id and _ip as a list
         dst_port_2_id = int(self.test_params['dst_port_2_id'])
         dst_port_2_ip = self.test_params['dst_port_2_ip']
+        dst_port_2_mac = self.dataplane.get_mac(0, dst_port_2_id)
         dst_port_3_id = int(self.test_params['dst_port_3_id'])
         dst_port_3_ip = self.test_params['dst_port_3_ip']
         dst_port_3_mac = self.dataplane.get_mac(0, dst_port_3_id)
@@ -2160,6 +2392,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             cell_occupancy = 1
 
+        pkt_dst_mac2 = router_mac if router_mac != '' else dst_port_2_mac
         pkt_dst_mac3 = router_mac if router_mac != '' else dst_port_3_mac
 
         is_dualtor = self.test_params.get('is_dualtor', False)
@@ -2233,7 +2466,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_port_vlan
             )
             pkt2 = construct_ip_pkt(packet_length,
-                                    pkt_dst_mac,
+                                    pkt_dst_mac2,
                                     src_port_mac,
                                     src_port_ip,
                                     dst_port_2_ip,
@@ -2242,7 +2475,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ecn=ecn,
                                     ttl=ttl)
             dst_port_2_id = self.get_rx_port(
-                src_port_id, pkt_dst_mac, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
+                src_port_id, pkt_dst_mac2, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
             )
             pkt3 = construct_ip_pkt(packet_length,
                                     pkt_dst_mac3,
@@ -2254,8 +2487,9 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ecn=ecn,
                                     ttl=ttl)
             dst_port_3_id = self.get_rx_port(
-                src_port_id, pkt_dst_mac, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
+                src_port_id, pkt_dst_mac3, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
             )
+        capture_diag_counter(self, 'GetRxPort')
 
         # For TH3/Cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
@@ -2278,7 +2512,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
 
         step_id = 1
         step_desc = 'disable TX for dst_port_id, dst_port_2_id, dst_port_3_id'
-        sys.stderr.write('step {}: {}\n'.format(step_id, step_desc))
+        log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
         try:
@@ -2302,7 +2536,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # send packets to dst port 1, occupying the "xon"
             step_id += 1
             step_desc = 'send packets to dst port 1, occupying the xon'
-            sys.stderr.write('step {}: {}\n'.format(step_id, step_desc))
+            log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
 
             xmit_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id]
@@ -2336,18 +2570,23 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     (pkts_num_leak_out + pkts_num_trig_pfc -
                         pkts_num_dismiss_pfc - hysteresis) // cell_occupancy - margin
                 )
-                sys.stderr.write('send_packet(src_port_id, pkt, ({} + {} - {} - {}) // {})\n'.format(
-                    pkts_num_leak_out, pkts_num_trig_pfc, pkts_num_dismiss_pfc, hysteresis, cell_occupancy))
+                log_message(
+                    'send_packet(src_port_id, pkt, ({} + {} - {} - {}) // {})\n'.format(
+                        pkts_num_leak_out, pkts_num_trig_pfc, pkts_num_dismiss_pfc, hysteresis, cell_occupancy),
+                    to_stderr=True)
+
+            capture_diag_counter(self, 'SndDst')
 
             if check_leackout_compensation_support(asic_type, hwsku):
                 dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                xmit_counters_base, self, src_port_id, pkt, 40)
+                capture_diag_counter(self, 'LeakoutDst')
 
             # send packets to dst port 2, occupying the shared buffer
             step_id += 1
             step_desc = 'send packets to dst port 2, occupying the shared buffer'
-            sys.stderr.write('step {}: {}\n'.format(step_id, step_desc))
+            log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
 
             xmit_2_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_2_id]
@@ -2382,18 +2621,23 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     (pkts_num_leak_out + pkts_num_dismiss_pfc +
                      hysteresis) // cell_occupancy + margin * 2 - 1
                 )
-                sys.stderr.write('send_packet(src_port_id, pkt2, ({} + {} + {}) // {} + {} - 1)\n'.format(
-                    pkts_num_leak_out, pkts_num_dismiss_pfc, hysteresis, cell_occupancy, margin))
+                log_message(
+                    'send_packet(src_port_id, pkt2, ({} + {} + {}) // {} + {} - 1)\n'.format(
+                        pkts_num_leak_out, pkts_num_dismiss_pfc, hysteresis, cell_occupancy, margin),
+                    to_stderr=True)
+
+            capture_diag_counter(self, 'SndDst2')
 
             if check_leackout_compensation_support(asic_type, hwsku):
                 dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                port_list['dst'][dst_port_2_id], TRANSMITTED_PKTS,
                                                xmit_2_counters_base, self, src_port_id, pkt2, 40)
+                capture_diag_counter(self, 'LeakoutDst2')
 
             # send 1 packet to dst port 3, triggering PFC
             step_id += 1
             step_desc = 'send 1 packet to dst port 3, triggering PFC'
-            sys.stderr.write('step {}: {}\n'.format(step_id, step_desc))
+            log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
             xmit_3_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_3_id])
             if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
@@ -2412,13 +2656,14 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
             else:
                 send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
-                sys.stderr.write(
-                    'send_packet(src_port_id, pkt3, ({} + 1)\n'.format(pkts_num_leak_out))
+                log_message('send_packet(src_port_id, pkt3, ({} + 1)\n'.format(pkts_num_leak_out), to_stderr=True)
+            capture_diag_counter(self, 'SndDst3')
 
             if check_leackout_compensation_support(asic_type, hwsku):
                 dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                port_list['dst'][dst_port_3_id], TRANSMITTED_PKTS,
                                                xmit_3_counters_base, self, src_port_id, pkt3, 40)
+                capture_diag_counter(self, 'LeakoutDst3')
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(2)
@@ -2431,53 +2676,50 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_3_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_3_id])
 
-            port_cnt_tbl = texttable.TextTable([''] + [port_counter_fields[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['recv_counters_base'] + [recv_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['recv_counters'] + [recv_counters[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_counters_base'] + [xmit_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_counters'] + [xmit_counters[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_2_counters_base'] + [xmit_2_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_2_counters'] + [xmit_2_counters[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_3_counters_base'] + [xmit_3_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_3_counters'] + [xmit_3_counters[idx] for idx in port_counter_indexes])
-            sys.stderr.write('{}\n'.format(port_cnt_tbl))
-
             # recv port pfc
-            assert (recv_counters[pg] > recv_counters_base[pg]),\
+            qos_test_assert(
+                self, recv_counters[pg] > recv_counters_base[pg],
                 'unexpectedly not trigger PFC for PG {} (counter: {}), at step {} {}'.format(
-                pg, port_counter_fields[pg], step_id, step_desc)
+                    pg, port_counter_fields[pg], step_id, step_desc))
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
-                    assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN), \
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                            port_counter_fields[cntr], step_id, step_desc)
+                            port_counter_fields[cntr], step_id, step_desc))
                 else:
-                    assert(recv_counters[cntr] == recv_counters_base[cntr]),\
+                    qos_test_assert(
+                        self, recv_counters[cntr] == recv_counters_base[cntr],
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                            port_counter_fields[cntr], step_id, step_desc)
+                            port_counter_fields[cntr], step_id, step_desc))
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert (xmit_counters[cntr] == xmit_counters_base[cntr]),\
+                qos_test_assert(
+                    self, xmit_counters[cntr] == xmit_counters_base[cntr],
                     'unexpectedly egress drop on xmit port 1 (counter: {}, at step {} {})'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
-                assert (xmit_2_counters[cntr] == xmit_2_counters_base[cntr]),\
+                        port_counter_fields[cntr], step_id, step_desc))
+                qos_test_assert(
+                    self, xmit_2_counters[cntr] == xmit_2_counters_base[cntr],
                     'unexpectedly egress drop on xmit port 2 (counter: {}, at step {} {})'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
-                assert (xmit_3_counters[cntr] == xmit_3_counters_base[cntr]),\
+                        port_counter_fields[cntr], step_id, step_desc))
+                qos_test_assert(
+                    self, xmit_3_counters[cntr] == xmit_3_counters_base[cntr],
                     'unexpectedly egress drop on xmit port 3 (counter: {}, at step {} {})'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
+                        port_counter_fields[cntr], step_id, step_desc))
 
             step_id += 1
             step_desc = 'enable TX for dst_port_2_id, to drain off buffer in dst_port_2'
-            sys.stderr.write('step {}: {}\n'.format(step_id, step_desc))
+            log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_2_id], last_port=False)
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(2)
+            capture_diag_counter(self, 'EnTxOfDst2')
+
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters_base = recv_counters
@@ -2487,66 +2729,56 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.dst_client, asic_type, port_list['dst'][dst_port_2_id])
             xmit_3_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_3_id])
-            port_cnt_tbl = texttable.TextTable([''] + [port_counter_fields[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['recv_counters_base'] + [recv_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['recv_counters'] + [recv_counters[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_counters_base'] + [xmit_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_counters'] + [xmit_counters[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_2_counters_base'] + [xmit_2_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_2_counters'] + [xmit_2_counters[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_3_counters_base'] + [xmit_3_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_3_counters'] + [xmit_3_counters[idx] for idx in port_counter_indexes])
-            sys.stderr.write('{}\n'.format(port_cnt_tbl))
 
             # recv port pfc
-            assert (recv_counters[pg] > recv_counters_base[pg]),\
+            qos_test_assert(
+                self, recv_counters[pg] > recv_counters_base[pg],
                 'unexpectedly not trigger PFC for PG {} (counter: {}), at step {} {}'.format(
-                pg, port_counter_fields[pg], step_id, step_desc)
+                    pg, port_counter_fields[pg], step_id, step_desc))
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
+                qos_test_assert(
+                    self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                     'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
+                        port_counter_fields[cntr], step_id, step_desc))
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert (xmit_counters[cntr] == xmit_counters_base[cntr]),\
+                qos_test_assert(
+                    self, xmit_counters[cntr] == xmit_counters_base[cntr],
                     'unexpectedly egress drop on xmit port 1 (counter: {}), at step {} {}'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
-                assert (xmit_2_counters[cntr] == xmit_2_counters_base[cntr]),\
+                        port_counter_fields[cntr], step_id, step_desc))
+                qos_test_assert(
+                    self, xmit_2_counters[cntr] == xmit_2_counters_base[cntr],
                     'unexpectedly egress drop on xmit port 2 (counter: {}), at step {} {}'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
-                assert (xmit_3_counters[cntr] == xmit_3_counters_base[cntr]),\
+                        port_counter_fields[cntr], step_id, step_desc))
+                qos_test_assert(
+                    self, xmit_3_counters[cntr] == xmit_3_counters_base[cntr],
                     'unexpectedly egress drop on xmit port 3 (counter: {}), at step {} {}'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
+                        port_counter_fields[cntr], step_id, step_desc))
 
             step_id += 1
             step_desc = 'enable TX for dst_port_3_id, to drain off buffer in dst_port_3'
-            sys.stderr.write('step {}: {}\n'.format(step_id, step_desc))
+            log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_3_id], last_port=False)
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(2)
+            capture_diag_counter(self, 'EnTxOfDst3')
+
             # get new base counter values at recv ports
             # queue counters value is not of our interest here
             recv_counters, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
 
-            port_cnt_tbl = texttable.TextTable(
-                [''] + [port_counter_fields[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(
-                ['recv_counters_base'] + [recv_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(
-                ['recv_counters'] + [recv_counters[idx] for idx in port_counter_indexes])
-            sys.stderr.write('{}\n'.format(port_cnt_tbl))
-
             for cntr in ingress_counters:
-                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
+                qos_test_assert(
+                    self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                     'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
+                        port_counter_fields[cntr], step_id, step_desc))
             recv_counters_base = recv_counters
 
             step_id += 1
             step_desc = 'sleep 30 seconds'
-            sys.stderr.write('step {}: {}\n'.format(step_id, step_desc))
+            log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
 
             time.sleep(30)
             # get a snapshot of counter values at recv and transmit ports
@@ -2558,40 +2790,34 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_3_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_3_id])
 
-            port_cnt_tbl = texttable.TextTable([''] + [port_counter_fields[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['recv_counters_base'] + [recv_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['recv_counters'] + [recv_counters[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_counters_base'] + [xmit_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_counters'] + [xmit_counters[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_2_counters_base'] + [xmit_2_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_2_counters'] + [xmit_2_counters[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_3_counters_base'] + [xmit_3_counters_base[idx] for idx in port_counter_indexes])
-            port_cnt_tbl.add_row(['xmit_3_counters'] + [xmit_3_counters[idx] for idx in port_counter_indexes])
-            sys.stderr.write('{}\n'.format(port_cnt_tbl))
-
             # recv port no pfc
-            assert(
-                recv_counters[pg] == recv_counters_base[pg]
-                ), 'unexpectedly trigger PFC for PG {} (counter: {}), at step {} {}'.format(
-                pg, port_counter_fields[pg], step_id, step_desc)
+            qos_test_assert(
+                self, recv_counters[pg] == recv_counters_base[pg],
+                'unexpectedly trigger PFC for PG {} (counter: {}), at step {} {}'.format(
+                    pg, port_counter_fields[pg], step_id, step_desc))
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
+                qos_test_assert(
+                    self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                     'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
+                        port_counter_fields[cntr], step_id, step_desc))
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert (xmit_counters[cntr] == xmit_counters_base[cntr]),\
+                qos_test_assert(
+                    self, xmit_counters[cntr] == xmit_counters_base[cntr],
                     'unexpectedly egress drop on xmit port 1 (counter: {}), at step {} {}'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
-                assert (xmit_2_counters[cntr] == xmit_2_counters_base[cntr]),\
+                        port_counter_fields[cntr], step_id, step_desc))
+                qos_test_assert(
+                    self, xmit_2_counters[cntr] == xmit_2_counters_base[cntr],
                     'unexpectedly egress drop on xmit port 2 (counter: {}), at step {} {}'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
-                assert (xmit_3_counters[cntr] == xmit_3_counters_base[cntr]),\
+                        port_counter_fields[cntr], step_id, step_desc))
+                qos_test_assert(
+                    self, xmit_3_counters[cntr] == xmit_3_counters_base[cntr],
                     'unexpectedly egress drop on xmit port 3 (counter: {}), at step {} {}'.format(
-                    port_counter_fields[cntr], step_id, step_desc)
+                        port_counter_fields[cntr], step_id, step_desc))
 
         finally:
+            summarize_diag_counter(self)
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
 
@@ -2611,6 +2837,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.pgs = [pg + 2 for pg in self.test_params['pgs']]
         self.src_port_ids = self.test_params['src_port_ids']
         self.src_port_ips = self.test_params['src_port_ips']
+        self.platform_asic = self.test_params['platform_asic']
         print(self.src_port_ips, file=sys.stderr)
         sys.stderr.flush()
         # get counter names to query
@@ -2703,6 +2930,17 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         def_vlan_mac = self.test_params.get('def_vlan_mac', None)
         if is_dualtor and def_vlan_mac is not None:
             self.dst_port_mac = def_vlan_mac
+        self.pkt_dst_mac = self.router_mac if self.router_mac != '' else self.dst_port_mac
+        # Collect destination ports that may be in a lag
+        if self.platform_asic and self.platform_asic == "broadcom-dnx":
+            dst_port_ids = []
+            self.src_dst = {}
+            for i in range(len(self.src_port_ids)):
+                dst_port = get_rx_port(self, 0, self.src_port_ids[i], self.pkt_dst_mac,
+                                       self.dst_port_ip, self.src_port_ips[i])
+                dst_port_ids.append(dst_port)
+                self.src_dst.update({self.src_port_ids[i]: dst_port})
+            self.uniq_dst_ports = list(set(dst_port_ids))
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -2721,16 +2959,22 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             rx_curr, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][srcPortId])
             port_cnt_tbl.add_row(['     src_port{}_id{}'.format(srcPortIdx, srcPortId)] +
                                  [rx_curr[fieldIdx] for fieldIdx in port_counter_indexes])
-        port_cnt_tbl.add_row(['base dst_port_id{}'.format(self.dst_port_id)] + [tx_base[fieldIdx]
-                                                                                for fieldIdx in port_counter_indexes])
-        tx_curr, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][self.dst_port_id])
-        port_cnt_tbl.add_row(['     dst_port_id{}'.format(self.dst_port_id)] + [tx_curr[fieldIdx]
-                                                                                for fieldIdx in port_counter_indexes])
+        if self.platform_asic and self.platform_asic == "broadcom-dnx":
+            for dstPortIdx, dstPortId in enumerate(self.uniq_dst_ports):
+                port_cnt_tbl.add_row(['base dst_port{}_id{}'.format(dstPortIdx, dstPortId)] +
+                                     [tx_base[dstPortIdx][fieldIdx] for fieldIdx in port_counter_indexes])
+                tx_curr, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dstPortId])
+                port_cnt_tbl.add_row(['     dst_port{}_id{}'.format(dstPortIdx, dstPortId)] +
+                                     [tx_curr[fieldIdx] for fieldIdx in port_counter_indexes])
+        else:
+            port_cnt_tbl.add_row(['base dst_port_id{}'.format(self.dst_port_id)] +
+                                 [tx_base[fieldIdx] for fieldIdx in port_counter_indexes])
+            tx_curr, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][self.dst_port_id])
+            port_cnt_tbl.add_row(['     dst_port_id{}'.format(self.dst_port_id)] +
+                                 [tx_curr[fieldIdx] for fieldIdx in port_counter_indexes])
         sys.stderr.write('{}\n{}\n'.format(banner, port_cnt_tbl))
 
     def runTest(self):
-        platform_asic = self.test_params['platform_asic']
-
         margin = self.test_params.get('margin')
         if not margin:
             margin = 0
@@ -2744,15 +2988,24 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         # queue_counters value is not of our interest here
         recv_counters_bases = [sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][sid])[
             0] for sid in self.src_port_ids]
-        xmit_counters_base, _ = sai_thrift_read_port_counters(
-            self.dst_client, self.asic_type, port_list['dst'][self.dst_port_id])
+        if self.platform_asic and self.platform_asic == "broadcom-dnx":
+            xmit_counters_bases = [sai_thrift_read_port_counters(self.dst_client, self.asic_type,
+                                                                 port_list['dst'][did])[0]
+                                   for did in self.uniq_dst_ports]
+        else:
+            xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client,
+                                                                  self.asic_type, port_list['dst'][self.dst_port_id])
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
 
         # Pause egress of dut xmit port
-        self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
+        if self.platform_asic and self.platform_asic == "broadcom-dnx":
+            # Disable all dst ports
+            self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, self.uniq_dst_ports)
+        else:
+            self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
 
         try:
             # send packets to leak out
@@ -2796,14 +3049,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
                 send_packet(
                     self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, int(pkt_cnt))
-                if platform_asic != "broadcom-dnx":
+                if self.platform_asic != "broadcom-dnx":
                     time.sleep(8)  # wait pfc counter refresh and show the counters
                     self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
                                            'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{}'
                                            ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
                                                                  sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
-            if platform_asic and platform_asic == "broadcom-dnx":
+            if self.platform_asic and self.platform_asic == "broadcom-dnx":
                 time.sleep(8)  # wait pfc counter refresh and show the counters
                 for i in range(0, self.pgs_num):
                     if self.pkts_num_trig_pfc:
@@ -2812,10 +3065,11 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                         pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
 
                     pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
-                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
-                                           'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{}'
-                                           ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
-                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_bases,
+                                           'To fill service pool, send {} pkt with DSCP {} PG {} from'
+                                           ' src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                            sidx_dscp_pg_tuples[i][2],
+                                                                            sidx_dscp_pg_tuples[i][0]))
 
             print("Service pool almost filled", file=sys.stderr)
             sys.stderr.flush()
@@ -2852,18 +3106,24 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     recv_counters, _ = sai_thrift_read_port_counters(
                         self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
 
-                if platform_asic != "broadcom-dnx":
+                if self.platform_asic != "broadcom-dnx":
                     time.sleep(8)   # wait pfc counter refresh
-                self.show_port_counter(
-                    self.asic_type, recv_counters_bases, xmit_counters_base,
-                    'To trigger PFC, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'
-                    .format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
+                                           'To trigger PFC, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'
+                                           .format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2],
+                                                   sidx_dscp_pg_tuples[i][0]))
+                if self.platform_asic and self.platform_asic == "broadcom-dnx":
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_bases,
+                                           'To trigger PFC, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'
+                                           .format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2],
+                                                   sidx_dscp_pg_tuples[i][0]))
 
                 if pkt_cnt == 10:
-                    sys.exit("Too many pkts needed to trigger pfc: %d" %
-                             (pkt_cnt))
+                    if self.platform_asic and self.platform_asic == "broadcom-dnx":
+                        self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, self.uniq_dst_ports)
+                    sys.exit("Too many pkts needed to trigger pfc: %d" % (pkt_cnt))
                 assert (recv_counters[sidx_dscp_pg_tuples[i][2]] >
-                        recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
+                       recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
                 print("%d packets for sid: %d, pg: %d to trigger pfc" % (
                     pkt_cnt, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], sidx_dscp_pg_tuples[i][2] - 2),
                     file=sys.stderr)
@@ -2904,22 +3164,12 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(
                     self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkt_cnt)
                 # allow enough time for the dut to sync up the counter values in counters_db
-                if platform_asic != "broadcom-dnx":
+                if self.platform_asic != "broadcom-dnx":
                     time.sleep(8)
                     self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
                                            'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} '
                                            'to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
-
-            if platform_asic and platform_asic == "broadcom-dnx":
-                time.sleep(8)
-                for i in range(0, self.pgs_num):
-                    pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - 1 \
-                        else self.pkts_num_hdrm_partial // self.pkt_size_factor
-                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
-                                           'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{}'
-                                           ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
-                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
                 recv_counters, _ = sai_thrift_read_port_counters(
                     self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
@@ -2951,7 +3201,16 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     if 'innovium' not in self.asic_type:
                         assert (expected_wm <= hdrm_pool_wm)
                     assert (hdrm_pool_wm <= upper_bound_wm)
-
+            if self.platform_asic and self.platform_asic == "broadcom-dnx":
+                time.sleep(8)
+                for i in range(0, self.pgs_num):
+                    pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - 1 \
+                        else self.pkts_num_hdrm_partial // self.pkt_size_factor
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_bases,
+                                           'To fill headroom pool, send {} pkt with DSCP {} PG {} from'
+                                           ' src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                            sidx_dscp_pg_tuples[i][2],
+                                                                            sidx_dscp_pg_tuples[i][0]))
             print("all but the last pg hdrms filled", file=sys.stderr)
             sys.stderr.flush()
 
@@ -2964,28 +3223,35 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
 
-            self.show_port_counter(
-                self.asic_type, recv_counters_bases, xmit_counters_base,
-                'To fill last PG and trigger ingress drop, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'
-                .format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+            if self.platform_asic and self.platform_asic == "broadcom-dnx":
+                self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_bases,
+                                       'To fill last PG and trigger ingress drop, send {} pkt with DSCP {} PG {}'
+                                       ' from src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                             sidx_dscp_pg_tuples[i][2],
+                                                                             sidx_dscp_pg_tuples[i][0]))
+            else:
+                self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
+                                       'To fill last PG and trigger ingress drop, send {} pkt with DSCP {} PG {}'
+                                       ' from src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                             sidx_dscp_pg_tuples[i][2],
+                                                                             sidx_dscp_pg_tuples[i][0]))
 
             recv_counters, _ = sai_thrift_read_port_counters(
                 self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
-            if platform_asic and platform_asic == "broadcom-dnx":
-                logging.info(
-                    "On J2C+ don't support port level drop counters - so ignoring this step for now")
+            if self.platform_asic and self.platform_asic == "broadcom-dnx":
+                logging.info("On J2C+ don't support port level drop counters - so ignoring this step for now")
             else:
                 # assert ingress drop
                 for cntr in self.ingress_counters:
-                    assert(recv_counters[cntr] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr])
+                    assert (recv_counters[cntr] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr])
 
             # assert no egress drop at the dut xmit port
-            xmit_counters, _ = sai_thrift_read_port_counters(
-                self.dst_client, self.asic_type, port_list['dst'][self.dst_port_id])
+            if self.platform_asic != "broadcom-dnx":
+                xmit_counters, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
+                                                                 port_list['dst'][self.dst_port_id])
 
-            if platform_asic and platform_asic == "broadcom-dnx":
-                logging.info(
-                    "On J2C+ don't support port level drop counters - so ignoring this step for now")
+            if self.platform_asic and self.platform_asic == "broadcom-dnx":
+                logging.info("On J2C+ don't support port level drop counters - so ignoring this step for now")
             else:
                 for cntr in self.egress_counters:
                     assert (xmit_counters[cntr] == xmit_counters_base[cntr])
@@ -2998,18 +3264,21 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 sys.stderr.write('After PG headroom filled, actual headroom pool watermark {}, upper_bound {}\n'.format(
                     hdrm_pool_wm, upper_bound_wm))
                 if 'innovium' not in self.asic_type:
-                    assert(expected_wm <= hdrm_pool_wm)
-                assert(hdrm_pool_wm <= upper_bound_wm)
+                    assert (expected_wm <= hdrm_pool_wm)
+                assert (hdrm_pool_wm <= upper_bound_wm)
                 # at this point headroom pool should be full. send few more packets to continue causing drops
                 print("overflow headroom pool", file=sys.stderr)
                 send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
                 hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
                     self.src_client, self.buf_pool_roid)
-                assert(hdrm_pool_wm <= self.max_headroom)
+                assert (hdrm_pool_wm <= self.max_headroom)
             sys.stderr.flush()
 
         finally:
-            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+            if self.platform_asic and self.platform_asic == "broadcom-dnx":
+                self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, self.uniq_dst_ports)
+            else:
+                self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
 
 
 class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
@@ -3554,6 +3823,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         switch_init(self.clients)
+        initialize_diag_counter(self)
 
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
@@ -3563,6 +3833,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         sonic_version = self.test_params['sonic_version']
         router_mac = self.test_params['router_mac']
         dst_port_id = int(self.test_params['dst_port_id'])
+        dst_sys_port_ids = self.test_params.get('dst_sys_ports', None)
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_id = int(self.test_params['src_port_id'])
@@ -3588,7 +3859,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 cell_occupancy = (packet_length + cell_size - 1) // cell_size
                 pkts_num_trig_egr_drp //= cell_occupancy
                 # It is possible that pkts_num_trig_egr_drp * cell_occupancy < original pkts_num_trig_egr_drp,
-                # which probably can fail the assert(xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
+                # which probably can fail the assert (xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
                 # due to not sending enough packets.
                 # To avoid that we need a larger margin
         else:
@@ -3604,14 +3875,16 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                src_port_vlan,
                                ecn=ecn,
                                ttl=ttl)
-        print("dst_port_id: %d, src_port_id: %d src_port_vlan: %s" %
-              (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
+        log_message("dst_port_id: {}, src_port_id: {} src_port_vlan: {}".format(
+            dst_port_id, src_port_id, src_port_vlan), to_stderr=True)
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
             self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
         )
-        print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
+        log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
+
+        capture_diag_counter(self, 'GetRxPort')
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -3619,6 +3892,15 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             self.src_client, asic_type, port_list['src'][src_port_id])
         xmit_counters_base, queue_counters = sai_thrift_read_port_counters(
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
+        # for t2 chassis
+        if platform_asic and platform_asic == "broadcom-dnx":
+            if dst_port_id in dst_sys_port_ids:
+                for port_id, sysport in dst_sys_port_ids.items():
+                    if dst_port_id == port_id:
+                        dst_sys_port_id = int(sysport)
+            log_message("actual dst_sys_port_id: {}".format(dst_sys_port_id), to_stderr=True)
+            voq_list = sai_thrift_get_voq_port_id(self.src_client, dst_sys_port_id)
+            voq_queue_counters_base = sai_thrift_read_port_voq_counters(self.src_client, voq_list)
         # add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
@@ -3637,13 +3919,12 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find
             # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or \
-                    hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 pkts_num_leak_out = 0
 
             if asic_type == 'cisco-8000':
-                assert (fill_leakout_plus_one(self, src_port_id, dst_port_id,
-                                              pkt, int(self.test_params['pg']), asic_type))
+                qos_test_assert(self, fill_leakout_plus_one(self, src_port_id, dst_port_id,
+                                                            pkt, int(self.test_params['pg']), asic_type))
 
             if platform_asic and platform_asic == "broadcom-dnx":
                 if check_leackout_compensation_support(asic_type, hwsku):
@@ -3671,12 +3952,13 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                                    port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                    xmit_counters_base, self, src_port_id, pkt, 10)
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or \
-                    hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(
                     self.dst_client, asic_type, port_list['dst'][dst_port_id])
                 actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] - xmit_counters_base[TRANSMITTED_PKTS]
                 send_packet(self, src_port_id, pkt, actual_pkts_num_leak_out)
+
+            capture_diag_counter(self, 'ShortOfEgrDrp')
 
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
@@ -3686,8 +3968,11 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.src_client, asic_type, port_list['src'][src_port_id])
             xmit_counters, queue_counters = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
+            # for t2 chassis
+            if platform_asic and platform_asic == "broadcom-dnx":
+                voq_queue_counters = sai_thrift_read_port_voq_counters(self.src_client, voq_list)
             # recv port no pfc
-            assert (recv_counters[pg] == recv_counters_base[pg])
+            qos_test_assert(self, recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received, adding to coutner value
             # & may give inconsistent test results
@@ -3695,19 +3980,22 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
                     if cntr == 1:
-                        print("recv_counters_base: %d, recv_counters: %d" % (recv_counters_base[cntr],
-                                                                             recv_counters[cntr]), file=sys.stderr)
-                        assert(recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
+                        log_message("recv_counters_base: {}, recv_counters: {}".format(
+                            recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
+                        qos_test_assert(self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
                 else:
-                    assert(recv_counters[cntr] == recv_counters_base[cntr])
+                    qos_test_assert(self, recv_counters[cntr] == recv_counters_base[cntr])
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert (xmit_counters[cntr] == xmit_counters_base[cntr])
+                qos_test_assert(self, xmit_counters[cntr] == xmit_counters_base[cntr])
 
             # send 1 packet to trigger egress drop
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
+
+            capture_diag_counter(self, 'TrigEgrDrp')
+
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters, queue_counters = sai_thrift_read_port_counters(
@@ -3715,24 +4003,31 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, queue_counters = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             # recv port no pfc
-            assert (recv_counters[pg] == recv_counters_base[pg])
+            qos_test_assert(self, recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
                     if cntr == 1:
-                        assert (recv_counters[cntr] > recv_counters_base[cntr])
+                        qos_test_assert(self, recv_counters[cntr] > recv_counters_base[cntr])
                 else:
-                    assert (recv_counters[cntr] == recv_counters_base[cntr])
+                    qos_test_assert(self, recv_counters[cntr] == recv_counters_base[cntr])
 
             # xmit port egress drop
             if platform_asic and platform_asic == "broadcom-dnx":
-                logging.info(
-                    "On J2C+ don't support egress drop stats - so ignoring this step for now")
+                log_message("On J2C+ don't support egress drop stats - so ignoring this step for now", to_stderr=True)
             else:
                 for cntr in egress_counters:
-                    assert (xmit_counters[cntr] > xmit_counters_base[cntr])
+                    qos_test_assert(self, xmit_counters[cntr] > xmit_counters_base[cntr])
 
+            # voq ingress drop
+            if platform_asic and platform_asic == "broadcom-dnx":
+                voq_index = pg - 2
+                log_message("voq_counters_base: {}, voq_counters: {}  ".format(
+                    voq_queue_counters_base[voq_index], voq_queue_counters[voq_index]), to_stderr=True)
+                qos_test_assert(self, voq_queue_counters[voq_index] > (
+                            voq_queue_counters_base[voq_index] + pkts_num_trig_egr_drp - margin))
         finally:
+            summarize_diag_counter(self)
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
 
 
@@ -4085,6 +4380,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             self.src_client, asic_type, port_list['src'][src_port_id])
         dst_pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
+        print("Initial watermark:{}".format(pg_shared_wm_res_base))
 
         # send packets
         try:
@@ -4106,8 +4402,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_leak_out + pkts_num_fill_min + margin
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
             elif 'cisco-8000' in asic_type:
-                assert (fill_leakout_plus_one(
-                    self, src_port_id, dst_port_id, pkt, pg, asic_type))
+                fill_leakout_plus_one(
+                    self, src_port_id, dst_port_id, pkt, pg, asic_type, pkts_num_egr_mem)
             else:
                 pg_min_pkts_num = pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
@@ -4210,12 +4506,14 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             ((pkts_num_leak_out + pkts_num_fill_min + expected_wm + margin)
                              * (packet_length + internal_hdr_size)))
                 else:
-                    print("lower bound: %d, actual value: %d, upper bound (+%d): %d" % (
-                        expected_wm * cell_size, pg_shared_wm_res[pg], margin, (expected_wm + margin) * cell_size),
-                        file=sys.stderr)
-                    assert (pg_shared_wm_res[pg] <= (
-                        expected_wm + margin) * cell_size)
-                    assert (expected_wm * cell_size <= pg_shared_wm_res[pg])
+                    msg = "lower bound: %d, actual value: %d, upper bound (+%d): %d" % (
+                        expected_wm * cell_size,
+                        pg_shared_wm_res[pg],
+                        margin,
+                        (expected_wm + margin) * cell_size)
+                    assert pg_shared_wm_res[pg] <= (
+                            expected_wm + margin) * cell_size, msg
+                    assert expected_wm * cell_size <= pg_shared_wm_res[pg], msg
 
                 pkts_num = pkts_inc
 
@@ -4501,10 +4799,10 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
                 # Send packets to trigger PFC
                 print("Iteration {}/{}, sending {} packets to trigger PFC".format(
                     test_i + 1, iterations, pkts_num_trig_pfc), file=sys.stderr)
-                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+                send_packet(self, src_port_id, pkt, pkt_num)
 
                 # Account for leakout
-                if 'cisco-8000' in asic_type:
+                if 'cisco-8000' in asic_type and not is_multi_asic:
                     queue_counters = sai_thrift_read_queue_occupancy(
                         self.dst_client, "dst", dst_port_id)
                     occ_pkts = queue_counters[queue] // (packet_length + 24)
@@ -4755,7 +5053,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     logging.info("On J2C+ don't support SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES " +
                                  "stat - so ignoring this step for now")
                 else:
-                    assert(q_wm_res[queue] <= 1 * cell_size)
+                    assert (q_wm_res[queue] <= 1 * cell_size)
 
             # send packet batch of fixed packet numbers to fill queue shared
             # first round sends only 1 packet
@@ -4779,7 +5077,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 if 'cisco-8000' in asic_type:
                     self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
-                    assert(fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
+                    assert (fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
                     pkts_total += pkts_num
                     pkts_num = pkts_total - 1
 
@@ -4794,7 +5092,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 time.sleep(8)
 
-                if(
+                if (
                     que_min_pkts_num == 0
                     and pkts_num <= 1 + margin
                     and check_leackout_compensation_support(asic_type, hwsku)
@@ -5008,7 +5306,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             time.sleep(8)
             buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(
-                self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
             print("Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % (
                 (pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, buffer_pool_wm), file=sys.stderr)
             if pkts_num_fill_min:
@@ -5055,7 +5353,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
                 time.sleep(8)
                 buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(
-                    self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                    client_to_use, buf_pool_roid) - buffer_pool_wm_base
                 print(
                       "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d"
                       % (
@@ -5067,9 +5365,8 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                       ),
                       file=sys.stderr,
                 )
-                assert(buffer_pool_wm <= (expected_wm +
-                                          upper_bound_margin) * cell_size)
-                assert((expected_wm - lower_bound_margin)
+                assert (buffer_pool_wm <= (expected_wm + upper_bound_margin) * cell_size)
+                assert ((expected_wm - lower_bound_margin)
                        * cell_size <= buffer_pool_wm)
 
                 pkts_num = pkts_inc
@@ -5264,7 +5561,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             if 'cisco-8000' in asic_type:
                 # Queue is always the inner_dscp due to the TC_TO_QUEUE_MAP redirection
                 queue = inner_dscp
-                assert(fill_leakout_plus_one(self, src_port_id,
+                assert (fill_leakout_plus_one(self, src_port_id,
                        dst_port_id, pkt, queue, asic_type))
                 num_pkts = pkts_num_trig_pfc - pkts_num_margin - 1
                 send_packet(self, src_port_id, pkt, num_pkts)
