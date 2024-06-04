@@ -41,6 +41,7 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
 
     #  Restore config after test finish
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+    config_reload(duthost)
 
 
 def get_interface_reload_timestamp(duthost):
