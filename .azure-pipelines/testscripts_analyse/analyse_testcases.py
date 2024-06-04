@@ -34,7 +34,7 @@ import logging
 
 from natsort import natsorted
 from datetime import datetime
-from constant import DATAPLANE_FEATURES
+from constant import DATAPLANE_FEATURES, PR_TOPOLOGY_TYPE
 
 
 def collect_all_scripts():
@@ -84,6 +84,16 @@ def check_PRChecker_coverd(test_scripts):
 
     for test_script in test_scripts:
         topo_type = test_script["topology"]
+
+        if topo_type == "any":
+            for topology in PR_TOPOLOGY_TYPE:
+                test_scripts.append({
+                    "testscript": test_script["test_script"],
+                    "topology": topology
+                })
+            test_scripts.remove(test_script)
+            break
+
         if test_script["testscript"] in pr_test_scripts.get(topo_type, ""):
             test_script["covered"] = True
         else:
