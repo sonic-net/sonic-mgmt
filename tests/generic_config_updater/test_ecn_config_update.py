@@ -57,10 +57,10 @@ def ensure_application_of_updated_config(duthost, configdb_field, values):
     def _confirm_value_in_asic_db():
         wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
         wred_objects = wred_objects.split("\n")
-        if(len(wred_objects) > 1):
+        if (len(wred_objects) > 1):
             for wred_object in wred_objects:
                 wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_object))["stdout"]
-                if('NULL' in wred_data):
+                if ('NULL' in wred_data):
                     continue
                 wred_data = ast.literal_eval(wred_data)
                 for field, value in zip(configdb_field.split(','), values.split(',')):
