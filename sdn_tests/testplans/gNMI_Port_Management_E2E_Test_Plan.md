@@ -224,8 +224,7 @@ The tests in this section cover the following gNMI paths.
 
 ### Test 1: Disable/Enable port
 
-This test is not supported on vGPINs as vGPINs does not support physical port properties like oper-status.\
-Using dual switch setup, the following steps will be performed:
+The following steps will be performed:
 
 1.  Use gNMI get operations to fetch the state values for `last-change` and `carrier-transitions` on SUT.
 2.  Use gNMI set operation to disable the port on SUT.
@@ -264,8 +263,7 @@ Using dual switch setup, the following steps will be performed:
 
 ### Test 2: ON_CHANGE Test
 
-This test is not supported on vGPINs as vGPINs does not support physical port properties like oper-status.\
-Using [single switch setup](#heading=h.kxgqbvek6e39), the following steps will be performed:
+The following steps will be performed:
 
 1.  Use gNMI get operation to fetch the state values for `oper-status` and `admin-status`.
 2.  Expect that:
@@ -293,12 +291,9 @@ The tests in this section cover the following gNMI paths.
 -   /interfaces/interface[name=<port>]/ethernet/state/port-speed
 -   /interfaces/interface[name=<port>]/state/oper-status
 
-Note that the test cases listed in this test plan will use Taygeta platform as an example. As part of running the tests, all supported port speeds will be exercised depending on the platform.
-
 ### Test 1: Set supported speed
 
-This test is not supported on vGPINs as vGPINs does not support physical port properties like port speed.\
-Using dual switch setup, the following steps will be performed:
+The following steps will be performed:
 
 1.  Use gNMI get operations to fetch the state value of `autoneg` and `port-speed` for port under test and `oper-status` for all front panel ports on SUT.
 2.  Expect that `autoneg` is `false` and `oper-status` is "`UP`" for port under test on SUT.
@@ -335,8 +330,7 @@ Using single switch setup, the following steps will be performed:
 
 ### Test 3: ON_CHANGE Test
 
-This test is not supported on vGPINs as vGPINs does not support physical port properties like port speed.\
-Using single switch setup, the following steps will be performed for the port under test:
+The following steps will be performed for the port under test:
 
 1.  Use gNMI get operation to fetch the state path value for `port-speed `and` oper-status.` Expect that:
     1.  `oper-status` is "`UP`".
@@ -624,9 +618,7 @@ These tests require the test to know the port connection type (copper or optical
 
 ### Test 1: Set link training for copper port
 
-This test is not supported on vGPINs as vGPINs does not have physical properties like link training. Link training is applicable to copper ports only.
-
-Using dual switch setup, the following steps will be performed:
+The following steps will be performed:
 
 1.  Use gNMI set operations to disable copper port under test on SUT and control switch.
 2.  Use gNMI set operations to disable `link-training` on SUT and  enable `link-training`  on control switch.
@@ -653,8 +645,6 @@ These set of tests require port flapping. Few ways a port can be caused to flap 
 -   Disable and enable port. Although this can be done using gNMI operations, tests using this method might require longer hold-times.
 
 These tests assume that when hold-time `down` is configured, the port does not go down immediately upon receiving a port down notification. Instead, the switch waits for hold-time `down` amount of time for the port to come up and marks it down if the state does not change before the hold-time down expires.
-
-These tests are not supported on vGPINs.
 
 ### Test 1: Disable hold-time up and hold-time down
 
