@@ -99,6 +99,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
                  snappi_extra_params=snappi_extra_params)
+    cleanup_config(dut_list, snappi_ports)
 
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
@@ -175,6 +176,7 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
                  snappi_extra_params=snappi_extra_params)
+    cleanup_config(dut_list, snappi_ports)
 
 
 @pytest.mark.disable_loganalyzer
@@ -270,6 +272,8 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
                  test_traffic_pause=True,
                  snappi_extra_params=snappi_extra_params)
 
+    cleanup_config(dut_list, snappi_ports)
+
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
@@ -360,3 +364,5 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
                  snappi_extra_params=snappi_extra_params)
+
+    cleanup_config(dut_list, snappi_ports)

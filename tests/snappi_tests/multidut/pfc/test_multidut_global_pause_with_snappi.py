@@ -86,3 +86,5 @@ def test_global_pause(snappi_api,                                   # noqa: F811
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
                  snappi_extra_params=snappi_extra_params)
+
+    cleanup_config(dut_list, snappi_ports)
