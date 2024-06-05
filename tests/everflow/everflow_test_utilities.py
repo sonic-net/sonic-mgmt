@@ -378,12 +378,6 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     time.sleep(60)
 
 
-@pytest.fixture(scope="module")
-def dut_asic_type(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
-    duthost = duthosts[rand_one_dut_hostname]
-    return duthost.facts["asic_type"]
-
-
 # TODO: This should be refactored to some common area of sonic-mgmt.
 def add_route(duthost, prefix, nexthop, namespace):
     """
