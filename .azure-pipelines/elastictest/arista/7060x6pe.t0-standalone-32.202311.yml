@@ -50,12 +50,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202311)
+    default: $(IMAGE_BRCM_ABOOT_202311_LATEST)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal
+    default: user/r12f/osfp-test
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -77,7 +77,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: ""
+    default: " "
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
