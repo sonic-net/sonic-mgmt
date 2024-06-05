@@ -262,7 +262,7 @@
     set_fact:
       intf_names: "{{ intf_names | default({}) | combine({item.0.name:  intf_names[item.0.name]|default([]) + [ port_alias[item.1]] }) }}"
     with_subelements:
-      - "{{ interface_to_vms }}"
+      - "{{ interface_to_vms | default([]) }}"
       - "ports"
     when: "'cable' not in topo"
 
@@ -272,7 +272,7 @@
       vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
       vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ front_panel_asic_ifs_asic_id[item.1]] }) }}"
     with_subelements:
-      - "{{ interface_to_vms }}"
+      - "{{ interface_to_vms | default([]) }}"
       - "ports"
     when: front_panel_asic_ifnames != []
 
@@ -510,6 +510,19 @@
         delay: 10
         until: result is not failed
 
+      - name: Cleanup /etc/sonic folder before loading new minigraph
+        block:
+        - name: Ensure /etc/sonic/acl.json is deleted
+          become: true
+          file:
+            path: /etc/sonic/acl.json
+            state: absent
+        - name: Ensure /etc/sonic/port_config.json is deleted
+          become: true
+          file:
+            path: /etc/sonic/port_config.json
+            state: absent
+
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
@@ -542,6 +555,11 @@
             ignore_errors: true
             async: 60
             poll: 10
+
+          - name: Set the RTC from the system time
+            become: true
+            command: hwclock --systohc
+            ignore_errors: true
 
           - name: Start ntp.service on DUT
             become: true

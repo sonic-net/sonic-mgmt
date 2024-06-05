@@ -1333,6 +1333,23 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         intf_status = self.show_interface(command="status", interfaces=[interface_name])["ansible_facts"]['int_status']
         return intf_status[interface_name]['oper_state'] == 'up'
 
+    def get_intf_link_local_ipv6_addr(self, intf):
+        """
+        Get the link local ipv6 address of the interface
+
+        Args:
+            intf: The SONiC interface name
+
+        Returns:
+            The link local ipv6 address of the interface or empty string if not found
+
+        Sample output:
+            fe80::2edd:e9ff:fefc:dd58
+        """
+        cmd = "ip addr show %s | grep inet6 | grep 'scope link' | awk '{print $2}' | cut -d '/' -f1" % intf
+        addr = self.shell(cmd)["stdout"]
+        return addr
+
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info
@@ -1951,7 +1968,7 @@ Totals               6450                 6449
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert(timeout >= 0)
+        assert (timeout >= 0)
 
         return crm_facts
 
@@ -2181,32 +2198,6 @@ Totals               6450                 6449
             return False
         return True
 
-    def ping_v6(self, ipv6, count=1, ns_arg=""):
-        """
-        Returns 'True' if ping to IP address works, else 'False'
-        Args:
-            IPv6 address
-
-        Returns:
-            True or False
-        """
-        try:
-            socket.inet_pton(socket.AF_INET6, ipv6)
-        except socket.error:
-            raise Exception("Invalid IPv6 address {}".format(ipv6))
-
-        netns_arg = ""
-        if ns_arg is not DEFAULT_NAMESPACE:
-            netns_arg = "sudo ip netns exec {} ".format(ns_arg)
-
-        try:
-            self.shell("{}ping -6 -q -c{} {} > /dev/null".format(
-                netns_arg, count, ipv6
-            ))
-        except RunAnsibleModuleFail:
-            return False
-        return True
-
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
         # minigraph facts does not have backend portchannel IFs
@@ -2217,21 +2208,17 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all", ipv6_ifs=None):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
 
-        If ipv6_ifs exists, also returns the interfaces' IPv6 address and its peer
-        IPv6 addresses if found for each interface.
-
         Returns:
-            Dict of Interfaces and their IPv4 address (with IPv6 if ipv6_ifs exists)
+            Dict of Interfaces and their IPv4 address
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
-
         for k, v in list(ip_ifs.items()):
             if ((k.startswith("Ethernet") and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
@@ -2246,15 +2233,6 @@ Totals               6450                 6449
                         "bgp_neighbor": v["bgp_neighbor"]
                     }
                     active_ip_intf_cnt += 1
-
-                    if ipv6_ifs:
-                        ipv6_intf = ipv6_ifs[k]
-                        if (ipv6_intf["peer_ipv6"] != "N/A" and self.ping_v6(ipv6_intf["peer_ipv6"],
-                                                                             count=3, ns_arg=ns_arg)):
-                            ip_ifaces[k].update({
-                                "ipv6": ipv6_intf["ipv6"],
-                                "peer_ipv6": ipv6_intf["peer_ipv6"]
-                            })
 
                 if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
                     break
@@ -2331,6 +2309,34 @@ Totals               6450                 6449
             cli += " -j"
         res = self.shell(cli)['stdout']
         return re.sub(r"Last cached time was.*\d+\n", "", res)
+
+    def add_acl_table(self, table_name, table_type, acl_stage=None, bind_ports=None, description=None):
+        """
+        Add ACL table via 'config acl add table' command.
+        Command sample:
+            config acl add table TEST_TABLE L3 -s ingress -p Ethernet0,Ethernet4 -d "Test ACL table"
+
+        Args:
+            table_name: name of new acl table
+            table_type: type of the acl table
+            acl_stage: acl stage, ingress or egress
+            bind_ports: ports bind to the acl table
+            description: description of the acl table
+        """
+        cmd = "config acl add table {} {}".format(table_name, table_type)
+
+        if acl_stage:
+            cmd += " -s {}".format(acl_stage)
+
+        if bind_ports:
+            if isinstance(bind_ports, list):
+                bind_ports = ",".join(bind_ports)
+            cmd += " -p {}".format(bind_ports)
+
+        if description:
+            cmd += " -d {}".format(description)
+
+        self.command(cmd)
 
     def remove_acl_table(self, acl_table):
         """

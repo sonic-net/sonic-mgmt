@@ -14,6 +14,10 @@ pr:
    paths:
      exclude:
        - .github
+       - docs
+       - LICENSE
+       - README.md
+       - SECURITY.md
 trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
@@ -27,7 +31,7 @@ stages:
     displayName: "Static Analysis"
     timeoutInMinutes: 10
     continueOnError: false
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
@@ -35,7 +39,7 @@ stages:
     displayName: "Validate Test Cases"
     timeoutInMinutes: 20
     continueOnError: false
-    pool: ubuntu-20.04
+    pool: sonic-common
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
 
@@ -60,7 +64,7 @@ stages:
     displayName: "kvmtest-t0 by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     steps:
     - template: .azure-pipelines/run-test-elastictest-template.yml
       parameters:
@@ -74,7 +78,7 @@ stages:
     displayName: "kvmtest-t0-2vlans by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     steps:
     - template: .azure-pipelines/run-test-elastictest-template.yml
       parameters:
@@ -90,7 +94,7 @@ stages:
     displayName: "kvmtest-t1-lag by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     steps:
     - template: .azure-pipelines/run-test-elastictest-template.yml
       parameters:
@@ -104,7 +108,7 @@ stages:
     displayName: "kvmtest-dualtor-t0 by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
@@ -119,7 +123,7 @@ stages:
     displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
@@ -135,7 +139,7 @@ stages:
     displayName: "kvmtest-t0-sonic by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
@@ -152,7 +156,7 @@ stages:
     displayName: "kvmtest-dpu by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
@@ -162,11 +166,27 @@ stages:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
 
+  - job: onboarding_elastictest_t0
+    displayName: "onboarding testcases by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: true
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t0
+          MIN_WORKER: $(T0_ONBOARDING_SONIC_INSTANCE_NUM)
+          MAX_WORKER: $(T0_ONBOARDING_SONIC_INSTANCE_NUM)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: $(BUILD_BRANCH)
+          TEST_SET: onboarding_t0
+
+
 #  - job: wan_elastictest
 #    displayName: "kvmtest-wan by Elastictest"
 #    timeoutInMinutes: 240
 #    continueOnError: false
-#    pool: ubuntu-20.04
+#    pool: sonic-ubuntu-1c
 #    steps:
 #      - template: .azure-pipelines/run-test-elastictest-template.yml
 #        parameters:
