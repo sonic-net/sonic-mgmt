@@ -82,7 +82,7 @@ reboot_ctrl_dict = {
         "command": "warm-reboot",
         "timeout": 300,
         "wait": 90,
-        "warmboot_finalizer_timeout": 180,
+        "warmboot_finalizer_timeout": 300,
         "cause": "warm-reboot",
         "test_reboot_cause_only": False
     },
