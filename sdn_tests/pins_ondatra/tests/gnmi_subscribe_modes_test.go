@@ -534,6 +534,9 @@ func (c subscribeTest) subModeUpdatesTest(t *testing.T) {
         expectedPaths[syncResponse] = operStatus{}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding GNMI subscribe modes test [collectResponse/buildRequest test] to pins_ondatra. (#13127)
         foundPaths, _ := collectResponse(t, subscribeClient, expectedPaths)
         if diff := cmp.Diff(expectedPaths, foundPaths, cmpopts.IgnoreUnexported(operStatus{})); diff != "" {
                 t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
@@ -548,8 +551,11 @@ func (c subscribeTest) subModeUpdatesTest(t *testing.T) {
 
         expectedPaths = c.buildExpectedPaths(t, dut)
 
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]:Adding GNMI subscribe modes test [sub Mode Update/Suppress/Sample/Once tests] in pins ondatra. (#13098)
+=======
+>>>>>>> [sdn_tests]: Adding GNMI subscribe modes test [collectResponse/buildRequest test] to pins_ondatra. (#13127)
         foundPaths, delay := collectResponse(t, subscribeClient, expectedPaths)
         if diff := cmp.Diff(expectedPaths, foundPaths, cmpopts.IgnoreUnexported(operStatus{})); diff != "" {
                 t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
@@ -849,6 +855,9 @@ func (c subscribeTest) subModeRootTest(t *testing.T) {
 
 }
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> [sdn_tests]: Adding GNMI subscribe modes test [collectResponse/buildRequest test] to pins_ondatra. (#13127)
 
 func collectResponse(t *testing.T, subClient gpb.GNMI_SubscribeClient, expectedPaths map[string]operStatus) (map[string]operStatus, time.Duration) {
         t.Helper()
@@ -1056,9 +1065,12 @@ func buildRequest(t *testing.T, params subscribeTest, target string) *gpb.Subscr
                 },
         }
 }
+<<<<<<< HEAD
 =======
 >>>>>>> [sdn_tests]:Adding GNMI subscribe modes test to pins_ondatra. (#13034)
 =======
 >>>>>>> [sdn_tests]:Adding GNMI subscribe modes test [sub Mode Update/Suppress/Sample/Once tests] in pins ondatra. (#13098)
 =======
 >>>>>>> [sdn_tests]: Adding GNMI subscribe modes test [Delete/Poll/Root test] to pins_ondatra. (#13116)
+=======
+>>>>>>> [sdn_tests]: Adding GNMI subscribe modes test [collectResponse/buildRequest test] to pins_ondatra. (#13127)
