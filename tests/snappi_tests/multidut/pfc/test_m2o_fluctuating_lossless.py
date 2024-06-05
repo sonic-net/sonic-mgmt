@@ -99,4 +99,3 @@ def test_m2o_fluctuating_lossless(snappi_api,                  # noqa: F811
                                       bg_prio_list=bg_prio_list,
                                       prio_dscp_map=prio_dscp_map,
                                       snappi_extra_params=snappi_extra_params)
-
