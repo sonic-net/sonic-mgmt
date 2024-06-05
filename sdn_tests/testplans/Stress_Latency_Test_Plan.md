@@ -117,57 +117,45 @@ All the below tests will do the global set replace with a sanitized configuratio
 
 -   Send a valid request for an existing leaf ( burst of requests for 10 different leafs with different payload )
     -   Condition to test:
-
-> Send 10 different requests for different leafs at a burst
+         Send 10 different requests for different leafs at a burst
 
     -   Validation:
-
-> Verify that all the requests have been successful and response messages reflect that.
+         Verify that all the requests have been successful and response messages reflect that.
 
 -   Send a valid request for an existing leaf ( burst of requests for 10 different leafs with different payload from 5 different subtrees )
     -   Condition to test:
-
-> Send 5 different requests for different leafs at a burst
+          Send 5 different requests for different leafs at a burst
 
     -   Validation:
-
-> Verify that all the requests have been successful and response messages reflect that.
+         Verify that all the requests have been successful and response messages reflect that.
 
 -   Send a valid request for an existing leaf from multiple clients
     -   Condition to test:
-
-> Send 5 different requests for different leafs from 5 different clients
+         Send 5 different requests for different leafs from 5 different clients
 
     -   Validation:
-
-> Verify that all the requests have been successful and response messages reflect that.
+         Verify that all the requests have been successful and response messages reflect that.
 
 -   Send a valid request for root with very short timeout value( broken client )
     -   Condition to test:
-
-> The connection expected to close before the response received from the server
+         The connection expected to close before the response received from the server
 
     -   Validation:
-
-> Verify that the client closes the connection and gracefully exits.
+         Verify that the client closes the connection and gracefully exits.
 
 -   Send a valid request for a single leaf multiple times from a single client
     -   Condition to test:
-
-> Set the incremental value for a single leaf over 100 times from single client
+         Set the incremental value for a single leaf over 100 times from single client
 
     -   Validation:
-
-> Verify that each request has been fully processed and expected response is received, verify that the state leaf also reflect the configured value
+         Verify that each request has been fully processed and expected response is received, verify that the state leaf also reflect the configured value
 
 -   Send a valid get requests for a single leaf multiple times from a single client
     -   Condition to test:
-
-> Set the incremental value for a single leaf over the 30 minutes period from single client
+         Set the incremental value for a single leaf over the 30 minutes period from single client
 
     -   Validation:
-
-> Verify that each request has been fully processed and expected response is received, verify that the state leaf also reflect the configured value
+         Verify that each request has been fully processed and expected response is received, verify that the state leaf also reflect the configured value
 
 # E2E Latency Test Cases
 
@@ -184,8 +172,7 @@ The following is the proposed DB-schema.
 <table>
   <thead>
     <tr>
-      <th>Table Name: GPINs GNMI Latency<br>
-Field:<br>
+      <th>Table Name: Sonic-GNMI Latency<br>
 <ul>
 <li>gNMI Operation ( String )</li>
 </ul>
@@ -199,7 +186,7 @@ Field:<br>
 <li>Dut Name ( String )</li>
 </ul>
 <ul>
-<li>GPINs Software Version ( String )</li>
+<li> Software Version ( String )</li>
 </ul>
 <ul>
 <li>E2E Latency ( unit: ms )</li>
@@ -268,12 +255,9 @@ Field:<br>
   </tbody>
     </table>
 
-    -   Covered SAMPLE period
 
-> 2s, 5s, 10s,
-
--   ON_CHANGE Subscription
-    -   Covered Paths
+-  ON_CHANGE Subscription
+    -  Covered Paths
 
 <table>
   <thead>
@@ -330,8 +314,8 @@ Field:<br>
   </tbody>
 </table>
 
--   TARGET_DEFINED Subscription
-    -   Covered Paths
+-  TARGET_DEFINED Subscription
+    -  Covered Paths
 
 <table>
   <thead>
