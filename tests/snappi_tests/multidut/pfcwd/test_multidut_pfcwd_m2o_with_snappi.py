@@ -92,5 +92,3 @@ def test_pfcwd_many_to_one(snappi_api,              # noqa: F811
                               trigger_pfcwd=trigger_pfcwd,
                               pattern="many to one",
                               snappi_extra_params=snappi_extra_params)
-
-    cleanup_config(dut_list, snappi_ports)

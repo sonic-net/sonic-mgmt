@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
-    get_multidut_tgen_peer_port_set, cleanup_config                                         # noqa: F401
+    get_multidut_tgen_peer_port_set                                         # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.common.reboot import reboot                              # noqa: F401
@@ -13,7 +13,6 @@ from tests.common.utilities import wait_until                       # noqa: F401
 from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_basic_helper import run_pfcwd_basic_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import skip_warm_reboot, skip_pfcwd_test
-from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
@@ -93,8 +92,6 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
                          trigger_pfcwd=trigger_pfcwd,
                          snappi_extra_params=snappi_extra_params)
 
-    cleanup_config(dut_list, snappi_ports)
-
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
@@ -165,8 +162,6 @@ def test_pfcwd_basic_multi_lossless_prio(snappi_api,                # noqa F811
                          prio_dscp_map=prio_dscp_map,
                          trigger_pfcwd=trigger_pfcwd,
                          snappi_extra_params=snappi_extra_params)
-
-    cleanup_config(dut_list, snappi_ports)
 
 
 @pytest.mark.disable_loganalyzer
@@ -255,8 +250,6 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
                          trigger_pfcwd=trigger_pfcwd,
                          snappi_extra_params=snappi_extra_params)
 
-    cleanup_config(dut_list, snappi_ports)
-
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
@@ -343,8 +336,6 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
                          trigger_pfcwd=trigger_pfcwd,
                          snappi_extra_params=snappi_extra_params)
 
-    cleanup_config(dut_list, snappi_ports)
-
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('restart_service', ['swss'])
@@ -429,8 +420,6 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
                          trigger_pfcwd=trigger_pfcwd,
                          snappi_extra_params=snappi_extra_params)
 
-    config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
-
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('restart_service', ['swss'])
@@ -511,5 +500,3 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
                          prio_dscp_map=prio_dscp_map,
                          trigger_pfcwd=trigger_pfcwd,
                          snappi_extra_params=snappi_extra_params)
-
-    config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)

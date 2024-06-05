@@ -86,5 +86,3 @@ def test_pfcwd_runtime_traffic(snappi_api,                  # noqa: F811
                                    prio_list=all_prio_list,
                                    prio_dscp_map=prio_dscp_map,
                                    snappi_extra_params=snappi_extra_params)
-
-    cleanup_config(dut_list, snappi_ports)

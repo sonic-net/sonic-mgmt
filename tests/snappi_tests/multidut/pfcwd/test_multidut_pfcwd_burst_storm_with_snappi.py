@@ -4,7 +4,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts         # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
-    get_multidut_tgen_peer_port_set, cleanup_config                                             # noqa: F401
+    get_multidut_tgen_peer_port_set                                             # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list,\
     lossless_prio_list, lossy_prio_list     # noqa F401
 from tests.snappi_tests.variables import config_set, line_card_choice
@@ -85,5 +85,3 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,             # noqa: 
                                prio_list=[lossless_prio],
                                prio_dscp_map=prio_dscp_map,
                                snappi_extra_params=snappi_extra_params)
-
-    cleanup_config(dut_list, snappi_ports)
