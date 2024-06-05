@@ -825,3 +825,16 @@ def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
             pytest_assert(addr not in cmd_output,
                           f"{hostname} {cmd_desc} still with addr {addr}")
             logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
+
+
+@pytest.fixture(scope="function")
+def skip_traffic_test(request):
+    """
+    Skip traffic test if the testcase is marked with 'skip_traffic_test' marker.
+    We are using it to skip traffic test for the testcases that are not supported in specific platforms.
+    Currently the marker is only be use in tests_mark_conditions_skip_traffic_test.yaml for VS platform.
+    """
+    for m in request.node.iter_markers():
+        if m.name == "skip_traffic_test":
+            return True
+    return False

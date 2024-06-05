@@ -2067,17 +2067,6 @@ def compare_running_config(pre_running_config, cur_running_config):
             return False
 
 
-@pytest.fixture(scope="function", autouse=True)
-def skip_traffic_test(request):
-    """
-    Skip traffic test if the testcase is marked with 'skip_traffic_test' marker
-    """
-    for m in request.node.iter_markers():
-        if m.name == "skip_traffic_test":
-            return True
-    return False
-
-
 @pytest.fixture(scope="module", autouse=True)
 def core_dump_and_config_check(duthosts, tbinfo, request):
     '''
