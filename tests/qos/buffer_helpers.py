@@ -73,7 +73,7 @@ def change_ports_cable_len(duthost, port_cable_info):
     with open(os.path.join(PORT_CABLE_LEN_JSON_TEMPLATE_PATH, ports_cable_len_j2_file_name)) as template_file:
         t = Template(template_file.read())
 
-    content = t.render(ports_cable_info=port_cable_info, ports_cable_info_len=len(port_cable_info) )
+    content = t.render(ports_cable_info=port_cable_info, ports_cable_info_len=len(port_cable_info))
     logger.info(f"port cable len json content is {port_cable_info}")
     ports_cable_len_config_json_file_name = "ports_cable_len_config.json"
 

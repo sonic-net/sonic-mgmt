@@ -17,7 +17,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.utilities import skip_release
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports      # noqa F401
-from tests.qos.buffer_helpers import DutDbInfo, update_cable_len_for_all_ports
+from tests.qos.buffer_helpers import DutDbInfo, update_cable_len_for_all_ports    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any')
