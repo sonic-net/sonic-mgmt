@@ -23,6 +23,7 @@ The return value is formatted as below:
         'covered': False
     }
 ]
+And finally, we will upload the results to Kusto table `TestScripts`
 """
 
 import yaml
@@ -85,19 +86,19 @@ def collect_all_scripts():
     return test_scripts
 
 
-def get_testbed_type(topo_name):
+def topo_name_to_type(topo_name):
     pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu)')
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
         return "unsupported"
-    tb_type = match.group()
-    if tb_type in ['mgmttor', 'dualtor']:
+    topo_type = match.group()
+    if topo_type in ['mgmttor', 'dualtor']:
         # certain testbed types are in 't0' category with different names.
-        tb_type = 't0'
-    if tb_type in ['mc0']:
-        tb_type = 'm0'
-    return tb_type
+        topo_type = 't0'
+    if topo_type in ['mc0']:
+        topo_type = 'm0'
+    return topo_type
 
 
 def get_PRChecker_scripts():
@@ -144,7 +145,7 @@ def check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts):
 
     # Check if a script is included in the PR checker for the corresponding topology type
     for test_script in expanded_test_scripts:
-        topology_type = get_testbed_type(test_script["topology"])
+        topology_type = topo_name_to_type(test_script["topology"])
 
         if test_script["testscript"] in topology_type_pr_test_scripts.get(topology_type, ""):
             test_script["covered"] = True
