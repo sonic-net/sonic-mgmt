@@ -13,7 +13,7 @@ import pytest
 from .util import parse_eeprom
 from .util import parse_output
 from .util import get_dev_conn
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, wait_until
 from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa F401
 
 cmd_sfp_presence = "sudo sfputil show presence"
@@ -28,6 +28,16 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
+
+
+def check_interfaces_up(duthost, namespace, up_ports):
+    logging.info("Checking interface status")
+    intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
+    if len(intf_facts["ansible_interface_link_down_ports"]) == 0:
+        return True
+    else:
+        logging.info("Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"]))
+        return False
 
 
 def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -264,6 +274,7 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     if enum_frontend_asic_index is not None:
         # Check if the interfaces of this AISC is present in conn_graph_facts
         up_ports = {k: v for k, v in list(portmap.items()) if k in mg_facts["minigraph_ports"]}
-    intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
-    assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
-        "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])
+    all_intf_up = wait_until(100, 10, 0, check_interfaces_up, duthost, namespace, up_ports)
+    if not all_intf_up:
+        intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
+        assert all_intf_up, "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])
