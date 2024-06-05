@@ -82,22 +82,24 @@ def check_PRChecker_coverd(test_scripts):
     except Exception as e:
         logging.error('Failed to load file {}, error {}'.format(f, e))
 
-    for test_script in test_scripts:
-        topo_type = test_script["topology"]
+    i = 0
+    while i < len(test_scripts):
+        topo_type = test_scripts[i]["topology"]
 
         if topo_type == "any":
             for topology in PR_TOPOLOGY_TYPE:
                 test_scripts.append({
-                    "testscript": test_script["testscript"],
+                    "testscript": test_scripts[i]["testscript"],
                     "topology": topology
                 })
-            test_scripts.remove(test_script)
+            test_scripts.remove(test_scripts[i])
             continue
 
-        if test_script["testscript"] in pr_test_scripts.get(topo_type, ""):
-            test_script["covered"] = True
+        if test_scripts[i]["testscript"] in pr_test_scripts.get(topo_type, ""):
+            test_scripts[i]["covered"] = True
         else:
-            test_script["covered"] = False
+            test_scripts[i]["covered"] = False
+        i += 1
 
 
 def main():
