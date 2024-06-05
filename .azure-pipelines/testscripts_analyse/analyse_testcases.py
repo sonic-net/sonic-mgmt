@@ -35,6 +35,7 @@ import logging
 from natsort import natsorted
 from datetime import datetime
 from constant import DATAPLANE_FEATURES, PR_TOPOLOGY_TYPE, PR_TOPOLOGY_MAPPING
+from report_data_storage import KustoConnector
 
 
 def collect_all_scripts():
@@ -152,6 +153,12 @@ def check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts):
     return expanded_test_scripts
 
 
+def upload_results(test_scripts):
+    database = sys.argv[2]
+    kusto_db = KustoConnector(database)
+    kusto_db.upload_testscripts(test_scripts)
+
+
 def main():
     test_scripts = collect_all_scripts()
     topology_type_pr_test_scripts = get_PRChecker_scripts()
@@ -169,6 +176,8 @@ def main():
             script["category"] = "data"
         else:
             script["category"] = "control"
+
+    upload_results(expanded_test_scripts)
 
 
 if __name__ == '__main__':
