@@ -1,12 +1,12 @@
 # Overview
 
-This document aims to outline the approach for testing the stress and latency of gNMI GET/SET operations supported by the gNMI protocol as part of GPINs OpenConfig end-to-end testing. The GET/SET operations test plan can be found [here](go/gnmi-get-set-test-plan).
+This document aims to outline the approach for testing the stress and latency of gNMI GET/SET operations supported by the gNMI protocol as part of GPINs OpenConfig end-to-end testing. 
 
 # Background
 
-With SONiC as the network operating system (NOS) for GPINS, gNMI is responsible for monitoring, streaming telemetry, and configuration management.  Broadcom's Unified Management Framework (UMF) provides gNMI streaming telemetry based on the standard OpenConfig model. More details on gNMI for GPINs can be found [here](http://go/gpins-gnmi-hld).
+With SONiC as the network operating system (NOS) for GPINS, gNMI is responsible for monitoring, streaming telemetry, and configuration management.  Broadcom's Unified Management Framework (UMF) provides gNMI streaming telemetry based on the standard OpenConfig model.
 
-From the gNMI [specification](https://github.com/openconfig/gnmi/blob/8eae1937bf841842e2e0864c34562c8352d56bb2/proto/gnmi/gnmi.proto#L341), the gNMI client can invoke a GET,  and/or SET request. The SET operations can be further categorized into UPDATE, REPLACE, and DELETE operations.
+The gNMI client can invoke a GET,  and/or SET request. The SET operations can be further categorized into UPDATE, REPLACE, and DELETE operations.
 
 # gNMI Protocol Testing
 
@@ -212,8 +212,6 @@ Field:<br>
 </table>
 
 ## Dashboard for the DB
-
-The [Plx dashboards](https://dashboards.corp.google.com/) will be setup with matching queries to view various types of gNMI operation and latency data
 
 -   ONCE Subscription
     -   Covered Paths
