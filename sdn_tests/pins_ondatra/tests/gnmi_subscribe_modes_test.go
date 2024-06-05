@@ -520,6 +520,20 @@ func (c subscribeTest) subModeUpdatesTest(t *testing.T) {
         }
         expectedPaths[syncResponse] = operStatus{}
 
+        foundPaths, _ := collectResponse(t, subscribeClient, expectedPaths)
+        if diff := cmp.Diff(expectedPaths, foundPaths, cmpopts.IgnoreUnexported(operStatus{})); diff != "" {
+                t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
+        }
+        if c.mode == gpb.SubscriptionList_ONCE {
+                return
+        }
+
+        if c.mode == gpb.SubscriptionList_POLL {
+                subscribeClient.Send(&gpb.SubscribeRequest{Request: &gpb.SubscribeRequest_Poll{}})
+        }
+
+        expectedPaths = c.buildExpectedPaths(t, dut)
+
         foundPaths, delay := collectResponse(t, subscribeClient, expectedPaths)
         if diff := cmp.Diff(expectedPaths, foundPaths, cmpopts.IgnoreUnexported(operStatus{})); diff != "" {
                 t.Errorf("collectResponse(expectedPaths):\n%v \nResponse mismatch (-missing +extra):\n%s", expectedPaths, diff)
@@ -813,4 +827,211 @@ func (c subscribeTest) subModeRootTest(t *testing.T) {
                 t.Errorf("Subscribe Response failed (%v)", err)
         }
 
+}
+
+func collectResponse(t *testing.T, subClient gpb.GNMI_SubscribeClient, expectedPaths map[string]operStatus) (map[string]operStatus, time.Duration) {
+        t.Helper()
+        start := time.Now()
+        // Process response from DUT.
+        expectedCount := len(expectedPaths)
+        foundPaths := make(map[string]operStatus)
+        for pCount := 0; pCount < expectedCount; {
+                // Wait for response from DUT.
+                done := make(chan struct{})
+                resCh := make(chan *gpb.SubscribeResponse, 1)
+                errCh := make(chan error, 1)
+                go func(subClient gpb.GNMI_SubscribeClient, resCh chan<- *gpb.SubscribeResponse, errCh chan<- error) {
+                        res, err := subClient.Recv()
+                        close(done)
+                        resCh <- res
+                        errCh <- err
+                }(subClient, resCh, errCh)
+                timer := time.NewTimer(mediumTime)
+                select {
+                case <-timer.C:
+                        t.Fatalf("Timed out waiting on stream, expected: \n%+v, \nfound: \n%+v", expectedPaths, foundPaths)
+                case <-done:
+                        if !timer.Stop() {
+                                <-timer.C
+                        }
+                }
+                res := <-resCh
+                err := <-errCh
+                if err != nil {
+                        if _, ok := expectedPaths[errorResponse]; ok {
+                                foundPaths[errorResponse] = operStatus{
+                                        match: true,
+                                        value: err.Error(),
+                                }
+                                return foundPaths, 0
+                        }
+                        t.Fatalf("Response error received from DUT (%v)", err)
+                }
+                switch v := res.Response.(type) {
+                case *gpb.SubscribeResponse_Update:
+                        // Process Update message received in SubscribeResponse.
+                        updates := v.Update
+                        prefixStr, err := ygot.PathToString(updates.GetPrefix())
+                        if err != nil {
+                                t.Fatalf("Failed to convert path to string (%v) %v", err, updates.GetPrefix())
+                        }
+                        for _, d := range updates.GetDelete() {
+                                elemStr, err := ygot.PathToString(d)
+                                if err != nil {
+                                        t.Fatalf("Failed to convert path to string (%v) %v", err, d)
+                                }
+
+                                pathStr := prefixStr + elemStr
+                                if !ignorePaths(pathStr) {
+                                        _, ok := expectedPaths[syncResponse]
+                                        foundPaths[pathStr] = operStatus{match: ok, delete: true}
+                                        pCount++
+                                }
+                        }
+
+                        // Perform basic sanity on the Update message.
+                        for _, update := range updates.GetUpdate() {
+                                if update.Path == nil {
+                                        t.Fatalf("Invalid nil Path in update: %v", prototext.Format(update))
+                                }
+                                if update.Val == nil {
+                                        t.Fatalf("Invalid nil Val in update: %v", prototext.Format(update))
+                                }
+                                // Path is partially present in Prefix and partially in Update in the response.
+                                elemStr, err := ygot.PathToString(update.Path)
+                                if err != nil {
+                                        t.Fatalf("Failed to convert path to string (%v) %v", err, update.Path)
+                                }
+                                pathStr := prefixStr + elemStr
+
+                                if !ignorePaths(pathStr) {
+                                        _, ok := expectedPaths[syncResponse]
+                                        foundPaths[pathStr] = operStatus{
+                                                match: ok,
+                                                value: update.GetVal().GetStringVal(),
+                                        }
+                                        pCount++
+                                }
+                        }
+
+                case *gpb.SubscribeResponse_SyncResponse:
+                        _, ok := expectedPaths[syncResponse]
+                        foundPaths[syncResponse] = operStatus{match: ok}
+                        pCount++
+                }
+        }
+        return foundPaths, time.Since(start)
+}
+
+func clientListener(t *testing.T, sc gpb.GNMI_SubscribeClient) error {
+        t.Helper()
+        timeout := time.After(mediumTime)
+        for {
+                select {
+                case <-timeout:
+                        return nil
+                default:
+                        m, err := sc.Recv()
+                        if err != nil {
+                                if errors.Is(err, context.Canceled) {
+                                        return nil
+                                }
+                                return err
+                        }
+                        switch m.Response.(type) {
+                        case *gpb.SubscribeResponse_SyncResponse:
+                                return nil
+                        }
+                }
+        }
+}
+
+func (c *subscribeTest) buildExpectedPaths(t *testing.T, dut *ondatra.DUTDevice) map[string]operStatus {
+        t.Helper()
+        expectedPaths := make(map[string]operStatus)
+        if c.expectError {
+                expectedPaths[errorResponse] = operStatus{}
+                return expectedPaths
+        }
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+
+        resolvedPath, errs := ygot.StringToStructuredPath(c.reqPath)
+        if errs != nil {
+                t.Fatal(c.reqPath + " " + errs.Error())
+        }
+        req := &gpb.GetRequest{
+                Prefix: prefix,
+                Path: func(want string) []*gpb.Path {
+                        if want == rootPath {
+                                return nil
+                        }
+                        return []*gpb.Path{&gpb.Path{Elem: resolvedPath.Elem}}
+                }(c.reqPath),
+                Encoding: gpb.Encoding_PROTO,
+        }
+
+        ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+        defer cancel()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        resp, err := gnmiClient.Get(ctx, req)
+        if err != nil {
+                t.Fatalf("GetResponse error received from DUT (%v)", err)
+        }
+        for _, notification := range resp.GetNotification() {
+                if notification == nil {
+                        t.Fatalf("GetResponse contained no Notification (%v)", prototext.Format(resp))
+                }
+                prefixStr, err := ygot.PathToString(notification.GetPrefix())
+                if err != nil {
+                        t.Fatalf("Failed to convert path to string (%v) %v", err, notification.GetPrefix())
+                }
+                for _, update := range notification.GetUpdate() {
+                        if update.Path == nil {
+                                t.Fatalf("Invalid nil Path in update: %v", prototext.Format(update))
+                        }
+                        elemStr, err := ygot.PathToString(update.Path)
+                        if err != nil {
+                                t.Fatalf("Failed to convert path to string (%v) %v", err, update.Path)
+                        }
+                        path := prefixStr + elemStr
+
+                        if !ignorePaths(path) {
+                                expectedPaths[path] = operStatus{}
+                        }
+                }
+        }
+        return expectedPaths
+}
+
+// buildRequest creates a SubscribeRequest message using the specified
+// parameters that include the list of paths to be added in the request.
+func buildRequest(t *testing.T, params subscribeTest, target string) *gpb.SubscribeRequest {
+        t.Helper()
+        resolvedPath, errs := ygot.StringToStructuredPath(params.reqPath)
+        if errs != nil {
+                t.Fatal(params.reqPath + " " + errs.Error())
+        }
+
+        prefix := &gpb.Path{Origin: "openconfig", Target: target}
+        return &gpb.SubscribeRequest{
+                Request: &gpb.SubscribeRequest_Subscribe{
+                        Subscribe: &gpb.SubscriptionList{
+                                Prefix: prefix,
+                                Subscription: []*gpb.Subscription{
+                                        &gpb.Subscription{
+                                                Path:              &gpb.Path{Elem: resolvedPath.Elem},
+                                                Mode:              params.subMode,
+                                                SampleInterval:    params.sampleInterval,
+                                                SuppressRedundant: params.suppressRedundant,
+                                                HeartbeatInterval: params.heartbeatInterval,
+                                        }},
+                                Mode:        params.mode,
+                                Encoding:    gpb.Encoding_PROTO,
+                                UpdatesOnly: params.updatesOnly,
+                        },
+                },
+        }
 }
