@@ -34,7 +34,7 @@ import logging
 
 from natsort import natsorted
 from datetime import datetime
-from constant import DATAPLANE_FEATURES, PR_TOPOLOGY_TYPE
+from constant import DATAPLANE_FEATURES, PR_TOPOLOGY_TYPE, PR_TOPOLOGY_MAPPING
 
 
 def collect_all_scripts():
@@ -84,7 +84,22 @@ def collect_all_scripts():
     return test_scripts
 
 
-def check_PRChecker_coverd(test_scripts):
+def get_testbed_type(topo_name):
+    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu)')
+    match = pattern.match(topo_name)
+    if match is None:
+        logging.warning("Unsupported testbed type - {}".format(topo_name))
+        return "unsupported"
+    tb_type = match.group()
+    if tb_type in ['mgmttor', 'dualtor']:
+        # certain testbed types are in 't0' category with different names.
+        tb_type = 't0'
+    if tb_type in ['mc0']:
+        tb_type = 'm0'
+    return tb_type
+
+
+def get_PRChecker_scripts():
     '''
     Check if a script is included in the PR checker for the corresponding topology type
     '''
@@ -97,38 +112,57 @@ def check_PRChecker_coverd(test_scripts):
     except Exception as e:
         logging.error('Failed to load file {}, error {}'.format(f, e))
 
-    # Check if a script is included in the PR checker for the corresponding topology type
-    # If the topology mark is "any", we will check if it is included in all topology types of PR checker.
-    i = 0
-    while i < len(test_scripts):
-        topo_type = test_scripts[i]["topology"]
+    topology_type_pr_test_scripts = {}
 
-        if topo_type == "any":
+    for key, value in pr_test_scripts.items():
+        topology_type = PR_TOPOLOGY_MAPPING.get(key, "")
+        if topology_type:
+            if topology_type_pr_test_scripts.get(topology_type, ""):
+                topology_type_pr_test_scripts[topology_type].update(value)
+            else:
+                topology_type_pr_test_scripts[topology_type] = set(value)
+
+    return topology_type_pr_test_scripts
+
+
+def check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts):
+    # Expand the test scripts list here.
+    # If the topology mark is "any", we will add all topology types in PR checker on this script.
+    expanded_test_scripts = []
+    for test_script in test_scripts:
+        topology_mark = test_script["topology"]
+
+        if topology_mark == "any":
             for topology in PR_TOPOLOGY_TYPE:
-                test_scripts.append({
-                    "testscript": test_scripts[i]["testscript"],
+                expanded_test_scripts.append({
+                    "testscript": test_script["testscript"],
                     "topology": topology
                 })
-            test_scripts.remove(test_scripts[i])
-            continue
-
-        if test_scripts[i]["testscript"] in pr_test_scripts.get(topo_type, ""):
-            test_scripts[i]["covered"] = True
         else:
-            test_scripts[i]["covered"] = False
-        i += 1
+            expanded_test_scripts.append(test_script)
+
+    # Check if a script is included in the PR checker for the corresponding topology type
+    for test_script in expanded_test_scripts:
+        topology_type = get_testbed_type(test_script["topology"])
+
+        if test_script["testscript"] in topology_type_pr_test_scripts.get(topology_type, ""):
+            test_script["covered"] = True
+        else:
+            test_script["covered"] = False
+    return expanded_test_scripts
 
 
 def main():
     test_scripts = collect_all_scripts()
-    check_PRChecker_coverd(test_scripts)
+    topology_type_pr_test_scripts = get_PRChecker_scripts()
+    expanded_test_scripts = check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts)
 
     # Add additionally field to mark one running
     trackid = str(uuid.uuid4())
     scantime = str(datetime.now())
 
     # Also, we will specify if the script belongs to data plane or control plane
-    for script in test_scripts:
+    for script in expanded_test_scripts:
         script["trackid"] = trackid
         script["scantime"] = scantime
         if script["testscript"].split("/")[0] in DATAPLANE_FEATURES:
