@@ -2,6 +2,7 @@ import pytest
 import time
 import k8s_test_utilities as ku
 
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 
 WAIT_FOR_SYNC = 60

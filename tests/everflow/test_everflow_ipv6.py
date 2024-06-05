@@ -4,6 +4,7 @@ import pytest
 import ptf.testutils as testutils
 from . import everflow_test_utilities as everflow_utils
 from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 # Module-level fixtures
 from .everflow_test_utilities import setup_info      # noqa: F401

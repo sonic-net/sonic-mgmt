@@ -6,6 +6,7 @@ import ptf.packet as packet
 import ptf.testutils as testutils
 import pytest
 import time
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 
 logger = logging.getLogger(__name__)
 

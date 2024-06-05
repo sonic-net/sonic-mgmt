@@ -5,6 +5,7 @@ import logging
 
 import pytest
 
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require

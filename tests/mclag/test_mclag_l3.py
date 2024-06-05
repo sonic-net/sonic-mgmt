@@ -3,6 +3,7 @@ import ipaddress
 import pytest
 import time
 
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from mclag_helpers import check_partner_lag_member

@@ -4,6 +4,7 @@ import re
 import ipaddress
 
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
 from tests.common.helpers.assertions import pytest_assert

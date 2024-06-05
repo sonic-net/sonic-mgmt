@@ -3,6 +3,7 @@ import pytest
 
 from .files.helper import run_pfc_test
 from tests.common.cisco_data import is_cisco_device
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs        # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until

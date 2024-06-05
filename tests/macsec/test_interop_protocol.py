@@ -2,6 +2,7 @@ import pytest
 import logging
 import ipaddress
 
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from tests.common.utilities import wait_until
 from .macsec_helper import getns_prefix
 from .macsec_config_helper import disable_macsec_port, enable_macsec_port

@@ -4,6 +4,7 @@ import logging
 import time
 import pytest
 from contextlib import contextmanager
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 
 logger = logging.getLogger(__name__)
 

@@ -9,6 +9,7 @@ from . import everflow_test_utilities as everflow_utils
 from .everflow_test_utilities import BaseEverflowTest
 from .everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, \
                                     DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 from tests.common.helpers.assertions import pytest_require
 
 from .everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES       # noqa: F401

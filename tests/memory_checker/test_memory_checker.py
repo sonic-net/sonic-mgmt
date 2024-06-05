@@ -10,6 +10,7 @@ import time
 import pytest
 
 from pkg_resources import parse_version
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require

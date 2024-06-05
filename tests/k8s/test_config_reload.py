@@ -1,6 +1,7 @@
 import pytest
 import k8s_test_utilities as ku
 
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.config_reload import config_reload

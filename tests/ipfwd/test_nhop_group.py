@@ -11,6 +11,7 @@ from collections import defaultdict
 from ptf.mask import Mask
 import ptf.packet as scapy
 import ptf.testutils as testutils
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type

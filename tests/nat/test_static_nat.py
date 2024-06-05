@@ -39,6 +39,7 @@ from .nat_helpers import dut_nat_iptables_status
 from .nat_helpers import dut_interface_control
 from .nat_helpers import get_public_ip
 import tests.common.reboot as common_reboot
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.nat.conftest import nat_global_config
 

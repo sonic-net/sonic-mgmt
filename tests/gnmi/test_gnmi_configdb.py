@@ -3,6 +3,7 @@ import logging
 import pytest
 
 from .helper import gnmi_set, gnmi_get, gnoi_reboot
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes

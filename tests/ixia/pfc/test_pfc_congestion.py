@@ -6,6 +6,7 @@ from tests.common.helpers.assertions import pytest_require    # noqa: F401
 from tests.common.fixtures.conn_graph_facts import (      # noqa: F401
     conn_graph_facts,
     fanout_graph_facts)
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs  # noqa F401
 from tests.common.ixia.ixia_fixtures import (    # noqa: F401
     ixia_api_serv_ip,
     ixia_api_serv_port,

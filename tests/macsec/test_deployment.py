@@ -1,6 +1,7 @@
 import pytest
 import logging
 
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from tests.common.utilities import wait_until
 from tests.common import config_reload
 from .macsec_helper import check_appl_db

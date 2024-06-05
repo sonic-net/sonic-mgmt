@@ -1,6 +1,7 @@
 import pytest
 import logging
 
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from .macsec_platform_helper import get_portchannel

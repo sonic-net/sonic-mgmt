@@ -1,7 +1,10 @@
 import logging
 import pytest
 
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
+
 logger = logging.getLogger(__name__)
+
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx'),

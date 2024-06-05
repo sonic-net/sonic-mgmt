@@ -3,6 +3,7 @@ import paramiko
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from scp import SCPClient
 
 pytestmark = [pytest.mark.disable_loganalyzer]

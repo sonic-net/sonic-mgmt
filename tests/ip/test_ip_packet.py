@@ -8,6 +8,7 @@ import pytest
 from ptf import mask, packet
 
 from collections import defaultdict
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_column_positions
 from tests.common.portstat_utilities import parse_portstat

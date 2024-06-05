@@ -38,6 +38,7 @@ from .nat_helpers import get_cli_show_nat_config_output
 from .nat_helpers import write_json
 from .nat_helpers import check_peers_by_ping
 import ptf.testutils as testutils
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs     # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [

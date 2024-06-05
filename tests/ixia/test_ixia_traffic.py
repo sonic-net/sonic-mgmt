@@ -13,6 +13,7 @@ import time
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs                         # noqa F401
 from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import logger
 
