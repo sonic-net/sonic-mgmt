@@ -76,7 +76,7 @@ def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     portmap, dev_conn = get_dev_conn(
         duthost, conn_graph_facts, enum_frontend_asic_index)
-    sfp_lpmode = duthost.command(cmd_sfp_lpmode)
+    sfp_lpmode = duthost.command(cmd_sfp_lpmode)['stdout']
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert validate_transceiver_lpmode(
