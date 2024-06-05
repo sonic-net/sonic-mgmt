@@ -19,7 +19,6 @@ DATA_PKT_SIZE = 1024
 DATA_FLOW_DURATION_SEC = 20
 DATA_FLOW_DELAY_SEC = 10
 SNAPPI_POLL_DELAY_SEC = 2
-TOLERANCE_THRESHOLD = 0.1
 
 
 def run_m2o_fluctuating_lossless_test(api,
@@ -112,12 +111,9 @@ def run_m2o_fluctuating_lossless_test(api,
                 'loss': '10'
                 },
            }
-    verify_m2o_oversubscribtion_results(duthost=duthost2,
-                                        rows=flow_stats,
+    verify_m2o_oversubscribtion_results(rows=flow_stats,
                                         test_flow_name=TEST_FLOW_NAME,
                                         bg_flow_name=BG_FLOW_NAME,
-                                        rx_port=rx_port,
-                                        rx_frame_count_deviation=TOLERANCE_THRESHOLD,
                                         flag=flag)
 
 
