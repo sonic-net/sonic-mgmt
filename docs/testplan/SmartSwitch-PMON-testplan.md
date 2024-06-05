@@ -341,7 +341,22 @@ Unknown
 #### Sample Output
 ```
 On DPU: “show reboot-cause history”
-TBD: show the DPU output
+
+Output:
+
+Name                 Cause    Time    User    Comment
+-------------------  -------  ------  ------  ---------
+2024_06_04_23_27_28  Unknown  N/A     N/A     N/A
+2024_05_29_21_28_22  Unknown  N/A     N/A     N/A
+2024_05_23_17_15_19  Unknown  N/A     N/A     N/A
+2024_05_23_17_15_15  Unknown  N/A     N/A     N/A
+2024_05_23_17_15_14  Unknown  N/A     N/A     N/A
+2024_05_23_17_15_00  Unknown  N/A     N/A     N/A
+2024_05_21_19_43_58  Unknown  N/A     N/A     N/A
+2024_05_21_19_42_07  Unknown  N/A     N/A     N/A
+2024_05_21_19_42_06  Unknown  N/A     N/A     N/A
+2024_05_21_19_42_05  Unknown  N/A     N/A     N/A
+
 ```
 #### Pass/Fail Criteria
  *  A proper output should be delayed without any error as shown
@@ -365,9 +380,10 @@ Output: User issued 'reboot' command [User: cisco, Time: Fri 31 May 2024 12:29:3
 
 On Switch: “show reboot-cause all”
 
-Device    Name                 Cause    Time                             User
---------  -------------------  -------  -------------------------------  ------
-SWITCH    2024_05_31_00_33_30  reboot   Fri 31 May 2024 12:29:34 AM UTC  cisco
+Device    Name                 Cause       Time    User
+--------  -------------------  ----------  ------  ------
+SWITCH    2024_06_04_23_27_25  Power Loss  N/A     N/A
+DPU0      2024_06_04_23_27_28  Unknown     N/A     N/A
 
 ```
 #### Pass/Fail Criteria
@@ -391,8 +407,6 @@ On Switch: “show reboot-cause history”
 Name                 Cause       Time                             User    Comment
 -------------------  ----------  -------------------------------  ------  ---------
 2024_05_31_00_33_30  reboot      Fri 31 May 2024 12:29:34 AM UTC  cisco   N/A
-2024_05_30_05_09_36  reboot      Thu May 30 05:04:00 UTC 2024     cisco   N/A
-2024_05_24_19_50_39  reboot      Fri 24 May 2024 07:45:40 PM UTC  cisco   N/A
 2024_05_24_04_13_41  Power Loss  N/A                              N/A     Unknown
 2024_05_22_21_51_18  Power Loss  N/A                              N/A     Unknown
 2024_05_22_19_08_52  reboot      Wed 22 May 2024 07:03:16 PM UTC  cisco   N/A
@@ -403,18 +417,22 @@ Device    Name                 Cause       Time                             User
 --------  -------------------  ----------  -------------------------------  ------  ---------
 SWITCH    2024_05_31_00_33_30  reboot      Fri 31 May 2024 12:29:34 AM UTC  cisco   N/A
 SWITCH    2024_05_30_05_09_36  reboot      Thu May 30 05:04:00 UTC 2024     cisco   N/A
-SWITCH    2024_05_24_21_13_52  reboot      Fri 24 May 2024 09:08:56 PM UTC  cisco   N/A
-SWITCH    2024_05_24_20_59_48  reboot      Fri 24 May 2024 08:54:50 PM UTC  cisco   N/A
 SWITCH    2024_05_24_19_50_39  reboot      Fri 24 May 2024 07:45:40 PM UTC  cisco   N/A
 SWITCH    2024_05_24_04_13_41  Power Loss  N/A                              N/A     Unknown
 
 On Switch: “show reboot-cause history all"
-Device    Name                 Cause       Time                             User    Comment
---------  -------------------  ----------  -------------------------------  ------  ---------
-SWITCH    2024_05_31_00_33_30  reboot      Fri 31 May 2024 12:29:34 AM UTC  cisco   N/A
-SWITCH    2024_05_30_05_09_36  reboot      Thu May 30 05:04:00 UTC 2024     cisco   N/A
-SWITCH    2024_05_24_19_50_39  reboot      Fri 24 May 2024 07:45:40 PM UTC  cisco   N/A
-SWITCH    2024_05_24_04_13_41  Power Loss  N/A                              N/A     Unknown
+Device    Name                      Cause       Time    User    Comment
+--------  ------------------------  ----------  ------  ------  --------------------------------------------------------------------------
+SWITCH    2024_06_04_23_27_25       Power Loss  N/A     N/A     Unknown (First boot of SONiC version detached.12061-dirty-20240601.152750)
+DPU0      2024_06_04_23_27_28       Unknown     N/A     N/A     N/A
+DPU0      2024_05_29_21_28_22|DPU0  Unknown     N/A     N/A     N/A
+
+show reboot-cause history DPU0
+Device    Name                      Cause    Time    User    Comment
+--------  ------------------------  -------  ------  ------  ---------
+DPU0      2024_06_04_23_27_28       Unknown  N/A     N/A     N/A
+DPU0      2024_05_29_21_28_22       Unknown  N/A     N/A     N/A
+DPU0      2024_05_23_17_15_19       Unknown  N/A     N/A     N/A
 
 ```
 #### Pass/Fail Criteria
@@ -434,13 +452,61 @@ SWITCH    2024_05_24_04_13_41  Power Loss  N/A                              N/A 
 #### Sample Output
 ```
 On Switch: “show system-health summary"
-Output: TBD
+
+System status summary
+
+  System status LED  green
+  Services:
+    Status: Not OK
+    Not Running: container_checker, lldp:lldpmgrd
+  Hardware:
+    Status: OK
 
 On Switch: “show system-health summary DPU0"
 
+DPU0
+System status summary
+
+  System status LED  green
+  Services:
+    Status: Not OK
+    Not Running: container_checker, macsec, dhcp_relay, mux, snmp, lldp, mgmt-framework, gnmi, swss:vlanmgrd, swss:vxlanmgrd, teamd:teammgrd, teamd:teamsyncd
+  Hardware:
+    Status: OK
+
 On Switch: “show system-health summary SWITCH"
 
+SWITCH
+System status summary
+
+  System status LED  green
+  Services:
+    Status: Not OK
+    Not Running: container_checker, lldp:lldpmgrd
+  Hardware:
+    Status: OK
+
 On Switch: “show system-health summary all"
+
+SWITCH
+System status summary
+
+  System status LED  green
+  Services:
+    Status: Not OK
+    Not Running: container_checker, lldp:lldpmgrd
+  Hardware:
+    Status: OK
+
+DPU1
+System status summary
+
+  System status LED  green
+  Services:
+    Status: Not OK
+    Not Running: container_checker, mux, dhcp_relay, gnmi, lldp, mgmt-framework, macsec, snmp, swss:vlanmgrd, swss:vxlanmgrd, teamd:teammgrd, teamd:teamsyncd
+  Hardware:
+
 ```
 #### Pass/Fail Criteria
  *  A proper output should be delayed without any error
@@ -459,13 +525,161 @@ On Switch: “show system-health summary all"
 #### Sample Output
 ```
 On Switch: “show system-health monitor-list"
-Output: TBD
+
+System services and devices monitor list
+
+Name                   Status    Type
+---------------------  --------  ----------
+container_checker      Not OK    Program
+lldp:lldpmgrd          Not OK    Process
+sonic                  OK        System
+rsyslog                OK        Process
+root-overlay           OK        Filesystem
+var-log                OK        Filesystem
+routeCheck             OK        Program
+dualtorNeighborCheck   OK        Program
+bgp:fpmsyncd           OK        Process
+bgp:bgpcfgd            OK        Process
+PSU0.fan0              OK        Fan
+PSU1.fan0              OK        Fan
+fantray0.fan0          OK        Fan
+fantray1.fan0          OK        Fan
+fantray2.fan0          OK        Fan
+fantray3.fan0          OK        Fan
+PSU 1                  OK        PSU
+PSU 2                  OK        PSU
+root@sonic:/home/cisco# 
 
 On Switch: “show system-health monitor-list DPU0"
 
+DPU0
+
+System services and devices monitor list
+
+Name                      Status    Type
+------------------------  --------  ----------
+container_checker         Not OK    Program
+macsec                    Not OK    Service
+dhcp_relay                Not OK    Service
+mux                       Not OK    Service
+snmp                      Not OK    Service
+lldp                      Not OK    Service
+mgmt-framework            Not OK    Service
+gnmi                      Not OK    Service
+swss:vlanmgrd             Not OK    Process
+swss:vxlanmgrd            Not OK    Process
+teamd:teammgrd            Not OK    Process
+teamd:teamsyncd           Not OK    Process
+sonic                     OK        System
+rsyslog                   OK        Process
+root-overlay              OK        Filesystem
+var-log                   OK        Filesystem
+routeCheck                OK        Program
+dualtorNeighborCheck      OK        Program
+diskCheck                 OK        Program
+vnetRouteCheck            OK        Program
+memory_check              OK        Program
+swss:buffermgrd           OK        Process
+swss:vrfmgrd              OK        Process
+swss:nbrmgrd              OK        Process
+swss:coppmgrd             OK        Process
+teamd:tlm_teamd           OK        Process
+eventd:eventd             OK        Process
+dpu-pdsagent              OK        UserDefine
+dpu-pciemgrd              OK        UserDefine
+dpu-eth_Uplink1/1_status  OK        UserDefine
+dpu-pcie_link             OK        UserDefine
+
 On Switch: “show system-health monitor-list SWITCH"
+SWITCH
+
+System services and devices monitor list
+
+Name                   Status    Type
+---------------------  --------  ----------
+container_checker      Not OK    Program
+lldp:lldpmgrd          Not OK    Process
+sonic                  OK        System
+rsyslog                OK        Process
+root-overlay           OK        Filesystem
+var-log                OK        Filesystem
+routeCheck             OK        Program
+dualtorNeighborCheck   OK        Program
+bgp:fpmsyncd           OK        Process
+bgp:bgpcfgd            OK        Process
+PSU0.fan0              OK        Fan
+PSU1.fan0              OK        Fan
+fantray0.fan0          OK        Fan
+fantray1.fan0          OK        Fan
+fantray2.fan0          OK        Fan
+fantray3.fan0          OK        Fan
+PSU 1                  OK        PSU
+PSU 2                  OK        PSU
 
 On Switch: “show system-health monitor-list all"
+
+SWITCH
+
+System services and devices monitor list
+
+Name                   Status    Type
+---------------------  --------  ----------
+container_checker      Not OK    Program
+lldp:lldpmgrd          Not OK    Process
+sonic                  OK        System
+rsyslog                OK        Process
+root-overlay           OK        Filesystem
+var-log                OK        Filesystem
+routeCheck             OK        Program
+dualtorNeighborCheck   OK        Program
+bgp:fpmsyncd           OK        Process
+bgp:bgpcfgd            OK        Process
+PSU0.fan0              OK        Fan
+PSU1.fan0              OK        Fan
+fantray0.fan0          OK        Fan
+fantray1.fan0          OK        Fan
+fantray2.fan0          OK        Fan
+fantray3.fan0          OK        Fan
+PSU 1                  OK        PSU
+PSU 2                  OK        PSU
+
+DPU0
+
+System services and devices monitor list
+
+Name                      Status    Type
+------------------------  --------  ----------
+container_checker         Not OK    Program
+macsec                    Not OK    Service
+dhcp_relay                Not OK    Service
+mux                       Not OK    Service
+snmp                      Not OK    Service
+lldp                      Not OK    Service
+mgmt-framework            Not OK    Service
+gnmi                      Not OK    Service
+swss:vlanmgrd             Not OK    Process
+swss:vxlanmgrd            Not OK    Process
+teamd:teammgrd            Not OK    Process
+teamd:teamsyncd           Not OK    Process
+sonic                     OK        System
+rsyslog                   OK        Process
+root-overlay              OK        Filesystem
+var-log                   OK        Filesystem
+routeCheck                OK        Program
+dualtorNeighborCheck      OK        Program
+diskCheck                 OK        Program
+vnetRouteCheck            OK        Program
+memory_check              OK        Program
+swss:buffermgrd           OK        Process
+swss:vrfmgrd              OK        Process
+swss:nbrmgrd              OK        Process
+swss:coppmgrd             OK        Process
+teamd:tlm_teamd           OK        Process
+eventd:eventd             OK        Process
+dpu-pdsagent              OK        UserDefine
+dpu-pciemgrd              OK        UserDefine
+dpu-eth_Uplink1/1_status  OK        UserDefine
+dpu-pcie_link             OK        UserDefine
 ```
 #### Pass/Fail Criteria
  *  A proper output should be delayed without any error
@@ -484,13 +698,96 @@ On Switch: “show system-health monitor-list all"
 #### Sample Output
 ```
 On Switch: “show system-health detail"
-Output: TBD
+
+System status summary
+
+  System status LED  green
+  Services:
+    Status: Not OK
+    Not Running: container_checker, lldp:lldpmgrd
+  Hardware:
+    Status: OK
+
+System services and devices monitor list
+
+Name                   Status    Type
+---------------------  --------  ----------
+container_checker      Not OK    Program
+lldp:lldpmgrd          Not OK    Process
+sonic                  OK        System
+rsyslog                OK        Process
+root-overlay           OK        Filesystem
+var-log                OK        Filesystem
+routeCheck             OK        Program
+dualtorNeighborCheck   OK        Program
+diskCheck              OK        Program
+bgp:bgpd               OK        Process
+bgp:fpmsyncd           OK        Process
+bgp:bgpcfgd            OK        Process
+PSU0.fan0              OK        Fan
+PSU1.fan0              OK        Fan
+fantray0.fan0          OK        Fan
+fantray1.fan0          OK        Fan
+fantray2.fan0          OK        Fan
+fantray3.fan0          OK        Fan
+PSU 1                  OK        PSU
+PSU 2                  OK        PSU
+
+System services and devices ignore list
+
+Name    Status    Type
+------  --------  ------
 
 On Switch: “show system-health detail DPU0"
 
+DPU0
+System status summary
+
+  System status LED  green
+  Services:
+    Status: Not OK
+    Not Running: container_checker, macsec, dhcp_relay, mux, snmp, lldp, mgmt-framework, gnmi, swss:vlanmgrd, swss:vxlanmgrd, teamd:teammgrd, teamd:teamsyncd
+  Hardware:
+    Status: OK
+
+System services and devices monitor list
+
+Name                      Status    Type
+------------------------  --------  ----------
+container_checker         Not OK    Program
+macsec                    Not OK    Service
+dhcp_relay                Not OK    Service
+mux                       Not OK    Service
+snmp                      Not OK    Service
+lldp                      Not OK    Service
+mgmt-framework            Not OK    Service
+gnmi                      Not OK    Service
+swss:vlanmgrd             Not OK    Process
+teamd:teamsyncd           Not OK    Process
+sonic                     OK        System
+rsyslog                   OK        Process
+root-overlay              OK        Filesystem
+var-log                   OK        Filesystem
+routeCheck                OK        Program
+dualtorNeighborCheck      OK        Program
+container_memory_gnmi     OK        Program
+container_eventd          OK        Program
+database:redis            OK        Process
+bgp:zebra                 OK        Process
+bgp:staticd               OK        Process
+teamd:tlm_teamd           OK        Process
+eventd:eventd             OK        Process
+dpu-pdsagent              OK        UserDefine
+dpu-pciemgrd              OK        UserDefine
+dpu-eth_Uplink1/1_status  OK        UserDefine
+dpu-pcie_link             OK        UserDefine
+
 On Switch: “show system-health detail SWITCH"
+Output: Same as “show system-health detail"
 
 On Switch: “show system-health detail all"
+Output: Same as “show system-health detail SWITCH" plus the DPUs output
+
 ```
 #### Pass/Fail Criteria
  *  A proper output should be delayed without any error
@@ -511,7 +808,12 @@ On Switch: “show system-health detail all"
 #### Sample Output
 ```
 On Switch: “show system-health dpu DPU0"
-Output: TBD
+
+Name    ID    Oper-Status    State-Detail             State-Value    Time               Reason
+------  ----  -------------  -----------------------  -------------  -----------------  --------------------------------------------------------------------------------------------------------------------------
+DPU0    0     Online         dpu_midplane_link_state  UP             20240605 02:01:13  INTERNAL-MGMT : admin state - UP, oper_state - UP, status - OK, HOST-MGMT : admin state - UP, oper_state - UP, status - OK
+                             dpu_control_plane_state  UP             20240605 02:01:13  All containers are up and running, host-ethlink-status: Uplink1/1 is UP
+                             dpu_data_plane_state     UP             20240605 00:03:55  DPU container named polaris is running, pdsagent running : OK, pciemgrd running : OK
 
 ```
 #### Pass/Fail Criteria
@@ -531,10 +833,35 @@ Output: TBD
 ```
 Once the all the containers are up, (give enough time for the DPUs to boot up as well) and the system is stable
 On Switch: “show platform inventory"
-Output: TBD
+
+    Name                Product ID      Version              Serial Number   Description
+
+Chassis
+    CHASSIS             8102-28FH-DPU-O 0.10                 FLM274802F6     Cisco 28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
+
+Route Processors
+    RP0                 8102-28FH-DPU-O 0.10                 FLM274802F6     Cisco 28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
+
+Sled Cards
+    SLED0               8K-DPU400-2A    0.10                 FLM2750036R     Cisco 800 2xDPU Sled AMD Elba
+    SLED1               8K-DPU400-2A    0.10                 FLM2750037Z     Cisco 800 2xDPU Sled AMD Elba
+    SLED2               8K-DPU400-2A    0.10                 FLM2750036Q     Cisco 800 2xDPU Sled AMD Elba
+    SLED3               8K-DPU400-2A    0.10                 FLM2750037L     Cisco 800 2xDPU Sled AMD Elba
+
+Dpu Modules
+    DPU0                DSS-MTFUJI      6.1.0-11-2-arm64     225207731731968 Pensando DSC
+    DPU1                DSS-MTFUJI      6.1.0-11-2-arm64     225207731731984 Pensando DSC
+    DPU2 -- not present
+    DPU3                DSS-MTFUJI      6.1.0-11-2-arm64     225207731731952 Pensando DSC
+
 
 On Switch: "show chassis modules status"
-Output: TBD
+
+  Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
+------  -------------  ---------------  -------------  --------------  --------
+  DPU0            N/A               -1         Online              up       N/A
+  DPU1            N/A               -1         Online              up       N/A
+  DPU2            N/A               -1        Offline            down       N/A
 
 ```
 #### Pass/Fail Criteria
@@ -554,10 +881,10 @@ Output: TBD
 #### Sample Output
 ```
 On Switch: “show platform inventory"
-Output: TBD
+Output: shown in 1.4
 
 On Switch: "show chassis modules status"
-Output: TBD
+Output: shown in 1.4
 
 ```
 #### Pass/Fail Criteria
@@ -577,10 +904,10 @@ Output: TBD
 #### Sample Output
 ```
 On Switch: “show platform inventory"
-Output: TBD
+Output: shown in 1.4
 
 On Switch: "show chassis modules status"
-Output: TBD
+Output: shown in 1.4
 
 ```
 #### Pass/Fail Criteria
@@ -602,10 +929,10 @@ Output: TBD
 ```
 Once the all the containers are up, (give enough time for the DPUs to boot up as well) and the system is stable
 On Switch: “show platform inventory"
-Output: TBD
+Output: shown in 1.4
 
 On Switch: "show chassis modules status"
-Output: TBD
+Output: shown in 1.4
 
 ```
 #### Pass/Fail Criteria
