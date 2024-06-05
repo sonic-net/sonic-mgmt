@@ -86,18 +86,17 @@ def apply_dhcp_server_config_cli(duthost, config_commands):
         duthost.shell(cmd)
 
 
-def apply_dhcp_server_config_gcu(duthost, config_to_apply, ignore_errors=False):
+def apply_dhcp_server_config_gcu(duthost, config_to_apply):
     logging.info("The dhcp_server_config: %s" % config_to_apply)
     tmpfile = duthost.shell('mktemp')['stdout']
     try:
         duthost.copy(content=json.dumps(config_to_apply, indent=4), dest=tmpfile)
         output = duthost.shell('config apply-patch {}'.format(tmpfile), module_ignore_errors=True)
-        if not ignore_errors:
-            pytest_assert(not output['rc'], "Command is not running successfully")
-            pytest_assert(
-                "Patch applied successfully" in output['stdout'],
-                "Please check if json file is validate"
-            )
+        pytest_assert(not output['rc'], "Command is not running successfully")
+        pytest_assert(
+            "Patch applied successfully" in output['stdout'],
+            "Please check if json file is validate"
+        )
     finally:
         duthost.file(path=tmpfile, state='absent')
 
