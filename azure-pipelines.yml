@@ -182,7 +182,7 @@ stages:
           TEST_SET: onboarding_t0
 
   - job: onboarding_t0_2vlans_elastictest
-    displayName: "kvmtest-t0-2vlans by Elastictest"
+    displayName: "onboarding kvmtest-t0-2vlans by Elastictest"
     timeoutInMinutes: 240
     continueOnError: true
     pool: sonic-ubuntu-1c
