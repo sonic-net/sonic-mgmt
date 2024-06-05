@@ -11,7 +11,7 @@ from ptf import mask
 from scapy.all import Ether, IP
 from tabulate import tabulate
 
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor # noqa F401
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
     get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown # noqa F401
 from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue,\
@@ -337,7 +337,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         apply_dscp_cfg_teardown(duthost)
 
     def test_dscp_to_queue_mapping_pipe_mode(self, ptfadapter, rand_selected_dut,
-                                             toggle_all_simulator_ports_to_rand_selected_tor,
+                                             toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
                                              setup_standby_ports_on_rand_unselected_tor,
                                              tbinfo, downstream_links, upstream_links, dut_qos_maps_module): # noqa F811
         """
@@ -349,7 +349,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         self._teardown_test(duthost)
 
     def test_dscp_to_queue_mapping_uniform_mode(self, ptfadapter, rand_selected_dut,
-                                                toggle_all_simulator_ports_to_rand_selected_tor,
+                                                toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
                                                 setup_standby_ports_on_rand_unselected_tor,
                                                 tbinfo, downstream_links, upstream_links, dut_qos_maps_module): # noqa F811
         """
