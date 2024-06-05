@@ -181,6 +181,21 @@ stages:
           MGMT_BRANCH: $(BUILD_BRANCH)
           TEST_SET: onboarding_t0
 
+  - job: onboarding_t0_2vlans_elastictest
+    displayName: "kvmtest-t0-2vlans by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: true
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: .azure-pipelines/run-test-elastictest-template.yml
+      parameters:
+        TOPOLOGY: t0
+        TEST_SET: onboarding_t0-2vlans
+        MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+        MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+        DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
+        KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+        MGMT_BRANCH: $(BUILD_BRANCH)
 
 #  - job: wan_elastictest
 #    displayName: "kvmtest-wan by Elastictest"
