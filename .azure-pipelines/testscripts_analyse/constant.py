@@ -4,4 +4,5 @@ DATAPLANE_FEATURES = {
         "mpls", "nat", "pfc_asym", "qos", "radv", "read_mac", "route", "sai_qualify", "sflow",
         "snappi_tests", "span", "stress", "upgrade_path", "vlan", "voq", "vrf", "vs_voq_cfgs", "vxlan", "wan"
 }
+# We temporarily set four types of PR checker here
 PR_TOPOLOGY_TYPE = ["t0", "t1", "dualtor", "t2"]

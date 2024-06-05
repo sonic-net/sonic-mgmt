@@ -38,6 +38,16 @@ from constant import DATAPLANE_FEATURES, PR_TOPOLOGY_TYPE
 
 
 def collect_all_scripts():
+    '''
+    This function collects all test scripts under the folder 'tests/'
+    and get the topology type marked in the script
+
+    The return value is a dict contains the script name and topology type
+    [{
+        'testscript': 'acl/custom_acl_table/test_custom_acl_table.py',
+        'topology': 't0'
+    }]
+    '''
     location = sys.argv[1]
 
     # Recursively find all files starting with "test_" and ending with ".py"
@@ -59,6 +69,7 @@ def collect_all_scripts():
         try:
             with open(f, 'r') as file:
                 for line in file:
+                    # Get topology type of script from mark `pytest.mark.topology`
                     match = pattern.search(line)
                     if match:
                         for topology in match.group(1).split(","):
@@ -74,14 +85,20 @@ def collect_all_scripts():
 
 
 def check_PRChecker_coverd(test_scripts):
+    '''
+    Check if a script is included in the PR checker for the corresponding topology type
+    '''
     pr_test_scripts_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../", "pr_test_scripts.yaml")
 
+    # Get all the scripts included in different PR checker
     try:
         with open(pr_test_scripts_file) as f:
             pr_test_scripts = yaml.safe_load(f)
     except Exception as e:
         logging.error('Failed to load file {}, error {}'.format(f, e))
 
+    # Check if a script is included in the PR checker for the corresponding topology type
+    # If the topology mark is "any", we will check if it is included in all topology types of PR checker.
     i = 0
     while i < len(test_scripts):
         topo_type = test_scripts[i]["topology"]
@@ -106,9 +123,11 @@ def main():
     test_scripts = collect_all_scripts()
     check_PRChecker_coverd(test_scripts)
 
+    # Add additionally field to mark one running
     trackid = str(uuid.uuid4())
     scantime = str(datetime.now())
 
+    # Also, we will specify if the script belongs to data plane or control plane
     for script in test_scripts:
         script["trackid"] = trackid
         script["scantime"] = scantime
@@ -116,8 +135,6 @@ def main():
             script["category"] = "data"
         else:
             script["category"] = "control"
-
-    return test_scripts
 
 
 if __name__ == '__main__':
