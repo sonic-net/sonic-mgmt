@@ -95,13 +95,13 @@ def run_m2o_fluctuating_lossless_test(api,
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
     """ Run traffic """
-    flow_stats, switch_flow_stats = run_traffic(duthost=duthost1,
-                                                api=api,
-                                                config=testbed_config,
-                                                data_flow_names=data_flow_names,
-                                                all_flow_names=all_flow_names,
-                                                exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
-                                                snappi_extra_params=snappi_extra_params)
+    flow_stats, switch_flow_stats, _ = run_traffic(duthost=duthost1,
+                                                   api=api,
+                                                   config=testbed_config,
+                                                   data_flow_names=data_flow_names,
+                                                   all_flow_names=all_flow_names,
+                                                   exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
+                                                   snappi_extra_params=snappi_extra_params)
 
     flag = {
             'Test Flow': {
