@@ -3,6 +3,7 @@ import json
 import logging
 import pytest
 
+from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.override_config_table.utilities import backup_config, restore_config, \
@@ -41,6 +42,7 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
 
     #  Restore config after test finish
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+    config_reload(duthost)
 
 
 def get_interface_reload_timestamp(duthost):
