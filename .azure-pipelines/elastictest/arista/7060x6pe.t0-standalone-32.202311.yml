@@ -3,8 +3,9 @@ name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev
 trigger: none
 pr: none
 
+
 schedules:
-  - cron: "0 4 * * 2,6"
+  - cron: "0 4 * * 1,3,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -36,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms68-t2-8800-2"
+    default: "vms66-t0-7060x6-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -45,16 +46,16 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "1"
+    default: "2"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_8000_SEC_202305)
+    default: $(IMAGE_BRCM_ABOOT_202311_LATEST)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: user/r12f/osfp-test
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -62,26 +63,16 @@ parameters:
     default: " "
     displayName: "Scripts to be executed"
 
+  # In t0-standalone topology, we only care about the L2, QoS and PFC related features.
   - name: FEATURES
     type: string
-    default: " "
-    values:
-      - " "
-      - "copp,decap,everflow,fib,ipfwd"
-      - "arp,bgp,lldp,cacl"
-      - "snmp,syslog,telemetry,tacacs,ntp,show_techsupport,scp,gnmi"
-      - "platform_tests,system_health"
-      - "autorestart,container_checker,memory_checker,process_monitoring,monit"
-      - "route,ecmp,stress,crm,drop_packets"
-      - "acl"
-      - "qos,pfcwd"
-      - "macsec"
+    default: "fdb,vlan,qos,pfcwd,syslog,tacacs"
     displayName: "Features to be executed"
 
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "platform_tests/test_kdump.py"
+    default: " "
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -89,16 +80,15 @@ parameters:
     default: " "
     displayName: "Features to be excluded"
 
-  # Temporarily disable loganalyzer
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305) --disable_loganalyzer"
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_202311)"
     displayName: "Common test parameters"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 8640
+    default: 3600
 
 stages:
 - stage: Test
@@ -108,7 +98,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8800.t2.202305.NightlyTest_by_Elastictest
+    displayName: 7060x6pe.t0-standalone-32.202311.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
