@@ -45,7 +45,7 @@ The device_groups section generates the lab file which is the inventory file nec
 ### devices section
 **USAGE**: files/sonic_lab_devices, group_vars/fanout/secrets, group_vars/lab/secrets, lab
 
-The devices section is a dictionary that contains all devices and hosts. This section does not contain information on PTF containers. For more information on PTF containers, see the testbed.csv file.
+The devices section is a dictionary that contains all devices and hosts. This section does not contain information on PTF containers. For more information on PTF containers, see the testbed.yaml file.
 
 For each device that you add, add the following:
 
@@ -107,15 +107,28 @@ Define:
     - define the IPs of the VMs (i.e." 10.250.1.0, 10.250.1.1, 10.250.1.2, etc...)
 
 ### testbed section:
-**USAGE**: testbed.csv
+**USAGE**: testbed.yaml
 
+testbed.csv is deprecated, please use testbed.yaml instead.
 This is where the topology configuration file for the testbed will collect information from when running TestbedProcessing.py.
 
-| #conf-name        | group-name         | topo    | ptf_image_name | ptf|ptf_ip |ptf_ipv6    | server         | vm_base   | dut   | inv_name   | auto_recover   | comment   |
-| ----------------- | ------------------ | ------- | -------------- |---------- |------------ |------------|-------------- | --------- | ----- | ---------- | -------------- | --------- |
-| [ptf32 conf-name] | [ptf32 group-name] | [ptf32] | [docker-ptf]   |[ptf-name] |[ip address] | [ipv6 address]|[server group] | [vm_base] | [dut] | [inv_name] | [auto_recover] | [comment] |
-| [t0 conf-name]    | [t0 group-name]    | [t0]    | [docker-ptf]   |[ptf-name] |[ip address] | [ipv6 address]|[server group] | [vm_base] | [dut] | [inv_name] | [auto_recover] | [comment] |
-
+```
+- conf-name: vms-sn2700-t1
+  group-name: vms1-1
+  topo: t1
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms1-1
+  ptf_ip: 10.255.0.178/24
+  ptf_ipv6: 2001:db8:1::3/64
+  ptf_extra_mgmt_ip: []
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - str-msn2700-01
+  inv_name: lab
+  auto_recover: 'True'
+  comment: Tests Mellanox SN2700 vms
+```
 
 For each topology you use in your testbed environment, define the following:
 - conf-name - to address row in table
@@ -172,6 +185,65 @@ cat ~/sonig-mgmt/ansible/vars/docker_registry.yml
 docker_registry_host: 127.0.0.1:5000
 docker_registry_username: root
 docker_registry_password: root
+```
+
+### inventory file:
+
+The inventory file contains all device host/IP information for testbeds within its inventory.
+For example, the testbed `vms-sn2700-t1` uses the inventory file lab (`inv_name: lab` in `testbed.yaml`).
+
+The `ansible/lab` inventory file includes three sections of devices:
+- sonic
+- fanout/pdu/mgmt/server
+- ptf
+
+Under `sonic` sections, it has several different SONiC platforms, such as `sonic_sn2700_40`.
+Please ensure that the following fields are correctly filled for your DUT. The test case `tests/platform_tests/api/test_chassis.py` will verify the correctness of these fields.
+
+```
+sonic_sn2700_40:
+  vars:
+    hwsku: ACS-MSN2700
+    iface_speed: 40000
+  hosts:
+    str-msn2700-01:
+      ansible_host: 10.251.0.188
+      model: MSN2700-CS2FO
+      serial: MT1234X56789
+      base_mac: 24:8a:07:12:34:56
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2FO"
+        "0x23": "MT1234X56789"
+        "0x24": "24:8a:07:12:34:56"
+        "0x25": "12/07/2016"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_x86-r0"
+        "0x29": "2016.11-5.1.0008-9600"
+        "0x2A": "128"
+        "0x2B": "Mellanox"
+        "0xFE": "0xFBA1E964"
+```
+
+For the `fanout`, `pdu`, `mgmt`, and `server` sections, those record the hostname and IP address of the respective fanout switch, PDU, or console server.
+Those devices are also recorded in the following csv files:
+
+- `ansible/files/sonic_lab_devices.csv`
+- `ansible/files/sonic_lab_pdu_links.csv`
+- `ansible/files/sonic_lab_console_links.csv`
+
+For `ptf` section, the `ansible_ssh_user` and `ansible_ssh_pass` variables are the credentials for the PTF container.
+`ansible_host` should be same with `ptf_ip` in `testbed.yaml`.
+
+```
+    ptf:
+      vars:
+        ansible_ssh_user: root
+        ansible_ssh_pass: root
+      hosts:
+        ptf_ptf1:
+          ansible_host: 10.255.0.188
+          ansible_hostv6: 2001:db8:1::1/64
 ```
 
 # Testbed Processing Script
