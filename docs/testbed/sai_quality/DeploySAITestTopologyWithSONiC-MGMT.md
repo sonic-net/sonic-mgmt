@@ -32,7 +32,7 @@ For example, we want to use the config `vms-sn2700-t1-lag`, then we need to chan
 -  topo: t1
 +  topo: ptf32
    ptf_image_name: docker-ptf-sai-mlnx
--  ptf: ptf-unknown
+-  ptf: ptf_vms1-1
 +  ptf: ptf-docker-name
    ptf_ip: 10.255.0.178/24
    ptf_ipv6:
