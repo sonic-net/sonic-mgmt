@@ -650,9 +650,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
                 elif os_type == 'eos':
                     fanout_user = creds.get('fanout_network_user', None)
                     fanout_password = creds.get('fanout_network_password', None)
-                elif os_type == 'snappi':
-                    fanout_user = creds.get('fanout_network_user', None)
-                    fanout_password = creds.get('fanout_network_password', None)
+                elif os_type == 'ixia':
+                    # Skip for ixia device which has no fanout
+                    continue
                 else:
                     # when os is mellanox, not supported
                     pytest.fail("os other than sonic and eos not supported")
