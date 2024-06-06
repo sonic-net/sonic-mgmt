@@ -1,0 +1,607 @@
+{
+    "1": {
+        "VLAN": {
+            "Vlan220": {
+                "dhcp_servers": [
+                    "13.107.195.116",
+                    "13.107.195.117",
+                    "13.107.195.118",
+                    "13.107.195.119",
+                    "10.243.208.48",
+                    "10.243.208.49",
+                    "10.243.208.50",
+                    "10.243.208.51",
+                    "10.254.42.143",
+                    "10.254.42.159"
+                ],
+                "dhcpv6_servers": [
+                    "2603:10e1:0:77c::1",
+                    "2603:10e1:0:77d::1",
+                    "2603:10e1:0:77e::1",
+                    "2603:10e1:0:77f::1",
+                    "2603:10e1:0:80c::1",
+                    "2603:10e1:0:80d::1",
+                    "2603:10e1:0:80e::1",
+                    "2603:10e1:0:80f::1"
+                ],
+                "vlanid": "220"
+            }
+        },
+        "VLAN_MEMBER": {
+            "Vlan220|Ethernet0": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet1": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet2": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet3": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet4": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet5": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet6": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet7": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet8": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet9": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet10": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet11": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet12": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet13": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet14": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet15": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet16": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet17": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet18": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet19": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet20": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet21": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet22": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet23": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet24": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet25": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet26": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet27": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet28": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet29": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet30": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet31": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet32": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet33": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet34": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet35": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet36": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet37": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet38": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet39": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet40": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet41": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet42": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet43": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet44": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet45": {
+                "tagging_mode": "untagged"
+            }
+        },
+        "VLAN_INTERFACE": {
+            "Vlan220": {},
+            "Vlan220|172.17.0.254/24": {},
+            "Vlan220|2603:10e2:11:b20f:0:1:0:1/96": {}
+        },
+        "DHCP_SERVER_IPV4": {
+            "Vlan220": {
+                "gateway": "172.17.0.254",
+                "lease_time": "900",
+                "mode": "PORT",
+                "netmask": "255.255.255.0",
+                "customized_options": [
+                    "option223"
+                ],
+                "state": "enabled"
+            }
+        },
+        "DHCP_SERVER_IPV4_PORT": {
+            "Vlan220|Ethernet4": {
+                "ips": [
+                    "172.17.0.17"
+                ]
+            },
+            "Vlan220|Ethernet5": {
+                "ips": [
+                    "172.17.0.21"
+                ]
+            },
+            "Vlan220|Ethernet6": {
+                "ips": [
+                    "172.17.0.25"
+                ]
+            },
+            "Vlan220|Ethernet7": {
+                "ips": [
+                    "172.17.0.29"
+                ]
+            },
+            "Vlan220|Ethernet8": {
+                "ips": [
+                    "172.17.0.33"
+                ]
+            },
+            "Vlan220|Ethernet9": {
+                "ips": [
+                    "172.17.0.37"
+                ]
+            },
+            "Vlan220|Ethernet10": {
+                "ips": [
+                    "172.17.0.41"
+                ]
+            },
+            "Vlan220|Ethernet11": {
+                "ips": [
+                    "172.17.0.45"
+                ]
+            },
+            "Vlan220|Ethernet16": {
+                "ips": [
+                    "172.17.0.65"
+                ]
+            },
+            "Vlan220|Ethernet17": {
+                "ips": [
+                    "172.17.0.69"
+                ]
+            },
+            "Vlan220|Ethernet18": {
+                "ips": [
+                    "172.17.0.73"
+                ]
+            },
+            "Vlan220|Ethernet19": {
+                "ips": [
+                    "172.17.0.77"
+                ]
+            },
+            "Vlan220|Ethernet20": {
+                "ips": [
+                    "172.17.0.81"
+                ]
+            },
+            "Vlan220|Ethernet21": {
+                "ips": [
+                    "172.17.0.85"
+                ]
+            },
+            "Vlan220|Ethernet22": {
+                "ips": [
+                    "172.17.0.89"
+                ]
+            },
+            "Vlan220|Ethernet23": {
+                "ips": [
+                    "172.17.0.93"
+                ]
+            }
+        },
+        "DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS": {
+            "option223": {
+                "id": "223",
+                "type": "string",
+                "value": "R1,R2,0,0,1,1,1,1,1,1,1,1,0,0,0,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+            }
+        }
+    },
+    "4": {
+        "DHCP_SERVER_IPV4_PORT": {
+            "Vlan220|Ethernet2": {
+                "ips": [
+                    "172.17.0.9"
+                ]
+            },
+            "Vlan220|Ethernet3": {
+                "ips": [
+                    "172.17.0.13"
+                ]
+            },
+            "Vlan220|Ethernet4": {
+                "ips": [
+                    "172.17.0.17"
+                ]
+            },
+            "Vlan220|Ethernet5": {
+                "ips": [
+                    "172.17.0.21"
+                ]
+            },
+            "Vlan220|Ethernet6": {
+                "ips": [
+                    "172.17.0.25"
+                ]
+            },
+            "Vlan220|Ethernet7": {
+                "ips": [
+                    "172.17.0.29"
+                ]
+            },
+            "Vlan220|Ethernet8": {
+                "ips": [
+                    "172.17.0.33"
+                ]
+            },
+            "Vlan220|Ethernet9": {
+                "ips": [
+                    "172.17.0.37"
+                ]
+            },
+            "Vlan221|Ethernet26": {
+                "ips": [
+                    "172.17.0.105"
+                ]
+            },
+            "Vlan221|Ethernet27": {
+                "ips": [
+                    "172.17.0.109"
+                ]
+            },
+            "Vlan221|Ethernet28": {
+                "ips": [
+                    "172.17.0.113"
+                ]
+            },
+            "Vlan221|Ethernet29": {
+                "ips": [
+                    "172.17.0.117"
+                ]
+            },
+            "Vlan221|Ethernet30": {
+                "ips": [
+                    "172.17.0.121"
+                ]
+            },
+            "Vlan221|Ethernet31": {
+                "ips": [
+                    "172.17.0.125"
+                ]
+            },
+            "Vlan222|Ethernet32": {
+                "ips": [
+                    "172.17.0.129"
+                ]
+            },
+            "Vlan222|Ethernet33": {
+                "ips": [
+                    "172.17.0.133"
+                ]
+            }
+        },
+        "DHCP_SERVER_IPV4": {
+            "Vlan220": {
+                "gateway": "172.17.0.62",
+                "lease_time": "900",
+                "mode": "PORT",
+                "netmask": "255.255.255.192",
+                "state": "enabled"
+            },
+            "Vlan221": {
+                "gateway": "172.17.0.126",
+                "lease_time": "900",
+                "mode": "PORT",
+                "netmask": "255.255.255.192",
+                "state": "enabled"
+            },
+            "Vlan222": {
+                "gateway": "172.17.0.182",
+                "lease_time": "900",
+                "mode": "PORT",
+                "netmask": "255.255.255.192",
+                "state": "enabled"
+            },
+            "Vlan223": {
+                "gateway": "172.17.0.201",
+                "lease_time": "900",
+                "mode": "PORT",
+                "netmask": "255.255.255.252",
+                "state": "enabled"
+            }
+        },
+        "VLAN": {
+            "Vlan220": {
+                "dhcp_servers": [
+                    "13.107.195.60",
+                    "13.107.195.61",
+                    "13.107.195.62",
+                    "13.107.195.63"
+                ],
+                "dhcpv6_servers": [
+                    "2603:10e1:0:664::1",
+                    "2603:10e1:0:665::1",
+                    "2603:10e1:0:666::1",
+                    "2603:10e1:0:667::1"
+                ],
+                "vlanid": "220"
+            },
+            "Vlan221": {
+                "dhcp_servers": [
+                    "13.107.195.60",
+                    "13.107.195.61",
+                    "13.107.195.62",
+                    "13.107.195.63"
+                ],
+                "dhcpv6_servers": [
+                    "2603:10e1:0:664::1",
+                    "2603:10e1:0:665::1",
+                    "2603:10e1:0:666::1",
+                    "2603:10e1:0:667::1"
+                ],
+                "vlanid": "221"
+            },
+            "Vlan222": {
+                "dhcp_servers": [
+                    "13.107.195.60",
+                    "13.107.195.61",
+                    "13.107.195.62",
+                    "13.107.195.63"
+                ],
+                "dhcpv6_servers": [
+                    "2603:10e1:0:664::1",
+                    "2603:10e1:0:665::1",
+                    "2603:10e1:0:666::1",
+                    "2603:10e1:0:667::1"
+                ],
+                "vlanid": "222"
+            },
+            "Vlan223": {
+                "dhcp_servers": [
+                    "13.107.195.60",
+                    "13.107.195.61",
+                    "13.107.195.62",
+                    "13.107.195.63"
+                ],
+                "dhcpv6_servers": [
+                    "2603:10e1:0:664::1",
+                    "2603:10e1:0:665::1",
+                    "2603:10e1:0:666::1",
+                    "2603:10e1:0:667::1"
+                ],
+                "vlanid": "223"
+            }
+        },
+        "VLAN_MEMBER": {
+            "Vlan220|Ethernet0": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet1": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet2": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet3": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet4": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet5": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet6": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet7": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet8": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet9": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet10": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet11": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet12": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet13": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet14": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan220|Ethernet15": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet16": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet17": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet18": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet19": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet20": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet21": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet22": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet23": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet25": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet26": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet27": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet28": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet29": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet30": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan221|Ethernet31": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet32": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet33": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet34": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet35": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet36": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet37": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet38": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet39": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet40": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet41": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet42": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet43": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet44": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan222|Ethernet45": {
+                "tagging_mode": "untagged"
+            },
+            "Vlan223|Ethernet24": {
+                "tagging_mode": "untagged"
+            }
+        },
+        "VLAN_INTERFACE": {
+            "Vlan220": {},
+            "Vlan220|172.17.0.62/26": {},
+            "Vlan220|2603:10e2:70:b076:0:1:0:1/96": {},
+            "Vlan221": {},
+            "Vlan221|172.17.0.126/26": {},
+            "Vlan221|2603:10e2:70:b076:0:2:0:1/96": {},
+            "Vlan222": {},
+            "Vlan222|172.17.0.182/26": {},
+            "Vlan222|2603:10e2:70:b076:0:3:0:1/96": {},
+            "Vlan223": {},
+            "Vlan223|172.17.0.201/30": {},
+            "Vlan223|2603:10e2:70:b076:0:4:0:1/96": {}
+        }
+    }
+}
