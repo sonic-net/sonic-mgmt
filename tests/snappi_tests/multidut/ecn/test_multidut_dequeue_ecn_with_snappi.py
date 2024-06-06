@@ -15,7 +15,6 @@ from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test
 from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.snappi_tests.files.helper import skip_ecn_tests
 from tests.common.snappi_tests.common_helpers import packet_capture
-from tests.common.config_reload import config_reload
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
@@ -117,8 +116,3 @@ def test_dequeue_ecn(request,
     # Check if the last packet is not ECN marked
     pytest_assert(not is_ecn_marked(ip_pkts[-1]),
                   "The last packet should not be marked")
-
-    # Teardown ECN config through a reload
-    logger.info("Reloading config to teardown ECN config")
-    config_reload(sonic_host=duthost1, config_source='config_db', safe_reload=True)
-    config_reload(sonic_host=duthost2, config_source='config_db', safe_reload=True)
