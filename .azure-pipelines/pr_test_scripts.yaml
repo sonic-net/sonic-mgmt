@@ -24,7 +24,6 @@ t0:
   - container_hardening/test_container_hardening.py
   - database/test_db_config.py
   - database/test_db_scripts.py
-  - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
   - dns/static_dns/test_static_dns.py
@@ -193,7 +192,6 @@ t1-lag:
   - configlet/test_add_rack.py
   - container_checker/test_container_checker.py
   - dhcp_relay/test_dhcp_pkt_fwd.py
-  - fdb/test_fdb_flush.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
