@@ -1,18 +1,16 @@
 # Overview
 
-This document aims to outline the approach for testing the stress and latency of gNMI GET/SET operations supported by the gNMI protocol as part of GPINs OpenConfig end-to-end testing. 
+This document aims to outline the approach for testing the stress and latency of gNMI GET/SET operations supported by the gNMI protocol as part of OpenConfig end-to-end testing. 
 
 # Background
 
-With SONiC as the network operating system (NOS) for GPINS, gNMI is responsible for monitoring, streaming telemetry, and configuration management.  Broadcom's Unified Management Framework (UMF) provides gNMI streaming telemetry based on the standard OpenConfig model.
+With SONiC as the network operating system (NOS), gNMI is responsible for monitoring, streaming telemetry, and configuration management.
 
 The gNMI client can invoke a GET,  and/or SET request. The SET operations can be further categorized into UPDATE, REPLACE, and DELETE operations.
 
 # gNMI Protocol Testing
 
 The current approach to test the gNMI protocol features is to leverage the existing or planned end-to-end tests to be written for the gNMI paths. The idea is to reduce the duplication of test cases and use the ones already planned for verifying the paths to test the protocol features at the same time.\
-For example, any of the tests that use a GET/SET request for any of the config leafs can be extended to also test the config subtrees. \
-As to the question of which of the path tests are to be used for which feature test, that is still TBD based on the completion and review of all the path E2E tests.
 
 # Purpose
 
@@ -20,7 +18,7 @@ The purpose of the gNMI stress and latency tests is to test the robustness of th
 
 # E2E Stress Test Cases
 
-The purpose of the gNMI stress test is to validate the robustness of the telemetry service and overall performance. The stress testing will not validate the correctness of the data that is being received from the server.  Since the gNMI performance is dependent on the platform, the tests will not enforce the threshold to be validated as part of the validation, instead the tests will gather the metrics and produce the performance report at the end of the tests. The final report will be analyzed and checked against the platform specific requirements. There will also be periodic sanity checks during the test to capture test failures early.
+The purpose of the gNMI stress test is to validate the robustness of the telemetry service and overall performance. The stress testing will not validate the correctness of the data that is being received from the server.  Since the gNMI performance is dependent on the platform, the tests will not enforce the threshold to be validated as part of the validation, instead the tests will gather the metrics and produce the performance report at the end of the tests.
 
 The robustness is validated through the following methods
 
@@ -51,7 +49,7 @@ The expectation is for the gNMI server to process the valid delete request and r
 
 ### Expectation
 
-The GET response should contain the value of the request nodes. The expectation is for the gNMI server to process the valid get request and should send a valid response containing the values of the request nodes. Only the PROTO and JSON encodings are currently supported in the GPINS.
+The GET response should contain the value of the request nodes. The expectation is for the gNMI server to process the valid get request and should send a valid response containing the values of the request nodes. Only the PROTO and JSON encodings are currently supported.
 
 ## Subscribe operation
 
@@ -90,7 +88,7 @@ The GET response should contain the value of the request nodes. The expectation 
 </table>
 
 The following test cases randomly select the set of paths from the above supported subtrees, the tests also randomly select the gNMI operations to validate the robustness of the system.\
-The key values are also randomly selected based on the testbed information. For example, the interface key for the interface module paths are randomly selected from the list of available interfaces in the testbed. The list of paths are randomly selected from the supported paths in go/gpins-openconfig.
+The key values are also randomly selected based on the testbed information. For example, the interface key for the interface module paths are randomly selected from the list of available interfaces in the testbed.
 
 The infrastructure provides a fuzzing API to randomly select the list of paths, keys and gNMI operations to be validated along with the expected responses. The set of paths, keys, payload and expected response messages are provided as the artifact to the test cases.
 
@@ -108,10 +106,6 @@ We use up to 2 pictor clients, 6 SFE clients( 3 over inband and 3 over outerband
 
 All the below tests will do the global set replace with a sanitized configuration prior to doing the actual test so that the testing payload will be guaranteed to be different from the current configurations. All the number such as 10 request or 5 clients are configurable for each test case
 
-### Infrastructure
-
--   Augment a YANG path to collect the CPU usage, memory availability and program termination monitoring during the test.
--   Implement the gNMI FE/BE for those paths to collect the data and respond back to the request.
 
 ### Tests
 
@@ -159,46 +153,13 @@ All the below tests will do the global set replace with a sanitized configuratio
 
 # E2E Latency Test Cases
 
-The purpose of the gNMI latency testing is to produce a latency report for various types of the gNMI operations on GPINs platform. The latency report can be viewed through a dashboard. The latency will be measured in milliseconds. The latency measurement will be an internal clock on the test server rather than relying on the gNMI response timestamp. All the Latency measurement tests will use only one guitar cluster( the one which is closest to the DUT )
+The purpose of the gNMI latency testing is to produce a latency report for various types of the gNMI operations. The latency report can be viewed through a dashboard. The latency will be measured in milliseconds. The latency measurement will be an internal clock on the test server rather than relying on the gNMI response timestamp. All the Latency measurement tests will use only one guitar cluster( the one which is closest to the DUT )
 
-The end to end latency is measured from the test server in the place where we invoke the gNMI request. The latency measurement will be implemented as a text fixture. All the gNMI based GPINs E2E tests will use the latency test fixture in their test cases to measure the latency for that tests. The fixture measures the latency of the gNMI server end to end irrespective of the test validation of the functionality or the feature under test.
+The end to end latency is measured from the test server in the place where we invoke the gNMI request. The latency measurement will be implemented as a text fixture. All the gNMI based E2E tests will use the latency test fixture in their test cases to measure the latency for that tests. The fixture measures the latency of the gNMI server end to end irrespective of the test validation of the functionality or the feature under test.
 
-The first few(5) runs are used to establish a baseline benchmark for the GPINs E2E latency report. The applications owners ( responsible for each feature ) will decide the expected latency threshold based on the report. Once the baseline benchmark is established for each gNMI operation, the future runs are going to be compared against the baseline benchmarks. The sandcastle config push latency report can be used as a guideline for the gNMI set operations.
+The plan is to implement a latency measurement as part of the Ondatra get/set API so that It will be no-op for the test writer and it will collect the E2E latency for all the GNMI E2E tests. Ondatra will provide project based bindings where the latency measurement for a given operations can be pushed in to the database and dashboard can set up to view the data that are stored in the DB
 
-The plan is to implement a latency measurement as part of the Ondatra get/set API so that It will be no-op for the test writer and it will collect the E2E latency for all the GPINS GNMI E2E tests. Ondata will provide project based bindings where the latency measurement for a given operations can be pushed in to the database and dashboard can set up to view the data that are stored in the DB
-
-The following is the proposed DB-schema.
-
-<table>
-  <thead>
-    <tr>
-      <th>Table Name: Sonic-GNMI Latency<br>
-<ul>
-<li>gNMI Operation ( String )</li>
-</ul>
-<ul>
-<li>YANG node ( String )</li>
-</ul>
-<ul>
-<li>Time stamp (MM-DD-YYYY, HH-MM)</li>
-</ul>
-<ul>
-<li>Dut Name ( String )</li>
-</ul>
-<ul>
-<li> Software Version ( String )</li>
-</ul>
-<ul>
-<li>E2E Latency ( unit: ms )</li>
-</ul>
-</th>
-    </tr>
-  </thead>
-  <tbody>
-  </tbody>
-</table>
-
-## Dashboard for the DB
+## Covered Paths
 
 -   ONCE Subscription
     -   Covered Paths
