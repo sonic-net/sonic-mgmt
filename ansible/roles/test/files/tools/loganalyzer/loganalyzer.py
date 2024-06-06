@@ -404,8 +404,15 @@ class AnsibleLogAnalyzer:
         '''
 
         ret_code = False
-        if (expect_messages_regex is not None) and (expect_messages_regex.findall(str)):
-            ret_code = True
+        if self.run_id.startswith("test_advanced_reboot_test_"):
+            # Use the stricter (and better-performing) match instead of findall, but only when analyzing
+            # logs for advanced reboot test cases. This is so that other test cases are not affected in
+            # case their regexes don't start with .*
+            if (expect_messages_regex is not None) and (expect_messages_regex.match(str)):
+                ret_code = True
+        else:
+            if (expect_messages_regex is not None) and (expect_messages_regex.findall(str)):
+                ret_code = True
 
         return ret_code
 
