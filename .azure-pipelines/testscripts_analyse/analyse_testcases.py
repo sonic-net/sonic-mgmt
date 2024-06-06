@@ -39,6 +39,21 @@ from constant import DATAPLANE_FEATURES, PR_TOPOLOGY_TYPE, PR_TOPOLOGY_MAPPING
 from report_data_storage import KustoConnector
 
 
+def topo_name_to_type(topo_name):
+    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu)')
+    match = pattern.match(topo_name)
+    if match is None:
+        logging.warning("Unsupported testbed type - {}".format(topo_name))
+        return "unsupported"
+    topo_type = match.group()
+    if topo_type in ['mgmttor', 'dualtor']:
+        # certain testbed types are in 't0' category with different names.
+        topo_type = 't0'
+    if topo_type in ['mc0']:
+        topo_type = 'm0'
+    return topo_type
+
+
 def collect_all_scripts():
     '''
     This function collects all test scripts under the folder 'tests/'
@@ -75,30 +90,16 @@ def collect_all_scripts():
                     match = pattern.search(line)
                     if match:
                         for topology in match.group(1).split(","):
+                            topology_mark = topology.strip().strip('"').strip('\'')
                             result = {
                                 "testscript": filename,
-                                "topology": topology.strip().strip('"').strip('\'')
+                                "topology": topo_name_to_type(topology_mark)
                             }
                             test_scripts.append(result)
         except Exception as e:
             logging.error('Failed to load file {}, error {}'.format(f, e))
 
     return test_scripts
-
-
-def topo_name_to_type(topo_name):
-    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu)')
-    match = pattern.match(topo_name)
-    if match is None:
-        logging.warning("Unsupported testbed type - {}".format(topo_name))
-        return "unsupported"
-    topo_type = match.group()
-    if topo_type in ['mgmttor', 'dualtor']:
-        # certain testbed types are in 't0' category with different names.
-        topo_type = 't0'
-    if topo_type in ['mc0']:
-        topo_type = 'm0'
-    return topo_type
 
 
 def get_PRChecker_scripts():
