@@ -40,10 +40,11 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
             assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
 
 
-def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos, sonic,
-                       collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index, tbinfo, request):
+def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
+                       localhost, eos, sonic, collect_techsupport_all_duts, loganalyzer, tbinfo, request):
     """ verify LLDP information on neighbors """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = enum_rand_one_frontend_asic_index
 
     if loganalyzer:
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend([
@@ -55,12 +56,12 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
         ])
 
     res = duthost.shell(
-        "docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
+        "docker exec -i lldp{} lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'".format(asic))
     dut_system_description = res['stdout']
     lldpctl_facts = duthost.lldpctl_facts(
-        asic_instance_id=enum_frontend_asic_index,
+        asic_instance_id=asic,
         skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
-    config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname,
+    config_facts = duthost.asic_instance(asic).config_facts(host=duthost.hostname,
                                                                                 source="running")['ansible_facts']
     if not list(lldpctl_facts['lldpctl'].items()):
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
