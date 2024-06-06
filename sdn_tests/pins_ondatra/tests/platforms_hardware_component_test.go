@@ -498,3 +498,185 @@ func TestSetPortHealthIndicator(t *testing.T) {
                 testhelper.AwaitHealthIndicator(t, dut, port, 5*time.Second, healthIndicator)
         }
 }
+
+// Storage device test.
+func TestStorageDeviceInformation(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("b5db258b-2e3f-4880-96dc-db2ac452afe9").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        devices, err := testhelper.StorageDeviceInfoForDevice(t, dut)
+        if err != nil {
+                t.Fatalf("Failed to fetch storage devices: %v", err)
+        }
+
+        // Removable storage devices may not be present in the switch. This will cause
+        // dut.Telemetry().Component(name).Get() API to fail fatally. Instead, fetch the
+        // entire component subtree and validate storage device information.
+        components := gnmi.GetAll(t, dut, gnmi.OC().ComponentAny().State())
+
+        for _, device := range devices {
+                name := device.GetName()
+
+                var info *oc.Component
+                for _, component := range components {
+                        if component.GetName() == name {
+                                info = component
+                                break
+                        }
+                }
+                if info == nil {
+                        if device.GetIsRemovable() == false {
+                                t.Errorf("%v information is missing in DUT", name)
+                        } else {
+                                t.Logf("Skipping verification for removable storage device %v since it is not present in DUT", name)
+                        }
+                        continue
+                }
+                t.Logf("Validating information for storage device: %v", name)
+
+                if info.Name == nil {
+                        t.Errorf("%v missing name leaf", name)
+                } else {
+                        if got, want := info.GetName(), name; got != want {
+                                t.Errorf("%v name match failed! got:%v, want:%v", name, got, want)
+                        }
+                }
+                if info.Type == nil {
+                        t.Errorf("%v missing type leaf", name)
+                } else {
+                        if got, want := info.GetType(), oc.PlatformTypes_OPENCONFIG_HARDWARE_COMPONENT_STORAGE; got != want {
+                                t.Errorf("%v type match failed! got:%v, want:%v", name, got, want)
+                        }
+                }
+                if info.PartNo == nil {
+                        t.Errorf("%v missing part-no leaf", name)
+                } else if info.GetPartNo() == "" {
+                        t.Errorf("%v has empty part-no", name)
+                }
+                if info.SerialNo == nil {
+                        t.Errorf("%v missing serial-no leaf", name)
+                } else if info.GetSerialNo() == "" {
+                        t.Errorf("%v has empty serial-no", name)
+                }
+
+                if info.Removable == nil {
+                        t.Errorf("%v missing removable leaf", name)
+                } else {
+                        if got, want := info.GetRemovable(), device.GetIsRemovable(); got != want {
+                                t.Errorf("%v removable match failed! got:%v, want:%v", name, got, want)
+                        }
+                }
+
+                // Only check io-error information for non-removable storage devices.
+                if device.GetIsRemovable() {
+                        continue
+                }
+                if got, want := testhelper.StorageIOErrors(t, dut, &device), device.GetIoErrorsThreshold(); got > want {
+                        t.Errorf("%v io-errors threshold exceeded! got:%v, want:<=%v", name, got, want)
+                }
+        }
+}
+
+// Storage device SMART info test.
+func TestStorageDeviceSmartInformation(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("c5fe2192-9759-4829-9231-8fdb4ecc4245").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        devices, err := testhelper.StorageDeviceInfoForDevice(t, dut)
+        if err != nil {
+                t.Fatalf("Failed to fetch storage devices: %v", err)
+        }
+
+        // Removable storage devices may not be present in the switch. This will cause
+        // dut.Telemetry().Component(name).Get() API to fail fatally. Instead, fetch the
+        // entire component subtree and validate storage device information.
+        components := gnmi.GetAll(t, dut, gnmi.OC().ComponentAny().State())
+
+        for _, device := range devices {
+                // Only check SMART information for non-removable storage devices.
+                if device.GetIsRemovable() {
+                        continue
+                }
+
+                name := device.GetName()
+
+                var info *oc.Component
+                for _, component := range components {
+                        if component.GetName() == name {
+                                info = component
+                                break
+                        }
+                }
+                if info == nil {
+                        t.Errorf("%v information is missing in DUT", name)
+                        continue
+                }
+                t.Logf("Validating SMART information for storage device: %v", name)
+
+                smartDataInfo := device.GetSmartDataInfo()
+                {
+                        got := testhelper.StorageWriteAmplificationFactor(t, dut, &device)
+                        thresholds := smartDataInfo.GetWriteAmplificationFactorThresholds()
+                        if !thresholds.IsValid(got) {
+                                t.Errorf("%v write-amplification-factor thresholds not met! got:%v, thresholds:[%v]",
+                                        name, got, thresholds)
+                        }
+                }
+                {
+                        got := testhelper.StorageRawReadErrorRate(t, dut, &device)
+                        thresholds := smartDataInfo.GetRawReadErrorRateThresholds()
+                        if !thresholds.IsValid(got) {
+                                t.Errorf("%v raw-read-error-rate thresholds not met! got:%v, thresholds:[%v]",
+                                        name, got, thresholds)
+                        }
+                }
+                {
+                        got := testhelper.StorageThroughputPerformance(t, dut, &device)
+                        thresholds := smartDataInfo.GetThroughputPerformanceThresholds()
+                        if !thresholds.IsValid(got) {
+                                t.Errorf("%v throughput-performance thresholds not met! got:%v, thresholds:[%v]",
+                                        name, got, thresholds)
+                        }
+                }
+                {
+                        got := testhelper.StorageReallocatedSectorCount(t, dut, &device)
+                        thresholds := smartDataInfo.GetReallocatedSectorCountThresholds()
+                        if !thresholds.IsValid(got) {
+                                t.Errorf("%v reallocated-sector-count thresholds not met! got:%v, thresholds:[%v]",
+                                        name, got, thresholds)
+                        }
+                }
+                {
+                        got := testhelper.StoragePowerOnSeconds(t, dut, &device)
+                        thresholds := smartDataInfo.GetPowerOnSecondsThresholds()
+                        if !thresholds.IsValid(got) {
+                                t.Errorf("%v power-on-seconds thresholds not met! got:%v, thresholds:[%v]",
+                                        name, got, thresholds)
+                        }
+                }
+                {
+                        got := testhelper.StorageSsdLifeLeft(t, dut, &device)
+                        thresholds := smartDataInfo.GetSsdLifeLeftThresholds()
+                        if !thresholds.IsValid(got) {
+                                t.Errorf("%v ssd-life-left thresholds not met! got:%v, thresholds:[%v]",
+                                        name, got, thresholds)
+                        }
+                }
+                {
+                        got := testhelper.StorageAvgEraseCount(t, dut, &device)
+                        thresholds := smartDataInfo.GetAvgEraseCountThresholds()
+                        if !thresholds.IsValid(got) {
+                                t.Errorf("%v avg-erase-count thresholds not met! got:%v, thresholds:[%v]",
+                                        name, got, thresholds)
+                        }
+                }
+                {
+                        got := testhelper.StorageMaxEraseCount(t, dut, &device)
+                        thresholds := smartDataInfo.GetMaxEraseCountThresholds()
+                        if !thresholds.IsValid(got) {
+                                t.Errorf("%v max-erase-count thresholds not met! got:%v, thresholds:[%v]",
+                                        name, got, thresholds)
+                        }
+                }
+        }
+}
