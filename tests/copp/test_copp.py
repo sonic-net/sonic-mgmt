@@ -146,6 +146,7 @@ class TestCOPP(object):
         2. Remove trap according to remove trap type
         4. Verify the trap status is uninstalled by sending traffic
         """
+        time.sleep(120)
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         if self.trap_id == "bgp":
@@ -303,6 +304,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
                relax=None,
                debug_level=None,
                device_sockets=device_sockets,
+               timeout = 1800,
                is_python3=True)
     return True
 
