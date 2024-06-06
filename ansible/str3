@@ -315,11 +315,11 @@ fanout:
       os: sonic
     str3-7060x6-64pe-fan-1:
       ansible_host: 10.64.246.3
-      ansible_hostv6: 
+      ansible_hostv6:
       os: sonic
     str3-7060x6-64pe-fan-2:
       ansible_host: 10.64.246.8
-      ansible_hostv6: 
+      ansible_hostv6:
       os: sonic
 
 sonic:
@@ -710,7 +710,7 @@ sonic_cisco_8111:
       plt_reboot_dict:
         cold:
           timeout: 300
-          wait: 90
+          wait: 300
         watchdog:
           timeout: 300
           wait: 360
@@ -742,7 +742,7 @@ sonic_cisco_8111:
       plt_reboot_dict:
         cold:
           timeout: 300
-          wait: 90
+          wait: 300
         watchdog:
           timeout: 300
           wait: 360
