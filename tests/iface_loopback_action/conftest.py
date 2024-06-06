@@ -234,8 +234,6 @@ def is_sonic_mlnx_leaf_fanout(fanouthosts):
     More info https://github.com/sonic-net/SONiC/blob/master/doc/tpid/SonicTPIDSettingHLD1.md
     """
     for fanouthost in list(fanouthosts.values()):
-        os = fanouthost.get_fanout_os()
-        asic_type = fanouthost.facts['asic_type']
-        if os == 'sonic' and asic_type in ["mellanox"]:
+        if fanouthost.get_fanout_os() == 'sonic' and fanouthost.facts['asic_type'] == "mellanox":
             return True
     return False
