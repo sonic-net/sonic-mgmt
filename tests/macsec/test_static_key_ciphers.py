@@ -90,8 +90,9 @@ def test_static_key_ciphers(duthost, nbrhosts, request, profile_name, tbinfo, ct
         macsec_profiles = json.load(f)
 
     cleanup_macsec_configuration(duthost, ctrl_links, profile_name)
+
     # wait to ensure link has come up with no macsec
-    time.sleep(30)
+    time.sleep(45)
     macsec_check(duthost, cli_options, dut_to_neigh_int, neigh_ip_v4, neigh_ip_v6, macsec=False)
 
     # use each macsec profile and verify operation
