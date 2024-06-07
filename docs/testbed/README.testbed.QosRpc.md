@@ -1,6 +1,6 @@
 # Background
 
-To run the QoS SAI test, an additional syncd RPC container image is required. You have two options for building, uploading, and accessing this image:
+To run the QoS SAI test, an additional syncd RPC container image and relevant configuration are required. You have two options for building, uploading, and accessing this image:
 
 - [Build your own syncd RPC container image](#1. Build your own syncd RPC container image)
 - [Utilize SONiC public image](#2. Utilize image build by SONiC public service)
@@ -14,7 +14,7 @@ Familiarize yourself with the SONiC build system by reviewing [doc](https://gith
 Follow the build steps in above documentation. Before proceeding to the last step "build sonic image", build the syncd RPC container image for your platforms using below command:
 
 ```
-# Build syncd rpc conitainer iamge
+# Build syncd RPC container iamge
 make ENABLE_SYNCD_RPC=y target/docker-syncd-${platform_rpc}-rpc.gz
 ```
 
