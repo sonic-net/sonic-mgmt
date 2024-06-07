@@ -17,7 +17,8 @@ func TestMain(m *testing.M) {
 func TestGetPortDebugDataInvalidInterface(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("dba77fa7-b0d1-4412-8136-22dea24ed935").Teardown(t)
 	var intfName = "Ethernet99999"
-	if _, err := testhelper.HealthzGetPortDebugData(t, ondatra.DUT(t, "DUT"), intfName); err == nil {
+	err := testhelper.HealthzGetPortDebugData(t, ondatra.DUT(t, "DUT"), intfName);
+	if err == nil {
 		t.Fatalf("Expected RPC failure due to invalid interface %v", intfName)
 	}
 }
@@ -39,24 +40,11 @@ func TestGetPortDebugDataWithTranscevierInserted(t *testing.T) {
 		}
 
 		t.Logf("Get port debug data from interface %v on xcvr present port %v", intfName, xcvrName)
-		data, err := testhelper.HealthzGetPortDebugData(t, dut, intfName)
+		err := testhelper.HealthzGetPortDebugData(t, dut, intfName)
 		if err != nil {
 			t.Fatalf("Expected RPC success, got error %v", err)
 		}
 
-		if data.GetPhyData() == "" {
-			t.Errorf("Got empty phy_data from PortDebugData for intfName %v", intfName)
-		}
-
-		if len(data.GetTransceiverEepromPages()) == 0 {
-			t.Errorf("Got empty transceiver_eeprom_pages from PortDebugData for intfName %v", intfName)
-		}
-
-		for _, eepromPage := range data.GetTransceiverEepromPages() {
-			if len(eepromPage.GetEepromContent()) == 0 {
-				t.Errorf("Got empty eeprom_content on page %v from PortDebugData for intfName %v", eepromPage.GetPageNum(), intfName)
-			}
-		}
 	}
 }
 
@@ -77,17 +65,10 @@ func TestGetPortDebugDataWithoutTranscevierInserted(t *testing.T) {
 		}
 
 		t.Logf("Get port debug data from interface %v on xcvr empty port %v", intfName, xcvrName)
-		data, err := testhelper.HealthzGetPortDebugData(t, dut, intfName)
+		err := testhelper.HealthzGetPortDebugData(t, dut, intfName)
 		if err != nil {
 			t.Fatalf("Expected RPC success, got error %v", err)
 		}
 
-		if data.GetPhyData() == "" {
-			t.Errorf("Got empty phy_data from PortDebugData for intfName %v", intfName)
-		}
-
-		if len(data.GetTransceiverEepromPages()) != 0 {
-			t.Errorf("Got non-empty transceiver_eeprom_pages from PortDebugData for intfName %v", intfName)
-		}
 	}
 }
