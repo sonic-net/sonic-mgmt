@@ -3,7 +3,6 @@ import json
 import os
 import tempfile
 
-from abc import ABC
 from azure.kusto.data import KustoConnectionStringBuilder
 
 try:
@@ -22,7 +21,7 @@ except ImportError:
 from datetime import datetime
 
 
-class KustoConnector(ABC):
+class KustoConnector():
     """KustoReportDB is a wrapper for storing test reports in Kusto/Azure Data Explorer."""
 
     TESTSCRIPT_TABLE = "TestScripts"
@@ -54,8 +53,8 @@ class KustoConnector(ABC):
         service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
 
         if not ingest_cluster or not tenant_id or not service_id or not service_key:
-            print("Could not load backup Kusto Credentials from environment")
-            self._ingestion_client_backup = None
+            raise RuntimeError(
+                "Could not load Kusto Credentials from environment")
         else:
             kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
                                                                                         service_id,

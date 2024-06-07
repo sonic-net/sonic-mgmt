@@ -109,11 +109,8 @@ def get_PRChecker_scripts():
     pr_test_scripts_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../", "pr_test_scripts.yaml")
 
     # Get all the scripts included in different PR checker
-    try:
-        with open(pr_test_scripts_file) as f:
-            pr_test_scripts = yaml.safe_load(f)
-    except Exception as e:
-        logging.error('Failed to load file {}, error {}'.format(f, e))
+    with open(pr_test_scripts_file) as f:
+        pr_test_scripts = yaml.safe_load(f)
 
     topology_type_pr_test_scripts = {}
 
@@ -148,10 +145,7 @@ def check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts):
     for test_script in expanded_test_scripts:
         topology_type = topo_name_to_type(test_script["topology"])
 
-        if test_script["testscript"] in topology_type_pr_test_scripts.get(topology_type, ""):
-            test_script["covered"] = True
-        else:
-            test_script["covered"] = False
+        test_script["covered"] = test_script["testscript"] in topology_type_pr_test_scripts.get(topology_type, "")
     return expanded_test_scripts
 
 
