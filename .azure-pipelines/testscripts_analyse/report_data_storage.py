@@ -4,20 +4,9 @@ import os
 import tempfile
 
 from azure.kusto.data import KustoConnectionStringBuilder
-
-try:
-    from azure.kusto.ingest import KustoIngestClient
-except ImportError:
-    from azure.kusto.ingest import QueuedIngestClient as KustoIngestClient
-
+from azure.kusto.ingest import QueuedIngestClient as KustoIngestClient
 from azure.kusto.ingest import IngestionProperties
-
-# Resolve azure.kusto.ingest compatibility issue
-try:
-    from azure.kusto.ingest import DataFormat
-except ImportError:
-    from azure.kusto.data.data_format import DataFormat
-
+from azure.kusto.ingest import DataFormat
 from datetime import datetime
 
 

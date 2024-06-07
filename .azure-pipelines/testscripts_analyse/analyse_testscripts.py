@@ -109,8 +109,12 @@ def get_PRChecker_scripts():
     pr_test_scripts_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../", "pr_test_scripts.yaml")
 
     # Get all the scripts included in different PR checker
-    with open(pr_test_scripts_file) as f:
-        pr_test_scripts = yaml.safe_load(f)
+    pr_test_scripts = {}
+    try:
+        with open(pr_test_scripts_file) as f:
+            pr_test_scripts = yaml.safe_load(f)
+    except Exception as e:
+        logging.error('Failed to load file {}, error {}'.format(f, e))
 
     topology_type_pr_test_scripts = {}
 
