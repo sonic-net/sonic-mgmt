@@ -16,6 +16,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
+from tests.common.mellanox_data import is_mellanox_device
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ def _backup_and_restore_config_db(duts, scope='function'):
     the test starts and then restore it after the test ends.
     """
     CONFIG_DB = "/etc/sonic/config_db.json"
-    CONFIG_DB_BAK = "/etc/sonic/config_db.json.before_test_{}".format(scope)
+    CONFIG_DB_BAK = "/host/config_db.json.before_test_{}".format(scope)
 
     if type(duts) is not list:
         duthosts = [duts]
@@ -522,6 +523,15 @@ def dut_qos_maps_module(rand_selected_front_end_dut):
     """
     dut = rand_selected_front_end_dut
     return _dut_qos_map(dut)
+
+
+@pytest.fixture(scope='module')
+def is_support_mock_asic(duthosts, rand_one_dut_hostname):
+    """
+    Check if dut supports mock asic. For mellanox device, it doesn't support mock asic
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    return not is_mellanox_device(duthost)
 
 
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):

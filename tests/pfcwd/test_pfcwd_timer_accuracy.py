@@ -2,12 +2,14 @@ import logging
 import pytest
 import time
 
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from .files.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
+from .files.pfcwd_helper import send_background_traffic
 
 
 pytestmark = [
@@ -102,7 +104,9 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
 
     logger.info("--- Pfcwd Timer Testrun ---")
     yield {'timers': timers,
-           'storm_handle': storm_handle
+           'storm_handle': storm_handle,
+           'test_ports': test_ports,
+           'selected_test_port': pfc_wd_test_port
            }
 
     logger.info("--- Pfcwd timer test cleanup ---")
@@ -165,16 +169,25 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
 @pytest.mark.usefixtures('pfcwd_timer_setup_restore', 'start_background_traffic')
 class TestPfcwdAllTimer(object):
     """ PFCwd timer test class """
-    def run_test(self):
+    def run_test(self, setup_info):
         """
         Test execution
         """
         with DisableLogrotateCronContext(self.dut):
             logger.info("Flush logs")
             self.dut.shell("logrotate -f /etc/logrotate.conf")
-        self.storm_handle.start_storm()
-        logger.info("Wait for queue to recover from PFC storm")
-        time.sleep(16)
+
+        selected_test_ports = [setup_info['selected_test_port']]
+        test_ports_info = setup_info['test_ports']
+        queues = [self.storm_handle.pfc_queue_idx]
+
+        with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info):
+            self.storm_handle.start_storm()
+            logger.info("Wait for queue to recover from PFC storm")
+            time.sleep(8)
+            self.storm_handle.stop_storm()
+            time.sleep(16)
+
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         else:
@@ -261,12 +274,18 @@ class TestPfcwdAllTimer(object):
             timestamp_ms (int): syslog timestamp in ms for the line matching the pattern
         """
         cmd = "grep \"{}\" /var/log/syslog".format(pattern)
-        syslog_msg = self.dut.shell(cmd)['stdout']
-        timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
-        timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
+        syslog_msg_list = self.dut.shell(cmd)['stdout'].split()
+        try:
+            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[3]))['stdout'])
+        except RunAnsibleModuleFail:
+            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[2]))['stdout'])
+        except Exception as e:
+            logging.error("Error when parsing syslog message timestamp: {}".format(repr(e)))
+            pytest.fail("Failed to parse syslog message timestamp")
+
         return int(timestamp_ms)
 
-    def test_pfcwd_timer_accuracy(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+    def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,
                                   pfcwd_timer_setup_restore):
         """
         Tests PFCwd timer accuracy
@@ -280,6 +299,7 @@ class TestPfcwdAllTimer(object):
         self.storm_handle = setup_info['storm_handle']
         self.timers = setup_info['timers']
         self.dut = duthost
+        self.ptf = ptfhost
         self.all_detect_time = list()
         self.all_restore_time = list()
         self.all_dut_detect_restore_time = list()
@@ -287,7 +307,7 @@ class TestPfcwdAllTimer(object):
             if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
                 for i in range(1, 11):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
-                    self.run_test()
+                    self.run_test(setup_info)
                 self.verify_pfcwd_timers_t2()
             else:
                 for i in range(1, 20):
@@ -301,7 +321,7 @@ class TestPfcwdAllTimer(object):
                     pfcwd_cmd_response = self.dut.shell(cmd, module_ignore_errors=True)
                     logger.debug("loop {} cmd {} rsp {}".format(i, cmd, pfcwd_cmd_response.get('stdout', None)))
 
-                    self.run_test()
+                    self.run_test(setup_info)
                 self.verify_pfcwd_timers()
 
         except Exception as e:
