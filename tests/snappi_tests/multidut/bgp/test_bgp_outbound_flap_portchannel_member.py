@@ -14,10 +14,10 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
-FLAP_PORT = {
+FLAP_EVENT = {
         'hostname': 'snappi-sonic',
-        'port_name': 'Test_Port_2'
-}
+        'port_name': 'Test_Port_3'
+    }
 ITERATION = 1
 ROUTE_RANGES = [
                     {
@@ -69,7 +69,7 @@ def test_bgp_outbound_flap_interconnectivity(cvg_api,                           
     snappi_extra_params.ROUTE_RANGE = route_range
     snappi_extra_params.iteration = ITERATION
     # Mention the duthost hostname and the port that needs to be flapped for the test
-    snappi_extra_params.multi_dut_params.flap_port = FLAP_PORT
+    snappi_extra_params.multi_dut_params.flap_event = FLAP_EVENT
 
     if (len(t1_t2_device_hostnames) < 3) or (len(duthosts) < 3):
         pytest_assert(False, "Need minimum of 3 devices : One T1 and Two T2 line cards")
@@ -102,4 +102,5 @@ def test_bgp_outbound_flap_interconnectivity(cvg_api,                           
 
     run_bgp_outbound(cvg_api=cvg_api,
                      traffic_type=traffic_type,
+                     service_down=False,
                      snappi_extra_params=snappi_extra_params)

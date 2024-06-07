@@ -22,6 +22,7 @@ total_routes = 0
 
 def run_bgp_outbound(cvg_api,
                      traffic_type,
+                     service_down,
                      snappi_extra_params):
     """
     Run Local link failover test
@@ -41,7 +42,7 @@ def run_bgp_outbound(cvg_api,
     duthosts = [duthost1, duthost2, duthost3]
     route_range = snappi_extra_params.ROUTE_RANGE
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
-    flap_test_port = snappi_extra_params.multi_dut_params.flap_port
+    flap_event = snappi_extra_params.multi_dut_params.flap_event
     iteration = snappi_extra_params.iteration
 
     """ Create bgp config on dut """
@@ -57,7 +58,8 @@ def run_bgp_outbound(cvg_api,
     get_install_time(duthosts,
                      cvg_api,
                      tgen_bgp_config,
-                     flap_test_port,
+                     flap_event,
+                     service_down,
                      traffic_type,
                      iteration)
 
@@ -534,8 +536,10 @@ def get_flow_stats(cvg_api):
 
 
 def get_install_time(duthosts,
-                     cvg_api, bgp_config,
-                     flap_test_port,
+                     cvg_api,
+                     bgp_config,
+                     flap_event,
+                     service_down,
                      traffic_type,
                      iteration):
     """
@@ -543,6 +547,8 @@ def get_install_time(duthosts,
         duthost (pytest fixture): duthost fixture
         cvg_api (pytest fixture): Snappi API
         bgp_config: __tgen_bgp_config
+        flap_event: contains hostname and port / services that needs to be flapped
+        service_down(bool): If services on the dut needs to be brought down
         traffic_type : IPv4 / IPv6 traffic type
         iteration : Number of iterations
     """
@@ -569,18 +575,29 @@ def get_install_time(duthosts,
         logger.info('Loss %: {}'.format(int(flow_stats[0].loss)))
         pytest_assert(int(flow_stats[0].loss) == 0, 'Loss Observed in traffic flow before link Flap')
         # Flap the required test port
-        if duthosts[0].hostname == flap_test_port['hostname']:
-            logger.info(' Shutting down {} port of {} dut !!'.
-                        format(flap_test_port['port_name'], flap_test_port['hostname']))
-            duthosts[0].command('sudo config interface shutdown {} \n'.
-                                format(flap_test_port['port_name']))
+        if service_down is False:
+            if duthosts[0].hostname == flap_event['hostname']:
+                logger.info(' Shutting down {} port of {} dut !!'.
+                            format(flap_event['port_name'], flap_event['hostname']))
+                duthosts[0].command('sudo config interface shutdown {} \n'.
+                                    format(flap_event['port_name']))
+            elif 'sonic-sonic' == flap_event['hostname'] and isinstance(flap_event['port_name'], str):
+                cs = cvg_api.convergence_state()
+                cs.link.port_names = [flap_event['port_name']]
+                cs.link.state = cs.link.DOWN
+                cvg_api.set_state(cs)
+                logger.info('Shutting down snappi port : {}'.format(flap_event['port_name']))
+                wait(TIMEOUT, "For link to shutdown")
+            elif 'sonic-sonic' == flap_event['hostname'] and isinstance(flap_event['port_name'], list):
+                cs = cvg_api.convergence_state()
+                cs.link.port_names = flap_event['port_name']
+                cs.link.state = cs.link.DOWN
+                cvg_api.set_state(cs)
+                logger.info('Shutting down all LAG member ports : {}'.format(flap_event['port_name']))
+                wait(TIMEOUT, "For link to shutdown")
         else:
-            cs = cvg_api.convergence_state()
-            cs.link.port_names = [flap_test_port['port_name']]
-            cs.link.state = cs.link.DOWN
-            cvg_api.set_state(cs)
-            logger.info('Shutting down snappi port : {}'.format(flap_test_port['port_name']))
-        wait(TIMEOUT, "For link to shutdown")
+            # todo
+            pass
         flow_stats = get_flow_stats(cvg_api)
         pkt_loss_duration = 1000*((flow_stats[0].frames_tx - flow_stats[0].frames_rx)/flow_stats[0].frames_tx_rate)
         delta_frames = flow_stats[0].frames_tx - flow_stats[0].frames_rx
@@ -595,19 +612,29 @@ def get_install_time(duthosts,
         pytest_assert(float((int(flow_stats[0].frames_tx_rate) - int(flow_stats[0].frames_tx_rate)) /
                       int(flow_stats[0].frames_tx_rate)) < 0.005,
                       'Traffic has not converged after link flap')
-
-        if duthosts[0].hostname == flap_test_port['hostname']:
-            logger.info(' Starting up {} port of {} dut !!'.
-                        format(flap_test_port['port_name'], flap_test_port['hostname']))
-            duthosts[0].command('sudo config interface startup {} \n'.
-                                format(flap_test_port['port_name']))
+        if service_down is False:
+            if duthosts[0].hostname == flap_event['hostname']:
+                logger.info(' Starting up {} port of {} dut !!'.
+                            format(flap_event['port_name'], flap_event['hostname']))
+                duthosts[0].command('sudo config interface startup {} \n'.
+                                    format(flap_event['port_name']))
+            elif 'sonic-sonic' == flap_event['hostname'] and isinstance(flap_event['port_name'], str):
+                cs = cvg_api.convergence_state()
+                cs.link.port_names = [flap_event['port_name']]
+                cs.link.state = cs.link.UP
+                cvg_api.set_state(cs)
+                logger.info('Starting up  snappi port : {}'.format(flap_event['port_name']))
+                wait(TIMEOUT, "For link to startup")
+            elif 'sonic-sonic' == flap_event['hostname'] and isinstance(flap_event['port_name'], list):
+                cs = cvg_api.convergence_state()
+                cs.link.port_names = flap_event['port_name']
+                cs.link.state = cs.link.UP
+                cvg_api.set_state(cs)
+                logger.info('Starting up all LAG member ports : {}'.format(flap_event['port_name']))
+                wait(TIMEOUT, "For link to startup")
         else:
-            cs = cvg_api.convergence_state()
-            cs.link.port_names = [flap_test_port['port_name']]
-            cs.link.state = cs.link.UP
-            cvg_api.set_state(cs)
-            logger.info('Starting up snappi port : {}'.format(flap_test_port['port_name']))
-        wait(TIMEOUT, "For link to startup")
+            # todo
+            pass
         flow_stats = get_flow_stats(cvg_api)
         pytest_assert(float((int(flow_stats[0].frames_tx_rate) - int(flow_stats[0].frames_tx_rate)) /
                       int(flow_stats[0].frames_tx_rate)) < 0.005,
@@ -628,5 +655,5 @@ def get_install_time(duthosts,
         logger.info('\n')
 
     columns = ['Event Name', 'Iterations', 'Traffic Type', 'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
-    logger.info("\n%s" % tabulate([[f"{flap_test_port['hostname']}:{flap_test_port['port_name']} \
+    logger.info("\n%s" % tabulate([[f"{flap_event['hostname']}:{flap_event['port_name']} \
                 Link Flap", iteration, traffic_type, total_routes, mean(avg_pld)]], headers=columns, tablefmt="psql"))

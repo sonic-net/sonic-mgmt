@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 FLAP_EVENT = {
-        'hostname': 'sonic-t1',
-        'port_name': 'Ethernet120'
+        'hostname': 'snappi-sonic',
+        'port_name': ['Test_Port_3', 'Test_Port_4']
     }
 ITERATION = 1
 ROUTE_RANGES = [
