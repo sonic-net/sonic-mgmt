@@ -2,11 +2,16 @@ package gnmi_stress_helper
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/openconfig/ondatra"
+	"github.com/openconfig/ygot/ygot"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
 	"google.golang.org/grpc"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
@@ -153,4 +158,271 @@ func ConfigPush(t *testing.T, dut *ondatra.DUTDevice) {
 		t.Fatalf("Error while calling Set API during config push: (%v)", err)
 	}
 	t.Logf("SetResponse:\n%v", setResp)
+}
+
+// SanityCheck function validates the sanity of the DUT
+func SanityCheck(t *testing.T, dut *ondatra.DUTDevice, ports ...string) {
+	t.Helper()
+	if err := testhelper.GNOIAble(t, dut); err != nil {
+		t.Fatalf("gNOI server is not running in the DUT")
+	}
+	if err := testhelper.GNMIAble(t, dut); err != nil {
+		t.Fatalf("gNMI server is not running in the DUT")
+	}
+	if ports != nil {
+		if err := testhelper.VerifyPortsOperStatus(t, dut, ports...); err != nil {
+			t.Logf("Ports %v oper status is not up", ports)
+			t.Fatalf("Ports are not oper upT")
+		}
+	}
+}
+
+// CollectPerformanceMetrics collect the system performance metrics via gNMI get
+func CollectPerformanceMetrics(t *testing.T, dut *ondatra.DUTDevice) {
+	t.Helper()
+	// TODO: Receiving DB connection error for both process and memory path,
+	// backend is not implemented yet. The following code block can be
+	// uncommented out once the implementation is complete
+	/* memory := dut.Telemetry().System().Memory().Get(t)
+	 t.Logf("System memory details:", memory.Physical, memory.Reserved)
+
+	// Create getRequest message with ASCII encoding.
+	getRequest := &gpb.GetRequest{
+		Prefix: &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+		Path: []*gpb.Path{{
+			Elem: []*gpb.PathElem{{
+				Name: "system",
+			}, {
+				Name: "processes",
+			}},
+		}},
+		Type:     gpb.GetRequest_ALL,
+		Encoding: gpb.Encoding_PROTO,
+	}
+	t.Logf("GetRequest:\n%v", getRequest)
+
+	// Fetch get client using the raw gNMI client.
+	ctx := context.Background()
+	gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+	if err != nil {
+		t.Fatalf("Unable to get gNMI client (%v)", err)
+	}
+	getResp, err := gnmiClient.Get(ctx, getRequest)
+	if err != nil {
+		t.Fatalf("Unable to fetch get client (%v)", err)
+	}
+	if getResp == nil {
+		t.Fatalf("Unable to fetch get client, get response is nil")
+	}
+	t.Logf("System Processes Info: %v", getResp)
+	*/
+}
+
+// StressTestHelper function to invoke various gNMI set and get operations
+func StressTestHelper(t *testing.T, dut *ondatra.DUTDevice, interval time.Duration) {
+	SanityCheck(t, dut)
+	rand.Seed(time.Now().Unix())
+	CollectPerformanceMetrics(t, dut)
+	t.Logf("Interval : %v", interval)
+
+	// Simple gNMI get request followed by a gNMI set replace to stress the DUT.
+	for timeout := time.Now().Add(interval); time.Now().Before(timeout); {
+		port, err := testhelper.RandomInterface(t, dut, nil)
+		if err != nil {
+			t.Fatalf("Failed to fetch random interface: %v", err)
+		}
+		pathInfo := Paths[rand.Intn(len(Paths))]
+		path := pathInfo.path
+		if pathInfo.isUsingRandomIntf == true {
+			path = fmt.Sprintf(pathInfo.path, port)
+		}
+		t.Logf("path : %v", path)
+		// Create set the Request.
+		sPath, err := ygot.StringToStructuredPath(path)
+		if err != nil {
+			t.Fatalf("Unable to convert string to path (%v)", err)
+		}
+		pathList := []*gpb.Path{sPath}
+
+		setRequest := &gpb.SetRequest{
+			Prefix: &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Update: []*gpb.Update{{
+				Path: sPath,
+				Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: []byte(pathInfo.payload)}},
+			}},
+		}
+		t.Logf("SetRequest:\n%v", setRequest)
+		// Fetch set client using the raw gNMI client.
+		ctx := context.Background()
+		gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+		if err != nil {
+			t.Fatalf("Unable to get gNMI client (%v)", err)
+		}
+		setResp, err := gnmiClient.Set(ctx, setRequest)
+		if pathInfo.expectedResult == true && err != nil {
+			t.Fatalf("Unable to fetch set client (%v)", err)
+		}
+		t.Logf("SetResponse:\n%v", setResp)
+
+		// Create getRequest message with data type.
+		getRequest := &gpb.GetRequest{
+			Prefix:   &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Path:     pathList,
+			Type:     gpb.GetRequest_ALL,
+			Encoding: gpb.Encoding_PROTO,
+		}
+		t.Logf("GetRequest:\n%v", getRequest)
+
+		// Fetch get client using the raw gNMI client.
+		getResp, err := gnmiClient.Get(ctx, getRequest)
+		if pathInfo.expectedResult == true && err != nil {
+			t.Fatalf("Error while calling Get Raw API: (%v)", err)
+		}
+
+		if pathInfo.expectedResult == true && getResp == nil {
+			t.Fatalf("Get response is nil")
+		}
+		t.Logf("GetResponse:\n%v", getResp)
+		CollectPerformanceMetrics(t, dut)
+	}
+	t.Logf("After 10 seconds of idle time, the performance metrics are:")
+	time.Sleep(IdleTime * time.Second)
+	CollectPerformanceMetrics(t, dut)
+	SanityCheck(t, dut)
+
+}
+
+// StressSetTestHelper function to invoke various gNMI set and get operations
+func StressSetTestHelper(t *testing.T, dut *ondatra.DUTDevice, interval int, replace bool) {
+	SanityCheck(t, dut)
+	rand.Seed(time.Now().Unix())
+	CollectPerformanceMetrics(t, dut)
+	t.Logf("Interval : %v", interval)
+
+	// Simple gNMI get request followed by a gNMI set replace to stress the DUT.
+	for i := 0; i < interval; i++ {
+		port, err := testhelper.RandomInterface(t, dut, nil)
+		if err != nil {
+			t.Fatalf("Failed to fetch random interface: %v", err)
+		}
+		pathInfo := Paths[rand.Intn(len(Paths))]
+		path := pathInfo.path
+		if pathInfo.isUsingRandomIntf == true {
+			path = fmt.Sprintf(pathInfo.path, port)
+		}
+		t.Logf("path : %v", path)
+		// Create set the Request.
+		sPath, err := ygot.StringToStructuredPath(path)
+		if err != nil {
+			t.Fatalf("Unable to convert string to path (%v)", err)
+		}
+		paths := []*gpb.Path{sPath}
+		getResp := &gpb.GetResponse{}
+
+		// Create getRequest message with data type.
+		getRequest := &gpb.GetRequest{
+			Prefix:   &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Path:     paths,
+			Type:     gpb.GetRequest_ALL,
+			Encoding: gpb.Encoding_JSON_IETF,
+		}
+		t.Logf("GetRequest:\n%v", getRequest)
+
+		// Fetch get client using the raw gNMI client.
+		ctx := context.Background()
+		gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+		if err != nil {
+			t.Fatalf("Unable to get gNMI client (%v)", err)
+		}
+		if pathInfo.expectedResult == true {
+			getResp, err = gnmiClient.Get(context.Background(), getRequest)
+			if err == nil {
+				t.Logf("The path is not populated")
+			}
+		}
+
+		setRequest := &gpb.SetRequest{
+			Prefix: &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Update: []*gpb.Update{{
+				Path: sPath,
+				Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: []byte(pathInfo.payload)}},
+			}},
+		}
+		if replace == true {
+			setRequest = &gpb.SetRequest{
+				Prefix: &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+				Replace: []*gpb.Update{{
+					Path: sPath,
+					Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: []byte(pathInfo.payload)}},
+				}},
+			}
+		}
+		t.Logf("SetRequest:\n%v", setRequest)
+		// Fetch set client using the raw gNMI client.
+		setResp, err := gnmiClient.Set(context.Background(), setRequest)
+		if pathInfo.expectedResult == true && err != nil {
+			t.Fatalf("Unable to fetch set client (%v)", err)
+		}
+		t.Logf("SetResponse:\n%v", setResp)
+		CollectPerformanceMetrics(t, dut)
+
+		// Restore the old values for the path if the above set resulted in changing the values
+		if getResp != nil && pathInfo.expectedResult == true {
+			updates, err := UpdatesWithJSONIETF(getResp)
+			if err != nil {
+				t.Fatalf("Unable to get updates with JSON IETF: (%v)", err)
+			}
+			setRequest := &gpb.SetRequest{
+				Prefix:  &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+				Replace: updates,
+			}
+			setResp, err := gnmiClient.Set(context.Background(), setRequest)
+			if err != nil {
+				t.Fatalf("Unable to restore the original value using set client (%v)", err)
+			}
+			t.Logf("SetResponse:\n%v", setResp)
+		}
+
+	}
+	t.Logf("After 10 seconds of idle time, the performance metrics are:")
+	time.Sleep(IdleTime * time.Second)
+	CollectPerformanceMetrics(t, dut)
+	SanityCheck(t, dut)
+
+}
+
+// UpdatesWithJSONIETF parses a Get Response and returns the Updates in the correct format
+// to be used in a Set Request. This is useful for restoring the contents of a Get Response. The
+// Get Response must be encoded in JSON IETF, specified by the Get Request.
+func UpdatesWithJSONIETF(getResp *gpb.GetResponse) ([]*gpb.Update, error) {
+	updates := []*gpb.Update{}
+	for _, notification := range getResp.GetNotification() {
+		if notification == nil {
+			return nil, fmt.Errorf("Notification in GetResponse is empty")
+		}
+		for _, update := range notification.GetUpdate() {
+			if update == nil {
+				return nil, fmt.Errorf("Update in Notification is empty")
+			}
+			jsonVal := update.GetVal().GetJsonIetfVal()
+			jsonMap := make(map[string]json.RawMessage)
+			err := json.Unmarshal(jsonVal, &jsonMap)
+			if err != nil {
+				return nil, err
+			}
+			if len(jsonMap) == 1 {
+				for _, v := range jsonMap {
+					jsonVal, err = v.MarshalJSON()
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+			updates = append(updates, &gpb.Update{
+				Path: update.GetPath(),
+				Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: jsonVal}},
+			})
+		}
+	}
+	return updates, nil
 }
