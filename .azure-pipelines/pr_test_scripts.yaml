@@ -276,6 +276,7 @@ onboarding_t0:
   - platform_tests/test_sequential_restart.py
   - platform_tests/test_xcvr_info_in_db.py
 
+
 specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
