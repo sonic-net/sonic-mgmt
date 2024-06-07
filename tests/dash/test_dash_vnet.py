@@ -1,10 +1,9 @@
 import logging
 import pytest
 import ptf.testutils as testutils
+import packets
 
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_INTF
-import packets
-import time
 from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
