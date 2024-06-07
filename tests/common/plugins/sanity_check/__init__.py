@@ -305,6 +305,5 @@ def sanity_check(request):
     if request.config.option.skip_sanity:
         logger.info("Skip sanity check according to command line argument")
         yield
-        return
     else:
-        return request.getfixturevalue('sanity_check_full')
+        yield request.getfixturevalue('sanity_check_full')
