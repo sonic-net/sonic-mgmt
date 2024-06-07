@@ -107,6 +107,7 @@ def gnmi_capabilities(duthost, localhost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
+    # Run gnmi_cli in gnmi container as workaround
     cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
     cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
     cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
@@ -237,6 +238,7 @@ def gnoi_reboot(duthost, method, delay, message):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
+    # Run gnoi_client in gnmi container as workaround
     cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
     cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
     cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
