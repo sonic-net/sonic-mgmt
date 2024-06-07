@@ -8,7 +8,7 @@ from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
 # Module-level fixtures
 from .everflow_test_utilities import setup_info      # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa F401
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa: F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "m0")
