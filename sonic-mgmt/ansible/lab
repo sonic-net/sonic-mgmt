@@ -34,20 +34,35 @@ all:
             management-1:
               ansible_host: 192.168.10.3
               os: sonic
+        server:
+          hosts:
+            server_1:
+              ansible_host: 10.254.0.1
+              ansible_hostv6: 2001:db7:1::1/64
+        pdu:
+          hosts:
+            pdu-1:
+              ansible_host: 192.168.9.2
+              protocol: snmp
+            pdu-2:
+              ansible_host: 192.168.9.3
+              protocol: snmp
     ptf:
+      vars:
+        ansible_ssh_user: root
+        ansible_ssh_pass: root
       hosts:
         ptf_ptf1:
           ansible_host: 10.255.0.188
-          ansible_ssh_user: root
-          ansible_ssh_pass: root
+          ansible_hostv6: 2001:db8:1::1/64
         ptf_vms1-1:
           ansible_host: 10.255.0.178
-          ansible_ssh_user: root
-          ansible_ssh_pass: root
-        ptf_vms6-1:
-          ansible_host: 10.250.0.100
-          ansible_ssh_user: root
-          ansible_ssh_pass: root
+        ptf_vms1-2:
+          ansible_host: 10.255.0.179
+        ptf_vms1-3:
+          ansible_host: 10.255.0.180
+        ptf_vms5-1:
+          ansible_host: 10.255.0.183
 
 sonic_sn2700_40:
   vars:
