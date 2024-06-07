@@ -292,7 +292,7 @@ Run the following commands:
 
 ### Additional steps before running QoS SAI Test Case
 
-Unlike other SONiC test case, QoS SAI requires additional setup and syncd RPC container image building. Please refer [here](docs/testbed/README.testbed.QosRpc.md)
+Unlike other SONiC test case, QoS SAI requires additional setup and syncd RPC container image building. Please refer [here](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.QosRpc.md)
 
 # Troubleshooting
 Issue: Testbed Command Line complains there is no password file available. <br/>
