@@ -1,5 +1,4 @@
 import time
-import re
 import logging
 import pytest
 from tests.common.utilities import wait_until
