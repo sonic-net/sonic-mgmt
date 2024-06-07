@@ -1,17 +1,13 @@
-import pytest
-from bfd_base import BfdBase
 import logging
 
-from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
-from tests.common.utilities import wait_until
+import pytest
+
+from tests.bfd.bfd_helpers import ensure_interface_is_up
 from tests.common.config_reload import config_reload
+from tests.common.utilities import wait_until
+from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="class")
-def bfd_base_instance():
-    return BfdBase()
 
 
 def pytest_addoption(parser):
@@ -20,9 +16,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="function")
-def bfd_cleanup_db(
-    request, duthosts, enum_supervisor_dut_hostname, bfd_base_instance, autouse=True
-):
+def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
     orch_cpu_threshold = 10
     # Make Sure Orch CPU < orch_cpu_threshold before starting test.
     logger.info(
@@ -114,31 +108,3 @@ def bfd_cleanup_db(
         )
         for interface in selected_interfaces:
             ensure_interface_is_up(dut, asic, interface)
-
-
-def ensure_interface_is_up(dut, asic, interface):
-    int_oper_status = dut.show_interface(
-        command="status", include_internal_intfs=True, asic_index=asic.asic_index
-    )["ansible_facts"]["int_status"][interface]["oper_state"]
-    if int_oper_status == "down":
-        logger.info(
-            "Starting downed interface {} on {} asic{}".format(interface, dut, asic.asic_index)
-        )
-        exec_cmd = (
-            "sudo ip netns exec asic{} config interface -n asic{} startup {}".format(
-                asic.asic_index, asic.asic_index, interface
-            )
-        )
-
-        logger.info("Command: {}".format(exec_cmd))
-        dut.shell(exec_cmd)
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: dut.show_interface(
-                command="status",
-                include_internal_intfs=True,
-                asic_index=asic.asic_index,
-            )["ansible_facts"]["int_status"][interface]["oper_state"] == "up",
-        )
