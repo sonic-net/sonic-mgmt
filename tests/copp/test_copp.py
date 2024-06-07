@@ -147,6 +147,10 @@ class TestCOPP(object):
         4. Verify the trap status is uninstalled by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if (duthost.facts["hwsku"] == "Cisco-8111-O64" or
+            duthost.facts["hwsku"] == "Cisco-8102-C64"):
+            logger.info("Sleep 120 seconds for Cisco platform")
+            time.sleep(120)
 
         if self.trap_id == "bgp":
             logger.info("Uninstall trap ip2me")
