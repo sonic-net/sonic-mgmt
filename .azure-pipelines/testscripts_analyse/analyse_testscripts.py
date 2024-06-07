@@ -44,7 +44,8 @@ def topo_name_to_type(topo_name):
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
-        return "unsupported"
+        return topo_name
+
     topo_type = match.group()
     if topo_type in ['mgmttor', 'dualtor']:
         # certain testbed types are in 't0' category with different names.
