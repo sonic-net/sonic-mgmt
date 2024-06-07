@@ -165,6 +165,8 @@ t0:
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
+  - vlan/test_host_vlan.py
+  - vlan/test_vlan_ping.py
 
 t0-sonic:
   - bgp/test_bgp_fact.py
@@ -273,10 +275,6 @@ onboarding_t0:
   - platform_tests/test_power_off_reboot.py
   - platform_tests/test_sequential_restart.py
   - platform_tests/test_xcvr_info_in_db.py
-
-onboarding_t0-2vlans:
-  - vlan/test_host_vlan.py
-  - vlan/test_vlan_ping.py
 
 specific_param:
   t0-sonic:
