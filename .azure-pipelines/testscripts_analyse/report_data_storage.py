@@ -6,7 +6,7 @@ import tempfile
 from azure.kusto.data import KustoConnectionStringBuilder
 from azure.kusto.ingest import QueuedIngestClient as KustoIngestClient
 from azure.kusto.ingest import IngestionProperties
-from azure.kusto.ingest import DataFormat
+from azure.kusto.data.data_format import DataFormat
 from datetime import datetime
 
 

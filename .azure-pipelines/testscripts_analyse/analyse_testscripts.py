@@ -40,7 +40,7 @@ from report_data_storage import KustoConnector
 
 
 def topo_name_to_type(topo_name):
-    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu)')
+    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu|any)')
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
@@ -167,6 +167,7 @@ def main():
     # Add additionally field to mark one running
     trackid = str(uuid.uuid4())
     scantime = str(datetime.now())
+    print(trackid)
 
     # Also, we will specify if the script belongs to data plane or control plane
     for script in expanded_test_scripts:
