@@ -2,6 +2,7 @@ import logging
 import pytest
 import time
 
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
@@ -273,9 +274,15 @@ class TestPfcwdAllTimer(object):
             timestamp_ms (int): syslog timestamp in ms for the line matching the pattern
         """
         cmd = "grep \"{}\" /var/log/syslog".format(pattern)
-        syslog_msg = self.dut.shell(cmd)['stdout']
-        timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
-        timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
+        syslog_msg_list = self.dut.shell(cmd)['stdout'].split()
+        try:
+            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[3]))['stdout'])
+        except RunAnsibleModuleFail:
+            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[2]))['stdout'])
+        except Exception as e:
+            logging.error("Error when parsing syslog message timestamp: {}".format(repr(e)))
+            pytest.fail("Failed to parse syslog message timestamp")
+
         return int(timestamp_ms)
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,

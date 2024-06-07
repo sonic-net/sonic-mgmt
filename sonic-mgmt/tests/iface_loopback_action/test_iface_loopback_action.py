@@ -81,6 +81,9 @@ def test_loopback_action_port_flap(duthost, ptfadapter, ports_configuration):
                 verify_rif_tx_err_count(duthost, rif_interfaces, count_list)
 
 
+# LogAnalyzer need to be disabled for this test because log is lost
+# if reboot is issued and log is put in tmpfs
+@pytest.mark.disable_loganalyzer
 def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_configuration):
     rif_interfaces = list(ports_configuration.keys())
     intf_count = len(rif_interfaces)
