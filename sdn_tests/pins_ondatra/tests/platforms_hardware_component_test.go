@@ -1,7 +1,6 @@
 package platforms_hardware_component_test
 
 import (
-        "reflect"
         "regexp"
         "testing"
         "time"
