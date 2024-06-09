@@ -679,3 +679,229 @@ func TestStorageDeviceSmartInformation(t *testing.T) {
                 }
         }
 }
+
+
+// Fan tests.
+func TestFanInformation(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("a394f0d4-61a9-45a8-a05a-c738fa4fa4b2").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	fans, err := testhelper.FanInfoForDevice(t, dut)
+	if err != nil {
+		t.Fatalf("Failed to fetch fan information: %v", err)
+	}
+
+	for _, fan := range fans {
+		name := fan.GetName()
+		// Even though fan components might be removable, we expect all fans to be
+		// present in the switch (unlike storage devices). Hence, we are fetching
+		// fan component information instead of fetching the entire component subtree.
+		info := gnmi.Get(t, dut, gnmi.OC().Component(name).State())
+
+		if info.Type == nil {
+			t.Errorf("%v missing type leaf", name)
+		} else {
+			if got, want := info.GetType(), oc.PlatformTypes_OPENCONFIG_HARDWARE_COMPONENT_FAN; got != want {
+				t.Errorf("%v type match failed! got:%v, want:%v", name, got, want)
+			}
+		}
+		if info.Location == nil {
+			t.Errorf("%v missing location leaf", name)
+		} else {
+			if got, want := info.GetLocation(), fan.GetLocation(); got != want {
+				t.Errorf("%v location match failed! got:%v, want:%v", name, got, want)
+			}
+		}
+		if info.Parent == nil {
+			t.Errorf("%v missing parent leaf", name)
+		} else {
+			if got, want := info.GetParent(), fan.GetParent(); got != want {
+				t.Errorf("%v parent match failed! got:%v, want:%v", name, got, want)
+			}
+		}
+		if info.Removable == nil {
+			t.Errorf("%v missing removable leaf", name)
+		}
+		if got, want := info.GetRemovable(), fan.GetIsRemovable(); got != want {
+			t.Errorf("%v removable match failed! got:%v, want:%v", name, got, want)
+		}
+		if info.Empty == nil {
+			t.Errorf("%v missing Empty leaf", name)
+		} else {
+			if info.GetEmpty() {
+				t.Errorf("%v is unexpectedly empty.", name)
+			}
+		}
+
+		// Only removable fans have FRU information.
+		if fan.GetIsRemovable() == false {
+			t.Logf("Not checking FRU information for %v since it is not removable", name)
+			continue
+		}
+
+		if info.PartNo == nil {
+			t.Errorf("%v missing part-no leaf", name)
+		} else if info.GetPartNo() == "" {
+			t.Errorf("%v has empty part-no", name)
+		}
+		if info.SerialNo == nil {
+			t.Errorf("%v missing serial-no leaf", name)
+		} else if info.GetSerialNo() == "" {
+			t.Errorf("%v has empty serial-no", name)
+		}
+
+		// Fetch mfg-date leaf separately since we want the test to fail in case
+		// of non-compliance errors with respect to the date format. Ondatra ignores
+		// non-compliance errors at sub-tree level Get() but fails the test if there
+		// is non-compliance at leaf level Get().
+		if got := gnmi.Get(t, dut, gnmi.OC().Component(name).MfgDate().State()); got == "" {
+			t.Errorf("%v has empty mfg-date", name)
+		}
+	}
+
+	fantrays, err := testhelper.FanTrayInfoForDevice(t, dut)
+	if err != nil {
+		t.Fatalf("Failed to fetch fan information: %v", err)
+	}
+
+	for _, fantray := range fantrays {
+		name := fantray.GetName()
+		// Likewise for fan trays, we expect all to be present regardless of whether they are removable.
+		info := gnmi.Get(t, dut, gnmi.OC().Component(name).State())
+		if info.Type == nil {
+			t.Errorf("%v missing type leaf", name)
+		}
+		// } else {
+		// 	if got, want := info.GetType(), oc.PlatformTypes_OPENCONFIG_HARDWARE_COMPONENT_FANTRAY; got != want {
+		// 		t.Errorf("%v type match failed! got:%v, want:%v", name, got, want)
+		// 	}
+		// }
+		if info.Location == nil {
+			t.Errorf("%v missing location leaf", name)
+		} else {
+			if got, want := info.GetLocation(), fantray.GetLocation(); got != want {
+				t.Errorf("%v location match failed! got:%v, want:%v", name, got, want)
+			}
+		}
+		if info.Parent == nil {
+			t.Errorf("%v missing parent leaf", name)
+		} else {
+			if got, want := info.GetParent(), fantray.GetParent(); got != want {
+				t.Errorf("%v parent match failed! got:%v, want:%v", name, got, want)
+			}
+		}
+		if info.Removable == nil {
+			t.Errorf("%v missing removable leaf", name)
+		}
+		if got, want := info.GetRemovable(), fantray.GetIsRemovable(); got != want {
+			t.Errorf("%v removable match failed! got:%v, want:%v", name, got, want)
+		}
+		if info.Empty == nil {
+			t.Errorf("%v missing Empty leaf", name)
+		} else {
+			if info.GetEmpty() {
+				t.Errorf("%v is unexpectedly empty.", name)
+			}
+		}
+	}
+}
+
+func TestFanSpeedInformation(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("804f6dbb-5480-4e1d-a215-e259530fa801").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	fans, err := testhelper.FanInfoForDevice(t, dut)
+	if err != nil {
+		t.Fatalf("Failed to fetch fan information: %v", err)
+	}
+
+	for _, fan := range fans {
+		name := fan.GetName()
+		info := gnmi.Get(t, dut, gnmi.OC().Component(name).Fan().State())
+
+		if info.Speed == nil {
+			t.Errorf("%v missing speed leaf", name)
+		} else {
+			if got, want := info.GetSpeed(), fan.GetMaxSpeed(); got > want {
+				t.Errorf("%v speed threshold exceeded! got:%v, want:<=%v", name, got, want)
+			}
+		}
+		{
+			if got := testhelper.FanSpeedControlPct(t, dut, &fan); got == 0 || got > 100 {
+				t.Errorf("%v speed-control-pct failed! got:%v, want:range(0,100]", name, got)
+			}
+		}
+	}
+}
+
+func validatePcieInformation(info any) error {
+	if info == nil {
+		return errors.New("PCIe information is nil")
+	}
+
+	var err error
+	var totalErrors uint64
+	var individualErrors uint64
+	rv := reflect.ValueOf(info)
+	rv = rv.Elem()
+	for i := 0; i < rv.NumField(); i++ {
+		name := rv.Type().Field(i).Name
+		field := rv.Field(i)
+		if field.IsNil() {
+			err = testhelper.WrapError(err, "%v leaf is nil", name)
+			continue
+		}
+		field = field.Elem()
+		if got, want := field.Kind(), reflect.Uint64; got != want {
+			err = testhelper.WrapError(err, "%v leaf has invalid value type! got:%v, want:%v", name, got, want)
+			continue
+		}
+
+		value := field.Uint()
+		if name == "TotalErrors" {
+			totalErrors = value
+		} else {
+			individualErrors += value
+		}
+	}
+
+	if totalErrors > individualErrors {
+		err = testhelper.WrapError(err, "total-errors:%v should be <= cumulative-individual-errors:%v", totalErrors, individualErrors)
+	} else if totalErrors == 0 && individualErrors > 0 {
+		err = testhelper.WrapError(err, "total-errors count cannot be 0 if individual errors are detected (count:%v)", individualErrors)
+	}
+
+	return err
+}
+
+func TestPcieInformation(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("82e1ef7b-46db-4523-b0e5-f94a2e0a8a12").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	devices, err := testhelper.PcieInfoForDevice(t, dut)
+	if err != nil {
+		t.Fatalf("Failed to fetch PCIe information: %v", err)
+	}
+
+	for _, device := range devices {
+		name := device.GetName()
+
+		c := gnmi.Get(t, dut, gnmi.OC().Component(name).Pcie().CorrectableErrors().State())
+		if err := validatePcieInformation(c); err != nil {
+			t.Errorf("Correctable error information validation failed for device:%v\n%v", name, err)
+		}
+
+		f := gnmi.Get(t, dut, gnmi.OC().Component(name).Pcie().FatalErrors().State())
+		if err := validatePcieInformation(f); err != nil {
+			t.Errorf("Fatal error information validation failed for device:%v\n%v", name, err)
+		}
+		if f != nil && f.GetTotalErrors() != 0 {
+			t.Errorf("%v fatal errors detected on %v", f.GetTotalErrors(), dut.Name())
+		}
+
+		n := gnmi.Get(t, dut, gnmi.OC().Component(name).Pcie().NonFatalErrors().State())
+		if err := validatePcieInformation(n); err != nil {
+			t.Errorf("Non-fatal error information validation failed for device:%v\n%v", name, err)
+		}
+	}
+}
