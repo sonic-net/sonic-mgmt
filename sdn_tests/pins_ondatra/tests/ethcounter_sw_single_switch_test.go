@@ -1217,3 +1217,118 @@ func TestGNMIEthernetInIPv6(t *testing.T) {
 
 	t.Logf("\n\n----- TestGNMIEthernetInIPv6: SUCCESS after %v Iteration(s) -----\n\n", i)
 }
+
+// ----------------------------------------------------------------------------
+// TestGNMIEthernetInDiscards - Check EthernetX in-discards
+func TestGNMIEthernetInDiscards(t *testing.T) {
+        // Report results to TestTracker at the end.
+        defer testhelper.NewTearDownOptions(t).WithID("dde5578a-33f2-40b2-a7fa-a978b9ee0a51").Teardown(t)
+
+        // Select the dut, or device under test.
+        dut := ondatra.DUT(t, "DUT")
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+        CheckInitial(t, dut, intf)
+        defer RestoreInitial(t, dut, intf)
+
+        // To get ingress traffic in Ondatra, turn on loopback mode on
+        // the selected port just for this test.
+        gnmi.Replace(t, dut, gnmi.OC().Interface(intf).LoopbackMode().Config(), oc.Interfaces_LoopbackModeType_FACILITY)
+        gnmi.Await(t, dut, gnmi.OC().Interface(intf).LoopbackMode().State(), loopbackStateTimeout, oc.Interfaces_LoopbackModeType_FACILITY)
+
+        var bad bool
+        var i int
+
+        // Iterate up to 10 times to get a successful test.
+        for i = 1; i <= 10; i++ {
+                t.Logf("\n----- TestGNMIEthernetInDiscards: Iteration %v -----\n", i)
+                bad = false
+
+                // Read all the relevant counters initial values.
+                before := ReadCounters(t, dut, intf)
+
+                // Compute the expected counters after the test. Since
+                // we're seeing some discard traffic (1 or 2 per second) during
+                // normal operation on the Ondatra testbeds with loopback
+                // turned on, setting the number of packets to be sent larger
+                // so we can actually verify its those packets that we got.
+                expect := before
+                expect.outPkts += pktsPer
+                expect.outOctets += pktsPer * 64
+                expect.outUnicastPkts += pktsPer
+                expect.inPkts += pktsPer
+                expect.inOctets += pktsPer * 64
+                expect.inUnicastPkts += pktsPer
+                expect.inDiscards += pktsPer
+
+                // Construct a simple IPv4 packet that will get discarded.  In
+                // offline testing, setting the IP protocol field to zero
+                // worked to cause a discard on ingest.
+                eth := &layers.Ethernet{
+                        SrcMAC:       net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+                        DstMAC:       net.HardwareAddr{0x00, 0x1A, 0x11, 0x17, 0x5F, 0x80},
+                        EthernetType: layers.EthernetTypeIPv4,
+                }
+
+                ip := &layers.IPv4{
+                        Version:  4,
+                        TTL:      0,
+                        Protocol: layers.IPProtocol(0),
+                        SrcIP:    net.ParseIP("100.0.0.1").To4(),
+                        DstIP:    net.ParseIP("200.0.0.1").To4(),
+                }
+
+                buf := gopacket.NewSerializeBuffer()
+
+                // Enable reconstruction of length and checksum fields based on packet headers.
+                opts := gopacket.SerializeOptions{
+                        FixLengths:       true,
+                        ComputeChecksums: true,
+                }
+
+                if err := gopacket.SerializeLayers(buf, opts, eth, ip); err != nil {
+                        t.Fatalf("Failed to serialize packet (%v)", err)
+                }
+
+                packetOut := &testhelper.PacketOut{
+                        EgressPort: intf,
+                        Count:      uint(pktsPer),
+                        Interval:   1 * time.Millisecond,
+                        Packet:     buf.Bytes(),
+                }
+
+                p4rtClient, err := testhelper.FetchP4RTClient(t, dut, dut.RawAPIs().P4RT(t), nil)
+                if err != nil {
+                        t.Fatalf("Failed to create P4RT client: %v", err)
+                }
+                if err := p4rtClient.SendPacketOut(t, packetOut); err != nil {
+                        t.Fatalf("SendPacketOut operation failed for %+v (%v)", packetOut, err)
+                }
+
+                // Sleep for enough time that the counters are polled after the
+                // transmit completes sending bytes.
+                time.Sleep(counterUpdateDelay)
+
+                // Read all the relevant counters again.
+                after := ReadCounters(t, dut, intf)
+
+                if after != expect {
+                        ShowCountersDelta(t, before, after, expect)
+                        bad = true
+                }
+
+                if !bad {
+                        break
+                }
+        }
+
+        if bad {
+                t.Fatalf("\n\n----- TestGNMIEthernetInDiscards: FAILED after %v Iterations -----\n\n", i-1)
+        }
+
+        t.Logf("\n\n----- TestGNMIEthernetInDiscards: SUCCESS after %v Iteration(s) -----\n\n", i)
+}
