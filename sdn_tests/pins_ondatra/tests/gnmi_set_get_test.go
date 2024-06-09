@@ -804,3 +804,311 @@ func TestGNMISetDeleteSingleLeaf(t *testing.T) {
                 t.Errorf("MTU matched failed! got:%v, want:%v", got, mtu)
         }
 }
+
+func TestGNMISetDeleteMultipleLeafs(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("66addddd-df5d-4ff0-91ca-ff2a3582be69").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        res := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Config())
+        ctx := context.Background()
+
+        descPath := gnmi.OC().Interface(intf).Description()
+        resolvedDescPath, _, errs := ygnmi.ResolvePath(descPath.Config().PathStruct())
+        if errs != nil {
+                t.Fatalf("Failed to resolve path %v: %v", descPath, err)
+        }
+        var desc string
+        descExist := false
+        if res.Description != nil {
+                desc = *res.Description
+                descExist = true
+        } else {
+                gnmi.Replace(t, dut, gnmi.OC().Interface(intf).Description().Config(), "desc")
+        }
+
+        defaultMtu := uint16(9100)
+        mtuPath := gnmi.OC().Interface(intf).Mtu()
+        resolvedMtuPath, _, errs := ygnmi.ResolvePath(mtuPath.Config().PathStruct())
+        if errs != nil {
+                t.Fatalf("Failed to resolve path %v: %v", mtuPath, err)
+        }
+
+        if res.Mtu == nil {
+                t.Fatalf("MTU should not be nil!")
+        }
+
+        mtu := uint16(2123)
+        nonDefaultMtu := false // Default value of MTU is 9100
+        if *res.Mtu != defaultMtu {
+                mtu = *res.Mtu
+                nonDefaultMtu = true
+        } else {
+                gnmi.Update(t, dut, gnmi.OC().Interface(intf).Mtu().Config(), mtu)
+                gnmi.Await(t, dut, gnmi.OC().Interface(intf).Mtu().State(), 20*time.Second, mtu)
+        }
+
+        defer func() {
+                // Replace the fields to original values if they existed before the test.
+                if descExist {
+                        gnmi.Replace(t, dut, descPath.Config(), desc)
+                        gnmi.Await(t, dut, gnmi.OC().Interface(intf).Description().State(), 5*time.Second, desc)
+                }
+                if nonDefaultMtu {
+                        gnmi.Replace(t, dut, mtuPath.Config(), mtu)
+                        gnmi.Await(t, dut, gnmi.OC().Interface(intf).Mtu().State(), 5*time.Second, mtu)
+                }
+        }()
+
+        paths := []*gpb.Path{resolvedDescPath, resolvedMtuPath}
+        delRequest := &gpb.SetRequest{
+                Prefix: prefix,
+                Delete: paths,
+        }
+        // Fetch raw gNMI client and call Set API to send Set Request.
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        delResp, err := gnmiClient.Set(ctx, delRequest)
+        if err != nil {
+                t.Fatalf("Error while calling Set Delete Raw API(%v)", err)
+        }
+        t.Logf("SetResponse:\n%v", delResp)
+
+        // Verify desc leaf is deleted.
+        testt.ExpectFatal(t, func(t testing.TB) {
+                gnmi.Get(t, dut, descPath.Config())
+        })
+        // Verify MTU leaf is deleted (set to default value)
+        if gotMtu := gnmi.Get(t, dut, mtuPath.Config()); gotMtu != defaultMtu {
+                t.Fatalf("Default MTU matched failed! got:%v, want:%v", gotMtu, defaultMtu)
+        }
+}
+
+func TestGNMISetDeleteInvalidLeaf(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("bc463964-5e63-417f-bd32-08f17faf84a3").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        path := &gpb.Path{Elem: []*gpb.PathElem{{Name: "interfaces"}, {Name: "interface", Key: map[string]string{"name": intf}}, {Name: "config"}, {Name: "xyz"}}}
+        ctx := context.Background()
+        mtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config())
+
+        paths := []*gpb.Path{path}
+
+        delRequest := &gpb.SetRequest{
+                Prefix: prefix,
+                Delete: paths,
+        }
+        // Fetch raw gNMI client and call Set API to send Set Request.
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        delResp, err := gnmiClient.Set(ctx, delRequest)
+        if err == nil {
+                t.Fatalf("Set request is expected to fail but it didn't")
+        }
+        t.Logf("SetResponse:\n%v", delResp)
+
+        // Verify that other leaf nodes are not changed.
+        if got := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().Config()); got != mtu {
+                t.Fatalf("MTU matched failed! got:%v, want:%v", got, mtu)
+        }
+}
+
+/**********************************************************
+* gNMI SET misc operations
+**********************************************************/
+
+/* Test to verify the order of SET operations in the same request.
+ * Verify that specified leaf has been deleted, and other specified leafs
+ * have been replaced, followed with updating of leaf values.
+ */
+func TestGNMISetDeleteReplaceUpdateOrderValid(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("fd8b8e2c-69dc-406c-99fd-6bdcf670e17d").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        // Get fields from interface subtree.
+        res := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Config())
+        mtuPath := gnmi.OC().Interface(intf).Mtu()
+        resolvedMtuPath, _, errs := ygnmi.ResolvePath(mtuPath.Config().PathStruct())
+        if errs != nil {
+                t.Fatalf("Failed to resolve path %v: %v", mtuPath, err)
+        }
+
+        mtuExist := false
+        mtu := uint16(9191)
+        if res.Mtu != nil {
+                mtu = *res.Mtu
+                mtuExist = true
+        } else {
+                gnmi.Replace(t, dut, gnmi.OC().Interface(intf).Mtu().Config(), mtu)
+        }
+
+        descPath := gnmi.OC().Interface(intf).Description()
+        resolvedDescPath, _, errs := ygnmi.ResolvePath(descPath.Config().PathStruct())
+        if errs != nil {
+                t.Fatalf("Failed to resolve path %v: %v", descPath, err)
+        }
+        desc := "desc"
+        descExist := false
+        if res.Description != nil {
+                desc = *res.Description
+                descExist = true
+        } else {
+                gnmi.Replace(t, dut, gnmi.OC().Interface(intf).Description().Config(), desc)
+        }
+
+        fqinPath := fmt.Sprintf("/interfaces/interface[name=%s]/config/fully-qualified-interface-name", intf)
+        resolvedFqinPath, errs := testhelper.StringToYgnmiPath(fqinPath)
+        if errs != nil {
+                t.Fatalf("Failed to resolve path %v: %v", fqinPath, err)
+        }
+        fqin := "FQIN"
+        fqinExist := false
+        if name := testhelper.FullyQualifiedInterfaceName(t, dut, intf); name != "" {
+                fqin = name
+                fqinExist = true
+        } else {
+                testhelper.ReplaceFullyQualifiedInterfaceName(t, dut, intf, fqin)
+        }
+        wantFqin := "testFQIN"
+        wantMtu := mtu + 22
+
+        enabled := res.GetEnabled()
+        loopBack := res.GetLoopbackMode()
+        name := res.GetName()
+
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+        defer func() {
+                ctx := context.Background()
+                gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+                if err != nil {
+                        t.Fatalf("Unable to get gNMI client (%v)", err)
+                }
+
+                // Replace the old values for test cleanup.
+                if mtuExist {
+                        gnmi.Replace(t, dut, mtuPath.Config(), mtu)
+                        gnmi.Await(t, dut, gnmi.OC().Interface(intf).Mtu().State(), 5*time.Second, mtu)
+                } else {
+                        delRequest := &gpb.SetRequest{
+                                Prefix: prefix,
+                                Delete: []*gpb.Path{resolvedMtuPath},
+                        }
+                        // Fetch set client using the raw gNMI client.
+                        if _, err := gnmiClient.Set(ctx, delRequest); err != nil {
+                                t.Fatalf("Unable to fetch set delete client (%v)", err)
+                        }
+                }
+                if descExist {
+                        gnmi.Replace(t, dut, descPath.Config(), desc)
+                        gnmi.Await(t, dut, gnmi.OC().Interface(intf).Description().State(), 5*time.Second, desc)
+                } else {
+                        delRequest := &gpb.SetRequest{
+                                Prefix: prefix,
+                                Delete: []*gpb.Path{resolvedDescPath},
+                        }
+                        // Fetch set client using the raw gNMI client.
+                        if _, err := gnmiClient.Set(ctx, delRequest); err != nil {
+                                t.Fatalf("Unable to fetch set delete client (%v)", err)
+                        }
+                }
+                if fqinExist {
+                        testhelper.ReplaceFullyQualifiedInterfaceName(t, dut, intf, fqin)
+                } else {
+                        delRequest := &gpb.SetRequest{
+                                Prefix: prefix,
+                                Delete: []*gpb.Path{resolvedFqinPath},
+                        }
+                        // Fetch set client using the raw gNMI client.
+                        if _, err := gnmiClient.Set(ctx, delRequest); err != nil {
+                                t.Fatalf("Unable to fetch set delete client (%v)", err)
+                        }
+                }
+        }()
+
+        setRequest := &gpb.SetRequest{
+                Prefix: prefix,
+                Delete: []*gpb.Path{resolvedMtuPath, resolvedDescPath},
+                Replace: []*gpb.Update{
+                        {
+                                Path: resolvedMtuPath,
+                                Val: &gpb.TypedValue{
+                                        Value: &gpb.TypedValue_JsonIetfVal{
+                                                JsonIetfVal: []byte(strconv.FormatUint(uint64(wantMtu), 10)),
+                                        },
+                                },
+                        },
+                        {
+                                Path: resolvedFqinPath,
+                                Val: &gpb.TypedValue{
+                                        Value: &gpb.TypedValue_JsonIetfVal{
+                                                JsonIetfVal: []byte("\"tempFQIN\""),
+                                        },
+                                },
+                        },
+                },
+                Update: []*gpb.Update{{
+                        Path: resolvedFqinPath,
+                        Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: []byte("\"" + wantFqin + "\"")}},
+                }},
+        }
+
+        // Fetch raw gNMI client and call Set API to send Set Request.
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        if _, err := gnmiClient.Set(ctx, setRequest); err != nil {
+                t.Fatalf("Error while calling Set Raw API: (%v)", err)
+        }
+
+        // Verify that the Description leaf is deleted.
+        testt.ExpectFatal(t, func(t testing.TB) {
+                gnmi.Get(t, dut, descPath.Config())
+        })
+        // Get fields from interface subtree.
+        intfAfterSet := gnmi.Get(t, dut, gnmi.OC().Interface(intf).State())
+        if got := testhelper.FullyQualifiedInterfaceName(t, dut, intf); got != wantFqin {
+                t.Errorf("FullyQualifiedInterfaceName match failed! got %v, want %v", got, wantFqin)
+        }
+        if got := intfAfterSet.GetMtu(); got != wantMtu {
+                t.Errorf("mtu match failed! got: %v, want: %v", got, wantMtu)
+        }
+
+        // Verify that other leaf nodes are not changed.
+        if got := intfAfterSet.GetEnabled(); got != enabled {
+                t.Errorf("enabled match failed! got %v, want %v", got, enabled)
+        }
+        if got := intfAfterSet.GetLoopbackMode(); got != loopBack {
+                t.Errorf("loopback-mode match failed! got: %v, want: %v", got, loopBack)
+        }
+        if got := intfAfterSet.GetName(); got != name {
+                t.Errorf("name match failed! got: %v, want: %v", got, name)
+        }
+}
