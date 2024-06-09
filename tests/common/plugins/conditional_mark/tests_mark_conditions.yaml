@@ -1602,6 +1602,12 @@ vlan/test_vlan_ping.py:
 #######################################
 #####             voq             #####
 #######################################
+voq:
+  skip:
+    reason: "Cisco 8800 doesn't support voq tests"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 voq/test_fabric_cli_and_db.py:
   skip:
     reason: "Skip test_fabric_cli_and_db on unsupported testbed."
