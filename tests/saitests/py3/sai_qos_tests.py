@@ -3123,7 +3123,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                         self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, self.uniq_dst_ports)
                     sys.exit("Too many pkts needed to trigger pfc: %d" % (pkt_cnt))
                 assert (recv_counters[sidx_dscp_pg_tuples[i][2]] >
-                       recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
+                        recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
                 print("%d packets for sid: %d, pg: %d to trigger pfc" % (
                     pkt_cnt, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], sidx_dscp_pg_tuples[i][2] - 2),
                     file=sys.stderr)
@@ -5046,7 +5046,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
             if pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
-            elif 'cisco-8000' in asic_type or "ACS-SN5600" in hwsku:
+            elif 'cisco-8000' in asic_type or "SN5600" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             else:
                 if platform_asic and platform_asic == "broadcom-dnx":
@@ -5366,8 +5366,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                       file=sys.stderr,
                 )
                 assert (buffer_pool_wm <= (expected_wm + upper_bound_margin) * cell_size)
-                assert ((expected_wm - lower_bound_margin)
-                       * cell_size <= buffer_pool_wm)
+                assert ((expected_wm - lower_bound_margin) * cell_size <= buffer_pool_wm)
 
                 pkts_num = pkts_inc
 
@@ -5561,8 +5560,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             if 'cisco-8000' in asic_type:
                 # Queue is always the inner_dscp due to the TC_TO_QUEUE_MAP redirection
                 queue = inner_dscp
-                assert (fill_leakout_plus_one(self, src_port_id,
-                       dst_port_id, pkt, queue, asic_type))
+                assert (fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
                 num_pkts = pkts_num_trig_pfc - pkts_num_margin - 1
                 send_packet(self, src_port_id, pkt, num_pkts)
                 print("Sending {} packets to port {}".format(num_pkts, src_port_id), file=sys.stderr)
