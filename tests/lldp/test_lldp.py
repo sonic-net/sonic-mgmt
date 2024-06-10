@@ -62,8 +62,7 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     lldpctl_facts = duthost.lldpctl_facts(
         asic_instance_id=asic,
         skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
-    config_facts = duthost.asic_instance(asic).config_facts(host=duthost.hostname,
-                                                                                source="running")['ansible_facts']
+    config_facts = duthost.asic_instance(asic).config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if not list(lldpctl_facts['lldpctl'].items()):
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
     # We use the MAC of mgmt port to generate chassis ID as LLDPD dose.
