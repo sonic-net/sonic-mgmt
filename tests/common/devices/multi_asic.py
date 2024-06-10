@@ -65,7 +65,7 @@ class MultiAsicSonicHost(object):
         service_list = []
         active_asics = self.asics
         if self.sonichost.is_supervisor_node():
-            self._DEFAULT_SERVICES.append("lldp")
+            service_list.append("lldp")
             if self.get_facts()['asic_type'] != 'vs':
                 active_asics = []
                 sonic_db_cli_out = \
@@ -98,7 +98,7 @@ class MultiAsicSonicHost(object):
                 if config_facts['FEATURE'][service]['state'] == "disabled":
                     self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
         else:
-            self._DEFAULT_SERVICES.append("lldp")
+            service_list.append("lldp")
 
         for asic in active_asics:
             service_list += asic.get_critical_services()
