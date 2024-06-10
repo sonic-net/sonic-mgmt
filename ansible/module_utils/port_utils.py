@@ -395,6 +395,13 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(1, 33):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
                 idx += 8
+        elif hwsku == "Mellanox-SN5600-V256":
+            split_alias_list = ["a", "b", "c", "d"]
+            for i in range(1, 65):
+                for idx, split_alias in enumerate(split_alias_list):
+                    alias = "etp{}{}".format(i, split_alias)
+                    eth_name = "Ethernet{}".format((i - 1) * 8 + idx * 2)
+                    port_alias_to_name_map[alias] = eth_name
         elif hwsku == "Arista-7060DX5-32":
             for i in range(1, 33):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 8)
