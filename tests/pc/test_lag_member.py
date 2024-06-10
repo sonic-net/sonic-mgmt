@@ -241,6 +241,10 @@ def generate_port_config(duthost, tbinfo, most_common_port_speed):
     dut_hwsku = duthost.facts["hwsku"]
     number_of_lag_member = HWSKU_INTF_NUMBERS_DICT.get(dut_hwsku, DEAFULT_NUMBER_OF_MEMBER_IN_LAG)
 
+    if tbinfo["topo"] == "t0-8-lag" and number_of_lag_member > 15:
+        logger.info("Limiting to only 12 LAG members on t0-8-lag topo, since there are only 15 ports in the VLAN")
+        number_of_lag_member = 12
+
     # Get id of vlan that concludes enough up ports as src_vlan_id, port in this vlan is used for testing
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     port_status = cfg_facts["PORT"]
