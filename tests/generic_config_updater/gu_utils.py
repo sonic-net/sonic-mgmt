@@ -50,6 +50,21 @@ def apply_patch(duthost, json_data, dest_file):
     return output
 
 
+def replace(duthost, replace_config_file):
+    """Run replace with given config file on target duthost
+
+    Args:
+        duthost: Device Under Test (DUT)
+        replace_config_file: Destination file on duthost
+    """
+    cmds = 'config replace {}'.format(replace_config_file)
+
+    logger.info("Commands: {}".format(cmds))
+    output = duthost.shell(cmds, module_ignore_errors=True)
+
+    return output
+
+
 def expect_op_success(duthost, output):
     """Expected success from apply-patch output
     """
