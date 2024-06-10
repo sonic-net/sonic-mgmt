@@ -109,7 +109,7 @@ def test_static_key_ciphers(duthost, nbrhosts, request, profile_name, tbinfo, ct
                                        v['send_sci'],
                                        rekey_period)
 
-            logger.debug("dut macsec profiles:")
+            logger.debug("dut macsec profiles: ")
             logger.debug(duthost.shell("sonic-cfggen -d --var-json MACSEC_PROFILE")['stdout'])
             logger.debug("neighbor macsec profiles:")
             logger.debug(neighhost.shell("sonic-cfggen -d --var-json MACSEC_PROFILE")['stdout'])
