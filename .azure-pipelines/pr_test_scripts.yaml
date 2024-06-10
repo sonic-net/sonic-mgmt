@@ -243,6 +243,7 @@ multi-asic-t1-lag:
 t2:
   - test_vs_chassis_setup.py
   - voq/test_voq_init.py
+  - generic_config_updater/test_multiasic_scenarios.py
 
 wan-pub:
   - system_health/test_system_status.py
