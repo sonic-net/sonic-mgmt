@@ -1,0 +1,20 @@
+# This Playbook copies the PAT to the self hosted agent which is then used by the agent-manager
+# to refresh the tokens. This runs only on designated group of the inventory.
+#
+# Parameters:
+#     -e PAT=<token>    - Personal Access Token
+#
+# Example Usage:
+#    ansible-playbook pat_refresh.yml -i str -e PAT=23984982798a98798f998989e9987ead8891ff3
+
+- hosts: self_hosted_azure_agents
+  gather_facts: no
+  tasks:
+    - name: Set required variables
+      set_fact:
+        ansible_user: "{{ hostvars[inventory_hostname]['secret_group_vars']['vm_host']['ansible_user'] }}"
+        ansible_ssh_pass: "{{ hostvars[inventory_hostname]['secret_group_vars']['vm_host']['altpasswords'][0] }}"
+    - name: Write PAT to a file
+      template:
+        src: pat.tok.j2
+        dest: /tmp/.__az_pat.tok

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+LOG="/tmp/agent_worker.log"
+n=`shuf -i 1-10 -n1`
+seconds=$((n * 60))
+v=$((n % 2))
+if [ $v -eq 0 ]
+then
+    echo "Nothing to do" >> $LOG
+else
+    echo "Working for $seconds seconds..." >> $LOG
+    sleep $seconds

@@ -8,6 +8,7 @@ all:
         sonic:
         fanout:
         server:
+        self_hosted_azure_agents:
         pdu:
     ptf:
       vars:
@@ -687,9 +688,6 @@ server:
     strtk5-serv-01:
       ansible_host: 10.212.65.2
       ansible_hostv6: 2603:10e2:140:3000::102
-    strtk5-serv-02:
-      ansible_host: 10.212.65.3
-      ansible_hostv6: 2603:10e2:140:3000::103
     strtk5-serv-03:
       ansible_host: 10.212.65.4
       ansible_hostv6: 2603:10e2:140:3000::104
@@ -699,3 +697,10 @@ server:
     strtk5-serv-05:
       ansible_host: 10.212.65.6
       ansible_hostv6: 2603:10e2:140:3000::106
+
+# designated nightly agents
+self_hosted_azure_agents:
+  hosts:
+    strtk5-serv-02:
+      ansible_host: 10.212.65.3
+      ansible_hostv6: 2603:10e2:140:3000::103

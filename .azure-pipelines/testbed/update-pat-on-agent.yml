@@ -1,0 +1,50 @@
+# This job is for periodically obtaining an updated PAT (Personal Access Token) for accessing Azure Repos Git
+# and triggering a refresh of agents (when a change in PAT is detected)
+
+name: PATRefresh_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+trigger: none
+pr: none
+
+schedules:
+  # once a day at 23:55
+  - cron: "55 23 * * *"
+    displayName: PATRefresh
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+  - name: AZURE_SELF_HOSTED_AGENTS
+    displayName: "Names of self hosted agent inventory to pool mapping. Key is inventory name. Value is pool name."
+    type: object
+    default:
+      str:
+        pool: nightly
+      str3:
+        pool: nightly
+      strsvc:
+        pool: nightly-svc
+      bjw:
+        pool: nightly-bjw
+      tk5:
+        pool: nightly-tk5
+
+jobs:
+- ${{ each AGENT_INFO in parameters.AZURE_SELF_HOSTED_AGENTS }}:
+  - job: PATRefresh_${{ AGENT_INFO.key }}
+    pool: ${{ AGENT_INFO.value.pool }}
+    timeoutInMinutes: 30
+    variables:
+      - group: sonicbld
+      - group: SECRETS_JSON
+    steps:
+      - template: ../nightly/templates/get_secrets.yml
+      - task: Bash@3
+        displayName: "Run playbook to pass PAT to the agent manager host"
+        inputs:
+          targetType: 'inline'
+          script: |
+            /bin/bash .azure-pipelines/testbed/run_pat_refresh.sh ${{ AGENT_INFO.key }}
+        env:
+          AZ_REPO_PAT: $(MSSONIC-TOKEN)

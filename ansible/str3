@@ -8,6 +8,7 @@ all:
         sonic:
         fanout:
         server:
+        self_hosted_azure_agents:
         pdu:
     ptf:
       vars:
@@ -1603,3 +1604,10 @@ server:
     str3-acs-serv-68:
       ansible_host: 10.64.247.67
       ansible_hostv6: 2a01:111:e210:b000::a40:f743
+
+# designated nightly agents
+self_hosted_azure_agents:
+  hosts:
+    str3-acs-serv-65:
+      ansible_host: 10.64.246.7
+      ansible_hostv6: 2a01:111:e210:b000::a40:f607
