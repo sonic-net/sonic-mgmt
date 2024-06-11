@@ -14,17 +14,18 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
-def downstream_links(duthost, tbinfo):
+def downstream_links(rand_selected_dut, tbinfo):
     """
     Returns a dictionary of all the links that are downstream from the DUT.
 
     Args:
-        duthost: DUT fixture
+        rand_selected_dut: DUT fixture
         tbinfo: testbed information fixture
     Returns:
         links: Dictionary of links downstream from the DUT
     """
     links = dict()
+    duthost = rand_selected_dut
 
     def filter(interface, neighbor, mg_facts, tbinfo):
         if ((tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"])
@@ -41,18 +42,19 @@ def downstream_links(duthost, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def upstream_links(duthost, tbinfo, nbrhosts):
+def upstream_links(rand_selected_dut, tbinfo, nbrhosts):
     """
     Returns a dictionary of all the links that are upstream from the DUT.
 
     Args:
-        duthost: DUT fixture
+        rand_selected_dut: DUT fixture
         tbinfo: testbed information fixture
         nbrhosts: neighbor host fixture
     Returns:
         links: Dictionary of links upstream from the DUT
     """
     links = dict()
+    duthost = rand_selected_dut
 
     def filter(interface, neighbor, mg_facts, tbinfo):
         if ((tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"])
