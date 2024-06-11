@@ -17,7 +17,7 @@ pytestmark = [
 
 def macsec_check(host, cli_options, int, neighv4, neighv6, macsec=True, cipher=None):
     if macsec:
-        # Verify Macsec Status Between Neighbors
+        # Verify Macsec Status Between Neighbors is up
         output = host.shell('sonic-cfggen{} -d -v PORT.{}'.format(cli_options, int),
                             module_ignore_errors=True)['stdout']
         logger.debug(output)
