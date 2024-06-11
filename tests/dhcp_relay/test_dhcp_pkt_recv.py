@@ -10,7 +10,7 @@ from tests.common.utilities import capture_and_check_packet_on_dut
 from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
-    pytest.mark.topology('mx')
+    pytest.mark.topology("t0", "m0", 'mx')
 ]
 
 ACL_TABLE_NAME_DHCPV6_PKT_RECV_TEST = "DHCPV6_PKT_RECV_TEST"
