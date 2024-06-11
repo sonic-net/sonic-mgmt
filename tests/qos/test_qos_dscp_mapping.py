@@ -11,6 +11,7 @@ from ptf import mask
 from scapy.all import Ether, IP
 from tabulate import tabulate
 
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor # noqa F401
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
     get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown # noqa F401
 from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue,\
@@ -27,8 +28,7 @@ pytestmark = [
 DEFAULT_DSCP = 4
 DEFAULT_TTL = 64
 DEFAULT_ECN = 1
-DEFAULT_PKT_COUNT = 10000
-TOLERANCE = 0.05 * DEFAULT_PKT_COUNT  # Account for noise and polling delays
+DEFAULT_PKT_COUNT = 2000
 DUMMY_OUTER_SRC_IP = '8.8.8.8'
 DUMMY_INNER_SRC_IP = '9.9.9.9'
 DUMMY_INNER_DST_IP = '10.10.10.10'
@@ -271,8 +271,9 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                                                           ptf_src_port_id=ptf_src_port_id,
                                                           ptf_dst_port_ids=ptf_dst_port_ids)
 
-            except Exception as e:
-                logger.error(str(e))
+            except ConnectionError as e:
+                # Sending large number of packets can cause socket buffer to be full and leads connection timeout.
+                logger.error("{}: Try reducing DEFAULT_PKT_COUNT value".format(str(e)))
                 failed_once = True
 
             global packet_egressed_success
@@ -285,7 +286,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                     time.sleep(2)
                     egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val,
                                                                                       dut_egress_port)
-                verification_success = abs(egress_queue_count - DEFAULT_PKT_COUNT) < TOLERANCE
+                # Due to protocol packets, egress_queue_count can be greater than expected count.
+                verification_success = egress_queue_count >= DEFAULT_PKT_COUNT
 
                 if verification_success:
                     logger.info("SUCCESS: Received expected number of packets on queue {}".format(queue_val))
@@ -311,6 +313,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                     failed_once = True
             else:
                 output_table.append([rotating_dscp, queue_val, 0, "FAILURE - NO PACKETS EGRESSED", "N/A"])
+                failed_once = True
 
             # Reset packet egress status
             packet_egressed_success = False
@@ -319,6 +322,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                     .format(tabulate(output_table,
                                      headers=["Inner Packet DSCP Value", "Expected Egress Queue",
                                               "Egress Queue Count", "Result", "Actual Egress Queue"])))
+        # Clear the output_table (for next test functions).
+        output_table = []
 
         pytest_assert(not failed_once, "FAIL: Test failed. Please check table for details.")
 
@@ -331,18 +336,26 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         """
         apply_dscp_cfg_teardown(duthost)
 
-    def test_dscp_to_queue_mapping_pipe_mode(self, ptfadapter, duthost, tbinfo, downstream_links, upstream_links, dut_qos_maps_module): # noqa F811
+    def test_dscp_to_queue_mapping_pipe_mode(self, ptfadapter, rand_selected_dut,
+                                             toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                             setup_standby_ports_on_rand_unselected_tor,
+                                             tbinfo, downstream_links, upstream_links, dut_qos_maps_module): # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "pipe" mode
         """
+        duthost = rand_selected_dut
         test_params = self._setup_test_params(duthost, downstream_links, upstream_links, "pipe")
         self._run_test(ptfadapter, duthost, tbinfo, test_params, dut_qos_maps_module, "pipe")
         self._teardown_test(duthost)
 
-    def test_dscp_to_queue_mapping_uniform_mode(self, ptfadapter, duthost, tbinfo, downstream_links, upstream_links, dut_qos_maps_module): # noqa F811
+    def test_dscp_to_queue_mapping_uniform_mode(self, ptfadapter, rand_selected_dut,
+                                                toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                                setup_standby_ports_on_rand_unselected_tor,
+                                                tbinfo, downstream_links, upstream_links, dut_qos_maps_module): # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "uniform" mode
         """
+        duthost = rand_selected_dut
         test_params = self._setup_test_params(duthost, downstream_links, upstream_links, "uniform")
         self._run_test(ptfadapter, duthost, tbinfo, test_params, dut_qos_maps_module, "uniform")
         self._teardown_test(duthost)
