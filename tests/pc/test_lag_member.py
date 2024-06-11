@@ -241,9 +241,6 @@ def generate_port_config(duthost, tbinfo, most_common_port_speed):
     dut_hwsku = duthost.facts["hwsku"]
     number_of_lag_member = HWSKU_INTF_NUMBERS_DICT.get(dut_hwsku, DEAFULT_NUMBER_OF_MEMBER_IN_LAG)
 
-    if src_vlan_id == -1:
-        pytest.skip("No VLAN found with {} members up".format(number_of_lag_member))
-
     # Get id of vlan that concludes enough up ports as src_vlan_id, port in this vlan is used for testing
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     port_status = cfg_facts["PORT"]
@@ -402,10 +399,7 @@ def most_common_port_speed(duthost):
     port_status = cfg_facts["PORT"]
     number_of_lag_member = HWSKU_INTF_NUMBERS_DICT.get(duthost.facts["hwsku"], DEAFULT_NUMBER_OF_MEMBER_IN_LAG)
     src_vlan_id = get_vlan_id(cfg_facts, number_of_lag_member)
-
-    if src_vlan_id == -1:
-        pytest.skip("No VLAN found with {} members up".format(number_of_lag_member))
-
+    pytest_require(src_vlan_id != -1, "Can't get usable vlan concluding enough member")
     src_vlan_members = cfg_facts["VLAN_MEMBER"]["Vlan{}".format(src_vlan_id)]
     # specific LAG interface from t0-56-po2vlan topo, which can't be tested
     src_vlan_members.pop('PortChannel201', None)
