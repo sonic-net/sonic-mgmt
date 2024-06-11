@@ -17,6 +17,7 @@ from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.platform.processes_utils import wait_critical_processes
 
 
 logger = logging.getLogger(__name__)
@@ -753,6 +754,12 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
             logger.info(f"config changed. Doing config reload for {duthost.hostname}")
             config_reload(duthost, wait=120)
     duthosts.reset()
+
+    for duthost in duthosts.nodes:
+        if config_db_modified[duthost.hostname]:
+            # Wait until all critical processes are up,
+            # especially snmpd as it needs to be up for SNMP status verification
+            wait_critical_processes(duthost)
 
     # Verify mgmt-interface status
     mgmt_intf_name = "eth0"
