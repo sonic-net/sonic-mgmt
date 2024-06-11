@@ -15,7 +15,7 @@ from .util import parse_output
 from .util import get_dev_conn
 from tests.common.utilities import skip_release
 from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa F401
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until # noqa F811
 from tests.common.port_toggle import default_port_toggle_wait_time
 
 cmd_sfp_presence = "sudo sfputil show presence"
