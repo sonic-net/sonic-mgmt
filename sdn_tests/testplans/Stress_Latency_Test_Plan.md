@@ -22,7 +22,6 @@ The purpose of the gNMI stress test is to validate the robustness of the telemet
 
 The robustness is validated through the following methods
 
--   Monitoring the CPU load for the gNMI server
 -   Validation for the any unwanted process termination during the test
 -   Monitoring the memory usage of the system during the test
 -   Validate that the responses are received in the client from the gNMI server.
@@ -56,7 +55,7 @@ The GET response should contain the value of the request nodes. The expectation 
 ### Expectation
 
 -   The system should be able to handle concurrent subscribe requests with different modes (ONCE/POLL/STREAM).
--   The system should be able to reject invalid path( unsupported path )subscriptions. When the gNMI server implements the feature to silently accept the subscription for the unsupported path, the expectation for the unsupported path will change. This feature might be implemented in Q4 21.
+-   The system should be able to reject invalid path( unsupported path )subscriptions.
 
 -   GET, SET(update, delete, replace), Subscription
 
@@ -93,10 +92,6 @@ The key values are also randomly selected based on the testbed information. For 
 The infrastructure provides a fuzzing API to randomly select the list of paths, keys and gNMI operations to be validated along with the expected responses. The set of paths, keys, payload and expected response messages are provided as the artifact to the test cases.
 
 The list of paths will also include the paths which are not supported by the UMF and invalid keys. These paths are used in the test cases to validate the negative testing and gNMI server's performance metrics.
-
-The first few runs of these stress tests are used to establish the baseline benchmarks for each gNMI operation and for each test case. The baseline benchmarks are stored in the table along with the list of gNMI paths, payloads, keys and expected response. There will be another test which runs at the end of each test which analyzes the performance report against the baseline benchmarks for that system.The test will fail if the performance exceeds the benchmarks.
-
-We use up to 2 pictor clients, 6 SFE clients( 3 over inband and 3 over outerband ) for the gNMI service. The test plan assumes that max needed clients are 5(2 set and subscribe clients and 3 get/subscribe clients) for the stress testing based on the production use case.
 
 **Challenges:**
 
