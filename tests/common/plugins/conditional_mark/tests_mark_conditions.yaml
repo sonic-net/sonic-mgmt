@@ -421,6 +421,12 @@ dualtor/test_tunnel_memory_leak.py::test_tunnel_memory_leak:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11403 and 'dualtor-64' in topo_name"
 
+dualtor_io:
+  skip:
+    reason: "Testcase could only be executed on dualtor testbed."
+    conditions:
+      - "'dualtor' not in topo_name"
+
 dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_downstream[active-active]:
   xfail:
     reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16085"
