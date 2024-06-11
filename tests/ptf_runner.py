@@ -8,7 +8,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-def ptf_collect(host, log_file):
+def ptf_collect(host, log_file, skip_pcap=False):
     pos = log_file.rfind('.')
     filename_prefix = log_file[0:pos] if pos > -1 else log_file
 
@@ -18,21 +18,46 @@ def ptf_collect(host, log_file):
     filename_log = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.log'
     host.fetch(src=log_file, dest=filename_log, flat=True, fail_on_missing=False)
     allure.attach.file(filename_log, 'ptf_log: ' + filename_log, allure.attachment_type.TEXT)
+    if skip_pcap:
+        return
     pcap_file = filename_prefix + '.pcap'
     output = host.shell("[ -f {} ] && echo exist || echo null".format(pcap_file))['stdout']
     if output == 'exist':
-        filename_pcap = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.pcap'
-        host.fetch(src=pcap_file, dest=filename_pcap, flat=True, fail_on_missing=False)
+        # Compress the file
+        compressed_pcap_file = pcap_file + '.tar.gz'
+        host.archive(path=pcap_file, dest=compressed_pcap_file, format='gz')
+        # Copy compressed file from ptf to sonic-mgmt
+        filename_pcap = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.pcap.tar.gz'
+        host.fetch(src=compressed_pcap_file, dest=filename_pcap, flat=True, fail_on_missing=False)
         allure.attach.file(filename_pcap, 'ptf_pcap: ' + filename_pcap, allure.attachment_type.PCAP)
+
+
+def get_dut_type(host):
+    dut_type_stat = host.stat(path="/sonic/dut_type.txt")
+    if dut_type_stat["stat"]["exists"]:
+        dut_type = host.shell("cat /sonic/dut_type.txt")["stdout"]
+        if dut_type:
+            logger.info("DUT type is {}".format(dut_type))
+            return dut_type.lower()
+        else:
+            logger.warning("DUT type file is empty.")
+    else:
+        logger.warning("DUT type file doesn't exist.")
+    return "Unknown"
 
 
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
                socket_recv_size=None, log_file=None, device_sockets=[], timeout=0, custom_options="",
-               module_ignore_errors=False, is_python3=False):
+               module_ignore_errors=False, is_python3=False, async_mode=False):
     # Call virtual env ptf for migrated py3 scripts.
     # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
     # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
+    dut_type = get_dut_type(host)
+    if dut_type == "kvm" and params.get("kvm_support", True) is False:
+        logger.info("Skip test case {} for not support on KVM DUT".format(testname))
+        return True
+
     if is_python3:
         path_exists = host.stat(path="/root/env-python3/bin/ptf")
         if path_exists["stat"]["exists"]:
@@ -86,11 +111,12 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         host.create_macsec_info()
 
     try:
-        result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors)
-        if log_file:
-            ptf_collect(host, log_file)
-        if result:
-            allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
+        result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors, module_async=async_mode)
+        if not async_mode:
+            if log_file:
+                ptf_collect(host, log_file)
+            if result:
+                allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
         if module_ignore_errors:
             if result["rc"] != 0:
                 return result

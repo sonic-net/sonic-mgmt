@@ -11,7 +11,7 @@ GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
@@ -33,18 +33,19 @@ def check_image_version(duthost):
 
 
 @pytest.fixture(scope="module")
-def golden_config_exists_on_dut(duthost):
-    return file_exists_on_dut(duthost, GOLDEN_CONFIG)
+def golden_config_exists_on_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    return file_exists_on_dut(duthosts[enum_rand_one_per_hwsku_frontend_hostname], GOLDEN_CONFIG)
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
+def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Setup/teardown
     Args:
         duthost: DUT.
         golden_config_exists_on_dut: Check if golden config exists on DUT.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     topo_type = tbinfo["topo"]["type"]
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
@@ -74,6 +75,21 @@ def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
     config_reload(duthost)
 
 
+def compare_dicts_ignore_list_order(dict1, dict2):
+    def normalize(data):
+        if isinstance(data, list):
+            return set(data)
+        elif isinstance(data, dict):
+            return {k: normalize(v) for k, v in data.items()}
+        else:
+            return data
+
+    dict1_normalized = normalize(dict1)
+    dict2_normalized = normalize(dict2)
+
+    return dict1_normalized == dict2_normalized
+
+
 def load_minigraph_with_golden_empty_input(duthost):
     """Test Golden Config with empty input
     """
@@ -86,10 +102,17 @@ def load_minigraph_with_golden_empty_input(duthost):
     for table in initial_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
-        pytest_assert(
-            initial_config[table] == current_config[table],
-            "empty input compare fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            pytest_assert(
+                compare_dicts_ignore_list_order(initial_config[table], current_config[table]),
+                "empty input ACL_TABLE compare fail!"
+            )
+        else:
+            pytest_assert(
+                initial_config[table] == current_config[table],
+                "empty input compare fail! {}".format(table)
+            )
 
 
 def load_minigraph_with_golden_partial_config(duthost):
@@ -143,10 +166,17 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
     for table in full_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
-        pytest_assert(
-            full_config[table] == current_config[table],
-            "full config override fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            pytest_assert(
+                compare_dicts_ignore_list_order(full_config[table], current_config[table]),
+                "full config ACL_TABLE compare fail!"
+            )
+        else:
+            pytest_assert(
+                full_config[table] == current_config[table],
+                "full config override fail! {}".format(table)
+            )
 
 
 def load_minigraph_with_golden_empty_table_removal(duthost):
@@ -168,10 +198,10 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
 
 
 def test_load_minigraph_with_golden_config(duthosts, setup_env,
-                                           enum_rand_one_per_hwsku_hostname):
+                                           enum_rand_one_per_hwsku_frontend_hostname):
     """Test Golden Config override during load minigraph
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.is_multi_asic:
         pytest.skip("Skip override-config-table testing on multi-asic platforms,\
                     test provided golden config format is not compatible with multi-asics")

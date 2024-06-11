@@ -319,7 +319,7 @@ def __tgen_bgp_config(cvg_api,
             m = '0'+hex(i).split('0x')[1]
         else:
             m = hex(i).split('0x')[1]
-        lp.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
+        c_lag.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
         lp.ethernet.name = "lag_Ethernet %s" % i
         lp.ethernet.mac = "00:10:01:00:00:%s" % m
         config.devices.device(name='Topology %d' % i)
@@ -511,7 +511,7 @@ def get_convergence_for_local_link_failover(cvg_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert abs(sum(tx_frate) - sum(rx_frate)) < 500,\
+            assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
                 "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
@@ -608,7 +608,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
-            assert abs(sum(tx_frate) - sum(rx_frate)) < 500,\
+            assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
                 "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
@@ -709,7 +709,7 @@ def get_rib_in_convergence(cvg_api,
         for flow in flows:
             tx_frate.append(flow.frames_tx_rate)
             rx_frate.append(flow.frames_rx_rate)
-        assert abs(sum(tx_frate) - sum(rx_frate)) < 500,\
+        assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
             "Traffic has not convergedv, TxFrameRate:{},RxFrameRate:{}"\
             .format(sum(tx_frate), sum(rx_frate))
         logger.info("Traffic has converged after route advertisement")
@@ -750,7 +750,6 @@ def get_RIB_IN_capacity(cvg_api,
                         multipath,
                         start_value,
                         step_value,
-                        number_of_routes,
                         route_type,
                         port_speed,):
     """
@@ -776,7 +775,7 @@ def get_RIB_IN_capacity(cvg_api,
                 m = '0'+hex(i).split('0x')[1]
             else:
                 m = hex(i).split('0x')[1]
-            lp.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
+            c_lag.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
             lp.ethernet.name = "lag_Ethernet %s" % i
             lp.ethernet.mac = "00:10:01:00:00:%s" % m
             config.devices.device(name='Topology %d' % i)
@@ -828,7 +827,7 @@ def get_RIB_IN_capacity(cvg_api,
                 route_range = bgpv4_peer.v4_routes.add(
                     name="Network_Group%d" % i)
                 route_range.addresses.add(
-                    address='200.1.0.1', prefix=32, count=number_of_routes)
+                    address='200.1.0.1', prefix=32, count=routes)
                 as_path = route_range.as_path
                 as_path_segment = as_path.segments.add()
                 as_path_segment.type = as_path_segment.AS_SEQ
@@ -874,7 +873,7 @@ def get_RIB_IN_capacity(cvg_api,
                 route_range = bgpv6_peer.v6_routes.add(
                     name="Network Group %d" % i)
                 route_range.addresses.add(
-                    address='3000::1', prefix=64, count=number_of_routes)
+                    address='3000::1', prefix=64, count=routes)
                 as_path = route_range.as_path
                 as_path_segment = as_path.segments.add()
                 as_path_segment.type = as_path_segment.AS_SEQ
@@ -918,15 +917,18 @@ def get_RIB_IN_capacity(cvg_api,
 
     try:
         for j in range(start_value, 100000000000, step_value):
+            max_routes = start_value
             tx_frate, rx_frate = [], []
             run_traffic(j)
             flow_stats = get_flow_stats(cvg_api)
+            logger.info('\n')
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
             for flow in flow_stats:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
             logger.info("Tx Frame Rate : {}".format(tx_frate))
             logger.info("Rx Frame Rate : {}".format(rx_frate))
+            logger.info('\n')
             if float(flow_stats[0].loss) > 0.001:
                 if j == start_value:
                     raise Exception(

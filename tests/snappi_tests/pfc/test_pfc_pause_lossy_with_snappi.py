@@ -182,7 +182,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,                 # noqa F
 
     logger.info("Issuing a {} reboot on the dut {}".format(
         reboot_type, duthost.hostname))
-    reboot(duthost, localhost, reboot_type=reboot_type)
+    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
@@ -252,7 +252,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,                  # noqa F
 
     logger.info("Issuing a {} reboot on the dut {}".format(
         reboot_type, duthost.hostname))
-    reboot(duthost, localhost, reboot_type=reboot_type)
+    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")

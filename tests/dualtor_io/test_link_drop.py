@@ -24,6 +24,7 @@ from tests.common.dualtor.dual_tor_common import active_active_ports            
 from tests.common.dualtor.dual_tor_common import active_standby_ports                           # noqa F401
 from tests.common.dualtor.dual_tor_common import cable_type                                     # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -202,7 +203,8 @@ def test_active_link_drop_downstream_standby(
 
 def test_standby_link_drop_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    check_simulator_flap_counter, drop_flow_lower_tor_all               # noqa F811
+    check_simulator_flap_counter, drop_flow_lower_tor_all,              # noqa F811
+    toggle_all_simulator_ports_to_upper_tor                             # noqa F811
 ):
     """
     Send traffic from servers to T1 and remove the flow between the servers and the standby ToR.
@@ -225,7 +227,8 @@ def test_standby_link_drop_upstream(
 
 def test_standby_link_drop_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    check_simulator_flap_counter, drop_flow_lower_tor_all               # noqa F811
+    check_simulator_flap_counter, drop_flow_lower_tor_all,              # noqa F811
+    toggle_all_simulator_ports_to_upper_tor                             # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the active Tor and remove the flow between the
@@ -249,7 +252,8 @@ def test_standby_link_drop_downstream_active(
 
 def test_standby_link_drop_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    check_simulator_flap_counter, drop_flow_lower_tor_all               # noqa F811
+    check_simulator_flap_counter, drop_flow_lower_tor_all,              # noqa F811
+    toggle_all_simulator_ports_to_upper_tor                             # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the standby Tor and remove the flow between the

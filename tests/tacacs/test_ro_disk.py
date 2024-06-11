@@ -10,7 +10,7 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import wait
 from tests.common.reboot import reboot
 from .test_ro_user import ssh_remote_run
-from .utils import setup_tacacs_client
+from .utils import setup_tacacs_client, change_and_wait_aaa_config_update
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.platform.processes_utils import wait_critical_processes
 
@@ -39,6 +39,10 @@ def simulate_ro(duthost):
     duthost.shell("echo u > /proc/sysrq-trigger")
     logger.info("Disk turned to RO state; pause for 30s before attempting to ssh")
     assert wait_until(30, 2, 0, check_disk_ro, duthost), "disk not in ro state"
+
+    # Wait for disk remount finish
+    # TODO: check remount finish by rsyslog
+    time.sleep(10)
 
 
 def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
@@ -98,12 +102,13 @@ def do_reboot(duthost, localhost, duthosts):
 def do_setup_tacacs(ptfhost, duthost, tacacs_creds):
     logger.info('Upon reboot: setup tacacs_creds')
     tacacs_server_ip = ptfhost.mgmt_ip
-    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+    tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
+    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey, ptfhost)
 
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
     if 'ansible_hostv6' in ptfhost_vars:
         tacacs_server_ip = ptfhost_vars['ansible_hostv6']
-        setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+        setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey, ptfhost)
     logger.info('Upon reboot: complete: setup tacacs_creds')
 
 
@@ -123,6 +128,17 @@ def fetch_into_file(localhost, remote_ip, rwuser, rwpass, src_file, dst_file):
     cmd = "sshpass -p {} {}".format(rwpass, scp_cmd)
     ret = os.system(cmd)
     logger.info("ret={} cmd={}".format(ret, scp_cmd))
+
+
+def log_rotate(duthost):
+    try:
+        duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
+    except RunAnsibleModuleFail as e:
+        if "logrotate does not support parallel execution on the same set of logfiles" in e.message:
+            # command will failed when log already in rotating
+            logger.warning("logrotate command failed: {}".format(e))
+        else:
+            raise e
 
 
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
@@ -175,7 +191,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         duthost.copy(src=conf_path, dest="/etc/rsyslog.d/000-ro_disk.conf")
 
         # To get file in decent size. Force a rotate
-        duthost.shell("logrotate --force /etc/logrotate.d/rsyslog")
+        log_rotate(duthost)
 
         res = duthost.shell("systemctl restart rsyslog")
         assert res["rc"] == 0, "failed to restart rsyslog"
@@ -188,7 +204,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
 
         # Enable AAA failthrough authentication so that reboot function can be used
         # to reboot DUT
-        duthost.shell("config aaa authentication failthrough enable")
+        change_and_wait_aaa_config_update(duthost, "config aaa authentication failthrough enable")
 
         # Set disk in RO state
         simulate_ro(duthost)
@@ -227,3 +243,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         do_reboot(duthost, localhost, duthosts)
         logger.debug("  END: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
+
+        # log rotate during ro disk may cause syslog file contains garbled content
+        # garbled content will break loganalyzer, rotate again to cleanup syslog file.
+        log_rotate(duthost)

@@ -58,7 +58,10 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
 
     asichost = dut.asic_instance(enum_frontend_asic_index)
     service_name = asichost.get_service_name(service)
-    dut.command("sudo systemctl restart {}".format(service_name))
+    if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+        dut.shell("sudo systemctl stop {} && sleep 30 && sudo systemctl start {}".format(service_name, service_name))
+    else:
+        dut.command("sudo systemctl restart {}".format(service_name))
 
     for container in dut.get_default_critical_services_list():
         if is_service_hiting_start_limit(dut, container) is True:
@@ -70,9 +73,12 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
     wait_critical_processes(dut)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    pytest_assert(wait_until(300, 20, 0, check_interface_information, dut,
+    interface_wait_time = 300
+    if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+        interface_wait_time = 900
+    pytest_assert(wait_until(interface_wait_time, 20, 0, check_interface_information, dut,
                   enum_frontend_asic_index, interfaces, xcvr_skip_list),
-                  "Not all interface information are detected within 300 seconds")
+                  "Not all interface information are detected within {} seconds".format(interface_wait_time))
 
     logging.info("Check transceiver status on asic %s" % enum_frontend_asic_index)
     check_transceiver_basic(dut, enum_frontend_asic_index, interfaces, xcvr_skip_list)
@@ -98,7 +104,7 @@ def test_restart_swss(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_
     @summary: This test case is to restart the swss service and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    all_interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    all_interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
 
     if enum_frontend_asic_index is not None:
         # Get the interface pertaining to that asic
@@ -118,5 +124,5 @@ def test_restart_syncd(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend
     @summary: This test case is to restart the syncd service and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    restart_service_and_check(localhost, duthost, enum_frontend_asic_index,
-                              "syncd", conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list)
+    restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "syncd",
+                              conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}), xcvr_skip_list)

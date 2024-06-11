@@ -75,9 +75,9 @@
           <Name>V6HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/64</b:IPPrefix>
+            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/64</a:PrefixStr>
+          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
@@ -170,6 +170,9 @@
           <VlanID>{{ vlan_param['id'] }}</VlanID>
           <Tag>{{ vlan_param['tag'] }}</Tag>
           <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
+{% if 'secondary_subnet' in vlan_param %}
+          <SecondarySubnets>{{ vlan_param['secondary_subnet'] | ipaddr('network') }}/{{ vlan_param['secondary_subnet'] | ipaddr('secondary_subnet') }}<SecondarySubnets>
+{% endif %}
 {% if 'mac' in vlan_param %}
           <MacAddress>{{ vlan_param['mac'] }}</MacAddress>
 {% endif %}
@@ -208,6 +211,13 @@
           <AttachTo>{{ vlan }}</AttachTo>
           <Prefix>{{ vlan_param['prefix'] }}</Prefix>
         </IPInterface>
+{%if 'secondary_subnet' in vlan_param %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['secondary_subnet'] }}</Prefix>
+        </IPInterface>
+{% endif %}
 {% endfor %}
 {% for vlan, vlan_param in vlan_configs.items() %}
 {%   if 'prefix_v6' in vlan_param %}
@@ -270,8 +280,6 @@
           <Type>EverflowV6</Type>
         </AclInterface>
 {% if enable_data_plane_acl|default('true')|bool and vm_topo_config['topo_type'] != 'wan' %}
-        <AclInterface>
-          <AttachTo>
 {%- set acl_intfs = [] -%}
 {%- for index in range(vms_number) %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
@@ -287,11 +295,15 @@
 {% endif %}
 {% endif %}
 {% endfor -%}
+{%- if acl_intfs | length > 0 -%}
+        <AclInterface>
+          <AttachTo>
 {{- acl_intfs|join(';') -}}
           </AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
+{% endif %}
 {% endif %}
 {% endif %}
 {% endif %}

@@ -12,6 +12,7 @@ from utilities.utils import get_interface_number_from_name
 from utilities.utils import override_supported_ui
 from utilities.utils import get_supported_ui_type_list
 from utilities.utils import convert_intf_name_to_component
+from utilities.utils import get_random_space_string
 
 try:
     import apis.yang.codegen.messages.network_instance as umf_ni
@@ -313,10 +314,12 @@ def clear_mac(dut, port=None, vlan=None, **kwargs):
         if 'address' in kwargs:
             command = "clear mac address-table dynamic address  {}".format(kwargs['address'])
         elif vlan:
-            command = "clear mac address-table dynamic Vlan {}".format(vlan)
+            zero_or_more_space = get_random_space_string()
+            command = "clear mac address-table dynamic Vlan{}{}".format(zero_or_more_space, vlan)
         elif port:
+            zero_or_more_space = get_random_space_string()
             intf_data = get_interface_number_from_name(port)
-            command = "clear mac address-table dynamic interface {} {}".format(intf_data["type"], intf_data["number"])
+            command = "clear mac address-table dynamic interface {}{}{}".format(intf_data["type"], zero_or_more_space, intf_data["number"])
         else:
             command = "clear mac address-table dynamic all"
 
@@ -832,3 +835,55 @@ def verify_mac_dampening_disabled_ports(dut, **kwargs):
     match = {"port_list": kwargs['port_list']}
     entries = common_utils.filter_and_select(parsed_output, ["port_list"], match)
     return True if entries else False
+
+
+def verify_mac_table(dut, **kwargs):
+    """
+    API to verify whether mac address table is empty or not
+    :param dut:
+    :param interface:
+    :return:
+    """
+    check_for_empty = kwargs.get("check_for_empty", False)
+    if kwargs.get("interface"):
+        mac_list = get_mac(dut, interface=kwargs.get("interface"))
+    elif kwargs.get("vlan"):
+        mac_list = get_mac(dut, vlan=kwargs.get("vlan"))
+    else:
+        mac_list = get_mac(dut)
+    if not mac_list:
+        return True if check_for_empty else False
+    else:
+        return False if check_for_empty else True
+
+
+def config_system_l2nhg_profile(dut, **kwargs):
+    """
+    :param dut:
+    :param kwarfs:
+    :return:
+    res=mac_api.config_system_l2nhg_profile(dut, config='yes')
+    res=mac_api.config_system_l2nhg_profile(dut, config='no')
+    """
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
+    skiperr = kwargs.pop('skip_error', False)
+    my_cmd = ''
+    if 'config' in kwargs:
+        config = kwargs['config']
+    else:
+        config = 'yes'
+    if config.lower() == 'yes':
+        config_cmd = ''
+    else:
+        config_cmd = 'no'
+
+    if cli_type == 'klish' or cli_type == 'click':
+        my_cmd += 'switch-resource \n'
+        my_cmd += '{} l2-nexthop-group \n exit'.format(config_cmd)
+        out = st.config(dut, my_cmd, type=cli_type, skip_error_check=skiperr)
+        if '%Error:' in out:
+            return False
+        return True
+    else:
+        st.log("Unsupported CLI TYPE - {}".format(cli_type))
+        return False

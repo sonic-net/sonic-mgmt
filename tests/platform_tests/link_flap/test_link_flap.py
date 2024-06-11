@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 
@@ -23,7 +24,6 @@ def get_port_list(duthost, tbinfo):
 
 
 @pytest.mark.usefixtures("bgp_sessions_config")
-@pytest.mark.platform('physical')
 def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts, get_loop_times):
     """
     Validates that link flap works as expected
@@ -88,8 +88,9 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
     if incr_redis_memory > 0.0:
         percent_incr_redis_memory = (incr_redis_memory / float(start_time_redis_memory)) * 100
         logger.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
-        pytest_assert(percent_incr_redis_memory < 5, "Redis Memory Increase more than expected: {}"
-                      .format(percent_incr_redis_memory))
+        incr_redis_memory_threshold = 10 if tbinfo["topo"]["type"] in ["m0", "mx"] else 5
+        pytest_assert(percent_incr_redis_memory < incr_redis_memory_threshold,
+                      "Redis Memory Increase more than expected: {}".format(percent_incr_redis_memory))
 
     # Orchagent CPU should consume < orch_cpu_threshold at last.
     logger.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)

@@ -36,10 +36,11 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_presence:
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_revision:
   xfail:
-    reason: "Testcase consistently fails, raised issue to track"
+    reason: "[DX010] Testcase consistently fails, raised issue to track; [E1031] API 'get_revision' not implemented"
+    conditions_logical_operator: "OR"
     conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+      - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6512"
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_status:
   # Skip unsupported API test on Mellanox platform
@@ -89,14 +90,6 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
-platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_speed_tolerance:
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
-  #using RPM rather than thermalctld checking tolerance on percentages
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['cisco-8000']"
-
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
@@ -130,13 +123,10 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
-  #test_set_fans_speed requires get_speed_tolerance to be implemented
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
-  #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "asic_type in ['mellanox']"
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
@@ -269,14 +259,6 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_set_fan_drawers_le
 ##### api/test_fan_drawer_fans.py #####
 #######################################
 
-platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_fans_speed_tolerance:
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
-  #using RPM rather than thermalctld checking tolerance on percentages
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['cisco-8000']"
-
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_get_model:
   skip:
     reason: "Unsupported platform API"
@@ -298,13 +280,10 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_led
       - "asic_type in ['mellanox', 'cisco-8000']"
 
 platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_speed:
-  #test_set_fans_speed requires get_speed_tolerance to be implemented
-  #get_speed_tolerance API was disabled so platform code can perform fan tolerance checks
-  #using RPM rather than thermalctld checking tolerance on percentages
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "asic_type in ['mellanox']"
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
     conditions:
@@ -340,8 +319,10 @@ platform_tests/api/test_module.py::TestModuleApi::test_reboot:
 platform_tests/api/test_psu.py::TestPsuApi::test_fans:
   skip:
     reason: "Unsupported platform API"
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['mellanox']"
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
   skip:
@@ -351,10 +332,11 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_revision:
   xfail:
-    reason: "case failed and waiting for fix"
+    reason: "[DX010] case failed and waiting for fix; [E1031] API 'get_revision' not implemented"
+    conditions_logical_operator: "OR"
     conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+      - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6767"
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_serial:
   skip:
@@ -434,6 +416,17 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
 #######################################
 #####        api/test_sfp.py      #####
 #######################################
+platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['nvidia-bluefield']"
+  xfail:
+    reason: "Platform API 'get_error_description' not implemented"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/18229
+
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
   skip:
     reason: "Unsupported platform API"
@@ -444,7 +437,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_name:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'nvidia-bluefield']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_position_in_parent:
   skip:
@@ -456,7 +449,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_reset_status:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'nvidia-bluefield']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_los:
   skip:
@@ -518,17 +511,23 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['nvidia-bluefield']"
+
 platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox', 'nvidia-bluefield'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "'sw_to3200k' in hwsku"
+      - "'sw_to3200k' in hwsku or asic_type in ['nvidia-bluefield']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_thermals:
   skip:
@@ -702,13 +701,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
-platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
-  xfail:
-    strict: True
-    reason: "Image issue on 7050qx platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050_qx32s']"
-
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
@@ -755,7 +747,7 @@ platform_tests/mellanox:
   skip:
     reason: "Mellanox platform tests only supported on Mellanox devices"
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'nvidia-bluefield']"
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
@@ -767,10 +759,6 @@ platform_tests/mellanox/test_reboot_cause.py:
 ####    test_advanced_reboot      #####
 #######################################
 platform_tests/test_advanced_reboot.py:
-  xfail:
-    reason: "Xfail advanced reboot on TD3 due to known SAI issue in SAI 8.4+"
-    conditions:
-      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
   skip:
     reason: "Unsupported platform"
     conditions_logical_operator: or
@@ -778,14 +766,31 @@ platform_tests/test_advanced_reboot.py:
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
 
+platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
+  skip:
+    reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/11007
+
+#######################################
+####        test_kdump.py         #####
+#######################################
+platform_tests/test_kdump.py:
+  skip:
+    reason: "Not supported on Nokia-7215 platform"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+
 #######################################
 ####  test_memory_exhaustion.py   #####
 #######################################
 platform_tests/test_memory_exhaustion.py:
   skip:
     reason: "Unsupported release or platforms"
+    conditions_logical_operator: or
     conditions:
       - "(is_multi_asic==True and release in ['201911']) or (hwsku in ['Celestica-E1031-T48S4'])"
+      - "'dell_s6100' in platform"
 
 #######################################
 #####    test_platform_info.py    #####
@@ -918,3 +923,22 @@ platform_tests/test_sensors.py::test_sensors:
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
+
+#######################################
+##### test_service_warm_restart.py ####
+#######################################
+platform_tests/test_service_warm_restart.py:
+  skip:
+    reason: "Skip test_service_warm_restart on mellanox platform"
+    conditions:
+      - "asic_type in ['mellanox']"
+
+#######################################
+#####   test_xcvr_info_in_db.py   #####
+#######################################
+platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
+  xfail:
+    reason: "CLI Utility sfpshow not working correctly"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/18231

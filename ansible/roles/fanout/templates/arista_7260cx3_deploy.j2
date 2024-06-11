@@ -109,6 +109,24 @@ interface {{ intf }}
 !
 {% endfor %}
 !
+{% for i in range(65,67) %}
+{% set intf =  'Ethernet' + i|string  %}
+{%   if intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] == 'Trunk' %}
+interface {{ intf }}
+   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
+   switchport mode trunk
+   switchport trunk allowed vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
+   spanning-tree portfast
+{%     if device_conn[inventory_hostname][intf]['speed'] == "10000" %}
+   speed forced 10000full
+{%     endif %}
+   no shutdown
+{%   else %}
+interface {{  intf }}
+   shutdown
+{%   endif %}
+{% endfor %}
+!
 interface Management 1
  description TO LAB MGMT SWITCH
  ip address {{ device_info[inventory_hostname]["ManagementIp"] }}

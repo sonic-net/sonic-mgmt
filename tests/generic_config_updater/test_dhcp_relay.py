@@ -8,6 +8,7 @@ from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig, \
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
+
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
 ]
@@ -69,6 +70,7 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
     |       109 | 192.168.9.1/24   | Ethernet4 | tagged         | disabled    |                       |
     +-----------+------------------+-----------+----------------+-------------+-----------------------+
     """
+
     logger.info("CREATE TEST VLANS START")
     vlan_ports_list = [{
         'dev': first_avai_vlan_port,
@@ -152,7 +154,6 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
 
     dhcp_relay_info_before_test = get_dhcp_relay_info_from_all_vlans(duthost)
     create_checkpoint(duthost, SETUP_ENV_CP)
-
     # --------------------- Testing -----------------------
     yield
 
@@ -160,7 +161,6 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
     # Rollback twice. First rollback to checkpoint just before 'yield'
     # Second rollback is to back to original setup
     try:
-        # load first
         output = rollback(duthost, SETUP_ENV_CP)
         pytest_assert(
             not output['rc'] and "Config rolled back successfull" in output['stdout'],

@@ -6,6 +6,9 @@ import base64
 import re
 import subprocess
 
+from tests.common.helpers.constants import RANDOM_SEED
+
+
 logger = logging.getLogger()
 
 ALLURE_REPORT_URL = 'allure_report_url'
@@ -78,11 +81,14 @@ def get_setup_session_info(session):
     hwsku = re.compile(r"hwsku: +([^\s]+)\s", re.IGNORECASE)
     asic = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
 
+    random_seed = session.config.cache.get(RANDOM_SEED, None)
+
     result = {
         "Version": version.findall(output)[0] if version.search(output) else "",
         "Platform": platform.findall(output)[0] if platform.search(output) else "",
         "HwSKU": hwsku.findall(output)[0] if hwsku.search(output) else "",
-        "ASIC": asic.findall(output)[0] if asic.search(output) else ""
+        "ASIC": asic.findall(output)[0] if asic.search(output) else "",
+        "Random_seed": random_seed
     }
 
     return result

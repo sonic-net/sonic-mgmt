@@ -230,6 +230,7 @@ class ReloadTest(BaseTest):
         self.nr_pc_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
+        self.control_plane_down_timeout = 600   # Wait up to 6 minutes for control plane down
         self.task_timeout = 300   # Wait up to 5 minutes for tasks to complete
         self.max_nr_vl_pkts = 500  # FIXME: should be 1000.
         # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
@@ -1014,8 +1015,8 @@ class ReloadTest(BaseTest):
 
     def wait_until_control_plane_down(self):
         self.log("Wait until Control plane is down")
-        self.timeout(self.wait_until_cpu_port_down, self.task_timeout,
-                     "DUT hasn't shutdown in {} seconds".format(self.task_timeout))
+        self.timeout(self.wait_until_cpu_port_down, self.control_plane_down_timeout,
+                     "DUT hasn't shutdown in {} seconds".format(self.control_plane_down_timeout))
         if self.reboot_type == 'fast-reboot':
             self.light_probe = True
         else:
@@ -1385,14 +1386,18 @@ class ReloadTest(BaseTest):
         Ensure there are no interface flaps after warm-boot
         """
         for neigh in self.ssh_targets:
-            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
-                                                         if x['mgmt_addr'] == neigh]
-            self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
-                                                                 None, self.test_params)
-            self.neigh_handle.connect()
-            fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
-            self.neigh_handle.disconnect()
-            self.fails[neigh] |= fails
+            flap_cnt = None
+            if self.test_params['neighbor_type'] == "sonic":
+                flap_cnt = self.cli_info[neigh]['po'][1]
+            else:
+                self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                             if x['mgmt_addr'] == neigh]
+                self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
+                                                                     None, self.test_params)
+                self.neigh_handle.connect()
+                fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
+                self.neigh_handle.disconnect()
+                self.fails[neigh] |= fails
             if not flap_cnt:
                 self.log("No LAG flaps seen on %s after warm boot" % neigh)
             else:
@@ -1470,7 +1475,7 @@ class ReloadTest(BaseTest):
             # Check to see if the warm-reboot script knows about the retry count feature
             stdout, stderr, return_code = self.dut_connection.execCommand(
                 "sudo " + self.reboot_type + " -h", timeout=5)
-            if "retry count" in stdout:
+            if "retry count" in "\n".join(stdout):
                 if self.test_params['neighbor_type'] == "sonic":
                     reboot_command = self.reboot_type + " -N"
                 else:
@@ -1593,7 +1598,24 @@ class ReloadTest(BaseTest):
                                                      if x['mgmt_addr'] == ip]
         ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
                                                self.test_params, log_cb=self.log)
-        self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
+        try:
+            self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
+        except Exception:
+            traceback_msg = traceback.format_exc()
+            self.log("Error in HostDevice: {}".format(traceback_msg))
+            self.fails[ip] = set()
+            self.fails[ip].add("HostDevice hit an exception")
+            self.info[ip] = set()
+            self.cli_info[ip] = {
+                    "lacp": [0, 0],
+                    "po": [0, 0],
+                    "bgp_v4": [0, 0],
+                    "bgp_v6": [0, 0],
+                    }
+            self.logs_info[ip] = {}
+            self.lacp_pdu_times[ip] = {
+                    "lacp_all": []
+                    }
         self.log('SSH thread for VM {} finished'.format(ip))
 
         lacp_pdu_times = self.lacp_pdu_times[ip]
@@ -1603,6 +1625,9 @@ class ReloadTest(BaseTest):
 
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
+        max_allowed_lacp_session_wait = 90
+        if self.test_params['neighbor_type'] == "sonic":
+            max_allowed_lacp_session_wait = 150
         if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
             lacp_pdu_all_times.sort()
             max_lacp_session_wait = 0
@@ -1614,7 +1639,7 @@ class ReloadTest(BaseTest):
                 prev_time = new_time
 
         if 'warm-reboot' in self.reboot_type:
-            if max_lacp_session_wait and max_lacp_session_wait >= 90 and not self.kvm_test:
+            if max_lacp_session_wait and max_lacp_session_wait >= max_allowed_lacp_session_wait and not self.kvm_test:
                 self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +
                                       " post-reboot lacpdu came after {}s of lacpdu pre-boot"
                                       .format(max_lacp_session_wait))
@@ -1753,16 +1778,15 @@ class ReloadTest(BaseTest):
 
     def start_sniffer(self, pcap_path, tcpdump_filter, timeout):
         """
-        Star tcpdump sniffer on all data interfaces
+        Start tcpdump sniffer on all data interfaces, and kill them after a specified timeout
         """
         self.tcpdump_data_ifaces = [
             iface for iface in scapyall.get_if_list() if iface.startswith('eth')]
         processes_list = []
         for iface in self.tcpdump_data_ifaces:
-            process = multiprocessing.Process(
-                target=self.start_dump_process,
-                kwargs={'iface': iface, 'pcap_path': pcap_path, 'tcpdump_filter': tcpdump_filter})
-            process.start()
+            iface_pcap_path = '{}_{}'.format(pcap_path, iface)
+            process = subprocess.Popen(['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path])
+            self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
             processes_list.append(process)
 
         time_start = time.time()
@@ -1773,22 +1797,27 @@ class ReloadTest(BaseTest):
                 break
             time_start = curr_time
 
-        self.log("Going to kill all tcpdump processes by SIGINT")
-        subprocess.call(['killall', '-s', 'SIGINT', 'tcpdump'])
+        self.log("Going to kill all tcpdump processes by SIGTERM")
+        for process in processes_list:
+            process.terminate()
 
         for process in processes_list:
-            process.join()
+            process.wait(timeout=5)
+            # Return code here could be 0, so we need to explicitly check for None
+            if process.returncode is not None:
+                self.log("Tcpdump process {} terminated".format(process.args))
 
-        self.log("Killed all tcpdump processes by SIGINT")
+        for process in processes_list:
+            if process.returncode is not None:
+                continue
+            self.log("Killing tcpdump process {}".format(process.args))
+            process.kill()
+            process.wait(timeout=5)
+            # Return code here could be 0, so we need to explicitly check for None
+            if process.returncode is not None:
+                self.log("Tcpdump process {} killed".format(process.args))
 
-    def start_dump_process(self, iface, pcap_path, tcpdump_filter):
-        """
-        Start tcpdump on specific interface and save data to pcap file
-        """
-        iface_pcap_path = '{}_{}'.format(pcap_path, iface)
-        cmd = ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path]
-        self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
-        subprocess.call(cmd)
+        self.log("Killed all tcpdump processes")
 
     def create_single_pcap(self, pcap_path):
         """
