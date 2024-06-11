@@ -4,6 +4,8 @@ package mgmt_interface_test
 
 import (
 	"errors"
+	"fmt"
+	"math/rand"
 	"net"
 	"testing"
 	"time"
@@ -350,5 +352,144 @@ func TestOutCounters(t *testing.T) {
 	}
 	if initialState.GetOutPkts() >= nextState.GetOutPkts() {
 		t.Errorf("MGMT component (%v) out-pkts did not increase as expected %v -> %v", bond0Name, initialState.GetOutPkts(), nextState.GetOutPkts())
+	}
+}
+
+// -----------------------------------------------------------------------------
+// IPv4 path tests
+// -----------------------------------------------------------------------------
+func TestSetIPv4AddressAndPrefixLength(t *testing.T) {
+	// This test confirms that a new IPv4 address and prefix-length can be added.
+	// Note: the entire "tree" has to be added in one gNMI operation.  (The IP and
+	// prefix length cannot be written separately.)
+	// formed.
+	// Paths tested:
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv4/addresses/address[ip=<address>]/config/ip
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv4/addresses/address[ip=<address>]/config/prefix-length
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv4/addresses/address[ip=<address>]/state/ip
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv4/addresses/address[ip=<address>]/state/prefix-length
+	defer testhelper.NewTearDownOptions(t).WithID("64003075-93a5-41b3-b962-74e9f36dde94").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	mockConfigPush(t)
+
+	// We can't change the management interface IP address; the connection via the
+	// proxy would be lost.  We can, however, write the existing value again.
+	newIPv4Info, err := fetchMgmtIPv4AddressAndPrefix(t)
+	restoreIPv4State := false
+
+	if err != nil {
+		// If IPv4 is not used in the testbed, we can set a valid address.
+		t.Logf("Unable to fetch IPv4 management address: %v", err)
+		t.Logf("We will create an unused one.")
+		// Address is [16:126].[0:255].[0:255].[0:255].
+		start, end := 16, 126
+		firstPrefixPart1 := make([]int, end-start+1)
+		for i := range firstPrefixPart1 {
+			firstPrefixPart1[i] = i + start
+		}
+		start, end = 128, 223
+		firstPrefixPart2 := make([]int, end-start+1)
+		for i := range firstPrefixPart2 {
+			firstPrefixPart2[i] = i + start
+		}
+		firstPrefix := append(firstPrefixPart1, firstPrefixPart2...)
+
+		newAddr := fmt.Sprintf("%d.%d.%d.%d", firstPrefix[rand.Int()%len(firstPrefix)], rand.Intn(256), rand.Intn(256), rand.Intn(256))
+		newPrefix := uint8(rand.Intn(27) + 5) // 5 to 31
+		newIPv4Info = ipAddressInfo{address: newAddr, prefixLength: newPrefix}
+		restoreIPv4State = true
+	}
+
+	d := &oc.Root{}
+	iface := d.GetOrCreateInterface(bond0Name).GetOrCreateSubinterface(interfaceIndex)
+	newV4 := iface.GetOrCreateIpv4().GetOrCreateAddress(newIPv4Info.address)
+	newV4.Ip = &newIPv4Info.address
+	newV4.PrefixLength = &newIPv4Info.prefixLength
+
+	ipv4 := gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv4().Address(newIPv4Info.address)
+	gnmi.Replace(t, dut, gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv4().Address(newIPv4Info.address).Config(), newV4)
+	if restoreIPv4State {
+		defer gnmi.Delete(t, dut, gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv4().Address(newIPv4Info.address).Config())
+	}
+	// Give the configuration a chance to become active.
+	time.Sleep(1 * time.Second)
+
+	if observed := gnmi.Get(t, dut, ipv4.State()); observed.GetIp() != newIPv4Info.address || observed.GetPrefixLength() != newIPv4Info.prefixLength {
+		t.Errorf("MGMT component (%v) address match failed! state-path-value:%v/%v (want:%v/%v)", bond0Name, observed.GetIp(), observed.GetPrefixLength(), newIPv4Info.address, newIPv4Info.prefixLength)
+	}
+}
+
+func TestSetIPv4InvalidAddress(t *testing.T) {
+	// This test confirms that an invalid IPv4 address cannot be set.
+	// IPv4 addresses that begin with 0 or 255 (e.g. 255.1.2.3 or 0.4.5.6) are
+	// considered invalid.
+	// Paths tested:
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv4/addresses/address[ip=<address>]/config/ip
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv4/addresses/address[ip=<address>]/state/ip
+	defer testhelper.NewTearDownOptions(t).WithID("00acbce9-069e-43e1-a511-9b45bb3ad5b0").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	mockConfigPush(t)
+
+	var invalidIPPaths = []string{
+		fmt.Sprintf("255.%v.%v.%v", rand.Intn(256), rand.Intn(256), rand.Intn(256)),
+		fmt.Sprintf("0.%v.%v.%v", rand.Intn(256), rand.Intn(256), rand.Intn(256)),
+	}
+	configuredIPv4PrefixLength := uint8(16)
+
+	for _, invalidIPPath := range invalidIPPaths {
+
+		d := &oc.Root{}
+		iface := d.GetOrCreateInterface(bond0Name).GetOrCreateSubinterface(interfaceIndex)
+		newV4 := iface.GetOrCreateIpv4().GetOrCreateAddress(invalidIPPath)
+		newV4.Ip = &invalidIPPath
+		newV4.PrefixLength = &configuredIPv4PrefixLength
+
+		ipv4 := gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv4().Address(invalidIPPath)
+		ipv4Config := gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv4().Address(invalidIPPath)
+		// Cannot write invalid IPv4 address.
+		testt.ExpectFatal(t, func(t testing.TB) {
+			gnmi.Replace(t, dut, ipv4Config.Config(), newV4)
+		})
+
+		// There should be no IP set with the invalid IPv4 address.
+		testt.ExpectFatal(t, func(t testing.TB) {
+			observedIP := gnmi.Get(t, dut, ipv4.Ip().State())
+			t.Logf("MGMT component (%v) observed IPv4 address: %v.", bond0Name, observedIP)
+		})
+	}
+}
+
+// -----------------------------------------------------------------------------
+// IPv6 path tests
+// -----------------------------------------------------------------------------
+func TestGetIPv6DefaultInfo(t *testing.T) {
+	// This test confirms that generic IPv6 information can be read and is well
+	// formed.
+	// Paths tested:
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv6/addresses/address[ip=<address>]/state/ip
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv6/addresses/address[ip=<address>]/state/prefix-length
+	defer testhelper.NewTearDownOptions(t).WithID("5bc725a2-befe-4154-bd7d-d390c87dc4d8").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	mockConfigPush(t)
+
+	configuredIPv6Info, err := fetchMgmtIPv6AddressAndPrefix(t)
+	if err != nil {
+		t.Fatalf("Unable to fetch IPv6 management address: %v", err)
+	}
+	ipv6 := gnmi.Get(t, dut, gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv6().Address(configuredIPv6Info.address).State())
+
+	if *ipv6.PrefixLength >= 128 {
+		t.Errorf("MGMT component (%v) has an incorrect prefix-length: %v (want: [0:127]) on subinterface %v with IP %v", bond0Name, *ipv6.PrefixLength, interfaceIndex, configuredIPv6Info.address)
+	}
+	parsedIP := net.ParseIP(*ipv6.Ip)
+	if parsedIP == nil {
+		t.Fatalf("MGMT component (%v) has an incorrectly formatted IPv6 address: %v", bond0Name, *ipv6.Ip)
+	}
+	ipAsBytes := parsedIP.To16()
+	if ipAsBytes == nil {
+		t.Fatalf("MGMT component (%v) has an incorrectly formatted IPv6 address: %v could not be parsed", bond0Name, *ipv6.Ip)
+	}
+	if len(ipAsBytes) != 16 {
+		t.Fatalf("MGMT component (%v) IPv6 address is only %v bytes.", bond0Name, len(ipAsBytes))
 	}
 }
