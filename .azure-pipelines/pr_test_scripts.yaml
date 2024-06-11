@@ -239,12 +239,12 @@ multi-asic-t1-lag:
   - process_monitoring/test_critical_process_monitoring.py
   - container_checker/test_container_checker.py
   - http/test_http_copy.py
+  - generic_config_updater/test_multiasic_scenarios.py
+
 
 t2:
   - test_vs_chassis_setup.py
   - voq/test_voq_init.py
-  - generic_config_updater/test_multiasic_scenarios.py
-
 wan-pub:
   - system_health/test_system_status.py
   - snmp/test_snmp_cpu.py
