@@ -15,9 +15,7 @@ from .util import parse_output
 from .util import get_dev_conn
 from tests.common.utilities import skip_release
 from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa F401
-from .conftest import StopXcvrd
 from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.port_toggle import default_port_toggle_wait_time
 
 cmd_sfp_presence = "sudo sfputil show presence"
@@ -25,6 +23,12 @@ cmd_sfp_eeprom = "sudo sfputil show eeprom"
 cmd_sfp_reset = "sudo sfputil reset"
 cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
 cmd_sfp_set_lpmode = "sudo sfputil lpmode"
+cmd_config_intf_dom = "config interface {} transceiver dom {} {}"
+cmd_config_intf_action = "config interface {} {} {}"
+cmd_intf_startup = "startup"
+cmd_intf_shutdown = "shutdown"
+cmd_dom_disable = "disable"
+cmd_dom_enable = "enable"
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +55,105 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
+
+
+def get_namespace_cmd_option(duthost, asic_index):
+    """Get the namespace option used in the command"""
+    namespace = duthost.get_namespace_from_asic_id(asic_index)
+    return "-n {}".format(namespace) if namespace else ""
+
+
+def get_down_ports(duthost, ports, expect_up=True):
+    """Check and return the down ports among the given ports."""
+    ports_down = duthost.interface_facts(up_ports=ports)["ansible_facts"][
+        "ansible_interface_link_down_ports"]
+    db_ports_down = duthost.show_interface(command="status", up_ports=ports)["ansible_facts"][
+        "ansible_interface_link_down_ports"]
+    if expect_up:
+        return set(ports_down) | set(db_ports_down)
+    else:
+        return set(ports_down) & set(db_ports_down)
+
+
+def poll_interface_status(duthost, ports, expect_up=True):
+    if expect_up:
+        return len(get_down_ports(duthost, ports, expect_up)) == 0
+    else:
+        return len(get_down_ports(duthost, ports, expect_up)) == len(ports)
+
+
+def check_interface_status(duthost, ports, expect_up=True, wait_time=None):
+    expect_status_str = "up" if expect_up else "down"
+    err_msg = ""
+
+    if wait_time is None:
+        port_down_wait_time, port_up_wait_time = \
+            default_port_toggle_wait_time(duthost, len(ports))
+        if expect_up:
+            wait_time = port_up_wait_time
+        else:
+            wait_time = port_down_wait_time
+
+    logging.info("Wait for ports to come {}: {}".format(expect_status_str, ports))
+    is_ok = wait_until(wait_time, 5, 0,
+                       poll_interface_status,
+                       duthost, ports, expect_up)
+
+    if not is_ok:
+        down_ports = get_down_ports(duthost, ports)
+        if expect_up:
+            problematic_ports = down_ports
+        else:
+            problematic_ports = set(ports) - down_ports
+
+        err_msg = "Some ports did not come {} as expected: {}".format(
+            expect_status_str, str(problematic_ports))
+    return is_ok, err_msg
+
+
+def get_intfs_to_test(duthost,
+                      conn_graph_facts,
+                      enum_frontend_asic_index,
+                      xcvr_skip_list):
+    """
+    Get the logical interfaces to test for given asic, excluding the skipped
+    ones and the ones with duplicate physical port index. Since sfputil takes
+    logic interface as argument but effects module at the granularity of
+    physical port, there's no need to test the interfaces with duplicate
+    physical port indx.
+
+    return:
+        intfs_to_test: dict of all interfaces to test (key: interface name,
+            value: physical port index)
+        intfs: list of all interfaces, including the ones with duplicate
+            physical port index (In the case of breakout, intfs can be
+            different from intfs_to_test)
+    """
+    portmap, dev_conn = get_dev_conn(duthost,
+                                     conn_graph_facts,
+                                     enum_frontend_asic_index)
+    # dict of all interfaces to test, excluding the ones with duplicate physical
+    # port index
+    intfs_to_test = {}
+    # list of all interfaces, including the ones with duplicate physical port
+    # index
+    intfs = []
+    physical_ports = set()
+
+    for intf in dev_conn:
+        # Skip the interfaces in the skip list
+        if intf in xcvr_skip_list[ans_host.hostname]:
+            continue
+        intfs.append(intf)
+        physical_port_idx = portmap[intf][0]
+        # Skip the interfaces with duplicate physical port index
+        # e.g. breakout interfaces
+        if physical_port_idx in physical_ports:
+            continue
+        physical_ports.add(physical_port_idx)
+        intfs_to_test[intf] = physical_port_idx
+    logging.info("Interfaces to test: {}".format(intfs_to_test))
+    return intfs_to_test, intfs
 
 
 @pytest.mark.parametrize("cmd_sfp_error_status",
@@ -108,78 +211,57 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     """
     @summary: Check SFP reset using 'sfputil reset'
     """
-    def __get_down_ports(expect_up=True):
-        """Check and return the down ports"""
-        ports_down = duthost.interface_facts(up_ports=ports)["ansible_facts"][
-            "ansible_interface_link_down_ports"]
-        db_ports_down = duthost.show_interface(command="status", up_ports=ports)["ansible_facts"][
-            "ansible_interface_link_down_ports"]
-        if expect_up:
-            return set(ports_down) | set(db_ports_down)
-        else:
-            return set(ports_down) & set(db_ports_down)
-
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     global ans_host
     ans_host = duthost
-    portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
-    tested_physical_ports = set()
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    ports = mg_facts["minigraph_ports"]
-    stop_xcvrd = StopXcvrd(duthost)
-    port_down_wait_time, port_up_wait_time = default_port_toggle_wait_time(duthost, len(ports))
     wait_after_restore_lpmode = 10
-    wait_after_restore_xcvrd = 15
     wait_after_ports_up = 60
+    wait_after_dom_config = 5
+    intfs_to_test, intfs = get_intfs_to_test(duthost,
+                                             conn_graph_facts,
+                                             enum_frontend_asic_index,
+                                             xcvr_skip_list)
 
-    # Form cmds to shutdown and startup ports
+    # Form config interface cmds
     cmds_down = []
     cmds_up = []
-    for port in ports:
-        namespace = '-n {}'.format(mg_facts["minigraph_neighbors"][port]['namespace']) \
-            if mg_facts["minigraph_neighbors"][port]['namespace'] else ''
-        cmds_down.append("config interface {} shutdown {}".format(namespace, port))
-        cmds_up.append("config interface {} startup {}".format(namespace, port))
+    cmds_disable_dom = []
+    cmds_enable_dom = []
+    for intf in intfs_to_test:
+        namespace_cmd_opt = get_namespace_cmd_option(
+            duthost, enum_frontend_asic_index)
+        cmds_down.append(cmd_config_intf_action.format(
+            namespace_cmd_opt, cmd_intf_shutdown, intf))
+        cmds_up.append(cmd_config_intf_action.format(
+            namespace_cmd_opt, cmd_intf_startup, intf))
+        cmds_disable_dom.append(cmd_config_intf_dom.format(
+            namespace_cmd_opt, intf, cmd_dom_disable))
+        cmds_enable_dom.append(cmd_config_intf_dom.format(
+            namespace_cmd_opt, intf, cmd_dom_enable))
 
     # It's needed to shutdown ports before reset and startup ports after reset,
     # to get config/state machine/etc replayed, so that the modules can be fully
     # restored.
     logging.info("Shutdown ports before sfp reset")
-    shutdown_ok = False
-    shutdown_err_msg = ""
-    try:
-        duthost.shell_cmds(cmds=cmds_down)
-
-        logging.info("Wait for ports to go down")
-        shutdown_ok = wait_until(port_down_wait_time, 5, 0,
-                                 lambda: len(__get_down_ports(expect_up=False)) == len(ports))
-
-        if not shutdown_ok:
-            up_ports = __get_down_ports(expect_up=True)
-            shutdown_err_msg = "Some ports did not go down as expected: {}".format(str(up_ports))
-    except Exception as e:
-        shutdown_err_msg = "Shutdown ports failed with exception: {}".format(repr(e))
-    pytest_assert(shutdown_ok, shutdown_err_msg)
+    shutdown_result = duthost.shell_cmds(cmds=cmds_down)
+    assert any([r["rc"] for r in shutdown_result["results"]]) == 0, "Shutdown ports failed"
+    assert check_interface_status(duthost, intfs, expect_up=False)
 
     logging.info("Check output of '{}' before sfp reset".format(cmd_sfp_show_lpmode))
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     original_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
 
-    # Stop xcvrd to avoid race condition with eeprom polling thread in xcvrd
-    logging.info("Stop xcvrd before sfp reset")
-    stop_xcvrd.setup()
-    for intf in dev_conn:
-        if intf not in xcvr_skip_list[duthost.hostname]:
-            phy_intf = portmap[intf][0]
-            if phy_intf in tested_physical_ports:
-                logging.info(
-                    "skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
-                continue
-            tested_physical_ports.add(phy_intf)
-            logging.info("resetting {} physical interface {}".format(intf, phy_intf))
-            reset_result = duthost.command("{} {}".format(cmd_sfp_reset, intf))
-            assert reset_result["rc"] == 0, "'{} {}' failed".format(cmd_sfp_reset, intf)
-            time.sleep(5)
+    logging.info("Disable DOM polling to avoid race condition during sfp reset")
+    disable_dom_result = duthost.shell_cmds(cmds=cmds_disable_dom)
+    assert any([r["rc"] for r in disable_dom_result["results"]]) == 0, "Disable DOM polling failed"
+    time.sleep(wait_after_dom_config)
+
+    for intf, phy_intf in intfs_to_test.items():
+        cmd_sfp_reset_intf = "{} {}".format(cmd_sfp_reset, intf)
+        logging.info("resetting {} physical interface {}".format(intf, phy_intf))
+        reset_result = duthost.command(cmd_sfp_reset_intf)
+        assert reset_result["rc"] == 0, "'{}' failed".format(cmd_sfp_reset_intf)
+        time.sleep(5)
     sleep_time = 60
     if duthost.shell("show interfaces transceiver eeprom | grep 400ZR", module_ignore_errors=True)['rc'] == 0:
         sleep_time = 90
@@ -190,56 +272,42 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     logging.info("Check sfp presence again after reset")
     sfp_presence = duthost.command(cmd_sfp_presence)
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
-    for intf in dev_conn:
-        if intf not in xcvr_skip_list[duthost.hostname]:
-            assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
-            assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
+    for intf in intfs:
+        assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
+        assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
     # Restore lpmode if needed, because sfp reset will reset lpmode to default
     logging.info("Check output of '{}' after sfp reset".format(cmd_sfp_show_lpmode))
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     after_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
-    physical_ports_restored_lpmode = set()
-    for intf, after_lpmode_state in after_lpmode.items():
-        physical_port = portmap[intf][0]
-        after_lpmode_state = after_lpmode_state.lower()
+    num_physical_ports_restored_lpmode = 0
+    for intf, phy_intf in intfs_to_test.items():
+        after_lpmode_state = after_lpmode[intf].lower()
         original_lpmode_state = original_lpmode[intf].lower()
-        if physical_port not in tested_physical_ports \
-           or physical_port in physical_ports_restored_lpmode:
-            continue
         if after_lpmode_state == original_lpmode_state:
             continue
         logging.info("Restoring {} physical interface {} to lpmode {}".format(
-            intf, physical_port, original_lpmode_state))
-        lpmode_set_result = duthost.command("{} {} {}".format(cmd_sfp_set_lpmode, original_lpmode_state, intf))
-        assert lpmode_set_result["rc"] == 0, "'{} {} {}' failed".format(cmd_sfp_set_lpmode, original_lpmode_state, intf)
-        physical_ports_restored_lpmode.add(physical_port)
-    if physical_ports_restored_lpmode:
+            intf, phy_intf, original_lpmode_state))
+        cmd_sfp_set_lpmode_to_original = "{} {} {}".format(cmd_sfp_set_lpmode,
+                                                           original_lpmode_state,
+                                                           intf)
+        lpmode_set_result = duthost.command(cmd_sfp_set_lpmode_to_original)
+        assert lpmode_set_result["rc"] == 0, "'{}' failed".format(cmd_sfp_set_lpmode_to_original)
+        num_physical_ports_restored_lpmode += 1
+    if num_physical_ports_restored_lpmode:
         time.sleep(wait_after_restore_lpmode)
     else:
         logging.info("No physical ports to restore lpmode")
 
-    # Restore xcvrd
-    logging.info("Start xcvrd after sfp reset")
-    stop_xcvrd.teardown()
-    logging.info("Wait some time for xcvrd to fully recover after restart")
-    time.sleep(wait_after_restore_xcvrd)
+    logging.info("Restore DOM polling after sfp reset")
+    enable_dom_result = duthost.shell_cmds(cmds=cmds_enable_dom)
+    assert any([r["rc"] for r in enable_dom_result["results"]]) == 0, "Enable DOM polling failed"
+    time.sleep(wait_after_dom_config)
 
     logging.info("Startup ports after sfp reset to restore modules")
-    startup_ok = False
-    startup_err_msg = ""
-    try:
-        duthost.shell_cmds(cmds=cmds_up)
-
-        logging.info("Wait for ports to come up")
-        startup_ok = wait_until(port_up_wait_time, 5, 0, lambda: len(__get_down_ports()) == 0)
-
-        if not startup_ok:
-            down_ports = __get_down_ports()
-            startup_err_msg = "Some ports did not come up as expected: {}".format(str(down_ports))
-    except Exception as e:
-        startup_err_msg = "Startup ports failed with exception: {}".format(repr(e))
-    pytest_assert(startup_ok, startup_err_msg)
+    startup_result = duthost.shell_cmds(cmds=cmds_up)
+    assert any([r["rc"] for r in startup_result["results"]]) == 0, "Startup ports failed"
+    assert check_interface_status(duthost, intfs, expect_up=True)
 
     logging.info("Wait %d seconds for system to stabilize", wait_after_ports_up)
     time.sleep(wait_after_ports_up)

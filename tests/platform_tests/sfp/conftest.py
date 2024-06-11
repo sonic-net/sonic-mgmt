@@ -77,35 +77,3 @@ def stop_xcvrd(duthost):
     if pmon_file_created:
         duthost.shell('rm {}'.format(pmon_daemon_file_path))
     restart_pmon(duthost)
-
-
-class StopXcvrd:
-    """
-    Class to stop xcvrd for certain test actions.
-    This is especially useful when only part of the testcase requires xcvrd to
-    be stopped, which provides more granularity than fixture stop_xcvrd.
-    """
-    def __init__(self, duthost):
-        self.duthost = duthost
-        dut_platfrom = duthost.facts['platform']
-        self.pmon_daemon_path = os.path.join("/usr/share/sonic/device", dut_platfrom)
-        self.pmon_daemon_file_path = os.path.join(self.pmon_daemon_path, "pmon_daemon_control.json")
-        self.pmon_file_created = check_pmon_file_and_create(duthost, self.pmon_daemon_path, self.pmon_daemon_file_path)
-        self.original_file_path = backup_original_daemon_file(duthost, self.pmon_daemon_file_path)
-
-    def setup(self):
-        """Stop xcvrd before test actions"""
-        cmd = self.duthost.shell('cat {}'.format(self.pmon_daemon_file_path))
-        daemon_control_dict = json.loads(cmd['stdout'])
-        modified_dict = modify_daemon_file(daemon_control_dict)
-        temp_path = os.path.join("/tmp", "pmon_daemon_control.json")
-        create_json_file(temp_path, modified_dict)
-        self.duthost.copy(src=temp_path, dest=self.pmon_daemon_file_path)
-        restart_pmon(self.duthost)
-
-    def teardown(self):
-        """Restore xcvrd after test actions are done"""
-        self.duthost.shell("mv {} {}".format(self.original_file_path, self.pmon_daemon_file_path))
-        if self.pmon_file_created:
-            self.duthost.shell('rm {}'.format(self.pmon_daemon_file_path))
-        restart_pmon(self.duthost)
