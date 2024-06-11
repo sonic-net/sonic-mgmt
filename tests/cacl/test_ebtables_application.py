@@ -1,5 +1,6 @@
 import pytest
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
@@ -13,6 +14,7 @@ def generate_expected_rules(duthost):
     ebtables_rules.append("-d BGA -j DROP")
     ebtables_rules.append("-p ARP -j DROP")
     ebtables_rules.append("-p 802_1Q --vlan-encap ARP -j DROP")
+    ebtables_rules.append("-d Multicast -j DROP")
     return ebtables_rules
 
 

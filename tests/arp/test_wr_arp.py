@@ -9,6 +9,7 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses             
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 logger = logging.getLogger(__name__)
@@ -256,7 +257,7 @@ class TestWrArp:
 
         logger.info('Warm-Reboot Control-Plane assist feature')
         sonicadmin_alt_password = duthost.host.options['variable_manager'].\
-            _hostvars[duthost.hostname].get("ansible_altpassword")
+            _hostvars[duthost.hostname]['sonic_default_passwords']
         ptf_runner(
             ptfhost,
             'ptftests',
@@ -285,7 +286,7 @@ class TestWrArp:
 
         logger.info('Warm-Reboot Control-Plane assist feature')
         sonicadmin_alt_password = duthost.host.options['variable_manager'].\
-            _hostvars[duthost.hostname].get("ansible_altpassword")
+            _hostvars[duthost.hostname]['sonic_default_passwords']
         ptf_runner(
             ptfhost,
             'ptftests',
