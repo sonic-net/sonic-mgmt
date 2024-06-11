@@ -435,6 +435,12 @@ dualtor/test_tunnel_memory_leak.py::test_tunnel_memory_leak:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11403 and 'dualtor-64' in topo_name"
 
+dualtor_io:
+  skip:
+    reason: "Testcase could only be executed on dualtor testbed."
+    conditions:
+      - "'dualtor' not in topo_name"
+
 dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_downstream[active-active]:
   xfail:
     reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16085"
@@ -1456,9 +1462,8 @@ snmp/test_snmp_link_local.py:
   skip:
     reason: "SNMP over IPv6 support not present in release branches."
     conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/6108
       - "is_multi_asic==False"
-      - "release in ['202205', '202211', '202305']"
+      - "release in ['202205', '202211', '202305', '202311']"
 
 snmp/test_snmp_loopback.py::test_snmp_loopback:
   skip:
@@ -1654,6 +1659,12 @@ vlan/test_vlan_ping.py:
 #######################################
 #####             voq             #####
 #######################################
+voq:
+  skip:
+    reason: "Cisco 8800 doesn't support voq tests"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 voq/test_fabric_cli_and_db.py:
   skip:
     reason: "Skip test_fabric_cli_and_db on unsupported testbed."

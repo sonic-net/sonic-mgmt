@@ -1404,7 +1404,7 @@
   group-name: anvl
   topo: ptf32
   ptf_image_name: docker-ptf-anvl
-  ptf: ptf-unknown
+  ptf: ptf_anvl
   ptf_ip: 10.250.0.100/24
   ptf_ipv6:
   server: server_1
@@ -1419,7 +1419,7 @@
   group-name: vms-dummy-dut
   topo: t2
   ptf_image_name: docker-ptf
-  ptf: ptf-unknown
+  ptf: ptf_vms-dummy-dut
   ptf_ip: 1.1.1.1/23
   ptf_ipv6:
   server: dummy_1

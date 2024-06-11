@@ -1,0 +1,8 @@
+#######################################
+#####         everflow            #####
+#######################################
+everflow/test_everflow_ipv6.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
