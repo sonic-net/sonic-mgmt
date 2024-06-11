@@ -491,7 +491,7 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 
 ### Testcase : Macsec docker restart
 
-- Verify that macsec is restored when macsec docker containers are restarted
+- Verify that macsec sessions are restored when macsec docker containers are restarted
 
 
 ### Testcase : Scale tests
