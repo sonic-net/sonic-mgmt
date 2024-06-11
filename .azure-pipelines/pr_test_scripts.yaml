@@ -165,6 +165,8 @@ t0:
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
+  - vlan/test_host_vlan.py
+  - vlan/test_vlan_ping.py
 
 t0-sonic:
   - bgp/test_bgp_fact.py
