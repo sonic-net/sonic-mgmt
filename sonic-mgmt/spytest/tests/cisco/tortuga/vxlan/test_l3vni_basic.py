@@ -308,7 +308,6 @@ def test_l3vni_basic_config():
      
     leaf0_vlan_ip = '100.100.100.254/24'
     leaf1_vlan_ip = '100.100.101.254/24'
-    svi_ips
     leaf0_vlan = '2'
     leaf1_vlan = '3'
     
