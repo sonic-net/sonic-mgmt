@@ -311,7 +311,7 @@ def test_l3vni_basic_config():
     leaf0_vlan = '2'
     leaf1_vlan = '3'
     
-    vrfs = ['Vrf01']
+    vrf = 'Vrf01'
     vni = '1000'
     dummy_vlan = '100'
     
