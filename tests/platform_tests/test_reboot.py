@@ -192,10 +192,6 @@ def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting soft reboot")
 
-    if "s6100" not in duthost.facts['platform']:
-        pytest.skip("Soft-reboot is not supported on this {} platform, skip this test case"
-                    .format(duthost.facts['platform']))
-
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_SOFT, duthosts=duthosts)
 
