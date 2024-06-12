@@ -53,7 +53,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
         N/A
     """
     pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice in parameter")
-
+    pytest_require(len(linecard_configuration_set[line_card_choice]['hostname']) != 0, "Hostname can't be an empty list")
     if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
         dut_list = random.sample(duthosts, 2)
         duthost1, duthost2 = dut_list
@@ -61,8 +61,6 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
         dut_list = [dut for dut in duthosts
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1 = duthost2 = dut_list[0]
-    elif len(linecard_configuration_set[line_card_choice]['hostname']) == 0:
-        pytest_require(False, "Hostname can't be an empty list")
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
