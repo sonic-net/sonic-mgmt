@@ -46,7 +46,8 @@ def test_global_pause(snappi_api,                                   # noqa: F811
     """
 
     pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice in parameter")
-    pytest_require(len(linecard_configuration_set[line_card_choice]['hostname']) != 0, "Hostname can't be an empty list")
+    pytest_require(len(linecard_configuration_set[line_card_choice]['hostname']) != 0,
+                   "Hostname can't be an empty list")
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
         dut_list = random.sample(duthosts, 2)
         duthost1, duthost2 = dut_list
