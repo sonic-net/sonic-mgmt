@@ -34,17 +34,42 @@ def pytest_generate_tests(metafunc):
         sad_cases = SAD_CASE_LIST
         metafunc.parametrize("sad_case_type", sad_cases, scope="module")
 
+    base_image_list = metafunc.config.getoption("base_image_list").split(',')
+    base_image_version_list = metafunc.config.getoption("base_image_version_list")
+    if base_image_version_list:
+        base_image_version_list = base_image_version_list.split(',')
+    else:
+        base_image_version_list = [''] * len(base_image_list)
+    target_image_list = metafunc.config.getoption("target_image_list").split(',')
+    target_image_version_list = metafunc.config.getoption("target_image_version_list")
+    if target_image_version_list:
+        target_image_version_list = target_image_version_list.split(',')
+    else:
+        target_image_version_list = [''] * len(target_image_list)
+
+    if len(base_image_list) != len(base_image_version_list):
+        pytest.fail("Number of base images doesn't match the number of base image versions")
+
+    if len(target_image_list) != len(target_image_version_list):
+        pytest.fail("Number of target images doesn't match the number of target image versions")
+
+    pytest_params = []
+    for i in range(len(base_image_list)):
+        for j in range(len(target_image_list)):
+            pytest_params.append(pytest.param(base_image_list[i], base_image_version_list[i],
+                                 target_image_list[j], target_image_version_list[j],
+                                 id="{}-to-{}".format(base_image_list[i], target_image_list[j])))
+
+    metafunc.parametrize("base_image,base_image_version,target_image,target_image_version",
+                         pytest_params, scope="module")
+
 
 @pytest.fixture(scope="module")
-def upgrade_path_lists(request):
+def upgrade_path_lists(request, base_image, base_image_version, target_image, target_image_version):
     upgrade_type = request.config.getoption('upgrade_type')
-    from_list = request.config.getoption('base_image_list')
-    from_image_version_list = request.config.getoption("base_image_version_list")
-    to_list = request.config.getoption('target_image_list')
-    to_image_version_list = request.config.getoption("target_image_version_list")
     restore_to_image = request.config.getoption('restore_to_image')
     enable_cpa = request.config.getoption('enable_cpa')
-    return upgrade_type, from_list, from_image_version_list, to_list, to_image_version_list, \
+    return upgrade_type, base_image, base_image_version, target_image, target_image_version, \
         restore_to_image, enable_cpa
 
 

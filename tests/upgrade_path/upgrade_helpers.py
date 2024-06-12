@@ -24,15 +24,15 @@ TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
 
 
 def pytest_runtest_setup(item):
-    from_image = item.config.getoption('base_image')
-    to_image = item.config.getoption('target_image')
-    if not from_image or not to_image:
-        pytest.skip("base_image or target_image is empty")
+    from_list = item.config.getoption('base_image_list')
+    to_list = item.config.getoption('target_image_list')
+    if not from_list or not to_list:
+        pytest.skip("base_image_list or target_image_list is empty")
 
 
 @pytest.fixture(scope="module")
 def restore_image(localhost, duthosts, rand_one_dut_hostname, upgrade_path_lists, tbinfo):
-    _, _, _, restore_to_image, _ = upgrade_path_lists
+    _, _, _, _, _, restore_to_image, _ = upgrade_path_lists
     yield
     duthost = duthosts[rand_one_dut_hostname]
     if restore_to_image:
