@@ -1,18 +1,23 @@
 package gnmi_get_modes_test
 
 import (
+	"fmt"
 	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/openconfig/gnmi/value"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ygot/ygot"
+	"github.com/openconfig/ondatra/gnmi"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/encoding/prototext"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 )
@@ -761,7 +766,7 @@ func createAndValidateLeafRequest(t *testing.T, dut *ondatra.DUTDevice, paths []
 // Test for gNMI GET consistency for specified data type with ALL type at leaf level.
 func (c getDataTypeTest) consistencyCheckLeafLevel(t *testing.T) {
         t.Helper()
-        defer esthelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
+        defer testhelper.NewTearDownOptions(t).WithID(c.uuid).Teardown(t)
         dut := ondatra.DUT(t, "DUT")
 
         sPath, err := ygot.StringToStructuredPath(c.reqPath)
