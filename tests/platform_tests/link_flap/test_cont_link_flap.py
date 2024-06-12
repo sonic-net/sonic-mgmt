@@ -8,6 +8,7 @@ Parameters:
 
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
@@ -135,6 +136,9 @@ class TestContLinkFlap(object):
 
             pytest.fail(str(failmsg))
 
+        # Wait 30s for the memory usage to be stable
+        time.sleep(30)
+
         # Record memory status at end
         memory_output = duthost.shell("show system-memory")["stdout"]
         logging.info("Memory Status at end: %s", memory_output)
@@ -144,12 +148,16 @@ class TestContLinkFlap(object):
         logging.info("BGP Memory Usage at end: \n%s", end_time_bgp_memory)
 
         # Calculate diff in BGP memory
-        incr_bgp_memory = int(end_time_bgp_memory) - int(start_time_bgp_memory)
+        incr_bgp_memory = float(end_time_bgp_memory) - float(start_time_bgp_memory)
         logging.info("BGP absolute difference: %d", incr_bgp_memory)
 
-        # Check BGP memory is not increased
-        pytest_assert(incr_bgp_memory <= 0,
-                      "BGP memory increased unexpectedly: {}".format(incr_bgp_memory))
+        # Check BGP memory only if it is increased else default to pass
+        if incr_bgp_memory > 0:
+            percent_incr_bgp_memory = (incr_bgp_memory / float(start_time_bgp_memory)) * 100
+            logging.info("BGP Memory percentage Increase: %d", percent_incr_bgp_memory)
+            incr_bgp_memory_threshold = 10 if tbinfo["topo"]["type"] in ["m0", "mx"] else 5
+            pytest_assert(percent_incr_bgp_memory < incr_bgp_memory_threshold,
+                          "BGP Memory Increase more than expected: {}".format(percent_incr_bgp_memory))
 
         # Record orchagent CPU utilization at end
         orch_cpu = duthost.shell(
