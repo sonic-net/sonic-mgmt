@@ -19,7 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 class TestBfdStaticRoute(BfdBase):
-    TOTAL_ITERATIONS = 100
+    COMPLETENESS_TO_ITERATIONS = {
+        'debug': 1,
+        'basic': 10,
+        'confident': 50,
+        'thorough': 100,
+        'diagnose': 200,
+    }
 
     @pytest.fixture(autouse=True, scope="class")
     def modify_bfd_sessions(self, duthosts):
@@ -347,6 +353,7 @@ class TestBfdStaticRoute(BfdBase):
         tbinfo,
         get_src_dst_asic_and_duts,
         bfd_cleanup_db,
+        get_function_completeness_level,
         version,
     ):
         """
@@ -403,8 +410,13 @@ class TestBfdStaticRoute(BfdBase):
             ),
         )
 
+        completeness_level = get_function_completeness_level
+        if completeness_level is None:
+            completeness_level = "thorough"
+
+        total_iterations = self.COMPLETENESS_TO_ITERATIONS[completeness_level]
         successful_iterations = 0  # Counter for successful iterations
-        for i in range(self.TOTAL_ITERATIONS):
+        for i in range(total_iterations):
             logger.info("Iteration {}".format(i))
 
             logger.info("BFD deletion on source dut")
@@ -492,7 +504,7 @@ class TestBfdStaticRoute(BfdBase):
 
         # Determine the success rate
         logger.info("successful_iterations: %d", successful_iterations)
-        success_rate = (successful_iterations / self.TOTAL_ITERATIONS) * 100
+        success_rate = (successful_iterations / total_iterations) * 100
 
         logger.info("Current success rate: %.2f%%", success_rate)
         # Check if the success rate is above the threshold (e.g., 98%)
