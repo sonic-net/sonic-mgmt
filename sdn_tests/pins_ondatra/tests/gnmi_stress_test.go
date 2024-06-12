@@ -22,42 +22,118 @@ func TestMain(m *testing.M) {
 	ondatra.RunTests(m, pinsbind.New)
 }
 
-// gNMI load test - Replacing a single leaf 100 times.
-func TestGNMILoadTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("f5e40be6-9913-4926-8d69-505e51f566f1").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	port, err := testhelper.RandomInterface(t, dut, nil)
-	if err != nil {
-		t.Fatalf("Failed to fetch random interface: %v", err)
-	}
-	oldMtu := gnmi.Get(t, dut, gnmi.OC().Interface(port).Mtu().Config())
-	gst.SanityCheck(t, dut, port)
-
-	for i := gst.MinMtuStepInc; i < gst.MaxMtuStepInc; i++ {
-		// Configure port MTU and verify that state path reflects configured MTU.
-		mtu := uint16(1500 + i)
-		gnmi.Replace(t, dut, gnmi.OC().Interface(port).Mtu().Config(), mtu)
-		gst.CollectPerformanceMetrics(t, dut)
-		got := gnmi.Get(t, dut, gnmi.OC().Interface(port).Mtu().Config())
-		if got != mtu {
-			t.Errorf("MTU matched failed! got:%v, want:%v", got, mtu)
-		}
-	}
-	t.Logf("After 10 seconds of idle time, the performance metrics are:")
-	time.Sleep(gst.IdleTime * time.Second)
-	gst.CollectPerformanceMetrics(t, dut)
-	// Replace the old MTU value as a test cleanup.
-	gnmi.Replace(t, dut, gnmi.OC().Interface(port).Mtu().Config(), oldMtu)
-	gst.SanityCheck(t, dut, port)
-
-}
-
-// gNMI load test short interval(30 minutes).
 func TestGNMIShortStressTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("44fa854f-5d85-42aa-9ad0-4ee8dbce7f10").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
 	gst.StressTestHelper(t, dut, gst.ShortStressTestInterval)
 	gst.SanityCheck(t, dut)
+}
+
+// gNMI different leaf get test
+func TestGNMISetUpdateDifferentLeafTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.StressSetTestHelper(t, dut, gst.AvgIteration, false)
+}
+
+// gNMI different leaf set update test
+func TestGNMISetReplaceDifferentLeafTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.StressSetTestHelper(t, dut, gst.AvgIteration, true)
+}
+
+// gNMI different leaf set replace test
+func TestGNMISetUpdateDifferentClientTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.SetDifferentClientTest(t, dut, false)
+}
+
+// gNMI different leaf set update test
+func TestGNMISetReplaceDifferentClientTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.SetDifferentClientTest(t, dut, true)
+}
+
+// gNMI different leaf subscription poll mode test
+func TestGNMISubscribePollDifferentLeafTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.StressTestSubsHelper(t, dut, false, true)
+}
+
+// gNMI different subtree subscription poll mode test
+func TestGNMISubscribePollDifferentSubtreeTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("357762b4-4d34-467e-b321-90a2d271d50d").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.StressTestSubsHelper(t, dut, true, true)
+}
+
+// gNMI different Client Subscribe Poll test
+func TestGNMISubscribePollDifferentClientTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.SubscribeDifferentClientTest(t, dut, true)
+}
+
+// gNMI different leaf subscription Sample mode test
+func TestGNMISubscribeSampleDifferentLeafTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.StressTestSubsHelper(t, dut, false, false)
+}
+
+// gNMI different subtree subscription Sample mode test
+func TestGNMISubscribeSampleDifferentSubtreeTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("357762b4-4d34-467e-b321-90a2d271d50d").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.StressTestSubsHelper(t, dut, true, false)
+}
+
+// gNMI different Client Subscribe Sample test
+func TestGNMISubscribeSampleDifferentClientTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.SubscribeDifferentClientTest(t, dut, false)
+}
+
+// gNMI different Client random operations test
+func TestGNMIRandomOpsDifferentClientTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.RandomDifferentClientTestHelper(t, dut, gst.ShortStressTestInterval)
+}
+
+// gNMI load test - Replacing a single leaf 100 times.
+func TestGNMILoadTest(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("f5e40be6-9913-4926-8d69-505e51f566f1").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+        port, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+        oldMtu := gnmi.Get(t, dut, gnmi.OC().Interface(port).Mtu().Config())
+        gst.SanityCheck(t, dut, port)
+
+        for i := gst.MinMtuStepInc; i < gst.MaxMtuStepInc; i++ {
+                // Configure port MTU and verify that state path reflects configured MTU.
+                mtu := uint16(1500 + i)
+                gnmi.Replace(t, dut, gnmi.OC().Interface(port).Mtu().Config(), mtu)
+                gst.CollectPerformanceMetrics(t, dut)
+                got := gnmi.Get(t, dut, gnmi.OC().Interface(port).Mtu().Config())
+                if got != mtu {
+                        t.Errorf("MTU matched failed! got:%v, want:%v", got, mtu)
+                }
+        }
+        t.Logf("After 10 seconds of idle time, the performance metrics are:")
+        time.Sleep(gst.IdleTime * time.Second)
+        gst.CollectPerformanceMetrics(t, dut)
+        // Replace the old MTU value as a test cleanup.
+        gnmi.Replace(t, dut, gnmi.OC().Interface(port).Mtu().Config(), oldMtu)
+        gst.SanityCheck(t, dut, port)
+
 }
 
 // gNMI broken client test
@@ -194,81 +270,4 @@ func TestGNMIGetDifferentSubtreeTest(t *testing.T) {
 	time.Sleep(gst.IdleTime * time.Second)
 	gst.CollectPerformanceMetrics(t, dut)
 	gst.SanityCheck(t, dut)
-}
-
-// gNMI different leaf get test
-func TestGNMISetUpdateDifferentLeafTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.StressSetTestHelper(t, dut, gst.AvgIteration, false)
-}
-
-// gNMI different leaf set update test
-func TestGNMISetReplaceDifferentLeafTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.StressSetTestHelper(t, dut, gst.AvgIteration, true)
-}
-
-// gNMI different leaf set replace test
-func TestGNMISetUpdateDifferentClientTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.SetDifferentClientTest(t, dut, false)
-}
-
-// gNMI different leaf set update test
-func TestGNMISetReplaceDifferentClientTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.SetDifferentClientTest(t, dut, true)
-}
-
-// gNMI different leaf subscription poll mode test
-func TestGNMISubscribePollDifferentLeafTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.StressTestSubsHelper(t, dut, false, true)
-}
-
-// gNMI different subtree subscription poll mode test
-func TestGNMISubscribePollDifferentSubtreeTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("357762b4-4d34-467e-b321-90a2d271d50d").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.StressTestSubsHelper(t, dut, true, true)
-}
-
-// gNMI different Client Subscribe Poll test
-func TestGNMISubscribePollDifferentClientTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.SubscribeDifferentClientTest(t, dut, true)
-}
-
-// gNMI different leaf subscription Sample mode test
-func TestGNMISubscribeSampleDifferentLeafTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.StressTestSubsHelper(t, dut, false, false)
-}
-
-// gNMI different subtree subscription Sample mode test
-func TestGNMISubscribeSampleDifferentSubtreeTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("357762b4-4d34-467e-b321-90a2d271d50d").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.StressTestSubsHelper(t, dut, true, false)
-}
-
-// gNMI different Client Subscribe Sample test
-func TestGNMISubscribeSampleDifferentClientTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.SubscribeDifferentClientTest(t, dut, false)
-}
-
-// gNMI different Client random operations test
-func TestGNMIRandomOpsDifferentClientTest(t *testing.T) {
-	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
-	dut := ondatra.DUT(t, "DUT")
-	gst.RandomDifferentClientTestHelper(t, dut, gst.ShortStressTestInterval)
 }
