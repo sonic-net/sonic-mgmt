@@ -148,6 +148,7 @@ class TestCOPP(object):
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         if (duthost.facts["hwsku"] == "Cisco-8111-O64" or
+                duthost.facts["hwsku"] == "Cisco-8101-O8C48" or
                 duthost.facts["hwsku"] == "Cisco-8102-C64"):
             logger.info("Sleep 120 seconds for Cisco platform")
             time.sleep(120)
