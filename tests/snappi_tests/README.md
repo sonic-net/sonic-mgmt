@@ -9,8 +9,8 @@
 
 # Workflows
 Before going to the work flows please look into the [basic docker commands to create the sonic-mgmt environment](DockerCommands.md).
-Also before getting invloved into any of the workflow1 or workflow2 please make sure that you have loaded the sonic docker image to be executed using locker load command. 
-```sudo docker load -i docker-sonic-mgmt``` 
+Also before getting invloved into any of the workflow1 or workflow2 please make sure that you have loaded the sonic docker image to be executed using locker load command.
+```sudo docker load -i docker-sonic-mgmt```
 ### workflow1
 * Fork the sonic-mgmt(https://github.com/Azure/sonic-mgmt.git) repo.
   * <i>Make sure you clone the forked version from your repo</i>
@@ -50,7 +50,7 @@ Also before getting invloved into any of the workflow1 or workflow2 please make 
     * python -m pip3 install --upgrade "snappi==0.9.1"
     * python -m pip install --upgrade "snappi[convergence]==0.4.1"
     * python -m pip install --upgrade "snappi[ixnetwork]==0.9.1"
-* Mention the topology details in the following files 
+* Mention the topology details in the following files (create the files if not present already)
     - ansible/files/graph_groups.yml
     - ansible/files/sonic_snappi-sonic_devices.csv
     - ansible/files/sonic_snappi-sonic_links.csv
