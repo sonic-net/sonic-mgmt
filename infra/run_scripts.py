@@ -14,7 +14,7 @@ from allure_server import AllureServer
 import paramiko
 import yaml
 
-ALLURE_SERVER_HOST, ALLURE_DIR = 'sonic-ci-vip-lnx.cisco.com', '/tmp/allure_results'
+ALLURE_SERVER_HOST, ALLURE_DIR = 'streams-allure-reports.cisco.com', '/tmp/allure_results'
 ALLURE_REPORT_URL_FILE = 'allure_report_url.log'
 
 def _create_parser():

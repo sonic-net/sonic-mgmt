@@ -128,9 +128,9 @@ class AllureServer:
         self.allure_report_dir = allure_report_dir
 
         if allure_server_port:
-            self.base_url = "http://{}:{}/allure-docker-service".format(allure_server_ip, allure_server_port)
+            self.base_url = "https://{}:{}".format(allure_server_ip, allure_server_port)
         else:
-            self.base_url = "http://{}/allure-docker-service".format(allure_server_ip)
+            self.base_url = "https://{}".format(allure_server_ip)
         self.project_id = str(allure_server_project_id) if allure_server_project_id else get_time_stamp_str()
         self.http_headers = {"Content-type": "application/json"}
 
