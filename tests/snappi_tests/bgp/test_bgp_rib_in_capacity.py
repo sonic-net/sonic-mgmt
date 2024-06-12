@@ -8,7 +8,7 @@ import pytest
 
 @pytest.mark.parametrize('multipath', [2])
 @pytest.mark.parametrize('start_value', [1000])
-@pytest.mark.parametrize('step_value', [2000])
+@pytest.mark.parametrize('step_value', [1000])
 @pytest.mark.parametrize('route_type', ['IPv4'])
 @pytest.mark.parametrize('port_speed', ['speed_100_gbps'])
 def test_RIB_IN_capacity(cvg_api,                   # noqa F811
