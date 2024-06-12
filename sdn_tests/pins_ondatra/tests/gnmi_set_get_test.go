@@ -14,10 +14,12 @@ import (
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/openconfig/testt"
 	"github.com/openconfig/ygnmi/ygnmi"
+        "github.com/openconfig/ygot/ygot"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
         "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
         "golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+        "google.golang.org/protobuf/encoding/prototext"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 )
@@ -1394,4 +1396,231 @@ func TestGNMIMultipleClientSet(t *testing.T) {
         if err := eg.Wait(); err != nil {
                 t.Fatalf("Error while calling Multiple Set API %v", err)
         }
+}
+
+/**********************************************************
+* gNMI GET operations
+**********************************************************/
+// Sample test that performs gNMI GET using subscribe once on state paths.
+func TestGNMIGetPaths(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("75e16f69-06ce-4e9a-bdbb-af50339ca8c4").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        // The Get() APIs in this test would panic if the switch does not return
+        // state value for the Openconfig path, resulting in a test failure.
+        // The test validates that the switch returns state values for the
+        // specified interface Openconfig path.
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        // Fetch port MTU.
+        mtu := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Mtu().State())
+        t.Logf("MTU is %v", mtu)
+
+        // Fetch /interfaces/interface[name=<port>]/state subtree.
+        p := gnmi.Get(t, dut, gnmi.OC().Interface(intf).State())
+        // All paths might not be present in the response. Therefore, validate members
+        // of GoStruct before accessing them.
+        if p.AdminStatus != oc.Interface_AdminStatus_UNSET {
+                t.Logf("admin-status: %v", p.AdminStatus)
+        }
+        if p.Enabled != nil {
+                t.Logf("enabled: %v", *p.Enabled)
+        }
+        if p.Mtu != nil {
+                t.Logf("mtu: %v", *p.Mtu)
+        }
+        if p.Id != nil {
+                t.Logf("ID: %v", *p.Id)
+        }
+        if p.HoldTime != nil {
+                h := *p.HoldTime
+                if h.Down != nil {
+                        t.Logf("hold-time down: %v", *h.Down)
+                }
+                if h.Up != nil {
+                        t.Logf("hold-time up: %v", *h.Up)
+                }
+        }
+
+        // Fetch /interfaces/interface[name=<port>]/config subtree.
+        res := gnmi.Get(t, dut, gnmi.OC().Interface(intf).Config())
+        // All paths might not be present in the response. Therefore, validate members
+        // of GoStruct before accessing them.
+        if res.AdminStatus != oc.Interface_AdminStatus_UNSET {
+                t.Logf("admin-status: %v", res.AdminStatus)
+        }
+        if res.Cpu != nil {
+                t.Logf("IsCpu: %v", *res.Cpu)
+        }
+        if res.Enabled != nil {
+                t.Logf("enabled: %v", *res.Enabled)
+        }
+        if res.Description != nil {
+                t.Logf("description: %v", *res.Description)
+        }
+}
+
+// Test that performs gNMI GET at module level.
+func TestGNMIGetModulePaths(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("66ae2d27-d50e-4012-8be7-5536eb43fae8").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+        // Create getRequest message to fetch all components.
+        getRequest := &gpb.GetRequest{
+                Prefix: prefix,
+                Path: []*gpb.Path{{
+                        Elem: []*gpb.PathElem{{
+                                Name: "components",
+                        }, {
+                                Name: "component",
+                        }},
+                }},
+                Encoding: gpb.Encoding_PROTO,
+        }
+
+        // Fetch raw gNMI client and call Get API to send Get Request.
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        getResp, err := gnmiClient.Get(ctx, getRequest)
+        if err != nil {
+                t.Fatalf("Unable to fetch get client (%v)", err)
+        }
+        if getResp == nil {
+                t.Fatal("Get response is nil")
+        }
+
+        notifs := getResp.GetNotification()
+        if len(notifs) != 1 {
+                t.Fatalf("got %d notifications, want 1", len(notifs))
+        }
+        updates := notifs[0].GetUpdate()
+        if len(updates) == 0 {
+                t.Fatalf("got %d updates in the notification, want >=1", len(updates))
+        }
+        for i := range updates {
+                update := updates[i].GetPath()
+                // Go through all the paths to make sure they are working fine.
+                if _, err := ygot.PathToString(update); err != nil {
+                        t.Fatalf("Failed to convert path to string (%v) %v", err, prototext.Format(update))
+                }
+        }
+}
+
+// Test that performs gNMI GET at root level.
+func TestGNMIGetRootPath(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("dcc2805e-8dda-4899-99ad-3f5a42f1985b").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+        // Create getRequest message to fetch root.
+        getRequest := &gpb.GetRequest{
+                Prefix:   prefix,
+                Encoding: gpb.Encoding_PROTO,
+        }
+
+        // Fetch raw gNMI client and call Get API to send Get Request.
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        getResp, err := gnmiClient.Get(ctx, getRequest)
+        if err != nil {
+                t.Fatalf("Unable to fetch get client (%v)", err)
+        }
+        if getResp == nil {
+                t.Fatal("Get response is nil")
+        }
+
+        notifs := getResp.GetNotification()
+        if len(notifs) < 6 {
+                t.Fatalf("got %d notifications, want >= 6", len(notifs))
+        }
+        for updates := range notifs {
+                updates := notifs[updates].GetUpdate()
+                if len(updates) < 1 {
+                        continue
+                }
+                for i := range updates {
+                        update := updates[i].GetPath()
+                        // Go through all the paths to make sure they are working fine.
+                        if _, err := ygot.PathToString(update); err != nil {
+                                t.Fatalf("Failed to convert path to string (%v) %v", err, prototext.Format(update))
+                        }
+                }
+        }
+}
+
+func TestGnmiProtoEncodingGet(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("0c25a72c-9b1a-4f80-90eb-177924f02802").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        // Create getRequest message with ASCII encoding.
+        getRequest := &gpb.GetRequest{
+                Prefix: prefix,
+                Path: []*gpb.Path{{
+                        Elem: []*gpb.PathElem{{
+                                Name: "interfaces",
+                        }, {
+                                Name: "interface",
+                                Key:  map[string]string{"name": intf},
+                        }},
+                }},
+                Type:     gpb.GetRequest_ALL,
+                Encoding: gpb.Encoding_PROTO,
+        }
+        t.Logf("GetRequest:\n%v", getRequest)
+
+        // Fetch get client using the raw gNMI client.
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        getResp, err := gnmiClient.Get(ctx, getRequest)
+        if err != nil {
+                t.Fatalf("Unable to fetch get client (%v)", err)
+        }
+        if getResp == nil {
+                t.Fatalf("Unable to fetch get client, get response is nil")
+        }
+
+        notifs := getResp.GetNotification()
+        if len(notifs) != 1 {
+                t.Fatalf("got %d notifications, want 1", len(notifs))
+        }
+        updates := notifs[0].GetUpdate()
+        if len(updates) < 1 {
+                t.Fatalf("got %d updates in the notification, want >1", len(updates))
+        }
+        for i := range updates {
+                update := updates[i].GetPath()
+                // Go through all the paths to make sure they are working fine.
+                pathStr, err := ygot.PathToString(update)
+                t.Logf("pathStr: %v", pathStr)
+                if err != nil {
+                        t.Fatalf("Failed to convert path to string (%v) %v", err, update)
+                }
+        }
+
 }
