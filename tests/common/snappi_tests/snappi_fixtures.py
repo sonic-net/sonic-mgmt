@@ -551,7 +551,7 @@ def snappi_dut_base_config(duthost_list,
                         for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
     pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
     [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
-    speed_gbps = int(new_snappi_ports[0]['speed'])/1000
+    speed_gbps = int(int(new_snappi_ports[0]['speed'])/1000)
 
     config.options.port_options.location_preemption = True
     l1_config = config.layer1.layer1()[-1]
