@@ -15,6 +15,11 @@ def pytest_addoption(parser):
     parser.addoption("--num_sessions_scale", action="store", default=128)
 
 
+@pytest.fixture(scope='module')
+def get_function_completeness_level(pytestconfig):
+    return pytestconfig.getoption("--completeness_level")
+
+
 @pytest.fixture(scope="function")
 def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
     orch_cpu_threshold = 10
