@@ -11,6 +11,7 @@ from tests.common.config_reload import config_reload
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 run_icmp_responder                  # noqa F401
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__file__)
 

@@ -3,6 +3,7 @@ import json
 import logging
 import pytest
 
+from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.override_config_table.utilities import backup_config, restore_config, \
@@ -22,6 +23,11 @@ logger = logging.getLogger(__name__)
 FORCED_MGMT_ROUTE_PRIORITY = 32764
 
 
+# Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
+# interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
+FILE_CHANGE_TIMEOUT = 300
+
+
 @pytest.fixture
 def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
     """make sure tacacs server running after UT finish"""
@@ -36,6 +42,7 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
 
     #  Restore config after test finish
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+    config_reload(duthost)
 
 
 def get_interface_reload_timestamp(duthost):
@@ -64,8 +71,8 @@ def wait_for_file_changed(duthost, file, action, *args, **kwargs):
         latest_timestamp = get_interface_reload_timestamp(duthost)
         return latest_hash != original_hash and latest_timestamp != last_timestamp
 
-    exist = wait_until(10, 1, 0, hash_and_timestamp_changed, duthost, file)
-    pytest_assert(exist, "File {} does not change after 10 seconds.".format(file))
+    exist = wait_until(FILE_CHANGE_TIMEOUT, 1, 0, hash_and_timestamp_changed, duthost, file)
+    pytest_assert(exist, "File {} does not change after {} seconds.".format(file, FILE_CHANGE_TIMEOUT))
 
 
 def address_type(address):

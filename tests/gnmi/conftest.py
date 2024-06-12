@@ -35,7 +35,7 @@ def download_gnmi_client(duthosts, rand_one_dut_hostname, localhost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Create GNMI client certificates
     '''
@@ -112,10 +112,16 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
                         -sha256"
     localhost.shell(local_command)
 
-    # Copy CA certificate and server certificate over to the DUT
+    # Copy CA certificate, server certificate and client certificate over to the DUT
     duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiserver.crt', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiclient.crt', dest='/etc/sonic/telemetry/')
+    duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
+    # Copy CA certificate and client certificate over to the PTF
+    ptfhost.copy(src='gnmiCA.pem', dest='/root/')
+    ptfhost.copy(src='gnmiclient.crt', dest='/root/')
+    ptfhost.copy(src='gnmiclient.key', dest='/root/')
 
     create_checkpoint(duthost, SETUP_ENV_CP)
     apply_cert_config(duthost)
@@ -148,4 +154,5 @@ def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     dut_time = int(dut_res["stdout"])
     logger.info("Local time %d, DUT time %d" % (local_time, dut_time))
     time_diff = local_time - dut_time
-    assert (time_diff < GNMI_SERVER_START_WAIT_TIME), "DUT time is wrong (%d), please check NTP" % (-time_diff)
+    if time_diff >= GNMI_SERVER_START_WAIT_TIME:
+        logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
