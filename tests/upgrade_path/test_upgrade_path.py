@@ -38,13 +38,14 @@ def pytest_generate_tests(metafunc):
 @pytest.fixture(scope="module")
 def upgrade_path_lists(request):
     upgrade_type = request.config.getoption('upgrade_type')
-    from_image = request.config.getoption('base_image')
-    from_image_version = request.config.getoption("base_image_version")
-    to_image = request.config.getoption('target_image')
-    to_image_version = request.config.getoption("target_image_version")
+    from_list = request.config.getoption('base_image_list')
+    from_image_version_list = request.config.getoption("base_image_version_list")
+    to_list = request.config.getoption('target_image_list')
+    to_image_version_list = request.config.getoption("target_image_version_list")
     restore_to_image = request.config.getoption('restore_to_image')
     enable_cpa = request.config.getoption('enable_cpa')
-    return upgrade_type, from_image, from_image_version, to_image, to_image_version, restore_to_image, enable_cpa
+    return upgrade_type, from_list, from_image_version_list, to_list, to_image_version_list, \
+        restore_to_image, enable_cpa
 
 
 def cleanup_prev_images(duthost):
