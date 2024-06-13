@@ -5,13 +5,12 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 2"
-    displayName: Biweekly Nightly Scheduler
+  - cron: "0 12 * * 3"
+    displayName: Nightly Scheduler
     branches:
       include:
         - internal
     always: true
-    interval: 2 # Run every 2 weeks
 
 resources:
   repositories:
