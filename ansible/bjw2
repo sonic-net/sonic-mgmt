@@ -3,7 +3,7 @@ all:
     docker_registry:
       hosts:
         acs-devrepo.corp.microsoft.com:
-    bjw:
+    bjw2:
       children:
         sonic:
         fanout:
