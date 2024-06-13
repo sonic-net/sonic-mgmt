@@ -731,6 +731,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         time.sleep(self.ACL_COUNTERS_UPDATE_INTERVAL_SECS)
 
         for duthost in duthosts:
+            if duthost.facts["asic_type"] == 'vs':
+                logger.info('Skip checking rule counters for vs platform')
+                return
             if duthost.is_supervisor_node():
                 continue
             acl_facts[duthost]['after'] = \
