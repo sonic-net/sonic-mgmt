@@ -176,7 +176,7 @@ def _post(server_url, data):
     """
     try:
         session = Session()
-        if "allowed_methods" in inspect.getargspec(Retry).args:
+        if "allowed_methods" in inspect.signature(Retry).parameters:
             retry = Retry(total=3, connect=3, backoff_factor=1,
                           allowed_methods=frozenset(['GET', 'POST']),
                           status_forcelist=[x for x in requests.status_codes._codes if x != 200])
