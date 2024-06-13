@@ -399,6 +399,7 @@ def most_common_port_speed(duthost):
     port_status = cfg_facts["PORT"]
     number_of_lag_member = HWSKU_INTF_NUMBERS_DICT.get(duthost.facts["hwsku"], DEAFULT_NUMBER_OF_MEMBER_IN_LAG)
     src_vlan_id = get_vlan_id(cfg_facts, number_of_lag_member)
+    pytest_require(src_vlan_id != -1, "Can't get usable vlan concluding enough member")
     src_vlan_members = cfg_facts["VLAN_MEMBER"]["Vlan{}".format(src_vlan_id)]
     # specific LAG interface from t0-56-po2vlan topo, which can't be tested
     src_vlan_members.pop('PortChannel201', None)
