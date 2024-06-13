@@ -436,10 +436,10 @@ class QosParamCisco(object):
             for sq_occupancy_mb in sq_occupancies_mb:
                 pkt_counts.append(int(sq_occupancy_mb * 1024 ** 2 / (cell_per_pkt * cell_size)))
             params_1 = {"dscps": [3, 3, 3, 3, 3, 3, 3],
-                     "pgs": [3, 3, 3, 3, 3, 3, 3],
-                     "packet_size": packet_size,
-                     "src_port_i": [0, 1, 2, 3, 4, 5, 6],
-                     "dst_port_i": [7, 8, 8, 8, 8, 8, 8],
-                     "pkt_counts": pkt_counts,
-                     "ecn": 1}
+                        "pgs": [3, 3, 3, 3, 3, 3, 3],
+                        "src_port_i": [0, 1, 2, 3, 4, 5, 6],
+                        "dst_port_i": [7, 8, 8, 8, 8, 8, 8],
+                        "pkt_counts": pkt_counts,
+                        "packet_size": packet_size,
+                        "ecn": 1}
             self.write_params("xon_hysteresis_1", params_1)

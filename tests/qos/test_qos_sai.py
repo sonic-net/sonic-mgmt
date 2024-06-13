@@ -122,7 +122,7 @@ def check_skip_shared_res_test(
 
 @pytest.fixture(autouse=False)
 def check_skip_xon_hysteresis_test(xonHysteresisKey, dutQosConfig,
-        get_src_dst_asic_and_duts, dutConfig):
+                                   get_src_dst_asic_and_duts, dutConfig):
     portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
     qosConfig = dutQosConfig["param"][portSpeedCableLength]
     src_dut_index = get_src_dst_asic_and_duts['src_dut_index']

@@ -5934,7 +5934,7 @@ class XonHysteresisTest(sai_base_test.ThriftInterfaceDataPlane):
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, uniq_dst_ports)
 
         try:
-            for (npkts, packets) in zip (pkt_counts, pkts_list):
+            for (npkts, packets) in zip(pkt_counts, pkts_list):
                 for src_id in packets.keys():
                     for pkt_tuple in packets[src_id]:
                         send_packet(self, src_id, pkt_tuple[0], npkts)
