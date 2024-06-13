@@ -87,6 +87,7 @@ def test_dequeue_ecn(request,
     snappi_extra_params.ecn_params = {'kmin': 50000, 'kmax': 51000, 'pmax': 100}
     data_flow_pkt_size = 1024
     data_flow_pkt_count = 101
+    num_iterations = 1
     logger.info("Running ECN dequeue test with params: {}".format(snappi_extra_params.ecn_params))
 
     snappi_extra_params.traffic_flow_config.data_flow_config = {
@@ -102,7 +103,7 @@ def test_dequeue_ecn(request,
                            dut_port=snappi_ports[0]['peer_port'],
                            lossless_prio=lossless_prio,
                            prio_dscp_map=prio_dscp_map,
-                           iters=1,
+                           iters=num_iterations,
                            snappi_extra_params=snappi_extra_params)[0]
 
     logger.info("Running verification for ECN dequeue test")
