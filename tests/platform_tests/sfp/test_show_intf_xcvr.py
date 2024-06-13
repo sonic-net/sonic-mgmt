@@ -80,4 +80,4 @@ def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert validate_transceiver_lpmode(
-                sfp_lpmode), "Interface mode incorrect in 'show interface transceiver lpmode'"
+                sfp_lpmode['stdout']), "Interface mode incorrect in 'show interface transceiver lpmode'"
