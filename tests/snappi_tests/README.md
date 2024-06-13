@@ -19,7 +19,7 @@ Also before getting invloved into any of the workflow1 or workflow2 please make 
     * <i> Make sure the path is matching the criteria</i>
   * sudo docker run -it --name sonic --privileged -v /home/ubuntu/sonic-mgmt/:/var/johnar/sonic-mgmt  --user johnar:gjohnar docker-sonic-mgmt
 * Install Snappi packages
-    * python -m pip3 install --upgrade "snappi==0.9.1"
+    * python -m pip install --upgrade "snappi==0.9.1"
     * python -m pip install --upgrade "snappi[convergence]==0.4.1"
     * python -m pip install --upgrade "snappi[ixnetwork]==0.9.1"
 * Mention the topology details in the following files
@@ -47,7 +47,7 @@ Also before getting invloved into any of the workflow1 or workflow2 please make 
 * Inside the container clone the forked version of sonic-mgmt(https://github.com/Azure/sonic-mgmt.git)
     - Ex: git clone https://github.com/sonic-net/sonic-mgmt
 * Install Snappi packages
-    * python -m pip3 install --upgrade "snappi==0.9.1"
+    * python -m pip install --upgrade "snappi==0.9.1"
     * python -m pip install --upgrade "snappi[convergence]==0.4.1"
     * python -m pip install --upgrade "snappi[ixnetwork]==0.9.1"
 * Mention the topology details in the following files (create the files if not present already)
