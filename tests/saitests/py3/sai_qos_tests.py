@@ -5870,3 +5870,115 @@ class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
             print("Successfully dropped {} packets".format(drops), file=sys.stderr)
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+
+
+class XonHysteresisTest(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        switch_init(self.clients)
+
+        # Parse input parameters
+        router_mac = self.test_params['router_mac']
+        src_port_ids = self.test_params['src_port_ids']
+        src_port_ips = self.test_params['src_port_ips']
+        dst_port_ids = self.test_params['dst_port_ids']
+        dst_port_ips = self.test_params['dst_port_ips']
+        print("src_port_ips: {}".format(src_port_ips), file=sys.stderr)
+        print("dst_port_ips: {}".format(dst_port_ips), file=sys.stderr)
+        asic_type = self.test_params['sonic_asic_type']
+        dscps = self.test_params['dscps']
+        pgs = self.test_params['pgs']
+        pg_cntr_indices = [pg + 2 for pg in pgs]
+        packet_length = self.test_params['packet_size']
+        pkt_counts = self.test_params['pkt_counts']
+        ecn = self.test_params['ecn']
+        ttl = 64
+
+        uniq_dst_ports = set(dst_port_ids)
+        self.sai_thrift_port_tx_enable(self.dst_client, asic_type, uniq_dst_ports)
+        time.sleep(3)
+
+        # Prepare IP packet data
+        pkts_list = []
+        for i in range(len(src_port_ids)):
+            dscp = dscps[i]
+            src_port_id = src_port_ids[i]
+            dst_port_id = dst_port_ids[i]
+            src_port_ip = src_port_ips[i]
+            dst_port_ip = dst_port_ips[i]
+            src_details = [(
+                src_port_id,
+                src_port_ip,
+                self.dataplane.get_mac(0, src_port_id))]
+
+            dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+            pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+
+            pkts_list.append(get_multiple_flows(
+                self,
+                pkt_dst_mac,
+                dst_port_id,
+                dst_port_ip,
+                None,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                src_details,
+                packets_per_port=1))
+
+        # get a snapshot of counter values at unique src ports
+        recv_counters_bases = sai_thrift_read_port_counters(
+            self.src_client, asic_type, port_list['src'][src_port_ids[-1]])[0]
+
+        # Disable all dst ports
+        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, uniq_dst_ports)
+
+        try:
+            for (npkts, packets) in zip (pkt_counts, pkts_list):
+                for src_id in packets.keys():
+                    for pkt_tuple in packets[src_id]:
+                        send_packet(self, src_id, pkt_tuple[0], npkts)
+
+            # Verify XOFF has now been triggered on final port
+            print(
+                "Verifying XOFF has been triggered on final src_port", file=sys.stderr)
+            time.sleep(4)
+            recv_counters = sai_thrift_read_port_counters(
+                self.src_client, asic_type, port_list['src'][src_port_ids[-1]])[0]
+            xoff_txd = recv_counters[pg_cntr_indices[-1]] - \
+                recv_counters_bases[pg_cntr_indices[-1]]
+            assert xoff_txd > 0, "Failed to trigger XOFF on final iteration"
+
+            # Relieve 1 SQ congestion, SQG transite from region 1 to region 0
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_ids[0]])
+
+            # Send a packet to trigger Xon/Xoff state update on target SQ
+            send_packet(self, src_id, pkt_tuple[0], 1)
+
+            # Check target SQ keep in XOFF state
+            print("Check target SQ keep in XOFF state", file=sys.stderr)
+            time.sleep(4)
+            recv_counters_bases = sai_thrift_read_port_counters(
+                self.src_client, asic_type, port_list['src'][src_port_ids[-1]])[0]
+            time.sleep(4)
+            recv_counters = sai_thrift_read_port_counters(
+                self.src_client, asic_type, port_list['src'][src_port_ids[-1]])[0]
+            xoff_txd = recv_counters[pg_cntr_indices[-1]] - \
+                recv_counters_bases[pg_cntr_indices[-1]]
+            assert xoff_txd > 0, "Target SQ failed to keep in XOFF state"
+
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, uniq_dst_ports)
+            # Check target SQ in XON state
+            print("Check target SQ in XON state", file=sys.stderr)
+            time.sleep(4)
+            recv_counters_bases = sai_thrift_read_port_counters(
+                self.src_client, asic_type, port_list['src'][src_port_ids[-1]])[0]
+            time.sleep(4)
+            recv_counters = sai_thrift_read_port_counters(
+                self.src_client, asic_type, port_list['src'][src_port_ids[-1]])[0]
+            xoff_txd = recv_counters[pg_cntr_indices[-1]] - \
+                recv_counters_bases[pg_cntr_indices[-1]]
+            assert xoff_txd == 0, "Target SQ failed to back in XON state"
+
+        finally:
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, uniq_dst_ports)

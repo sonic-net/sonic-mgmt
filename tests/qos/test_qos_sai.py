@@ -120,6 +120,37 @@ def check_skip_shared_res_test(
             " Pls see qos.yaml for the port idx's that are needed.")
 
 
+@pytest.fixture(autouse=False)
+def check_skip_xon_hysteresis_test(xonHysteresisKey, dutQosConfig,
+        get_src_dst_asic_and_duts, dutConfig):
+    portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+    qosConfig = dutQosConfig["param"][portSpeedCableLength]
+    src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+    src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+    dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+    dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+    src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+    dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+
+    if xonHysteresisKey not in qosConfig.keys():
+        pytest.skip(
+            "Xon Hysteresis parametrization '%s' "
+            "is not enabled" % xonHysteresisKey)
+
+    src_port_idx_to_id = list(src_testPortIps.keys())
+    dst_port_idx_to_id = list(dst_testPortIps.keys())
+    # Translate requested port indices to available port IDs
+    try:
+        src_port_ids = [src_port_idx_to_id[idx] for idx in qosConfig[xonHysteresisKey]["src_port_i"]]
+        dst_port_ids = [dst_port_idx_to_id[idx] for idx in qosConfig[xonHysteresisKey]["dst_port_i"]]
+        return (True, src_port_ids, dst_port_ids)
+    except IndexError:
+        # Not enough ports.
+        pytest.skip(
+            "This test cannot be run since there are not enough ports."
+            " Pls see qos.yaml for the port idx's that are needed.")
+
+
 class TestQosSai(QosSaiBase):
     """TestQosSai derives from QosSaiBase and contains collection of QoS SAI test cases.
 
@@ -2258,3 +2289,52 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.LossyQueueVoqMultiSrcTest",
             testParams=testParams
         )
+
+    @pytest.mark.parametrize("xonHysteresisKey", ["xon_hysteresis_1"])
+    def testQosSaiXonHysteresis(
+            self, xonHysteresisKey, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            get_src_dst_asic_and_duts, check_skip_xon_hysteresis_test
+    ):
+        """
+            Test QoS SAI SQG transitions
+            Args:
+                xonHysteresisKey (pytest parameter): XON hysteresis profile
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Xon Hysteresis test is not supported")
+
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+        src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+        (_, src_port_ids, dst_port_ids) = check_skip_xon_hysteresis_test
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"][portSpeedCableLength]
+
+        test_params = dict()
+        test_params.update(dutTestParams["basicParams"])
+        test_params.update(qosConfig[xonHysteresisKey])
+        test_params.update({
+            "testbed_type": dutTestParams["topo"],
+            "src_port_ids": src_port_ids,
+            "src_port_ips": [src_testPortIps[port]['peer_addr'] for port in src_port_ids],
+            "dst_port_ids": dst_port_ids,
+            "dst_port_ips": [dst_testPortIps[port]['peer_addr'] for port in dst_port_ids]
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.XonHysteresisTest",
+            testParams=test_params)
