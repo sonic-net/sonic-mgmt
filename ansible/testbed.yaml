@@ -2531,7 +2531,7 @@
   ptf: bjw13-7
   ptf_ip: 10.150.23.75/23
   ptf_ipv6: 2404:f801:10:2200::a96:174b/52
-  netns_mgmt_ip: 10.150.23.76/23
+  netns_mgmt_ip: 10.150.23.49/23
   server: server_bjw_13
   vm_base: VM74084
   dut:
