@@ -41,9 +41,6 @@ def backup_syslog(rand_selected_dut):
     logger.info('Recover syslog file to syslog')
     duthost.shell('sudo mv /var/log/syslog_bk /var/log/syslog')
 
-    # logger.info('Remove temp file /var/log/syslog.1')
-    # duthost.shell('sudo rm -f /var/log/syslog.1')
-
     logger.info('Restart rsyslog service')
     duthost.shell('sudo service rsyslog restart')
 
