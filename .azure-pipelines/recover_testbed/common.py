@@ -6,8 +6,8 @@ import socket
 import time
 import pexpect
 import ipaddress
-from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, INSTALL_OS_IN_ONIE, \
-    ONIE_START_TO_DISCOVERY, SONIC_PROMPT, MARVELL_ENTRY
+from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, ONIE_INSTALL_MODEL, \
+    ONIE_START_TO_DISCOVERY, SONIC_PROMPT, MARVELL_ENTRY, BOOTING_INSTALL_OS, ONIE_RESCUE_MODEL
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -46,7 +46,7 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
     return pdu_managers
 
 
-def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=False):
+def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=False, is_celestica=False):
     enter_onie_flag = True
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
 
@@ -80,39 +80,56 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=F
                     dut_console.remote_conn.send(b'\x1b[B')
                     continue
 
-                if ONIE_ENTRY_IN_GRUB in x and INSTALL_OS_IN_ONIE not in x:
+                if ONIE_ENTRY_IN_GRUB in x and ONIE_INSTALL_MODEL not in x and ONIE_RESCUE_MODEL not in x:
                     dut_console.remote_conn.send("\n")
                     enter_onie_flag = False
+
+                if ONIE_RESCUE_MODEL in x:
+                    dut_console.remote_conn.send(b'\x1b[A')
+                    dut_console.remote_conn.send("\n")
+
+                if is_celestica and BOOTING_INSTALL_OS in x:
+                    dut_console.remote_conn.send("\n")
 
                 # "ONIE: Starting ONIE Service Discovery"
                 if ONIE_START_TO_DISCOVERY in x:
                     dut_console.remote_conn.send("\n")
 
                     # TODO: Define a function to send command here
+                    dut_console.remote_conn.send('onie-discovery-stop\n')
+                    dut_console.remote_conn.send("\n")
+
+                    if is_nokia:
+                        enter_onie_flag = False
+                        dut_console.remote_conn.send('umount /dev/sda2\n')
+
+                    dut_console.remote_conn.send("ifconfig eth0 {} netmask {}".format(mgmt_ip.split('/')[0],
+                                                 ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
+                    dut_console.remote_conn.send("\n")
+
+                    dut_console.remote_conn.send("ip route add default via {}".format(gw_ip))
+                    dut_console.remote_conn.send("\n")
+
+                    # Remove the image if it already exists
+                    dut_console.remote_conn.send("rm -f {}".format(image_url.split("/")[-1]))
+                    dut_console.remote_conn.send("\n")
+
+                    dut_console.remote_conn.send("wget {}".format(image_url))
+                    dut_console.remote_conn.send("\n")
+
+                    # Waiting downloading finishing
                     for i in range(5):
-                        dut_console.remote_conn.send('onie-discovery-stop\n')
-                        dut_console.remote_conn.send("\n")
-
-                        if is_nokia:
-                            enter_onie_flag = False
-                            dut_console.remote_conn.send('umount /dev/sda2\n')
-
-                        dut_console.remote_conn.send("ifconfig eth0 {} netmask {}".format(mgmt_ip.split('/')[0],
-                                                     ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
-                        dut_console.remote_conn.send("\n")
-
-                        dut_console.remote_conn.send("ip route add default via {}".format(gw_ip))
-                        dut_console.remote_conn.send("\n")
-
-                        dut_console.remote_conn.send("onie-nos-install {}".format(image_url))
-                        dut_console.remote_conn.send("\n")
-                        # We will wait some time to connect to image server
                         time.sleep(60)
                         x = dut_console.remote_conn.recv(1024)
                         x = x.decode('ISO-8859-9')
-                        # TODO: Give a sample output here
-                        if "ETA" in x:
+                        # If we see "0:00:00", it means we finish downloading sonic image
+                        # Sample output:
+                        # sonic-mellanox-202012 100% |*******************************|  1196M  0:00:00 ETA
+                        if "0:00:00" in x:
                             break
+
+                    dut_console.remote_conn.send("onie-nos-install {}".format(image_url.split("/")[-1]))
+                    dut_console.remote_conn.send("\n")
 
                 if SONIC_PROMPT in x:
                     dut_console.remote_conn.close()

@@ -56,7 +56,7 @@ def run_ecn_test(api,
 
     logger.info("Stopping PFC watchdog")
     stop_pfcwd(duthost)
-    logger.info("Disabling packet aging")
+    logger.info("Disabling packet aging if necessary")
     disable_packet_aging(duthost)
 
     # Configure WRED/ECN thresholds

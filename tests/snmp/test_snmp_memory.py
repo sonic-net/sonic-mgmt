@@ -142,6 +142,9 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     mem_free = int(outputs['results'][1]['stdout'])
     mem_total = int(outputs['results'][2]['stdout'])
     percentage = get_percentage_threshold(int(mem_total))
+    # if total mem less than 2G
+    if mem_total <= 2 * 1024 * 1024:
+        pytest.skip("Total memory is too small for percentage.")
     logger.info("SNMP Free Memory: {}".format(snmp_free_memory))
     logger.info("DUT Free Memory: {}".format(mem_free))
     logger.info("Difference: {}".format(

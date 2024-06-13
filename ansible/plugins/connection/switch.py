@@ -81,8 +81,8 @@ class Connection(ConnectionBase):
                     client = pexpect.spawn(' '.join(cmd), env={
                                            'TERM': 'dumb'}, timeout=self.timeout)
                     i = client.expect(
-                        ['[Pp]assword:', pexpect.EOF, pexpect.TIMEOUT])
-                    if i == 0:
+                        ['>', '#', '[Pp]assword:', pexpect.EOF, pexpect.TIMEOUT])
+                    if i in [0, 1, 2]:
                         break
                     else:
                         self._display.vvv(
@@ -95,11 +95,19 @@ class Connection(ConnectionBase):
                     raise AnsibleError(
                         "Establish connection to server failed after tried %d times." % max_retries)
 
+            # if "'>', '#'" means Passwordless login, no need to send password
+            if i < 2:
+                self._display.vvv(
+                    "Establish connection to server successful without requiring a password.", host=self.host)
+                break
+
             self._display.vvv("Try password %s..." %
                               login_passwd[0:4], host=self.host)
             client.sendline(login_passwd)
             i = client.expect(['>', '#', '[Pp]assword:', pexpect.EOF])
             if i < 2:
+                self._display.vvv(
+                    "Establish connection to server successful with password.", host=self.host)
                 break
             elif i == 3:
                 last_user = None

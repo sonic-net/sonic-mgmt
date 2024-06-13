@@ -35,7 +35,7 @@ If console fails, do power cycle
 
 def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku):
     try:
-        dut_console = duthost_console(sonichost, conn_graph_facts, localhost)
+        dut_console = duthost_console(sonichost, conn_graph_facts)
 
         do_power_cycle(sonichost, conn_graph_facts, localhost)
 
@@ -45,18 +45,18 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
             posix_shell_aboot(dut_console, mgmt_ip, image_url)
         elif device_type in ["nexus"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=True)
-        elif device_type in ["mellanox", "cisco", "acs", "celestica"]:
-            posix_shell_onie(dut_console, mgmt_ip, image_url)
+        elif device_type in ["mellanox", "cisco", "acs", "celestica", "force10"]:
+            is_celestica = device_type in ["celestica"]
+            posix_shell_onie(dut_console, mgmt_ip, image_url, is_celestica=is_celestica)
         elif device_type in ["nokia"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url, is_nokia=True)
         else:
-            return
+            raise Exception("We don't support this type of testbed.")
 
         dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip)
     except Exception as e:
-        logger.info(e)
         traceback.print_exc()
-        return
+        raise Exception(e)
 
 
 def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
@@ -110,8 +110,7 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 # Do power cycle
                 need_to_recover = True
             else:
-                logger.info("Authentication failed. Passwords are incorrect.")
-                return
+                raise Exception("Authentication failed. Passwords are incorrect.")
 
             if need_to_recover:
                 recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku)
@@ -196,14 +195,6 @@ if __name__ == "__main__":
         choices=["debug", "info", "warning", "error", "critical"],
         default="debug",
         help="Loglevel"
-    )
-
-    parser.add_argument(
-        "-o", "--output",
-        type=str,
-        dest="output",
-        required=False,
-        help="Output duts version to the specified file."
     )
 
     parser.add_argument(
