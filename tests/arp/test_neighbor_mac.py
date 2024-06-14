@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import pytest
 import time
@@ -35,15 +36,41 @@ class TestNeighborMac:
                 None
         """
         duthost = duthosts[rand_one_dut_hostname]
-        logger.info("Configure the DUT interface, start interface, add IP address")
-        self.__startInterface(duthost)
-        self.__configureInterfaceIp(duthost, action="add")
 
-        yield
+        intfStatus = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
+        if self.DUT_ETH_IF not in intfStatus:
+            pytest.skip('{} not found'.format(self.DUT_ETH_IF))
 
-        logger.info("Restore the DUT interface config, remove IP address")
-        self.__configureInterfaceIp(duthost, action="remove")
-        self.__shutdownInterface(duthost)
+        status = intfStatus[self.DUT_ETH_IF]
+        if "up" not in status["oper_state"]:
+            pytest.skip('{} is down'.format(self.DUT_ETH_IF))
+
+        portchannel = status["vlan"] if "PortChannel" in status["vlan"] else None
+
+        @contextlib.contextmanager
+        def removeFromPortChannel(duthost, portchannel, intf):
+            try:
+                if portchannel:
+                    duthost.command("sudo config portchannel member del {} {}".format(portchannel, intf))
+                    time.sleep(2)
+                    intfStatus = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
+                    if 'routed' not in intfStatus[intf]["vlan"]:
+                        pytest.skip('{} is not in routed status'.format(self.DUT_ETH_IF))
+                yield
+            finally:
+                if portchannel:
+                    duthost.command("sudo config portchannel member add {} {}".format(portchannel, intf))
+
+        with removeFromPortChannel(duthost, portchannel, self.DUT_ETH_IF):
+            logger.info("Configure the DUT interface, start interface, add IP address")
+            self.__startInterface(duthost)
+            self.__configureInterfaceIp(duthost, action="add")
+
+            yield
+
+            logger.info("Restore the DUT interface config, remove IP address")
+            self.__configureInterfaceIp(duthost, action="remove")
+            self.__shutdownInterface(duthost)
 
     @pytest.fixture(params=[0, 1])
     def macIndex(self, request):
