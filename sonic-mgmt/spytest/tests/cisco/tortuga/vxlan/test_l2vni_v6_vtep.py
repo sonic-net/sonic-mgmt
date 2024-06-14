@@ -1,8 +1,7 @@
 import os
 import yaml
 import pytest
-from spytest import st
-import vxlan_utils as vu
+from spytest import st, tgapi, SpyTestDict
 import vxlan_utils as vxlan_obj
 
 ##
@@ -17,12 +16,35 @@ import vxlan_utils as vxlan_obj
 ##
 CONFIGS_FILE = 'vxlan_l2vni_v6_vtep_configs_template.yaml'
 
+data = SpyTestDict()
+data.my_dut_list = None
+data.local = None
+data.remote = None
+data.d3t1_ip6_addr = "2001::2"
+data.t1d3_ip6_addr = "2001::1"
+data.t1d3_mac_addr = "00:0a:01:00:11:01"
+data.d4t1_ip6_addr = "2001::4"
+data.t1d4_ip6_addr = "2001::3"
+data.t1d4_mac_addr = "00:0a:01:00:12:01"
+data.pkts_per_burst = "500"
+data.mask = "24"
+data.counters_threshold = 10
+data.tgen_stats_threshold = 20
+data.tgen_rate_pps = '1000'
+data.tgen_l3_len = '500'
+data.traffic_run_time = 20
+data.clear_parallel = True
+data.transmit_mode = "single_burst"
+data.rate_percent = "0.01"
+data.circuit_endpoint_type = "ipv6"
+data.frame_size = "100"
+data.vlan_id = "100"
+
 REMOTE_VTEP_COUNT = '1'
 SPINE0_VTEP_IP = 'fd27::2cb:8b5a:196'
 SPINE1_VTEP_IP = 'fd27::234:377f:6b3'
 LEAF0_VTEP_IP  = 'fd27::280:10f1:25f'
 LEAF1_VTEP_IP  = 'fd27::22d:b87f:214b'
-
 
 def config_node(node, config, type='', skip_errors=False):
     if type:
@@ -30,12 +52,10 @@ def config_node(node, config, type='', skip_errors=False):
     else:
         st.config(node, config, skip_error_check = skip_errors, conf=True)
 
-
 def report_fail(dut, msg=''):
     st.log(msg, dut)
     st.error(msg, dut)
     st.report_fail(msg, dut)
-
 
 def config_static(node, config_domain, add=True):
     vars = st.get_testbed_vars()
@@ -45,7 +65,6 @@ def config_static(node, config_domain, add=True):
     nodes['leaf1'] = vars.D4
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
-
     domain = ''
     if config_domain == 'bgp':
         domain = 'vtysh'
@@ -57,9 +76,9 @@ def config_static(node, config_domain, add=True):
         else:
             config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain, skip_errors=True)
 
-
 @pytest.fixture(scope='module', autouse=True)
 def setup_and_teardown():
+    global handles
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -79,15 +98,23 @@ def setup_and_teardown():
 
     # sleep for 40 seconds for BGP to converge
     st.wait(40)
+    ###Get TGEN Handles ###
+    handles = vxlan_obj.tgen_preconfig({"src_endpoint": {"port" : "T1D3P1", "host_ip": data.t1d3_ip6_addr, "gateway": data.d3t1_ip6_addr, "mac" : data.t1d3_mac_addr },
+                                        "dst_endpoint" : {"port" : "T1D4P1","host_ip": data.t1d4_ip6_addr, "gateway": data.d4t1_ip6_addr, "mac" : data.t1d4_mac_addr }},
+                                        "raw",data, 'ipv6')
+    if handles == False:
+        st.report_fail('tgen preconfig failed')
 
     yield 'setup_and_teardown'
-
+    
     with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'bgp', add=False)
             config_static(node, 'sonic', add=False)
 
+    #router_preconfig_cleanup()
+    vxlan_obj.remove_temp_config(updated_config_file)
 
 def verify_vtep_state(nodes):
     '''
@@ -139,7 +166,6 @@ def verify_vtep_state(nodes):
             else:
                 report_fail(dut, msg='Remote Vteps discovered count not as expected. Found {} Expected {}'.format(vtep['total_count'], REMOTE_VTEP_COUNT))
 
-
 def test_v6_vtep_basic():
     vars = st.get_testbed_vars()
 
@@ -149,18 +175,28 @@ def test_v6_vtep_basic():
 
     # Test remote vtep status on LEAF0 and LEAF1
     verify_vtep_state(nodes)
-    st.report_pass("test_case_passed", nodes['leaf0'])
-    st.report_pass("test_case_passed", nodes['leaf1'])
 
-
+    #Traffic Test
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')
+    else:
+        st.report_fail('test_case_failed')
+   
 def test_v6_vtep_delete_add_sonic():
     vars = st.get_testbed_vars()
 
     nodes = {}
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
-
+    
     verify_vtep_state(nodes)
+
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')
+    else:
+        st.report_fail('test_case_failed')
 
     st.banner("Removing sonic configs on LEAF0")
     test_node = 'leaf0'
@@ -169,12 +205,15 @@ def test_v6_vtep_delete_add_sonic():
     config_static(test_node, 'sonic', add=True)
     st.wait(40)
     st.banner("Restored sonic configs on LEAF0")
-
+    
     verify_vtep_state(nodes)
-    st.report_pass("test_case_passed", nodes['leaf0'])
-    st.report_pass("test_case_passed", nodes['leaf1'])
-
-
+    
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')
+    else:
+        st.report_fail('test_case_failed')
+    
 def test_v6_vtep_delete_add_bgp():
     vars = st.get_testbed_vars()
 
@@ -183,6 +222,12 @@ def test_v6_vtep_delete_add_bgp():
     nodes['leaf1'] = vars.D4
 
     verify_vtep_state(nodes)
+    
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')
+    else:
+        st.report_fail('test_case_failed')
 
     st.banner("Removing BGP configs on LEAF1")
     test_node = 'leaf1'
@@ -193,10 +238,13 @@ def test_v6_vtep_delete_add_bgp():
     st.banner("Restored BGP configs on LEAF1")
 
     verify_vtep_state(nodes)
-    st.report_pass("test_case_passed", nodes['leaf0'])
-    st.report_pass("test_case_passed", nodes['leaf1'])
-
-
+    
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')
+    else:
+        st.report_fail('test_case_failed')
+    
 def test_v6_vtep_delete_add_all_configs():
     vars = st.get_testbed_vars()
 
@@ -205,6 +253,12 @@ def test_v6_vtep_delete_add_all_configs():
     nodes['leaf1'] = vars.D4
 
     verify_vtep_state(nodes)
+
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')
+    else:
+        st.report_fail('test_case_failed')
 
     st.banner("Removed Sonic & BGP configs on LEAF0")
     test_node = 'leaf0'
@@ -217,10 +271,13 @@ def test_v6_vtep_delete_add_all_configs():
     st.banner("Restored BGP Sonic & configs on LEAF1")
 
     verify_vtep_state(nodes)
-    st.report_pass("test_case_passed", nodes['leaf0'])
-    st.report_pass("test_case_passed", nodes['leaf1'])
-
-
+    
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')
+    else:
+        st.report_fail('test_case_failed')
+ 
 def test_v6_vtep_port_flap():
     vars = st.get_testbed_vars()
 
@@ -229,6 +286,12 @@ def test_v6_vtep_port_flap():
     nodes['leaf1'] = vars.D4
 
     verify_vtep_state(nodes)
+    
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')
+    else:
+        st.report_fail('test_case_failed')
 
     st.banner("Flapping Spine links on LEAF0")
     st.config(nodes['leaf0'], "config interface shutdown {}".format(vars.D3D1P1))
@@ -240,10 +303,42 @@ def test_v6_vtep_port_flap():
     st.banner("Spine links restored on LEAF0")
 
     verify_vtep_state(nodes)
-    st.report_pass("test_case_passed", nodes['leaf0'])
-    st.report_pass("test_case_passed", nodes['leaf1'])
+    
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')
+    else:
+        st.report_fail('test_case_failed')
 
+def verify_vlanvnimap(nodes):
+    expected_vlanvnimap = {'leaf0': [('Vlan2', '2222'), ('Vlan100', '2727'), ('Vlan3', '3333'), ('Vlan4', '4444')],
+            'leaf1': [('Vlan2', '2222'), ('Vlan100', '2727'), ('Vlan3', '3333'), ('Vlan4', '4444')]}
+    
+    #Convert parsed data to dictionary format
+    for k, v in nodes.items():
+        cli_output = st.show(nodes[k], "show vxlan vlanvnimap", skip_tmpl=True)
+        vlan_vni_mappings = st.parse_show(nodes[k], "show vxlan vlanvnimap",cli_output, "show_vxlan_vlanvnimap.tmpl")
+        parsed_out = [[entry['vlan'], entry['vni']] for entry in vlan_vni_mappings]
+        if len(parsed_out) == 0:
+            st.report_fail('No mapping found', nodes[k])
+        
+        parsed_dict = {nodes[k]: [(item[0], item[1]) for item in parsed_out]}
 
+        # Check that the leaf exists in the expected data
+        if nodes[k] not in expected_vlanvnimap:
+            st.error("Leaf {} not found in expected data.".format(nodes[k]))
+            st.report_fail('Leaf name {} not in expected data'.format(nodes[k]))
+
+        if len(expected_vlanvnimap[nodes[k]]) != len(parsed_dict[nodes[k]]):
+            print("Mismatch in the length of expected data - length {} and parsed data - length {}".format(len(expected_vlanvnimap[nodes[k]]),len(parsed_dict[nodes[k]])))
+            st.report_fail("Mismatch in the length of expected data - length {} and parsed data - length {}".format(len(expected_vlanvnimap[nodes[k]]),len(parsed_dict[nodes[k]])))
+
+        # Check that each key-value pair in the parsed data is in the expected data
+        for pair in parsed_dict[nodes[k]]:
+            if pair not in expected_vlanvnimap[nodes[k]]:
+                st.report_fail("Pair {} not found in expected data for {}.".format(pair,nodes[k]))
+    st.log("Vlan VNI mapping validated")
+ 
 def test_v6_vtep_multiple_vni():
     vars = st.get_testbed_vars()
 
@@ -251,64 +346,102 @@ def test_v6_vtep_multiple_vni():
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
 
-    verify_vtep_state(nodes)
-
     l2vni = {'vlan2' : {'vlan' : '2', 'members' : [vars.D3T1P2], 'vni' : '2222'},
-             'vlan3' : {'vlan' : '3', 'members' : [vars.D3T1P3], 'vni' : '3333'},
-             'vlan4' : {'vlan' : '4', 'members' : [vars.D3T1P4], 'vni' : '4444'}}
+             'vlan3' : {'vlan' : '3', 'members' : [vars.D3T1P2], 'vni' : '3333'},
+             'vlan4' : {'vlan' : '4', 'members' : [vars.D3T1P2], 'vni' : '4444'}}
+    try:
+        # Start Configuration
+        '''
+        a. add vlan
+        '''
+        for _,value in l2vni.items():
+            vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'],  value['members'], tagged=True)
+            vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'],  value['members'], tagged=True)
 
-    # Start Configuration
-    '''
-    a. add vlan
-    '''
-    for _,value in l2vni.items():
-        vu.config_vlan(nodes['leaf0'], value['vlan'],  value['members'])
-        vu.config_vlan(nodes['leaf1'], value['vlan'],  value['members'])
+        '''
+        b. add vlan to vni map
+        '''
+        for _,value in l2vni.items():
+            vxlan_obj.config_vxlan_map(nodes['leaf0'], 'Vtep', value['vni'], vlan=value['vlan'])
+            vxlan_obj.config_vxlan_map(nodes['leaf1'], 'Vtep', value['vni'], vlan=value['vlan'])
 
-    '''
-    b. add vlan to vni map
-    '''
-    for _,value in l2vni.items():
-        vu.config_vxlan_map(nodes['leaf0'], 'Vtep', value['vni'], vlan=value['vlan'])
-        vu.config_vxlan_map(nodes['leaf1'], 'Vtep', value['vni'], vlan=value['vlan'])
+        # sleep for 30 seconds for BGP to converge
+        st.wait(30)
+	#Validate vlan vni mapping control plane
+        verify_vlanvnimap(nodes)         
 
-    # sleep for 30 seconds for BGP to converge
-    st.wait(30)
+        verify_vtep_state(nodes)
 
-    verify_vtep_state(nodes)
+        leaf0_output = st.show(nodes['leaf0'], 'show bgp l2vpn evpn vni', type='vtysh', skip_tmpl=True, skip_error_check=True)
+        leaf0_parsed = st.parse_show(nodes['leaf0'], 'show bgp l2vpn evpn vni', leaf0_output, 'show_bgp_l2vpn_evpn_vni.tmpl')
 
-    leaf0_output = st.show(nodes['leaf0'], 'show bgp l2vpn evpn vni', type='vtysh', skip_tmpl=True, skip_error_check=True)
-    leaf0_parsed = st.parse_show(nodes['leaf0'], 'show bgp l2vpn evpn vni', leaf0_output, 'show_bgp_l2vpn_evpn_vni.tmpl')
+        leaf1_output = st.show(nodes['leaf1'], 'show bgp l2vpn evpn vni', type='vtysh', skip_tmpl=True, skip_error_check=True)
+        leaf1_parsed = st.parse_show(nodes['leaf1'], 'show bgp l2vpn evpn vni', leaf1_output, 'show_bgp_l2vpn_evpn_vni.tmpl')
 
-    leaf1_output = st.show(nodes['leaf1'], 'show bgp l2vpn evpn vni', type='vtysh', skip_tmpl=True, skip_error_check=True)
-    leaf1_parsed = st.parse_show(nodes['leaf1'], 'show bgp l2vpn evpn vni', leaf1_output, 'show_bgp_l2vpn_evpn_vni.tmpl')
+        vlans = ['2222', '3333', '4444', '2727']
+        for path in leaf0_parsed:
+            if path['vlan_id'] not in vlans:
+                report_fail(nodes['leaf0'], msg='Vlan not found')
+            if path['vni_type'] != 'L2':
+                report_fail(nodes['leaf0'], msg='Vlan Type is not L2')
 
-    vlans = ['2222', '3333', '4444', '2727']
-    for path in leaf0_parsed:
-        if path['vlan_id'] not in vlans:
-            report_fail(nodes['leaf0'], msg='Vlan not found')
-        if path['vni_type'] != 'L2':
-            report_fail(nodes['leaf0'], msg='Vlan Type is not L2')
+        for path in leaf1_parsed:
+            if path['vlan_id'] not in vlans:
+                report_fail(nodes['leaf1'], msg='Vlan not found')
+            if path['vni_type'] != 'L2':
+                report_fail(nodes['leaf1'], msg='Vlan Type is not L2')
 
-    for path in leaf1_parsed:
-        if path['vlan_id'] not in vlans:
-            report_fail(nodes['leaf1'], msg='Vlan not found')
-        if path['vni_type'] != 'L2':
-            report_fail(nodes['leaf1'], msg='Vlan Type is not L2')
+        result = run_traffic_test(handles)
+        if result:
+            st.report_pass('test_case_passed')
+        else:
+            st.report_fail('test_case_failed')
+    
+    except Exception as e:
+        report_fail("", msg=e)
+    
+    finally:
+        '''
+        b. remove vlan to vni map
+        '''
+        for _,value in l2vni.items():
+            vxlan_obj.config_vxlan_map(nodes['leaf0'], 'Vtep', value['vni'], vlan=value['vlan'], add=False)
+            vxlan_obj.config_vxlan_map(nodes['leaf1'], 'Vtep', value['vni'], vlan=value['vlan'], add=False)
 
-    '''
-    b. remove vlan to vni map
-    '''
-    for _,value in l2vni.items():
-        vu.config_vxlan_map(nodes['leaf0'], 'Vtep', value['vni'], vlan=value['vlan'], add=False)
-        vu.config_vxlan_map(nodes['leaf1'], 'Vtep', value['vni'], vlan=value['vlan'], add=False)
+        '''
+        a. remove vlan
+        '''
+        for _,value in l2vni.items():
+            vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'],  value['members'], add=False)
+            vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'],  value['members'], add=False)
+ 
+def clear_counters():
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            st.config(dut, " sonic-clear counters")
+            st.config(dut, " sonic-clear tunnelcounters")
 
-    '''
-    a. remove vlan
-    '''
-    for _,value in l2vni.items():
-        vu.config_vlan(nodes['leaf0'], value['vlan'],  value['members'], add=False)
-        vu.config_vlan(nodes['leaf1'], value['vlan'],  value['members'], add=False)
+def get_cli_out():
+    cmds = ["show mac", "show arp", "show int counters", "show vxlan counters"]
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            for item in cmds:
+                output = st.config(dut, item)
+                st.log(output)
 
-    st.report_pass('test_case_passed', nodes['leaf0'])
-    st.report_pass('test_case_passed', nodes['leaf1'])
+def run_traffic_test(handles):
+    # traffic test
+    flag = False
+    for item in ['unicast', "broadcast", "unknownunicast", "multicast"]:
+        clear_counters()
+        get_cli_out()
+        result = vxlan_obj.traffic_test_burst(item,handles)
+        st.wait(5)
+        get_cli_out()
+        if result:
+            st.banner("{} traffic test passed".format(item))
+            flag = True
+        else:
+            st.banner("{} traffic test failed".format(item))
+            flag = False
+    return flag

@@ -3,13 +3,15 @@ import yaml
 import os
 import re
 
-
-def config_vlan(node, vlan, members = [], vrf = None, add = True):
+def config_vlan(node, vlan, members = [], vrf = None, add = True, tagged = False):
     config = ''
     if add:
         config = config + 'sudo config vlan add {}\n'.format(vlan)
         for member in members:
-            config = config + 'sudo config vlan member add -u {} {}\n'.format(vlan, member)
+            if tagged:
+                config = config + 'sudo config vlan member add {} {}\n'.format(vlan, member)
+            else:
+                config = config + 'sudo config vlan member add -u {} {}\n'.format(vlan, member)
         if vrf:
             config = config + 'sudo config interface vrf bind {} {}\n'.format('Vlan' + str(vlan), vrf)
 
@@ -48,7 +50,7 @@ def config_vrf(node, vrf, add=True):
     st.config(node, config, skip_error_check=False, conf=True)
 
 
-def tgen_preconfig(stream_info, traffic_item_type, data):
+def tgen_preconfig(stream_info, traffic_item_type, data, addr_family='ipv4'):
     '''  
     Author:Ramsiddarth Ragurajan (rraguraj@cisco.com)
 
@@ -75,10 +77,16 @@ def tgen_preconfig(stream_info, traffic_item_type, data):
 
         tg_handle1.tg_traffic_control(action='clear_stats', port_handle=[port_handle1, port_handle2])
         ###Tgen interface config###
-        res1=tg_handle1.tg_interface_config(port_handle=port_handle1, mode='config', intf_ip_addr=stream_info['src_endpoint']['host_ip'], gateway=stream_info['src_endpoint']['gateway'], src_mac_addr=stream_info['src_endpoint']['mac'], arp_send_req='1')
-        int_handle_1= res1['handle']
-        res2=tg_handle2.tg_interface_config(port_handle=port_handle2, mode='config', intf_ip_addr=stream_info['dst_endpoint']['host_ip'], gateway=stream_info['dst_endpoint']['gateway'], src_mac_addr=stream_info['dst_endpoint']['mac'], arp_send_req='1')
-        int_handle_2 = res2['handle']
+        if addr_family == 'ipv6':
+            res1=tg_handle1.tg_interface_config(port_handle=port_handle1, mode='config', ipv6_intf_addr=stream_info['src_endpoint']['host_ip'], ipv6_prefix_length='64', ipv6_gateway=stream_info['src_endpoint']['gateway'], src_mac_addr=stream_info['src_endpoint']['mac'], arp_send_req='1')
+            int_handle_1= res1['handle']
+            res2=tg_handle2.tg_interface_config(port_handle=port_handle2, mode='config', ipv6_intf_addr=stream_info['dst_endpoint']['host_ip'], ipv6_prefix_length='64', ipv6_gateway=stream_info['dst_endpoint']['gateway'], src_mac_addr=stream_info['dst_endpoint']['mac'], arp_send_req='1')
+            int_handle_2 = res2['handle']
+        else:
+            res1=tg_handle1.tg_interface_config(port_handle=port_handle1, mode='config', intf_ip_addr=stream_info['src_endpoint']['host_ip'], gateway=stream_info['src_endpoint']['gateway'], src_mac_addr=stream_info['src_endpoint']['mac'], arp_send_req='1')
+            int_handle_1= res1['handle']
+            res2=tg_handle2.tg_interface_config(port_handle=port_handle2, mode='config', intf_ip_addr=stream_info['dst_endpoint']['host_ip'], gateway=stream_info['dst_endpoint']['gateway'], src_mac_addr=stream_info['dst_endpoint']['mac'], arp_send_req='1')
+            int_handle_2 = res2['handle']
         st.wait(60)
         ###PING TEST###
         ping_result = tgapi.verify_ping(src_obj=tg_handle1, port_handle=port_handle1, dev_handle=int_handle_1, dst_ip=stream_info['dst_endpoint']['host_ip'],ping_count='5', exp_count='5')
@@ -152,7 +160,7 @@ def traffic_test_burst(_mode,handles):
     return flag
 
 
-def config_tgen_interface(int_dict):
+def config_tgen_interface(int_dict, addr_family='ipv4'):
     '''
     Author:Ramsiddarth Ragurajan (rraguraj@cisco.com)
 
@@ -173,7 +181,10 @@ def config_tgen_interface(int_dict):
     all_port_handles=[]
     for port, values in int_dict.items():
         tg_handle, port_handle = tgapi.get_handle_byname(port)
-        res=tg_handle.tg_interface_config(port_handle=port_handle, mode='config', intf_ip_addr=values['host_ip'], gateway=values['gateway'], src_mac_addr=values['mac'], arp_send_req='1')
+        if addr_family == 'ipv4':
+            res=tg_handle.tg_interface_config(port_handle=port_handle, mode='config', intf_ip_addr=values['host_ip'], gateway=values['gateway'], src_mac_addr=values['mac'], arp_send_req='1')
+        else:
+            res=tg_handle.tg_interface_config(port_handle=port_handle, mode='config', ipv6_intf_addr=values['host_ip'], ipv6_prefix_length='64', ipv6_gateway=values['gateway'], src_mac_addr=values['mac'], arp_send_req='1')
         int_handle= res['handle']
         handles[port] = {"tg_handle": tg_handle, "port_handle": port_handle,"int_handle": int_handle}
     return handles
@@ -302,7 +313,7 @@ def report_fail(dut, msg=''):
 def verify_vtep_state (vtep_ip_dict):
     leaf0_vtep_ip = vtep_ip_dict["LEAF0_VXLAN_IP"]
     leaf1_vtep_ip = vtep_ip_dict["LEAF1_VXLAN_IP"]
-
+    
     leaf0_output = st.show('leaf0', "show vxlan remotevtep", skip_tmpl=True)
 
     leaf0_parsed = st.parse_show('leaf0', "show vxlan remotevtep",
