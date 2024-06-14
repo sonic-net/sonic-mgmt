@@ -15,7 +15,7 @@ from .nat_helpers import teardown_test_env
 from .nat_helpers import exec_command
 from .nat_helpers import conf_dut_routes
 from .nat_helpers import dut_interface_control
-from tests.common.config_reload import config_reload
+from tests.common.config_reload import config_reload_with_minigraph_override
 
 
 @pytest.fixture(params=['TCP', 'UDP'])
@@ -191,7 +191,7 @@ def apply_global_nat_config(duthost, config_nat_feature_enabled):
     nat_global_config(duthost)
     yield
     # reload config on teardown
-    config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
+    config_reload_with_minigraph_override(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
 @pytest.fixture()
@@ -207,7 +207,7 @@ def reload_dut_config(request, duthost, setup_test_env):
     dut_iface = setup_data[interface_type]["vrf_conf"]["red"]["dut_iface"]
     gw_ip = setup_data[interface_type]["vrf_conf"]["red"]["gw"]
     mask = setup_data[interface_type]["vrf_conf"]["red"]["mask"]
-    config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
+    config_reload_with_minigraph_override(duthost, safe_reload=True, check_intf_up_ports=True)
     pch_ip = setup_info["pch_ips"][dut_iface]
     duthost.shell("sudo config interface ip remove {} {}/31".format(dut_iface, pch_ip))
     duthost.shell("sudo config interface ip add {} {}/{}".format(dut_iface, gw_ip, mask))

@@ -7,7 +7,7 @@ import ipaddr as ipaddress
 import pytest
 
 from bgp_helpers import parse_rib, get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, restore_bgp_neighbors
-from tests.common import config_reload
+from tests.common import config_reload, config_reload_with_minigraph_override
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.parallel import parallel_run
@@ -595,8 +595,8 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
 
-        config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
-                      traffic_shift_away=True)
+        config_reload_with_minigraph_override(duthost, safe_reload=True, check_intf_up_ports=True,
+                                              traffic_shift_away=True)
 
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),

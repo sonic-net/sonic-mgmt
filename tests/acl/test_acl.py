@@ -16,7 +16,7 @@ from collections import defaultdict
 from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.config_reload import config_reload
+from tests.common.config_reload import config_reload_with_minigraph_override
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
@@ -168,7 +168,7 @@ def remove_dataacl_table(duthosts):
     yield
     # Recover DUT by reloading minigraph
     for duthost in duthosts:
-        config_reload(duthost, config_source="minigraph")
+        config_reload_with_minigraph_override(duthost)
 
 
 def get_t2_info(duthosts, tbinfo):

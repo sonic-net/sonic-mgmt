@@ -6,7 +6,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.config_reload import config_reload
+from tests.common.config_reload import config_reload_with_minigraph_override
 from tests.common.utilities import update_pfcwd_default_state
 
 logger = logging.getLogger(__name__)
@@ -144,7 +144,7 @@ def mg_cfg_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     logger.info("--- Recover configuration ---")
     if original_pfcwd_value == 'disable':
         update_pfcwd_default_state(duthost, '/etc/sonic/init_cfg.json', 'disable')
-        config_reload(duthost, config_source='minigraph')
+        config_reload_with_minigraph_override(duthost)
 
 
 @pytest.fixture(scope='function', autouse=True)
@@ -320,7 +320,7 @@ class TestDefaultPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        config_reload(duthost, config_source='minigraph')
+        config_reload_with_minigraph_override(duthost)
         # sleep 20 seconds to make sure configuration is loaded
         time.sleep(20)
         res = duthost.command('pfcwd show config')
