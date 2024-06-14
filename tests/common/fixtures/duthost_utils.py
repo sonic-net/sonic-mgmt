@@ -9,7 +9,7 @@ import ipaddress
 import time
 import json
 
-from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
 
 from tests.common import config_reload
