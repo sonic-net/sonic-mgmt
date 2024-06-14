@@ -113,7 +113,7 @@ func TestSetValidICName(t *testing.T) {
                 gnmi.Replace(t, dut, componentPath.Name().Config(), name)
                 gnmi.Await(t, dut, componentPath.Name().State(), awaitTime, name)
 
-                fullyQualifiedName := "ju1u1m1b1s1i1.ibs40.net.google.com"
+                fullyQualifiedName := "abc.def.test.com"
                 testhelper.ReplaceFullyQualifiedName(t, dut, name, fullyQualifiedName)
                 testhelper.AwaitFullyQualifiedName(t, dut, name, awaitTime, fullyQualifiedName)
         }
@@ -187,7 +187,7 @@ func TestPersistenceAfterReboot(t *testing.T) {
                 t.Fatalf("Failed to fetch integrated-circuit info: %v", err)
         }
 
-        fullyQualifiedName := "ju1u1m1b1s1i1.ibs40.net.google.com"
+        fullyQualifiedName := "abc.def.test.com"
         nodeID := uint64(12345678)
 
         t.Log("Configuring config paths before reboot")
