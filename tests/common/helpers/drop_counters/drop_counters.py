@@ -103,7 +103,11 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
             # if the dut_iface is not found ignore this device
             if dut_iface not in pkt_drops:
                 continue
-            drop_list.append(int(pkt_drops[dut_iface][column_key].replace(",", "")))
+            try:
+                drop_list.append(int(pkt_drops[dut_iface][column_key].replace(",", "")))
+            except ValueError:
+                # Catch error invalid literal for int() with base 10: 'N/A'
+                drop_list.append(0)
         return drop_list
 
     def _check_drops_on_dut():
