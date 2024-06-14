@@ -117,6 +117,17 @@ def get_PRChecker_scripts():
     except Exception as e:
         logging.error('Failed to load file {}, error {}'.format(f, e))
 
+    # Get all the skip scripts
+    pr_test_skip_scripts_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../", "pr_test_skip_scripts.yaml")
+    pr_test_skip_scripts = {}
+    try:
+        with open(pr_test_skip_scripts_file) as f:
+            pr_test_skip_scripts = yaml.safe_load(f)
+    except Exception as e:
+        logging.error('Failed to load file {}, error {}'.format(f, e))
+
+    pr_test_scripts.update(pr_test_skip_scripts)
+
     topology_type_pr_test_scripts = {}
 
     for key, value in pr_test_scripts.items():
