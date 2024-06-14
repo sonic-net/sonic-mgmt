@@ -269,8 +269,8 @@ func TestGetChassisDefaultInformation(t *testing.T) {
 		t.Errorf("Chassis component part-no length validation failed! got:%v, want:%v(atmost)", len(partNo), maxLength)
 	}
 
-	if platform := testhelper.ComponentChassisPlatform(t, dut, name); platform != "BRIXIA" {
-		t.Errorf("Chassis component platform match failed! got:%v, want:BRIXIA", platform)
+	if platform := testhelper.ComponentChassisPlatform(t, dut, name); platform != "experimental" {
+		t.Errorf("Chassis component platform match failed! got:%v, want:experimental", platform)
 	}
 
 	serialNo := gnmi.Get(t, dut, componentPath.SerialNo().State())

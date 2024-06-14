@@ -1624,3 +1624,146 @@ func TestGnmiProtoEncodingGet(t *testing.T) {
         }
 
 }
+
+func TestGnmiInvalidKeyGet(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("ca3d9356-ca81-482b-aa36-8be5ac9180ba").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+
+        // Create getRequest message with ASCII encoding.
+        getRequest := &gpb.GetRequest{
+                Prefix: prefix,
+                Path: []*gpb.Path{{
+                        Elem: []*gpb.PathElem{{
+                                Name: "interfaces",
+                        }, {
+                                Name: "interface",
+                                Key:  map[string]string{"name": "EthernetY"},
+                        }},
+                }},
+                Type:     gpb.GetRequest_ALL,
+                Encoding: gpb.Encoding_PROTO,
+        }
+        t.Logf("GetRequest:\n%v", getRequest)
+
+        // Fetch get client using the raw gNMI client.
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        if _, err := gnmiClient.Get(ctx, getRequest); err == nil {
+                t.Fatalf("Set request is expected to fail but it didn't")
+        }
+}
+
+func TestGnmiInvalidPathGet(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("8f834ec5-da76-4884-9d84-58fc687c4f8c").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+
+        // Create getRequest message with ASCII encoding.
+        getRequest := &gpb.GetRequest{
+                Prefix: prefix,
+                Path: []*gpb.Path{{
+                        Elem: []*gpb.PathElem{{
+                                Name: "xyz",
+                        }},
+                }},
+                Type:     gpb.GetRequest_ALL,
+                Encoding: gpb.Encoding_PROTO,
+        }
+        t.Logf("GetRequest:\n%v", getRequest)
+
+        // Fetch get client using the raw gNMI client.
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        if _, err := gnmiClient.Get(ctx, getRequest); err == nil {
+                t.Fatalf("Set request is expected to fail but it didn't")
+        }
+}
+
+func TestGnmiAsciiEncodingGet(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("104a2dbf-fb8d-40af-a592-99e2bfd868d2").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        // Add Prefix information for the GetRequest.
+        prefix := &gpb.Path{Origin: "openconfig", Target: dut.Name()}
+
+        // Select a random front panel interface EthernetX.
+        intf, err := testhelper.RandomInterface(t, dut, nil)
+        if err != nil {
+                t.Fatalf("Failed to fetch random interface: %v", err)
+        }
+
+        // Create getRequest message with ASCII encoding.
+        getRequest := &gpb.GetRequest{
+                Prefix: prefix,
+                Path: []*gpb.Path{{
+                        Elem: []*gpb.PathElem{{
+                                Name: "interfaces",
+                        }, {
+                                Name: "interface",
+                                Key:  map[string]string{"name": intf},
+                        }},
+                }},
+                Type:     gpb.GetRequest_ALL,
+                Encoding: gpb.Encoding_ASCII,
+        }
+        t.Logf("GetRequest:\n%v", getRequest)
+
+        // Fetch get client using the raw gNMI client.
+        ctx := context.Background()
+        gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+        if err != nil {
+                t.Fatalf("Unable to get gNMI client (%v)", err)
+        }
+        if _, err = gnmiClient.Get(ctx, getRequest); err == nil {
+                t.Fatalf("Set request is expected to fail but it didn't")
+        }
+}
+
+// Test that performs gNMI SET Replace at root level.
+// This test will fail till the binding issue for root path is fixed (b/200096572)
+func TestGNMISetReplaceRootPath(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("09df0cd9-3e23-4f8c-8a0b-9105de3a83af").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        if err := testhelper.ConfigPush(t, dut, nil); err != nil {
+                t.Fatalf("Failed to push config: %v", err)
+        }
+
+        // Select a random front panel interface EthernetX.
+        var intf string
+
+        info, err := testhelper.FetchPortsOperStatus(t, dut)
+        if err != nil {
+                t.Fatalf("Failed to fetch port operation status: %v", err)
+        }
+
+        if len(info.Up) == 0 {
+                t.Fatalf("Failed to fetch port with operation status UP: %v", err)
+        }
+
+        for _, port := range info.Up {
+                if isParent, err := testhelper.IsParentPort(t, dut, port); err == nil && isParent {
+                        intf = port
+                        break
+                }
+        }
+
+        // Get fields from interface subtree.
+        if intf != "" {
+                intfIDAfterSet := gnmi.Get(t, dut, gnmi.OC().Interface(intf).State()).GetId()
+                t.Logf("ID After Set is %v for interface %v", intfIDAfterSet, intf)
+        } else {
+                t.Fatalf("Failed to fetch valid parent interface.")
+        }
+}
