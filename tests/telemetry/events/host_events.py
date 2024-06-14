@@ -112,4 +112,4 @@ def kill_critical_process(duthost):
     duthost.shell("docker exec {} kill {}".format(container, pid), module_ignore_errors=True)
 
     duthost.shell("systemctl reset-failed {}".format(container))
-    duthost.shell("systemctl restart {}"format(container))
+    duthost.shell("systemctl restart {}".format(container))
