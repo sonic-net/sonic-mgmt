@@ -132,13 +132,17 @@ class QosBase:
         """
         custom_options = " --disable-ipv6 --disable-vxlan --disable-geneve" \
                          " --disable-erspan --disable-mpls --disable-nvgre"
+        # Append a suffix to the logfile name if log_suffix is present in testParams
+        log_suffix = testParams.get("log_suffix", "")
+        logfile_suffix = "_{0}".format(log_suffix) if log_suffix else ""
+
         ptf_runner(
             ptfhost,
             "saitests",
             testCase,
             platform_dir="ptftests",
             params=testParams,
-            log_file="/tmp/{0}.log".format(testCase),
+            log_file="/tmp/{0}{1}.log".format(testCase, logfile_suffix),  # Include suffix in the logfile name,
             qlen=10000,
             is_python3=True,
             relax=relax,
@@ -812,9 +816,32 @@ class QosSaiBase(QosBase):
             port_speeds[attr['speed']].append(etp)
         return port_speeds
 
+    @pytest.fixture(scope='class', autouse=False)
+    def configure_ip_on_ptf_intfs(self, ptfhost, get_src_dst_asic_and_duts, tbinfo):
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+        src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
+        topo = tbinfo["topo"]["name"]
+
+        # if PTF64 and is Cisco, set ip IP address on eth interfaces of the ptf"
+        if topo == 'ptf64' and is_cisco_device(src_dut):
+            minigraph_ip_interfaces = src_mgFacts['minigraph_interfaces']
+            for entry in minigraph_ip_interfaces:
+                ptfhost.shell("ip addr add {}/31 dev eth{}".format(
+                      entry['peer_addr'], src_mgFacts["minigraph_ptf_indices"][entry['attachto']])
+                    )
+            yield
+            for entry in minigraph_ip_interfaces:
+                ptfhost.shell("ip addr del {}/31 dev eth{}".format(
+                      entry['peer_addr'], src_mgFacts["minigraph_ptf_indices"][entry['attachto']])
+                    )
+            return
+        else:
+            yield
+            return
+
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
-        self, request, duthosts, get_src_dst_asic_and_duts,
+        self, request, duthosts, configure_ip_on_ptf_intfs, get_src_dst_asic_and_duts,
         lower_tor_host, tbinfo, dualtor_ports_for_duts, dut_qos_maps):  # noqa F811
         """
             Build DUT host config pertaining to QoS SAI tests
@@ -934,7 +961,7 @@ class QosSaiBase(QosBase):
                 testPortIds[src_dut_index][src_asic_index] = sorted(
                     list(testPortIps[src_dut_index][src_asic_index].keys()))
 
-        elif topo in self.SUPPORTED_T1_TOPOS:
+        elif topo in self.SUPPORTED_T1_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and is_cisco_device(src_dut)):
             # T1 is supported only for 'single_asic' or 'single_dut_multi_asic'.
             # So use src_dut as the dut
             use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(dut_qos_maps)
@@ -2379,6 +2406,67 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
+
+    @pytest.fixture(scope="function", autouse=False)
+    def set_static_route_ptf64(self, dutConfig, get_src_dst_asic_and_duts, dutTestParams, enum_frontend_asic_index):
+        def generate_ip_address(base_ip, new_first_octet):
+            octets = base_ip.split('.')
+            if len(octets) != 4:
+                raise ValueError("Invalid IP address format")
+            octets[0] = str(new_first_octet)
+            octets[2] = octets[3]
+            octets[3] = '1'
+            return '.'.join(octets)
+
+        def combine_ips(src_ips, dst_ips, new_first_octet):
+            combined_ips_map = {}
+
+            for key, src_info in src_ips.items():
+                src_ip = src_info['peer_addr']
+                new_ip = generate_ip_address(src_ip, new_first_octet)
+                combined_ips_map[key] = {'original_ip': src_ip, 'generated_ip': new_ip}
+
+            for key, dst_info in dst_ips.items():
+                dst_ip = dst_info['peer_addr']
+                new_ip = generate_ip_address(dst_ip, new_first_octet)
+                combined_ips_map[key] = {'original_ip': dst_ip, 'generated_ip': new_ip}
+
+            return combined_ips_map
+
+        def configRoutePrefix(add_route):
+            action = "add" if add_route else "del"
+            for port, entry in combined_ips_map.items():
+                if enum_frontend_asic_index is None:
+                    src_asic.shell("config route {} prefix {}.0/24 nexthop {}".format(
+                        action, '.'.join(entry['generated_ip'].split('.')[:3]), entry['original_ip']))
+                else:
+                    src_asic.shell("ip netns exec asic{} config route {} prefix {}.0/24 nexthop {}".format(
+                        enum_frontend_asic_index,
+                        action, '.'.join(entry['generated_ip'].split('.')[:3]),
+                        entry['original_ip'])
+                      )
+
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Traffic sanity test is not supported")
+
+        if dutTestParams["topo"] != "ptf64":
+            pytest.skip("Test not supported in {} topology. Use ptf64 topo".format(dutTestParams["topo"]))
+
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+
+        src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+
+        new_first_octet = 100
+        combined_ips_map = combine_ips(src_testPortIps, dst_testPortIps, new_first_octet)
+
+        configRoutePrefix(True)
+        yield combined_ips_map
+        configRoutePrefix(False)
 
     @pytest.fixture(scope="function", autouse=False)
     def skip_longlink(self, dutQosConfig):
