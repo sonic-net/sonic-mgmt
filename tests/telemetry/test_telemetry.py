@@ -4,12 +4,13 @@ import logging
 import re
 import pytest
 import random
-
+import json
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
 from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running
+from tests.common import config_reload
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -22,6 +23,30 @@ METHOD_GET = "get"
 MEMORY_CHECKER_WAIT = 1
 MEMORY_CHECKER_CYCLES = 60
 SUBMODE_ONCHANGE = 1
+CFG_DB_PATH = "/etc/sonic/config_db.json"
+ORIG_CFG_DB = "/etc/sonic/orig_config_db.json"
+MAX_UC_CNT = 7
+
+
+def load_new_cfg(duthost, data):
+    duthost.copy(content=json.dumps(data, indent=4), dest=CFG_DB_PATH)
+    config_reload(duthost, config_source='config_db', safe_reload=True)
+
+
+def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface, gnmi_port):
+    cnt = 0
+    for i in range(MAX_UC_CNT):
+        cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} \
+            -p {1} -m get -x COUNTERS_QUEUE_NAME_MAP/{2}:{3} \
+            -xt COUNTERS_DB -o "ndastreamingservertest" \
+            '.format(dut_ip, gnmi_port, iface, i)
+
+        cmd_output = ptfhost.shell(cmd, module_ignore_errors=True)
+
+        if not cmd_output["failed"]:
+            cnt += 1
+
+    return cnt
 
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -92,8 +117,8 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
-    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
-           -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
+    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt \
+        COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
@@ -101,6 +126,54 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
+
+
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
+def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
+                                    setup_streaming_telemetry, gnxi_path):
+    """
+    Run pyclient from ptfdocker and check number of queue counters to check
+    correctness of the feature of polling only configured port buffer queues.
+        - Set "create_only_config_db_buffers" to true in config db, to create
+      only relevant counters
+        - Remove one of the buffer queues
+        - Using gnmi to query COUNTERS_QUEUE_NAME_MAP for Ethernet0 compare
+        number of queue counters on Ethernet0. It is expected that it will
+        less than previous count.
+    This test covers the issue: 'The feature "polling only configured ports
+    buffer queue" will break SNMP'
+    https://github.com/sonic-net/sonic-buildimage/issues/17448
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    if duthost.is_supervisor_node():
+        pytest.skip(
+            "Skipping test as no Ethernet0 frontpanel port on supervisor")
+    logger.info('start telemetry output testing')
+    dut_ip = duthost.mgmt_ip
+
+    duthost.shell("sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB))
+    data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
+                                    verbose=False)['stdout'])
+    buffer_queues = list(data['BUFFER_QUEUE'].keys())
+    iface_to_check = buffer_queues[0].split('|')[0]
+    iface_buffer_queues = [bq for bq in buffer_queues if any(val in iface_to_check for val in bq.split('|'))]
+
+    # Add create_only_config_db_buffers entry to device metadata to enable
+    # counters optimization and get number of queue counters of Ethernet0 prior
+    # to removing buffer queues
+    data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
+        = "true"
+    load_new_cfg(duthost, data)
+    pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface_to_check, env.gnmi_port)
+
+    # Remove buffer queue and reload and get new number of queue counters
+    del data['BUFFER_QUEUE'][iface_buffer_queues[0]]
+    load_new_cfg(duthost, data)
+    post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface_to_check, env.gnmi_port)
+
+    pytest_assert(pre_del_cnt > post_del_cnt,
+                  "Number of queue counters count differs from expected")
 
 
 def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):

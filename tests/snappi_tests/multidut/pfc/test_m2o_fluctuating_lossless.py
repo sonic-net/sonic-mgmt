@@ -3,15 +3,14 @@ import random
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
-    fanout_graph_facts                                                                          # noqa: F401
+    fanout_graph_facts                                                                       # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
-    get_multidut_tgen_peer_port_set                                             # noqa: F401
+    get_multidut_tgen_peer_port_set                                         # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list                                                                          # noqa: F401
+    lossless_prio_list                                                                      # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
-from tests.snappi_tests.multidut.pfc.files.lossless_response_to_throttling_pause_storms_helper import (
-    run_lossless_response_to_throttling_pause_storms_test)
+from tests.snappi_tests.multidut.pfc.files.m2o_fluctuating_lossless_helper import run_m2o_fluctuating_lossless_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
@@ -19,18 +18,18 @@ pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
-def test_lossless_response_to_throttling_pause_storms(snappi_api,                       # noqa: F811
-                                                      conn_graph_facts,                 # noqa: F811
-                                                      fanout_graph_facts,                # noqa: F811
-                                                      line_card_choice,
-                                                      duthosts,
-                                                      prio_dscp_map,                    # noqa: F811
-                                                      lossless_prio_list,               # noqa: F811
-                                                      linecard_configuration_set,       # noqa: F811
-                                                      get_multidut_snappi_ports,):      # noqa: F811
+def test_m2o_fluctuating_lossless(snappi_api,                  # noqa: F811
+                                  conn_graph_facts,            # noqa: F811
+                                  fanout_graph_facts,          # noqa: F811
+                                  line_card_choice,
+                                  duthosts,
+                                  prio_dscp_map,                # noqa: F811
+                                  lossless_prio_list,           # noqa: F811
+                                  linecard_configuration_set,   # noqa: F811
+                                  get_multidut_snappi_ports,):  # noqa: F811
 
     """
-    Run PFC lossless response to throttling pause storms
+    Run PFC Fluctuating Lossless Traffic Congestion with many to one traffic pattern
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
@@ -44,17 +43,16 @@ def test_lossless_response_to_throttling_pause_storms(snappi_api,               
         linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
 
     Brief Description:
-        This test uses the lossless_response_to_throttling_pause_storms_helper.py file and generates
-        2 Background traffic and 2 Test flow traffic and 1 PFC pause storm. The background traffic will
-        include two lossy traffic streams, each with randomly chosen priorities (0..2, 5..7), and each
-        having a 25% bandwidth. The test data traffic will consist of two lossless traffic streams, with
-        the SONiC default lossless priorities of 3 and 4, and each having a 25% bandwidth.
-        PFC pause throttling stream: Persistent PFC pause frames from the IXIA Rx port with enough repetition
-        and quanta chosen so as to reduce one or all lossless streams down to 90% of their configured bandwidth
+        This test uses the m2o_fluctuating_lossless_helper.py file and generates 4 Background traffic and
+        2 Test flow traffic. The background traffic will include four lossy traffic streams, with any priorities
+        0..2 and 5..6, each having 20% bandwidth for a total of 80% of the port line rate. The test data traffic
+        will include two lossless traffic flows, with the SONiC default lossless priorities of 3 and 4. Each of
+        lossless traffic flows will be shaped to have line rate of 20% and 10%, so that there are periods where
+        both lossless flows contribute a bandwidth of 30% (which should cause over-subscription on the egress port).
         The __gen_traffic() generates the flows. run_traffic() starts the flows and returns the flows stats.
         The verify_m2o_oversubscribtion_results() takes in the flows stats and verifies the loss criteria
-        mentioned in the flag. Ex: 'loss': '16' means the flows to have 16% loss, 'loss': '0' means
-        there shouldn't be any loss
+        mentioned in the flag. Ex: 'loss': '10' means the flows tohave 10% loss, 'loss': '0' means there shouldn't
+        be any loss
 
     Returns:
         N/A
@@ -90,14 +88,14 @@ def test_lossless_response_to_throttling_pause_storms(snappi_api,               
     snappi_extra_params.multi_dut_params.duthost2 = duthost2
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    run_lossless_response_to_throttling_pause_storms_test(api=snappi_api,
-                                                          testbed_config=testbed_config,
-                                                          port_config_list=port_config_list,
-                                                          conn_data=conn_graph_facts,
-                                                          fanout_data=fanout_graph_facts,
-                                                          dut_port=snappi_ports[0]['peer_port'],
-                                                          pause_prio_list=pause_prio_list,
-                                                          test_prio_list=test_prio_list,
-                                                          bg_prio_list=bg_prio_list,
-                                                          prio_dscp_map=prio_dscp_map,
-                                                          snappi_extra_params=snappi_extra_params)
+    run_m2o_fluctuating_lossless_test(api=snappi_api,
+                                      testbed_config=testbed_config,
+                                      port_config_list=port_config_list,
+                                      conn_data=conn_graph_facts,
+                                      fanout_data=fanout_graph_facts,
+                                      dut_port=snappi_ports[0]['peer_port'],
+                                      pause_prio_list=pause_prio_list,
+                                      test_prio_list=test_prio_list,
+                                      bg_prio_list=bg_prio_list,
+                                      prio_dscp_map=prio_dscp_map,
+                                      snappi_extra_params=snappi_extra_params)

@@ -103,7 +103,12 @@ scan_dbs = {
                 "TUNNEL_DECAP_TABLE",
                 # BUFFER_PG.*3-4 is an auto created entry by buffermgr
                 # configlet skips it. So skip verification too.
-                "BUFFER_PG_TABLE:Ethernet[0-9][0-9]*:3-4"},
+                "BUFFER_PG_TABLE:Ethernet[0-9][0-9]*:3-4",
+                # Diff in TUNNEL_DECAP_TERM_TABLE is expected because router port
+                # is set admin down in the test, which leads to tunnel term change
+                "TUNNEL_DECAP_TERM_TABLE:IPINIP_TUNNEL",
+                "TUNNEL_DECAP_TERM_TABLE:IPINIP_V6_TUNNEL"
+                },
             "keys_skip_val_comp": {
                 "last_up_time",
                 "flap_count"

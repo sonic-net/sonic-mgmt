@@ -34,7 +34,7 @@ topology:
       vm_offset: 6
     ARISTA04T0:
       vlans:
-        - 5 
+        - 5
       vm_offset: 7
     ARISTA05T0:
       vlans:

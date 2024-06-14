@@ -1,46 +1,39 @@
-# uncompyle6 version 3.9.0
-# Python bytecode version base 2.7 (62211)
-# Decompiled from: Python 3.10.4 (tags/v3.10.4:9d38120, Mar 23 2022, 23:13:41) [MSC v.1929 64 bit (AMD64)]
-# Embedded file name: /var/johnar/sonic-mgmt/tests/snappi/multi_dut_rdma/files/rdma_helper.py
-# Compiled at: 2023-02-10 09:15:26
-from math import ceil                                                                               # noqa: F401
-import logging                                                                                      # noqa: F401
-from tests.common.helpers.assertions import pytest_assert, pytest_require                           # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
-from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                                # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
-     stop_pfcwd, disable_packet_aging                                                               # noqa: F401
-from tests.common.snappi_tests.port import select_ports                                             # noqa: F401
+import logging                                                                          # noqa: F401
+from tests.common.helpers.assertions import pytest_assert, pytest_require               # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                     # noqa: F401
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, stop_pfcwd, \
+    disable_packet_aging, sec_to_nanosec                                                # noqa: F401
+from tests.common.snappi_tests.port import select_ports                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, \
-     verify_m2o_oversubscribtion_results, run_traffic                                               # noqa: F401
+from tests.common.snappi_tests.traffic_generation import run_traffic, \
+     setup_base_traffic_config, verify_m2o_oversubscribtion_results
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 30
+TEST_FLOW_AGGR_RATE_PERCENT = [20, 10]
 BG_FLOW_NAME = 'Background Flow'
-BG_FLOW_AGGR_RATE_PERCENT = 25
+BG_FLOW_AGGR_RATE_PERCENT = [20, 20]
 DATA_PKT_SIZE = 1024
-DATA_FLOW_DURATION_SEC = 5
-DATA_FLOW_DELAY_SEC = 2
+DATA_FLOW_DURATION_SEC = 20
+DATA_FLOW_DELAY_SEC = 10
 SNAPPI_POLL_DELAY_SEC = 2
-TOLERANCE_THRESHOLD = 0.05
 
 
-def run_pfc_m2o_oversubscribe_lossy_test(api,
-                                         testbed_config,
-                                         port_config_list,
-                                         conn_data,
-                                         fanout_data,
-                                         dut_port,
-                                         pause_prio_list,
-                                         test_prio_list,
-                                         bg_prio_list,
-                                         prio_dscp_map,
-                                         snappi_extra_params=None):
+def run_m2o_fluctuating_lossless_test(api,
+                                      testbed_config,
+                                      port_config_list,
+                                      conn_data,
+                                      fanout_data,
+                                      dut_port,
+                                      pause_prio_list,
+                                      test_prio_list,
+                                      bg_prio_list,
+                                      prio_dscp_map,
+                                      snappi_extra_params=None):
     """
-    Run PFC oversubscription lossy test under many to one traffic pattern
+    Run PFC Fluctuating Lossless Traffic Congestion with many to one traffic pattern
 
     Args:
         api (obj): SNAPPI session
@@ -76,14 +69,11 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
     stop_pfcwd(duthost2, tx_port[0]['asic_value'])
     disable_packet_aging(duthost2)
 
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT)
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT)
     port_id = 0
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
                                                                      port_config_list=port_config_list,
                                                                      port_id=port_id)
-
     __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
                   rx_port_id_list=rx_port_id_list,
@@ -92,10 +82,10 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
                   pause_prio_list=pause_prio_list,
                   test_flow_name=TEST_FLOW_NAME,
                   test_flow_prio_list=test_prio_list,
-                  test_flow_rate_percent=test_flow_rate_percent,
+                  test_flow_rate_percent=TEST_FLOW_AGGR_RATE_PERCENT,
                   bg_flow_name=BG_FLOW_NAME,
                   bg_flow_prio_list=bg_prio_list,
-                  bg_flow_rate_percent=bg_flow_rate_percent,
+                  bg_flow_rate_percent=BG_FLOW_AGGR_RATE_PERCENT,
                   data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_dscp_map=prio_dscp_map)
@@ -103,14 +93,7 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
-    flag = {
-            'Test Flow': {
-                'loss': '16'
-                },
-            'Background Flow': {
-                'loss': '0'
-                },
-           }
+
     """ Run traffic """
     flow_stats, switch_flow_stats, _ = run_traffic(duthost=duthost1,
                                                    api=api,
@@ -120,27 +103,18 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
                                                    exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                    snappi_extra_params=snappi_extra_params)
 
-    """ Verify Results """
+    flag = {
+            'Test Flow': {
+                'loss': '0'
+                },
+            'Background Flow': {
+                'loss': '10'
+                },
+           }
     verify_m2o_oversubscribtion_results(rows=flow_stats,
                                         test_flow_name=TEST_FLOW_NAME,
                                         bg_flow_name=BG_FLOW_NAME,
                                         flag=flag)
-
-
-def __data_flow_name(name_prefix, src_id, dst_id, prio):
-    """
-    Generate name for a data flow
-
-    Args:
-        name_prefix (str): name prefix
-        src_id (int): ID of the source port
-        dst_id (int): ID of the destination port
-        prio (int): priority of the flow
-
-    Returns:
-        Name of the flow (str)
-    """
-    return ('{} {} -> {} Prio {}').format(name_prefix, src_id, dst_id, prio)
 
 
 def __gen_traffic(testbed_config,
@@ -158,7 +132,6 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec,
                   data_pkt_size,
                   prio_dscp_map):
-
     """
     Generate configurations of flows under all to all traffic pattern, including
     test flows, background flows and pause storm. Test flows and background flows
@@ -190,7 +163,7 @@ def __gen_traffic(testbed_config,
                      dst_port_id_list=rx_port_id_list,
                      flow_name_prefix=TEST_FLOW_NAME,
                      flow_prio_list=test_flow_prio_list,
-                     flow_rate_percent=test_flow_rate_percent,
+                     flow_rate_percent=TEST_FLOW_AGGR_RATE_PERCENT,
                      flow_dur_sec=data_flow_dur_sec,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map)
@@ -201,7 +174,7 @@ def __gen_traffic(testbed_config,
                      dst_port_id_list=rx_port_id_list,
                      flow_name_prefix=BG_FLOW_NAME,
                      flow_prio_list=bg_flow_prio_list,
-                     flow_rate_percent=bg_flow_rate_percent,
+                     flow_rate_percent=BG_FLOW_AGGR_RATE_PERCENT,
                      flow_dur_sec=data_flow_dur_sec,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map)
@@ -235,20 +208,41 @@ def __gen_data_flows(testbed_config,
     Returns:
         N/A
     """
-    for src_port_id in src_port_id_list:
-        for dst_port_id in dst_port_id_list:
-            if src_port_id == dst_port_id:
-                continue
-            __gen_data_flow(testbed_config=testbed_config,
-                            port_config_list=port_config_list,
-                            src_port_id=src_port_id,
-                            dst_port_id=dst_port_id,
-                            flow_name_prefix=flow_name_prefix,
-                            flow_prio=flow_prio_list,
-                            flow_rate_percent=flow_rate_percent,
-                            flow_dur_sec=flow_dur_sec,
-                            data_pkt_size=data_pkt_size,
-                            prio_dscp_map=prio_dscp_map)
+    if TEST_FLOW_NAME in flow_name_prefix:
+        for index, src_port_id in enumerate(src_port_id_list):
+            for dst_port_id in dst_port_id_list:
+                if src_port_id == dst_port_id:
+                    continue
+                __gen_data_flow(testbed_config=testbed_config,
+                                port_config_list=port_config_list,
+                                src_port_id=src_port_id,
+                                dst_port_id=dst_port_id,
+                                flow_name_prefix=flow_name_prefix,
+                                flow_prio=flow_prio_list,
+                                flow_rate_percent=flow_rate_percent[index],
+                                flow_dur_sec=flow_dur_sec,
+                                data_pkt_size=data_pkt_size,
+                                prio_dscp_map=prio_dscp_map,
+                                index=None)
+    else:
+        index = 1
+        for rate_percent in flow_rate_percent:
+            for src_port_id in src_port_id_list:
+                for dst_port_id in dst_port_id_list:
+                    if src_port_id == dst_port_id:
+                        continue
+                    __gen_data_flow(testbed_config=testbed_config,
+                                    port_config_list=port_config_list,
+                                    src_port_id=src_port_id,
+                                    dst_port_id=dst_port_id,
+                                    flow_name_prefix=flow_name_prefix,
+                                    flow_prio=flow_prio_list,
+                                    flow_rate_percent=rate_percent,
+                                    flow_dur_sec=flow_dur_sec,
+                                    data_pkt_size=data_pkt_size,
+                                    prio_dscp_map=prio_dscp_map,
+                                    index=index)
+                    index += 1
 
 
 def __gen_data_flow(testbed_config,
@@ -260,7 +254,8 @@ def __gen_data_flow(testbed_config,
                     flow_rate_percent,
                     flow_dur_sec,
                     data_pkt_size,
-                    prio_dscp_map):
+                    prio_dscp_map,
+                    index):
     """
     Generate the configuration for a data flow
 
@@ -286,8 +281,14 @@ def __gen_data_flow(testbed_config,
         rx_mac = rx_port_config.mac
     else:
         rx_mac = tx_port_config.gateway_mac
-
-    flow = testbed_config.flows.flow(name='{} {} -> {}'.format(flow_name_prefix, src_port_id, dst_port_id))[-1]
+    if 'Background Flow' in flow_name_prefix:
+        flow = testbed_config.flows.flow(
+                name='{} {} {} -> {} Rate:{}'.format(index, flow_name_prefix,
+                                                     src_port_id, dst_port_id, flow_rate_percent))[-1]
+    else:
+        flow = testbed_config.flows.flow(
+                name='{} {} -> {} Rate:{}'.format(flow_name_prefix,
+                                                  src_port_id, dst_port_id, flow_rate_percent))[-1]
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
     eth, ipv4 = flow.packet.ethernet().ipv4()
@@ -295,43 +296,40 @@ def __gen_data_flow(testbed_config,
     eth.dst.value = rx_mac
 
     if 'Background Flow' in flow.name:
-        eth.pfc_queue.value = 3
-    elif 'Test Flow 2 -> 0' in flow.name:
-        eth.pfc_queue.value = 1
-    else:
         eth.pfc_queue.value = 0
+    elif 'Test Flow 1 -> 0' in flow.name:
+        eth.pfc_queue.value = 3
+    else:
+        eth.pfc_queue.value = 4
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = rx_port_config.ip
     ipv4.priority.choice = ipv4.priority.DSCP
 
-    flow_prio_dscp_list = []
-    flow.duration.fixed_seconds.delay.nanoseconds = 0
-    if 'Background Flow' in flow_name_prefix:
-        for fp in flow_prio:
-            for val in prio_dscp_map[fp]:
-                flow_prio_dscp_list.append(val)
+    if '1 Background Flow 1 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.AF11,
+            ipv4.priority.dscp.phb.CS2,
         ]
-        ipv4.priority.dscp.phb.values = flow_prio_dscp_list
-    elif 'Test Flow 1 -> 0' in flow.name:
+    elif '2 Background Flow 2 -> 0' in flow.name:
+        ipv4.priority.dscp.phb.values = [
+            ipv4.priority.dscp.phb.DEFAULT,
+        ]
+        ipv4.priority.dscp.phb.value = 5
+    elif '3 Background Flow 1 -> 0' in flow.name:
+        ipv4.priority.dscp.phb.values = [
+            ipv4.priority.dscp.phb.CS6,
+        ]
+    elif '4 Background Flow 2 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = [
             ipv4.priority.dscp.phb.CS1,
         ]
+    elif 'Test Flow 1 -> 0' in flow.name:
+        ipv4.priority.dscp.phb.values = [3]
     elif 'Test Flow 2 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.AF11,
+            ipv4.priority.dscp.phb.CS1,
         ]
-        ipv4.priority.dscp.phb.values = [
-            60, 61, 62, 63, 24, 25, 26, 27, 21, 23, 28, 29,
-            0, 2, 6, 59, 11, 13, 15, 58, 17, 16, 19, 54, 57,
-            56, 51, 50, 53, 52, 59, 49, 47, 44, 45, 42, 43, 40, 41
-        ]
-    elif 'Test Flow' in flow.name:
-        flow.duration.fixed_seconds.delay.nanoseconds = 5
-    else:
-        pass
+        ipv4.priority.dscp.phb.value = 4
 
     ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
     flow.size.fixed = data_pkt_size

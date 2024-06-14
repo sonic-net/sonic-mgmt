@@ -38,7 +38,7 @@ class QosBase:
     SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-64", "dualtor-120",
                           "dualtor", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32",
                           "t0-standalone-64", "t0-standalone-128", "t0-standalone-256"]
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag"]
+    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
                            "j2c+", "jr2"]
@@ -208,7 +208,7 @@ class QosSaiBase(QosBase):
             table == "BUFFER_QUEUE_TABLE" else "BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE"
         db = "0"
         port_profile_res = dut_asic.run_redis_cmd(
-            argv=["redis-cli", "-n", db, "HGET", f"{port_table_name}:{port}", "profile_list"]
+            argv=["redis-cli", "-n", db, "HGET", f"{port_table_name}:{port}", "profile_list"]  # noqa: E231
         )[0]
         port_profile_list = port_profile_res.split(",")
 
@@ -233,7 +233,7 @@ class QosSaiBase(QosBase):
 
             pg_q_alpha = calculate_alpha(pg_q_buffer_profile['dynamic_th'])
             port_alpha = calculate_alpha(port_dynamic_th)
-            pool = f'BUFFER_POOL_TABLE:{pg_q_buffer_profile["pool"]}'
+            pool = f'BUFFER_POOL_TABLE:{pg_q_buffer_profile["pool"]}'  # noqa: E231
             buffer_size = int(
                 dut_asic.run_redis_cmd(
                     argv=["redis-cli", "-n", db, "HGET", pool, "size"]

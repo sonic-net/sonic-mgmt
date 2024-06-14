@@ -64,25 +64,6 @@ def _find_down_ip_ports(dut, ip_interfaces):
     return down_ip_ports
 
 
-def _parse_bfd_output(output):
-    data_rows = output[3:]
-    data_dict = {}
-    for data in data_rows:
-        data = data.split()
-        data_dict[data[0]] = {}
-        data_dict[data[0]]['Interface'] = data[1]
-        data_dict[data[0]]['Vrf'] = data[2]
-        data_dict[data[0]]['State'] = data[3]
-        data_dict[data[0]]['Type'] = data[4]
-        data_dict[data[0]]['Local Addr'] = data[5]
-        data_dict[data[0]]['TX Interval'] = data[6]
-        data_dict[data[0]]['RX Interval'] = data[7]
-        data_dict[data[0]]['Multiplier'] = data[8]
-        data_dict[data[0]]['Multihop'] = data[9]
-        data_dict[data[0]]['Local Discriminator'] = data[10]
-    return data_dict
-
-
 def _find_down_ports(dut, phy_interfaces, ip_interfaces):
     """Finds the ports which are operationally down
 
@@ -228,6 +209,13 @@ def check_bgp(duthosts, tbinfo):
 
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
+
+        # If the topology doesn't have any VMs, it is not using BGP feature at all, hence skip checking
+        # the BGP status here.
+        if len(tbinfo['topo']['properties']['topology']['VMs']) == 0:
+            logger.info("No VMs in topology, skip checking bgp status on host %s ..." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
 
         networking_uptime = dut.get_networking_uptime().seconds
         if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:

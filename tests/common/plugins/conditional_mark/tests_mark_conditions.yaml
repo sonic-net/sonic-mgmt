@@ -1086,18 +1086,6 @@ platform_tests/test_cont_warm_reboot.py:
     conditions:
       - "platform in ['x86_64-mlnx_msn3800-r0'] or 'dualtor' in topo_name"
 
-platform_tests/test_reboot.py::test_watchdog_reboot:
-  xfail:
-    reason: "Known testbed hardware issue"
-    conditions:
-      - "hwsku in ['Cisco-8101-O8C48']"
-
-platform_tests/test_service_warm_restart.py:
-  skip:
-    reason: "Only supported on Mellanox. Skip the test on feature branches as it's not required for now"
-    conditions:
-      - "asic_type not in ['mellanox'] or release in ['202205', '202305', 'internal']"
-
 platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked:
   skip:
     reason: "Test not supported on Mellanox Platforms."
@@ -1140,6 +1128,12 @@ platform_tests/test_reboot.py::test_warm_reboot:
     conditions:
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
 
+platform_tests/test_reboot.py::test_watchdog_reboot:
+  xfail:
+    reason: "Known testbed hardware issue"
+    conditions:
+      - "hwsku in ['Cisco-8101-O8C48']"
+
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
     reason: "Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000"
@@ -1151,6 +1145,12 @@ platform_tests/test_secure_upgrade.py:
     reason: "platform does not support secure upgrade"
     conditions:
       - "'sn2' in platform or 'sn3' in platform or 'sn4' in platform"
+      -
+platform_tests/test_service_warm_restart.py:
+  skip:
+    reason: "Only supported on Mellanox. Skip the test on feature branches as it's not required for now"
+    conditions:
+      - "asic_type not in ['mellanox'] or release in ['202205', '202305', 'internal']"
 
 #######################################
 #####           qos               #####
@@ -1456,9 +1456,8 @@ snmp/test_snmp_link_local.py:
   skip:
     reason: "SNMP over IPv6 support not present in release branches."
     conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/6108
       - "is_multi_asic==False"
-      - "release in ['202205', '202211', '202305']"
+      - "release in ['202205', '202211', '202305', '202311']"
 
 snmp/test_snmp_loopback.py::test_snmp_loopback:
   skip:
@@ -1654,6 +1653,12 @@ vlan/test_vlan_ping.py:
 #######################################
 #####             voq             #####
 #######################################
+voq:
+  skip:
+    reason: "Cisco 8800 doesn't support voq tests"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 voq/test_fabric_cli_and_db.py:
   skip:
     reason: "Skip test_fabric_cli_and_db on unsupported testbed."
