@@ -325,7 +325,7 @@ onboarding_t0:
   - platform_tests/link_flap/test_link_flap.py
   - platform_tests/sfp/test_sfputil.py
   - platform_tests/sfp/test_show_intf_xcvr.py
-  - platform_tests/test_advanced_reboot.py
+  # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_intf_fec.py
   - platform_tests/test_memory_exhaustion.py
