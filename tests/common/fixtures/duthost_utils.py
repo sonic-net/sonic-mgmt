@@ -9,6 +9,7 @@ import ipaddress
 import time
 import json
 
+from ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
 
 from tests.common import config_reload
@@ -752,7 +753,13 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
     for duthost in duthosts.nodes:
         if config_db_modified[duthost.hostname]:
             logger.info(f"config changed. Doing config reload for {duthost.hostname}")
-            config_reload(duthost, wait=120)
+            try:
+                config_reload(duthost, wait=120)
+            except AnsibleConnectionFailure as e:
+                # IPV4 mgmt interface been deleted by config reload
+                # In latest SONiC, config reload command will exit after mgmt interface restart
+                # Then 'duthost' will lost IPV4 connection and throw exception
+                logger.warning(f'Exception after config reload: {e}')
     duthosts.reset()
 
     for duthost in duthosts.nodes:
