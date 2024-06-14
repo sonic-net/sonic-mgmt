@@ -1,0 +1,14 @@
+Value Required VLAN (\S+)
+Value Required VNI (\d+)
+ 
+Start
+  ^\+\-+\+\-+\+ -> Begin
+ 
+Begin
+  ^\| VLAN\s*\|\s*VNI \|\s*$$ -> Capture
+  
+Capture
+  ^\| ${VLAN}\s*\|\s*${VNI}\s*\|\s*$$ -> Record
+  ^Total count -> End
+  
+End
