@@ -33,6 +33,8 @@ class QosParamCisco(object):
         self.is_large_sms = duthost.facts['platform'] not in self.SMALL_SMS_PLATFORMS
         self.is_deep_buffer = duthost.facts['platform'] in self.DEEP_BUFFER_PLATFORMS
         self.buffer_size = 384
+        # If t2 chassis
+        self.is_t2 = duthost.facts["modular_chassis"] == "True"
         # Lossless profile attributes
         lossless_prof_name = "pg_lossless_{}_profile".format(self.portSpeedCableLength)
         lossless_prof = self.bufferConfig["BUFFER_PROFILE"][lossless_prof_name]
@@ -82,7 +84,6 @@ class QosParamCisco(object):
         self.qos_params structure.
         '''
         self.__define_shared_reservation_size()
-        self.__define_xon_hysteresis()
         if not self.supports_autogen:
             return self.qos_params
         self.__define_pfc_xoff_limit()
@@ -95,6 +96,7 @@ class QosParamCisco(object):
         self.__define_lossless_voq()
         self.__define_q_watermark_all_ports()
         self.__define_pg_drop()
+        self.__define_xon_hysteresis()
         return self.qos_params
 
     def gr_get_mantissa_exp(self, thr):
@@ -423,10 +425,28 @@ class QosParamCisco(object):
             self.write_params("pg_drop", params)
 
     def __define_xon_hysteresis(self):
+        if self.is_t2:
+            return
         self.log("Autogenerating qos params for test labels {}".format("xon_hysteresis_"))
         cell_size = 384
         packet_size = 1350
-        if not self.is_large_sms:
+        if self.is_large_sms:
+            if not self.is_deep_buffer:
+                # 5*10 + 4 = 54 MB
+                sq_occupancies_mb = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4]
+                pkt_counts = []
+                cell_per_pkt = math.ceil(packet_size/cell_size)
+                for sq_occupancy_mb in sq_occupancies_mb:
+                    pkt_counts.append(int(sq_occupancy_mb * 1024 ** 2 / (cell_per_pkt * cell_size)))
+                params_1 = {"dscps": [3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 3],
+                            "pgs": [3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 3],
+                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 5, 6],
+                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+                            "pkt_counts": pkt_counts,
+                            "packet_size": packet_size,
+                            "ecn": 1}
+                self.write_params("xon_hysteresis_1", params_1)
+        else:
             # 4 + 5*5 + 2.5 = 31.5 MB
             # 1st flow do "tx enable" to trigger SQG transition from region 1 to region 0
             # last flow is target SQ, keep XOFF state after SQG transition

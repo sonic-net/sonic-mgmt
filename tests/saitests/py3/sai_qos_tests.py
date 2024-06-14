@@ -5955,8 +5955,8 @@ class XonHysteresisTest(sai_base_test.ThriftInterfaceDataPlane):
             # Send a packet to trigger Xon/Xoff state update on target SQ
             send_packet(self, src_id, pkt_tuple[0], 1)
 
-            # Check target SQ keep in XOFF state
-            print("Check target SQ keep in XOFF state", file=sys.stderr)
+            # Check target SQ remain in XOFF state
+            print("Check target SQ remain in XOFF state", file=sys.stderr)
             time.sleep(4)
             recv_counters_bases = sai_thrift_read_port_counters(
                 self.src_client, asic_type, port_list['src'][src_port_ids[-1]])[0]
