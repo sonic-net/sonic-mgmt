@@ -545,7 +545,7 @@ class SonicDbNoCommandOutput(Exception):
     pass
 
 
-def redis_get_keys(duthost, db_id, pattern):
+def redis_get_keys(duthost, db_id, pattern, asic_id=None):
     """
     Get all keys for a given pattern in given redis database
     :param duthost: DUT host object
@@ -553,7 +553,11 @@ def redis_get_keys(duthost, db_id, pattern):
     :param pattern: Redis key pattern
     :return: A list of key name in string
     """
-    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
+    if asic_id is not None:
+        cmd = 'sonic-db-cli -n asic{} {} KEYS \"{}\"'.format(asic_id, db_id, pattern)
+    else:
+        cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
+
     logger.debug('Getting keys from redis by command: {}'.format(cmd))
     output = duthost.shell(cmd)
     content = output['stdout'].strip()

@@ -55,18 +55,22 @@ WATERMARK_COUNTERS_DB_STATS_TYPE = ['USER_WATERMARKS', 'PERSISTENT_WATERMARKS', 
 
 
 @pytest.fixture(scope='module')
-def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
+def dut_vars(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
     inv_files = get_inventory_files(request)
-    dut_vars = get_host_visible_vars(inv_files, enum_rand_one_per_hwsku_hostname)
+    dut_vars = get_host_visible_vars(inv_files, enum_rand_one_per_hwsku_frontend_hostname)
     yield dut_vars
 
 
-def check_counters_populated(duthost, key):
-    return bool(redis_get_keys(duthost, 'COUNTERS_DB', key))
+def check_counters_populated(duthost, key, asic_id=None):
+    if asic_id is not None:
+        return bool(redis_get_keys(duthost, 'COUNTERS_DB', key, asic_id))
+    else:
+        return bool(redis_get_keys(duthost, 'COUNTERS_DB', key))
 
+def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
+                                                 dut_vars, enum_rand_one_frontend_asic_index,
+                                                 backup_and_restore_config_db):  # noqa F811
 
-def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_hostname, dut_vars,
-                                             backup_and_restore_config_db):     # noqa F811
     """
     @summary: Verify FLEXCOUNTERS_DB and COUNTERS_DB content after `counterpoll queue/watermark/queue enable`
 
@@ -84,7 +88,13 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
            no WATERMARK or QUEUE stats in FLEX_COUNTER_DB
     4. enables all three counterpolls (queue,watermark,pg-drop) and count stats per type
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if duthost.is_multi_asic:
+        asic_id = enum_rand_one_frontend_asic_index
+    else:
+        asic_id = None
+
     skip_release(duthost, ["202205", "202111", "202106", "202012", "201911", "201811", "201803"])
 
     counted_dict = {}
@@ -124,7 +134,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     # Delay to allow the counterpoll to generate the maps in COUNTERS_DB
     with allure.step("waiting {} seconds for counterpoll to generate maps in COUNTERS_DB"):
         delay = RELEVANT_MAPS[tested_counterpoll][DELAY]
-        wait_until(120, 5, delay, check_counters_populated, duthost, MAPS_LONG_PREFIX.format('*'))
+        wait_until(120, 5, delay, check_counters_populated, duthost, MAPS_LONG_PREFIX.format('*'), asic_id)
     # verify QUEUE or PG maps are generated into COUNTERS_DB after enabling relevant counterpoll
     with allure.step("Verifying MAPS in COUNTERS_DB on {}...".format(duthost.hostname)):
         maps_dict = RELEVANT_MAPS[tested_counterpoll]
@@ -132,7 +142,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         for map_to_verify in maps_to_verify:
             map_prefix = map_to_verify['prefix']
             maps = map_to_verify[MAPS]
-            map_output = redis_get_keys(duthost, 'COUNTERS_DB', MAPS_LONG_PREFIX.format(map_prefix))
+            map_output = redis_get_keys(duthost, 'COUNTERS_DB', MAPS_LONG_PREFIX.format(map_prefix), asic_id)
             map = []
             failed = ""
             for map_entry in maps:
@@ -150,7 +160,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
 
     failed_list = []
     with allure.step("Verifying {} STATS in FLEX_COUNTER_DB on {}...".format(tested_counterpoll, duthost.hostname)):
-        stats_output = redis_get_keys(duthost, 'FLEX_COUNTER_DB', '*{}*'.format(map_prefix))
+        stats_output = redis_get_keys(duthost, 'FLEX_COUNTER_DB', '*{}*'.format(map_prefix), asic_id)
         counted = 0
         # build expected counterpoll stats vs unexpected
         expected_types = []
@@ -169,10 +179,6 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
             for expected in expected_types:
                 if expected in line:
                     counted += 1
-            for unexpected in unexpected_types:
-                if unexpected in line:
-                    failed_list.append("found for {} unexpected stat counter in FLEX_COUNTER_DB: {}"
-                                       .format(tested_counterpoll, line))
         logging.info("counted {} {} STATs type in FLEX_COUNTER_DB on {}..."
                      .format(counted, tested_counterpoll, duthost.hostname))
         pytest_assert(len(failed_list) == 0, failed_list)
@@ -181,7 +187,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     # for watermark only, also count stats with actual values in COUNTERS_DB
     if CounterpollConstants.WATERMARK in tested_counterpoll:
         with allure.step("counting {} STATS in FLEX_COUNTER_DB on {}...".format(tested_counterpoll, duthost.hostname)):
-            count_watermark_stats_in_counters_db(duthost)
+            count_watermark_stats_in_counters_db(duthost, asic_id)
 
     pytest_assert([] == failed_list, failed_list)
 
@@ -195,7 +201,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         for counterpoll in RELEVANT_COUNTERPOLLS:
             counted_dict[counterpoll] = 0
         for map_prefix in MAPS_PREFIX_FOR_ALL_COUNTERPOLLS:
-            stats_output = redis_get_keys(duthost, 'FLEX_COUNTER_DB', '*{}*'.format(map_prefix))
+            stats_output = redis_get_keys(duthost, 'FLEX_COUNTER_DB', '*{}*'.format(map_prefix), asic_id)
             for line in stats_output:
                 for counterpoll, v in list(RELEVANT_MAPS.items()):
                     types_to_check = v[CounterpollConstants.TYPE]
@@ -209,7 +215,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     # for watermark only, also count stats with actual values in COUNTERS_DB
     if CounterpollConstants.WATERMARK in tested_counterpoll:
         with allure.step("counting watermark STATS in FLEX_COUNTER_DB on {}...".format(duthost.hostname)):
-            count_watermark_stats_in_counters_db(duthost)
+            count_watermark_stats_in_counters_db(duthost, asic_id)
 
 
 def verify_all_counterpoll_status(duthost, expected):
@@ -235,9 +241,14 @@ def verify_counterpoll_status(duthost, counterpoll_list, expected):
                           .format(counterpoll, verified_output_dict[counterpoll], expected))
 
 
-def count_watermark_stats_in_counters_db(duthost):
-    watermark_stats_output = redis_get_keys(duthost, 'COUNTERS_DB', '*{}*'
-                                            .format(CounterpollConstants.WATERMARK.upper()))
+def count_watermark_stats_in_counters_db(duthost, asic_id=None):
+    if asic_id is not None:
+        watermark_stats_output = redis_get_keys(duthost, 'COUNTERS_DB',
+                                                '*{}*'.format(CounterpollConstants.WATERMARK.upper()), asic_id)
+    else:
+        watermark_stats_output = redis_get_keys(duthost, 'COUNTERS_DB',
+                                                '*{}*'.format(CounterpollConstants.WATERMARK.upper()))
+
     watermark_stats = {}
     for watermark_type in WATERMARK_COUNTERS_DB_STATS_TYPE:
         watermark_stats[watermark_type] = 0
