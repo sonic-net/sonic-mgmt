@@ -252,9 +252,9 @@ class TestSSIP:
             logger.info("Create mgmt vrf")
             create_vrf(self.duthost, VRF_LIST[2])
             # when create mgmt vrf, dut connection will be lost for a while
-            localhost.wait_for(host=self.duthost.hostname, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
+            localhost.wait_for(host=self.duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
                                state='absent', delay=1, timeout=30)
-            localhost.wait_for(host=self.duthost.hostname, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
+            localhost.wait_for(host=self.duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
                                state='started', delay=2, timeout=180)
 
         for k, v in list(MGMT_IP_ADDRESSES.items()):
