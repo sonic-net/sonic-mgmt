@@ -119,13 +119,8 @@ def do_checks(request, check_items, *args, **kwargs):
     return check_results
 
 
-@pytest.fixture(scope="module", autouse=True)
-def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
-    if request.config.option.skip_sanity:
-        logger.info("Skip sanity check according to command line argument")
-        yield
-        return
-
+@pytest.fixture(scope="module")
+def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     logger.info("Prepare sanity check")
 
     skip_sanity = False
@@ -303,3 +298,12 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
         logger.info("Done post-test sanity check")
     else:
         logger.info('No post-test sanity check item, skip post-test sanity check.')
+
+
+@pytest.fixture(scope="module", autouse=True)
+def sanity_check(request):
+    if request.config.option.skip_sanity:
+        logger.info("Skip sanity check according to command line argument")
+        yield
+    else:
+        yield request.getfixturevalue('sanity_check_full')

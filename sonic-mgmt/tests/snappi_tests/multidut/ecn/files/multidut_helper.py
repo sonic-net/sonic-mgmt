@@ -55,7 +55,6 @@ def run_ecn_test(api,
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
-    iters = snappi_extra_params.test_iterations
 
     pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
 

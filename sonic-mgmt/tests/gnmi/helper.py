@@ -1,5 +1,4 @@
 import time
-import re
 import logging
 import pytest
 from tests.common.utilities import wait_until
@@ -108,9 +107,13 @@ def gnmi_capabilities(duthost, localhost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = "gnmi/gnmi_cli -client_types=gnmi -a %s:%s " % (ip, port)
-    cmd += "-logtostderr -client_crt ./gnmiclient.crt -client_key ./gnmiclient.key -ca_crt ./gnmiCA.pem -capabilities"
-    output = localhost.shell(cmd, module_ignore_errors=True)
+    # Run gnmi_cli in gnmi container as workaround
+    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
+    cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
+    cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-logtostderr -capabilities"
+    output = duthost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
@@ -120,60 +123,131 @@ def gnmi_capabilities(duthost, localhost):
         return 0, output['stdout']
 
 
-def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
+def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
+    """
+    Send GNMI set request with GNMI client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        delete_list: list for delete operations
+        update_list: list for update operations
+        replace_list: list for replace operations
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = "gnmi/gnmi_set -target_addr %s:%s " % (ip, port)
-    cmd += "-alsologtostderr -cert ./gnmiclient.crt -key ./gnmiclient.key -ca ./gnmiCA.pem -time_out 60s"
-    for delete in delete_list:
-        cmd += " -delete " + delete
+    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd += '--timeout 30 '
+    cmd += '-t %s -p %u ' % (ip, port)
+    cmd += '-xo sonic-db '
+    cmd += '-rcert /root/gnmiCA.pem '
+    cmd += '-pkey /root/gnmiclient.key '
+    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-m set-update '
+    xpath = ''
+    xvalue = ''
+    for path in delete_list:
+        path = path.replace('sonic-db:', '')
+        xpath += ' ' + path
+        xvalue += ' ""'
     for update in update_list:
-        cmd += " -update " + update
+        update = update.replace('sonic-db:', '')
+        result = update.rsplit(':', 1)
+        xpath += ' ' + result[0]
+        xvalue += ' ' + result[1]
     for replace in replace_list:
-        cmd += " -replace " + replace
-    output = localhost.shell(cmd, module_ignore_errors=True)
+        replace = replace.replace('sonic-db:', '')
+        result = replace.rsplit(':', 1)
+        xpath += ' ' + result[0]
+        if '#' in result[1]:
+            xvalue += ' ""'
+        else:
+            xvalue += ' ' + result[1]
+    cmd += '--xpath ' + xpath
+    cmd += ' '
+    cmd += '--value ' + xvalue
+    output = ptfhost.shell(cmd, module_ignore_errors=True)
+    error = "GRPC error\n"
+    if error in output['stdout']:
+        dump_gnmi_log(duthost)
+        dump_system_status(duthost)
+        result = output['stdout'].split(error, 1)
+        raise Exception("GRPC error:" + result[1])
     if output['stderr']:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        verify_tcp_port(localhost, ip, port)
-        return -1, output['stderr']
+        raise Exception("error:" + output['stderr'])
     else:
-        return 0, output['stdout']
+        return
 
 
-def gnmi_get(duthost, localhost, path_list):
+def gnmi_get(duthost, ptfhost, path_list):
+    """
+    Send GNMI get request with GNMI client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        path_list: list for get path
+
+    Returns:
+        msg_list: list for get result
+    """
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = "gnmi/gnmi_get -target_addr %s:%s " % (ip, port)
-    cmd += "-alsologtostderr -cert ./gnmiclient.crt -key ./gnmiclient.key -ca ./gnmiCA.pem"
+    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd += '--timeout 30 '
+    cmd += '-t %s -p %u ' % (ip, port)
+    cmd += '-xo sonic-db '
+    cmd += '-rcert /root/gnmiCA.pem '
+    cmd += '-pkey /root/gnmiclient.key '
+    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '--encoding 4 '
+    cmd += '-m get '
+    cmd += '--xpath '
     for path in path_list:
-        cmd += " -xpath " + path
-    output = localhost.shell(cmd, module_ignore_errors=True)
+        path = path.replace('sonic-db:', '')
+        cmd += " " + path
+    output = ptfhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        verify_tcp_port(localhost, ip, port)
-        return -1, [output['stderr']]
+        raise Exception("error:" + output['stderr'])
     else:
         msg = output['stdout'].replace('\\', '')
-        find_list = re.findall(r'json_ietf_val:\s*"(.*?)"\s*>', msg)
-        if find_list:
-            return 0, find_list
+        error = "GRPC error\n"
+        if error in msg:
+            dump_gnmi_log(duthost)
+            dump_system_status(duthost)
+            result = msg.split(error, 1)
+            raise Exception("GRPC error:" + result[1])
+        mark = 'The GetResponse is below\n' + '-'*25 + '\n'
+        if mark in msg:
+            result = msg.split(mark, 1)
+            msg_list = result[1].split('-'*25)[0:-1]
+            return [msg.strip("\n") for msg in msg_list]
         else:
-            return -1, [msg]
+            dump_gnmi_log(duthost)
+            dump_system_status(duthost)
+            raise Exception("error:" + msg)
 
 
-def gnoi_reboot(duthost, localhost, method, delay, message):
+def gnoi_reboot(duthost, method, delay, message):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = "gnmi/gnoi_client -target %s:%s " % (ip, port)
-    cmd += "-logtostderr -cert ./gnmiclient.crt -key ./gnmiclient.key -ca ./gnmiCA.pem -rpc Reboot "
+    # Run gnoi_client in gnmi container as workaround
+    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
+    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
+    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-logtostderr -rpc Reboot "
     cmd += '-jsonin "{\\\"method\\\":%d, \\\"delay\\\":%d, \\\"message\\\":\\\"%s\\\"}"' % (method, delay, message)
-    output = localhost.shell(cmd, module_ignore_errors=True)
+    output = duthost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
+        logger.error(output['stderr'])
         return -1, output['stderr']
     else:
         return 0, output['stdout']
