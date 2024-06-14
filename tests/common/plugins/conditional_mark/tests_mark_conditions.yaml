@@ -130,7 +130,7 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
   skip:
     reason: "Skip it on dual tor since it got stuck during warm reboot due to known issue on master and internal image"
     conditions:
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56']"
       - https://github.com/sonic-net/sonic-mgmt/issues/9201
 
 bgp/test_bgp_speaker.py:
@@ -421,6 +421,12 @@ dualtor/test_tunnel_memory_leak.py::test_tunnel_memory_leak:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11403 and 'dualtor-64' in topo_name"
 
+dualtor_io:
+  skip:
+    reason: "Testcase could only be executed on dualtor testbed."
+    conditions:
+      - "'dualtor' not in topo_name"
+
 dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_downstream[active-active]:
   xfail:
     reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16085"
@@ -478,7 +484,7 @@ ecmp/inner_hashing/test_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -489,7 +495,7 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -500,7 +506,7 @@ ecmp/inner_hashing/test_wr_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -511,7 +517,7 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -1218,6 +1224,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
     reason: "Skip DWRR weight change test on Mellanox platform."
     conditions:
       - "asic_type in ['mellanox']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity:
+  skip:
+    reason: "Unsupported platform or testbed type."
+    conditions:
+      - "asic_type not in ['cisco-8000'] or topo_name not in ['ptf64']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
   skip:

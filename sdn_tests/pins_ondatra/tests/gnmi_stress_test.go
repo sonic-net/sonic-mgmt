@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -196,6 +197,81 @@ func TestGNMIGetDifferentSubtreeTest(t *testing.T) {
 	gst.SanityCheck(t, dut)
 }
 
+// gNMI different Client get test
+func TestGNMIGetDifferentClientTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.SanityCheck(t, dut)
+	ctx := context.Background()
+	newGNMIClient := func() gpb.GNMIClient {
+		gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+		if err != nil {
+			t.Fatalf("Unable to get gNMI client (%v)", err)
+		}
+		return gnmiClient
+	}
+	clients := map[string]gpb.GNMIClient{
+		"c1":  newGNMIClient(),
+		"c2":  newGNMIClient(),
+		"c3":  newGNMIClient(),
+		"c4":  newGNMIClient(),
+		"c5":  newGNMIClient(),
+		"c6":  newGNMIClient(),
+		"c7":  newGNMIClient(),
+		"c8":  newGNMIClient(),
+		"c9":  newGNMIClient(),
+		"c10": newGNMIClient(),
+	}
+
+	var wg sync.WaitGroup
+	for k := range clients {
+		v := k
+		wg.Add(1)
+
+		rand.Seed(time.Now().Unix())
+		gst.CollectPerformanceMetrics(t, dut)
+		port, err := testhelper.RandomInterface(t, dut, nil)
+		if err != nil {
+			t.Fatalf("Failed to fetch random interface: %v", err)
+		}
+		reqPath := fmt.Sprintf(gst.Path[rand.Intn(len(gst.Path))], port)
+		// Create Get Request.
+		sPath, err := ygot.StringToStructuredPath(reqPath)
+		if err != nil {
+			t.Fatalf("Unable to convert string to path (%v)", err)
+		}
+
+		// Create getRequest message with data type.
+		getRequest := &gpb.GetRequest{
+			Prefix:   &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Path:     []*gpb.Path{sPath},
+			Type:     gpb.GetRequest_ALL,
+			Encoding: gpb.Encoding_PROTO,
+		}
+		t.Logf("GetRequest:\n%v", getRequest)
+
+		// Fetch get client using the raw gNMI client.
+		go func() {
+			getResp, err := clients[v].Get(ctx, getRequest)
+			if err != nil {
+				t.Log("Error while calling Get Raw API")
+			}
+			if getResp == nil {
+				t.Log("Get response is nil")
+			}
+			t.Logf("GetResponse:\n%v", getResp)
+			wg.Done()
+		}()
+
+		gst.CollectPerformanceMetrics(t, dut)
+	}
+	wg.Wait()
+	t.Logf("After 10 seconds of idle time, the performance metrics are:")
+	time.Sleep(gst.IdleTime * time.Second)
+	gst.CollectPerformanceMetrics(t, dut)
+	gst.SanityCheck(t, dut)
+}
+
 // gNMI different leaf get test
 func TestGNMISetUpdateDifferentLeafTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
@@ -222,6 +298,274 @@ func TestGNMISetReplaceDifferentClientTest(t *testing.T) {
 	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
 	dut := ondatra.DUT(t, "DUT")
 	gst.SetDifferentClientTest(t, dut, true)
+}
+
+// gNMI different leaf set delete test
+func TestGNMISetDeleteDifferentLeafTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("08f9ffba-54a9-4d47-a3dc-0e4420fe296b").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.SanityCheck(t, dut)
+	rand.Seed(time.Now().Unix())
+	gst.CollectPerformanceMetrics(t, dut)
+	for i := 0; i < gst.AvgIteration; i++ {
+		port, err := testhelper.RandomInterface(t, dut, nil)
+		if err != nil {
+			t.Fatalf("Failed to fetch random interface: %v", err)
+		}
+		gst.SetDefaultValuesHelper(t, dut, port)
+		sPath, err := ygot.StringToStructuredPath(gst.RandomDeletePath(port))
+		if err != nil {
+			t.Fatalf("Unable to convert string to path (%v)", err)
+		}
+
+		paths := []*gpb.Path{sPath}
+
+		// Create getRequest message with data type.
+		getRequest := &gpb.GetRequest{
+			Prefix:   &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Path:     paths,
+			Type:     gpb.GetRequest_ALL,
+			Encoding: gpb.Encoding_JSON_IETF,
+		}
+		t.Logf("GetRequest:\n%v", getRequest)
+
+		// Fetch get client using the raw gNMI client.
+		ctx := context.Background()
+		gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+		if err != nil {
+			t.Fatalf("Unable to get gNMI client (%v)", err)
+		}
+		getResp, err := gnmiClient.Get(ctx, getRequest)
+		if err != nil {
+			t.Fatalf("Error while calling Get Raw API: (%v)", err)
+		}
+		t.Logf("GetResponse:\n%v", getResp)
+
+		setRequest := &gpb.SetRequest{
+			Prefix: &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Delete: []*gpb.Path{sPath},
+		}
+		t.Logf("SetRequest:\n%v", setRequest)
+
+		// Fetch get client using the raw gNMI client.
+		setResp, err := gnmiClient.Set(ctx, setRequest)
+		if err != nil {
+			t.Fatalf("Error while calling Get Raw API: (%v)", err)
+		}
+
+		if setResp == nil {
+			t.Fatalf("set response is nil")
+		}
+		t.Logf("setResponse:\n%v", setResp)
+		gst.CollectPerformanceMetrics(t, dut)
+
+		// Restore the old values for the path
+
+		if getResp != nil {
+			updates, err := gst.UpdatesWithJSONIETF(getResp)
+			if err != nil {
+				t.Fatalf("Unable to get updates with JSON IETF: (%v)", err)
+			}
+			setRequest := &gpb.SetRequest{
+				Prefix:  &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+				Replace: updates,
+			}
+			setResp, err := gnmiClient.Set(ctx, setRequest)
+			if err != nil {
+				t.Fatalf("Unable to restore the original value using set client (%v)", err)
+			}
+			t.Logf("SetResponse:\n%v", setResp)
+		}
+	}
+	t.Logf("After %v seconds of idle time, collecting performance metrics", gst.IdleTime)
+	time.Sleep(gst.IdleTime * time.Second)
+	gst.CollectPerformanceMetrics(t, dut)
+	gst.SanityCheck(t, dut)
+}
+
+// gNMI different subtrees set delete test
+func TestGNMISetDeleteDifferentSubtreeTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("357762b4-4d34-467e-b321-90a2d271d50d").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.SanityCheck(t, dut)
+	rand.Seed(time.Now().Unix())
+	gst.CollectPerformanceMetrics(t, dut)
+	// Restore the config on the DUT after the test.
+	defer func() {
+		if err := testhelper.ConfigPush(t, dut, nil); err != nil {
+			t.Fatalf("Failed to restore config: %v", err)
+		}
+	}()
+	for i := 0; i < gst.MinIteration; i++ {
+		reqPath := gst.DelSubtree[rand.Intn(len(gst.DelSubtree))]
+
+		// Create Set Delete Request.
+		sPath, err := ygot.StringToStructuredPath(reqPath)
+		if err != nil {
+			t.Fatalf("Unable to convert string to path (%v)", err)
+		}
+
+		// Create getRequest message with data type.
+		getRequest := &gpb.GetRequest{
+			Prefix:   &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Path:     []*gpb.Path{sPath},
+			Type:     gpb.GetRequest_CONFIG,
+			Encoding: gpb.Encoding_JSON_IETF,
+		}
+		t.Logf("GetRequest:\n%v", getRequest)
+
+		ctx := context.Background()
+		gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+		if err != nil {
+			t.Fatalf("Unable to get gNMI client (%v)", err)
+		}
+		getResp, err := gnmiClient.Get(ctx, getRequest)
+		if err != nil {
+			t.Fatalf("Error while calling Get Raw API: (%v)", err)
+		}
+		t.Logf("GetResponse:\n%v", getResp)
+
+		setRequest := &gpb.SetRequest{
+			Prefix: &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Delete: []*gpb.Path{sPath},
+		}
+		t.Logf("SetRequest:\n%v", setRequest)
+
+		// Fetch set delete client using the raw gNMI client.
+		setResp, err := gnmiClient.Set(ctx, setRequest)
+		if err != nil {
+			t.Fatalf("Error while calling Get Raw API: (%v)", err)
+		}
+		if setResp == nil {
+			t.Fatalf("set response is nil")
+		}
+		t.Logf("setResponse:\n%v", setResp)
+
+		// Restore the old values.
+		// A defer statement was not used to restore the values because this is in a for loop. The for
+		// loop deletes a subtree and then restores the values after. The subtree that is chosen could
+		// be chosen multiple times in the same test, so a defer would not work in this case.
+		updates, err := gst.UpdatesWithJSONIETF(getResp)
+		if err != nil {
+			t.Fatalf("Unable to get updates with JSON IETF: (%v)", err)
+		}
+		setRequest = &gpb.SetRequest{
+			Prefix:  &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Replace: updates,
+		}
+		setResp, err = gnmiClient.Set(ctx, setRequest)
+		if err != nil {
+			t.Fatalf("Unable to restore the original value using set client (%v)", err)
+		}
+		t.Logf("SetResponse:\n%v", setResp)
+		gst.CollectPerformanceMetrics(t, dut)
+	}
+	t.Logf("After %v seconds of idle time, the performance metrics are collected", gst.IdleTime)
+	time.Sleep(gst.IdleTime * time.Second)
+	gst.CollectPerformanceMetrics(t, dut)
+	gst.SanityCheck(t, dut)
+}
+
+// gNMI different Client set delete test
+func TestGNMISetDeleteDifferentClientTest(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("389641b7-d995-4411-a222-e38caa9291a2").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	gst.SanityCheck(t, dut)
+	ctx := context.Background()
+	newGNMIClient := func() gpb.GNMIClient {
+		gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+		if err != nil {
+			t.Fatalf("Unable to get gNMI client (%v)", err)
+		}
+		return gnmiClient
+	}
+	clients := map[string]gpb.GNMIClient{
+		"c1":  newGNMIClient(),
+		"c2":  newGNMIClient(),
+		"c3":  newGNMIClient(),
+		"c4":  newGNMIClient(),
+		"c5":  newGNMIClient(),
+		"c6":  newGNMIClient(),
+		"c7":  newGNMIClient(),
+		"c8":  newGNMIClient(),
+		"c9":  newGNMIClient(),
+		"c10": newGNMIClient(),
+	}
+	info, err := testhelper.FetchPortsOperStatus(t, dut)
+	if err != nil || info == nil {
+		t.Fatalf("Failed to fetch ports oper-status: %v", err)
+	}
+	interfaces := info.Up
+	numIntfs := len(interfaces)
+	var port string
+
+	var wg sync.WaitGroup
+	for k := range clients {
+		if len(interfaces) == 0 {
+			t.Logf("Less operationally up interfaces than clients: %v interfaces, %v clients", numIntfs, len(clients))
+			break
+		}
+		v := k
+		wg.Add(1)
+
+		rand.Seed(time.Now().Unix())
+		gst.CollectPerformanceMetrics(t, dut)
+		port, interfaces = interfaces[0], interfaces[1:]
+		gst.SetDefaultValuesHelper(t, dut, port)
+		sPath, err := ygot.StringToStructuredPath(gst.RandomDeletePath(port))
+		if err != nil {
+			t.Fatalf("Unable to convert string to path (%v)", err)
+		}
+
+		paths := []*gpb.Path{sPath}
+
+		// Create getRequest message with data type.
+		getRequest := &gpb.GetRequest{
+			Prefix:   &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Path:     paths,
+			Type:     gpb.GetRequest_ALL,
+			Encoding: gpb.Encoding_PROTO,
+		}
+		t.Logf("GetRequest:\n%v", getRequest)
+
+		setRequest := &gpb.SetRequest{
+			Prefix: &gpb.Path{Origin: "openconfig", Target: dut.Name()},
+			Delete: []*gpb.Path{sPath},
+		}
+		t.Logf("SetRequest:\n%v", setRequest)
+		ctx := context.Background()
+		gnmiClient, err := dut.RawAPIs().BindingDUT().DialGNMI(ctx, grpc.WithBlock())
+		if err != nil {
+			t.Fatalf("Unable to get gNMI client (%v)", err)
+		}
+		getResp, err := gnmiClient.Get(ctx, getRequest)
+		if err != nil {
+			t.Fatalf("Error while calling Get Raw API: (%v)", err)
+		}
+		t.Logf("GetResponse:\n%v", getResp)
+
+		// Fetch get client using the raw gNMI client.
+		go func() {
+			// Fetch get client using the raw gNMI client.
+			setResp, err := clients[v].Set(context.Background(), setRequest)
+			if err != nil {
+				t.Log("Error while calling Set delete Raw API")
+			}
+			if setResp == nil {
+				t.Log("Set response is nil")
+			}
+			t.Logf("setResponse:\n%v", setResp)
+			wg.Done()
+		}()
+		gst.CollectPerformanceMetrics(t, dut)
+		// Restore the old values for the path
+		gst.SetDefaultValuesHelper(t, dut, port)
+	}
+	wg.Wait()
+	t.Logf("After %v seconds of idle time, colecting  performance metrics", gst.IdleTime)
+	time.Sleep(gst.IdleTime * time.Second)
+	gst.CollectPerformanceMetrics(t, dut)
+	gst.SanityCheck(t, dut)
 }
 
 // gNMI different leaf subscription poll mode test
