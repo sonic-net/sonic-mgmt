@@ -61,16 +61,23 @@ def trigger_kernel_event(duthost):
 
 def get_running_container(duthost):
     logger.info("Check if acms or snmp container is running")
-    container = "acms"
-    container_running = is_container_running(duthost, container)
-    if not container_running:
-        container = "snmp"
+    if is_container_running(duthost, "acms"):
+        return "acms"
+    elif is_container_running(duthost, "snmp"):
+        return "snmp"
     else:
-        return container
-    container_running = is_container_running(duthost, container)
-    if not container_running:
         return ""
-    return container
+
+
+def get_critical_process(duthost):
+    logger.info("Check if restapi/snmpd process are running")
+    if is_container_running(duthost, "restapi"):
+        pid = duthost.shell("docker exec restapi pgrep -f restapi.sh")["stdout"]
+        if pid != "":
+            return pid, "restapi"
+    if is_container_running(duthost, "snmp"):
+        pid = duthost.shell("docker exec snmp pgrep -f snmpd")["stdout"]
+        return pid, "snmp"
 
 
 def restart_container(duthost):
@@ -99,15 +106,10 @@ def mask_container(duthost):
 
 def kill_critical_process(duthost):
     logger.info("Killing critical process for exited unexpectedly event")
-    process = "acms"
-    container = get_running_container(duthost)
-    if container == "snmp":
-        process = "snmpd"
+    pid, container = get_critical_process(duthost)
+    assert pid != "", "No available process for testing"
 
-    pid = duthost.shell("docker exec {} pgrep {}".format(container, process))['stdout']
-    duthost.shell("docker exec {} kill -SIGKILL {}".format(container, pid), module_ignore_errors=True)
+    duthost.shell("docker exec {} kill {}".format(container, pid), module_ignore_errors=True)
 
-    time.sleep(60)  # supervisor-proc-exit-listener writes to syslog every 60 seconds
-    # github.com/sonic-net/sonic-buildimage/blob/master/files/scripts/supervisor-proc-exit-listener#L38
-
-    restart_container(duthost)
+    duthost.shell("systemctl reset-failed {}".format(container))
+    duthost.shell("systemctl restart {}"format(container))
