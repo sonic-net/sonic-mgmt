@@ -3,13 +3,13 @@ name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev
 trigger: none
 pr: none
 
-#schedules:
-#  - cron: "0 4 * * 2,6"
-#    displayName: Nightly Scheduler
-#    branches:
-#      include:
-#        - internal
-#    always: true
+schedules:
+  - cron: "0 4 * * 2,6"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
 
 resources:
   repositories:
@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms68-t2-8800-2"
+    default: "vms68-t2-8800-2, vmsvc5-t2-8800-2, vms29-t2-8800-2"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -45,16 +45,16 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "1"
+    default: "3"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_8000_SEC_202305)
+    default: $(IMAGE_CISCO_8000_202405)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: internal-202405
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -92,7 +92,7 @@ parameters:
   # Temporarily disable loganalyzer
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305) --disable_loganalyzer"
+    default: "--topology t2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405) --disable_loganalyzer"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -108,7 +108,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8800.t2.202305.NightlyTest_by_Elastictest
+    displayName: 8800.t2.202405.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
