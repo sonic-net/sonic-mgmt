@@ -1180,6 +1180,54 @@ vms_7:
       ansible_host: 10.64.247.222
     VM07063:
       ansible_host: 10.64.247.223
+    VM07064:
+      ansible_host: 10.64.248.16
+    VM07065:
+      ansible_host: 10.64.248.17
+    VM07066:
+      ansible_host: 10.64.248.18
+    VM07067:
+      ansible_host: 10.64.248.19
+    VM07068:
+      ansible_host: 10.64.248.20
+    VM07069:
+      ansible_host: 10.64.248.21
+    VM07070:
+      ansible_host: 10.64.248.22
+    VM07071:
+      ansible_host: 10.64.248.23
+    VM07072:
+      ansible_host: 10.64.248.24
+    VM07073:
+      ansible_host: 10.64.248.25
+    VM07074:
+      ansible_host: 10.64.248.26
+    VM07075:
+      ansible_host: 10.64.248.27
+    VM07076:
+      ansible_host: 10.64.248.28
+    VM07077:
+      ansible_host: 10.64.248.29
+    VM07078:
+      ansible_host: 10.64.248.30
+    VM07079:
+      ansible_host: 10.64.248.31
+    VM07080:
+      ansible_host: 10.64.248.32
+    VM07081:
+      ansible_host: 10.64.248.33
+    VM07082:
+      ansible_host: 10.64.248.34
+    VM07083:
+      ansible_host: 10.64.248.35
+    VM07084:
+      ansible_host: 10.64.248.36
+    VM07085:
+      ansible_host: 10.64.248.37
+    VM07086:
+      ansible_host: 10.64.248.38
+    VM07087:
+      ansible_host: 10.64.248.39
 vms_11:
   hosts:
     VM11000:
@@ -1386,6 +1434,56 @@ vms_11:
       ansible_host: 172.16.130.132
     VM11101:
       ansible_host: 172.16.130.133
+    VM11102:
+      ansible_host: 172.16.130.134
+    VM11103:
+      ansible_host: 172.16.130.135
+    VM11104:
+      ansible_host: 172.16.130.136
+    VM11105:
+      ansible_host: 172.16.130.137
+    VM11106:
+      ansible_host: 172.16.130.138
+    VM11107:
+      ansible_host: 172.16.130.139
+    VM11108:
+      ansible_host: 172.16.130.140
+    VM11109:
+      ansible_host: 172.16.130.141
+    VM11110:
+      ansible_host: 172.16.130.142
+    VM11111:
+      ansible_host: 172.16.130.143
+    VM11112:
+      ansible_host: 172.16.130.144
+    VM11113:
+      ansible_host: 172.16.130.145
+    VM11114:
+      ansible_host: 172.16.130.146
+    VM11115:
+      ansible_host: 172.16.130.147
+    VM11116:
+      ansible_host: 172.16.130.148
+    VM11117:
+      ansible_host: 172.16.130.149
+    VM11118:
+      ansible_host: 172.16.130.150
+    VM11119:
+      ansible_host: 172.16.130.151
+    VM11120:
+      ansible_host: 172.16.130.152
+    VM11121:
+      ansible_host: 172.16.130.153
+    VM11122:
+      ansible_host: 172.16.130.154
+    VM11123:
+      ansible_host: 172.16.130.155
+    VM11124:
+      ansible_host: 172.16.130.156
+    VM11125:
+      ansible_host: 172.16.130.157
+    VM11126:
+      ansible_host: 172.16.130.158
 vms_12:
   hosts:
     VM12000:
