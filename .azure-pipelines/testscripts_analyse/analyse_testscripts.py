@@ -126,11 +126,10 @@ def get_PRChecker_scripts():
     except Exception as e:
         logging.error('Failed to load file {}, error {}'.format(f, e))
 
-    pr_test_scripts.update(pr_test_skip_scripts)
-
     topology_type_pr_test_scripts = {}
 
     for key, value in pr_test_scripts.items():
+        pr_test_scripts[key].extend(pr_test_skip_scripts[key])
         topology_type = PR_TOPOLOGY_MAPPING.get(key, "")
         if topology_type:
             if topology_type_pr_test_scripts.get(topology_type, ""):
