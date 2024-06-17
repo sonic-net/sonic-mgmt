@@ -160,7 +160,8 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
                         "/etc/network/interfaces",
                         reload_minigraph_with_golden_config,
                         duthost,
-                        override_config)
+                        override_config,
+                        False)
 
     # Get interface and check config generate correct
     interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
