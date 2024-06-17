@@ -35,6 +35,7 @@ t0:
   - dut_console/test_console_baud_rate.py
   - dut_console/test_escape_character.py
   - dut_console/test_idle_timeout.py
+  - everflow/test_everflow_ipv6.py
   - fdb/test_fdb.py
   - fdb/test_fdb_flush.py
   - fdb/test_fdb_mac_expire.py
@@ -95,9 +96,12 @@ t0:
   - platform_tests/test_cpu_memory_usage.py
   - platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py
   - platform_tests/test_port_toggle.py
+  - platform_tests/test_power_off_reboot.py
   - platform_tests/test_secure_upgrade.py
   - platform_tests/test_sensors.py
+  - platform_tests/test_sequential_restart.py
   - platform_tests/test_service_warm_restart.py
+  - platform_tests/test_xcvr_info_in_db.py
   - portstat/test_portstat.py
   - process_monitoring/test_critical_process_monitoring.py
   - qos/test_buffer.py
@@ -270,17 +274,76 @@ dpu:
   - dash/test_dash_vnet.py
 
 onboarding_t0:
+  # We will add a batch of T0 control plane cases and fix the failed cases later
+  - autorestart/test_container_autorestart.py
+  - bgp/test_bgp_peer_shutdown.py
+  - cacl/test_ebtables_application.py
+  - clock/test_clock.py
+  - disk/test_disk_exhaustion.py
+  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
+  - dualtor_mgmt/test_egress_drop_nvidia.py
+  - dualtor_mgmt/test_grpc_periodical_sync.py
+  - dualtor_mgmt/test_ingress_drop.py
+  - generic_config_updater/test_dynamic_acl.py
+  - generic_config_updater/test_pfcwd_interval.py
+  - generic_config_updater/test_pfcwd_status.py
+  - generic_config_updater/test_pg_headroom_update.py
+  - gnmi/test_gnmi.py
+  - gnmi/test_gnmi_appldb.py
+  - gnmi/test_gnmi_configdb.py
+  - k8s/test_config_reload.py
+  - k8s/test_disable_flag.py
+  - k8s/test_join_available_master.py
+  - mvrf/test_mgmtvrf.py
+  - ospf/test_ospf.py
+  - ospf/test_ospf_bfd.py
+  - pc/test_lag_member.py
+  - pfcwd/test_pfc_config.py
+  - pfcwd/test_pfcwd_all_port_storm.py
+  - pfcwd/test_pfcwd_function.py
+  - pfcwd/test_pfcwd_timer_accuracy.py
+  - pfcwd/test_pfcwd_warm_reboot.py
+  - platform_tests/api/test_chassis.py
+  - platform_tests/api/test_chassis_fans.py
+  - platform_tests/api/test_component.py
+  - platform_tests/api/test_fan_drawer.py
+  - platform_tests/api/test_fan_drawer_fans.py
+  - platform_tests/api/test_module.py
+  - platform_tests/api/test_psu.py
+  - platform_tests/api/test_psu_fans.py
+  - platform_tests/api/test_sfp.py
+  - platform_tests/api/test_thermal.py
+  - platform_tests/api/test_watchdog.py
+  - platform_tests/cli/test_show_platform.py
+  - platform_tests/daemon/test_fancontrol.py
+  - platform_tests/daemon/test_ledd.py
+  - platform_tests/daemon/test_pcied.py
+  - platform_tests/daemon/test_psud.py
+  - platform_tests/daemon/test_syseepromd.py
+  - platform_tests/link_flap/test_link_flap.py
+  - platform_tests/sfp/test_sfputil.py
+  - platform_tests/sfp/test_show_intf_xcvr.py
+  # - platform_tests/test_advanced_reboot.py
+  - platform_tests/test_cont_warm_reboot.py
+  - platform_tests/test_intf_fec.py
+  - platform_tests/test_memory_exhaustion.py
+  - platform_tests/test_platform_info.py
+  - platform_tests/test_reboot.py
+  - platform_tests/test_reload_config.py
+  - snmp/test_snmp_link_local.py
+  - snmp/test_snmp_phy_entity.py
+  - snmp/test_snmp_psu.py
+  - snmp/test_snmp_queue_counters.py
+  - sub_port_interfaces/test_show_subinterface.py
+  - sub_port_interfaces/test_sub_port_interfaces.py
+  - sub_port_interfaces/test_sub_port_l2_forwarding.py
+  - system_health/test_system_health.py
+  - test_pktgen.py
   - acl/custom_acl_table/test_custom_acl_table.py
   - acl/null_route/test_null_route_helper.py
   - acl/test_acl.py
   - acl/test_acl_outer_vlan.py
   - acl/test_stress_acl.py
-  - console/test_console_availability.py
-  - everflow/test_everflow_ipv6.py
-  - platform_tests/test_power_off_reboot.py
-  - platform_tests/test_sequential_restart.py
-  - platform_tests/test_xcvr_info_in_db.py
-
 
 specific_param:
   t0-sonic:
