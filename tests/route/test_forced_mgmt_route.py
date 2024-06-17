@@ -11,6 +11,7 @@ from tests.override_config_table.utilities import backup_config, restore_config,
 from tests.syslog.syslog_utils import is_mgmt_vrf_enabled
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0'),
     pytest.mark.device_type('vs')
 ]
