@@ -14,7 +14,8 @@ from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_pe
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
-from tests.snappi_tests.variables import dut_ip_start, snappi_ip_start, prefix_length
+from tests.snappi_tests.variables import dut_ip_start, snappi_ip_start, prefix_length, \
+    t2_asic_port_map, t1_t2_device_hostnames
 logger = logging.getLogger(__name__)
 
 
@@ -894,3 +895,72 @@ def cleanup_config(duthost_list, snappi_ports):
                                                                                                 port['peer_port'],
                                                                                                 dutIp,
                                                                                                 prefix_length))
+
+
+@pytest.fixture(scope="function")
+def multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):            # noqa: F811
+    """
+    Populate tgen ports and connected DUT ports info of T0 testbed and returns as a list
+    Args:
+        duthost (pytest fixture): duthost fixture
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts (pytest fixture): fanout graph
+    Return:
+        return tuple of duts and tgen ports
+    """
+
+    def _multidut_snappi_ports(duthost):
+        speed_type = {'50000': 'speed_50_gbps',
+                      '100000': 'speed_100_gbps',
+                      '200000': 'speed_200_gbps',
+                      '400000': 'speed_400_gbps'}
+
+        snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                                dut_hostname=duthost.hostname)
+
+        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        port_speed = None
+        for i in range(len(snappi_ports)):
+            if port_speed is None:
+                port_speed = int(snappi_ports[i]['speed'])
+
+            elif port_speed != int(snappi_ports[i]['speed']):
+                """ All the ports should have the same bandwidth """
+                return None
+
+        config_facts = duthost.config_facts(host=duthost.hostname,
+                                            source="running")['ansible_facts']
+        for port in snappi_ports:
+            port['location'] = get_snappi_port_location(port)
+            port['speed'] = speed_type[port['speed']]
+            if t1_t2_device_hostnames[0] in duthost.hostname:
+                port['asic_value'] = None
+            elif t1_t2_device_hostnames[1] in duthost.hostname or t1_t2_device_hostnames[2] in duthost.hostname:
+                for asic_value, port_list in t2_asic_port_map.items():
+                    if port['peer_port'] in t2_asic_port_map[asic_value]:
+                        port['asic_value'] = asic_value
+                if 'asic_value' not in port.keys():
+                    pytest_assert(False, 'Port: {} not found in t2_asic_port_map from variables file'.
+                                  format(port['peer_port']))
+
+        try:
+            for port in snappi_ports:
+                peer_port = port['peer_port']
+                int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+                ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
+                if not ipv4_subnet:
+                    logger.info("IPv4 is not configured on the interface {}".format(peer_port))
+                port['peer_ip'], port['prefix'] = ipv4_subnet.split("/")
+                port['ip'] = get_addrs_in_subnet(ipv4_subnet, 1)[0]
+                ipv6_subnet = [ele for ele in int_addrs if ":" in ele][0]
+                if not ipv6_subnet:
+                    logger.info("IPv6 is not configured on the interface {}".format(peer_port))
+                port['peer_ipv6'], port['ipv6_prefix'] = ipv6_subnet.split("/")
+                port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_subnet, 1)[0]
+        except Exception:
+            logger.info(snappi_ports)
+        return snappi_ports
+    return _multidut_snappi_ports
