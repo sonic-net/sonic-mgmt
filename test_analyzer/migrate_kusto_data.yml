@@ -17,6 +17,7 @@ stages:
   - stage: KustoDataMigrting
     jobs:
       - job: KustoDataMigrting
+        pool: nightly
         timeoutInMinutes: 60
         variables:
           - group: KUSTO_SECRETS
