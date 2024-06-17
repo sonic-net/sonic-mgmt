@@ -151,7 +151,7 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
                    peer_asn=asn,
                    port=BGP_MONITOR_PORT, passive=True)
     ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, duthost.facts["router_mac"], ptf_interface))
-    ptfhost.shell("ip route add %s dev %s" % (local_addr + "/32", ptf_interface))
+    ptfhost.shell("ip route replace %s dev %s" % (local_addr + "/32", ptf_interface))
     try:
         pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
                       "Failed to start bgp monitor session on PTF")
