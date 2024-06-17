@@ -57,10 +57,9 @@ t0:
   - generic_config_updater/test_portchannel_interface.py
   - generic_config_updater/test_syslog.py
   - generic_config_updater/test_vlan_interface.py
-  # Temporarily remove these cases because of PR https://github.com/sonic-net/sonic-buildimage/pull/16957
-  # - gnmi/test_gnmi.py
-  # - gnmi/test_gnmi_appldb.py
-  # - gnmi/test_gnmi_configdb.py
+  - gnmi/test_gnmi.py
+  - gnmi/test_gnmi_appldb.py
+  - gnmi/test_gnmi_configdb.py
   - http/test_http_copy.py
   - iface_loopback_action/test_iface_loopback_action.py
   - iface_namingmode/test_iface_namingmode.py
@@ -164,7 +163,7 @@ t0:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
-  - ip/test_mgmt_ipv6_only.py
+  - ip/test_mgmt_ipv6_only.py 
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -340,6 +339,11 @@ onboarding_t0:
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - system_health/test_system_health.py
   - test_pktgen.py
+  - acl/custom_acl_table/test_custom_acl_table.py
+  - acl/null_route/test_null_route_helper.py
+  - acl/test_acl.py
+  - acl/test_acl_outer_vlan.py
+  - acl/test_stress_acl.py
 
 
 
