@@ -39,6 +39,10 @@ parameters:
       bjw2:
         pool: nightly-bjw
 
+variables:
+  # disable the auto-injection by setting build variable skipComponentGovernanceDetection: true
+  # refer to @https://github.com/Azure/azure-sdk/issues/291
+  skipComponentGovernanceDetection: true
 
 jobs:
 - ${{ each INVENTORY in parameters.INVENTORY_INFO }}:

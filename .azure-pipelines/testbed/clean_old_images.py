@@ -35,13 +35,21 @@ VEOS_FILE = "./veos"
 
 def remove_dangling_images(host_name_list, inv_file):
     logger.info("====================================starts====================================")
-    server_hosts = init_hosts(inv_file, host_name_list)
 
-    # This command specifically targets and removes "dangling" images, which are images that have no tag associated
-    # with them. These are typically leftover or unused images that can consume disk space.
-    rst = server_hosts.shell('docker images -q --filter "dangling=true" | xargs docker rmi', module_ignore_errors=True)
+    logger.info(host_name_list)
 
-    logger.info(json.dumps(rst, indent=4))
+    if len(host_name_list) > 0:
+        server_hosts = init_hosts(inv_file, host_name_list)
+
+        # This command specifically targets and removes "dangling" images, which are images that have no tag associated
+        # with them. These are typically leftover or unused images that can consume disk space.
+        rst = server_hosts.shell('docker images -q --filter "dangling=true" | xargs docker rmi',
+                                 module_ignore_errors=True)
+
+        logger.info(json.dumps(rst, indent=4))
+    else:
+        logger.info("Hosts list is empty, skip.")
+
     logger.info("====================================ends====================================")
 
 
