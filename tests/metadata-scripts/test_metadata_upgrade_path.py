@@ -94,7 +94,7 @@ def cleanup_prev_images(duthost):
     duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
 
 
-def sonic_update_firmware(duthost, image_url, upgrade_type):
+def sonic_update_firmware(duthost, localhost, image_url, upgrade_type):
     base_path = os.path.dirname(__file__)
     metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
     pytest_assert(os.path.exists(metadata_scripts_path), "SONiC Metadata scripts not found in {}"
@@ -102,8 +102,11 @@ def sonic_update_firmware(duthost, image_url, upgrade_type):
 
     cleanup_prev_images(duthost)
     logger.info("Step 1 Copy the scripts to the DUT")
-    duthost.command("mkdir /tmp/anpscripts")
-    duthost.copy(src=metadata_scripts_path + "/", dest="/tmp/anpscripts/")
+    duthost.file(path="/tmp/anpscripts", state="absent")
+    duthost.file(path="/tmp/anpscripts", state="directory")
+    localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
+    duthost.copy(src="metadata.tar.gz", dest="/host/metadata.tar.gz")
+    duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
 
     logger.info("perform a purge based on manifest.json to make sure it is correct")
     duthost.command("python /tmp/anpscripts/tests/purge.py")
@@ -147,10 +150,14 @@ def run_postupgrade_actions(duthost, tbinfo, metadata_process):
             .format(postupgrade_actions_data_dir_path))
 
     logger.info("Step 1 Copy the scripts and data directory to the DUT")
-    duthost.command("rm -rf /tmp/anpscripts", module_ignore_errors=True)
-    duthost.command("mkdir /tmp/anpscripts")
-    duthost.copy(src=postupgrade_actions_path, dest="/tmp/anpscripts/")
-    duthost.copy(src=postupgrade_actions_data_dir_path, dest="/tmp/anpscripts/")
+    duthost.file(path="/tmp/anpscripts", state="absent")
+    duthost.file(path="/tmp/anpscripts", state="directory")
+    metadata_tar_stat = duthost.stat(path="/host/metadata.tar.gz")
+    if metadata_tar_stat.stat.exists:
+        duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
+        duthost.file(path="/host/metadata.tar.gz", state="absent")
+    else:
+        duthost.unarchive(src="metadata.tar.gz", dest="/tmp/anpscripts/")
 
     duthost.command("chmod +x /tmp/anpscripts/postupgrade_actions")
     result = duthost.command("/usr/bin/sudo /tmp/anpscripts/postupgrade_actions", module_ignore_errors=True)
@@ -199,7 +206,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image,
     # Install target image
     logger.info("Upgrading to {}".format(to_image))
     if metadata_process:
-        target_version = sonic_update_firmware(duthost, to_image, upgrade_type)
+        target_version = sonic_update_firmware(duthost, localhost, to_image, upgrade_type)
     else:
         target_version = install_sonic(duthost, to_image, tbinfo)
 
