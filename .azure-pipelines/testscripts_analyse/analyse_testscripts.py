@@ -191,7 +191,6 @@ def main():
             script["category"] = "data"
         else:
             script["category"] = "control"
-
     upload_results(expanded_test_scripts)
 
 
