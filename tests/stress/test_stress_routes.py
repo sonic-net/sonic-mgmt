@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import logging
+
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert

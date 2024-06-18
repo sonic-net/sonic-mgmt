@@ -1,9 +1,9 @@
 import logging
+
 import pytest
-import time
+
 from tests.common.utilities import wait_until
 from utils import get_crm_resource_status, check_queue_status, sleep_to_wait
-from tests.common import config_reload
 
 CRM_POLLING_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
