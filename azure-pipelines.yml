@@ -191,7 +191,9 @@ stages:
     steps:
       - template: .azure-pipelines/run-test-elastictest-template.yml
         parameters:
-          TOPOLOGY: t0
+          TOPOLOGY: t1-lag
+          STOP_ON_FAILURE: "False"
+          RETRY_TIMES: 0
           MIN_WORKER: $(T1_LAG_ONBOARDING_INSTANCE_NUM)
           MAX_WORKER: $(T1_LAG_ONBOARDING_INSTANCE_NUM)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
