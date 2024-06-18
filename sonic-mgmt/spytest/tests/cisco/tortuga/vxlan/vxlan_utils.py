@@ -2,6 +2,9 @@ from spytest import st, tgapi
 import yaml
 import os
 import re
+import time
+
+NO_OF_RETRIES = 6
 
 def config_vlan(node, vlan, members = [], vrf = None, add = True, tagged = False):
     config = ''
@@ -313,20 +316,29 @@ def report_fail(dut, msg=''):
 def verify_vtep_state (vtep_ip_dict):
     leaf0_vtep_ip = vtep_ip_dict["LEAF0_VXLAN_IP"]
     leaf1_vtep_ip = vtep_ip_dict["LEAF1_VXLAN_IP"]
-    
-    leaf0_output = st.show('leaf0', "show vxlan remotevtep", skip_tmpl=True)
+    leaf0_parsed = []
+    leaf1_parsed = []
+    iter = 0
+    start_time = time.time()
 
-    leaf0_parsed = st.parse_show('leaf0', "show vxlan remotevtep",
+    while len(leaf0_parsed) == 0 and iter < NO_OF_RETRIES: 
+        st.wait(10)
+        leaf0_output = st.show('leaf0', "show vxlan remotevtep", skip_tmpl=True)
+
+        leaf0_parsed = st.parse_show('leaf0', "show vxlan remotevtep",
                                  leaf0_output, "show_vxlan_remote.tmpl")
+        if len(leaf0_parsed) == 0:
+            iter += 1
+            continue
 
-    leaf1_output = st.show('leaf1', "show vxlan remotevtep", skip_tmpl=True)
-
-    leaf1_parsed = st.parse_show('leaf1', "show vxlan remotevtep",
-                                 leaf1_output, "show_vxlan_remote.tmpl")
-
-    if len(leaf0_parsed) == 0:
+    if iter == NO_OF_RETRIES:
+        end_time = time.time()
+        st.log("No remote VTEP found on leaf0 after {} secs".format(end_time-start_time))
         report_fail('leaf0', msg='No remote VTEP found in leaf0')
 
+    end_time = time.time()
+    st.log("Remote VTEP found on leaf0 after {} secs".format(end_time-start_time))
+    
     vtep_num = 0
     for path in leaf0_parsed:
         vtep_num += 1
@@ -340,9 +352,27 @@ def verify_vtep_state (vtep_ip_dict):
             report_fail('leaf0', msg='Tunnel is not in up status in leaf0')
     if vtep_num != 1:
         report_fail('leaf0', msg='Incorrect number of VTEPs found in leaf0')
+ 
+    iter = 0
+    start_time = time.time()
+    while len(leaf1_parsed) == 0 and iter < NO_OF_RETRIES:
+        st.wait(10)
+        leaf1_output = st.show('leaf1', "show vxlan remotevtep", skip_tmpl=True)
 
-    if len(leaf1_parsed) == 0:
+        leaf1_parsed = st.parse_show('leaf1', "show vxlan remotevtep",
+                leaf1_output, "show_vxlan_remote.tmpl")
+        if len(leaf1_parsed) == 0:
+            iter += 1
+            continue
+    
+    if iter == NO_OF_RETRIES:
+        end_time = time.time()
+        st.log("No remote VTEP found on leaf1 after {} secs".format(end_time-start_time))
         report_fail('leaf1', msg='No remote VTEP found in leaf1')
+    
+    end_time = time.time()
+    st.log("Remote VTEP found on leaf1 after {} secs".format(end_time-start_time))
+
     vtep_num = 0
     for path in leaf1_parsed:
         vtep_num += 1
