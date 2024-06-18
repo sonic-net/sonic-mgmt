@@ -16,11 +16,11 @@ import (
 var (
 	inbandSwIntfName              = "Loopback0"
 	interfaceIndex                = uint32(0)
-	configuredIPv4Path            = "6.7.8.9"
+	configuredIPv4Path            = "10.10.40.20"
 	configuredIPv4PrefixLength    = uint8(32)
 	configuredIPv6Path            = "3000::2"
 	configuredIPv6PrefixLength    = uint8(128)
-	newConfiguredIPv4Path         = "7.8.9.6"
+	newConfiguredIPv4Path         = "10.10.50.15"
 	newConfiguredIPv4PrefixLength = uint8(32)
 	newConfiguredIPv6Path         = "3022::2345"
 	newConfiguredIPv6PrefixLength = uint8(128)
@@ -210,7 +210,7 @@ func TestGNMIInbandSwIntfSetInvalidIPv4AddrOrPrefixLength(t *testing.T) {
 	}
 
 	// Set IPv4 address with invalid prefix length for the loopback0 interface.
-	var tryConfiguredIPv4Path = "70.80.90.60"
+	var tryConfiguredIPv4Path = "10.10.60.30"
 	var badConfiguredIPv4PrefixLength = uint8(24)
 	newV4 := iface.GetOrCreateIpv4().GetOrCreateAddress(tryConfiguredIPv4Path)
 	newV4.Ip = &tryConfiguredIPv4Path
