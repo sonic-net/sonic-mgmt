@@ -198,6 +198,7 @@ The `ansible/lab` inventory file includes three types of section for different d
 - ptf
 
 1. sonic Section
+
 The sonic section lists various SONiC platforms, such as `sonic_sn2700_40`, `sonic_a7260`, etc.
 Ensure that the following fields are correctly filled for your Device Under Test (DUT):
 
@@ -259,6 +260,7 @@ Failed: 'base_mac' value is incorrect. Got '74:83:ef:63:e2:86', expected '74:83:
 ```
 
 2. Fanout, PDU, Mgmt and Server Sections
+
 Those record the hostname and IP address of the respective fanout switch, PDU, or console server.
 Those devices are also recorded in the following csv files:
 
@@ -267,6 +269,7 @@ Those devices are also recorded in the following csv files:
 - `ansible/files/sonic_lab_console_links.csv`
 
 3. `ptf` Section
+
 In `ptf` section the `ansible_ssh_user` and `ansible_ssh_pass` variables specify the credentials for the PTF container.
 `ansible_host` should match the `ptf_ip` in `testbed.yaml`.
 
