@@ -436,4 +436,5 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
                },
                log_file=log_file,
                qlen=PTF_QLEN,
-               socket_recv_size=16384)
+               socket_recv_size=16384,
+               is_python3=True)
