@@ -123,6 +123,11 @@ SKIP_MEMORY_PER_ASIC = {
             'EGR_ZONE_1_DOT1P_MAPPING_TABLE_4.eABLE_4.epipe0', 'EGR_ZONE_3_DOT1P_MAPPING_TABLE_1.epipe0',
             'EGR_FLEX_CONTAINER_UPDATE_PROFILE_1.epipe0', 'EGR_ZONE_3_DOT1P_MAPPING_TABLE_3.epipe0',
             'EGR_VLAN_CONTROL_2.epipe0', 'EGR_ZONE_1_DOT1P_MAPPING_TABLE_4.epipe0',
+            'MMU_MTRO_CONFIG_L1_MEM.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_A.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_B.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_A_PIPE0.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_B_PIPE0.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_PIPE0.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_PIPE1.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_PIPE2.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_PIPE3.mmu_sed0',
         ],
         'timeout_basic': [
             'EGR_ZONE_0_EDITOR_CONTROL_TCAM.epipe0', 'DLB_ECMP_FLOWSET_MEMBER.ipipe0',
@@ -269,7 +274,11 @@ SKIP_MEMORY_PER_ASIC = {
             'IS_TDM_CALENDAR0.ipipe0', 'IS_TDM_CALENDAR1.ipipe0', 'IS_TDM_CALENDAR0_PIPE0.ipipe0',
             'IS_TDM_CALENDAR0_PIPE1.ipipe0', 'IS_TDM_CALENDAR0_PIPE2.ipipe0', 'IS_TDM_CALENDAR0_PIPE3.ipipe0',
             'IS_TDM_CALENDAR1_PIPE0.ipipe0', 'IS_TDM_CALENDAR1_PIPE1.ipipe0', 'IS_TDM_CALENDAR1_PIPE2.ipipe0',
-            'IS_TDM_CALENDAR1_PIPE3.ipipe0',
+            'IS_TDM_CALENDAR1_PIPE3.ipipe0', 'MMU_MTRO_CONFIG_L1_MEM.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_A.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_B.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_A_PIPE0.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_B_PIPE0.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_PIPE0.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_PIPE1.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_PIPE2.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_PIPE3.mmu_sed0',
         ],
         'timeout_basic': [
         ],
@@ -380,7 +389,8 @@ def get_asic_name():
     if ("Broadcom Limited Device b960" in output or
         "Broadcom Limited Broadcom BCM56960" in output or
         "Broadcom Inc. and subsidiaries Device b960" in output or
-            "Broadcom Inc. and subsidiaries Broadcom BCM56960" in output):
+        "Broadcom Inc. and subsidiaries Broadcom BCM56960" in output or
+            "Broadcom Inc. and subsidiaries BCM56960" in output):
         asic = "th"
     elif ("Broadcom Limited Device b971" in output or
           "Broadcom Inc. and subsidiaries Device b971" in output):
