@@ -3210,9 +3210,10 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                             recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr]))
                     if self.platform_asic and self.platform_asic == "broadcom-dnx":
                         if cntr == 1:
-                            assert(recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr] <= margin)
+                            assert (recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr]
+                                    <= margin)
                     else:
-                        assert(recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr] <= margin)
+                        assert (recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr] <= margin)
 
                 if self.wm_multiplier:
                     wm_pkt_num += (self.pkts_num_hdrm_full if i !=
@@ -3270,9 +3271,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             for cntr in self.ingress_counters:
                 if self.platform_asic and self.platform_asic == "broadcom-dnx":
                     if cntr == 1:
-                        assert(recv_counters[cntr] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr])
+                        assert (recv_counters[cntr] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr])
                 else:
-                    assert(recv_counters[cntr] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr])
+                    assert (recv_counters[cntr] > recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr])
 
             # assert no egress drop at the dut xmit port
             if self.platform_asic != "broadcom-dnx":
