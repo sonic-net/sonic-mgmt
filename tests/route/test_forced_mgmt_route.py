@@ -164,6 +164,11 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
                         override_config,
                         False)
 
+    # for device can't config eth1, ignore this test case
+    eth1_status = duthost.command("sudo ifconfig eth1")['stdout']
+    if "Device not found" in eth1_status:
+        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status because hardware can't config eth1")
+
     # Get interface and check config generate correct
     interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
     logging.debug("interfaces: {}".format(interfaces))
