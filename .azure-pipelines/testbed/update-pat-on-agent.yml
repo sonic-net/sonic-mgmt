@@ -30,6 +30,11 @@ parameters:
       tk5:
         pool: nightly-tk5
 
+variables:
+  # disable the auto-injection by setting build variable skipComponentGovernanceDetection: true
+  # refer to @https://github.com/Azure/azure-sdk/issues/291
+  skipComponentGovernanceDetection: true
+
 jobs:
 - ${{ each AGENT_INFO in parameters.AZURE_SELF_HOSTED_AGENTS }}:
   - job: PATRefresh_${{ AGENT_INFO.key }}
