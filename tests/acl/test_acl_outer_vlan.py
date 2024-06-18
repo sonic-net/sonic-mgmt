@@ -26,7 +26,7 @@ from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F4
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 't1'),
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 

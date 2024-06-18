@@ -281,6 +281,12 @@ onboarding_t0:
   - platform_tests/test_sequential_restart.py
   - platform_tests/test_xcvr_info_in_db.py
 
+onboarding_t1:
+  - acl/custom_acl_table/test_custom_acl_table.py
+  - acl/null_route/test_null_route_helper.py
+  - acl/test_acl.py
+  - acl/test_acl_outer_vlan.py
+  - acl/test_stress_acl.py
 
 specific_param:
   t0-sonic:
