@@ -36,8 +36,6 @@ r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Fail
 r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_stats.* port fdr stats get failed with error Feature unavailable.*"
-r, ".* ERR swss#portsyncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
-r, ".* ERR systemd-udevd\[\d*\]:.* bcm0: Failed to get link config: No such device.*"
 
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
