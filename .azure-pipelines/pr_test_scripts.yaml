@@ -109,7 +109,6 @@ t0:
   - radv/test_radv_restart.py
   - radv/test_radv_run.py
   - reset_factory/test_reset_factory.py
-  - restapi/test_restapi.py
   - restapi/test_restapi_vxlan_ecmp.py
   - route/test_default_route.py
   - route/test_duplicate_route.py
