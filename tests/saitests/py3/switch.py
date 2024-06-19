@@ -792,6 +792,9 @@ def sai_thrift_read_port_counters(client, asic_type, port):
     port_cnt_ids.append(SAI_PORT_STAT_IF_IN_UCAST_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS)
+    if asic_type == 'broadcom':
+        port_cnt_ids.remove(SAI_PORT_STAT_IN_DROPPED_PKTS)
+        port_cnt_ids.remove(SAI_PORT_STAT_OUT_DROPPED_PKTS)
     if asic_type != 'mellanox':
         port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_QLEN)
 

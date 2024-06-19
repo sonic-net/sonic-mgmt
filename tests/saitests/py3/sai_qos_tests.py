@@ -559,11 +559,11 @@ def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vla
     return result.port
 
 
-def get_counter_names(sonic_version):
+def get_counter_names(sonic_version, asic_type=None):
     ingress_counters = [INGRESS_DROP]
     egress_counters = [EGRESS_DROP]
 
-    if '201811' not in sonic_version:
+    if '201811' not in sonic_version and asic_type not in ['broadcom']:
         ingress_counters.append(INGRESS_PORT_BUFFER_DROP)
         egress_counters.append(EGRESS_PORT_BUFFER_DROP)
 
@@ -1669,7 +1669,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # get counter names to query
-        ingress_counters, egress_counters = get_counter_names(sonic_version)
+        ingress_counters, egress_counters = get_counter_names(sonic_version, asic_type)
 
         # get a snapshot of PG drop packets counter
         if '201811' not in sonic_version and ('mellanox' in asic_type or 'cisco-8000' in asic_type):
@@ -2377,7 +2377,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             margin = 1
 
         # get counter names to query
-        ingress_counters, egress_counters = get_counter_names(sonic_version)
+        ingress_counters, egress_counters = get_counter_names(sonic_version, asic_type)
 
         port_counter_indexes = [pg]
         port_counter_indexes += ingress_counters
@@ -2845,14 +2845,15 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.platform_asic = self.test_params['platform_asic']
         print(self.src_port_ips, file=sys.stderr)
         sys.stderr.flush()
+        self.asic_type = self.test_params['sonic_asic_type']
         # get counter names to query
         self.ingress_counters, self.egress_counters = get_counter_names(
-            self.sonic_version)
+            self.sonic_version, self.asic_type)
 
         self.dst_port_id = self.test_params['dst_port_id']
         self.dst_port_ip = self.test_params['dst_port_ip']
         self.pgs_num = self.test_params['pgs_num']
-        self.asic_type = self.test_params['sonic_asic_type']
+
         self.pkts_num_leak_out = self.test_params['pkts_num_leak_out']
         self.pkts_num_trig_pfc = self.test_params.get('pkts_num_trig_pfc')
         if not self.pkts_num_trig_pfc:
@@ -3850,7 +3851,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         platform_asic = self.test_params['platform_asic']
 
         # get counter names to query
-        ingress_counters, egress_counters = get_counter_names(sonic_version)
+        ingress_counters, egress_counters = get_counter_names(sonic_version, asic_type)
 
         # prepare tcp packet data
         ttl = 64
@@ -4297,8 +4298,9 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         router_mac = self.test_params['router_mac']
         print("router_mac: %s" % (router_mac), file=sys.stderr)
         pg = int(self.test_params['pg'])
+        asic_type = self.test_params['sonic_asic_type']
         ingress_counters, egress_counters = get_counter_names(
-            self.test_params['sonic_version'])
+            self.test_params['sonic_version'], asic_type)
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
@@ -4307,7 +4309,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
 
-        asic_type = self.test_params['sonic_asic_type']
+
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
         pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
@@ -4919,8 +4921,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         switch_init(self.clients)
 
         # Parse input parameters
+        asic_type = self.test_params['sonic_asic_type']
         ingress_counters, egress_counters = get_counter_names(
-            self.test_params['sonic_version'])
+            self.test_params['sonic_version'], asic_type)
         dscp = int(self.test_params['dscp'])
         ecn = int(self.test_params['ecn'])
         router_mac = self.test_params['router_mac']
@@ -4934,7 +4937,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
 
-        asic_type = self.test_params['sonic_asic_type']
+
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
         pkts_num_trig_drp = int(self.test_params['pkts_num_trig_drp'])
