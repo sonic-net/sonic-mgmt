@@ -1,4 +1,4 @@
-from utilities.common import filter_and_select,get_query_params
+from utilities.common import filter_and_select, get_query_params
 from spytest import st
 from apis.routing.bgp import show_bgp_ipv4_summary_vtysh, show_bgp_ipv6_summary_vtysh, \
     show_bgp_ipv4_neighbor_vtysh, show_bgp_ipv6_neighbor_vtysh, verify_bgp_neigh_umf, _parse_ip_bgp_data
@@ -9,11 +9,13 @@ try:
 except ImportError:
     pass
 
+
 def force_cli_type_to_klish(cli_type):
     cli_type = "klish" if cli_type in get_supported_ui_type_list() else cli_type
     return cli_type
 
-def verify_bgp_neighbor(dut,**kwargs):
+
+def verify_bgp_neighbor(dut, **kwargs):
     """
     Author:naveen.nagaraju@broadcom.com
     :param neighbor_address:
@@ -35,7 +37,7 @@ def verify_bgp_neighbor(dut,**kwargs):
 
 
     """
-    cli_type = kwargs.pop('cli_type',st.get_ui_type(dut, **kwargs))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     cli_type = 'vtysh' if cli_type in ['vtysh', 'click'] else cli_type
     result = False
 
@@ -50,21 +52,21 @@ def verify_bgp_neighbor(dut,**kwargs):
         del kwargs['vrf']
     else:
         if cli_type in get_supported_ui_type_list():
-            vrf='default'
+            vrf = 'default'
         else:
             vrf = 'default-vrf'
 
-    family = kwargs.pop('family','ipv4')
+    family = kwargs.pop('family', 'ipv4')
     return_output = kwargs.pop('return_output', False)
     router_id = kwargs.pop('router_id', '0.0.0.0')
-    #Converting all kwargs to list type to handle single or multiple BGP neighbors
+    # Converting all kwargs to list type to handle single or multiple BGP neighbors
     for key in kwargs:
         if type(kwargs[key]) is list:
             kwargs[key] = list(kwargs[key])
         else:
             kwargs[key] = [kwargs[key]]
     if cli_type in get_supported_ui_type_list():
-        gnmi_result=True
+        gnmi_result = True
         ret_val = {}
         vrf = 'default' if vrf == 'default-vrf' else vrf
         filter_type = kwargs.get('filter_type', 'ALL')
@@ -89,15 +91,15 @@ def verify_bgp_neighbor(dut,**kwargs):
                 'update_src': ['LocalAddress', kwargs['update_src'][nbr_index] if 'update_src' in kwargs else None],
                 'update_src_intf': ['LocalAddress', kwargs['update_src_intf'][nbr_index] if 'update_src_intf' in kwargs else None],
                 'enforce_first_as': ['EnforceFirstAs', True if 'enforce_first_as' in kwargs else None],
-                'local_as': ['LocalAs', kwargs['local_as'][nbr_index] if 'local_as' in kwargs else None],
+                # 'local_as': ['LocalAs', kwargs['local_as'][nbr_index] if 'local_as' in kwargs else None],
                 'local_as_no_prepend': ['LocalAsNoPrepend', True if 'local_as_no_prepend' in kwargs else None],
                 'local_as_replace_as': ['LocalAsReplaceAs', True if 'local_as_replace_as' in kwargs else None],
                 'bfd': ['EnableBfdEnabled', True if 'bfd' in kwargs else None],
                 'bfd_profile': ['BfdProfile', kwargs['bfd_profile'][nbr_index] if 'bfd_profile' in kwargs else None],
                 'state': ['SessionState', kwargs['state'][nbr_index] if 'state' in kwargs else None],
-                'bgpdownreason' : ['LastResetReason', kwargs['bgpdownreason'][nbr_index] if 'bgpdownreason' in kwargs else None],
+                'bgpdownreason': ['LastResetReason', kwargs['bgpdownreason'][nbr_index] if 'bgpdownreason' in kwargs else None],
             }
-            if nbr_attr_list['bgpdownreason'][1] in ['BFD down received','Interface down','Hold Timer Expired']:
+            if nbr_attr_list['bgpdownreason'][1] in ['BFD down received', 'Interface down', 'Hold Timer Expired']:
                 nbr_attr_list['bgpdownreason'] = ['LastResetReason', 'Waiting for NHT']
             if nbr_attr_list['remote_asn'][1] is not None:
                 if str(nbr_attr_list['remote_asn'][1]).isdigit():
@@ -110,7 +112,7 @@ def verify_bgp_neighbor(dut,**kwargs):
                 nbr_attr_list['state'] = ['SessionState', nbr_attr_list['state'][1].upper()]
             nbr_obj = umf_ni.BgpNeighbor(NeighborAddress=neigh, Protocol=proto_obj)
             for key in kwargs.keys():
-                if key != 'neighborip' :
+                if key != 'neighborip':
                     if key in nbr_attr_list:
                         if nbr_attr_list[key][1] is not None:
                             setattr(nbr_obj, nbr_attr_list[key][0], nbr_attr_list[key][1])
@@ -121,7 +123,7 @@ def verify_bgp_neighbor(dut,**kwargs):
             if not return_output:
                 result = nbr_obj.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
                 if not result.ok():
-                    gnmi_result=False
+                    gnmi_result = False
                     st.log("Match NOT found for neighbor {}; kindly check actual and expected fields above".format(neigh))
                 else:
                     st.log("Match found for neighbor {}".format(neigh))
@@ -186,7 +188,8 @@ def verify_bgp_neighbor(dut,**kwargs):
                         output = show_bgp_ipv6_neighbor_vtysh(dut, vrf="default", cli_type=cli_type)
         if cli_type not in ["rest-patch", "rest-put"]:
             output = st.show(dut, cmd, type=cli_type)
-        if return_output: return output
+        if return_output:
+            return output
     # Get the index of peer from list of parsed output
     for i in range(len(kwargs['neighborip'])):
         nbr_index = None
@@ -211,7 +214,7 @@ def verify_bgp_neighbor(dut,**kwargs):
                             result = True
                         else:
                             st.error('Match Not Found for %s :: Expected: %s  Actual : %s' % (
-                            k, kwargs[k][i], output[nbr_index][k]))
+                                k, kwargs[k][i], output[nbr_index][k]))
                             return False
         else:
             st.error(" BGP neighbor %s not found in output" % kwargs['neighborip'][i])
@@ -219,7 +222,7 @@ def verify_bgp_neighbor(dut,**kwargs):
     return result
 
 
-def check_bgp_session(dut,nbr_list=[],state_list=[],vrf_name='default',**kwargs):
+def check_bgp_session(dut, nbr_list=[], state_list=[], vrf_name='default', **kwargs):
     """
     Author:sooriya.gajendrababu@broadcom.com
     :param nbr_list:
@@ -232,27 +235,27 @@ def check_bgp_session(dut,nbr_list=[],state_list=[],vrf_name='default',**kwargs)
     :rtype:
     """
     ret_val = True
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     if kwargs.get("scale_env", ""):
-        cli_type="klish"
+        cli_type = "klish"
         kwargs.pop("scale_env")
     if cli_type in get_supported_ui_type_list():
         family = kwargs.pop('family', 'ipv4')
         return verify_bgp_neigh_umf(dut, vrf=vrf_name, family=family, neighborip=nbr_list,
                                     state=state_list, cli_type=cli_type)
     else:
-        output=[]
+        output = []
         if cli_type == 'click':
             if vrf_name == 'default':
-                output = st.show(dut,'show ip bgp summary', type='vtysh')
+                output = st.show(dut, 'show ip bgp summary', type='vtysh')
             else:
                 output = st.show(dut, 'show ip bgp vrf {} summary'.format(vrf_name), type='vtysh')
         elif cli_type == 'klish':
-            family = kwargs.pop('family','ipv4')
+            family = kwargs.pop('family', 'ipv4')
             if vrf_name == 'default':
-                output = st.show(dut,'show bgp {} unicast summary'.format(family), type='klish')
+                output = st.show(dut, 'show bgp {} unicast summary'.format(family), type='klish')
             else:
-                output = st.show(dut, 'show bgp {} unicast vrf {} summary'.format(family,vrf_name), type='klish')
+                output = st.show(dut, 'show bgp {} unicast vrf {} summary'.format(family, vrf_name), type='klish')
         elif cli_type in ["rest-put", "rest-patch"]:
             family = kwargs.pop('family', 'ipv4')
             if family == "ipv4":
@@ -260,28 +263,28 @@ def check_bgp_session(dut,nbr_list=[],state_list=[],vrf_name='default',**kwargs)
             else:
                 output = show_bgp_ipv6_summary_vtysh(dut, vrf_name, cli_type=cli_type)
 
-        if len(output)!=0:
-            for nbr,state in zip(nbr_list,state_list):
+        if len(output) != 0:
+            for nbr, state in zip(nbr_list, state_list):
                 match = {'neighbor': nbr}
                 entry = filter_and_select(output, None, match)
                 if not bool(entry):
                     st.log("BGP Neighbor entry {} is not found".format(nbr))
                     ret_val = False
                 for entries in entry:
-                    if state=='Established':
+                    if state == 'Established':
                         if entries['state'].isdigit() or entries['state'] == "ESTABLISHED":
                             st.log("BGP Neighbor {} in Established state".format(nbr))
                         else:
-                            st.error("BGP Neighbor {} state check Failed. Expected:{} Actual :{} ".format(nbr,state,entries['state']))
-                            ret_val=False
+                            st.error("BGP Neighbor {} state check Failed. Expected:{} Actual :{} ".format(nbr, state, entries['state']))
+                            ret_val = False
                     else:
                         if str(state).upper() == str(entries['state']).upper():
-                            st.log("BGP Neighbor {} check passed. Expected : {} Actual {}".format(nbr,state,entries['state']))
+                            st.log("BGP Neighbor {} check passed. Expected : {} Actual {}".format(nbr, state, entries['state']))
                         else:
                             st.error("BGP Neighbor {} state check Failed. Expected:{} Actual :{} ".format(nbr, state, entries['state']))
-                            ret_val=False
+                            ret_val = False
         else:
             st.error("Output is empty")
-            ret_val=False
+            ret_val = False
 
         return ret_val

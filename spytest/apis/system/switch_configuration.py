@@ -3,7 +3,78 @@ import pprint
 from spytest import st
 import apis.system.basic as basic_obj
 import utilities.utils as utils_obj
-from utilities.common import do_eval
+from utilities.common import make_list
+
+
+def verify_show_running_configuration(dut, **kwargs):
+    '''
+    :param filter_type: As of now only grep is supported, which is default.
+    :param sub_cmd:
+    :param match_flag:
+    :param order_flag:
+    :param trim_lines:
+    :param filter_pattern_list:
+    :param match_pattern_list:
+    :param return_output:
+
+    verify_show_running_configuration(dut, sub_cmd='interface Ethernet4',match_pattern_list=['mtu 1500', 'shutdown'])
+    verify_show_running_configuration(dut, sub_cmd='interface Ethernet4',match_pattern_list=['no shutdown'],match_flag=False)
+    verify_show_running_configuration(dut, sub_cmd='interface Ethernet4',filter_pattern_list=[?mtu?], match_pattern_list=['mtu 1500'])
+    verify_show_running_configuration(dut, filter_pattern_list=['mtu'], match_pattern_list=['mtu 1500'])
+    '''
+    st.log('API_NAME: verify_show_running_configuration, API_ARGS: {}'.format(locals()))
+    cli_type = st.get_ui_type(dut, **kwargs)
+    sub_cmd = kwargs.pop('sub_cmd', False)
+    filter_type = kwargs.pop('filter_type', 'grep')
+    filter_pattern_list = kwargs.pop('filter_pattern_list', [])
+    match_pattern_list = kwargs.pop('match_pattern_list', [])
+    match_flag = kwargs.pop('match_flag', True)
+    order_flag = kwargs.pop('order_flag', True)
+    trim_lines = kwargs.pop('trim_lines', True)
+    return_output = kwargs.pop('return_output', False)
+    skip_error = kwargs.get('skip_error', False)
+
+    cli_type = 'klish' if cli_type in utils_obj.get_supported_ui_type_list() + ['rest-patch', 'rest-put'] else cli_type
+
+    if cli_type == 'click':
+        st.log('Skipping show running config verification for Click')
+        return True
+
+    if cli_type == 'klish':
+        cmd = 'show running-configuration'
+        if sub_cmd:
+            cmd = cmd + ' ' + sub_cmd
+
+        for filter_pattern in make_list(filter_pattern_list):
+            cmd = cmd + ' | ' + filter_type + ' \"' + filter_pattern + '\"'
+        output = st.show(dut, cmd, skip_tmpl=True, type=cli_type, skip_error_check=skip_error)
+        if return_output:
+            return output
+        actual_op_list = output.split('\n')
+        expected_op_list = make_list(match_pattern_list)
+        if trim_lines:
+            actual_op_list = [lines.strip() for lines in actual_op_list]
+        st.log('Actual Output: {}'.format(actual_op_list))
+        st.log('Expected Output: {}, match_flag: {}, order_flag: {}.'.format(expected_op_list, match_flag, order_flag))
+
+        # orig_output_list = output_list.copy()
+        match_result = True
+        for match_pattern in expected_op_list:
+            try:
+                idx = actual_op_list.index(match_pattern)
+                if order_flag:
+                    actual_op_list = actual_op_list[idx + 1:]
+                if not match_flag:
+                    st.log('Unexpected Config FOUND: \"{}\"'.format(match_pattern))
+                    match_result = False
+            except ValueError:
+                if match_flag:
+                    st.log('Expected Config NOT FOUND or NOT in order: \"{}\"'.format(match_pattern))
+                    match_result = False
+
+        # if not match_result:
+        #    st.log('Running Config Difference: {}'.format(set(match_pattern_list).difference(orig_output_list)))
+        return match_result
 
 
 def verify_running_config(dut, table, object, attribute=None, value=None, max_retry=3):
@@ -61,16 +132,17 @@ def get_running_config(dut, table=None, object=None, attribute=None, max_retry=3
     :param attribute:
     :return:
     """
-    command = "sudo show runningconfiguration all"
+    command = "show runningconfiguration all"
     i = 1
     while True:
         try:
             output = st.show(dut, command, skip_tmpl=True)
             reg_output = utils_obj.remove_last_line_from_string(output)
-            data = do_eval(json.dumps(json.loads(reg_output)))
+            # nosemgrep-next-line
+            data = eval(json.dumps(json.loads(reg_output)))
             break
         except Exception as e:
-            st.error("Exception occured in try-{} - {}".format(i,e))
+            st.error("Exception occured in try-{} - {}".format(i, e))
             if i == max_retry:
                 st.error("MAX retry {} reached..".format(i))
                 return None
@@ -107,10 +179,11 @@ def verify_config_db(dut, table, object, attribute=None, value=None, max_retry=3
         try:
             output = st.show(dut, command, skip_tmpl=True)
             reg_output = utils_obj.remove_last_line_from_string(output)
-            data = do_eval(json.dumps(json.loads(reg_output)))
+            # nosemgrep-next-line
+            data = eval(json.dumps(json.loads(reg_output)))
             break
         except Exception as e:
-            st.error("Exception occured in try-{} - {}".format(i,e))
+            st.error("Exception occured in try-{} - {}".format(i, e))
             if i == max_retry:
                 st.error("MAX retry {} reached..".format(i))
                 return False
@@ -158,7 +231,8 @@ def get_config_db(dut, table=None, object=None, attribute=None):
     output = st.show(dut, command, skip_tmpl=True)
     reg_output = utils_obj.remove_last_line_from_string(output)
     try:
-        data = do_eval(json.dumps(json.loads(reg_output)))
+        # nosemgrep-next-line
+        data = eval(json.dumps(json.loads(reg_output)))
         if table is None and object is None and attribute is None:
             return data
         elif table is not None and object is None and attribute is None:
@@ -183,3 +257,23 @@ def write_config_db(dut, data):
     st.log("JSON Data Provided:")
     st.log(pprint.pformat(data, width=2))
     return st.apply_json(dut, json.dumps(data))
+
+
+def show_running_config(dut, **kwargs):
+    """
+    :param dut:
+    :param module:
+    :param skip_tmpl:
+    :param skip_error_check:
+    :return:
+    """
+    module = kwargs.get("module")
+    skip_tmpl = kwargs.get("skip_tmpl", True)
+    skip_error_check = kwargs.get("skip_tmpl", True)
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = "klish" if cli_type in utils_obj.get_supported_ui_type_list() else cli_type
+    command = "show running-configuration" if not module else "show running-configuration {}".format(module)
+    output = st.show(dut, command, skip_tmpl=skip_tmpl, skip_error_check=skip_error_check, type=cli_type)
+    reg_output = utils_obj.remove_last_line_from_string(output)
+    st.debug(reg_output)
+    return reg_output

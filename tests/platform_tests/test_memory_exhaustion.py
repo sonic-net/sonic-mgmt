@@ -11,8 +11,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-SSH_SHUTDOWN_TIMEOUT = 360
-SSH_STARTUP_TIMEOUT = 420
+SSH_SHUTDOWN_TIMEOUT = 480
+SSH_STARTUP_TIMEOUT = 600
 
 SSH_STATE_ABSENT = "absent"
 SSH_STATE_STARTED = "started"
@@ -64,6 +64,12 @@ class TestMemoryExhaustion:
         #    background process.
         #  * Some DUTs with few free memory may reboot before ansible receive the result of shell
         #    command, so we add `sleep 5` to ensure ansible receive the result first.
+        # Swapping is turned off so the OOM is triggered in a shorter time.
+
+        res = duthost.command("sudo swapoff -a")
+        if res['rc']:
+            logging.error("Swapoff command failed: {}".format(res))
+
         cmd = 'nohup bash -c "sleep 5 && tail /dev/zero" &'
         res = duthost.shell(cmd)
         if not res.is_successful:

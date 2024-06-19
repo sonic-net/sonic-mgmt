@@ -109,6 +109,14 @@ def verify_configdb_with_empty_input(duthosts, rand_one_dut_hostname):
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.fixture(scope='function')
+def skip_when_buffer_is_dynamic_model(duthost):
+    buffer_model = duthost.shell(
+        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+    if buffer_model == 'dynamic':
+        pytest.skip("Skip the test, because dynamic buffer config cannot be updated")
+
+
 # Function Fixture
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
@@ -127,6 +135,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
     if loganalyzer:
         ignoreRegex = [
             ".*ERR sonic_yang.*",
+            ".*ERR.*Failed to start dhcp_relay.service - dhcp_relay container.*",  # Valid test_dhcp_relay for Bookworm
             ".*ERR.*Failed to start dhcp_relay container.*",  # Valid test_dhcp_relay
             # Valid test_dhcp_relay test_syslog
             ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*",
@@ -144,5 +153,10 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
 
             # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation
             ".*ERR syncd[0-9]*#syncd.*tap2veth_fun: failed to write to socket.*",   # test_portchannel_interface tc2
+            ".*ERR.*'apply-patch' executed failed.*",  # negative cases that are expected to fail
+
+            # Ignore errors from k8s config test
+            ".*ERR ctrmgrd.py: Refer file.*",
+            ".*ERR ctrmgrd.py: Join failed.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)

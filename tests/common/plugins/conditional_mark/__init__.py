@@ -419,7 +419,7 @@ def find_longest_matches(nodeid, conditions):
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
         if nodeid.startswith(list(condition.keys())[0]):
-            length = len(condition)
+            length = len(list(condition.keys())[0])
             if length > max_length:
                 max_length = length
                 longest_matches = []
@@ -495,7 +495,7 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
             mark_details['reason'].append(condition)
         return condition_result
     except Exception:
-        logger.error('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
+        logger.exception('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
             condition,
             condition_str))
         return False

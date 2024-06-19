@@ -61,7 +61,9 @@ def snappi_api(snappi_api_serv_ip,
     # Going forward, we should be able to specify extension
     # from command line while running pytest.
     api = snappi.api(location=location, ext="ixnetwork")
-
+    # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
+    # api._username = "<please mention the username if other than default username>"
+    # api._password = "<please mention the password if other than default password>"
     yield api
 
     if getattr(api, 'assistant', None) is not None:
@@ -295,6 +297,10 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         pc_ip_addr = str(pc_intf[pc]['peer_addr'])
 
         lag = config.lags.lag(name='Lag {}'.format(pc))[-1]
+        lag.protocol.lacp.actor_system_id = '00:00:00:00:00:01'
+        lag.protocol.lacp.actor_system_priority = 1
+        lag.protocol.lacp.actor_key = 1
+
         for i in range(len(phy_intfs)):
             phy_intf = phy_intfs[i]
 
@@ -307,11 +313,8 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
             mac = __gen_mac(port_id)
 
             lp = lag.ports.port(port_name=config.ports[port_id].name)[-1]
-            lp.protocol.lacp.actor_system_id = '00:00:00:00:00:01'
-            lp.protocol.lacp.actor_system_priority = 1
-            lp.protocol.lacp.actor_port_priority = 1
-            lp.protocol.lacp.actor_port_number = 1
-            lp.protocol.lacp.actor_key = 1
+            lp.lacp.actor_port_number = 1
+            lp.lacp.actor_port_priority = 1
 
             lp.ethernet.name = 'Ethernet Port {}'.format(port_id)
             lp.ethernet.mac = mac
@@ -548,7 +551,7 @@ def snappi_dut_base_config(duthost_list,
                         for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
     pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
     [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
-    speed_gbps = int(new_snappi_ports[0]['speed'])/1000
+    speed_gbps = int(int(new_snappi_ports[0]['speed'])/1000)
 
     config.options.port_options.location_preemption = True
     l1_config = config.layer1.layer1()[-1]

@@ -43,6 +43,8 @@
 
 import os.path
 import json
+import base64
+import six
 from datetime import datetime
 import logging
 import random
@@ -83,18 +85,18 @@ def get_ip_address(af, hostid=1, netid=100):
         netid  : The first octet in the Address.
     '''
     global Address_Count
-    third_octet = Address_Count % 255
-    second_octet = (Address_Count / 255) % 255
-    first_octet = netid + (Address_Count / 65025)
+    third_octet = int(Address_Count % 255)
+    second_octet = int((Address_Count / 255) % 255)
+    first_octet = int(netid + (Address_Count / 65025))
     Address_Count = Address_Count + 1
     if af == 'v4':
-        return "{}.{}.{}.{}".format(
-            first_octet, second_octet, third_octet, hostid).decode()
+        return six.text_type("{}.{}.{}.{}".format(
+            first_octet, second_octet, third_octet, hostid))
     if af == 'v6':
         # :0: gets removed in the IPv6 addresses.
         # Adding a to octets, to avoid it.
-        return "fddd:a{}:a{}::a{}:{}".format(
-            first_octet, second_octet, third_octet, hostid).decode()
+        return six.text_type("fddd:a{}:a{}::a{}:{}".format(
+            first_octet, second_octet, third_octet, hostid))
 
 
 def get_incremental_value(key):
@@ -416,7 +418,7 @@ class VXLAN(BaseTest):
                             vxlan_vni=vni,
                             inner_frame=exp_pkt,
                             **options_v6)
-                    send_packet(self, ptf_port, str(pkt))
+                    send_packet(self, ptf_port, pkt)
 
                 # After we sent all packets, wait for the responses.
                 if expect_success:
@@ -482,8 +484,6 @@ class VXLAN(BaseTest):
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6,
                                                              "hlim")
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6,
-                                                             "chksum")
-                        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6,
                                                              "dst")
                         masked_exp_pkt.set_do_not_care_scapy(scapy.UDP,
                                                              "sport")
@@ -513,7 +513,9 @@ class VXLAN(BaseTest):
                     self.downed_endpoints)
 
             pkt.load = '0' * 60 + str(len(self.packets))
-            self.packets.append((ptf_port, str(pkt).encode("base64")))
+            b = base64.b64encode(bytes(str(pkt), 'utf-8'))  # bytes
+            base64_str = b.decode('utf-8')  # convert bytes to string
+            self.packets.append((ptf_port, base64_str))
 
         finally:
             Logger.info("")
@@ -671,7 +673,7 @@ class VxLAN_in_VxLAN(VXLAN):
                             vxlan_vni=vni,
                             inner_frame=exp_pkt,
                             **options_v6)
-                    send_packet(self, ptf_port, str(pkt))
+                    send_packet(self, ptf_port, pkt)
 
                 # After we sent all packets, wait for the responses.
                 if expect_success:
@@ -768,7 +770,9 @@ class VxLAN_in_VxLAN(VXLAN):
                     self.downed_endpoints)
 
             pkt.load = '0' * 60 + str(len(self.packets))
-            self.packets.append((ptf_port, str(pkt).encode("base64")))
+            b = base64.b64encode(bytes(str(pkt), 'utf-8'))  # bytes
+            base64_str = b.decode('utf-8')  # convert bytes to string
+            self.packets.append((ptf_port, base64_str))
 
         finally:
             Logger.info("")

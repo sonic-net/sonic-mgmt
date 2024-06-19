@@ -7,7 +7,8 @@ import re
 from test_crm import RESTORE_CMDS
 from tests.common.helpers.crm import CRM_POLLING_INTERVAL
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import recover_acl_rule
+from tests.common.utilities import wait_until, recover_acl_rule
+from tests.common.platform.interface_utils import parse_intf_status
 
 logger = logging.getLogger(__name__)
 
@@ -130,8 +131,8 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
                 elif crm_intf2 is None:
                     crm_intf2 = intf
 
-        if crm_intf1 is not None and crm_intf2 is not None:
-            return (crm_intf1, crm_intf2)
+    if crm_intf1 is not None and crm_intf2 is not None:
+        return (crm_intf1, crm_intf2)
 
     if crm_intf1 is None or crm_intf2 is None:
         pytest.skip("Not enough interfaces on this host/asic (%s/%s) to support test." % (duthost.hostname,
@@ -161,6 +162,52 @@ def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     time.sleep(wait_time)
 
 
+def get_intf_list(duthost, tbinfo, enum_frontend_asic_index):
+    """ Return the interface list which would influence fdb entry by mac learning """
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
+    mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
+    intf_connect_with_ptf = []
+    for intf, intf_desc in mg_facts["minigraph_neighbors"].items():
+        if "Server" in intf_desc['name']:
+            intf_connect_with_ptf.append(intf)
+    return intf_connect_with_ptf
+
+
+def check_interface_status(duthost, intf_list, expected_oper='up'):
+    """ Check interface status """
+    output = duthost.command("show interface description")
+    intf_status = parse_intf_status(output["stdout_lines"][2:])
+    for intf in intf_list:
+        if intf not in intf_status:
+            logging.info("Missing status for interface %s" % intf)
+            return False
+        if intf_status[intf]["oper"] != expected_oper:
+            logging.info("Oper status of interface {} is {}, expected {}".format(intf, intf_status[intf]["oper"],
+                                                                                 expected_oper))
+            return False
+    return True
+
+
+@pytest.fixture(scope="module", autouse=True)
+def shutdown_unnecessary_intf(duthosts, tbinfo, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname):
+    """ Shutdown unused interfaces to avoid fdb entry influenced by mac learning """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    intfs_connect_with_ptf = get_intf_list(duthost, tbinfo, enum_frontend_asic_index)
+    if intfs_connect_with_ptf:
+        logger.info("Shutdown interfaces: {}".format(intfs_connect_with_ptf))
+        duthost.shutdown_multiple(intfs_connect_with_ptf)
+        assert wait_until(300, 20, 0, check_interface_status, duthost, intfs_connect_with_ptf, 'down'), \
+            "All interfaces should be down!"
+
+    yield
+
+    if intfs_connect_with_ptf:
+        logger.info("Startup interfaces: {}".format(intfs_connect_with_ptf))
+        duthost.no_shutdown_multiple(intfs_connect_with_ptf)
+        assert wait_until(300, 20, 0, check_interface_status, duthost, intfs_connect_with_ptf), \
+            "All interfaces should be up!"
+
+
 @pytest.fixture(scope="module")
 def collector(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """ Fixture for sharing variables between test cases """
@@ -170,3 +217,26 @@ def collector(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         data[asic.asic_index] = {}
 
     yield data
+
+
+@pytest.fixture(scope="function")
+def cleanup_ptf_interface(duthosts, ip_ver, enum_rand_one_per_hwsku_frontend_hostname,
+                          enum_frontend_asic_index, ptfhost):
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
+    if ip_ver == "4":
+        ip_remove_cmd = "config interface ip remove Ethernet1 2.2.2.1/24"
+    else:
+        ip_remove_cmd = "config interface ip remove Ethernet1 2001::2/64"
+    check_vlan_cmd = "show vlan br | grep -w 'Ethernet1'"
+
+    yield
+
+    if duthost.facts["asic_type"] == "marvell":
+        asichost.shell(ip_remove_cmd)
+        # Check if member not removed
+        output = asichost.shell(check_vlan_cmd, module_ignore_errors=True)
+        if "Ethernet1" not in output['stdout']:
+            asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
+        ptfhost.remove_ip_addresses()

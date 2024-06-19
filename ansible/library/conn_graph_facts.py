@@ -68,8 +68,8 @@ Ansible_facts:
     device_console_link:  The console server port connected to the device
     device_bmc_info: The device's bmc server type, mgmtip, hwsku and protocol
     device_bmc_link:  The bmc server port connected to the device
-    device_pdu_info: The device's pdu server type, mgmtip, hwsku and protocol
-    device_pdu_links: The pdu server ports connected to the device
+    device_pdu_info: A dict of pdu device's pdu type, mgmtip, hwsku and protocol
+    device_pdu_links: The pdu server ports connected to the device and pdu info
 
 '''
 
@@ -130,6 +130,7 @@ class LabGraph(object):
         self.csv_files = {k: os.path.join(self.path, v.format(group)) for k, v in self.SUPPORTED_CSV_FILES.items()}
 
         self._cache_port_alias_to_name = {}
+        self._cache_port_name_to_alias = {}
 
         self.csv_facts = {}
         self.read_csv_files()
@@ -205,6 +206,31 @@ class LabGraph(object):
     def _get_sorted_port_name_list(self, hwsku):
         return natsorted(self._get_port_alias_to_name_map(hwsku).values())
 
+    def _get_port_name_to_alias_map(self, hwsku):
+        """
+        Retrive port name to alias map for specific hwsku.
+        """
+        if hwsku in self._cache_port_name_to_alias:
+            return self._cache_port_name_to_alias[hwsku]
+        port_alias_to_name_map = self._get_port_alias_to_name_map(hwsku)
+        port_name_to_alias_map = dict([(name, alias) for alias, name in port_alias_to_name_map.items()])
+        self._cache_port_name_to_alias[hwsku] = port_name_to_alias_map
+        return port_name_to_alias_map
+
+    def _get_port_name_set(self, device_hostname):
+        """
+        Retrive port name set of a specific hwsku.
+        """
+        hwsku = self.graph_facts["devices"][device_hostname]['HwSku']
+        return set(self._get_port_name_to_alias_map(hwsku).keys())
+
+    def _get_port_alias_set(self, device_hostname):
+        """
+        Retrive port alias set of a specific hwsku.
+        """
+        hwsku = self.graph_facts["devices"][device_hostname]['HwSku']
+        return set(self._get_port_alias_to_name_map(hwsku).keys())
+
     def csv_to_graph_facts(self):
         devices = {}
         for entry in self.csv_facts["devices"]:
@@ -224,41 +250,81 @@ class LabGraph(object):
 
         links = {}
         port_vlans = {}
+        links_group_by_devices = {}
+        ports_group_by_devices = {}
+
         for entry in self.csv_facts["links"]:
-            start_device = entry["StartDevice"]
-            start_port = self._port_alias_to_name(start_device, entry["StartPort"])
-            end_device = entry["EndDevice"]
-            end_port = self._port_alias_to_name(end_device, entry["EndPort"])
-            band_width = entry["BandWidth"]
-            vlan_ID = entry["VlanID"]
-            vlan_mode = entry["VlanMode"]
+            if entry['StartDevice'] not in links_group_by_devices:
+                links_group_by_devices[entry['StartDevice']] = []
+            if entry['EndDevice'] not in links_group_by_devices:
+                links_group_by_devices[entry['EndDevice']] = []
+            if entry['StartDevice'] not in ports_group_by_devices:
+                ports_group_by_devices[entry['StartDevice']] = []
+            if entry['EndDevice'] not in ports_group_by_devices:
+                ports_group_by_devices[entry['EndDevice']] = []
+
+            links_group_by_devices[entry['StartDevice']].append(entry)
+            links_group_by_devices[entry['EndDevice']].append(entry)
+            ports_group_by_devices[entry['StartDevice']].append(entry['StartPort'])
+            ports_group_by_devices[entry['EndDevice']].append(entry['EndPort'])
+
+        convert_alias_to_name = []
+        for device, device_links in links_group_by_devices.items():
+            if self.graph_facts["devices"][device].get("Os", "").lower() == "sonic":
+                if any([port not in self._get_port_alias_set(device) and port not in self._get_port_name_set(device) for port in ports_group_by_devices[device]]):  # noqa: E501
+                    continue
+                elif all([port in self._get_port_alias_set(device) for port in ports_group_by_devices[device]]):
+                    convert_alias_to_name.append(device)
+                elif not all([port in self._get_port_name_set(device) for port in ports_group_by_devices[device]]):
+                    raise Exception(
+                        "[Failed] For device {}, please check {} and ensure all ports use "
+                        "port name, or ensure all ports use port alias.".format(
+                            device, ports_group_by_devices[device]
+                        )
+                    )
+
+        logging.debug("convert_alias_to_name {}".format(convert_alias_to_name))
+
+        for link in self.csv_facts["links"]:
+            start_device = link["StartDevice"]
+            end_device = link["EndDevice"]
+            start_port = link["StartPort"]
+            end_port = link["EndPort"]
+
+            if link["StartDevice"] in convert_alias_to_name:
+                start_port = self._port_alias_to_name(link["StartDevice"], link['StartPort'])
+            if link["EndDevice"] in convert_alias_to_name:
+                end_port = self._port_alias_to_name(link["EndDevice"], link['EndPort'])
+
+            band_width = link["BandWidth"]
+            vlan_ID = link["VlanID"]
+            vlan_mode = link["VlanMode"]
 
             if start_device not in links:
                 links[start_device] = {}
+            if end_device not in links:
+                links[end_device] = {}
+            if start_device not in port_vlans:
+                port_vlans[start_device] = {}
+            if end_device not in port_vlans:
+                port_vlans[end_device] = {}
+
             links[start_device][start_port] = {
                 "peerdevice": end_device,
                 "peerport": end_port,
                 "speed": band_width,
             }
-
-            if end_device not in links:
-                links[end_device] = {}
             links[end_device][end_port] = {
                 "peerdevice": start_device,
                 "peerport": start_port,
                 "speed": band_width,
             }
 
-            if start_device not in port_vlans:
-                port_vlans[start_device] = {}
             port_vlans[start_device][start_port] = {
                 "mode": vlan_mode,
                 "vlanids": vlan_ID,
                 "vlanlist": self._port_vlanlist(vlan_ID),
             }
-
-            if end_device not in port_vlans:
-                port_vlans[end_device] = {}
             port_vlans[end_device][end_port] = {
                 "mode": vlan_mode,
                 "vlanids": vlan_ID,
@@ -287,12 +353,18 @@ class LabGraph(object):
         pdu_links = {}
         for entry in self.csv_facts["pdu_links"]:
             start_device = entry["EndDevice"]
-            if start_device not in pdu_links:
-                pdu_links[start_device] = {}
-            pdu_links[start_device][entry["EndPort"]] = {
+            pdu_links_of_device = pdu_links.get(start_device, {})
+            start_port = entry["EndPort"]
+            pdu_links_of_psu = pdu_links_of_device.get(start_port, {})
+            feed = entry.get("EndFeed", "N/A")
+            pdu_links_of_feed = {
                 "peerdevice": entry["StartDevice"],
                 "peerport": entry["StartPort"],
+                "feed": feed,
             }
+            pdu_links_of_psu[feed] = pdu_links_of_feed
+            pdu_links_of_device[start_port] = pdu_links_of_psu
+            pdu_links[start_device] = pdu_links_of_device
         self.graph_facts["pdu_links"] = pdu_links
 
         bmc_links = {}
@@ -316,8 +388,8 @@ class LabGraph(object):
         device_vlan_map_list = {}
         device_console_link = {}
         device_console_info = {}
-        device_pdu_links = {}
         device_pdu_info = {}
+        device_pdu_links = {}
         device_bmc_link = {}
         device_bmc_info = {}
         msg = ""
@@ -327,6 +399,8 @@ class LabGraph(object):
             if device is None and not ignore_error:
                 msg = "Cannot find device {}, check if it is in {}".format(hostname, self.csv_files["devices"])
                 return (False, msg)
+            if device is None:
+                continue
             device_info[hostname] = device
             device_conn[hostname] = self.graph_facts["links"].get(hostname, {})
 
@@ -369,11 +443,50 @@ class LabGraph(object):
                 device_console_link[hostname].get("ConsolePort", {}).get("peerdevice"),
                 {}
             )
+            """
+            pdu_links in the format of:
+            {
+                "str-7250-7": {
+                    "PSU1": {
+                        "A": {
+                            "peerdevice": "pdu-2",
+                            "peerport": "5",
+                            "feed": "A",
+                        },
+                        "B": {
+                            "peerdevice": "pdu-2",
+                            "peerport": "6",
+                            "feed": "B",
+                        }
+                    },
+                    "PSU2": {
+                        "N/A": {
+                            "peerdevice": "pdu-2",
+                            "peerport": "7",
+                            "feed": "A",
+                        },
+                    },
+                },
+            }
+            pdu_info in the format of:
+            {
+                "str-7250-7": {
+                    "pdu-2": {
+                        "Hostname": "pdu-2",
+                        "Protocol": "snmp",
+                        "ManagementIp": "10.3.155.107",
+                        "HwSku": "Sentry",
+                        "Type": "Pdu",
+                    },
+                },
+            }
+            """
             device_pdu_links[hostname] = self.graph_facts["pdu_links"].get(hostname, {})
             device_pdu_info[hostname] = {}
-            for psu, psu_info in device_pdu_links[hostname].items():
-                pdu_hostname = psu_info.get("peerdevice")
-                device_pdu_info[hostname][psu] = self.graph_facts["devices"].get(pdu_hostname, {})
+            for psu_name, psu_info in device_pdu_links[hostname].items():
+                for feed_name, feed_info in psu_info.items():
+                    pdu_hostname = feed_info.get("peerdevice")
+                    device_pdu_info[hostname][pdu_hostname] = self.graph_facts["devices"].get(pdu_hostname, {})
 
             device_bmc_link[hostname] = self.graph_facts["bmc_links"].get(hostname, {})
             device_bmc_info[hostname] = {}

@@ -116,7 +116,7 @@ def check_queue_counter(duthost, intfs, queue, counter):
     for line in output:
         fields = line.split()
         if len(fields) == 6 and fields[0] in intfs and fields[1] == 'UC{}'.format(queue):
-            if int(fields[2]) >= counter:
+            if int(fields[2].replace(',', '')) >= counter:
                 return True
 
     return False
@@ -344,22 +344,24 @@ def _remove_ssh_tunnel_to_syncd_rpc(duthost):
 
 @pytest.fixture(scope='module')
 def swap_syncd(request, rand_selected_dut, creds):
-    public_docker_reg = request.config.getoption("--public_docker_registry")
-    new_creds = None
-    if public_docker_reg:
-        new_creds = copy.deepcopy(creds)
-        new_creds['docker_registry_host'] = new_creds['public_docker_registry_host']
-        new_creds['docker_registry_username'] = ''
-        new_creds['docker_registry_password'] = ''
-    else:
-        new_creds = creds
-    # Swap syncd container
-    docker.swap_syncd(rand_selected_dut, new_creds)
-    _create_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
+    if request.config.getoption("--qos_swap_syncd"):
+        public_docker_reg = request.config.getoption("--public_docker_registry")
+        new_creds = None
+        if public_docker_reg:
+            new_creds = copy.deepcopy(creds)
+            new_creds['docker_registry_host'] = new_creds['public_docker_registry_host']
+            new_creds['docker_registry_username'] = ''
+            new_creds['docker_registry_password'] = ''
+        else:
+            new_creds = creds
+        # Swap syncd container
+        docker.swap_syncd(rand_selected_dut, new_creds)
+        _create_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
     yield
-    # Restore syncd container
-    docker.restore_default_syncd(rand_selected_dut, new_creds)
-    _remove_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
+    if request.config.getoption("--qos_swap_syncd"):
+        # Restore syncd container
+        docker.restore_default_syncd(rand_selected_dut, new_creds)
+        _remove_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
 
 
 def _update_docker_service(duthost, docker="", action="", service=""):

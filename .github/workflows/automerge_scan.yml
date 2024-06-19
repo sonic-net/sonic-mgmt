@@ -68,6 +68,6 @@ jobs:
           done
           # merge the PR
           echo ========Merging  PR========
-          gh pr merge --rebase --admin -R sonic-net/sonic-mgmt $url || true
+          gh pr merge --rebase --delete-branch --admin -R sonic-net/sonic-mgmt $url || true
           echo ========Finished PR========
         done

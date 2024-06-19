@@ -5,6 +5,7 @@ from time import sleep
 from jinja2 import Template
 
 from constants import TEMPLATE_DIR
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,21 @@ def render_template_to_host(template_name, host, dest_file, *template_args, **te
     rendered = safe_open_template(path.join(TEMPLATE_DIR, template_name)).render(combined_args, **template_kwargs)
 
     host.copy(content=rendered, dest=dest_file)
+
+
+def render_template(template_name, *template_args, **template_kwargs):
+    """
+    Renders a template with the given arguments and copies it to the host
+
+    Args:
+        template_name: A template inside the "templates" folder (without the preceding "templates/")
+        *template_args: Any arguments to be passed to j2 during rendering
+        **template_kwargs: Any keyword arguments to be passed to j2 during rendering
+    """
+
+    combined_args = combine_dicts(*template_args)
+
+    return safe_open_template(path.join(TEMPLATE_DIR, template_name)).render(combined_args, **template_kwargs)
 
 
 def apply_swssconfig_file(duthost, file_path):

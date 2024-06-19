@@ -34,6 +34,7 @@ import nic_simulator_grpc_mgmt_service_pb2_grpc
 
 
 THREAD_CONCURRENCY_PER_SERVER = 2
+USE_HASH_SELECTION_METHOD_EXPLICITLY = False
 
 # name templates
 ACTIVE_ACTIVE_BRIDGE_TEMPLATE = r"baa-%s-%d"
@@ -43,6 +44,7 @@ ACTIVE_ACTIVE_INTERFACES_TEMPLATE = r"iaa-%s-%d"
 ACTIVE_ACTIVE_INTERFACE_PATTERN = r"iaa-[\w-]+-\d+"
 SERVER_NIC_INTERFACE_TEMPLATE = r"nic-%s-%d"
 SERVER_NIC_INTERFACE_PATTERN = r"nic-[\w-]+-\d+"
+OVS_VERSION_PATTERN = r"ovs-vsctl \(Open vSwitch\) (.*)"
 
 # gRPC settings
 GRPC_TIMEOUT = 0.5
@@ -93,14 +95,35 @@ def run_command(cmd, check=True):
 class OVSCommand(object):
     """OVS related commands."""
 
+    OVS_VSCTL_SHOW_VERSION_COMD = "ovs-vsctl -V"
     OVS_VSCTL_LIST_BR_CMD = "ovs-vsctl list-br"
     OVS_VSCTL_LIST_PORTS_CMD = "ovs-vsctl list-ports {bridge_name}"
     OVS_OFCTL_DEL_FLOWS_CMD = "ovs-ofctl del-flows {bridge_name}"
     OVS_OFCTL_ADD_FLOWS_CMD = "ovs-ofctl add-flow {bridge_name} {flow}"
-    OVS_OFCTL_MOD_FLOWS_CMD = "ovs-ofctl mod-flows {bridge_name} {flow}"
+    OVS_OFCTL_MOD_FLOWS_CMD = "ovs-ofctl --strict mod-flows {bridge_name} {flow}"
     OVS_OFCTL_DEL_GROUPS_CMD = "ovs-ofctl -O OpenFlow13 del-groups {bridge_name}"
     OVS_OFCTL_ADD_GROUP_CMD = "ovs-ofctl -O OpenFlow13 add-group {bridge_name} {group}"
     OVS_OFCTL_MOD_GROUP_CMD = "ovs-ofctl -O OpenFlow13 mod-group {bridge_name} {group}"
+
+    @staticmethod
+    def setup_openflow_version():
+
+        def _versiontuple(v):
+            return tuple(map(int, (v.split("."))))
+
+        try:
+            out = run_command(OVSCommand.OVS_VSCTL_SHOW_VERSION_COMD)
+            first_line = out.stdout.splitlines()[0]
+            ovs_version = _versiontuple(re.search(OVS_VERSION_PATTERN, first_line).groups()[0])
+            # NOTE: use openflow15 for OVS 2.10 and above
+            if ovs_version >= _versiontuple("2.10"):
+                global USE_HASH_SELECTION_METHOD_EXPLICITLY
+                USE_HASH_SELECTION_METHOD_EXPLICITLY = True
+                OVSCommand.OVS_OFCTL_DEL_GROUPS_CMD = "ovs-ofctl -O OpenFlow15 del-groups {bridge_name}"
+                OVSCommand.OVS_OFCTL_ADD_GROUP_CMD = "ovs-ofctl -O OpenFlow15 add-group {bridge_name} {group}"
+                OVSCommand.OVS_OFCTL_MOD_GROUP_CMD = "ovs-ofctl -O OpenFlow15 mod-group {bridge_name} {group}"
+        except Exception:
+            raise ValueError("Failed to find/setup openflow version: %s" % out.stdout)
 
     @staticmethod
     def ovs_vsctl_list_br():
@@ -161,14 +184,18 @@ class StrObj(abc.ABC):
 class OVSGroup(StrObj):
     """Object to represent an OVS group."""
 
-    __slots__ = ("group_id", "group_type", "output_ports", "_str_prefix")
+    __slots__ = ("group_id", "group_type", "output_ports", "_str_prefix",  "optional_fields")
 
-    def __init__(self, group_id, group_type, output_ports=[]):
+    def __init__(self, group_id, group_type, output_ports=[], optional_fields=None):
         self.group_id = group_id
         self.group_type = group_type
         self.output_ports = set(output_ports)
         self._str_prefix = "group_id=%s,type=%s" % (
             self.group_id, self.group_type)
+        if optional_fields:
+            self._str_prefix += ","
+            self._str_prefix += ",".join("%s=%s" % kv for kv in optional_fields.items())
+        self.optional_fields = optional_fields or []
 
     def to_string(self):
         group_parts = [self._str_prefix]
@@ -183,7 +210,7 @@ class OVSGroup(StrObj):
 class OVSFlow(StrObj):
     """Object to represent an OVS flow."""
 
-    __slots__ = ("in_port", "output_ports", "group", "priority", "_str_prefix")
+    __slots__ = ("in_port", "packet_filter", "output_ports", "group", "priority", "_str_prefix", "drop")
 
     def __init__(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None):
         self.in_port = in_port
@@ -224,19 +251,21 @@ class OVSFlow(StrObj):
 class OVSUpstreamFlow(OVSFlow):
     """Object to represent an OVS upstream flow to output to both ToRs."""
 
-    __slots__ = ("drop_output",)
+    __slots__ = ("drop_output", "enable_output_ports")
 
-    def __init__(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None):
+    def __init__(self, in_port, packet_filter=None, output_ports=[],
+                 group=None, priority=None, enable_output_ports=None):
         super(OVSUpstreamFlow, self).__init__(
             in_port, packet_filter, output_ports, group, priority)
         self.drop_output = [False, False]
+        self.enable_output_ports = enable_output_ports if enable_output_ports else [True, True]
 
     def to_string(self):
         flow_parts = [self._str_prefix]
         has_output = False
         if self.output_ports:
             output = ["output:%s" % port for (portid, port) in enumerate(self.output_ports)
-                      if not self.drop_output[portid]]
+                      if (self.get_port_enable(portid) and (not self.get_drop(portid)))]
             has_output = bool(output)
             if has_output:
                 flow_parts.append("actions=%s" % ",".join(output))
@@ -244,6 +273,9 @@ class OVSUpstreamFlow(OVSFlow):
         if not has_output:
             flow_parts.append("actions=drop")
         return ",".join(flow_parts)
+
+    def get_port_enable(self, portid):
+        return self.enable_output_ports[portid]
 
     def get_drop(self, portid):
         return self.drop_output[portid]
@@ -256,7 +288,8 @@ class OVSUpstreamFlow(OVSFlow):
         else:
             self.drop_output[portid] = is_drop
 
-        self.reset()
+        if self.get_port_enable(portid):
+            self.reset()
 
 
 class ForwardingState(object):
@@ -290,8 +323,10 @@ class UpstreamECMPGroup(OVSGroup):
             output_ports.append(upper_tor_port)
         if lower_tor_forwarding_state == ForwardingState.ACTIVE:
             output_ports.append(lower_tor_port)
+        optional_fields = {"selection_method": "hash"} if USE_HASH_SELECTION_METHOD_EXPLICITLY else None
         super(UpstreamECMPGroup, self).__init__(
-            group_id, "select", output_ports=output_ports)
+            group_id, "select", output_ports=output_ports, optional_fields=optional_fields
+        )
         self.upper_tor_port = upper_tor_port
         self.lower_tor_port = lower_tor_port
         self.upper_tor_forwarding_state = upper_tor_forwarding_state
@@ -299,6 +334,8 @@ class UpstreamECMPGroup(OVSGroup):
         self.group_str_cache = {}
 
     def set_upper_tor_forwarding_state(self, state):
+        if state == self.upper_tor_forwarding_state:
+            return False
         if state == ForwardingState.ACTIVE:
             if self.upper_tor_forwarding_state == ForwardingState.STANDBY:
                 self.output_ports.add(self.upper_tor_port)
@@ -309,8 +346,11 @@ class UpstreamECMPGroup(OVSGroup):
                 self.output_ports.remove(self.upper_tor_port)
                 self.upper_tor_forwarding_state = ForwardingState.STANDBY
                 self.reset()
+        return True
 
     def set_lower_tor_forwarding_state(self, state):
+        if state == self.lower_tor_forwarding_state:
+            return False
         if state == ForwardingState.ACTIVE:
             if self.lower_tor_forwarding_state == ForwardingState.STANDBY:
                 self.output_ports.add(self.lower_tor_port)
@@ -321,6 +361,7 @@ class UpstreamECMPGroup(OVSGroup):
                 self.output_ports.remove(self.lower_tor_port)
                 self.lower_tor_forwarding_state = ForwardingState.STANDBY
                 self.reset()
+        return True
 
     def __str__(self):
         return self.group_str_cache.setdefault(
@@ -339,10 +380,10 @@ class UpstreamECMPFlow(OVSFlow):
             in_port, group=group, priority=priority)
 
     def set_upper_tor_forwarding_state(self, state):
-        self.group.set_upper_tor_forwarding_state(state)
+        return self.group.set_upper_tor_forwarding_state(state)
 
     def set_lower_tor_forwarding_state(self, state):
-        self.group.set_lower_tor_forwarding_state(state)
+        return self.group.set_lower_tor_forwarding_state(state)
 
     def get_upper_tor_forwarding_state(self):
         return self.group.upper_tor_forwarding_state
@@ -383,14 +424,17 @@ class OVSBridge(object):
         "downstream_upper_tor_flow",
         "downstream_lower_tor_flow",
         "upstream_nic_flow",
+        "upstream_upper_tor_nic_flow",
+        "upstream_lower_tor_nic_flow",
         "upstream_loopback2_flow",
         "upstream_upper_tor_loopback3_flow",
         "upstream_lower_tor_loopback3_flow",
         "upstream_arp_flow",
-        "upstream_icmpv6_flow"
+        "upstream_icmpv6_flow",
+        "flap_counter"
     )
 
-    def __init__(self, bridge_name, loopback_ips):
+    def __init__(self, bridge_name, loopback_ips, duplicate_nic_upstream=False):
         self.bridge_name = bridge_name
         self.loopback2_ip = loopback_ips[0]
         self.upper_tor_loopback3_ip = loopback_ips[1]
@@ -406,7 +450,7 @@ class OVSBridge(object):
         self.flows = []
         self.groups = []
         self._init_ports()
-        self._init_flows()
+        self._init_flows(duplicate_nic_upstream)
         self.states_getter = {
             1: self.upstream_ecmp_flow.get_upper_tor_forwarding_state,
             0: self.upstream_ecmp_flow.get_lower_tor_forwarding_state
@@ -418,6 +462,10 @@ class OVSBridge(object):
         self.downstream_flows = {
             1: self.downstream_upper_tor_flow,
             0: self.downstream_lower_tor_flow
+        }
+        self.flap_counter = {
+            1: 0,
+            0: 0
         }
 
     def _init_ports(self):
@@ -449,18 +497,38 @@ class OVSBridge(object):
             self.lower_tor_port
         )
 
-    def _init_flows(self):
+    def _init_flows(self, duplicate_nic_upstream=False):
         """Initialize OVS flows for the bridge."""
         logging.info("Init flows for bridge %s", self.bridge_name)
         self._del_flows()
         self._del_groups()
         # downstream flows
         self.downstream_upper_tor_flow = self._add_flow(self.upper_tor_port,
-                                                        output_ports=[self.ptf_port, self.server_nic], priority=10)
+                                                        output_ports=[self.ptf_port, self.server_nic], priority=11)
         self.downstream_lower_tor_flow = self._add_flow(self.lower_tor_port,
-                                                        output_ports=[self.ptf_port, self.server_nic], priority=10)
+                                                        output_ports=[self.ptf_port, self.server_nic], priority=11)
 
         # upstream flows
+        if not duplicate_nic_upstream:
+            # NOTE: add two flows to direct gRPC traffic to its correct destination
+            # upstream packet to the upper ToR loopback3 from server NiC should be forwarded to the upper ToR
+            self.upstream_upper_tor_nic_flow = self._add_flow(
+                self.server_nic,
+                packet_filter="tcp,ip_dst=%s" % self.upper_tor_loopback3_ip,
+                output_ports=[self.lower_tor_port, self.upper_tor_port],
+                priority=10,
+                upstream=True,
+                enable_output_ports=[False, True]
+            )
+            # upstream packet to the lower ToR loopback3 from server NiC should be forwarded to the lower ToR
+            self.upstream_lower_tor_nic_flow = self._add_flow(
+                self.server_nic,
+                packet_filter="tcp,ip_dst=%s" % self.lower_tor_loopback3_ip,
+                output_ports=[self.lower_tor_port, self.upper_tor_port],
+                priority=10,
+                upstream=True,
+                enable_output_ports=[True, False]
+            )
         # upstream packet from server NiC should be directed to both ToRs
         self.upstream_nic_flow = self._add_flow(
             self.server_nic,
@@ -532,10 +600,11 @@ class OVSBridge(object):
         self.upstream_ecmp_group = None
         self.groups.clear()
 
-    def _add_flow(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None, upstream=False):
+    def _add_flow(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None,
+                  upstream=False, enable_output_ports=None):
         if upstream:
             flow = OVSUpstreamFlow(in_port, packet_filter=packet_filter, output_ports=output_ports,
-                                   group=group, priority=priority)
+                                   group=group, priority=priority, enable_output_ports=enable_output_ports)
         else:
             flow = OVSFlow(in_port, packet_filter=packet_filter, output_ports=output_ports,
                            group=group, priority=priority)
@@ -566,7 +635,7 @@ class OVSBridge(object):
             for portid, state in zip(portids, states):
                 logging.info("Set bridge %s port %s forwarding state: %s",
                              self.bridge_name, portid, ForwardingState.STATE_LABELS[state])
-                self.states_setter[portid](state)
+                self.flap_counter[portid] += self.states_setter[portid](state)
             OVSCommand.ovs_ofctl_mod_groups(
                 self.bridge_name, self.upstream_ecmp_group)
             return self.query_forwarding_state(portids)
@@ -599,6 +668,18 @@ class OVSBridge(object):
 
                     # recover upstream
                     # recover upstream traffic from server NiC
+                    if self.upstream_upper_tor_nic_flow.get_port_enable(portid):
+                        if self.upstream_upper_tor_nic_flow.get_drop(portid):
+                            self.upstream_upper_tor_nic_flow.set_drop(
+                                portid=portid, recover=recover)
+                            OVSCommand.ovs_ofctl_mod_flow(
+                                self.bridge_name, self.upstream_upper_tor_nic_flow)
+                    if self.upstream_lower_tor_nic_flow.get_port_enable(portid):
+                        if self.upstream_lower_tor_nic_flow.get_drop(portid):
+                            self.upstream_lower_tor_nic_flow.set_drop(
+                                portid=portid, recover=recover)
+                            OVSCommand.ovs_ofctl_mod_flow(
+                                self.bridge_name, self.upstream_lower_tor_nic_flow)
                     if self.upstream_nic_flow.get_drop(portid):
                         self.upstream_nic_flow.set_drop(
                             portid=portid, recover=recover)
@@ -650,6 +731,16 @@ class OVSBridge(object):
                     elif direction == 1:
                         # upstream
                         # drop upstream traffic from server NiC
+                        if self.upstream_upper_tor_nic_flow.get_port_enable(portid):
+                            if not self.upstream_upper_tor_nic_flow.get_drop(portid):
+                                self.upstream_upper_tor_nic_flow.set_drop(portid)
+                                OVSCommand.ovs_ofctl_mod_flow(
+                                    self.bridge_name, self.upstream_upper_tor_nic_flow)
+                        if self.upstream_lower_tor_nic_flow.get_port_enable(portid):
+                            if not self.upstream_lower_tor_nic_flow.get_drop(portid):
+                                self.upstream_lower_tor_nic_flow.set_drop(portid)
+                                OVSCommand.ovs_ofctl_mod_flow(
+                                    self.bridge_name, self.upstream_lower_tor_nic_flow)
                         if not self.upstream_nic_flow.get_drop(portid):
                             self.upstream_nic_flow.set_drop(portid)
                             OVSCommand.ovs_ofctl_mod_flow(
@@ -691,6 +782,25 @@ class OVSBridge(object):
                                          % (direction))
                 result.append(True)
             return result
+
+    def query_flap_counter(self, portids):
+        """Query flap counter."""
+        with self.lock:
+            flap_counter = [self.flap_counter[portid] for portid in portids]
+            logging.info("Query bridge %s flap counter for ports %s: %s",
+                         self.bridge_name, portids, flap_counter)
+            return flap_counter
+
+    def reset_flap_counter(self, portids):
+        """Reset flap counter."""
+        with self.lock:
+            flap_counter = []
+            for portid in portids:
+                self.flap_counter[portid] = 0
+                flap_counter.append(0)
+            logging.info("Reset bridge %s flap counter for ports %s: %s",
+                         self.bridge_name, portids, flap_counter)
+            return flap_counter
 
 
 class InterruptableThread(threading.Thread):
@@ -791,6 +901,30 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
                       context.peer(), self.nic_addr, response)
         return response
 
+    def QueryFlapCounter(self, request, context):
+        logging.debug("QueryFlapCounter: request to server %s from client %s\n",
+                      self.nic_addr, context.peer())
+        portids = request.portid
+        response = nic_simulator_grpc_service_pb2.FlapCounterReply(
+            portid=portids,
+            flaps=self.ovs_bridge.query_flap_counter(portids)
+        )
+        logging.debug("QueryFlapCounter: response to client %s from server %s:\n%s",
+                      context.peer(), self.nic_addr, response)
+        return response
+
+    def ResetFlapCounter(self, request, context):
+        logging.debug("ResetFlapCounter: request to server %s from client %s\n",
+                      self.nic_addr, context.peer())
+        portids = request.portid
+        response = nic_simulator_grpc_service_pb2.FlapCounterReply(
+            portid=portids,
+            flaps=self.ovs_bridge.reset_flap_counter(portids)
+        )
+        logging.debug("ResetFlapCounter: response to client %s from server %s:\n%s",
+                      context.peer(), self.nic_addr, response)
+        return response
+
     def _run_server(self, binding_port):
         """Run the gRPC server."""
         self.server = grpc.server(
@@ -849,17 +983,15 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
 
     def QueryAdminForwardingPortState(self, request, context):
         nic_addresses = request.nic_addresses
+        admin_requests = request.admin_requests
         logging.debug(
             "QueryAdminForwardingPortState[mgmt]: request query admin port state for %s\n", nic_addresses)
         query_responses = []
-        for nic_address in nic_addresses:
+        for nic_address, admin_request in zip(nic_addresses, admin_requests):
             client_stub = self._get_client_stub(nic_address)
             try:
                 state = client_stub.QueryAdminForwardingPortState(
-                    nic_simulator_grpc_service_pb2.AdminRequest(
-                        portid=[0, 1],
-                        state=[True, True]
-                    ),
+                    admin_request,
                     timeout=GRPC_TIMEOUT
                 )
                 query_responses.append(state)
@@ -972,6 +1104,64 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
             "SetNicServerAdminState[mgmt]: response of set nic server admin state:%s\n", response)
         return response
 
+    def QueryFlapCounter(self, request, context):
+        nic_addresses = request.nic_addresses
+        flap_counter_requests = request.flap_counter_requests
+        logging.debug(
+            "QueryFlapCounter[mgmt]: request query port flap counter for %s\n", nic_addresses)
+
+        query_responses = []
+        for nic_address, flap_counter_request in zip(nic_addresses, flap_counter_requests):
+            client_stub = self._get_client_stub(nic_address)
+            try:
+                flap_counter_reply = client_stub.QueryFlapCounter(
+                    flap_counter_request,
+                    timeout=GRPC_TIMEOUT
+                )
+                query_responses.append(flap_counter_reply)
+            except Exception as e:
+                context.set_code(grpc.StatusCode.ABORTED)
+                context.set_details(
+                    "Error in QueryFlapCounter to %s: %s" % (nic_address, repr(e)))
+                return nic_simulator_grpc_mgmt_service_pb2.ListOfFlapCounterReply()
+
+        response = nic_simulator_grpc_mgmt_service_pb2.ListOfFlapCounterReply(
+            nic_addresses=nic_addresses,
+            flap_counter_replies=query_responses
+        )
+        logging.debug(
+            "QueryFlapCounter[mgmt]: response of query: %s", response)
+        return response
+
+    def ResetFlapCounter(self, request, context):
+        nic_addresses = request.nic_addresses
+        flap_counter_requests = request.flap_counter_requests
+        logging.debug(
+            "ResetFlapCounter[mgmt]: request reset port flap counter for %s\n", nic_addresses)
+
+        reset_responses = []
+        for nic_address, flap_counter_request in zip(nic_addresses, flap_counter_requests):
+            client_stub = self._get_client_stub(nic_address)
+            try:
+                flap_counter_reply = client_stub.ResetFlapCounter(
+                    flap_counter_request,
+                    timeout=GRPC_TIMEOUT
+                )
+                reset_responses.append(flap_counter_reply)
+            except Exception as e:
+                context.set_code(grpc.StatusCode.ABORTED)
+                context.set_details(
+                    "Error in ResetFlapCounter to %s: %s" % (nic_address, repr(e)))
+                return nic_simulator_grpc_mgmt_service_pb2.ListOfFlapCounterReply()
+
+        response = nic_simulator_grpc_mgmt_service_pb2.ListOfFlapCounterReply(
+            nic_addresses=nic_addresses,
+            flap_counter_replies=reset_responses
+        )
+        logging.debug(
+            "ResetFlapCounter[mgmt]: response of reset: %s", response)
+        return response
+
     def start(self):
         self.server = grpc.server(
             futures.ThreadPoolExecutor(
@@ -989,7 +1179,7 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
 class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     """NiC simulator class, define all the gRPC calls."""
 
-    def __init__(self, vm_set, mgmt_port, binding_port, loopback_ips):
+    def __init__(self, vm_set, mgmt_port, binding_port, loopback_ips, duplicate_nic_upstream=False):
         self.vm_set = vm_set
         self.server_nics = self._find_all_server_nics()
         self.server_nic_addresses = {
@@ -1005,7 +1195,8 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
             if server_nic in self.server_nic_addresses:
                 server_nic_addr = self.server_nic_addresses[server_nic]
                 if server_nic_addr is not None:
-                    self.ovs_bridges[server_nic_addr] = OVSBridge(bridge_name, loopback_ips)
+                    self.ovs_bridges[server_nic_addr] = OVSBridge(bridge_name, loopback_ips, duplicate_nic_upstream)
+
         logging.info("Starting NiC simulator to manipulate OVS bridges: %s",
                      json.dumps(list(self.ovs_bridges.keys()), indent=4))
 
@@ -1079,6 +1270,13 @@ def parse_args():
         help="the Loopback IPs to duplicate to both ToRs: <Loopback2>,<upper ToR Loopback3>,<lower ToR Loopback3>",
         dest="loopback_ips"
     )
+    parser.add_argument(
+        "-n",
+        "--duplicate_nic_upstream",
+        default=False,
+        action="store_true",
+        help="Duplicate NIC upstream traffic to both ToRs (default: False)",
+    )
     args = parser.parse_args()
     return args
 
@@ -1127,10 +1325,11 @@ def main():
     logging.debug("Start nic_simulator with args: %s", args)
     config_env()
     config_logging(args.vm_set, args.log_level.upper(), args.stdout_log)
+    OVSCommand.setup_openflow_version()
     loopback_ips = args.loopback_ips.split(",")
     if len(loopback_ips) != 3:
         raise ValueError("Invalid loopback ips: {loopback_ips}".format(loopback_ips=loopback_ips))
-    nic_simulator = NiCSimulator(args.vm_set, "mgmt", args.port, loopback_ips)
+    nic_simulator = NiCSimulator(args.vm_set, "mgmt", args.port, loopback_ips, args.duplicate_nic_upstream)
     nic_simulator.start_nic_servers()
     try:
         nic_simulator.start_mgmt_server()

@@ -58,7 +58,30 @@
 
     - name: Fail if there are no SONiC image and skip image downloading is active
       fail: msg="Please put {{ sonic_image_filename }} to {{ root_path }}/images"
-      when: not img_stat.stat.exists
+      when: not img_stat.stat.exists and skip_image_downloading
+
+    - name: Fail if there is no SONiC image download URL specified
+      fail: msg="Please set sonic_image_url to the URL where the SONiC image can be downloaded from"
+      when: not img_stat.stat.exists and not skip_image_downloading and sonic_image_url is not defined
+
+    - name: Download SONiC image
+      get_url: url="{{ sonic_image_url }}" dest="{{ root_path }}/images/{{ sonic_image_filename }}"
+      environment: "{{ proxy_env | default({}) }}"
+      when: not img_stat.stat.exists and not skip_image_downloading and sonic_image_url is defined
+
+    - name: Get downloaded SONiC image info
+      stat: path={{ root_path }}/images/{{ sonic_image_filename }}
+      register: downloaded_img_stat
+
+    - block:
+
+        - name: Rename file to have a .gz suffix
+          command: mv {{ root_path }}/images/{{ sonic_image_filename }} {{ root_path }}/images/{{ sonic_image_filename }}.gz
+
+        - name: Decompress file
+          command: gunzip {{ root_path }}/images/{{ sonic_image_filename }}.gz
+
+      when: '"application/gzip" in downloaded_img_stat.stat.mimetype'
 
     - set_fact:
         src_image_name: "{{ sonic_image_filename }}"
