@@ -4,6 +4,7 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +53,8 @@ class TestNeighborMac:
             try:
                 if portchannel:
                     duthost.command("sudo config portchannel member del {} {}".format(portchannel, intf))
-                    time.sleep(2)
-                    intfStatus = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
-                    pytest_assert('routed' in intfStatus[intf]["vlan"], '{} not in routed status'.format(intf))
+                    pytest_assert(wait_until(10, 1, 0, lambda: 'routed' in duthost.show_interface(command="status")["ansible_facts"]["int_status"][intf]["vlan"]),
+                                  '{} is not in routed status'.format(intf))
                 yield
             finally:
                 if portchannel:
