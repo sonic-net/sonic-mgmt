@@ -34,6 +34,7 @@ CMD_SHOW_PLATFORM = "show platform"
 
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
+VPD_DATA_FILE = "/var/run/hw-management/eeprom/vpd_data"
 
 
 @pytest.fixture(scope='module')
@@ -92,6 +93,12 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     expected_fields_values = {expected_platform, expected_hwsku, expected_asic}
     if len(unexpected_fields) != 0:
         expected_fields_values.add(expected_num_asic)
+
+    if duthost.facts["asic_type"] in ["mellanox"]:
+        # For Mellanox devices, we validate the hw-revision using the value at VPD_DATA_FILE
+        vpd_data = duthost.command(f"cat {VPD_DATA_FILE}")["stdout_lines"]
+        hw_rev_expected = util.parse_colon_speparated_lines(vpd_data)["REV"]
+        expected_fields_values.add(hw_rev_expected)
 
     actual_fields_values = set(summary_dict.values())
     diff_fields_values = expected_fields_values.difference(actual_fields_values)
