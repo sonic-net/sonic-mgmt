@@ -6,6 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses                                 # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test                                   # noqa F401
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
@@ -234,7 +235,7 @@ class TestWrArp:
         duthost.command('sonic-clear arp')
         self.teardownRouteToPtfhost(duthost, self.route, self.ptfIp, self.gwIp)
 
-    def testWrArp(self, request, duthost, ptfhost, creds):
+    def testWrArp(self, request, duthost, ptfhost, creds, skip_traffic_test):   # noqa F811
         '''
             Control Plane Assistant test for Warm-Reboot.
 
@@ -258,28 +259,29 @@ class TestWrArp:
         logger.info('Warm-Reboot Control-Plane assist feature')
         sonicadmin_alt_password = duthost.host.options['variable_manager'].\
             _hostvars[duthost.hostname]['sonic_default_passwords']
-        ptf_runner(
-            ptfhost,
-            'ptftests',
-            'wr_arp.ArpTest',
-            qlen=PTFRUNNER_QLEN,
-            platform_dir='ptftests',
-            platform='remote',
-            params={
-                'ferret_ip': ptfIp,
-                'dut_ssh': dutIp,
-                'dut_username': creds['sonicadmin_user'],
-                'dut_password': creds['sonicadmin_password'],
-                "alt_password": sonicadmin_alt_password,
-                'config_file': VXLAN_CONFIG_FILE,
-                'how_long': testDuration,
-                'advance': False,
-            },
-            log_file='/tmp/wr_arp.ArpTest.log',
-            is_python3=True
-        )
+        if not skip_traffic_test:
+            ptf_runner(
+                ptfhost,
+                'ptftests',
+                'wr_arp.ArpTest',
+                qlen=PTFRUNNER_QLEN,
+                platform_dir='ptftests',
+                platform='remote',
+                params={
+                    'ferret_ip': ptfIp,
+                    'dut_ssh': dutIp,
+                    'dut_username': creds['sonicadmin_user'],
+                    'dut_password': creds['sonicadmin_password'],
+                    "alt_password": sonicadmin_alt_password,
+                    'config_file': VXLAN_CONFIG_FILE,
+                    'how_long': testDuration,
+                    'advance': False,
+                },
+                log_file='/tmp/wr_arp.ArpTest.log',
+                is_python3=True
+            )
 
-    def testWrArpAdvance(self, request, duthost, ptfhost, creds):
+    def testWrArpAdvance(self, request, duthost, ptfhost, creds, skip_traffic_test):    # noqa F811
         testDuration = request.config.getoption('--test_duration', default=DEFAULT_TEST_DURATION)
         ptfIp = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
         dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
@@ -287,23 +289,24 @@ class TestWrArp:
         logger.info('Warm-Reboot Control-Plane assist feature')
         sonicadmin_alt_password = duthost.host.options['variable_manager'].\
             _hostvars[duthost.hostname]['sonic_default_passwords']
-        ptf_runner(
-            ptfhost,
-            'ptftests',
-            'wr_arp.ArpTest',
-            qlen=PTFRUNNER_QLEN,
-            platform_dir='ptftests',
-            platform='remote',
-            params={
-                'ferret_ip': ptfIp,
-                'dut_ssh': dutIp,
-                'dut_username': creds['sonicadmin_user'],
-                'dut_password': creds['sonicadmin_password'],
-                "alt_password": sonicadmin_alt_password,
-                'config_file': VXLAN_CONFIG_FILE,
-                'how_long': testDuration,
-                'advance': True,
-            },
-            log_file='/tmp/wr_arp.ArpTest.Advance.log',
-            is_python3=True
-        )
+        if not skip_traffic_test:
+            ptf_runner(
+                ptfhost,
+                'ptftests',
+                'wr_arp.ArpTest',
+                qlen=PTFRUNNER_QLEN,
+                platform_dir='ptftests',
+                platform='remote',
+                params={
+                    'ferret_ip': ptfIp,
+                    'dut_ssh': dutIp,
+                    'dut_username': creds['sonicadmin_user'],
+                    'dut_password': creds['sonicadmin_password'],
+                    "alt_password": sonicadmin_alt_password,
+                    'config_file': VXLAN_CONFIG_FILE,
+                    'how_long': testDuration,
+                    'advance': True,
+                },
+                log_file='/tmp/wr_arp.ArpTest.Advance.log',
+                is_python3=True
+            )
