@@ -76,6 +76,11 @@ function validate_parameters()
         RET=3
     fi
 
+    if [[ ${TEST_CASES} && ${TEST_CASES_FILE} ]]; then
+        echo "Specified both a test case list (-c) and a test case list file (-F).."
+        RET=4
+    fi
+
     if [[ ${RET} != 0 ]]; then
         show_help_and_exit ${RET}
     fi
