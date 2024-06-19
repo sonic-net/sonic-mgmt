@@ -120,7 +120,7 @@ def mocker_factory(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
                 mocker_object = mocker_type(dut)
                 mockers.append(mocker_object)
         else:
-            pytest.skip("No mocker defined for this platform %s")
+            pytest.skip("No mocker defined for this platform {}".format(platform))
         return mocker_object
 
     yield _create_mocker
@@ -283,7 +283,11 @@ def restart_thermal_control_daemon(dut):
         'Restarting thermal control daemon on {}...'.format(dut.hostname))
     find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
     output = dut.shell(find_thermalctld_pid_cmd)
-    assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
+
+    if dut.facts["asic_type"] == "vs" and output["rc"] == 0:
+        pytest.skip("Thermalctld doesn't support on vs testbed")
+    else:
+        assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
     # Usually there should be 2 thermalctld processes, but there is chance that
     # sonic platform API might use subprocess which creates extra thermalctld process.
     # For example, chassis.get_all_sfps will call sfp constructor, and sfp constructor may

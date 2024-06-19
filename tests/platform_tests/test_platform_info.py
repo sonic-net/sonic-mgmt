@@ -173,7 +173,9 @@ def get_healthy_psu_num(duthost):
     """
     PSUUTIL_CMD = "sudo psuutil status"
     healthy_psus = 0
-    psuutil_status_output = duthost.command(PSUUTIL_CMD)
+    psuutil_status_output = duthost.command(PSUUTIL_CMD, module_ignore_errors=True)
+    if psuutil_status_output['rc'] != 0:
+        pytest.skip("No PSU for {}, skip rest of the testing in this case".format(duthost.hostname))
 
     psus_status = psuutil_status_output["stdout_lines"][2:]
     for iter in psus_status:
@@ -398,6 +400,8 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
     loganalyzer = LogAnalyzer(ansible_host=duthost,
                               marker_prefix='thermal_control')
     loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
+    if duthost.facts["asic_type"] == "vs":
+        pytest.skip("Thermalctld doesn't support on vs testbed")
     with loganalyzer:
         with ThermalPolicyFileContext(duthost, file_name):
             restart_thermal_control_daemon(duthost)
