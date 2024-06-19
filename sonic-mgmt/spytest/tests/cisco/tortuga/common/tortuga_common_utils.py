@@ -161,10 +161,10 @@ def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True, ver
         
     if ipv4 :
         config_ipv4_traffic(tg1, tg_ph_1, data1, data2, data1.t1d3_mac_addr, dst_mac1, data1.t1d3_ip_addr, data2.t1d4_ip_addr)
-        config_ipv4_traffic(tg2, tg_ph_2, data2, data1,data1.t1d4_mac_addr, dst_mac2, data2.t1d4_ip_addr, data1.t1d3_ip_addr)
+        config_ipv4_traffic(tg2, tg_ph_2, data2, data1, data2.t1d4_mac_addr, dst_mac2, data2.t1d4_ip_addr, data1.t1d3_ip_addr)
     else:
         config_ipv6_traffic(tg1, tg_ph_1, data1, data2, data1.t1d3_mac_addr, dst_mac1, data1.t1d3_ipv6_addr, data2.t1d4_ipv6_addr)
-        config_ipv6_traffic(tg2, tg_ph_2, data2, data1, data1.t1d4_mac_addr, dst_mac2, data2.t1d4_ipv6_addr, data1.t1d3_ipv6_addr)
+        config_ipv6_traffic(tg2, tg_ph_2, data2, data1, data2.t1d4_mac_addr, dst_mac2, data2.t1d4_ipv6_addr, data1.t1d3_ipv6_addr)
         
     handles = {'tg_handle_1': tg1, 'tg_handle_2': tg2, 'port_handle_1': tg_ph_1, 'port_handle_2': tg_ph_2, 'int_handle_1': handle1, 'int_handle_2': handle2} 
     return handles

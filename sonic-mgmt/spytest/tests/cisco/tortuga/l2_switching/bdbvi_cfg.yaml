@@ -1,0 +1,79 @@
+spine0:
+    sonic:
+      config: |
+        sudo config vlan add 10
+        sudo config vlan add 20
+        sudo config interface startup D1D3P1
+        sudo config interface ipv6 disable use-link-local-only D1D3P1
+        sudo config vlan member add 10 D1D3P1
+        sudo config interface startup D1D3P2
+        sudo config interface ipv6 disable use-link-local-only D1D3P2
+        sudo config vlan member add 20 D1D3P2
+        sudo config interface startup D1D4P1
+        sudo config interface ipv6 disable use-link-local-only D1D4P1
+        sudo config vlan member add 10 D1D4P1
+        sudo config vlan member add 20 D1D4P1
+      deconfig: |
+        sudo config vlan member del 10 D1D4P1
+        sudo config vlan member del 10 D1D3P1
+        sudo config vlan member del 20 D1D4P1
+        sudo config vlan member del 20 D1D3P2
+        sudo config vlan del 10
+        sudo config vlan del 20
+
+leaf0:
+    sonic:
+      config: |
+        sudo config vlan add 10
+        sudo config vlan add 20
+        sudo config interface startup D3D1P1
+        sudo config interface ipv6 disable use-link-local-only D3D1P1
+        sudo config vlan member add 10 D3D1P1
+        sudo config interface startup D3D1P2
+        sudo config interface ipv6 disable use-link-local-only D3D1P2
+        sudo config vlan member add 20 D3D1P2
+        sudo config interface startup D3T1P1
+        sudo config interface ipv6 disable use-link-local-only D3T1P1
+        sudo config vlan member add 10 -u D3T1P1
+        sudo config interface startup D3T1P2
+        sudo config interface ipv6 disable use-link-local-only D3T1P2
+        sudo config vlan member add 20 -u D3T1P2
+        sudo config interface ip add Vlan10 10.0.1.10/24
+        sudo config interface ip add Vlan20 10.0.2.20/24
+        sudo config interface ip add Vlan10 10:0:1::10/64
+        sudo config interface ip add Vlan20 10:0:2::20/64
+      deconfig: |
+        sudo config interface ip rem Vlan10 10.0.1.10/24
+        sudo config interface ip rem Vlan20 10.0.2.20/24
+        sudo config interface ip rem Vlan10 10:0:1::10/64
+        sudo config interface ip rem Vlan20 10:0:2::20/64
+        sudo config vlan member del 10 D3D1P1
+        sudo config vlan member del 10 D3T1P1
+        sudo config vlan member del 20 D3D1P2
+        sudo config vlan member del 20 D3T1P2
+        sudo config vlan del 10
+        sudo config vlan del 20
+
+leaf1:
+    sonic:
+      config: |
+        sudo config vlan add 10
+        sudo config interface startup D4D1P1
+        sudo config interface ipv6 disable use-link-local-only D4D1P1
+        sudo config vlan member add 10 D4D1P1
+        sudo config interface startup D4T1P1
+        sudo config interface ipv6 disable use-link-local-only D4T1P1
+        sudo config vlan member add 10 -u D4T1P1
+        sudo config vlan add 20
+        sudo config vlan member add 20 D4D1P1
+        sudo config interface startup D4T1P2
+        sudo config interface ipv6 disable use-link-local-only D4T1P2
+        sudo config vlan member add 20 -u D4T1P2
+      deconfig: |
+        sudo config vlan member del 10 D4D1P1
+        sudo config vlan member del 10 D4T1P1
+        sudo config vlan member del 20 D4D1P1
+        sudo config vlan member del 20 D4T1P2
+        sudo config vlan del 10
+        sudo config vlan del 20
+
