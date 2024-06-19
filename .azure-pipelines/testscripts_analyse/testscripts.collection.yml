@@ -9,7 +9,7 @@ schedules:
     displayName: Testscripts Collection
     branches:
       include:
-        - internal
+        - master
     always: true
 
 stages:
