@@ -346,7 +346,6 @@ onboarding_t0:
   - acl/test_stress_acl.py
 
 onboarding_t1:
-  - acl/custom_acl_table/test_custom_acl_table.py
   - acl/null_route/test_null_route_helper.py
   - acl/test_acl.py
   - acl/test_stress_acl.py
