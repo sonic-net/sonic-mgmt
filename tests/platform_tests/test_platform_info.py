@@ -174,7 +174,7 @@ def get_healthy_psu_num(duthost):
     PSUUTIL_CMD = "sudo psuutil status"
     healthy_psus = 0
     psuutil_status_output = duthost.command(PSUUTIL_CMD, module_ignore_errors=True)
-    if psuutil_status_output['rc'] != 0:
+    if psuutil_status_output['rc'] != 0 and duthost.facts["asic_type"] == "vs":
         pytest.skip("No PSU for {}, skip rest of the testing in this case".format(duthost.hostname))
 
     psus_status = psuutil_status_output["stdout_lines"][2:]

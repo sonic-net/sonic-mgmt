@@ -287,7 +287,7 @@ def restart_thermal_control_daemon(dut):
     if dut.facts["asic_type"] == "vs" and output["rc"] == 0:
         pytest.skip("Thermalctld doesn't support on vs testbed")
     else:
-        assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
+        assert output["rc"] == 0, "Run command '{}' failed".format(find_thermalctld_pid_cmd)
     # Usually there should be 2 thermalctld processes, but there is chance that
     # sonic platform API might use subprocess which creates extra thermalctld process.
     # For example, chassis.get_all_sfps will call sfp constructor, and sfp constructor may
