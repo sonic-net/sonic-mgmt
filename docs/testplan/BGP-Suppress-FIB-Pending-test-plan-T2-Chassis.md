@@ -62,8 +62,7 @@ As part of test changes for T2, to be consistent with existing T1 test cases, we
 2. Save configuration and do config reload on DUT.
 3. Suspend orchagent process on both asics to simulate a delay.
 ```
- docker exec -it swss0 bash -c "supervisorctl stop orchagent"
- docker exec -it swss1 bash -c "supervisorctl stop orchagent"
+kill -SIGSTOP $(pidof orchagent)
 ```
 4. Announce BGP ipv4 prefixes to DUT from one of T1 peer using exabgp.
 5. Make sure announced BGP routes are in __queued__ state in the DUT routing table
@@ -72,8 +71,7 @@ As part of test changes for T2, to be consistent with existing T1 test cases, we
 8. Verify packets are not forwarded to any T1 peers of downstream line cards. And also make sure packets are forwarded to other T3 peers because of default route.
 9. Restore orchagent process on both asics by,
 ```
- docker exec -it swss0 bash -c "supervisorctl start orchagent"
- docker exec -it swss1 bash -c "supervisorctl start orchagent"
+kill -SIGSTOP $(pidof orchagent)
 ```
 10. Make sure announced BGP routes are __not__ in __queued__ state in the DUT routing table.
 11. Make sure the routes are programmed in FIB by checking offloaded flag value in the DUT routing table.
@@ -85,16 +83,14 @@ As part of test changes for T2, to be consistent with existing T1 test cases, we
 1. Disable BGP suppress-fib-pending function at DUT.
 2. Suspend orchagent process on both asics to simulate a delay.
 ```
- docker exec -it swss0 bash -c "supervisorctl stop orchagent"
- docker exec -it swss1 bash -c "supervisorctl stop orchagent"
+kill -SIGSTOP $(pidof orchagent)
 ```
 3. Announce BGP ipv4 prefixes to DUT from one of T1 peer using exabgp.
 4. Make sure announced BGP routes are __not__ in __queued__ state in the DUT routing table.
 5. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard as well as to all other T1 peers on the downstream linecards including DUT.
 6.  Restore orchagent process on both asics by,
 ```
- docker exec -it swss0 bash -c "supervisorctl start orchagent"
- docker exec -it swss1 bash -c "supervisorctl start orchagent"
+kill -SIGSTOP $(pidof orchagent)
 ```
 7. Make sure the routes are programmed in FIB by checking offloaded flag in the DUT routing table.
 8. Send traffic matching the prefixes from one of T3 peer and verify packets are forwarded to expected T1 peer only.
@@ -105,8 +101,7 @@ As part of test changes for T2, to be consistent with existing T1 test cases, we
 2. Save configuration and do config reload on DUT.
 3. Suspend orchagent process on both asics to simulate a delay.
 ```
- docker exec -it swss0 bash -c "supervisorctl stop orchagent"
- docker exec -it swss1 bash -c "supervisorctl stop orchagent"
+kill -SIGSTOP $(pidof orchagent)
 ```
 4. Announce BGP prefixes to DUT from one of T1 peer using exabgp.
 5. Execute BGP session restart by restarting all BGP sessions on the DUT.
@@ -120,8 +115,7 @@ As part of test changes for T2, to be consistent with existing T1 test cases, we
 13. Verify packets are not forwarded to any T1 peers of downstream line cards. And also make sure packets are forwarded to other T3 peers because of default route.
 14. Restore orchagent process on both asics by,
 ```
- docker exec -it swss0 bash -c "supervisorctl start orchagent"
- docker exec -it swss1 bash -c "supervisorctl start orchagent"
+kill -SIGSTOP $(pidof orchagent)
 ```
 14. Make sure announced BGP routes are __not__ in __queued__ state in the DUT routing table.
 15. Make sure the routes are programmed in FIB by checking offloaded flag in the DUT routing table.
@@ -133,8 +127,7 @@ As part of test changes for T2, to be consistent with existing T1 test cases, we
 1. Disable BGP suppress-fib-pending function at DUT.
 2. Suspend orchagent process on both asics to simulate a delay.
 ```
- docker exec -it swss0 bash -c "supervisorctl stop orchagent"
- docker exec -it swss1 bash -c "supervisorctl stop orchagent"
+kill -SIGSTOP $(pidof orchagent)
 ```
 3. Announce a default route to DUT from one of T3 peer.
 4. Announce BGP prefixes to DUT from one of T1 peer using exabgp.
@@ -144,8 +137,7 @@ As part of test changes for T2, to be consistent with existing T1 test cases, we
 8. Save configuration and do config reload on DUT.
 9. Restore orchagent process on both asics by,
 ```
- docker exec -it swss0 bash -c "supervisorctl start orchagent"
- docker exec -it swss1 bash -c "supervisorctl start orchagent"
+kill -SIGSTOP $(pidof orchagent)
 ```
 10. Make sure the routes are programmed in FIB by checking offloaded flag in the DUT routing table.
 11. Send traffic matching the prefixes from one of T3 peer and verify packets are forwarded to expected T1 peer only.
@@ -157,17 +149,15 @@ As part of test changes for T2, to be consistent with existing T1 test cases, we
 3. Send traffic matching the prefixes in the BGP route flap from one of T3 peer and verify packets are forwarded back to the same T3 peer.
 4. Suspend orchagent process to simulate a delay on both asics.
 ```
- docker exec -it swss0 bash -c "supervisorctl stop orchagent"
- docker exec -it swss1 bash -c "supervisorctl stop orchagent"
+kill -SIGSTOP $(pidof orchagent)
 ```
 5. Announce 1K BGP prefixes to DUT from T1 peer by exabgp
 6. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard as well as to all other T1 peers on the downstream linecards including DUT.
 7. Send traffic matching the prefixes in the BGP route flap from one of T3 VM and verify packets are forwarded back to the same T3 VM.
 8. Enable BGP suppress-fib-pending function at DUT
-9. Restore orchagent process
+9. Restore orchagent process on both asics by,
 ```
- docker exec -it swss0 bash -c "supervisorctl start orchagent"
- docker exec -it swss1 bash -c "supervisorctl start orchagent"
+kill -SIGSTOP $(pidof orchagent)
 ```
 10. Verify the routes are programmed in FIB by checking offloaded flag in the DUT routing table
 11. Send traffic matching the prefixes from one of T3 peer and verify packets are forwarded to expected T1 peer only.
