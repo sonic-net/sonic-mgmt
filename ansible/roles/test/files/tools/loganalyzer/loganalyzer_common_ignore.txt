@@ -262,6 +262,7 @@ r, ".* ERR syncd\d*#syncd:.*SAI_API_BUFFER: get_buffer_pool_stats unknown counte
 r, ".* ERR syncd\d*#syncd:.*SAI_API_BUFFER: get_ingress_priority_group_stats unknown counter 5.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_BUFFER: get_ingress_priority_group_stats unknown counter 7.*"
 r, ".* ERR syncd.*#syncd:.*SAI_API_HOSTIF: src/sai_trap.cpp:.*: Invalid trap event code .*"
+r, ".* ERR syncd.*#syncd:.*SDK_LOG|-E-HLD-0.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_LAG: resolve_feat_over_member_ports: found port index .*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_LAG: resolve_feat_over_member_ports: port index .* now selected.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_PORT: Invalid port counter .*index.*"
