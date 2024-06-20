@@ -59,6 +59,10 @@ def trigger_kernel_event(duthost):
     trigger_logger(duthost, "zlib decompression failed, data probably corrupt", "kernel")
 
 
+def is_container_down(duthost, container):
+    return not is_container_running(duthost, container)
+
+
 def get_running_container(duthost):
     logger.info("Check if acms or snmp container is running")
     if is_container_running(duthost, "acms"):
@@ -78,6 +82,7 @@ def get_critical_process(duthost):
     if is_container_running(duthost, "snmp"):
         pid = duthost.shell("docker exec snmp pgrep -f snmpd")["stdout"]
         return pid, "snmp"
+    return "", ""
 
 
 def restart_container(duthost):
@@ -109,9 +114,9 @@ def kill_critical_process(duthost):
     pid, container = get_critical_process(duthost)
     assert pid != "", "No available process for testing"
 
-    duthost.shell("docker exec {} kill {}".format(container, pid), module_ignore_errors=True)
+    duthost.shell("docker exec {} kill -9 {}".format(container, pid), module_ignore_errors=True)
 
     # Wait until specified container is not running because of critical process exit
-    wait_until(30, 5, 0, not duthost.is_service_fully_started, container)
+    wait_until(30, 5, 0, is_container_down, duthost, container)
     duthost.shell("systemctl reset-failed {}".format(container))
     duthost.shell("systemctl restart {}".format(container))
