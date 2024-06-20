@@ -111,5 +111,7 @@ def kill_critical_process(duthost):
 
     duthost.shell("docker exec {} kill {}".format(container, pid), module_ignore_errors=True)
 
+    # Wait until specified container is not running because of critical process exit
+    wait_until(30, 5, 0, not duthost.is_service_fully_started, container)
     duthost.shell("systemctl reset-failed {}".format(container))
     duthost.shell("systemctl restart {}".format(container))
