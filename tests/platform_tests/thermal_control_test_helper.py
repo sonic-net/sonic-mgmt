@@ -285,7 +285,7 @@ def restart_thermal_control_daemon(dut):
     output = dut.shell(find_thermalctld_pid_cmd)
 
     if dut.facts["asic_type"] == "vs" and output["rc"] == 0:
-        pytest.skip("Thermalctld doesn't support on vs testbed")
+        return
     else:
         assert output["rc"] == 0, "Run command '{}' failed".format(find_thermalctld_pid_cmd)
     # Usually there should be 2 thermalctld processes, but there is chance that

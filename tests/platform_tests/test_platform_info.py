@@ -174,8 +174,9 @@ def get_healthy_psu_num(duthost):
     PSUUTIL_CMD = "sudo psuutil status"
     healthy_psus = 0
     psuutil_status_output = duthost.command(PSUUTIL_CMD, module_ignore_errors=True)
-    if psuutil_status_output['rc'] != 0 and duthost.facts["asic_type"] == "vs":
-        pytest.skip("No PSU for {}, skip rest of the testing in this case".format(duthost.hostname))
+    # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+    if duthost.facts["asic_type"] == "vs" and psuutil_status_output['rc'] == 2:
+        return
 
     psus_status = psuutil_status_output["stdout_lines"][2:]
     for iter in psus_status:
@@ -255,8 +256,9 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
-    pytest_require(
-        psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
+    if psu_num:
+        pytest_require(
+            psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
     pdu_ctrl = get_pdu_controller(duthost)
@@ -401,7 +403,7 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
                               marker_prefix='thermal_control')
     loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
     if duthost.facts["asic_type"] == "vs":
-        pytest.skip("Thermalctld doesn't support on vs testbed")
+        return
     with loganalyzer:
         with ThermalPolicyFileContext(duthost, file_name):
             restart_thermal_control_daemon(duthost)
