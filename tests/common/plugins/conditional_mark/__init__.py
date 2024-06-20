@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
 
+CONFLICT_ACTION = ["skip", "xfail"]
+
 
 def pytest_addoption(parser):
     """Add options for the conditional mark plugin.
@@ -414,19 +416,23 @@ def find_longest_matches(nodeid, conditions):
     Returns:
         str: Longest match test case name or None if not found
     """
-    longest_matches = []
+    longest_conflict_matches = []
+    non_conflict_matches = []
     max_length = -1
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
         if nodeid.startswith(list(condition.keys())[0]):
-            length = len(list(condition.keys())[0])
-            if length > max_length:
-                max_length = length
-                longest_matches = []
-                longest_matches.append(condition)
-            elif length == max_length:
-                longest_matches.append(condition)
-    return longest_matches
+            if next(iter(next(iter(condition.values()), None)), None) not in CONFLICT_ACTION:
+                non_conflict_matches.append(condition)
+            else:
+                length = len(list(condition.keys())[0])
+                if length > max_length:
+                    max_length = length
+                    longest_conflict_matches = []
+                    longest_conflict_matches.append(condition)
+                elif length == max_length:
+                    longest_conflict_matches.append(condition)
+    return longest_conflict_matches + non_conflict_matches
 
 
 def update_issue_status(condition_str, session):
