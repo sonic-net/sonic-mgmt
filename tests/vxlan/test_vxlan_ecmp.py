@@ -64,6 +64,7 @@ from tests.common.fixtures.ptfhost_utils \
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
+from tests.common.helpers.assertions import pytest_require
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -1828,7 +1829,8 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
     def test_underlay_portchannel_shutdown(self,
                                            setUp,
                                            minigraph_facts,
-                                           encap_type):
+                                           encap_type,
+                                           skip_for_non_t1lag):
         '''
             Bring down one of the port-channels.
             Packets are equally recieved at c1, c2 or c3
@@ -2003,3 +2005,8 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_dport=False,
             random_src_ip=True,
             tolerance=0.03)
+
+
+@pytest.fixture
+def skip_for_non_t1lag(tbinfo):
+    pytest_require("lag" in tbinfo["topo"]["name"], "Test is intented for t1-lag")
