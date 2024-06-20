@@ -254,9 +254,9 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
   skip:
-    reason: "Not supported on backend , broadcom before 202012 release and innovium, x86_64-8111_32eh_o-r0 platform"
+    reason: "Not supported on backend , broadcom before 202012 release and innovium platform"
     conditions:
-      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium'] or platform in ['x86_64-8111_32eh_o-r0']"
+      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium']"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
