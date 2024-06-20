@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def check_nss_config(duthost):
-    nss_config_attribute = duthost.command("ls -la /etc/nsswitch.conf", module_ignore_errors=True)
+    nss_config_attribute = duthost.command("ls -la /etc/nsswitch.conf", module_ignore_errors=True)['stdout']
     if "No such file or directory" in nss_config_attribute:
         logger.error("NSS config file missing.")
     else:
