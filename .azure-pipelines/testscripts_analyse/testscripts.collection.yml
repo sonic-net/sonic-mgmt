@@ -31,6 +31,9 @@ stages:
           value: true
 
       steps:
+        - checkout: sonic-mgmt
+          displayName: 'checkout sonic-mgmt repo'
+
         - task: Bash@3
           displayName: Testscripts Collection
           inputs:
