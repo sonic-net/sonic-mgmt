@@ -12,6 +12,14 @@ schedules:
         - internal
     always: true
 
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
 stages:
 
 - stage: TestscriptsCollection
@@ -19,6 +27,8 @@ stages:
     - job: TestscriptsCollection
       variables:
         - group: KUSTO_SECRETS
+        - name: DisableDockerDetector
+          value: true
 
       steps:
         - task: Bash@3
