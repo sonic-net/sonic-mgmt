@@ -53,8 +53,12 @@ class TestNeighborMac:
             try:
                 if portchannel:
                     duthost.command("sudo config portchannel member del {} {}".format(portchannel, intf))
-                    pytest_assert(wait_until(10, 1, 0, lambda: 'routed' in duthost.show_interface(command="status")["ansible_facts"]["int_status"][intf]["vlan"]),
-                                  '{} is not in routed status'.format(intf))
+                    pytest_assert(wait_until(
+                        10, 1, 0,
+                        lambda: 'routed' in duthost.show_interface(command="status")
+                        ["ansible_facts"]["int_status"][intf]["vlan"]),
+                        '{} is not in routed status'.format(intf)
+                    )
                 yield
             finally:
                 if portchannel:
