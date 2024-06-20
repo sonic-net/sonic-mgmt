@@ -153,7 +153,7 @@ def run_postupgrade_actions(duthost, tbinfo, metadata_process):
     duthost.file(path="/tmp/anpscripts", state="absent")
     duthost.file(path="/tmp/anpscripts", state="directory")
     metadata_tar_stat = duthost.stat(path="/host/metadata.tar.gz")
-    if metadata_tar_stat.stat.exists:
+    if metadata_tar_stat["stat"]["exists"]:
         duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
         duthost.file(path="/host/metadata.tar.gz", state="absent")
     else:
