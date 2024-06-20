@@ -118,7 +118,8 @@ def get_PRChecker_scripts():
         logging.error('Failed to load file {}, error {}'.format(f, e))
 
     # Get all the skip scripts
-    pr_test_skip_scripts_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../", "pr_test_skip_scripts.yaml")
+    pr_test_skip_scripts_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../",
+                                             "pr_test_skip_scripts.yaml")
     pr_test_skip_scripts = {}
     try:
         with open(pr_test_skip_scripts_file) as f:
@@ -190,7 +191,6 @@ def main():
             script["category"] = "data"
         else:
             script["category"] = "control"
-
     upload_results(expanded_test_scripts)
 
 
