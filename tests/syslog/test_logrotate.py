@@ -5,6 +5,7 @@ import allure
 from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.conftest import tbinfo
 
 logger = logging.getLogger(__name__)
 
@@ -255,33 +256,55 @@ def clear_pending_entries(duthost):
 
 
 @pytest.fixture
-def orch_logrotate_setup(rand_selected_dut):
-    clear_pending_entries(rand_selected_dut)
-    rand_selected_dut.shell('sudo ip neigh flush {}'.format(FAKE_IP))
-    target_port = rand_selected_dut.get_up_ip_ports()[0]
+def orch_logrotate_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.sonichost.is_multi_asic:
+        asic_id = enum_rand_one_frontend_asic_index
+    else:
+        asic_id = ''
+    clear_pending_entries(duthost)
+    duthost.shell('sudo ip neigh flush {}'.format(FAKE_IP))
+    if duthost.sonichost.is_multi_asic:
+        target_asic = duthost.asics[enum_rand_one_frontend_asic_index]
+        target_port = next(iter(target_asic.get_active_ip_interfaces(tbinfo)))
+    else:
+        target_port = duthost.get_up_ip_ports()[0]
 
-    permanent_pending_entries = get_pending_entries(rand_selected_dut)
+    permanent_pending_entries = get_pending_entries(duthost)
 
     yield permanent_pending_entries, target_port
 
-    rand_selected_dut.shell('sudo ip neigh del {} dev {}'.format(FAKE_IP, target_port))
+    if duthost.sonichost.is_multi_asic:
+        duthost.shell('sudo ip -n asic{} neigh del {} dev {}'.format(asic_id, FAKE_IP, target_port))
+    else:
+        duthost.shell('sudo ip neigh del {} dev {}'.format(FAKE_IP, target_port))
     # Unpause orchagent in case the test gets interrupted
-    rand_selected_dut.control_process('orchagent', pause=False)
-    clear_pending_entries(rand_selected_dut)
+    duthost.control_process('orchagent', pause=False, namespace=asic_id)
+    clear_pending_entries(duthost)
 
 
 # Sometimes other activity on the DUT can flush the missed notification during the test,
 # leading to a false positive pass. Repeat the test multiple times to make sure that it's
 # not a false positive
 @pytest.mark.repeat(5)
-def test_orchagent_logrotate(orch_logrotate_setup, rand_selected_dut):
+def test_orchagent_logrotate(orch_logrotate_setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                             enum_rand_one_frontend_asic_index):
     """
     Tests for the issue where an orchagent logrotate can cause a missed APPL_DB notification
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.sonichost.is_multi_asic:
+        asic_id = enum_rand_one_frontend_asic_index
+    else:
+        asic_id = ''
     ignore_entries, target_port = orch_logrotate_setup
-    rand_selected_dut.control_process('orchagent', pause=True)
-    rand_selected_dut.control_process('orchagent', signal='SIGHUP')
-    rand_selected_dut.shell('sudo ip neigh add {} lladdr {} dev {}'.format(FAKE_IP, FAKE_MAC, target_port))
-    rand_selected_dut.control_process('orchagent', pause=False)
-    pending_entries = get_pending_entries(rand_selected_dut, ignore_list=ignore_entries)
+    duthost.control_process('orchagent', pause=True, namespace=asic_id)
+    duthost.control_process('orchagent', namespace=asic_id, signal='SIGHUP')
+    if duthost.sonichost.is_multi_asic:
+        duthost.shell('sudo ip -n asic{} neigh add {} lladdr {} dev {}'.format(
+            asic_id, FAKE_IP, FAKE_MAC, target_port))
+    else:
+        duthost.shell('sudo ip neigh add {} lladdr {} dev {}'.format(FAKE_IP, FAKE_MAC, target_port))
+    duthost.control_process('orchagent', pause=False, namespace=asic_id)
+    pending_entries = get_pending_entries(duthost, ignore_list=ignore_entries)
     pytest_assert(not pending_entries, "Found pending entries in APPL_DB: {}".format(pending_entries))
