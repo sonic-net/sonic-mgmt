@@ -13,7 +13,10 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 
-pytestmark = [pytest.mark.topology("t2")]
+pytestmark = [
+    pytest.mark.topology("t2"),
+    pytest.mark.device_type('physical')
+]
 
 logger = logging.getLogger(__name__)
 
