@@ -214,4 +214,4 @@ class TestRouteCounter:
         else:
             cmd = 'show ip bgp summary'
         parse_result = duthost.show_and_parse(cmd)
-        return parse_result[0]['neighbhor']
+        return parse_result[0]['neighbor']
