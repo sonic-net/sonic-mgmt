@@ -188,6 +188,8 @@ steps:
       echo "Check $(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID for test plan status"
       echo "##vso[task.setvariable variable=TEST_PLAN_ID]$TEST_PLAN_ID"
     displayName: "Trigger test"
+    env:
+      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
 
   - script: |
       set -e
@@ -197,6 +199,8 @@ steps:
       # When "LOCK_TESTBED" finish, it changes into "PREPARE_TESTBED"
       python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state LOCK_TESTBED
     displayName: "Lock testbed"
+    env:
+      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
 
   - script: |
       set -e
@@ -207,6 +211,8 @@ steps:
       # When "PREPARE_TESTBED" finish, it changes into "EXECUTING"
       python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state PREPARE_TESTBED
     displayName: "Prepare testbed"
+    env:
+      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
 
   - script: |
       set -e
@@ -217,6 +223,8 @@ steps:
       python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}
     displayName: "Run test"
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    env:
+      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
 
   - ${{ if eq(parameters.DUMP_KVM_IF_FAIL, 'True') }}:
       - script: |
@@ -228,6 +236,8 @@ steps:
           python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state KVMDUMP
         condition: succeededOrFailed()
         displayName: "KVM dump"
+        env:
+          ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
 
   - script: |
       set -e
@@ -235,3 +245,5 @@ steps:
       python ./.azure-pipelines/test_plan.py cancel -i "$(TEST_PLAN_ID)"
     condition: always()
     displayName: "Finalize running test plan"
+    env:
+      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
