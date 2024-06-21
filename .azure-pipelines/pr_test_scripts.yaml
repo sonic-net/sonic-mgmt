@@ -343,6 +343,9 @@ onboarding_t0:
   - acl/test_acl.py
   - acl/test_acl_outer_vlan.py
   - acl/test_stress_acl.py
+  - arp/test_stress_arp.py
+  - arp/test_unknown_mac.py
+  - arp/test_wr_arp.py
 
 specific_param:
   t0-sonic:
