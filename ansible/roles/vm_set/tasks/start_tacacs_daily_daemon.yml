@@ -1,0 +1,85 @@
+---
+- name: Include SONiC cred
+  include_vars:
+    dir: "{{ playbook_dir }}/group_vars/all/"
+
+- name: Include variables for PTF containers
+  include_vars:
+    dir: "{{ playbook_dir }}/group_vars/ptf_host/"
+
+- name: Get inventory name
+  set_fact: inv_name={{ inventory_file.split("/")[-1] }}
+
+- debug: msg="inventory_file {{ inventory_file }}"
+
+- name: Include variables for inventory
+  include_vars:
+    dir: "{{ playbook_dir }}/group_vars/{{ inv_name }}/"
+
+- name: Include default tacacs passkey
+  include_vars: "{{ playbook_dir }}/group_vars/lab/lab.yml"
+  when: tacacs_passkey is not defined
+
+- name: Set ptf host
+  set_fact:
+    ptf_host: "ptf_{{ vm_set_name }}"
+
+
+- name: Encrypt encrypted_sonic_password from secret_group_vars
+  block:
+
+  - name: Encrypt TACACS password from secret_group_vars
+    shell: python3 -c "import crypt; print(crypt.crypt('{{secret_group_vars['str']['altpasswords'][0]}}', 'abc'))"
+    register: encrypted_sonic_password
+    delegate_to: "{{ ptf_host }}"
+
+  when:
+    - secret_group_vars is defined
+    - secret_group_vars['str'] is defined
+    - secret_group_vars['str']['altpasswords'] is defined
+
+
+- name: Encrypt encrypted_sonic_password from group_vars/sonic/variables
+  block:
+  - name: Include ansible_altpassword from group_vars/sonic/variables
+    include_vars: "{{ playbook_dir }}/group_vars/sonic/variables"
+
+  - name: Encrypt TACACS password from ansible_altpassword
+    shell: python3 -c "import crypt; print(crypt.crypt('{{ansible_altpassword}}', 'abc'))"
+    register: encrypted_sonic_password
+    delegate_to: "{{ ptf_host }}"
+
+  when:
+    - tacacs_user_passwd is not defined
+
+- name: Set TACACS password from encrypted_sonic_password
+  set_fact:
+    tacacs_user_passwd: '{{ encrypted_sonic_password.stdout }}'
+
+- debug: msg="ansible_ssh_user {{ ansible_ssh_user }}"
+- debug: msg="tacacs_user_passwd {{ tacacs_user_passwd }}"
+
+- block:
+    - name: Generate tacacs daily daemon config file
+      template:
+        src: tac_plus_daily.conf.j2
+        dest: /etc/tac_plus_daily.conf
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Upload tacacs daily daemon file
+      copy:
+        src: 'scripts/tacacs_daily_daemon'
+        dest: /root/tacacs_daily_daemon
+        mode: "0755"
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Upload tacacs daily start script
+      copy:
+        src: 'scripts/start_tacacs.sh'
+        dest: /root/start_tacacs.sh
+        mode: "0755"
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Start tacacs daily daemon
+      shell: /root/start_tacacs.sh
+      delegate_to: "{{ptf_host}}"
