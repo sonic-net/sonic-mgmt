@@ -42,6 +42,23 @@ def initClassVars(func):
         func(self, *args)
     return wrapper
 
+@pytest.fixture(autouse=True, scope="module")
+def ptf_disable_ipv6(ptfhost):
+   """
+   Fixture to disable IPV6 before the test and re-enable it afterwards
+
+   Args:
+      ptfhosts(AnsibleHost) : PTF
+
+   """
+   logger.info("Disabling IPV6 on PTF container")
+   assert ptfhost.command("cat /proc/sys/net/ipv6/conf/all/disable_ipv6", _uses_shell=True)['stdout'] == '0'
+   ptfhost.command("echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6", _uses_shell=True)
+
+   yield
+
+   logger.info("Re-enabling IPV6 on PTF container")
+   ptfhost.command("echo 0 > /proc/sys/net/ipv6/conf/all/disable_ipv6", _uses_shell=True)
 
 @pytest.fixture(autouse=True, scope="module")
 def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
