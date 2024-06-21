@@ -1,7 +1,6 @@
 from tabulate import tabulate
 from tests.common.utilities import (wait, wait_until)
 from tests.common.helpers.assertions import pytest_assert
-import json
 import logging
 logger = logging.getLogger(__name__)
 
@@ -157,31 +156,38 @@ def duthost_bgp_3port_config(duthost,
         logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (tgen_ports[i]['peer_port'],
                     i + 1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
         duthost.shell(portchannel_config)
-    logger.info('Configuring BGP in config_db.json')
-    bgp_neighbors = dict()
+
+    bgp_config = (
+        "vtysh "
+        "-c 'configure terminal' "
+        "-c 'router bgp %s' "
+        "-c 'no bgp ebgp-requires-policy' "
+        "-c 'bgp bestpath as-path multipath-relax' "
+        "-c 'maximum-paths %s' "
+        "-c 'exit' "
+    )
+    bgp_config %= (DUT_AS_NUM, port_count-1)
+    duthost.shell(bgp_config)
+
     for i in range(1, port_count):
-        bgp_neighbors[tgen_ports[i]['ipv6']] = {"rrclient": "0", "name": "ARISTA08T0",
-                                                "local_addr": tgen_ports[i]['peer_ipv6'],
-                                                "nhopself": "0", "holdtime": "90",
-                                                "asn": TGEN_AS_NUM, "keepalive": "30"}
-        bgp_neighbors[tgen_ports[i]['ip']] = {"rrclient": "0", "name": "ARISTA08T0",
-                                              "local_addr": tgen_ports[i]['peer_ip'],
-                                              "nhopself": "0", "holdtime": "90", "asn": TGEN_AS_NUM, "keepalive": "30"}
-
-    cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
-    for neighbor, neighbor_info in list(bgp_neighbors.items()):
-        cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
-
-    cdf["DEVICE_METADATA"]['localhost']['bgp_asn'] = DUT_AS_NUM
-    with open("/tmp/sconfig_db.json", 'w') as fp:
-        json.dump(cdf, fp, indent=4)
-    duthost.copy(src="/tmp/sconfig_db.json", dest="/tmp/config_db_temp.json")
-    cdf = json.loads(duthost.shell("sonic-cfggen -j /tmp/config_db_temp.json --print-data")['stdout'])
-    logger.info(cdf)
-    duthost.command("sudo cp {} {} \n".format("/tmp/config_db_temp.json", "/etc/sonic/config_db.json"))
-    logger.info('Reloading config to apply BGP config')
-    duthost.shell("sudo config reload -y \n")
-    wait(TIMEOUT + 20, "For Config to reload \n")
+        bgp_config_neighbor = (
+            "vtysh "
+            "-c 'configure terminal' "
+            "-c 'router bgp %s' "
+            "-c 'neighbor %s remote-as %s' "
+            "-c 'address-family ipv4 unicast' "
+            "-c 'neighbor %s activate' "
+            "-c 'neighbor %s remote-as %s' "
+            "-c 'address-family ipv6 unicast' "
+            "-c 'neighbor %s activate' "
+            "-c 'exit' "
+        )
+        bgp_config_neighbor %= (
+            DUT_AS_NUM, tgen_ports[i]['ip'], TGEN_AS_NUM, tgen_ports[i]['ip'],
+            tgen_ports[i]['ipv6'], TGEN_AS_NUM, tgen_ports[i]['ipv6'])
+        logger.info('Configuring BGP v4 Neighbor {}, v6 Neighbor {}'.format(tgen_ports[i]['ip'],
+                    tgen_ports[i]['ipv6']))
+        duthost.shell(bgp_config_neighbor)
 
 
 def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
@@ -221,35 +227,38 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
                                tgen_ports[i]['ipv6_prefix'])
         logger.info('Configuring %s to PortChannel%s' % (tgen_ports[i]['peer_port'], i + 1))
         duthost.shell(portchannel_config)
-    bgp_neighbors = dict()
-    logger.info('Configuring BGP in config_db.json')
-    '''
-    bgp_neighbors = {tgen_ports[1]['ipv6']: {"rrclient": "0", "name": "ARISTA08T0",
-                                             "local_addr": tgen_ports[1]['peer_ipv6'], "nhopself": "0",
-                                             "holdtime": "90", "asn": TGEN_AS_NUM,"keepalive": "30"},
-                     tgen_ports[1]['ip']: {"rrclient": "0", "name": "ARISTA08T0",
-                                           "local_addr": tgen_ports[1]['peer_ip'], "nhopself": "0",
-                                           "holdtime": "90", "asn": TGEN_AS_NUM,"keepalive": "30"}}
-    '''
-    bgp_neighbors[tgen_ports[1]['ipv6']] = {"rrclient": "0", "name": "ARISTA08T0",
-                                            "local_addr": tgen_ports[1]['peer_ipv6'],
-                                            "nhopself": "0", "holdtime": "90", "asn": TGEN_AS_NUM, "keepalive": "30"}
-    bgp_neighbors[tgen_ports[1]['ip']] = {"rrclient": "0", "name": "ARISTA08T0",
-                                          "local_addr": tgen_ports[1]['peer_ip'],
-                                          "nhopself": "0", "holdtime": "90", "asn": TGEN_AS_NUM, "keepalive": "30"}
-    cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
-    for neighbor, neighbor_info in list(bgp_neighbors.items()):
-        cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
-    cdf["DEVICE_METADATA"]['localhost']['bgp_asn'] = DUT_AS_NUM
-    with open("/tmp/sconfig_db.json", 'w') as fp:
-        json.dump(cdf, fp, indent=4)
-    duthost.copy(src="/tmp/sconfig_db.json", dest="/tmp/config_db_temp.json")
-    cdf = json.loads(duthost.shell("sonic-cfggen -j /tmp/config_db_temp.json --print-data")['stdout'])
-    logger.info(cdf)
-    duthost.command("sudo cp {} {} \n".format("/tmp/config_db_temp.json", "/etc/sonic/config_db.json"))
-    logger.info('Reloading config to apply BGP config')
-    duthost.shell("sudo config reload -f -y \n")
-    wait(TIMEOUT + 20, "For Config to reload \n")
+
+    bgp_config = (
+        "vtysh "
+        "-c 'configure terminal' "
+        "-c 'router bgp %s' "
+        "-c 'no bgp ebgp-requires-policy' "
+        "-c 'bgp bestpath as-path multipath-relax' "
+        "-c 'maximum-paths %s' "
+        "-c 'exit' "
+    )
+    bgp_config %= (DUT_AS_NUM, port_count-1)
+    duthost.shell(bgp_config)
+
+    for i in range(1, port_count):
+        bgp_config_neighbor = (
+            "vtysh "
+            "-c 'configure terminal' "
+            "-c 'router bgp %s' "
+            "-c 'neighbor %s remote-as %s' "
+            "-c 'address-family ipv4 unicast' "
+            "-c 'neighbor %s activate' "
+            "-c 'neighbor %s remote-as %s' "
+            "-c 'address-family ipv6 unicast' "
+            "-c 'neighbor %s activate' "
+            "-c 'exit' "
+        )
+        bgp_config_neighbor %= (
+            DUT_AS_NUM, tgen_ports[i]['ip'], TGEN_AS_NUM, tgen_ports[i]['ip'],
+            tgen_ports[i]['ipv6'], TGEN_AS_NUM, tgen_ports[i]['ipv6'])
+        logger.info('Configuring BGP v4 Neighbor {}, v6 Neighbor {}'.format(tgen_ports[i]['ip'],
+                    tgen_ports[i]['ipv6']))
+        duthost.shell(bgp_config_neighbor)
 
 
 def __tgen_bgp_config(cvg_api,
