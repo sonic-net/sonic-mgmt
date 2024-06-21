@@ -8,6 +8,7 @@ all:
         sonic:
         fanout:
         server:
+        self_hosted_azure_agents:
         pdu:
     ptf:
       vars:
@@ -314,9 +315,13 @@ server:
     svcstr-server-1:
       ansible_host: 10.206.144.7
       ansible_hostv6: 2a01:111:e205:100::ace:9007
-    svcstr-server-2:
-      ansible_host: 10.206.144.18
-      ansible_hostv6: 2a01:111:e205:100::ace:9012
     svcstr-server-3:
       ansible_host: 10.206.144.149
       ansible_hostv6: 2a01:111:e205:100::ace:9095
+
+# designated self hosted azure agents for nightly
+self_hosted_azure_agents:
+  hosts:
+    svcstr-server-2:
+      ansible_host: 10.206.144.18
+      ansible_hostv6: 2a01:111:e205:100::ace:9012

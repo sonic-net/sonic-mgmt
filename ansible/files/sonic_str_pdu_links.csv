@@ -171,3 +171,7 @@ pdu-100,34,str-msn4700-fanout-01,PSU1
 pdu-101,37,str-msn4700-fanout-01,PSU2
 pdu-108,23,str-msn2700a1-03,PSU1
 pdu-107,23,str-msn2700a1-03,PSU2
+pdu-97,39,str-msn4700-02,PSU1
+pdu-96,39,str-msn4700-02,PSU2
+pdu-97,38,str-msn4700-fanout-02,PSU1
+pdu-96,38,str-msn4700-fanout-02,PSU2

@@ -3,7 +3,7 @@ all:
     docker_registry:
       hosts:
         acs-devrepo.corp.microsoft.com:
-    bjw:
+    bjw2:
       children:
         sonic:
         fanout:
@@ -16,6 +16,30 @@ all:
       hosts:
         # 10.150.23.<1~48>/23 reserved for server BMC (iDRAC)
         # Please order the followng ptf hosts by IP address
+        bjw2-1-1:
+          ansible_host: 10.150.23.78
+          ansible_hostv6: 2404:f801:10:2200::a96:174e
+        bjw2-1-2:
+          ansible_host: 10.150.23.79
+          ansible_hostv6: 2404:f801:10:2200::a96:174f
+        bjw2-1-3:
+          ansible_host: 10.150.23.80
+          ansible_hostv6: 2404:f801:10:2200::a96:1750
+        bjw2-1-4:
+          ansible_host: 10.150.23.81
+          ansible_hostv6: 2404:f801:10:2200::a96:1751
+        bjw2-1-5:
+          ansible_host: 10.150.23.82
+          ansible_hostv6: 2404:f801:10:2200::a96:1752
+        bjw2-1-6:
+          ansible_host: 10.150.23.83
+          ansible_hostv6: 2404:f801:10:2200::a96:1753
+        bjw2-1-7:
+          ansible_host: 10.150.23.84
+          ansible_hostv6: 2404:f801:10:2200::a96:1754
+        bjw2-1-8:
+          ansible_host: 10.150.23.85
+          ansible_hostv6: 2404:f801:10:2200::a96:1755
     pdu:
       hosts:
 
@@ -92,6 +116,61 @@ fanout:
       ansible_host: 10.150.22.198
       ansible_hostv6: 2404:f801:10:2200::a96:16c6
       os: sonic
+    bjw2-can-7260-leaf-1:
+      ansible_host: 10.150.22.44
+      ansible_hostv6: 2404:f801:10:2200::a96:162c
+    bjw2-can-7260-leaf-2:
+      ansible_host: 10.150.22.46
+      ansible_hostv6: 2404:f801:10:2200::a96:162e
+    bjw2-can-7260-leaf-3:
+      ansible_host: 10.150.22.48
+      ansible_hostv6: 2404:f801:10:2200::a96:1630
+    bjw2-can-7260-leaf-4:
+      ansible_host: 10.150.22.50
+      ansible_hostv6: 2404:f801:10:2200::a96:1632
+    bjw2-can-7260-leaf-5:
+      ansible_host: 10.150.22.52
+      ansible_hostv6: 2404:f801:10:2200::a96:1634
+    bjw2-can-7260-leaf-6:
+      ansible_host: 10.150.22.54
+      ansible_hostv6: 2404:f801:10:2200::a96:1636
+    bjw2-can-7260-leaf-7:
+      ansible_host: 10.150.22.200
+      ansible_hostv6: 2404:f801:10:2200::a96:16c8
+    bjw2-can-7260-leaf-8:
+      ansible_host: 10.150.22.202
+      ansible_hostv6: 2404:f801:10:2200::a96:16ca
+    bjw2-can-7260-leaf-9:
+      ansible_host: 10.150.22.204
+      ansible_hostv6: 2404:f801:10:2200::a96:16cc
+    bjw2-can-7260-leaf-10:
+      ansible_host: 10.150.22.206
+      ansible_hostv6: 2404:f801:10:2200::a96:16ce
+    bjw2-can-7260-leaf-11:
+      ansible_host: 10.150.22.208
+      ansible_hostv6: 2404:f801:10:2200::a96:16d0
+    bjw2-can-7260-leaf-12:
+      ansible_host: 10.150.22.210
+      ansible_hostv6: 2404:f801:10:2200::a96:16d2
+    bjw2-can-7260-leaf-13:
+      ansible_host: 10.150.22.32
+      ansible_hostv6: 2404:f801:10:2200::a96:1620
+    bjw2-can-7260-leaf-14:
+      ansible_host: 10.150.22.34
+      ansible_hostv6: 2404:f801:10:2200::a96:1622
+    bjw2-can-7260-leaf-15:
+      ansible_host: 10.150.22.36
+      ansible_hostv6: 2404:f801:10:2200::a96:1624
+    bjw2-can-7260-leaf-16:
+      ansible_host: 10.150.22.38
+      ansible_hostv6: 2404:f801:10:2200::a96:1626
+    bjw2-can-7260-leaf-17:
+      ansible_host: 10.150.22.40
+      ansible_hostv6: 2404:f801:10:2200::a96:1628
+    bjw2-can-7260-leaf-18:
+      ansible_host: 10.150.22.42
+      ansible_hostv6: 2404:f801:10:2200::a96:162a
+
 
 
 sonic:

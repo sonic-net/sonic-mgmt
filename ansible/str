@@ -10,6 +10,7 @@ all:
         acs_ixia_dscp:
         fanout:
         server:
+        self_hosted_azure_agents:
         pdu:
 
     ptf:
@@ -194,6 +195,9 @@ all:
         vms7-9:
           ansible_host: 10.64.247.83
           ansible_hostv6: 2a01:111:e210:b000::a40:f756
+        vms11-8:
+          ansible_host: 10.64.247.86
+          ansible_hostv6: 2a01:111:e210:b000::a40:f757
       vars:
         ansible_ssh_user: root
         ansible_ssh_pass: root
@@ -720,6 +724,40 @@ sonic_mlnx_4700:
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-9600"
         "0x2B": "Mellanox"
+    str-msn4700-02:
+      ansible_host: 10.64.247.80
+      ansible_hostv6: fe80::5aa2:e1ff:fe25:cfaa
+      hwsku: Mellanox-SN4700-O28
+      model: MSN4700-WS2ROS
+      serial: MT2409XZ00CG
+      base_mac: 9C:05:91:F7:5E:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2409XZ00CG"
+        "0x24": "9C:05:91:F7:5E:00"
+        "0x25": "02/28/2024 14:43:39"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-9600"
+        "0x2B": "Mellanox"
+    str-msn4700-fanout-02:
+      ansible_host: 10.64.247.79
+      ansible_hostv6: fe80::5aa2:e1ff:feb2:d960
+      hwsku: Mellanox-SN4700-O28
+      model: MSN4700-WS2ROS
+      serial: MT2409XZ00AY
+      base_mac: 9C:05:91:F7:2B:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2409XZ00AY"
+        "0x24": "9C:05:91:F7:2B:00"
+        "0x25": "02/29/2024 06:10:02"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-9600"
+        "0x2B": "Mellanox"
 
 acs_ixia_dscp:
   hosts:
@@ -845,6 +883,10 @@ fanout:
       ansible_host: 10.3.146.204
       ansible_hostv6: fe80::5aa2:e1ff:fe6f:f3a8
       os: sonic
+    str-msn4700-fanout-02:
+      ansible_host: 10.64.247.79
+      ansible_hostv6: fe80::5aa2:e1ff:feb2:d960
+      os: sonic
 
 server:
   hosts:
@@ -875,6 +917,11 @@ server:
     str-acs-serv-14:
       ansible_host: 10.64.247.30
       ansible_hostv6: 2a01:111:e210:b000::a40:f71e
+
+# designated nightly agents
+self_hosted_azure_agents:
+  hosts:
     str-acs-serv-15:
       ansible_host: 10.64.247.31
       ansible_hostv6: 2a01:111:e210:b000::a40:f71f
+
