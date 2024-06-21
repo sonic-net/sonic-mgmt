@@ -27,7 +27,7 @@ parameters:
         pool: nightly-svc
       bjw:
         pool: nightly-bjw
-      tk5:
+      strtk5:
         pool: nightly-tk5
 
 variables:
