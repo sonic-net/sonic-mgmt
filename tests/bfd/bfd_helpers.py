@@ -703,3 +703,36 @@ def toggle_port_channel(dut, asic, backend_port_channels, bp_iface_in_use_before
     if action == "shutdown":
         # wait until the corresponding BFD sessions are down
         time.sleep(120)
+
+
+def toggle_port_channel_member(dut, asic, bp_iface_in_use_before_shutdown, request, action):
+    request.config.portchannels_on_dut = "dut"
+    request.config.selected_portchannels = [bp_iface_in_use_before_shutdown]
+    request.config.asic = asic
+
+    control_interface_state(dut, asic, bp_iface_in_use_before_shutdown, action)
+    if action == "shutdown":
+        time.sleep(120)
+
+
+def assert_bp_iface_after_shutdown(
+    bp_iface_in_use_after_shutdown,
+    asic_index,
+    dut_hostname,
+    bp_iface_in_use_before_shutdown,
+):
+    if not bp_iface_in_use_after_shutdown:
+        pytest.fail(
+            "Backend interface in use on asic{} of dut {} is None after shutdown".format(
+                asic_index,
+                dut_hostname,
+            )
+        )
+
+    if bp_iface_in_use_before_shutdown == bp_iface_in_use_after_shutdown:
+        pytest.fail(
+            "Backend interface in use on asic{} of dut {} does not change after shutdown".format(
+                asic_index,
+                dut_hostname,
+            )
+        )
