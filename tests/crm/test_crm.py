@@ -17,6 +17,8 @@ from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLL
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa F401
 from tests.common.utilities import wait_until, get_data_acl
+from tests.common.mellanox_data import is_mellanox_device
+from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
 
 
 pytestmark = [
@@ -449,6 +451,16 @@ def get_crm_resources_fdb_and_ip_route(duthost, asic_ix):
     return result
 
 
+def get_nh_ip(duthost, asichost, crm_interface, ip_ver):
+    # Get NH IP
+    cmd = "{ip_cmd} -{ip_ver} neigh show dev {crm_intf} nud reachable nud stale \
+                        | grep -v fe80".format(ip_cmd=asichost.ip_cmd, ip_ver=ip_ver, crm_intf=crm_interface[0])
+    out = duthost.shell(cmd)
+    assert out["stdout"] != "", "Get Next Hop IP failed. Neighbor not found"
+    nh_ip = [item.split()[0] for item in out["stdout"].split("\n") if "REACHABLE" in item][0]
+    return nh_ip
+
+
 @pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("ip_ver,route_add_cmd,route_del_cmd", [("4", "{} route add 2.{}.2.0/24 via {}",
                                                                 "{} route del 2.{}.2.0/24 via {}"),
@@ -489,11 +501,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     logging.info("crm_stats_route_used {}, crm_stats_route_available {}, crm_stats_fdb_used {}".format(
         crm_stats_route_used, crm_stats_route_available, crm_stats_fdb_used))
     # Get NH IP
-    cmd = "{ip_cmd} -{ip_ver} neigh show dev {crm_intf} nud reachable nud stale \
-            | grep -v fe80".format(ip_cmd=asichost.ip_cmd, ip_ver=ip_ver, crm_intf=crm_interface[0])
-    out = duthost.shell(cmd)
-    pytest_assert(out["stdout"] != "", "Get Next Hop IP failed. Neighbor not found")
-    nh_ip = [item.split()[0] for item in out["stdout"].split("\n") if "REACHABLE" in item][0]
+    nh_ip = get_nh_ip(duthost, asichost, crm_interface, ip_ver)
 
     # Add IPv[4/6] routes
     # Cisco platforms need an upward of 64 routes for crm_stats_ipv4_route_available to decrement
@@ -535,6 +543,9 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         pytest.fail("\"crm_stats_ipv{}_route_used\" counter was not incremented".format(ip_ver))
     # Verify "crm_stats_ipv[4/6]_route_available" counter was decremented
     if check_available_counters and not (crm_stats_route_available - new_crm_stats_route_available >= 1):
+        if is_mellanox_device(duthost):
+            # Get sai sdk dump file in case test fail, we can get the LPM tree information
+            get_sai_sdk_dump_file(duthost, f"sai_sdk_dump_after_add_v{ip_ver}_router")
         for i in range(total_routes):
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_available\" counter was not decremented".format(ip_ver))

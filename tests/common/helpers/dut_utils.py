@@ -1,4 +1,5 @@
 import logging
+import allure
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
@@ -312,3 +313,18 @@ def ignore_t2_syslog_msgs(duthost):
             # DUT's loganalyzer would be null if we have disable_loganalyzer specified
             if a_dut.loganalyzer:
                 a_dut.loganalyzer.ignore_regex.extend(ignoreRegex)
+
+
+def get_sai_sdk_dump_file(duthost, dump_file_name):
+    full_path_dump_file = f"/tmp/{dump_file_name}"
+    cmd_gen_sdk_dump = f"docker exec syncd bash -c 'saisdkdump -f {full_path_dump_file}' "
+    duthost.shell(cmd_gen_sdk_dump)
+
+    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"
+    duthost.shell(cmd_copy_dmp_from_syncd_to_host)
+
+    compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"
+    duthost.archive(path=full_path_dump_file, dest=compressed_dump_file, format='gz')
+
+    duthost.fetch(src=compressed_dump_file, dest="/tmp/", flat=True)
+    allure.attach.file(compressed_dump_file, dump_file_name, extension=".tar.gz")
