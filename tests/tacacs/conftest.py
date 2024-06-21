@@ -9,11 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 def check_nss_config(duthost):
-    nss_config_attribute = duthost.command("ls -la /etc/nsswitch.conf", module_ignore_errors=True)['stdout']
-    if "No such file or directory" in nss_config_attribute:
-        logger.error("NSS config file missing.")
+    nss_config_attribute = duthost.command("ls -la /etc/nsswitch.conf", module_ignore_errors=True)
+    if nss_config_attribute['failed']:
+        logger.error("NSS config file missing: %s", nss_config_attribute['stderr'])
     else:
-        logger.debug("NSS config file attribute: %s", nss_config_attribute)
+        logger.debug("NSS config file attribute: %s", nss_config_attribute['stdout'])
 
 
 @pytest.fixture(scope="module")
