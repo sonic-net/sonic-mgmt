@@ -225,6 +225,8 @@ steps:
       echo "##vso[task.setvariable variable=TEST_PLAN_ID_LIST_STRING]$TEST_PLAN_ID_LIST_STRING"
 
     displayName: "Trigger test"
+    env:
+      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
 
   - script: |
       set -o
@@ -253,6 +255,8 @@ steps:
       fi
 
     displayName: "Lock testbed"
+    env:
+      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
 
   - script: |
       set -o
@@ -282,6 +286,8 @@ steps:
       fi
 
     displayName: "Prepare testbed"
+    env:
+      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
 
   - script: |
       set -o
@@ -311,6 +317,8 @@ steps:
 
     displayName: "Run test"
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    env:
+      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
 
   - ${{ if eq(parameters.DUMP_KVM_IF_FAIL, 'True') }}:
       - script: |
@@ -331,6 +339,8 @@ steps:
 
         condition: succeededOrFailed()
         displayName: "KVM dump"
+        env:
+          ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
 
   - script: |
       set -e
@@ -342,3 +352,5 @@ steps:
       done
     condition: always()
     displayName: "Finalize running test plan"
+    env:
+      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
