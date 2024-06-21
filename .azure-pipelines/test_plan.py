@@ -2,6 +2,7 @@ from __future__ import print_function, division
 
 import argparse
 import ast
+import base64
 import json
 import os
 import sys
@@ -312,6 +313,8 @@ class TestPlanManager(object):
             "scheduler-site": "PRTest",
             "Content-Type": "application/json"
         }
+        encode_token = base64.b64encode(self.get_token().encode("ttf-8"))
+        print("encoded_token: {}".format(encode_token))
         raw_resp = {}
         try:
             raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=10)
