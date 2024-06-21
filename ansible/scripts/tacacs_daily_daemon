@@ -30,5 +30,5 @@ do
     # Enable Authentication/Authorization/Accounting debug by: -d 88
     # Bind to port 49, because SONiC load_minigraph only support port 49: -p 49
     /usr/sbin/tac_plus -d 88 -l /var/log/tac_plus_daily.log -C /etc/tac_plus_daily.conf  -p 49 -G
-    echo "tac_plus existed, restarting" 
+    echo "tac_plus existed, restarting"
 done
