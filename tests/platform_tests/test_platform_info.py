@@ -177,6 +177,7 @@ def get_healthy_psu_num(duthost):
     # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
     if duthost.facts["asic_type"] == "vs" and psuutil_status_output['rc'] == 2:
         return
+    assert psuutil_status_output["rc"] == 0, "Run command '{}' failed".format(PSUUTIL_CMD)
 
     psus_status = psuutil_status_output["stdout_lines"][2:]
     for iter in psus_status:
