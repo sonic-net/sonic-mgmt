@@ -7127,19 +7127,19 @@ vms_bjw_16:
 
 vms_bjw2_1:
   hosts:
-    VM81011:  # testbed-bjw2-can-720dt-1 (mx, 2VM)
+    VM81011:  # testbed-bjw2-can-720dt-1 (mx, 2VM, reserve 6VM for flexitility)
       ansible_host: 172.16.203.11
     VM81012:
       ansible_host: 172.16.203.12
-    VM81013:  # testbed-bjw2-can-720dt-2 (mx, 2VM)
+    VM81013:
       ansible_host: 172.16.203.13
     VM81014:
       ansible_host: 172.16.203.14
-    VM81015:  # testbed-bjw2-can-720dt-3 (m0-2vlan, 6VM)
+    VM81015:
       ansible_host: 172.16.203.15
     VM81016:
       ansible_host: 172.16.203.16
-    VM81017:
+    VM81017:  # testbed-bjw2-can-720dt-2 (mx, 2VM, reserve 6VM for flexitility)
       ansible_host: 172.16.203.17
     VM81018:
       ansible_host: 172.16.203.18
@@ -7147,11 +7147,11 @@ vms_bjw2_1:
       ansible_host: 172.16.203.19
     VM81020:
       ansible_host: 172.16.203.20
-    VM81021:  # testbed-bjw2-can-720dt-4 (m0-2vlan, 6VM)
+    VM81021:
       ansible_host: 172.16.203.21
     VM81022:
       ansible_host: 172.16.203.22
-    VM81023:
+    VM81023:  # testbed-bjw2-can-720dt-3 (m0, 6VM)
       ansible_host: 172.16.203.23
     VM81024:
       ansible_host: 172.16.203.24
@@ -7159,11 +7159,11 @@ vms_bjw2_1:
       ansible_host: 172.16.203.25
     VM81026:
       ansible_host: 172.16.203.26
-    VM81027:  # testbed-bjw2-can-720dt-5 (m0, 6VM)
+    VM81027:
       ansible_host: 172.16.203.27
     VM81028:
       ansible_host: 172.16.203.28
-    VM81029:
+    VM81029:  # testbed-bjw2-can-720dt-4 (m0, 6VM)
       ansible_host: 172.16.203.29
     VM81030:
       ansible_host: 172.16.203.30
@@ -7171,11 +7171,11 @@ vms_bjw2_1:
       ansible_host: 172.16.203.31
     VM81032:
       ansible_host: 172.16.203.32
-    VM81033:  # testbed-bjw2-can-720dt-6 (m0, 6VM)
+    VM81033:
       ansible_host: 172.16.203.33
     VM81034:
       ansible_host: 172.16.203.34
-    VM81035:
+    VM81035:  # testbed-bjw2-can-720dt-5 (m0, 6VM)
       ansible_host: 172.16.203.35
     VM81036:
       ansible_host: 172.16.203.36
@@ -7183,11 +7183,11 @@ vms_bjw2_1:
       ansible_host: 172.16.203.37
     VM81038:
       ansible_host: 172.16.203.38
-    VM81039:  # testbed-bjw2-can-720dt-7 (m0, 6VM)
+    VM81039:
       ansible_host: 172.16.203.39
     VM81040:
       ansible_host: 172.16.203.40
-    VM81041:
+    VM81041:  # testbed-bjw2-can-720dt-6 (m0, 6VM)
       ansible_host: 172.16.203.41
     VM81042:
       ansible_host: 172.16.203.42
@@ -7195,11 +7195,11 @@ vms_bjw2_1:
       ansible_host: 172.16.203.43
     VM81044:
       ansible_host: 172.16.203.44
-    VM81045:  # testbed-bjw2-can-720dt-8 (m0, 6VM)
+    VM81045:
       ansible_host: 172.16.203.45
     VM81046:
       ansible_host: 172.16.203.46
-    VM81047:
+    VM81047:  # testbed-bjw2-can-720dt-7 (m0-2vlan, 6VM)
       ansible_host: 172.16.203.47
     VM81048:
       ansible_host: 172.16.203.48
@@ -7207,6 +7207,118 @@ vms_bjw2_1:
       ansible_host: 172.16.203.49
     VM81050:
       ansible_host: 172.16.203.50
+    VM81051:
+      ansible_host: 172.16.203.51
+    VM81052:
+      ansible_host: 172.16.203.52
+    VM81053:  # testbed-bjw2-can-720dt-8 (m0-2vlan, 6VM)
+      ansible_host: 172.16.203.53
+    VM81054:
+      ansible_host: 172.16.203.54
+    VM81055:
+      ansible_host: 172.16.203.55
+    VM81056:
+      ansible_host: 172.16.203.56
+    VM81057:
+      ansible_host: 172.16.203.57
+    VM81058:
+      ansible_host: 172.16.203.58
+    VM81059:  # testbed-bjw2-can-7215-1 (mx, 2VM, reserve 6VM for flexitility)
+      ansible_host: 172.16.203.59
+    VM81060:
+      ansible_host: 172.16.203.60
+    VM81061:
+      ansible_host: 172.16.203.61
+    VM81062:
+      ansible_host: 172.16.203.62
+    VM81063:
+      ansible_host: 172.16.203.63
+    VM81064:
+      ansible_host: 172.16.203.64
+    VM81065:  # testbed-bjw2-can-7215-2 (mx, 2VM, reserve 6VM for flexitility)
+      ansible_host: 172.16.203.65
+    VM81066:
+      ansible_host: 172.16.203.66
+    VM81067:
+      ansible_host: 172.16.203.67
+    VM81068:
+      ansible_host: 172.16.203.68
+    VM81069:
+      ansible_host: 172.16.203.69
+    VM81070:
+      ansible_host: 172.16.203.70
+    VM81071:  # testbed-bjw2-can-7215-3 (m0-2vlan, 6VM)
+      ansible_host: 172.16.203.71
+    VM81072:
+      ansible_host: 172.16.203.72
+    VM81073:
+      ansible_host: 172.16.203.73
+    VM81074:
+      ansible_host: 172.16.203.74
+    VM81075:
+      ansible_host: 172.16.203.75
+    VM81076:
+      ansible_host: 172.16.203.76
+    VM81077:  # testbed-bjw2-can-7215-4 (m0-2vlan, 6VM)
+      ansible_host: 172.16.203.77
+    VM81078:
+      ansible_host: 172.16.203.78
+    VM81079:
+      ansible_host: 172.16.203.79
+    VM81080:
+      ansible_host: 172.16.203.80
+    VM81081:
+      ansible_host: 172.16.203.81
+    VM81082:
+      ansible_host: 172.16.203.82
+    VM81083:  # testbed-bjw2-can-7215-5 (m0, 6VM)
+      ansible_host: 172.16.203.83
+    VM81084:
+      ansible_host: 172.16.203.84
+    VM81085:
+      ansible_host: 172.16.203.85
+    VM81086:
+      ansible_host: 172.16.203.86
+    VM81087:
+      ansible_host: 172.16.203.87
+    VM81088:
+      ansible_host: 172.16.203.88
+    VM81089:  # testbed-bjw2-can-7215-6 (m0, 6VM)
+      ansible_host: 172.16.203.89
+    VM81090:
+      ansible_host: 172.16.203.90
+    VM81091:
+      ansible_host: 172.16.203.91
+    VM81092:
+      ansible_host: 172.16.203.92
+    VM81093:
+      ansible_host: 172.16.203.93
+    VM81094:
+      ansible_host: 172.16.203.94
+    VM81095:  # testbed-bjw2-can-7215-7 (m0, 6VM)
+      ansible_host: 172.16.203.95
+    VM81096:
+      ansible_host: 172.16.203.96
+    VM81097:
+      ansible_host: 172.16.203.97
+    VM81098:
+      ansible_host: 172.16.203.98
+    VM81099:
+      ansible_host: 172.16.203.99
+    VM81100:
+      ansible_host: 172.16.203.100
+    VM81101:  # testbed-bjw2-can-7215-8 (m0, 6VM)
+      ansible_host: 172.16.203.101
+    VM81102:
+      ansible_host: 172.16.203.102
+    VM81103:
+      ansible_host: 172.16.203.103
+    VM81104:
+      ansible_host: 172.16.203.104
+    VM81105:
+      ansible_host: 172.16.203.105
+    VM81106:
+      ansible_host: 172.16.203.106
 
 vms_bjw2_2:
   hosts:

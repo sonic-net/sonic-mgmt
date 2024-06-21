@@ -2613,7 +2613,7 @@
   ptf_ipv6: 2404:f801:10:2200::a96:174f/52
   ptf_extra_mgmt_ip: ["172.16.188.79/17"]
   server: server_bjw2_1
-  vm_base: VM81013
+  vm_base: VM81017
   dut:
     - bjw2-can-720dt-2
   inv_name: bjw2
@@ -2622,14 +2622,14 @@
 
 - conf-name: testbed-bjw2-can-720dt-3
   group-name: bjw2-1-3
-  topo: m0-2vlan
+  topo: m0
   ptf_image_name: docker-ptf
   ptf: bjw2-1-3
   ptf_ip: 10.150.23.80/23
   ptf_ipv6: 2404:f801:10:2200::a96:1750/52
   ptf_extra_mgmt_ip: ["172.16.188.80/17"]
   server: server_bjw2_1
-  vm_base: VM81015
+  vm_base: VM81023
   dut:
     - bjw2-can-720dt-3
   inv_name: bjw2
@@ -2638,14 +2638,14 @@
 
 - conf-name: testbed-bjw2-can-720dt-4
   group-name: bjw2-1-4
-  topo: m0-2vlan
+  topo: m0
   ptf_image_name: docker-ptf
   ptf: bjw2-1-4
   ptf_ip: 10.150.23.81/23
   ptf_ipv6: 2404:f801:10:2200::a96:1751/52
   ptf_extra_mgmt_ip: ["172.16.188.81/17"]
   server: server_bjw2_1
-  vm_base: VM81021
+  vm_base: VM81029
   dut:
     - bjw2-can-720dt-4
   inv_name: bjw2
@@ -2661,7 +2661,7 @@
   ptf_ipv6: 2404:f801:10:2200::a96:1752/52
   ptf_extra_mgmt_ip: ["172.16.188.82/17"]
   server: server_bjw2_1
-  vm_base: VM81027
+  vm_base: VM81035
   dut:
     - bjw2-can-720dt-5
   inv_name: bjw2
@@ -2677,7 +2677,7 @@
   ptf_ipv6: 2404:f801:10:2200::a96:1753/52
   ptf_extra_mgmt_ip: ["172.16.188.83/17"]
   server: server_bjw2_1
-  vm_base: VM81033
+  vm_base: VM81041
   dut:
     - bjw2-can-720dt-6
   inv_name: bjw2
@@ -2686,14 +2686,14 @@
 
 - conf-name: testbed-bjw2-can-720dt-7
   group-name: bjw2-1-7
-  topo: m0
+  topo: m0-2vlan
   ptf_image_name: docker-ptf
   ptf: bjw2-1-7
   ptf_ip: 10.150.23.84/23
   ptf_ipv6: 2404:f801:10:2200::a96:1754/52
   ptf_extra_mgmt_ip: ["172.16.188.84/17"]
   server: server_bjw2_1
-  vm_base: VM81039
+  vm_base: VM81047
   dut:
     - bjw2-can-720dt-7
   inv_name: bjw2
@@ -2702,16 +2702,144 @@
 
 - conf-name: testbed-bjw2-can-720dt-8
   group-name: bjw2-1-8
-  topo: m0
+  topo: m0-2vlan
   ptf_image_name: docker-ptf
   ptf: bjw2-1-8
   ptf_ip: 10.150.23.85/23
   ptf_ipv6: 2404:f801:10:2200::a96:1755/52
   ptf_extra_mgmt_ip: ["172.16.188.85/17"]
   server: server_bjw2_1
-  vm_base: VM81045
+  vm_base: VM81053
   dut:
     - bjw2-can-720dt-8
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-7215-1
+  group-name: bjw2-1-9
+  topo: mx
+  ptf_image_name: docker-ptf
+  ptf: bjw2-1-9
+  ptf_ip: 10.150.23.86/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1756/52
+  ptf_extra_mgmt_ip: ["172.16.188.86/17"]
+  server: server_bjw2_1
+  vm_base: VM81059
+  dut:
+    - bjw2-can-7215-1
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-7215-2
+  group-name: bjw2-1-a
+  topo: mx
+  ptf_image_name: docker-ptf
+  ptf: bjw2-1-a
+  ptf_ip: 10.150.23.87/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1757/52
+  ptf_extra_mgmt_ip: ["172.16.188.87/17"]
+  server: server_bjw2_1
+  vm_base: VM81065
+  dut:
+    - bjw2-can-7215-2
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-7215-3
+  group-name: bjw2-1-b
+  topo: m0-2vlan
+  ptf_image_name: docker-ptf
+  ptf: bjw2-1-b
+  ptf_ip: 10.150.23.88/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1758/52
+  ptf_extra_mgmt_ip: ["172.16.188.88/17"]
+  server: server_bjw2_1
+  vm_base: VM81071
+  dut:
+    - bjw2-can-7215-3
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-7215-4
+  group-name: bjw2-1-c
+  topo: m0-2vlan
+  ptf_image_name: docker-ptf
+  ptf: bjw2-1-c
+  ptf_ip: 10.150.23.89/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1759/52
+  ptf_extra_mgmt_ip: ["172.16.188.89/17"]
+  server: server_bjw2_1
+  vm_base: VM81077
+  dut:
+    - bjw2-can-7215-4
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-7215-5
+  group-name: bjw2-1-d
+  topo: m0
+  ptf_image_name: docker-ptf
+  ptf: bjw2-1-d
+  ptf_ip: 10.150.23.90/23
+  ptf_ipv6: 2404:f801:10:2200::a96:175a/52
+  ptf_extra_mgmt_ip: ["172.16.188.90/17"]
+  server: server_bjw2_1
+  vm_base: VM81083
+  dut:
+    - bjw2-can-7215-5
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-7215-6
+  group-name: bjw2-1-e
+  topo: m0
+  ptf_image_name: docker-ptf
+  ptf: bjw2-1-e
+  ptf_ip: 10.150.23.91/23
+  ptf_ipv6: 2404:f801:10:2200::a96:175b/52
+  ptf_extra_mgmt_ip: ["172.16.188.91/17"]
+  server: server_bjw2_1
+  vm_base: VM81089
+  dut:
+    - bjw2-can-7215-6
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-7215-7
+  group-name: bjw2-1-f
+  topo: m0
+  ptf_image_name: docker-ptf
+  ptf: bjw2-1-f
+  ptf_ip: 10.150.23.92/23
+  ptf_ipv6: 2404:f801:10:2200::a96:175c/52
+  ptf_extra_mgmt_ip: ["172.16.188.92/17"]
+  server: server_bjw2_1
+  vm_base: VM81095
+  dut:
+    - bjw2-can-7215-7
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-7215-8
+  group-name: bjw2-1-g
+  topo: m0
+  ptf_image_name: docker-ptf
+  ptf: bjw2-1-g
+  ptf_ip: 10.150.23.93/23
+  ptf_ipv6: 2404:f801:10:2200::a96:175d/52
+  ptf_extra_mgmt_ip: ["172.16.188.93/17"]
+  server: server_bjw2_1
+  vm_base: VM81101
+  dut:
+    - bjw2-can-7215-8
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
