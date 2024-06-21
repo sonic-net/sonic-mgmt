@@ -109,7 +109,6 @@ t0:
   - radv/test_radv_restart.py
   - radv/test_radv_run.py
   - reset_factory/test_reset_factory.py
-  - restapi/test_restapi.py
   - restapi/test_restapi_vxlan_ecmp.py
   - route/test_default_route.py
   - route/test_duplicate_route.py
@@ -343,6 +342,13 @@ onboarding_t0:
   - acl/null_route/test_null_route_helper.py
   - acl/test_acl.py
   - acl/test_acl_outer_vlan.py
+  - acl/test_stress_acl.py
+  - arp/test_stress_arp.py
+  - arp/test_unknown_mac.py
+  - arp/test_wr_arp.py
+
+onboarding_t1:
+  - acl/test_acl.py
   - acl/test_stress_acl.py
 
 specific_param:

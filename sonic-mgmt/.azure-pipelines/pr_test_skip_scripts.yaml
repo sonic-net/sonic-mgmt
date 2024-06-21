@@ -1,0 +1,3 @@
+t0:
+  # This script only supported on Mellanox
+  - restapi/test_restapi.py
