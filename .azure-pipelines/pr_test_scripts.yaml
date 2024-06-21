@@ -347,6 +347,10 @@ onboarding_t0:
   - arp/test_unknown_mac.py
   - arp/test_wr_arp.py
 
+onboarding_t1:
+  - acl/test_acl.py
+  - acl/test_stress_acl.py
+
 specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
