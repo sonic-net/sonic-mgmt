@@ -21,6 +21,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # no
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active
 from tests.common.fixtures.fib_utils import fib_info_files                  # noqa F401
 from tests.common.fixtures.fib_utils import single_fib_for_duts             # noqa F401
@@ -179,7 +180,8 @@ def simulate_vxlan_teardown(duthosts, ptfhost, tbinfo):
 
 def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,                                   # noqa F811
                toggle_all_simulator_ports_to_random_side, supported_ttl_dscp_params, ip_ver, loopback_ips,  # noqa F811
-               duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator):             # noqa F811
+               duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator,              # noqa F811
+               skip_traffic_test):                                                                          # noqa F811
     setup_info = setup_teardown
     asic_type = duthosts[0].facts["asic_type"]
     ecn_mode = "copy_from_outer"
@@ -203,6 +205,8 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
             wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
         log_file = "/tmp/decap.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
+        if skip_traffic_test:
+            return
         ptf_runner(ptfhost,
                    "ptftests",
                    "IP_decap_test.DecapPacketTest",
