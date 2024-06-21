@@ -1,6 +1,8 @@
 import re
 import time
 
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
+
 TOPO_FILENAME_TEMPLATE = 'topo_{}.yml'
 SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
 LOOP_TIMES_LEVEL_MAP = {
@@ -12,8 +14,8 @@ LOOP_TIMES_LEVEL_MAP = {
 }
 
 
-def get_crm_resources(duthost, resource, status):
-    return duthost.get_crm_resources().get("main_resources").get(resource).get(status)
+def get_crm_resource_status(duthost, resource, status, namespace=DEFAULT_NAMESPACE):
+    return duthost.get_crm_resources(namespace).get("main_resources").get(resource).get(status)
 
 
 def check_queue_status(duthost, queue):
