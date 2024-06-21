@@ -12,6 +12,7 @@
 +file:cisco/tortuga/portchannel/test_portchannel.py
 +file:cisco/tortuga/vxlan/test_l3vni_v6_vtep.py
 +file:cisco/tortuga/bgp/bgp_routemap/test_bgp_routemap_basic.py
++file:cisco/tortuga/bgp_auth/test_bgp_auth_evpn.py
 
 #Runtime Arguments
 +args:--skip-init-config

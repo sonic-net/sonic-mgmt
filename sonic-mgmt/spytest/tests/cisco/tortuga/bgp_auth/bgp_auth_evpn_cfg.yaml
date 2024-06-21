@@ -1,0 +1,259 @@
+spine0:
+  sonic:
+    config: |
+      sudo config interface startup D1D3P1
+      sudo config interface startup D1D4P1
+      sudo config interface ipv6 enable use-link-local-only D1D3P1  
+      sudo config interface ipv6 enable use-link-local-only D1D4P1
+      sudo config loopback add Loopback27
+      sudo config interface ip add Loopback27 10.200.200.210/32
+      sudo config interface startup Loopback27
+    deconfig: |
+      sudo config interface ip rem Loopback27 10.200.200.210/32
+      sudo config interface ipv6 disable use-link-local-only D1D4P1
+      sudo config interface ipv6 disable use-link-local-only D1D3P1
+
+  bgp:
+    config: |
+      router bgp 2363070545
+      no bgp ebgp-requires-policy
+      no bgp default ipv4-unicast
+      bgp disable-ebgp-connected-route-check
+      bgp bestpath as-path multipath-relax
+      neighbor TRANSIT peer-group
+      neighbor TRANSIT password transit
+      neighbor TRANSIT remote-as external
+      neighbor TRANSIT bfd
+      neighbor TRANSIT ebgp-multihop 255
+      neighbor 10.200.200.200 peer-group OVERLAY
+      neighbor 10.200.200.201 peer-group OVERLAY
+      neighbor D1D3P1 interface peer-group TRANSIT
+      neighbor D1D4P1 interface peer-group TRANSIT
+      address-family ipv4 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family ipv6 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+    deconfig: |
+      no router bgp 2363070545
+
+
+leaf0:
+  sonic:
+    config: |
+      sudo config interface startup D3D1P1
+      sudo config interface ipv6 enable use-link-local-only D3D1P1
+      sudo config loopback add Loopback27
+      sudo config interface ip add Loopback27 10.200.200.200/32
+      sudo config vrf add Vrf01
+      sudo config vlan add 2
+      sudo config interface vrf bind Vlan2 Vrf01
+      sudo config vlan add 100
+      sudo config interface vrf bind Vlan100 Vrf01
+      sudo config vxlan add VXLAN 10.200.200.200
+      sudo config vxlan evpn_nvo add NVO VXLAN
+      sudo config vxlan map add VXLAN 100 1000
+      sudo config vrf add_vrf_vni_map Vrf01 1000
+      sudo config interface ip add Vlan2 100.100.100.254/24  
+    deconfig: |
+      sudo config interface ip rem Vlan2 100.100.100.254/24
+      sudo config vrf del_vrf_vni_map Vrf01
+      sudo config vxlan map del VXLAN 100 1000     
+      sudo config interface vrf unbind Vlan100
+      sudo config vlan del 100
+      sudo config interface vrf unbind Vlan2
+      sudo config vlan del 2
+      sudo config vxlan evpn_nvo del NVO
+      sudo config vxlan del VXLAN
+      sudo config vrf del Vrf01
+      sudo config interface ip rem Loopback27 10.200.200.200/32
+      sudo config interface ipv6 disable use-link-local-only D3D1P1
+    config_vrf: |
+      sudo config interface startup D3D2P1
+      sudo config interface vrf bind D3D2P1 Vrf01
+      sudo config interface ip add D3D2P1 10.0.0.1/24
+    deconfig_vrf: |
+      sudo config interface ip rem D3D2P1 10.0.0.1/24
+      sudo config interface vrf unbind D3D2P1
+      sudo config interface shutdown D3D2P1
+
+  bgp:
+    config: |
+      router bgp 2363073663
+      no bgp ebgp-requires-policy
+      no bgp default ipv4-unicast
+      bgp disable-ebgp-connected-route-check
+      bgp bestpath as-path multipath-relax
+      neighbor OVERLAY peer-group
+      neighbor OVERLAY password overlay
+      neighbor OVERLAY remote-as external
+      neighbor OVERLAY disable-connected-check
+      neighbor OVERLAY ebgp-multihop 255
+      neighbor OVERLAY update-source Loopback27
+      neighbor TRANSIT peer-group
+      neighbor TRANSIT password transit
+      neighbor TRANSIT remote-as external
+      neighbor TRANSIT bfd
+      neighbor TRANSIT ebgp-multihop 255
+      neighbor 10.200.200.201 peer-group OVERLAY
+      neighbor D1D3P1 interface peer-group TRANSIT
+      address-family ipv4 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family l2vpn evpn
+      neighbor OVERLAY activate
+      advertise-all-vni
+      advertise ipv4 unicast
+      exit-address-family
+      exit
+      vrf Vrf01
+      vni 1000
+      exit
+      router bgp 2363073663 vrf Vrf01
+      address-family ipv4 unicast
+      redistribute connected
+      exit-address-family
+      address-family l2vpn evpn
+      advertise ipv4 unicast
+      exit-address-family
+      exit
+    deconfig: |
+      vrf Vrf01
+      no vni 1000
+      exit
+      no router bgp 2363073663 vrf Vrf01
+      no router bgp 2363073663
+    config_vrf: |
+      router bgp 2363073663 vrf Vrf01
+      neighbor CUSTOMER peer-group
+      neighbor CUSTOMER remote-as 2363070746
+      neighbor CUSTOMER password customer
+      neighbor CUSTOMER ebgp-multihop 255
+      neighbor 10.0.0.2 peer-group CUSTOMER
+      address-family ipv4 unicast
+      neighbor CUSTOMER activate
+      redistribute connected
+      exit-address-family
+      exit
+    deconfig_vrf: |
+      router bgp 2363073663 vrf Vrf01
+      no neighbor CUSTOMER peer-group
+
+
+leaf1:
+  sonic:
+    config: |
+      sudo config interface startup D4D1P1
+      sudo config interface ipv6 enable use-link-local-only D4D1P1
+      sudo config loopback add Loopback27
+      sudo config interface ip add Loopback27 10.200.200.201/32     
+      sudo config vrf add Vrf01
+      sudo config vlan add 3
+      sudo config interface vrf bind Vlan3 Vrf01
+      sudo config vlan add 100
+      sudo config interface vrf bind Vlan100 Vrf01
+      sudo config vxlan add VXLAN 10.200.200.201
+      sudo config vxlan evpn_nvo add NVO VXLAN
+      sudo config vxlan map add VXLAN 100 1000
+      sudo config vrf add_vrf_vni_map Vrf01 1000
+      sudo config interface ip add Vlan3 100.100.101.254/24
+    deconfig: |
+      sudo config interface ip rem Vlan3 100.100.101.254/24
+      sudo config vrf del_vrf_vni_map Vrf01
+      sudo config vxlan map del VXLAN 100 1000
+      sudo config interface vrf unbind Vlan100
+      sudo config vlan del 100
+      sudo config interface vrf unbind Vlan3
+      sudo config vlan del 3
+      sudo config vxlan evpn_nvo del NVO
+      sudo config vxlan del VXLAN
+      sudo config vrf del Vrf01
+      sudo config interface ip rem Loopback27 10.200.200.201/32
+      sudo config interface ipv6 disable use-link-local-only D4D1P1
+
+
+  bgp:
+    config: |
+      router bgp 2363033449
+      no bgp ebgp-requires-policy
+      no bgp default ipv4-unicast
+      bgp disable-ebgp-connected-route-check
+      bgp bestpath as-path multipath-relax
+      neighbor OVERLAY peer-group
+      neighbor OVERLAY password overlay
+      neighbor OVERLAY remote-as external
+      neighbor OVERLAY disable-connected-check
+      neighbor OVERLAY ebgp-multihop 255
+      neighbor OVERLAY update-source Loopback27
+      neighbor TRANSIT peer-group
+      neighbor TRANSIT password transit
+      neighbor TRANSIT remote-as external
+      neighbor TRANSIT bfd
+      neighbor TRANSIT ebgp-multihop 255
+      neighbor 10.200.200.200 peer-group OVERLAY
+      neighbor D4D1P1 interface peer-group TRANSIT
+      address-family ipv4 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family l2vpn evpn
+      neighbor OVERLAY activate
+      advertise-all-vni
+      advertise ipv4 unicast
+      exit-address-family
+      exit
+      vrf Vrf01
+      vni 1000
+      exit
+      router bgp 2363033449 vrf Vrf01
+      address-family ipv4 unicast
+      redistribute connected
+      exit-address-family
+      address-family l2vpn evpn
+      advertise ipv4 unicast
+      exit-address-family
+      exit
+    deconfig: |
+      vrf Vrf01
+      no vni 1000
+      exit
+      no router bgp 2363033449 vrf Vrf01
+      no router bgp 2363033449
+
+external:
+  sonic:
+    config: |
+
+    deconfig: |
+
+    config_vrf: |
+      sudo config interface startup D2D3P1
+      sudo config interface ip add D2D3P1 10.0.0.2/24
+    deconfig_vrf: |
+      sudo config interface ip rem D2D3P1 10.0.0.2/24
+      sudo config interface shutdown D2D3P1
+  bgp:
+    config: |
+
+    deconfig: |
+
+    config_vrf: |
+      router bgp 2363070746
+      neighbor 10.0.0.1 remote-as 2363073663
+      neighbor 10.0.0.1  password customer
+      neighbor 10.0.0.1 ebgp-multihop 255
+      address-family ipv4 unicast
+      neighbor 10.0.0.1 activate
+      redistribute connected
+      exit-address-family
+      exit
+    deconfig_vrf: |
+      no router bgp 2363070746
+
+
+    
+      
