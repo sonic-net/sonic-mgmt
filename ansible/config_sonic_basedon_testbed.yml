@@ -592,6 +592,19 @@
         become: true
         shell: config bgp startup all
 
+      - name: Configure AZNG Production on T2 Chassis Upstream LC only.
+        become: true
+        shell: "{{ azng_config_cmd }}"
+        loop:
+          - azng_migration -d
+          - azng_migration -i
+          - azng_migration -o
+          - azng_migration -p
+        loop_control:
+          loop_var: azng_config_cmd
+        ignore_errors: false
+        when: sup_dut is defined and testbed_facts['duts_map'][inventory_hostname] == 0
+
       - name: Configure TACACS
         become: true
         shell: "{{ tacacs_config_cmd }}"
