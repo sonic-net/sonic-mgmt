@@ -32,6 +32,27 @@ acl/test_stress_acl.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####            arp              #####
+#######################################
+arp/test_stress_arp.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+arp/test_unknown_mac.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+arp/test_wr_arp.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####         everflow            #####
 #######################################
 everflow/test_everflow_ipv6.py:
