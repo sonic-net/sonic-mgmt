@@ -493,3 +493,102 @@ func TestGetIPv6DefaultInfo(t *testing.T) {
 		t.Fatalf("MGMT component (%v) IPv6 address is only %v bytes.", bond0Name, len(ipAsBytes))
 	}
 }
+
+func TestSetIPv6AddressAndPrefixLength(t *testing.T) {
+	// This test confirms that a new IPv6 address and prefix-length can be added.
+	// Note: the entire "tree" has to be added in one gNMI operation.  (The IP and
+	// prefix length cannot be written separately.)
+	// formed.
+	// Paths tested:
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv6/addresses/address[ip=<address>]/config/ip
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv6/addresses/address[ip=<address>]/config/prefix-length
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv6/addresses/address[ip=<address>]/state/ip
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv6/addresses/address[ip=<address>]/state/prefix-length
+	defer testhelper.NewTearDownOptions(t).WithID("0f79f318-b0de-4352-a045-540aa1da94d4").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	mockConfigPush(t)
+
+	// We can't change the management interface IP address; the connection via the
+	// proxy would be lost.  We can, however, write the existing value again.
+	newIPInfo, err := fetchMgmtIPv6AddressAndPrefix(t)
+	if err != nil {
+		t.Fatalf("Unable to fetch IPv6 management address: %v", err)
+	}
+
+	d := &oc.Root{}
+	iface := d.GetOrCreateInterface(bond0Name).GetOrCreateSubinterface(interfaceIndex)
+	newV6 := iface.GetOrCreateIpv6().GetOrCreateAddress(newIPInfo.address)
+	newV6.Ip = &newIPInfo.address
+	newV6.PrefixLength = &newIPInfo.prefixLength
+
+	ipv6 := gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv6().Address(newIPInfo.address)
+	gnmi.Replace(t, dut, gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv6().Address(newIPInfo.address).Config(), newV6)
+	// Give the configuration a chance to become active.
+	time.Sleep(1 * time.Second)
+
+	if observed := gnmi.Get(t, dut, ipv6.State()); *observed.Ip != newIPInfo.address || *observed.PrefixLength != newIPInfo.prefixLength {
+		t.Errorf("MGMT component (%v) address match failed! state-path-value:%v/%v (want:%v/%v)", bond0Name, *observed.Ip, *observed.PrefixLength, newIPInfo.address, newIPInfo.prefixLength)
+	}
+}
+
+func TestSetIPv6InvalidPrefixLength(t *testing.T) {
+	// This test confirms that an invalid IPv6 prefix-length cannot be set.
+	// Any prefix length in the range [0:128] is supported.
+	// Paths tested:
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv6/addresses/address[ip=<address>]/config/prefix-length
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv6/addresses/address[ip=<address>]/state/prefix-length
+	defer testhelper.NewTearDownOptions(t).WithID("7813ab28-1d8c-43ca-ab21-d4106a733e47").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	mockConfigPush(t)
+
+	configuredIPv6Info, err := fetchMgmtIPv6AddressAndPrefix(t)
+	if err != nil {
+		t.Fatalf("Unable to fetch IPv6 management address: %v", err)
+	}
+	ipv6 := gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv6().Address(configuredIPv6Info.address)
+	ipv6Config := gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv6().Address(configuredIPv6Info.address)
+	originalPrefixLength := gnmi.Get(t, dut, ipv6.PrefixLength().State())
+
+	invalidPrefixLength := uint8(129)
+	testt.ExpectFatal(t, func(t testing.TB) {
+		gnmi.Replace(t, dut, ipv6Config.PrefixLength().Config(), invalidPrefixLength)
+	})
+	gnmi.Await(t, dut, ipv6.PrefixLength().State(), 5*time.Second, originalPrefixLength)
+	configuredPrefixLength := gnmi.Get(t, dut, ipv6Config.PrefixLength().Config())
+
+	if configuredPrefixLength == invalidPrefixLength {
+		t.Errorf("MGMT component (%v) prefix-length match failed! set:%v, config-path-value:%v (want:%v)", bond0Name, invalidPrefixLength, configuredPrefixLength, originalPrefixLength)
+	}
+}
+
+func TestSetIPv6InvalidAddress(t *testing.T) {
+	// This test confirms that an invalid IPv6 address cannot be set.
+	// Paths tested:
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv6/addresses/address[ip=<address>]/config/ip
+	//   /interfaces/interface[name=<mgmt>]/subinterfaces/subinterface[index=<index>]/ipv6/addresses/address[ip=<address>]/state/ip
+	defer testhelper.NewTearDownOptions(t).WithID("c58360a6-4d7f-442d-a9f7-9f1d72682ee2").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+	mockConfigPush(t)
+
+	invalidIPPath := "ffff:ffff:ffff:ffff:ffff:f25c:77ff:fe7f:69be"
+	configuredIPv6PrefixLength := uint8(64)
+	ipv6 := gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv6().Address(invalidIPPath)
+	ipv6Config := gnmi.OC().Interface(bond0Name).Subinterface(interfaceIndex).Ipv6().Address(invalidIPPath)
+
+	d := &oc.Root{}
+	iface := d.GetOrCreateInterface(bond0Name).GetOrCreateSubinterface(interfaceIndex)
+	newV6 := iface.GetOrCreateIpv6().GetOrCreateAddress(invalidIPPath)
+	newV6.Ip = &invalidIPPath
+	newV6.PrefixLength = &configuredIPv6PrefixLength
+
+	// Cannot write invalid IPv6 address.
+	testt.ExpectFatal(t, func(t testing.TB) {
+		gnmi.Replace(t, dut, ipv6Config.Config(), newV6)
+	})
+
+	// There should be no IP set with the invalid IPv6 address.
+	testt.ExpectFatal(t, func(t testing.TB) {
+		observedIP := gnmi.Get(t, dut, ipv6.Ip().State())
+		t.Logf("MGMT component (%v) observed IPv6 address: %v.", bond0Name, observedIP)
+	})
+}
