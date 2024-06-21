@@ -1060,7 +1060,7 @@ platform_tests/test_cont_warm_reboot.py:
 
 platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked:
   skip:
-    reason: "Test not supported on Mellanox Platforms."
+    reason: "Test disabled on Mellanox platforms as it could be un-stable and interfered by the thermal algorithm."
     conditions:
       - "asic_type in ['mellanox']"
 
@@ -1072,19 +1072,19 @@ platform_tests/test_platform_info.py::test_show_platform_temperature_mocked:
 
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
   skip:
-    reason: "Test not supported on Mellanox Platforms."
+    reason: "Test disabled on Mellanox platforms as it could be un-stable and interfered by the thermal algorithm."
     conditions:
       - "asic_type in ['mellanox']"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json:
   skip:
-    reason: "Test not supported on Mellanox Platforms."
+    reason: "Test not required on Mellanox Platforms as all thermal policies have been removed from thermalctld"
     conditions:
       - "asic_type in ['mellanox']"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
   skip:
-    reason: "Test not supported on Mellanox Platforms."
+    reason: "Test not required on Mellanox Platforms as all thermal policies have been removed from thermalctld"
     conditions:
       - "asic_type in ['mellanox']"
 
