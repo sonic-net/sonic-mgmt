@@ -17,7 +17,7 @@ MSSONIC_USERNAME = 'mssonic'
 MSSONIC_PUBLIC_TOKEN = os.environ.get('MSSONIC_PUBLIC_TOKEN')
 
 SOURCE_BRANCH = 'internal'
-TARGET_BRANCH = ['internal-202012', 'internal-202205', 'internal-202305', 'internal-202311']
+TARGET_BRANCHES = ['internal-202012', 'internal-202205', 'internal-202305', 'internal-202311', 'internal-202405']
 CREATE_GRAPH_BRANCHES = ['internal-202012', 'internal-202205', 'internal-202305']
 ANSIBLE_INVENTORY_LIST = ['testbed.yaml', 'veos', 'wan_sonic_tb', 'wan_vtestbed.yaml']
 
@@ -335,7 +335,7 @@ if __name__ == "__main__":
     if is_pr_already_created:
         sys.exit(0)
 
-    for branch in TARGET_BRANCH:
+    for branch in TARGET_BRANCHES:
         logger.info("################################################################################################")
         logger.info(f"Comparing files between {SOURCE_BRANCH} and {branch}...")
         compare_and_create_pull_request(repo, repo_path, url_with_token, SOURCE_BRANCH, branch, graph_groups, graph_files, pull_request_info)
