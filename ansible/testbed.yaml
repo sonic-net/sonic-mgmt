@@ -224,7 +224,7 @@
   vm_base:
   dut:
     - sonic-s6100-dut1
-  inv_name: lab
+  inv_name: snappi-sonic
   auto_recover: 'True'
   comment: Batman
 
@@ -240,6 +240,6 @@
   dut:
     - sonic-s6100-dut1
     - sonic-s6100-dut2
-  inv_name: lab
+  inv_name: snappi-sonic
   auto_recover: 'True'
   comment: Batman
