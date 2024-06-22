@@ -137,8 +137,7 @@ stages:
         done
         echo "##vso[task.setvariable variable=TESTBED_LOCKED]Yes"
       env:
-          TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-          TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+        ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
       displayName: Lock Testbed
       condition: eq('${{ parameters.SKIP_LOCKING_TESTBED }}', 'false')
 
@@ -258,7 +257,6 @@ stages:
     - script: |
         python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
       env:
-          TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-          TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+        ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
       displayName: Release Testbed
       condition: eq('${{ parameters.SKIP_LOCKING_TESTBED }}', 'false')

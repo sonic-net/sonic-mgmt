@@ -36,6 +36,5 @@ stages:
           - script: |
               python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release -R
             env:
-                TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-                TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+              ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
             displayName: Release Testbed

@@ -221,8 +221,7 @@ jobs:
               wait_time=$(expr $wait_time + $INTERVAL)
           done
         env:
-            TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-            TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+          ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
         displayName: Lock Testbed
 
       - task: Bash@3
@@ -611,8 +610,7 @@ jobs:
               wait_time=$(expr $wait_time + $INTERVAL)
           done
         env:
-            TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-            TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+          ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
         displayName: Release Testbed
         condition: always()
 

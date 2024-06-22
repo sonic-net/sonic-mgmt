@@ -279,8 +279,7 @@ jobs:
           done
 
         env:
-          TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-          TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+          ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
         condition: ${{ parameters.LOCK_TESTBED }}
         displayName: Lock Testbed
 
@@ -933,8 +932,7 @@ jobs:
 
             python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
         env:
-            TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-            TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+          ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
 
       - task: Bash@3
         displayName: Upload Test Results
