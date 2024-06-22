@@ -69,8 +69,7 @@ jobs:
             fi
           displayName: Lock Testbed ${{ TESTBED_NAME }}
           env:
-              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+            ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
 
       # Run cleanup
       - script: |
@@ -179,6 +178,5 @@ jobs:
             python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ TESTBED_NAME }} -a release -f ${{ parameters.FORCE_LOCK }}
           displayName: Release Testbed ${{ TESTBED_NAME }}
           env:
-              TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
-              TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
+            ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
           condition: always()
