@@ -24,6 +24,12 @@ acl/test_acl.py:
     conditions:
       - "asic_type in ['mellanox'] and 'dualtor' in topo_name"
 
+acl/test_acl_l3v4v6.py:
+  skip:
+    reason: "Combined v4v6 L3 type ACL is supported on Marvell (Innovium) platform"
+    conditions:
+      - "asic_type not in ['innovium']"
+
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
