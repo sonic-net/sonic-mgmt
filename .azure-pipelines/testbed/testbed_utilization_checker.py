@@ -12,24 +12,23 @@ _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
 if base_path not in sys.path:
     sys.path.append(base_path)
-from nightly.templates.lock_release import get_token as get_token
 
-root = logging.getLogger()
-root.setLevel(logging.DEBUG)
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(levelname)s - %(message)s')
 handler.setFormatter(formatter)
-root.addHandler(handler)
+logger.addHandler(handler)
 
 server_host_map = {}
 
 TESTBED_FILE = "../../ansible/testbed.yaml"
-INVENTORY_POOL = ["../../ansible/str", 
-                  "../../ansible/str2", 
-                  "../../ansible/str3", 
-                  "../../ansible/strsvc", 
+INVENTORY_POOL = ["../../ansible/str",
+                  "../../ansible/str2",
+                  "../../ansible/str3",
+                  "../../ansible/strsvc",
                   "../../ansible/bjw",
                   "../../ansible/bjw2"]
 
@@ -77,7 +76,7 @@ def get_testbed_hwsku(testbed_utilization):
     return testbed_utilization
 
 
-def get_tbshare_resp(token, proxies):
+def get_testbed_status(token, proxies):
     url = 'https://sonic-elastictest-prod-management-webapp.azurewebsites.net/api/v1/testbeds/query_by_keyword?keyword=&testbed_type=PHYSICAL&page=1&page_size=2000'
     headers = {
         'Authorization': 'Bearer ' + token
@@ -98,12 +97,12 @@ def get_tbshare_resp(token, proxies):
     return result
 
 
-def parse_testbed_status_result(tbshare_resp, skip_testbeds):
+def parse_testbed_status_result(testbed_status, skip_testbeds):
     testbed_utilization = []
-    if "data" not in tbshare_resp:
+    if "data" not in testbed_status:
         return testbed_utilization
     upload_info = {}
-    for testbed_info in tbshare_resp["data"]:
+    for testbed_info in testbed_status["data"]:
         upload_info = {}
         if testbed_info["name"] not in skip_testbeds:
             upload_info["TestbedName"] = testbed_info["name"]
@@ -138,10 +137,10 @@ if __name__ == '__main__':
         'https': os.environ.get('http_proxy')
     }
 
-    token = get_token()
-    tbshare_resp = defaultdict(list)
-    tbshare_resp = get_tbshare_resp(token, proxies)
-    testbed_utilization = parse_testbed_status_result(tbshare_resp, skip_testbeds)
+    token = os.environ.get("ACCESS_TOKEN")
+    testbed_status = defaultdict(list)
+    testbed_status = get_testbed_status(token, proxies)
+    testbed_utilization = parse_testbed_status_result(testbed_status, skip_testbeds)
 
     if len(testbed_utilization) > 0:
         with open("testbed_utilization.json", "w") as f:
