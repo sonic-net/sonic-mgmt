@@ -1,0 +1,23 @@
+[sonic_dell64_40]
+sonic-s6100-dut1     ansible_host=10.251.0.233
+sonic-s6100-dut2     ansible_host=10.251.0.234
+
+[sonic_dell64_40:vars]
+hwsku="Force10-S6100"
+iface_speed='40000'
+
+[Server_6]
+snappi-sonic          ansible_host=10.251.0.234   os=snappi
+
+[sonic:children]
+sonic_dell64_40
+
+[sonic:vars]
+mgmt_subnet_mask_length='23'
+
+[snappi-sonic:children]
+sonic
+snappi_chassis
+
+[ptf]
+snappi-sonic-ptf     ansible_host='10.251.0.232'
