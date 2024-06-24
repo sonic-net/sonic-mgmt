@@ -628,6 +628,7 @@ class ReloadTest(BaseTest):
 
     def setUp(self):
         self.fails['dut'] = set()
+        self.fails['infrastructure'] = set()
         self.dut_mac = self.test_params['dut_mac']
         self.vlan_mac = self.test_params['vlan_mac']
         self.lo_prefix = self.test_params['lo_prefix']
@@ -1943,6 +1944,8 @@ class ReloadTest(BaseTest):
         self.lost_packets = dict()
         self.max_disrupt, self.total_disruption = 0, 0
         sent_packets = dict()
+        # Track packet id's that were neither sent or received
+        missing_sent_and_received_packet_id_sequences = []
         self.fails['dut'].add("Sniffer failed to capture any traffic")
         self.assertTrue(packets, "Sniffer failed to capture any traffic")
         self.fails['dut'].clear()
@@ -1998,7 +2001,7 @@ class ReloadTest(BaseTest):
                     lost_id = (received_payload - 1) - prev_payload
 
                     # Find previous sequential sent packet that was captured
-                    missing_sent_and_received_packet_ids = []
+                    missing_sent_and_received_pkt_count = 0
                     prev_pkt_pt = prev_payload + 1
                     prev_sent_packet_time = None
                     while prev_pkt_pt < received_payload:
@@ -2007,10 +2010,14 @@ class ReloadTest(BaseTest):
                             break  # Found it
                         except KeyError:
                             if prev_pkt_pt not in received_but_not_sent_packets:
-                                missing_sent_and_received_packet_ids.append(prev_pkt_pt)
+                                missing_sent_and_received_pkt_count += 1
                             prev_pkt_pt += 1
-                    if missing_sent_and_received_packet_ids:
-                        self.log("Missing sent and received packets: {}".format(missing_sent_and_received_packet_ids))
+                    if missing_sent_and_received_pkt_count > 0:
+                        missing_sent_and_received_packet_id_sequences_fmtd = \
+                            str(prev_payload + 1) if missing_sent_and_received_pkt_count == 1\
+                            else "{}-{}".format(prev_payload + 1, received_payload - 1)
+                        missing_sent_and_received_packet_id_sequences.append(
+                            missing_sent_and_received_packet_id_sequences_fmtd)
                     if prev_sent_packet_time is not None:
                         # Disruption occurred - some sent packets were not received
 
@@ -2068,6 +2075,11 @@ class ReloadTest(BaseTest):
             self.total_disrupt_packets = 0
             self.total_disrupt_time = 0
             self.log("Gaps in forwarding not found.")
+
+        if missing_sent_and_received_packet_id_sequences:
+            self.fails["infrastructure"].add(
+                "Missing sent and received packets: {}"
+                .format(missing_sent_and_received_packet_id_sequences))
 
         self.dataplane_loss_checked_successfully = True
 
