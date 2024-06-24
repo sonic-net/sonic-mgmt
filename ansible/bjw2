@@ -66,7 +66,45 @@ all:
           ansible_hostv6: 2404:f801:10:2200::a96:175d
     pdu:
       hosts:
-
+        bjw2-pdu-126-81:
+          ansible_host: 10.150.126.81
+          protocol: snmp
+        bjw2-pdu-126-82:
+          ansible_host: 10.150.126.82
+          protocol: snmp
+        bjw2-pdu-126-83:
+          ansible_host: 10.150.126.83
+          protocol: snmp
+        bjw2-pdu-126-84:
+          ansible_host: 10.150.126.84
+          protocol: snmp
+        bjw2-pdu-126-85:
+          ansible_host: 10.150.126.85
+          protocol: snmp
+        bjw2-pdu-126-86:
+          ansible_host: 10.150.126.86
+          protocol: snmp
+        bjw2-pdu-126-87:
+          ansible_host: 10.150.126.87
+          protocol: snmp
+        bjw2-pdu-126-88:
+          ansible_host: 10.150.126.88
+          protocol: snmp
+        bjw2-pdu-126-89:
+          ansible_host: 10.150.126.89
+          protocol: snmp
+        bjw2-pdu-126-90:
+          ansible_host: 10.150.126.90
+          protocol: snmp
+        bjw2-pdu-126-91:
+          ansible_host: 10.150.126.91
+          protocol: snmp
+        bjw2-pdu-126-94:
+          ansible_host: 10.150.126.94
+          protocol: snmp
+        bjw2-pdu-126-95:
+          ansible_host: 10.150.126.95
+          protocol: snmp
 
 fanout:
   hosts:
