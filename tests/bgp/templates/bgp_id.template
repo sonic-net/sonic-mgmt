@@ -1,4 +1,6 @@
-Value router_id (\d+.\d+.\d+.\d+)
+Value router_id (\d+\.\d+\.\d+\.\d+)
 
 Start
- ^BGP router identifier\s+${router_id}
+  ^.*BGP router identifier\s+${router_id} -> Record
+
+EOF
