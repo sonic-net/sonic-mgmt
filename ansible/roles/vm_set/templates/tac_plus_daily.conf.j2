@@ -16,7 +16,7 @@ group = netadmin {
     }
 }
 
-user = {{ ansible_ssh_user }} {
+user = {{ dut_host_user }} {
     login = des {{ tacacs_user_passwd }}
     member = netadmin
 }
