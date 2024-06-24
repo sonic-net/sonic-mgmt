@@ -1,62 +1,91 @@
 ---
-- name: Include SONiC cred
-  include_vars:
-    dir: "{{ playbook_dir }}/group_vars/all/"
+- name: Include tacacs_passkey
+  block:
+  - name: Get inventory folder name
+    set_fact: inv_file="{{ playbook_dir }}/group_vars/{{ inventory_file.split("/")[-1] }}/{{ inventory_file.split("/")[-1] }}.yml"
 
-- name: Include variables for PTF containers
-  include_vars:
-    dir: "{{ playbook_dir }}/group_vars/ptf_host/"
+  - debug: msg="inv_file {{ inv_file }}"
 
-- name: Get inventory name
-  set_fact: inv_name={{ inventory_file.split("/")[-1] }}
+  - name: Check inventory file exist
+    stat:
+      path: "{{ inv_file }}"
+    register: inventory_file
 
-- debug: msg="inventory_file {{ inventory_file }}"
+  - name: Include tacacs_passkey from inventory file
+    include_vars: "{{ inv_file }}"
+    when: inventory_file.stat.exists
 
-- name: Include variables for inventory
-  include_vars:
-    dir: "{{ playbook_dir }}/group_vars/{{ inv_name }}/"
+  - name: Include default tacacs_passkey
+    include_vars: "{{ playbook_dir }}/group_vars/lab/lab.yml"
+    when: tacacs_passkey is not defined
 
-- name: Include default tacacs passkey
-  include_vars: "{{ playbook_dir }}/group_vars/lab/lab.yml"
   when: tacacs_passkey is not defined
+
+- debug: msg="tacacs_passkey {{ tacacs_passkey }}"
 
 - name: Set ptf host
   set_fact:
     ptf_host: "ptf_{{ vm_set_name }}"
 
+- debug: msg="ptf_host {{ ptf_host }}"
 
-- name: Encrypt encrypted_sonic_password from secret_group_vars
+- name: Include duthost user name
   block:
+  - name: Set duthost user name
+    set_fact:
+      dut_host_user: "{{ secret_group_vars['str']['ansible_ssh_user'] }}"
 
-  - name: Encrypt TACACS password from secret_group_vars
-    shell: python3 -c "import crypt; print(crypt.crypt('{{secret_group_vars['str']['altpasswords'][0]}}', 'abc'))"
-    register: encrypted_sonic_password
-    delegate_to: "{{ ptf_host }}"
+    when:
+      - secret_group_vars is defined
+      - secret_group_vars['str'] is defined
+      - secret_group_vars['str']['ansible_ssh_user'] is defined
 
-  when:
-    - secret_group_vars is defined
-    - secret_group_vars['str'] is defined
-    - secret_group_vars['str']['altpasswords'] is defined
+  - name: Set default duthost user name from group_vars/lab/secrets.yml
+    block:
+    - name: Include sonicadmin_user from group_vars/lab/secrets.yml
+      include_vars: "{{ playbook_dir }}/group_vars/lab/secrets.yml"
 
+    - name: Set dut user name
+      set_fact:
+        dut_host_user: "{{ sonicadmin_user }}"
 
-- name: Encrypt encrypted_sonic_password from group_vars/sonic/variables
+    when:
+      - dut_host_user is not defined
+
+- debug: msg="dut_host_user {{ dut_host_user }}"
+
+- name: Include duthost password
   block:
-  - name: Include ansible_altpassword from group_vars/sonic/variables
-    include_vars: "{{ playbook_dir }}/group_vars/sonic/variables"
+  - name: Encrypt encrypted_sonic_password from secret_group_vars
+    block:
 
-  - name: Encrypt TACACS password from ansible_altpassword
-    shell: python3 -c "import crypt; print(crypt.crypt('{{ansible_altpassword}}', 'abc'))"
-    register: encrypted_sonic_password
-    delegate_to: "{{ ptf_host }}"
+    - name: Encrypt TACACS password from secret_group_vars
+      shell: python3 -c "import crypt; print(crypt.crypt('{{secret_group_vars['str']['altpasswords'][0]}}', 'abc'))"
+      register: encrypted_sonic_password
+      delegate_to: "{{ ptf_host }}"
 
-  when:
-    - tacacs_user_passwd is not defined
+    when:
+      - secret_group_vars is defined
+      - secret_group_vars['str'] is defined
+      - secret_group_vars['str']['altpasswords'] is defined
 
-- name: Set TACACS password from encrypted_sonic_password
-  set_fact:
-    tacacs_user_passwd: '{{ encrypted_sonic_password.stdout }}'
+  - name: Encrypt default encrypted_sonic_password from group_vars/lab/secrets.yml
+    block:
+    - name: Include sonicadmin_password from group_vars/lab/secrets.yml
+      include_vars: "{{ playbook_dir }}/group_vars/lab/secrets.yml"
 
-- debug: msg="ansible_ssh_user {{ ansible_ssh_user }}"
+    - name: Encrypt TACACS password from sonicadmin_password
+      shell: python3 -c "import crypt; print(crypt.crypt('{{sonicadmin_password}}', 'abc'))"
+      register: encrypted_sonic_password
+      delegate_to: "{{ ptf_host }}"
+
+    when:
+      - tacacs_user_passwd is not defined
+
+  - name: Set TACACS password from encrypted_sonic_password
+    set_fact:
+      tacacs_user_passwd: '{{ encrypted_sonic_password.stdout }}'
+
 - debug: msg="tacacs_user_passwd {{ tacacs_user_passwd }}"
 
 - block:
