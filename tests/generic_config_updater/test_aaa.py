@@ -431,6 +431,7 @@ def test_tc2_tacacs_global_suite(rand_selected_dut):
     """ This test is for default setting when configDB doesn't
         contian TACACS table. So we remove TACACS config at first.
     """
+    aaa_add_init_config_without_table(rand_selected_dut)
     tacacs_add_init_config_without_table(rand_selected_dut)
     tacacs_global_tc2_add_config(rand_selected_dut)
     tacacs_global_tc2_invalid_input(rand_selected_dut)
