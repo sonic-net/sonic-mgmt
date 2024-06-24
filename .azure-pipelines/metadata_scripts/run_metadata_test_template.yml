@@ -168,23 +168,32 @@ stages:
                 print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
                 print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
-          - script: |
-              TIMEOUT=7200
-              INTERVAL=60
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                pwd
 
-              wait_time=0
-              cd sonic-mgmt-int
-              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock; do
-                  if (( $wait_time >= $TIMEOUT)); then
-                      echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
-                      exit 1
-                  fi
-                  echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
-                  sleep $INTERVAL
-                  wait_time=$(expr $wait_time + $INTERVAL)
-              done
-            env:
-              ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
+                accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+
+                TIMEOUT=7200
+                INTERVAL=60
+
+                wait_time=0
+                cd sonic-mgmt-int
+                until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock; do
+
+                    if (( $wait_time >= $TIMEOUT)); then
+                        echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                        exit 1
+                    fi
+                    echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+                    sleep $INTERVAL
+                    wait_time=$(expr $wait_time + $INTERVAL)
+                done
             displayName: Lock Testbed
 
           - task: Bash@3
@@ -429,22 +438,31 @@ stages:
               searchFolder: '$(system.defaultworkingdirectory)/sonic-mgmt-int'
             condition: always()
 
-          - script: |
-              TIMEOUT=300
-              INTERVAL=60
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                pwd
 
-              wait_time=0
-              until python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release; do
-                  if (( $wait_time >= $TIMEOUT)); then
-                      echo "Failed to release testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
-                      exit 1
-                  fi
-                  echo "Release testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
-                  sleep $INTERVAL
-                  wait_time=$(expr $wait_time + $INTERVAL)
-              done
-            env:
-              ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
+                accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+
+                TIMEOUT=300
+                INTERVAL=60
+
+                wait_time=0
+                until python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release; do
+
+                    if (( $wait_time >= $TIMEOUT)); then
+                        echo "Failed to release testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                        exit 1
+                    fi
+                    echo "Release testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+                    sleep $INTERVAL
+                    wait_time=$(expr $wait_time + $INTERVAL)
+                done
             displayName: Release Testbed
             condition: always()
 

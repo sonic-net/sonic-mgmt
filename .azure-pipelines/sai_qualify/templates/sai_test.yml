@@ -263,23 +263,31 @@ jobs:
           TESTBED_FILE: ${{ parameters.TESTBED_FILE }}
           BUILD_ID: $(Build.BuildId)
 
-      - script: |
-          TIMEOUT=600
-          INTERVAL=60
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: "SONiC-Automation"
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            pwd
 
-          wait_time=0
-          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "${{ parameters.LOCK_TESTBED_REASON }}" -f no; do
-              if (( $wait_time >= $TIMEOUT)); then
-                  echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
-                  exit 1
-              fi
-              echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
-              sleep $INTERVAL
-              wait_time=$(expr $wait_time + $INTERVAL)
-          done
+            accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+            export ACCESS_TOKEN=$accessToken
 
-        env:
-          ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
+            TIMEOUT=600
+            INTERVAL=60
+
+            wait_time=0
+            until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o ${{ parameters.TESTBED_LOCK_HOUR }} -r "${{ parameters.LOCK_TESTBED_REASON }}" -f no; do
+
+                if (( $wait_time >= $TIMEOUT)); then
+                    echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                    exit 1
+                fi
+                echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+                sleep $INTERVAL
+                wait_time=$(expr $wait_time + $INTERVAL)
+            done
         condition: ${{ parameters.LOCK_TESTBED }}
         displayName: Lock Testbed
 
@@ -922,17 +930,20 @@ jobs:
           INVENTORY_NAME: $(INVENTORY_NAME)
           ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
 
-      - task: Bash@3
+      - task: AzureCLI@2
         condition: and(${{ parameters.LOCK_TESTBED }}, eq(variables.TESTBED_LOCKED, 'locked'))
         displayName: Release Testbed
         inputs:
-          targetType: 'inline'
-          script: |
-            set -x
+          azureSubscription: "SONiC-Automation"
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            pwd
+
+            accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+            export ACCESS_TOKEN=$accessToken
 
             python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
-        env:
-          ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
 
       - task: Bash@3
         displayName: Upload Test Results
