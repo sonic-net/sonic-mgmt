@@ -1951,7 +1951,7 @@ class ReloadTest(BaseTest):
         self.fails['dut'].clear()
         prev_payload = None
         if packets:
-            prev_payload, prev_time = 0, 0
+            prev_payload, prev_time = -1, 0
             sent_payload = 0
             received_counter = 0    # Counts packets from dut.
             received_but_not_sent_packets = set()
