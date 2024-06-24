@@ -40,6 +40,30 @@ all:
         bjw2-1-8:
           ansible_host: 10.150.23.85
           ansible_hostv6: 2404:f801:10:2200::a96:1755
+        bjw2-1-9:
+          ansible_host: 10.150.23.86
+          ansible_hostv6: 2404:f801:10:2200::a96:1756
+        bjw2-1-a:
+          ansible_host: 10.150.23.87
+          ansible_hostv6: 2404:f801:10:2200::a96:1757
+        bjw2-1-b:
+          ansible_host: 10.150.23.88
+          ansible_hostv6: 2404:f801:10:2200::a96:1758
+        bjw2-1-c:
+          ansible_host: 10.150.23.89
+          ansible_hostv6: 2404:f801:10:2200::a96:1759
+        bjw2-1-d:
+          ansible_host: 10.150.23.90
+          ansible_hostv6: 2404:f801:10:2200::a96:175a
+        bjw2-1-e:
+          ansible_host: 10.150.23.91
+          ansible_hostv6: 2404:f801:10:2200::a96:175b
+        bjw2-1-f:
+          ansible_host: 10.150.23.92
+          ansible_hostv6: 2404:f801:10:2200::a96:175c
+        bjw2-1-g:
+          ansible_host: 10.150.23.93
+          ansible_hostv6: 2404:f801:10:2200::a96:175d
     pdu:
       hosts:
 
@@ -252,39 +276,83 @@ sonic_nokia_7215:
     bjw2-can-7215-1:
       ansible_host: 10.150.22.167
       ansible_hostv6: 2404:f801:10:2200::a96:16a7
-      hwsku:
-      model:
-      serial:
-      base_mac:
+      hwsku: Nokia-7215
+      model: 3HE16794AARE01
+      serial: NK234511155
+      base_mac: 8C:7A:00:F7:1D:F3
       syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARE01"
+        "0x23": "NK234511155"
+        "0x24": "8C:7A:00:F7:1D:F3"
+        "0x25": "11/11/2023 00:34:45"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.2"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
+        "0xFE": "0x7883DCDB"
     bjw2-can-7215-2:
       ansible_host: 10.150.22.169
       ansible_hostv6: 2404:f801:10:2200::a96:16a9
-      hwsku:
-      model:
-      serial:
-      base_mac:
+      hwsku: Nokia-7215
+      model: 3HE16794AARE01
+      serial: NK234511180
+      base_mac: 8C:7A:00:F7:24:33
       syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARE01"
+        "0x23": "NK234511180"
+        "0x24": "8C:7A:00:F7:24:33"
+        "0x25": "11/11/2023 01:13:18"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.2"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
+        "0xFE": "0xD2EC7DD5"
     bjw2-can-7215-3:
       ansible_host: 10.150.22.171
       ansible_hostv6: 2404:f801:10:2200::a96:16ab
-      hwsku:
-      model:
-      serial:
-      base_mac:
+      hwsku: Nokia-M0-7215
+      model: 3HE16794AARE01
+      serial: NK234510330
+      base_mac: 8C:7A:00:F6:E6:73
       syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARE01"
+        "0x23": "NK234510330"
+        "0x24": "8C:7A:00:F6:E6:73"
+        "0x25": "11/08/2023 22:07:26"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.2"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
+        "0xFE": "0xB4201E25"
     bjw2-can-7215-4:
       ansible_host: 10.150.22.173
       ansible_hostv6: 2404:f801:10:2200::a96:16ad
-      hwsku:
-      model:
-      serial:
-      base_mac:
+      hwsku: Nokia-M0-7215
+      model: 3HE16794AARE01
+      serial: NK234510338
+      base_mac: 8C:7A:00:F6:E8:73
       syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARE01"
+        "0x23": "NK234510338"
+        "0x24": "8C:7A:00:F6:E8:73"
+        "0x25": "11/08/2023 22:07:26"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.2"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
+        "0xFE": "0x84C1940D"
     bjw2-can-7215-5:
       ansible_host: 10.150.22.175
       ansible_hostv6: 2404:f801:10:2200::a96:16af
-      hwsku:
+      hwsku: Nokia-M0-7215
       model:
       serial:
       base_mac:
@@ -292,7 +360,7 @@ sonic_nokia_7215:
     bjw2-can-7215-6:
       ansible_host: 10.150.22.177
       ansible_hostv6: 2404:f801:10:2200::a96:166e
-      hwsku:
+      hwsku: Nokia-M0-7215
       model:
       serial:
       base_mac:
@@ -300,7 +368,7 @@ sonic_nokia_7215:
     bjw2-can-7215-7:
       ansible_host: 10.150.22.179
       ansible_hostv6: 2404:f801:10:2200::a96:16b1
-      hwsku:
+      hwsku: Nokia-M0-7215
       model:
       serial:
       base_mac:
@@ -308,7 +376,7 @@ sonic_nokia_7215:
     bjw2-can-7215-8:
       ansible_host: 10.150.22.181
       ansible_hostv6: 2404:f801:10:2200::a96:16b3
-      hwsku:
+      hwsku: Nokia-M0-7215
       model:
       serial:
       base_mac:
