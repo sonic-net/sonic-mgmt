@@ -155,8 +155,9 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
     # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
     if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
-        return
-    assert sfp_presence['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+        pass
+    else:
+        assert sfp_presence['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
 
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
