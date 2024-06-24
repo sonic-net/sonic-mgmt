@@ -29,12 +29,12 @@ class TestContLinkFlap(object):
     TestContLinkFlap class for continuous link flap
     """
 
-    def get_bgp_memory_usage(self, duthost):
-        bgp_memory_output = duthost.shell('vtysh -c "show memory bgp"')["stdout"]
-        logging.info("BGP Memory Status: \n%s", bgp_memory_output)
-        bgp_memory = duthost.shell(
-            'vtysh -c "show memory bgp" | grep "Used ordinary blocks"')["stdout"].split()[-2]
-        return bgp_memory
+    def get_frr_daemon_memory_usage(self, duthost, daemon):
+        frr_daemon_memory_output = duthost.shell(f'vtysh -c "show memory {daemon}"')["stdout"]
+        logging.info(f"{daemon} memory status: \n%s", frr_daemon_memory_output)
+        frr_daemon_memory = duthost.shell(
+            f'vtysh -c "show memory {daemon}" | grep "Used ordinary blocks"')["stdout"].split()[-2]
+        return frr_daemon_memory
 
     def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname,
                             fanouthosts, bring_up_dut_interfaces, tbinfo):
@@ -46,11 +46,11 @@ class TestContLinkFlap(object):
                 to cause BGP Flaps.
             2.) Flap all interfaces on peer (FanOutLeaf) one by one 1-3 iteration
                 to cause BGP Flaps.
-            3.) Watch for memory (show system-memory), BGP memory(vtysh -c "show memory bgp"),
+            3.) Watch for memory (show system-memory), FRR daemons memory(vtysh -c "show memory bgp/zebra"),
                 orchagent CPU Utilization and Redis_memory.
 
-        Pass Criteria: All routes must be re-learned with < 5% increase in Redis and
-            ORCH agent CPU consumption below threshold after 3 mins after stopping flaps. No bgp memory increment.
+        Pass Criteria: All routes must be re-learned with < 5% increase in Redis/FRR memory usage and
+            ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         duthost.command("sonic-clear arp")
@@ -77,9 +77,12 @@ class TestContLinkFlap(object):
         logging.info("IPv4 routes: start {}, summary {}".format(start_time_ipv4_route_counts, sumv4))
         logging.info("IPv6 routes: start {}, summary {}".format(start_time_ipv6_route_counts, sumv6))
 
-        # Record BGP memory status at start
-        start_time_bgp_memory = self.get_bgp_memory_usage(duthost)
-        logging.info("BGP Memory Usage at start: \n%s", start_time_bgp_memory)
+        # Record FRR daemons memory status at start
+        frr_demons_to_check = ['bgpd', 'zebra']
+        start_time_frr_daemon_memory = {}
+        for daemon in frr_demons_to_check:
+            start_time_frr_daemon_memory[daemon] = self.get_frr_daemon_memory_usage(duthost, daemon)
+            logging.info(f"{daemon} memory usage at start: \n%s", start_time_frr_daemon_memory[daemon])
 
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
         logging.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
@@ -143,21 +146,26 @@ class TestContLinkFlap(object):
         memory_output = duthost.shell("show system-memory")["stdout"]
         logging.info("Memory Status at end: %s", memory_output)
 
-        # Record BGP memory status at end
-        end_time_bgp_memory = self.get_bgp_memory_usage(duthost)
-        logging.info("BGP Memory Usage at end: \n%s", end_time_bgp_memory)
+        # Check the FRR daemons memory usage at end
+        end_time_frr_daemon_memory = {}
+        incr_frr_daemon_memory_threshold = 10 if tbinfo["topo"]["type"] in ["m0", "mx"] else 5
+        for daemon in frr_demons_to_check:
+            # Record FRR daemon memory status at end
+            end_time_frr_daemon_memory[daemon] = self.get_frr_daemon_memory_usage(duthost, daemon)
+            logging.info(f"{daemon} memory usage at end: \n%s", end_time_frr_daemon_memory[daemon])
 
-        # Calculate diff in BGP memory
-        incr_bgp_memory = float(end_time_bgp_memory) - float(start_time_bgp_memory)
-        logging.info("BGP absolute difference: %d", incr_bgp_memory)
+            # Calculate diff in FRR daemon memory
+            incr_frr_daemon_memory = \
+                float(end_time_frr_daemon_memory[daemon]) - float(start_time_frr_daemon_memory[daemon])
+            logging.info(f"{daemon} absolute difference: %d", incr_frr_daemon_memory)
 
-        # Check BGP memory only if it is increased else default to pass
-        if incr_bgp_memory > 0:
-            percent_incr_bgp_memory = (incr_bgp_memory / float(start_time_bgp_memory)) * 100
-            logging.info("BGP Memory percentage Increase: %d", percent_incr_bgp_memory)
-            incr_bgp_memory_threshold = 10 if tbinfo["topo"]["type"] in ["m0", "mx"] else 5
-            pytest_assert(percent_incr_bgp_memory < incr_bgp_memory_threshold,
-                          "BGP Memory Increase more than expected: {}".format(percent_incr_bgp_memory))
+            # Check FRR daemon memory only if it is increased else default to pass
+            if incr_frr_daemon_memory > 0:
+                percent_incr_frr_daemon_memory = \
+                    (incr_frr_daemon_memory / float(start_time_frr_daemon_memory[daemon])) * 100
+                logging.info(f"{daemon} memory percentage increase: %d", percent_incr_frr_daemon_memory)
+                pytest_assert(percent_incr_frr_daemon_memory < incr_frr_daemon_memory_threshold,
+                              f"{daemon} memory increase more than expected: {incr_frr_daemon_memory_threshold}")
 
         # Record orchagent CPU utilization at end
         orch_cpu = duthost.shell(
