@@ -16,7 +16,6 @@ import pytest
 import six
 from . import util
 from pkg_resources import parse_version
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
@@ -251,9 +250,7 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     # We will return in advance if this test case is running on kvm testbed
     if duthost.facts["asic_type"] == "vs" and psu_status_output["rc"] == 1:
         return
-
-    if psu_status_output["rc"] != 0:
-        raise RunAnsibleModuleFail("run command {} failed".format(cmd), psu_status_output)
+    assert psu_status_output['rc'] == 0, "Run command '{}' failed".format(cmd)
 
     psu_status_output_lines = psu_status_output["stdout_lines"]
 
@@ -296,9 +293,7 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     # We will return in advance if this test case is running on kvm testbed
     if duthost.facts["asic_type"] == "vs" and psu_status_output["rc"] == 1:
         return
-
-    if psu_status_output["rc"] != 0:
-        raise RunAnsibleModuleFail("run command {} failed".format(cmd), psu_status_output)
+    assert psu_status_output['rc'] == 0, "Run command '{}' failed".format(cmd)
 
     psu_status_output = psu_status_output["stdout"]
 
@@ -331,7 +326,6 @@ def verify_show_platform_fan_output(duthost, raw_output_lines):
     else:
         num_expected_clos = 6
     fans = {}
-
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output on '{}'".
                   format(duthost.hostname))
     if len(raw_output_lines) == 1:
