@@ -82,10 +82,9 @@ bfd/test_bfd.py::test_bfd_scale:
 
 bfd/test_bfd_static_route.py:
   skip:
-    reason: "Only supported on chassis system & cisco platform."
+    reason: "Only supported on multi-asic system & Cisco LCs."
     conditions:
-      - "is_multi_asic is False"
-      - "asic_type in ['cisco-8000']"
+      - "(is_multi_asic is False) or (hwsku not in ['Cisco-88-LC0-36FH-M-O36', 'Cisco-8800-LC-48H-C48', 'Cisco-88-LC0-36FH-O36'])"
 
 #######################################
 #####            bgp              #####
@@ -130,7 +129,7 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
   skip:
     reason: "Skip it on dual tor since it got stuck during warm reboot due to known issue on master and internal image"
     conditions:
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56']"
       - https://github.com/sonic-net/sonic-mgmt/issues/9201
 
 bgp/test_bgp_speaker.py:
@@ -267,9 +266,9 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
   skip:
     conditions_logical_operator: or
-    reason: "Not supported on backend, broadcom before 202012 release, innovium and x86_64-8111_32eh_o-r0 platform. Skip 7260CX3 T1 topo in 202305 release"
+    reason: "Not supported on backend, broadcom before 202012 release, innovium platform. Skip 7260CX3 T1 topo in 202305 release"
     conditions:
-      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium'] or platform in ['x86_64-8111_32eh_o-r0']"
+      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium']"
       - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
@@ -484,7 +483,7 @@ ecmp/inner_hashing/test_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -495,7 +494,7 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -506,7 +505,7 @@ ecmp/inner_hashing/test_wr_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -517,7 +516,7 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -1061,7 +1060,7 @@ platform_tests/test_cont_warm_reboot.py:
 
 platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked:
   skip:
-    reason: "Test not supported on Mellanox Platforms."
+    reason: "Test disabled on Mellanox platforms as it could be un-stable and interfered by the thermal algorithm."
     conditions:
       - "asic_type in ['mellanox']"
 
@@ -1073,19 +1072,19 @@ platform_tests/test_platform_info.py::test_show_platform_temperature_mocked:
 
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
   skip:
-    reason: "Test not supported on Mellanox Platforms."
+    reason: "Test disabled on Mellanox platforms as it could be un-stable and interfered by the thermal algorithm."
     conditions:
       - "asic_type in ['mellanox']"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json:
   skip:
-    reason: "Test not supported on Mellanox Platforms."
+    reason: "Test not required on Mellanox Platforms as all thermal policies have been removed from thermalctld"
     conditions:
       - "asic_type in ['mellanox']"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
   skip:
-    reason: "Test not supported on Mellanox Platforms."
+    reason: "Test not required on Mellanox Platforms as all thermal policies have been removed from thermalctld"
     conditions:
       - "asic_type in ['mellanox']"
 
@@ -1224,6 +1223,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
     reason: "Skip DWRR weight change test on Mellanox platform."
     conditions:
       - "asic_type in ['mellanox']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity:
+  skip:
+    reason: "Unsupported platform or testbed type."
+    conditions:
+      - "asic_type not in ['cisco-8000'] or topo_name not in ['ptf64']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
   skip:

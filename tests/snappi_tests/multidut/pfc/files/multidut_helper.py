@@ -103,7 +103,7 @@ def run_pfc_test(api,
                                                                      port_id=port_id)
 
     speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
+    speed_gbps = int(float(speed_str.split('_')[1]))
 
     if snappi_extra_params.headroom_test_params is not None:
         DATA_FLOW_DURATION_SEC += 10
@@ -265,6 +265,7 @@ def run_pfc_test(api,
     # Verify PFC pause frame count on the DUT
     verify_pause_frame_count_dut(duthost=duthost,
                                  test_traffic_pause=test_traffic_pause,
+                                 global_pause=global_pause,
                                  snappi_extra_params=snappi_extra_params)
 
     # Verify in flight TX lossless packets do not leave the DUT when traffic is expected

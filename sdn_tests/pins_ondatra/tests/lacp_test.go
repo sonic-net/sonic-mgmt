@@ -25,7 +25,7 @@ import (
 const defaultGNMIWait = 15 * time.Second
 
 // IEEE 802.3ad defines the Link Aggregation standard used by LACP where connected ports can
-// exchange control packets between each other. Based on these packets the switch can group matching
+// experimental control packets between each other. Based on these packets the switch can group matching
 // ports into a LAG/Trunk/PortChannel.
 //
 // Local state is maintained for each member of a LAG to monitor the health of that given member.
