@@ -16,6 +16,7 @@ import pytest
 import six
 from . import util
 from pkg_resources import parse_version
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
@@ -110,7 +111,13 @@ def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars
     get_serial_no_cmd = duthost.command(cmd)
     logging.info("Verifying output of '{}' on '{}' ...".format(get_serial_no_cmd, duthost.hostname))
     get_serial_no_output = get_serial_no_cmd["stdout"].replace('\x00', '')
-    expected_serial_no = dut_vars['serial']
+    expected_serial_no = dut_vars.get('serial', "")
+
+    # For kvm testbed, command `sudo decode-syseeprom -s` will return the string `Failed to read system EEPROM info`
+    # So let this function return before the final comparison
+    if duthost.facts["asic_type"] == "vs":
+        return
+
     pytest_assert(get_serial_no_output == expected_serial_no,
                   "Expected serial_no '{}' is not matching with {} in syseeprom on '{}'".
                   format(expected_serial_no, get_serial_no_output, duthost.hostname))
@@ -237,7 +244,18 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
-    psu_status_output_lines = duthost.command(cmd)["stdout_lines"]
+    psu_status_output = duthost.command(cmd, module_ignore_errors=True)
+
+    # For kvm testbed, there is no key "PSU_INFO" in "STATE_DB"
+    # And it will raise Error when executing such command
+    # We will return in advance if this test case is running on kvm testbed
+    if duthost.facts["asic_type"] == "vs" and psu_status_output["rc"] == 1:
+        return
+
+    if psu_status_output["rc"] != 0:
+        raise RunAnsibleModuleFail("run command {} failed".format(cmd), psu_status_output)
+
+    psu_status_output_lines = psu_status_output["stdout_lines"]
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
@@ -271,7 +289,19 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus", "--json"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
-    psu_status_output = duthost.command(cmd)["stdout"]
+    psu_status_output = duthost.command(cmd, module_ignore_errors=True)
+
+    # For kvm testbed, there is no key "PSU_INFO" in "STATE_DB"
+    # And it will raise Error when executing such command
+    # We will return in advance if this test case is running on kvm testbed
+    if duthost.facts["asic_type"] == "vs" and psu_status_output["rc"] == 1:
+        return
+
+    if psu_status_output["rc"] != 0:
+        raise RunAnsibleModuleFail("run command {} failed".format(cmd), psu_status_output)
+
+    psu_status_output = psu_status_output["stdout"]
+
     psu_info_list = json.loads(psu_status_output)
 
     # TODO: Compare against expected platform-specific output
@@ -301,6 +331,7 @@ def verify_show_platform_fan_output(duthost, raw_output_lines):
     else:
         num_expected_clos = 6
     fans = {}
+
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output on '{}'".
                   format(duthost.hostname))
     if len(raw_output_lines) == 1:
@@ -339,7 +370,8 @@ def check_fan_status(duthost, cmd):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if not fans and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
         return True
-
+    if duthost.facts["asic_type"] == "vs":
+        return True
     # Check that all fans are showing valid status and also at-least one PSU is OK.
     num_fan_ok = 0
     for a_fan in list(fans.values()):
@@ -463,6 +495,12 @@ def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
     pcieinfo_output_lines = duthost.command(cmd)["stdout_lines"]
+
+    # For kvm testbed, there is no file `/usr/share/sonic/device/x86_64-kvm_x86_64-r0/pcie.yaml`
+    # So running such command will get the error `No such file or directory`
+    # Return in advance if this test case is running on kvm testbed
+    if duthost.facts["asic_type"] == "vs":
+        return
 
     passed_check_regexp = r'\[Passed\]|PASSED'
     for line in pcieinfo_output_lines[1:]:
