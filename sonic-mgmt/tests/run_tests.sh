@@ -199,9 +199,9 @@ function setup_test_options()
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} -k ${TEST_FILTER}"
     fi
 
-    if [[ -d ${LOG_PATH} ]]; then
-        rm -rf ${LOG_PATH}
-    fi
+    #if [[ -d ${LOG_PATH} ]]; then
+    #    rm -rf ${LOG_PATH}
+    #fi
 
     if [[ x"${OMIT_FILE_LOG}" == x"True" ]]; then
         PRET_LOGGING_OPTIONS=""
