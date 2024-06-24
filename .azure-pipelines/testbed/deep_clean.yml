@@ -58,18 +58,24 @@ jobs:
 
       # Loop through each testbed to lock it
       - ${{ each TESTBED_NAME in SERVER.value.testbeds }}:
-        - script: |
-            set -x
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: "SONiC-Automation"
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              pwd
 
-            # Deep clean is disruptive, do not force lock to allow people keep their testbeds in weekend
-            python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ TESTBED_NAME }} -a lock -o 6 -r 'Deep clean' -f ${{ parameters.FORCE_LOCK }} -b yes
-            RC=$?
-            if [[ $RC != 0 ]]; then
-              echo ${{ TESTBED_NAME }} >> ansible/lockTestbedFailed
-            fi
+              accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+              export ACCESS_TOKEN=$accessToken
+
+              # Deep clean is disruptive, do not force lock to allow people keep their testbeds in weekend
+              python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ TESTBED_NAME }} -a lock -o 6 -r 'Deep clean' -f ${{ parameters.FORCE_LOCK }} -b yes
+              RC=$?
+              if [[ $RC != 0 ]]; then
+                echo ${{ TESTBED_NAME }} >> ansible/lockTestbedFailed
+              fi
           displayName: Lock Testbed ${{ TESTBED_NAME }}
-          env:
-            ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
 
       # Run cleanup
       - script: |
@@ -173,10 +179,17 @@ jobs:
 
       # Loop through each testbed to release it
       - ${{ each TESTBED_NAME in SERVER.value.testbeds }}:
-        - script: |
-            set -x
-            python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ TESTBED_NAME }} -a release -f ${{ parameters.FORCE_LOCK }}
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: "SONiC-Automation"
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              pwd
+
+              accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+              export ACCESS_TOKEN=$accessToken
+
+              python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ TESTBED_NAME }} -a release -f ${{ parameters.FORCE_LOCK }}
           displayName: Release Testbed ${{ TESTBED_NAME }}
-          env:
-            ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
           condition: always()

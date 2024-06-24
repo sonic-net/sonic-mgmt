@@ -33,8 +33,16 @@ stages:
             value: true
         steps:
 
-          - script: |
-              python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release -R
-            env:
-              ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                pwd
+
+                accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+
+                python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release -R
             displayName: Release Testbed

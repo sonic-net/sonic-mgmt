@@ -121,23 +121,33 @@ stages:
           print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
           print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
-    - script: |
-        set -ex
-        TIMEOUT=7200
-        INTERVAL=60
-        wait_time=0
-        until python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r UpgradePathAZP -o 48; do
-            if (( $wait_time >= $TIMEOUT )); then
-                echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
-                exit 1
-            fi
-            echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
-            sleep $INTERVAL
-            wait_time=$(expr $wait_time + $INTERVAL)
-        done
-        echo "##vso[task.setvariable variable=TESTBED_LOCKED]Yes"
-      env:
-        ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: "SONiC-Automation"
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          pwd
+
+          accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+          export ACCESS_TOKEN=$accessToken
+
+          set -e
+
+          TIMEOUT=7200
+          INTERVAL=60
+          wait_time=0
+          until python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r UpgradePathAZP -o 48; do
+
+              if (( $wait_time >= $TIMEOUT )); then
+                  echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                  exit 1
+              fi
+              echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+              sleep $INTERVAL
+              wait_time=$(expr $wait_time + $INTERVAL)
+          done
+          echo "##vso[task.setvariable variable=TESTBED_LOCKED]Yes"
       displayName: Lock Testbed
       condition: eq('${{ parameters.SKIP_LOCKING_TESTBED }}', 'false')
 
@@ -254,9 +264,17 @@ stages:
           http_proxy='' https_proxy='' ./testbed-cli.sh -k ceos add-topo ${{ parameters.TESTBED_NAME }} password.txt
       condition: and(eq(variables['TESTBED_LOCKED'], 'Yes'), eq('${{ parameters.VM_TYPE }}', 'vsonic'))
 
-    - script: |
-        python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
-      env:
-        ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: "SONiC-Automation"
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          pwd
+
+          accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+          export ACCESS_TOKEN=$accessToken
+
+          python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
       displayName: Release Testbed
       condition: eq('${{ parameters.SKIP_LOCKING_TESTBED }}', 'false')
