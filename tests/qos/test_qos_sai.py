@@ -136,7 +136,11 @@ class TestQosSai(QosSaiBase):
         'Force10-S6100',
         'Arista-7260CX3-Q64',
         'Arista-7050CX3-32S-C32',
-        'Arista-7050CX3-32S-D48C8'
+        'Arista-7050CX3-32S-D48C8',
+        'Wistron_sw_to3200k',
+        'wistron_6512_32r',
+        'Wistron_sw_to3200k_32x100',
+        'wistron_6512_32r_32x100'
     ]
 
     @pytest.fixture(scope='function')
