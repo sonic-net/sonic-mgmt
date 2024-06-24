@@ -15,7 +15,8 @@ from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_sn
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.snappi_tests.variables import dut_ip_start, snappi_ip_start, prefix_length, \
-    dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
+    dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, pfcQueueGroupSize, \
+    pfcQueueValueDict
 logger = logging.getLogger(__name__)
 
 
@@ -406,14 +407,26 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
 
     pfc = l1_config.flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0
-    pfc.pfc_class_0 = 0
-    pfc.pfc_class_1 = 1
-    pfc.pfc_class_2 = 2
-    pfc.pfc_class_3 = 3
-    pfc.pfc_class_4 = 4
-    pfc.pfc_class_5 = 5
-    pfc.pfc_class_6 = 6
-    pfc.pfc_class_7 = 7
+    if pfcQueueGroupSize == 8:
+        pfc.pfc_class_0 = 0
+        pfc.pfc_class_1 = 1
+        pfc.pfc_class_2 = 2
+        pfc.pfc_class_3 = 3
+        pfc.pfc_class_4 = 4
+        pfc.pfc_class_5 = 5
+        pfc.pfc_class_6 = 6
+        pfc.pfc_class_7 = 7
+    elif pfcQueueGroupSize == 4:
+        pfc.pfc_class_0 = pfcQueueValueDict[0]
+        pfc.pfc_class_1 = pfcQueueValueDict[1]
+        pfc.pfc_class_2 = pfcQueueValueDict[2]
+        pfc.pfc_class_3 = pfcQueueValueDict[3]
+        pfc.pfc_class_4 = pfcQueueValueDict[4]
+        pfc.pfc_class_5 = pfcQueueValueDict[5]
+        pfc.pfc_class_6 = pfcQueueValueDict[6]
+        pfc.pfc_class_7 = pfcQueueValueDict[7]
+    else:
+        pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
 
     port_config_list = []
 
