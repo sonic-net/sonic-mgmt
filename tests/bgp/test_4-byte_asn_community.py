@@ -283,25 +283,22 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
                               enum_rand_one_frontend_asic_index, request)
         return
     duthost = duthosts[enum_frontend_dut_hostname]
-    asic_index = enum_rand_one_frontend_asic_index
-
-    if duthost.is_multi_asic:
-        cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
-    else:
-        cli_options = ''
-
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
     logger.debug("Neighbor is: {}".format(neigh))
-
+    tb_VMs=tbinfo['topo']['properties']['topology']['VMs'].keys()
     neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    asic_namespace = next(
+        (info['namespace'] for info in mg_facts['minigraph_neighbors'].values() if info['name'] == neigh), None)
+    asic_index = duthost.get_asic_id_from_namespace(asic_namespace)
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
-    neigh_asn = dict()
 
+    neigh_asn = dict()
     # verify sessions are established and gather neighbor information
     for k, v in bgp_facts['bgp_neighbors'].items():
-        if v['description'].lower() not in skip_hosts:
+        if v['description'].lower() not in skip_hosts and v['description'] in tb_VMs:
             if v['description'] == neigh:
                 if v['ip_version'] == 4:
                     neigh_ip_v4 = k
@@ -312,6 +309,10 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
             assert v['state'] == 'established'
             neigh_asn[v['description']] = v['remote AS']
             neighbors[v['description']] = nbrhosts[v['description']]["host"]
+    if duthost.is_multi_asic:
+        cli_options = " -n " + str(asic_index)
+    else:
+        cli_options = ''
 
     if neighbors[neigh].is_multi_asic:
         neigh_cli_options = " -n " + neigh.get_namespace_from_asic_id(asic_index)
@@ -325,7 +326,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     neigh_ip_bgp_sum = nbrhosts[neigh]["host"].shell('show ip bgp summary')['stdout']
     with open(bgp_id_textfsm) as template:
         fsm = textfsm.TextFSM(template)
-        dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[0][0]
+        dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[asic_index][0]
         neigh_bgp_id = fsm.ParseText(neigh_ip_bgp_sum)[1][0]
 
     dut_ipv4_network = duthost.shell("show run bgp | grep 'ip prefix-list'")['stdout'].split()[6]
