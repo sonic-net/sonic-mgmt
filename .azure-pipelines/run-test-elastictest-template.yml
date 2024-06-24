@@ -170,6 +170,13 @@ steps:
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
             displayName: "Download test plan script"
 
+  - script: |
+      # Ensure that azure-cli apt package is installed
+      set -e
+      sudo apt-get update
+      sudo apt-get install -y azure-cli
+    displayName: "Install azure-cli"
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: "SONiC-Automation"
