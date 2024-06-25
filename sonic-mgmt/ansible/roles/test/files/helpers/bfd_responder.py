@@ -12,8 +12,6 @@ from scapy.contrib.bfd import BFD
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 scapy2.conf.use_pcap = True
 
-BFD_FLAG_P_BIT = 5
-BFD_FLAG_F_BIT = 4
 
 def get_if(iff, cmd):
     s = socket.socket()
@@ -85,17 +83,13 @@ class BFDResponder(object):
 
     def action(self, interface):
         data = interface.recv()
-        mac_src, mac_dst, ip_src, ip_dst,  bfd_remote_disc, bfd_state, bfd_flags = self.extract_bfd_info(
+        mac_src, mac_dst, ip_src, ip_dst,  bfd_remote_disc, bfd_state = self.extract_bfd_info(
             data)
         if ip_dst not in self.sessions:
             return
         session = self.sessions[ip_dst]
         if bfd_state == 3:
-            #Respond with F bit if P bit is set
-            if (bfd_flags & (1 << BFD_FLAG_P_BIT)):
-                session["pkt"].payload.payload.payload.load.flags = (1 << BFD_FLAG_F_BIT)
             interface.send(session["pkt"])
-            session["pkt"].payload.payload.payload.load.flags = 0
             return
 
         if bfd_state == 2:
@@ -104,7 +98,6 @@ class BFDResponder(object):
         bfd_pkt_init = self.craft_bfd_packet(
             session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, 2)
         bfd_pkt_init.payload.payload.chksum = None
-        bfd_pkt_init.payload.payload.payload.load.flags = 0
         interface.send(bfd_pkt_init)
         bfd_pkt_init.payload.payload.payload.load.sta = 3
         bfd_pkt_init.payload.payload.chksum = None
@@ -118,21 +111,14 @@ class BFDResponder(object):
         mac_dst = ether.dst
         ip_src = ether.payload.src
         ip_dst = ether.payload.dst
-        if ether.payload.version == 4:
-            ip_tos = ether.payload.tos
-        elif ether.payload.version == 6:
-            ip_tos = ether.payload.tc
-        else:
-            raise RuntimeError("Received incorrect packet version: {}".format(ether.payload.version))
-
+        ip_tos = ether.payload.tos
         bfdpkt = BFD(ether.payload.payload.payload.load)
         bfd_remote_disc = bfdpkt.my_discriminator
         bfd_state = bfdpkt.sta
-        bfd_flags = bfdpkt.flags
         if ip_tos != self.bfd_default_ip_tos:
             raise RuntimeError("Received BFD packet with incorrect tos: {}".format(ip_tos))
         logging.debug('BFD packet info: sip {}, dip {}, tos {}'.format(ip_src, ip_dst, ip_tos))
-        return mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state, bfd_flags
+        return mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state
 
     def craft_bfd_packet(self, session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state):
         ethpart = scapy2.Ether(data)
