@@ -1078,7 +1078,7 @@
 
 - conf-name: vms26-t2-7800-1
   group-name: vms26-1
-  topo: t2
+  topo: t2_2lc_min_ports-masic
   ptf_image_name: docker-ptf
   ptf: vms26-1
   ptf_ip: 10.64.246.230/23
@@ -1088,7 +1088,6 @@
   dut:
   - str2-7804-lc5-1
   - str2-7804-lc3-1
-  - str2-7804-lc7-1
   - str2-7804-sup-1
 
   inv_name: str2
