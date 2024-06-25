@@ -303,7 +303,7 @@ def restart_thermal_control_daemon(dut):
                    ) >= 1, "There should be at least 1 thermalctld process"
 
     restart_thermalctl_cmd = "docker exec -i pmon bash -c 'supervisorctl restart thermalctld'"
-    output = dut.shell(restart_thermalctl_cmd)
+    output = dut.shell(restart_thermalctl_cmd, module_ignore_errors=True)
     if output["rc"] == 0:
         output = dut.shell(find_thermalctld_pid_cmd)
         assert output["rc"] == 0, "Run command '{}' failed after restart of thermalctld on {}".format(
@@ -316,6 +316,8 @@ def restart_thermal_control_daemon(dut):
                 output["stdout_lines"]) >= 1, "There should be at least 1 thermalctld process"
         logging.info(
             "thermalctld processes restarted successfully on {}".format(dut.hostname))
+        return
+    if output["rc"] == 1 and dut.facts["asic_type"] == "vs":
         return
     # try restore by config reload...
     config_reload(dut)
