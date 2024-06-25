@@ -50,24 +50,19 @@ class KustoConnector(object):
         self.logger = logging.getLogger('KustoChecker')
         self.db_name = DATABASE
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
-        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-        service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-        service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+        access_token = os.environ.get('ACCESS_TOKEN', None)
 
-        if not ingest_cluster or not tenant_id or not service_id or not service_key:
+        if not ingest_cluster or not access_token:
             logger.info(
                 "Could not load backup Kusto Credentials from environment, please check your environment setting.")
             self._ingestion_client_backup = None
         else:
             cluster = ingest_cluster.replace('ingest-', '')
-            kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(cluster,
-                                                                                        service_id,
-                                                                                        service_key,
-                                                                                        tenant_id)
-            kcsb_ingest = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
-                                                                                               service_id,
-                                                                                               service_key,
-                                                                                               tenant_id)
+            kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(cluster,
+                                                                                        access_token)
+            kcsb_ingest = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster,
+                                                                                                access_token)
+
             self.client_backup = KustoClient(kcsb)
             self._ingestion_client_backup = KustoIngestClient(kcsb_ingest)
 
@@ -120,8 +115,8 @@ class KustoConnector(object):
         query_str = '''
             let IncludedTestplan = dynamic({});
             FlatTestReportViewV5
-            | where BuildId in (IncludedTestplan)
             | order by UploadTimestamp asc
+            | where BuildId == '561930'
             '''.format(testplan_ids)
         logger.info("Query cases:{}".format(query_str))
         return self.query(query_str)

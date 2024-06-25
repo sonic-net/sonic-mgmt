@@ -51,20 +51,16 @@ class RC(object):
 
 class KustoChecker(object):
 
-    def __init__(self, cluster, tenant_id, client_id, client_key, database):
+    def __init__(self, cluster, access_token, database):
         self.cluster = cluster
-        self.tenant_id = tenant_id
-        self.client_id = client_id
-        self.client_key = client_key
+        self.access_token = access_token
         self.database = database
 
         self.logger = logging.getLogger('KustoChecker')
 
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(
+        kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(
             self.cluster,
-            self.client_id,
-            self.client_key,
-            self.tenant_id
+            self.access_token
             )
 
         self.client = KustoClient(kcsb)
@@ -91,14 +87,12 @@ def create_kusto_checker():
 
     ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
     cluster = ingest_cluster.replace('ingest-', '')
-    tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
-    client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
-    client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
+    access_token = os.environ.get('ACCESS_TOKEN', None)
 
-    if not all([cluster, tenant_id, client_id, client_key]):
+    if not all([cluster, access_token]):
         raise RuntimeError('Could not load Kusto credentials from environment')
 
-    return KustoChecker(cluster, tenant_id, client_id, client_key, DATABASE)
+    return KustoChecker(cluster, access_token, DATABASE)
 
 
 def get_pass_rate(test_report):

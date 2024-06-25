@@ -607,11 +607,19 @@ stages:
                 python3 junit_xml_parser.py -d ../results -o tr.json
             condition: always()
 
-          - task: Bash@3
+          - task: AzureCLI@2
             displayName: Upload Test Results
+            timeoutInMinutes: 20
             inputs:
-              targetType: 'inline'
-              script: |
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                pwd
+
+                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+
                 set -x
                 cd test_reporting
                 python3 collect_azp_results.py $(Build.BuildId)
@@ -619,26 +627,26 @@ stages:
             condition: eq('${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}', 'false')
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
-              TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
-              TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
-              TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-              TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
-              TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
-              TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
 
-          - script: |
-              set -x
+          - task: AzureCLI@2
+            displayName: Analyze Test Results
+            inputs:
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                pwd
 
-              python3 ./.azure-pipelines/repo_mgmt/analyze_test_result.py --report test_reporting/tr.json \
-              --min-passing-rate ${{ parameters.MIN_PASSING_RATE }} \
-              --tolerance ${{ parameters.TOLERANCE }}
+                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+                set -x
+
+                python3 ./.azure-pipelines/repo_mgmt/analyze_test_result.py --report test_reporting/tr.json \
+                --min-passing-rate ${{ parameters.MIN_PASSING_RATE }} \
+                --tolerance ${{ parameters.TOLERANCE }}
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
-              TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
-              TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
-              TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
-            displayName: Analyze Test Results
             condition: always()
 
       - job:

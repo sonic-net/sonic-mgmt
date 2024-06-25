@@ -161,18 +161,15 @@ class KustoConnector(ReportDBConnector):
         self.db_name = db_name
 
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
-        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
-        service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
-        service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
+        access_token = os.environ.get('ACCESS_TOKEN', None)
 
-        if not ingest_cluster or not tenant_id or not service_id or not service_key:
+        if not ingest_cluster or not access_token:
             raise RuntimeError(
                 "Could not load Kusto Credentials from environment")
 
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
-                                                                                    service_id,
-                                                                                    service_key,
-                                                                                    tenant_id)
+        kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster,
+                                                                                    access_token)
+
         self._ingestion_client = KustoIngestClient(kcsb)
 
         """
@@ -181,18 +178,13 @@ class KustoConnector(ReportDBConnector):
             by hosting a backup cluster, which is optional.
         """
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
-        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-        service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-        service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
 
-        if not ingest_cluster or not tenant_id or not service_id or not service_key:
+        if not ingest_cluster or not access_token:
             print("Could not load backup Kusto Credentials from environment")
             self._ingestion_client_backup = None
         else:
-            kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
-                                                                                        service_id,
-                                                                                        service_key,
-                                                                                        tenant_id)
+            kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster,
+                                                                                        access_token)
             self._ingestion_client_backup = KustoIngestClient(kcsb)
 
     def upload_report(self, report_json: Dict,

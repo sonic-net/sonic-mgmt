@@ -43,20 +43,16 @@ logger = logging.getLogger(__name__)
 
 
 class KustoChecker(object):
-    def __init__(self, cluster, tenant_id, client_id, client_key, database):
+    def __init__(self, cluster, access_token, database):
         self.cluster = cluster
-        self.tenant_id = tenant_id
-        self.client_id = client_id
-        self.client_key = client_key
+        self.access_token
         self.database = database
 
         self.logger = logging.getLogger('KustoChecker')
 
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(
+        kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(
             self.cluster,
-            self.client_id,
-            self.client_key,
-            self.tenant_id
+            self.access_token
             )
 
         self.client = KustoClient(kcsb)
@@ -107,20 +103,16 @@ class KustoChecker(object):
         return self.query(query_str)
 
 class KustoUploader(object):
-    def __init__(self, cluster, tenant_id, client_id, client_key, database):
+    def __init__(self, cluster, access_token, database):
         self.cluster = cluster
-        self.tenant_id = tenant_id
-        self.client_id = client_id
-        self.client_key = client_key
+        self.access_token
         self.database = database
 
         self.logger = logging.getLogger('KustoUploader')
 
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(
+        kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(
             self.cluster,
-            self.client_id,
-            self.client_key,
-            self.tenant_id
+            self.access_token
             )
 
         self.ingestion_client = KustoIngestClient(kcsb)

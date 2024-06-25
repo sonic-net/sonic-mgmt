@@ -259,38 +259,30 @@ class Testbeds_auto_recovery(object):
     def create_kusto_checker(self):
         # ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
         # cluster = ingest_cluster.replace('ingest-', '')
-        # tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
-        # client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
-        # client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
 
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
         cluster = ingest_cluster.replace('ingest-', '')
-        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-        client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-        client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+        access_token = os.environ.get('ACCESS_TOKEN', None)
 
-        if not all([cluster, tenant_id, client_id, client_key]):
+
+        if not all([cluster, access_token]):
             raise RuntimeError('Could not load Kusto credentials from environment')
 
-        return KustoChecker(cluster, tenant_id, client_id, client_key, DATABASE)
+        return KustoChecker(cluster, access_token, DATABASE)
 
     def create_kusto_uploader(self):
         # ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
         # cluster = ingest_cluster.replace('ingest-', '')
-        # tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
-        # client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
-        # client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
+
 
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
         # cluster = ingest_cluster.replace('ingest-', '')
-        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-        client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-        client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+        access_token = os.environ.get('ACCESS_TOKEN', None)
 
-        if not all([ingest_cluster, tenant_id, client_id, client_key]):
+        if not all([ingest_cluster, access_token]):
             raise RuntimeError('Could not load Kusto credentials from environment')
 
-        return KustoUploader(ingest_cluster, tenant_id, client_id, client_key, DATABASE)
+        return KustoUploader(ingest_cluster, access_token, DATABASE)
 
 
     def parser_unhealthy_testbeds(self):

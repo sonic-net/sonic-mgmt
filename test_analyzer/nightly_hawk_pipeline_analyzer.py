@@ -81,20 +81,14 @@ class Nightly_hawk_pipeline_analyzer(object):
     def create_kusto_checker(self):
         # ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
         # cluster = ingest_cluster.replace('ingest-', '')
-        # tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
-        # client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
-        # client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
 
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
         cluster = ingest_cluster.replace('ingest-', '')
-        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-        client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-        client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
-
-        if not all([cluster, tenant_id, client_id, client_key]):
+        access_token = os.environ.get('ACCESS_TOKEN', None)
+        if not all([cluster, access_token]):
             raise RuntimeError('Could not load Kusto credentials from environment')
 
-        return KustoChecker(cluster, tenant_id, client_id, client_key, self.DATABASE)
+        return KustoChecker(cluster, access_token, self.DATABASE)
 
 
     def sorted_key_dict(self, myDict):

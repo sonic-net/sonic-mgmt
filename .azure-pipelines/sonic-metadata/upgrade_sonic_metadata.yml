@@ -200,11 +200,19 @@ steps:
     displayName: "Archive upgrade per-iteration logs"
     continueOnError: false
     condition: eq(variables['COLLECT_ARTIFACT'], 'true')
-  - task: Bash@3
+
+  - task: AzureCLI@2
     displayName: Upload Upgrade path reboot timing data
     inputs:
-      targetType: 'inline'
-      script: |
+      azureSubscription: "SONiC-Automation"
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        pwd
+
+        accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+        export ACCESS_TOKEN=$accessToken
+
         set -x
 
         cd ./sonic-mgmt-int/test_reporting
@@ -227,10 +235,4 @@ steps:
     condition: and(eq(variables['COLLECT_ARTIFACT'], 'true'), ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }})
     env:
       TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
-      TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
-      TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
-      TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
       TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-      TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
-      TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
-      TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)

@@ -16,9 +16,7 @@ logger = logging.getLogger(__name__)
 DATABASE = 'SonicTestData'
 ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
 cluster = ingest_cluster.replace('ingest-', '')
-tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+access_token = os.environ.get('ACCESS_TOKEN', None)
 workspace_id = os.getenv("ELASTICTEST_LOG_ANALYTICS_WORKSPACE_ID")
 client_id = os.getenv("ELASTICTEST_MSAL_CLIENT_ID")
 client_secret = os.getenv("ELASTICTEST_MSAL_CLIENT_SECRET")
@@ -291,7 +289,7 @@ def add_data_to_dict(data_dict, testplan, key, value):
 
 
 def main():
-    kusto_conn_str_builder = KustoConnectionStringBuilder.with_aad_application_key_authentication(cluster, service_id, service_key, tenant_id)
+    kusto_conn_str_builder = KustoConnectionStringBuilder.with_aad_application_token_authentication(cluster, access_token)
     client_kusto = KustoClient(kusto_conn_str_builder)
     credentials = ServicePrincipalCredentials(client_id=client_id, secret=client_secret, tenant=tenant_id, resource='https://api.loganalytics.io')
     client_loganalytics = LogAnalyticsDataClient(credentials, base_url=None)
