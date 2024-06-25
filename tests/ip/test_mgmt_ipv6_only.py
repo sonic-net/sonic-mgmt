@@ -8,14 +8,14 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.tacacs.utils import check_output
 from tests.bgp.test_bgp_fact import run_bgp_facts
 from tests.test_features import run_show_features
-from tests.tacacs.test_ro_user import ssh_remote_run
-from tests.ntp.test_ntp import run_ntp, setup_ntp # noqa F401
+from tests.tacacs.test_ro_user import ssh_remote_run_retry
+from tests.ntp.test_ntp import run_ntp, setup_ntp_func # noqa F401
 from tests.common.helpers.assertions import pytest_require
-from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6 # noqa F401
+from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6_func # noqa F401
 from tests.syslog.test_syslog import run_syslog, check_default_route # noqa F401
 from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from tests.telemetry.conftest import gnxi_path, setup_streaming_telemetry # noqa F401
+from tests.telemetry.conftest import gnxi_path, setup_streaming_telemetry_func # noqa F401
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -126,34 +126,40 @@ def test_snmp_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname, localhost, c
     assert "SONiC Software Version" in result[0], "Sysdescr not found in SNMP result from DUT IPv6 {}".format(hostipv6)
 
 
-def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                           tacacs_creds, check_tacacs_v6, convert_and_restore_config_db_to_ipv6_only): # noqa F811
+# use function scope fixture so that convert_and_restore_config_db_to_ipv6_only will setup before check_tacacs_v6_func.
+# Otherwise, tacacs_v6 config may be lost after config reload in ipv6_only fixture.
+def test_ro_user_ipv6_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                           tacacs_creds, convert_and_restore_config_db_to_ipv6_only, check_tacacs_v6_func): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
 
-    res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_ro_user'],
-                         tacacs_creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
+    res = ssh_remote_run_retry(localhost, dutipv6, ptfhost, tacacs_creds['tacacs_ro_user'],
+                               tacacs_creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
     check_output(res, 'test', 'remote_user')
 
 
-def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                           tacacs_creds, check_tacacs_v6, convert_and_restore_config_db_to_ipv6_only): # noqa F811
+# use function scope fixture so that convert_and_restore_config_db_to_ipv6_only will setup before check_tacacs_v6_func.
+# Otherwise, tacacs_v6 config may be lost after config reload in ipv6_only fixture.
+def test_rw_user_ipv6_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                           tacacs_creds, convert_and_restore_config_db_to_ipv6_only, check_tacacs_v6_func): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
 
-    res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_rw_user'],
-                         tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")
+    res = ssh_remote_run_retry(localhost, dutipv6, ptfhost, tacacs_creds['tacacs_rw_user'],
+                               tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")
     check_output(res, 'testadmin', 'remote_user_su')
 
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [True], indirect=True)
+# use function scope fixture so that convert_and_restore_config_db_to_ipv6_only will setup before
+# setup_streaming_telemetry_func. Otherwise, telemetry config may be lost after config reload in ipv6_only fixture.
+@pytest.mark.parametrize('setup_streaming_telemetry_func', [True], indirect=True)
 def test_telemetry_output_ipv6_only(convert_and_restore_config_db_to_ipv6_only, # noqa F811
                                     duthosts, enum_rand_one_per_hwsku_hostname,
-                                    setup_streaming_telemetry): # noqa F811
+                                    setup_streaming_telemetry_func): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -171,8 +177,9 @@ def test_telemetry_output_ipv6_only(convert_and_restore_config_db_to_ipv6_only, 
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
 
 
+# use function scope fixture so that convert_and_restore_config_db_to_ipv6_only will run before setup_ntp_func
 def test_ntp_ipv6_only(duthosts, rand_one_dut_hostname,
-                                  convert_and_restore_config_db_to_ipv6_only, setup_ntp): # noqa F811
+                                  convert_and_restore_config_db_to_ipv6_only, setup_ntp_func): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
-    run_ntp(duthosts, rand_one_dut_hostname, setup_ntp)
+    run_ntp(duthosts, rand_one_dut_hostname, setup_ntp_func)

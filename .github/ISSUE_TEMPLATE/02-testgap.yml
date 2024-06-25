@@ -1,0 +1,63 @@
+name: Test Gap Issue Template
+description: File a test gap issue.
+title: "[Test Gap][<Feature:>][<Topo:>]<Test Gap Title>"
+labels: ["Test Gap"]
+projects: ["sonic-mgmt"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this test gap issue!
+
+        If you are reporting a new test gap, make sure that we do not have any duplicates already open. You can ensure this by searching the issue list in this repository. If there is a duplicate, please close your issue and add a comment to the existing issue instead.
+
+  - type: markdown
+    id: tc-contact-links
+    attributes:
+      value: |
+        Please ask and answer questions here at the [SONiC Support Forums](https://groups.google.com/forum/#!forum/sonicproject)
+
+  - type: textarea
+    id: tc-description
+    attributes:
+      label: Test Gap Description
+      description: Describe the test gap in the test coverage.
+      placeholder: |
+        Why do we need to address this test gap?
+        What part of the functionality is not covered by existing tests?
+        Explain the impact of this test gap. What potential issues or risks could introduce from not having this test?
+    validations:
+      required: true
+
+  - type: textarea
+    id: tc-test-plan
+    attributes:
+      label: Test Plan
+      description: Describe the test plan to address this test gap.
+      placeholder: |
+        What test cases need to be added or modified?
+        What is the test coverage goal?
+        What is the expected outcome?
+        Attach any files or PR links if applicable.
+    validations:
+      required: false
+
+  - type: textarea
+    id: tc-test-environment
+    attributes:
+      label: Test environment
+      description: Provide details about the test environment where the test gap was identified.
+      placeholder: |
+        SONiC version
+        Platform
+        Topology
+        HardwareSKU
+        Testbed setup details
+    validations:
+      required: false
+
+  - type: textarea
+    id: tc-attachments
+    attributes:
+      label: Attach files (if any)
+      description: If applicable, add logs or screenshots to help explain this test gap issue.
