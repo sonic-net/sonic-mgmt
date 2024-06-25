@@ -4309,7 +4309,6 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
 
-
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
         pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
@@ -4936,7 +4935,6 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
-
 
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
