@@ -47,6 +47,12 @@ SFD_LC_TOPO_CODE = {
         "lancer"   : "V"
     }
 
+# SIM workaround command files for Sonic master bringup.
+wa_file_map = { "sfd": "sfd_wa_cmd_list",
+                "mth64": "mth64_wa_cmd_list",
+                "churchill-mono": "cmono_wa_cmd_list"
+              }
+
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
 def get_dut_names(data):
@@ -113,6 +119,8 @@ def _create_parser():
                       default=False)
     parser.add_argument('--test_file', type=str, help='Input test case file',
                       required=False,default=None)
+    parser.add_argument('--apply_wa', action='store_true', help='Use workaround command list for SIM',
+                      default=False)
     return parser
 
 def repo_update(data):
@@ -633,6 +641,21 @@ def reload_dut_with_newCFG(data):
         cmd_list.append('sudo reboot\n')
         run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
 
+def run_sim_workaround(data, filename):
+    ssh = paramiko.SSHClient()
+    for dut_name in get_dut_names(data):
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'])
+        ftp_client=ssh.open_sftp()
+        ftp_client.put(filename, f'/tmp/{filename}')
+        ftp_client.close()
+        ssh.close()
+
+        cmd_list = list()
+        cmd_list.append(f'sudo bash /tmp/{filename} > /tmp/wa.log 2>&1\n')
+        run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
+        print(f"***** copied {filename} to {dut_name} ******")
+
 def add_ptf_backplane_addr(data):
     cmd_list = list()
     cmd_list.append('ip address add 10.10.246.254/24 dev backplane')
@@ -872,7 +895,7 @@ def attach_vxr():
     os.system("{} ports > vxr_ports.yaml".format(vxr_path))
     return vxr_path, "vxr_ports.yaml"
 
-def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code):
+def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa=False):
     # Create admin user in vEOS vm
     print("****** Create admin user in vEOS vm *******")
     vEOS_inital_cfg(data,vEOS_count)
@@ -896,6 +919,9 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
     for dut_name in get_dut_names(data):
         print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
         change_dut_passwd(data[dut_name])
+
+    if apply_wa and device_type in wa_file_map:
+        run_sim_workaround(data, wa_file_map[device_type])
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
@@ -1017,6 +1043,7 @@ def main():
     create_allure_report = args['create_allure_report']
     skip_sanity = args['skip_sanity']
     sim_attach = args['sim_attach']
+    apply_wa = args['apply_wa']
 
     print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
     with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
@@ -1067,7 +1094,7 @@ def main():
     else:
         lc_topo_code = None
 
-    configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code)
+    configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa)
 
     print_env_info(data, device_type, vEOS_count)
 
