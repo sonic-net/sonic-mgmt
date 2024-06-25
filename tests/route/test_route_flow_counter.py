@@ -214,4 +214,9 @@ class TestRouteCounter:
         else:
             cmd = 'show ip bgp summary'
         parse_result = duthost.show_and_parse(cmd)
-        return parse_result[0]['neighbhor']
+        if "neighbor" in parse_result[0]:
+            return parse_result[0]['neighbor']
+        elif "neighbhor" in parse_result[0]:
+            return parse_result[0]['neighbhor']
+        else:
+            raise ValueError("Unexpected neighbor key in bgp summary output")
