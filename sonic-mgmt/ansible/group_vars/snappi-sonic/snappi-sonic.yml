@@ -1,0 +1,50 @@
+---
+#testlab (lab) group variables
+# file: group_vars/lab.yml
+
+# ntp variables
+ntp_servers: ['10.0.0.1', '10.0.0.2']
+
+# syslog variables
+syslog_servers: ['10.0.0.5', '10.0.0.6']
+
+# dns variables
+dns_servers: ['10.0.0.5', '10.0.0.6']
+
+# forced_mgmt_routes
+forced_mgmt_routes: []
+
+# ErspanDestinationIpv4
+erspan_dest: ['10.0.0.7']
+
+radius_servers: []
+
+tacacs_servers: ['10.0.0.9', '10.0.0.8']
+
+tacacs_passkey: testing123
+tacacs_rw_user: test_rwuser
+tacacs_rw_user_passwd: '123456'
+tacacs_ro_user: test_rouser
+tacacs_ro_user_passwd: '123456'
+
+# tacacs grous
+tacacs_group: 'testlab'
+
+# snmp servers
+snmp_servers: ['10.0.0.9']
+
+# dhcp relay servers
+dhcp_servers: ['192.0.0.1', '192.0.0.2', '192.0.0.3', '192.0.0.4']
+
+# snmp variables
+snmp_rocommunity: public
+snmp_location: testlab
+
+# bgp slb passive range
+bgp_slb_passive_range: 10.255.0.0/25
+
+#For Arista fanout switch deployment only
+fanout_admin_user: "fanoutadminuser"
+fanout_admin_password: "fanoutadminpassword"
+
+secret_group_vars: {snappi_api_server: {user: admin, password: admin, rest_port: 443, session_id: "None"}}

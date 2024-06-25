@@ -1203,6 +1203,84 @@ func TestWCOnChangeComponentType(t *testing.T) {
 	}
 }
 
+func TestWCOnChangeComponentParent(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("9c889baf-c3c2-4ce3-bb74-36b78c5b77ca").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	// Determine expected components.
+	wantUpdates := make(map[string]string)
+	components := gnmi.GetAll(t, dut, gnmi.OC().ComponentAny().State())
+	for _, component := range components {
+		if component == nil || component.Name == nil || component.GetName() == "" {
+			continue
+		}
+		if component.Parent != nil && component.GetParent() != "" {
+			wantUpdates[component.GetName()] = component.GetParent()
+		}
+	}
+
+	// Collect component updates from ON_CHANGE subscription.
+	initialValues := gnmi.CollectAll(t, gnmiOpts(t, dut, gpb.SubscriptionMode_ON_CHANGE), gnmi.OC().
+		ComponentAny().
+		Parent().State(), shortWait).
+		Await(t)
+
+	gotUpdates := make(map[string]string)
+	for _, val := range initialValues {
+		component, err := fetchPathKey(val.Path, componentKey)
+		if err != nil {
+			t.Errorf("fetchPathKey() failed: %v", err)
+			continue
+		}
+		if upd, present := val.Val(); present && upd != "" {
+			gotUpdates[component] = upd
+		}
+	}
+
+	if diff := cmp.Diff(wantUpdates, gotUpdates); diff != "" {
+		t.Errorf("Update notifications comparison failed! (-want +got):\n%v", diff)
+	}
+}
+
+func TestWCOnChangeComponentSoftwareVersion(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("25e36fae-82e7-4d51-8f60-df6fb139f6ca").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	// Determine expected components.
+	wantUpdates := make(map[string]string)
+	components := gnmi.GetAll(t, dut, gnmi.OC().ComponentAny().State())
+	for _, component := range components {
+		if component == nil || component.Name == nil || component.GetName() == "" {
+			continue
+		}
+		if component.SoftwareVersion != nil && component.GetSoftwareVersion() != "" {
+			wantUpdates[component.GetName()] = component.GetSoftwareVersion()
+		}
+	}
+
+	// Collect component updates from ON_CHANGE subscription.
+	initialValues := gnmi.CollectAll(t, gnmiOpts(t, dut, gpb.SubscriptionMode_ON_CHANGE), gnmi.OC().
+		ComponentAny().
+		SoftwareVersion().State(), shortWait).
+		Await(t)
+
+	gotUpdates := make(map[string]string)
+	for _, val := range initialValues {
+		component, err := fetchPathKey(val.Path, componentKey)
+		if err != nil {
+			t.Errorf("fetchPathKey() failed: %v", err)
+			continue
+		}
+		if upd, present := val.Val(); present && upd != "" {
+			gotUpdates[component] = upd
+		}
+	}
+
+	if diff := cmp.Diff(wantUpdates, gotUpdates); diff != "" {
+		t.Errorf("Update notifications comparison failed! (-want +got):\n%v", diff)
+	}
+}
+
 func gnmiOpts(t *testing.T, dut *ondatra.DUTDevice, mode gpb.SubscriptionMode) *gnmi.Opts {
 	client, err := dut.RawAPIs().BindingDUT().DialGNMI(context.Background())
 	if err != nil {

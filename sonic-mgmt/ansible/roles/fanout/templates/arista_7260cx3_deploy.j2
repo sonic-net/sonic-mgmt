@@ -54,14 +54,14 @@ vrf definition management
 {%          for sub in range (1,5) %}
 {%             set subintf = 'Ethernet' + i|string + '/' + sub|string %}
    interface {{ subintf }}
-   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
+   description {{ device_conn[inventory_hostname][subintf]['peerdevice'] }}-{{ device_conn[inventory_hostname][subintf]['peerport'] }}
+   switchport access vlan {{ device_port_vlans[inventory_hostname][subintf]['vlanids'] }}
    switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 10gfull
    no shutdown
 !
-{% endfor %}
+{%          endfor %}
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "50000" %}
 interface {{ intf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}

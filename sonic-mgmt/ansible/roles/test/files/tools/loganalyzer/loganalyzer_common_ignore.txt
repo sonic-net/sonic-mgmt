@@ -62,6 +62,12 @@ r, ".* ERR syncd#syncd:.*SAI_API_HOSTIF: src/sai_trap.cpp:.*: Invalid trap event
 r, ".* ERR swss#orchagent:.*setPortFec: Unsupported mode fc on port .*"
 
 r, ".* ERR syncd#syncd:.*SAI_LOG|SAI_API_TUNNEL: VLAN to VNI not implemented yet.*"
+# Errors for config reload on broadcom platform on 202311
+r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListEnumCapabilities: Failed to get attribute.*"
+r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListAttrCapabilities: Failed to get attribute.*"
+r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Failed to get attribute.*"
+r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
 
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
