@@ -1,16 +1,13 @@
-import pytest
-from bfd_base import BfdBase
 import logging
-from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
-from tests.common.utilities import wait_until
+
+import pytest
+
+from tests.bfd.bfd_helpers import ensure_interface_is_up
 from tests.common.config_reload import config_reload
+from tests.common.utilities import wait_until
+from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="class")
-def bfd_base_instance():
-    return BfdBase()
 
 
 def pytest_addoption(parser):
@@ -18,10 +15,13 @@ def pytest_addoption(parser):
     parser.addoption("--num_sessions_scale", action="store", default=128)
 
 
+@pytest.fixture(scope='module')
+def get_function_completeness_level(pytestconfig):
+    return pytestconfig.getoption("--completeness_level")
+
+
 @pytest.fixture(scope="function")
-def bfd_cleanup_db(
-    request, duthosts, enum_supervisor_dut_hostname, bfd_base_instance, autouse=True
-):
+def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
     orch_cpu_threshold = 10
     # Make Sure Orch CPU < orch_cpu_threshold before starting test.
     logger.info(
@@ -47,8 +47,8 @@ def bfd_cleanup_db(
     )
     for dut in duts:
         assert wait_until(
-            45, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
-        ), "Orch CPU utilization {} > orch cpu threshold {} before starting the test".format(
+            120, 4, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
+        ), "Orch CPU utilization {} > orch cpu threshold {} after the test".format(
             dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")[
                 "stdout"
             ],
@@ -87,6 +87,7 @@ def bfd_cleanup_db(
     request.config.dst_dut.shell(command)
 
     logger.info("Bringing up portchannels or respective members")
+    portchannels_on_dut = None
     if hasattr(request.config, "portchannels_on_dut"):
         portchannels_on_dut = request.config.portchannels_on_dut
         selected_interfaces = request.config.selected_portchannels
@@ -111,4 +112,4 @@ def bfd_cleanup_db(
             else request.config.dst_asic
         )
         for interface in selected_interfaces:
-            bfd_base_instance.interface_cleanup(dut, asic, interface)
+            ensure_interface_is_up(dut, asic, interface)

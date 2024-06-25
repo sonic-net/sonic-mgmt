@@ -1,6 +1,7 @@
 import time
 import pytest
 import logging
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +71,9 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
                 for port in mg_facts['minigraph_portchannels'][ifname]['members']:
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
                     for q in range(0, 7):
-                        assert(get_queue_counters(asichost, port, q) == 0)
+                        assert (get_queue_counters(asichost, port, q) == 0)
             else:
                 logger.info(ifname)
                 for q in range(0, 7):
-                    assert(get_queue_counters(asichost, ifname, q) == 0)
+                    assert (get_queue_counters(asichost, ifname, q) == 0)
             processed_intfs.add(ifname)

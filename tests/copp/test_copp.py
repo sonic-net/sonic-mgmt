@@ -37,6 +37,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -146,6 +147,9 @@ class TestCOPP(object):
         4. Verify the trap status is uninstalled by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if (duthost.facts["asic_type"] == "cisco-8000"):
+            logger.info("Sleep 120 seconds for Cisco platform")
+            time.sleep(120)
 
         if self.trap_id == "bgp":
             logger.info("Uninstall trap ip2me")

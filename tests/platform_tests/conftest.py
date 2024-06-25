@@ -19,9 +19,12 @@ from .mellanox.mellanox_thermal_control_test_helper import suspend_hw_tc_service
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), "templates")
+
 FMT = "%b %d %H:%M:%S.%f"
+FMT_YEAR = "%Y %b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
+
 LOGS_ON_TMPFS_PLATFORMS = [
     "x86_64-arista_7050_qx32",
     "x86_64-arista_7050_qx32s",
@@ -35,14 +38,13 @@ LOGS_ON_TMPFS_PLATFORMS = [
 
 
 def _parse_timestamp(timestamp):
-    try:
-        time = datetime.strptime(timestamp, FMT)
-    except ValueError:
+    for format in [FMT, FMT_YEAR, FMT_SHORT, FMT_ALT]:
         try:
-            time = datetime.strptime(timestamp, FMT_SHORT)
+            time = datetime.strptime(timestamp, format)
+            return time
         except ValueError:
-            time = datetime.strptime(timestamp, FMT_ALT)
-    return time
+            continue
+    raise ValueError("Unable to parse {} with any known format".format(timestamp))
 
 
 @pytest.fixture(autouse=True, scope="module")
