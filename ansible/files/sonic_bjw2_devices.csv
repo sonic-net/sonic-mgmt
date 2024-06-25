@@ -29,6 +29,12 @@ bjw2-can-7260-leaf-9,10.150.22.204/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-10,10.150.22.206/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-11,10.150.22.208/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-12,10.150.22.210/23,Arista-7260CX3,FanoutLeaf,,
+bjw2-can-7260-leaf-13,10.150.22.32/23,Arista-7260CX3,FanoutLeaf,,
+bjw2-can-7260-leaf-14,10.150.22.34/23,Arista-7260CX3,FanoutLeaf,,
+bjw2-can-7260-leaf-15,10.150.22.36/23,Arista-7260CX3,FanoutLeaf,,
+bjw2-can-7260-leaf-16,10.150.22.38/23,Arista-7260CX3,FanoutLeaf,,
+bjw2-can-7260-leaf-17,10.150.22.40/23,Arista-7260CX3,FanoutLeaf,,
+bjw2-can-7260-leaf-18,10.150.22.42/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7215-1,10.150.22.167/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-2,10.150.22.169/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-3,10.150.22.171/23,Nokia-M0-7215,DevSonic,,sonic
