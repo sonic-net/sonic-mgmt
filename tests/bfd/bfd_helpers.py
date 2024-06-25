@@ -545,7 +545,13 @@ def get_random_bgp_neighbor_ip_of_asic(dut, asic_index, version):
     if not output:
         return None
 
-    return random.choice(output).get("neighbhor", "")
+    random_neighbor_bgp_info = random.choice(output)
+    if "neighbhor" in random_neighbor_bgp_info:
+        return random_neighbor_bgp_info["neighbhor"]
+    elif "neighbor" in random_neighbor_bgp_info:
+        return random_neighbor_bgp_info["neighbor"]
+    else:
+        return None
 
 
 def get_bgp_neighbor_ip_of_port_channel(dut, asic_index, port_channel, version):

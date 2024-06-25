@@ -6,7 +6,6 @@ from tests.bfd.bfd_base import BfdBase
 from tests.bfd.bfd_helpers import get_ptf_src_port, get_backend_interface_in_use_by_counter, verify_bfd_state, \
     prepare_traffic_test_variables, toggle_port_channel, get_random_bgp_neighbor_ip_of_asic, \
     toggle_port_channel_member, assert_bp_iface_after_shutdown
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs  # noqa F401
 from tests.common.utilities import wait_until
 
 pytestmark = [pytest.mark.topology("t2")]

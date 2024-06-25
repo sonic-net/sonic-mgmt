@@ -59,13 +59,12 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
     if not container_status:
         config_reload(rp)
 
-    if hasattr(request.config, "dut"):
-        clear_bfd_configs(request.config.dut, request.config.src_asic.asic_index, request.config.src_prefix)
-        clear_bfd_configs(request.config.dut, request.config.dst_asic.asic_index, request.config.dst_prefix)
-
     if hasattr(request.config, "src_dut") and hasattr(request.config, "dst_dut"):
         clear_bfd_configs(request.config.src_dut, request.config.src_asic.asic_index, request.config.src_prefix)
         clear_bfd_configs(request.config.dst_dut, request.config.dst_asic.asic_index, request.config.dst_prefix)
+    elif hasattr(request.config, "dut"):
+        clear_bfd_configs(request.config.dut, request.config.src_asic.asic_index, request.config.src_prefix)
+        clear_bfd_configs(request.config.dut, request.config.dst_asic.asic_index, request.config.dst_prefix)
 
     logger.info("Bringing up portchannels or respective members")
     portchannels_on_dut = None
