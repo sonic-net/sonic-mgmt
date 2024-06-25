@@ -22,8 +22,15 @@ def check_queue_status(duthost, queue):
     bgp_neighbors = duthost.show_and_parse(SHOW_BGP_SUMMARY_CMD)
     bgp_neighbor_addr_regex = re.compile(r"^([0-9]{1,3}\.){3}[0-9]{1,3}")
     for neighbor in bgp_neighbors:
-        if bgp_neighbor_addr_regex.match(neighbor["neighbhor"]) and int(neighbor[queue]) != 0:
-            return False
+        if "neighbor" in neighbor:
+            if bgp_neighbor_addr_regex.match(neighbor["neighbor"]) and int(neighbor[queue]) != 0:
+                return False
+        elif "neighbhor" in neighbor:
+            if bgp_neighbor_addr_regex.match(neighbor["neighbhor"]) and int(neighbor[queue]) != 0:
+                return False
+        else:
+            raise ValueError("Unexpected neighbor key in bgp summary output")
+
     return True
 
 
