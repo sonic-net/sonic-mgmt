@@ -294,6 +294,7 @@ def makeTestbed(data, outfile):
                     dut = dut.__str__()
                 dut = dut.replace(",", ";")
                 dut = dut.replace(" ", "")
+                dut = dut.replace("'", "")
 
                 row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf + "," + ptf_ip + "," + ptf_ipv6 + ","+ server + "," + vm_base + "," + dut + ",lab,True," + comment
                 f.write(row + "\n")
@@ -340,7 +341,7 @@ def makeTestbedYaml(data, outfile):
             ptf = ""
         if not comment:
             comment = ""
-        if dut is not list():
+        if not isinstance(dut, list):
             dut = [dut]
 
         result.update({'conf-name': confName,

@@ -127,7 +127,10 @@ host_vars:
 testbed:
   docker-ptf:
     comment: Test ptf mathilda
-    dut: sfd-lc0; sfd-lc1; sfd-01
+    dut:
+    - sfd-lc0
+    - sfd-lc1
+    - sfd-01
     group-name: sonic_cisco
     ptf_image_name: docker-ptf-sfd
     ptf_ip: 192.168.122.66/24
