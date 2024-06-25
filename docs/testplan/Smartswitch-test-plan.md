@@ -20,7 +20,7 @@
 ## Introduction
 
 The purpose is to test the functionality of Smartswitch.
-Smartswitch is connected to dpu sleds via pcie link having two dpus per sled.
+Smartswitch is connected to dpus via pcie links.
 
 ## Scope
 
@@ -387,8 +387,8 @@ MB_TMP421_Local          26.25      135.0      -5.0           140.0          -10
 ### 1.4 Check DPU Console
 
 #### Steps
- * Use command `/usr/bin/picocom -b 115200 /dev/ttyS<DPU_SLOT_NUM+OFFSET>` to access console for given dpu
- * Get starting offset of serial port for dpus using the command `cat /proc/tty/driver/serial`
+ * Use serial port utility to access console for given dpu.
+ * Get the mapping of serial port to DPU number from platform.json file. 
  * Get the number of dpu modules from PMON APIs - get_num_modules(). Test is to check for console access for all DPUs.
 
 #### Verify in
