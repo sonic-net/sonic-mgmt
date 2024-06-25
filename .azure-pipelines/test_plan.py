@@ -165,7 +165,7 @@ class TestPlanManager(object):
         self.with_auth = False
         self._token = None
         self._token_expires_on = None
-        if self.client_id :
+        if self.client_id:
             self.with_auth = True
             self.get_token()
 
