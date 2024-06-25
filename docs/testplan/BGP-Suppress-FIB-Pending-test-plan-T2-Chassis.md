@@ -48,6 +48,7 @@ Command to disable the feature:
 ```
 admin@sonic:~$ sudo config suppress-fib-pending disabled
 ```
+Note: Issue raised for the above command not working on multi-asic environment globally, https://github.com/sonic-net/sonic-buildimage/issues/19022 . Currently it works only as specific asic commands.
 
 ### Supported Topology
 The tests will be supported on t1 as well as on t2 topo.
@@ -65,8 +66,8 @@ As part of test changes for T2, to be consistent with existing T1 test cases, we
 kill -SIGSTOP $(pidof orchagent)
 ```
 4. Announce BGP ipv4 prefixes to DUT from one of T1 peer using exabgp.
-5. Make sure announced BGP routes are in __queued__ state in the DUT routing table
-6. Verify the routes are not announced via __IBGP__ or __EBGP__ to any of the peers. * (IBGP verification and on both upstream T3, downstream T1 neighbors)
+5. Make sure announced BGP routes are in __queued__ state in the DUT routing table for the specific asic.
+6. Verify the routes are not announced via __IBGP__ or __EBGP__ to any of the peers.
 7. Send traffic matching the prefixes from one of T3 peer .
 8. Verify packets are not forwarded to any T1 peers of downstream line cards. And also make sure packets are forwarded to other T3 peers because of default route.
 9. Restore orchagent process on both asics by,
@@ -75,7 +76,7 @@ kill -SIGSTOP $(pidof orchagent)
 ```
 10. Make sure announced BGP routes are __not__ in __queued__ state in the DUT routing table.
 11. Make sure the routes are programmed in FIB by checking offloaded flag value in the DUT routing table.
-12. Verify the routes are announced to all T3 peer neighbors on the upstream linecard as well as to all other T1 peers on the downstream linecards including DUT.
+12. Verify the routes are announced to all T3 peer neighbors on the upstream linecard.
 13. Send traffic matching the prefixes from one of T3 peer and verify packets are forwarded to expected T1 peer only.
 
 ### Test case # 2 - Test BGP route without suppress
@@ -86,8 +87,8 @@ kill -SIGSTOP $(pidof orchagent)
 kill -SIGSTOP $(pidof orchagent)
 ```
 3. Announce BGP ipv4 prefixes to DUT from one of T1 peer using exabgp.
-4. Make sure announced BGP routes are __not__ in __queued__ state in the DUT routing table.
-5. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard as well as to all other T1 peers on the downstream linecards including DUT.
+4. Make sure announced BGP routes are __not__ in __queued__ state in the DUT routing table for the specific asic.
+5. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard.
 6.  Restore orchagent process on both asics by,
 ```
 kill -SIGSTOP $(pidof orchagent)
@@ -105,12 +106,12 @@ kill -SIGSTOP $(pidof orchagent)
 ```
 4. Announce BGP prefixes to DUT from one of T1 peer using exabgp.
 5. Execute BGP session restart by restarting all BGP sessions on the DUT.
-6. Verify BGP neighborships are reestablished.
+6. Verify BGP neighborships are re-established.
 7. Make sure announced BGP routes are in __queued__ state in the DUT routing table
 8. Verify the routes are not announced via __IBGP__ or __EBGP__ to any of the peers. 
 9. Configure static routes then redistribute to BGP.
 10. Verify the redistributed routes are in the DUT routing table.
-11. Verify the static routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard as well as to all other T1 peers on the downstream linecards including DUT.
+11. Verify the static routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard.
 12. Send traffic matching the prefixes from one of T3 peer .
 13. Verify packets are not forwarded to any T1 peers of downstream line cards. And also make sure packets are forwarded to other T3 peers because of default route.
 14. Restore orchagent process on both asics by,
@@ -119,7 +120,7 @@ kill -SIGSTOP $(pidof orchagent)
 ```
 14. Make sure announced BGP routes are __not__ in __queued__ state in the DUT routing table.
 15. Make sure the routes are programmed in FIB by checking offloaded flag in the DUT routing table.
-16. Verify the routes are announced to all T3 peer neighbors on the upstream linecard as well as to all other T1 peers on the downstream linecards including DUT.
+16. Verify the routes are announced to all T3 peer neighbors on the upstream linecard.
 17. Send traffic matching the prefixes from one of T3 peer and verify packets are forwarded to expected T1 peer only.
 
 ### Test case # 4 - Test BGP route suppress in credit loops scenario
@@ -129,18 +130,17 @@ kill -SIGSTOP $(pidof orchagent)
 ```
 kill -SIGSTOP $(pidof orchagent)
 ```
-3. Announce a default route to DUT from one of T3 peer.
-4. Announce BGP prefixes to DUT from one of T1 peer using exabgp.
-5. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard as well as to all other T1 peers on the downstream linecards including DUT.
-6. Send traffic matching the prefixes from the T3 peer and verify packets are forwarded back to the same T3 peer.
-7. Enable BGP suppress-fib-pending function on the same DUT
-8. Save configuration and do config reload on DUT.
-9. Restore orchagent process on both asics by,
+3. Announce BGP prefixes to DUT from one of T1 peer using exabgp.
+4. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard.
+5. Send traffic matching the prefixes from the T3 peer and verify packets are forwarded back to the same T3 peer.
+6. Enable BGP suppress-fib-pending function on the same DUT
+7. Save configuration and do config reload on DUT.
+8. Restore orchagent process on both asics by,
 ```
 kill -SIGSTOP $(pidof orchagent)
 ```
-10. Make sure the routes are programmed in FIB by checking offloaded flag in the DUT routing table.
-11. Send traffic matching the prefixes from one of T3 peer and verify packets are forwarded to expected T1 peer only.
+9. Make sure the routes are programmed in FIB by checking offloaded flag in the DUT routing table.
+10. Send traffic matching the prefixes from one of T3 peer and verify packets are forwarded to expected T1 peer only.
 
 ### Test case # 5 - Test BGP route suppress under stress
 
@@ -152,7 +152,7 @@ kill -SIGSTOP $(pidof orchagent)
 kill -SIGSTOP $(pidof orchagent)
 ```
 5. Announce 1K BGP prefixes to DUT from T1 peer by exabgp
-6. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard as well as to all other T1 peers on the downstream linecards including DUT.
+6. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard.
 7. Send traffic matching the prefixes in the BGP route flap from one of T3 VM and verify packets are forwarded back to the same T3 VM.
 8. Enable BGP suppress-fib-pending function at DUT
 9. Restore orchagent process on both asics by,
@@ -169,8 +169,8 @@ kill -SIGSTOP $(pidof orchagent)
 2. Save configuration and do config reload on DUT.
 3. Start tcpdump capture at the ingress and egress port at DUT
 4. Announce 1K BGP prefixes to DUT from T1 VM by exabgp
-5. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard as well as to all other T1 peers on the downstream linecards including DUT.
+5. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard.
 6. Withdraw 1K BGP prefixes to DUT from the same T1 VM using exabgp
-7. Verify the BGP routes are withdrawn from all T3/T1 VM peer neighbors across linecards.
+7. Verify the BGP routes are withdrawn from all T3 VM peer neighbors.
 8. Stop tcpdump capture on the DUT ingress and egress ports.
 9. Verify the average as well as middle route process time is under threshold.
