@@ -3,7 +3,6 @@ This document describes the list of additional system testcases.
 - [Background](#background)
 - [Setup](#setup)
 - [Testcases](#testcases)
-- [Additional PFC testcases with Port-channels](#Additional PFC testcases with Port-channels)
 
 
 ### Background
