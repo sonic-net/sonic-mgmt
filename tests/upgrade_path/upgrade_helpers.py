@@ -61,6 +61,14 @@ def check_sonic_version(duthost, target_version):
 
 
 def restore_image_to_first_boot(duthost, image_version):
+    """
+    Restore the specified image version to a "first boot" state. If the image is installed, and it's not the
+    currently-running image, then the image will be restored to the first boot state. This means that when it boots up,
+    it'll go through platform module installation, container creations, etc. (basically everything that happens when
+    the image first boots up).
+
+    Returns true if the image was successfully restored to first-boot state, false otherwise.
+    """
     images = duthost.image_facts()['ansible_facts']['ansible_image_facts']
     if images['current'] == image_version:
         # We're running the image we want to restore to first boot state, which isn't valid,
