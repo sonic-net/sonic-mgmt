@@ -174,7 +174,7 @@ def get_healthy_psu_num(duthost):
     PSUUTIL_CMD = "sudo psuutil status"
     healthy_psus = 0
     psuutil_status_output = duthost.command(PSUUTIL_CMD, module_ignore_errors=True)
-    # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+    # For kvm testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
     if duthost.facts["asic_type"] == "vs" and psuutil_status_output['rc'] == 2:
         return
     assert psuutil_status_output["rc"] == 0, "Run command '{}' failed".format(PSUUTIL_CMD)
@@ -257,6 +257,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
+    # For kvm testbed, psu_num will return None
+    # Only physical testbeds need to check the psu number
     if psu_num:
         pytest_require(
             psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
@@ -403,6 +405,8 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
     loganalyzer = LogAnalyzer(ansible_host=duthost,
                               marker_prefix='thermal_control')
     loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
+    # For kvm testbed, we will not restart the deamon `thermal`
+    # So we will not get the syslog as expected.
     if duthost.facts["asic_type"] == "vs":
         return
     with loganalyzer:

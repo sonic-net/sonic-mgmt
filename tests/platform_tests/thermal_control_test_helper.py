@@ -284,10 +284,7 @@ def restart_thermal_control_daemon(dut):
     find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
     output = dut.shell(find_thermalctld_pid_cmd)
 
-    if dut.facts["asic_type"] == "vs" and output["rc"] == 0:
-        return
-    else:
-        assert output["rc"] == 0, "Run command '{}' failed".format(find_thermalctld_pid_cmd)
+    assert output["rc"] == 0, "Run command '{}' failed".format(find_thermalctld_pid_cmd)
     # Usually there should be 2 thermalctld processes, but there is chance that
     # sonic platform API might use subprocess which creates extra thermalctld process.
     # For example, chassis.get_all_sfps will call sfp constructor, and sfp constructor may
@@ -295,9 +292,12 @@ def restart_thermal_control_daemon(dut):
     # So we check here thermalcltd must have at least 2 processes.
     # For mellanox, it has at least two processes, but for celestica(broadcom),
     # it only has one thermalctld process
+    # For kvm, there is no thermalctld process
     if dut.facts["asic_type"] == "mellanox":
         assert len(output["stdout_lines"]
                    ) >= 2, "There should be at least 2 thermalctld process"
+    elif dut.facts["asic_type"] == "vs":
+        assert len(output["stdout_lines"]) == 0, "There should be 0 thermalctld process"
     else:
         assert len(output["stdout_lines"]
                    ) >= 1, "There should be at least 1 thermalctld process"
