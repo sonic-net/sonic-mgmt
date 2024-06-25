@@ -167,8 +167,8 @@ class Sonic(host_device.HostDevice):
 
         self.log('Collecting logs')
         log_files = [
-            "/var/log/syslog{,.1}",
-            "/var/log/teamd.log{,.1}",
+            "/var/log/syslog{.1,}",
+            "/var/log/teamd.log{.1,}",
             "/var/log/frr/bgpd.log",
             "/var/log/frr/zebra.log"
         ]
