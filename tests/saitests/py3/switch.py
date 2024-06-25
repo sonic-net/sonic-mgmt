@@ -801,6 +801,9 @@ def sai_thrift_read_port_counters(client, asic_type, port):
     counters_results = []
     counters_results = client.sai_thrift_get_port_stats(
         port, port_cnt_ids, len(port_cnt_ids))
+    if asic_type == 'broadcom':
+        counters_results.insert(12, 0)
+        counters_results.insert(13, 0)
     if asic_type == 'mellanox':
         counters_results.append(0)
 
