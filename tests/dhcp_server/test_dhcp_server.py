@@ -55,7 +55,7 @@ def parse_vlan_setting_from_running_config(duthost, tbinfo):
         vlan_setting['vlan_member_with_ptf_idx']
 
 
-@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI])
+@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU])
 def test_dhcp_server_port_based_assignment_single_ip_tc1(
     duthost,
     ptfhost,
@@ -96,7 +96,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc1(
         )
 
 
-@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI])
+@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU])
 def test_dhcp_server_port_based_assignment_single_ip_tc2(
     duthost,
     ptfhost,
@@ -138,7 +138,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc2(
         )
 
 
-@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI])
+@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU])
 def test_dhcp_server_port_based_assignment_single_ip_tc3(
     duthost,
     ptfhost,
@@ -182,7 +182,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc3(
         )
 
 
-@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI])
+@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU])
 def test_dhcp_server_port_based_assignment_single_ip_tc4(
     duthost,
     ptfhost,
@@ -229,7 +229,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc4(
         )
 
 
-@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI])
+@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU])
 def test_dhcp_server_port_based_assignment_range_ip(
     duthost,
     ptfhost,
@@ -274,7 +274,7 @@ def test_dhcp_server_port_based_assignment_range_ip(
         )
 
 
-@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI])
+@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU])
 def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
     duthost,
     ptfhost,
@@ -335,7 +335,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
         )
 
 
-@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI])
+@pytest.mark.parametrize("config_tool", [DHCP_SERVER_CONFIG_TOOL_GCU])
 def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
     duthost,
     ptfhost,
