@@ -13,7 +13,10 @@ def get_token():
 
     access_token = os.environ.get('ACCESS_TOKEN', None)
     if access_token:
+        print("Got ACCESS_TOKEN from environment variable.")
         return access_token
+
+    print("No ACCESS_TOKEN in environment variable, try to get token using client secrets.")
 
     token_url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(
         os.environ.get('ELASTICTEST_MSAL_TENANT'))
