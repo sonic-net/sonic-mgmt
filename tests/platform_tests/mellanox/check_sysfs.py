@@ -163,7 +163,7 @@ def check_sysfs(dut):
 
     logging.info("Check SFP related sysfs")
     for sfp_id, sfp_info in list(sysfs_facts['sfp_info'].items()):
-        # Skip the check for empty values
+        # Skip when the sfp is missing
         if not sfp_info["temp_fault"]:
             continue
 
