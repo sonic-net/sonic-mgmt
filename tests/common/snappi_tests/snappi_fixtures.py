@@ -794,6 +794,7 @@ def get_multidut_tgen_peer_port_set(line_card_choice, ports, config_set, number_
     """
     linecards = {}
     try:
+        from itertools import product
         from itertools import izip_longest as zip_longest
     except ImportError:
         from itertools import zip_longest
