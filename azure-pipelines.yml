@@ -167,7 +167,7 @@ stages:
           MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: onboarding_elastictest_t0
-    displayName: "onboarding t0 testcases by Elastictest"
+    displayName: "onboarding t0 testcases by Elastictest - optional"
     timeoutInMinutes: 240
     continueOnError: true
     pool: sonic-ubuntu-1c
@@ -184,7 +184,7 @@ stages:
           TEST_SET: onboarding_t0
 
   - job: onboarding_elastictest_t1
-    displayName: "onboarding t1 testcases by Elastictest"
+    displayName: "onboarding t1 testcases by Elastictest - optional"
     timeoutInMinutes: 240
     continueOnError: true
     pool: sonic-ubuntu-1c
