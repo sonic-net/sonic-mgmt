@@ -115,8 +115,7 @@ FPDs
 ```
 #### Pass/Fail Criteria
  *  Verify number of dpus from api and number of dpus shown in the cli output.
- *  Verify powered off dpus should display it as powered off.
- *  Verify all the serial numbers of the dpus that are powered on are unique.
+ *  Verify all the serial numbers of the dpus that are unique.
 
 
 ### 1.2 Check platform voltage
