@@ -350,6 +350,10 @@ onboarding_t0:
   - arp/test_unknown_mac.py
 
 onboarding_t1:
+  - arp/test_wr_arp.py
+  - decap/test_decap.py
+
+
 
 specific_param:
   t0-sonic:
