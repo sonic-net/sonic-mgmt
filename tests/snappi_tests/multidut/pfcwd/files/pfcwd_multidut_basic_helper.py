@@ -72,7 +72,7 @@ def run_pfcwd_basic_test(api,
         enable_packet_aging(duthost2)
 
     ini_stats = {}
-    for prio in prio_list: 
+    for prio in prio_list:
         ini_stats.update(get_stats(duthost1, rx_port['peer_port'], prio))
 
     # Set appropriate pfcwd loss deviation - these values are based on empirical testing
@@ -145,20 +145,20 @@ def run_pfcwd_basic_test(api,
                                exp_dur_sec=exp_dur_sec)
 
     fin_stats = {}
-    for prio in prio_list: 
+    for prio in prio_list:
         fin_stats.update(get_stats(duthost1, rx_port['peer_port'], prio))
 
     loss_packets = 0
     for k in fin_stats.keys():
         logger.info('Parameter:{}, Initial Value:{}, Final Value:{}'.format(k, ini_stats[k], fin_stats[k]))
-        if 'DROP' in k: loss_packets += (int(fin_stats[k]) - int(ini_stats[k]))
+        if 'DROP' in k:
+            loss_packets += (int(fin_stats[k]) - int(ini_stats[k]))
 
     logger.info('Total PFCWD drop packets before and after the test:{}'.format(loss_packets))
 
     __verify_results(rows=flow_stats,
                      data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
                      data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
-                     #data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0])
                      data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0],
                      loss_packets=loss_packets)
 
@@ -168,19 +168,20 @@ def get_stats(duthost, port, prio):
     Returns the PFCWD stats for Tx Ok, Tx drop, Storm detected and restored.
 
     Args:
-	duthost (obj): DUT
-	port (string): Port on the DUT
-	prio (int):    Priority
+        duthost (obj): DUT
+        port (string): Port on the DUT
+        prio (int):    Priority
 
     Returns:
-	Dictionary with prio_'parameter' as key and associated value 
+        Dictionary with prio_'parameter' as key and associated value.
 
     """
     my_dict = {}
     new_dict = {}
     init_pfcwd = get_pfcwd_stats(duthost, port, prio)
     key_list = ['TX_OK/DROP', 'STORM_DETECTED/RESTORED']
-    for keys in key_list: my_dict[keys] = init_pfcwd[keys]
+    for keys in key_list:
+        my_dict[keys] = init_pfcwd[keys]
     new_dict = {str(prio)+'_'+k: v for key, value in my_dict.items() for k, v in zip(key.split('/'), value.split('/'))}
 
     return new_dict
@@ -421,4 +422,3 @@ def __verify_results(rows,
                           data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))
 
     logger.info('TGEN Loss packets:{}'.format(tgen_loss_packets))
-
