@@ -11,7 +11,7 @@ py_version = platform.python_version()
 def tg_stc_load(version, logger, logs_path=None):
 
 
-    stc_version_map = {"4.67": "4.67", "4.91": "4.91", "5.03": "5.03", "5.05": "5.05", "5.17": "5.17", "5.2": "5.20"}
+    stc_version_map = {"4.67": "4.67", "4.91": "4.91", "5.03": "5.03", "5.05": "5.05", "5.17": "5.17", "5.2": "5.20","5.45":"5.45"}
 
     # verify STC version provided
     version_string = str(version)
@@ -39,7 +39,10 @@ def tg_stc_load(version, logger, logs_path=None):
         return None
 
     # build STC app root folder
-    stc_app_root = os.path.join(stc_ver_root, "Spirent_TestCenter_Application_Linux")
+    if version_string == "5.45":
+        stc_app_root = os.path.join(stc_ver_root, "Spirent_TestCenter_5.45/Spirent_TestCenter_Application_Linux")
+    else:
+        stc_app_root = os.path.join(stc_ver_root, "Spirent_TestCenter_Application_Linux") 
 
     # check if STC app root folder is found
     if not os.path.exists(stc_app_root):

@@ -99,7 +99,7 @@ def read_port_inifile():
     int_file = "{}/{}/{}/port_config.ini".format(port_config_file, Platform, HwSKU)
     cmd = "cat {} | tail -1".format(int_file)
     output = execute_check_cmd(cmd)
-    port = output.split(" ")[0]
+    port = output.split()[0]
     return port
 
 

@@ -1,9 +1,22 @@
-''' This script is for optics testing on a testbed with iBGP enabled between the two DUTs.
-        EBGP will be created by the script. 
+''' This script is for optics testing on various platforms. 
+    Test Topology: 
+              --------------
+              |   Tgen     |
+              --------------
+                |       |
+                |       |
+          --------    ---------
+          |      |----|       |
+          | DUT1 |----| DUT2  |
+          --------    ---------
+
     Test Cases: 
-        test_repeated_interface_flaps --Test interface flapping (local DUT and remote DUT)
-        test_restart_docker_process -- Test restart docker process ("pmon","swss","syncd","gbsyncd")        
-        Test_reload: Reload testing (6 test cases)                 
+        Group 1: test_repeated_interface_flaps --Test interface flapping (local DUT and remote DUT)
+        Group 2: test_restart_docker_process -- Test restart docker process ("pmon","swss","syncd","gbsyncd")        
+        Group 3: Test_reload: Reload testing (6 test cases)                 
+        Group 4: traffic test 
+    Notes: 
+        EBGP will be created between two DUTs for traffic testing. 
 ''' 
 import pytest
 import json
@@ -16,7 +29,7 @@ from spytest.dicts import SpyTestDict
 from spytest.tgen.tg import tgen_obj_dict
 from apis.system.connection import connect_to_device, ssh_disconnect, execute_command
 from spytest.access.connection import DeviceFileUpload, DeviceConnection,DeviceFileDownload
-from apis.system.basic import get_docker_ps, get_and_match_docker_count, verify_docker_status
+from apis.system.basic import get_docker_ps, get_and_match_docker_count, get_hwsku,verify_docker_status
 from utilities import parallel
 from utilities.common import poll_wait
 from datetime import datetime, timedelta
@@ -263,7 +276,7 @@ def initialize_data():
     data.clear_parallel = True
 
     global PORT_STATUS_REGEX, FEC_STATUS_REGEX, XCVRD_COMM
-    PORT_STATUS_REGEX = ["NOTICE swss.*#orchagent: :- doPortTask: Set port {} admin status to down",
+    PORT_STATUS_REGEX = [
 "NOTICE swss.*#orchagent: :- updatePortOperStatus: Port {} oper state set from up to down",
 "NOTICE swss.*#orchagent: :- setHostIntfsOperStatus: Set operation status DOWN to host interface {}",
 "NOTICE swss.*#portsyncd: :- onMsg: Publish {}.* to state db",
@@ -273,6 +286,10 @@ def initialize_data():
 
     AUTO_NEGO_REGEX= ["doPortTask: Set port {} admin status to up",
 "NOTICE swss.*#orchagent: :- doPortTask: Set port {} AutoNeg to 0"]
+
+    OIR_OUT_REGEX = ["{}.*Got SFP removed event", "Publish.*{}.*ok:down"] 
+    OIR_IN_REGEX = ["{}.*Got SFP inserted event","Port {} oper state set from down to up"] 
+    
 
     XCVRD_COMM = "sudo docker exec -it pmon ps eaf | grep xcvrd"
 
@@ -595,7 +612,7 @@ def config_traffic_bgp(is_multi_asic=False):
     st.banner("Configuring Traffic Stream on  TGEN port2 towards SFD-LC3")
     tr2 = tg2.tg_traffic_config(port_handle=tg_handle_2,emulation_src_handle=tg2_interface['handle'],
             emulation_dst_handle=bgp_route['handle'], circuit_endpoint_type='ipv4',mode='create', 
-            high_speed_result_analysis='1',  transmit_mode='continuous', rate_pps=50000000)
+            high_speed_result_analysis='1',  transmit_mode='continuous', rate_percent=99.5)
 
     data.stream_id2 = tr2['stream_id']
     return tr2['stream_id'] 
@@ -693,18 +710,22 @@ def post_checks(dut, port, msg, eeprom_before, presence_before, xcrvd_before, sy
         return 0
 
     st.log("Checking for syslogs")
-    if not check_syslog(dut, port, sys_reg):
-         st.error("Syslogs missing for {}".format(msg))
-         return 0
 
     iteration=0 
     while iteration<10:
+        if not check_syslog(dut, port, sys_reg):
+             iteration+=1 
+             time.sleep(15) 
+             continue 
+
         if not verify_interface_health(dut, port):
             iteration+=1 
             time.sleep(15) 
+            continue 
         else:
             return 1 
     else:
+        st.error("Syslogs missing for {}".format(msg))  
         return 0
 
 def verify_link_status(dut, interface="all", timeout=180):
