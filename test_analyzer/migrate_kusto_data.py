@@ -115,8 +115,8 @@ class KustoConnector(object):
         query_str = '''
             let IncludedTestplan = dynamic({});
             FlatTestReportViewV5
+            | where BuildId in (IncludedTestplan)
             | order by UploadTimestamp asc
-            | where BuildId == '561930'
             '''.format(testplan_ids)
         logger.info("Query cases:{}".format(query_str))
         return self.query(query_str)
