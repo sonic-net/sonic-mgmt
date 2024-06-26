@@ -120,7 +120,7 @@ def mocker_factory(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
                 mocker_object = mocker_type(dut)
                 mockers.append(mocker_object)
         else:
-            pytest.skip("No mocker defined for this platform %s")
+            pytest.skip("No mocker defined for this platform {}".format(platform))
         return mocker_object
 
     yield _create_mocker
@@ -283,7 +283,8 @@ def restart_thermal_control_daemon(dut):
         'Restarting thermal control daemon on {}...'.format(dut.hostname))
     find_thermalctld_pid_cmd = 'docker exec -i pmon bash -c \'pgrep -f thermalctld\' | sort'
     output = dut.shell(find_thermalctld_pid_cmd)
-    assert output["rc"] == 0, "Run command '%s' failed" % find_thermalctld_pid_cmd
+
+    assert output["rc"] == 0, "Run command '{}' failed".format(find_thermalctld_pid_cmd)
     # Usually there should be 2 thermalctld processes, but there is chance that
     # sonic platform API might use subprocess which creates extra thermalctld process.
     # For example, chassis.get_all_sfps will call sfp constructor, and sfp constructor may
@@ -291,15 +292,18 @@ def restart_thermal_control_daemon(dut):
     # So we check here thermalcltd must have at least 2 processes.
     # For mellanox, it has at least two processes, but for celestica(broadcom),
     # it only has one thermalctld process
+    # For kvm, there is no thermalctld process
     if dut.facts["asic_type"] == "mellanox":
         assert len(output["stdout_lines"]
                    ) >= 2, "There should be at least 2 thermalctld process"
+    elif dut.facts["asic_type"] == "vs":
+        assert len(output["stdout_lines"]) == 0, "There should be 0 thermalctld process"
     else:
         assert len(output["stdout_lines"]
                    ) >= 1, "There should be at least 1 thermalctld process"
 
     restart_thermalctl_cmd = "docker exec -i pmon bash -c 'supervisorctl restart thermalctld'"
-    output = dut.shell(restart_thermalctl_cmd)
+    output = dut.shell(restart_thermalctl_cmd, module_ignore_errors=True)
     if output["rc"] == 0:
         output = dut.shell(find_thermalctld_pid_cmd)
         assert output["rc"] == 0, "Run command '{}' failed after restart of thermalctld on {}".format(
@@ -312,6 +316,8 @@ def restart_thermal_control_daemon(dut):
                 output["stdout_lines"]) >= 1, "There should be at least 1 thermalctld process"
         logging.info(
             "thermalctld processes restarted successfully on {}".format(dut.hostname))
+        return
+    if output["rc"] == 1 and dut.facts["asic_type"] == "vs":
         return
     # try restore by config reload...
     config_reload(dut)
