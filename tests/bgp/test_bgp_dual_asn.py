@@ -21,7 +21,6 @@ from tests.generic_config_updater.gu_utils import (
     rollback_or_reload,
 )
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [pytest.mark.topology("t0")]

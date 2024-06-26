@@ -7,7 +7,6 @@ from ptf import mask, packet
 from collections import defaultdict
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.utilities import wait_until
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test   # noqa F401
 
 pytestmark = [

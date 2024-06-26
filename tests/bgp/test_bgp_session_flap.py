@@ -12,7 +12,6 @@ import time
 from tests.common.utilities import InterruptableThread
 import textfsm
 import traceback
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 from natsort import natsorted
 
