@@ -346,10 +346,12 @@ onboarding_t0:
   - arp/test_stress_arp.py
   - arp/test_unknown_mac.py
   - arp/test_wr_arp.py
+  - decap/test_decap.py
 
 onboarding_t1:
   - acl/test_acl.py
   - acl/test_stress_acl.py
+  - decap/test_decap.py
 
 specific_param:
   t0-sonic:
