@@ -551,12 +551,6 @@ Chassis
 Route Processors
     RP0                 8102-28FH-DPU-O 0.10                 FLM274802F3     Cisco 28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
 
-Sled Cards
-    SLED0               8K-DPU400-2A    0.10                 FLM2750036M     Cisco 800 2xDPU Sled AMD Elba
-    SLED1               8K-DPU400-2A    0.10                 FLM2750037E     Cisco 800 2xDPU Sled AMD Elba
-    SLED2               8K-DPU400-2A    0.10                 FLM27500389     Cisco 800 2xDPU Sled AMD Elba
-    SLED3               8K-DPU400-2A    0.10                 FLM2750038M     Cisco 800 2xDPU Sled AMD Elba
-
 Dpu Modules
     DPU0                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750036M     Pensando DSC
     DPU1                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750037M     Pensando DSC
@@ -630,13 +624,9 @@ root@sonic:/home/cisco# show platform pcieinfo -c
 ### 1.8 Check the NTP date and timezone between DPU and NPU
 
 #### Steps
- * In Switch, under the file /etc/ntp.conf configure it to use the ntp server and restart ntp.service to configure
- * In DPU, similarly under the ntp configuration use the switches ip as ntp server and restart ntp service to configure 
- * Use command `date` to start the NTP server on Swith
+ * Use command `date` to get date and time zone on Swith
  * Use command `ssh admin@169.254.x.x` to enter into required dpu.
- * Use command `date` to start the NTP server on DPU
- * Use command `date` to get date and time zone on host.
- * Use command `date` again on dpu to show date and time zone of dpu.
+ * Use command `date` to get date and time zone on DPU
    
 #### Verify in
  * Switch and dpu
