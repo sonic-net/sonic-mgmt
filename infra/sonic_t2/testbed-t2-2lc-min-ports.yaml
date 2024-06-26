@@ -155,79 +155,79 @@ testbed_config:
 topology:
   sfd-lc0:
     interfaces:
-      Ethernet4:
+      Ethernet92:
         Bandwidth: 100000
-        EndDevice: VM0100 # Are the vEOS switches automatically named in this format? If so, how?
-        EndPort: Ethernet1
-        VlanID: 0
+        EndDevice: nexus-5
+        EndPort: Ethernet1/0
+        VlanID: 5
         VlanMode: Access
-      Ethernet5:
+      Ethernet100:
         Bandwidth: 100000
-        EndDevice: VM0100
-        EndPort: Ethernet2
-        VlanID: 1
-        VlanMode: Access
-      Ethernet8:
-        Bandwidth: 100000
-        EndDevice: VM0101
-        EndPort: Ethernet1
-        VlanID: 2
-        VlanMode: Access
-      Ethernet25:
-        Bandwidth: 100000
-        EndDevice: VM0102
-        EndPort: Ethernet1
+        EndDevice: nexus-5
+        EndPort: Ethernet1/2
         VlanID: 3
         VlanMode: Access
-      Ethernet28:
+      Ethernet112:
         Bandwidth: 100000
-        EndDevice: VM0102
-        EndPort: Ethernet2
+        EndDevice: nexus-5
+        EndPort: Ethernet1/3
         VlanID: 4
         VlanMode: Access
-      Ethernet23:
+      Ethernet16:
         Bandwidth: 100000
-        EndDevice: VM0103
-        EndPort: Ethernet1
-        VlanID: 5
+        EndDevice: nexus-5
+        EndPort: Ethernet1/4
+        VlanID: 0
+        VlanMode: Access
+      Ethernet20:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet2/5
+        VlanID: 1
+        VlanMode: Access
+      Ethernet32:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/6
+        VlanID: 2
         VlanMode: Access
   sfd-lc1:
     interfaces:
-      Ethernet2:
+      Ethernet8:
         Bandwidth: 100000
-        EndDevice: VM0104 # Are the vEOS switches automatically named in this format? If so, how?
-        EndPort: Ethernet1
+        EndDevice: nexus-5
+        EndPort: Ethernet1/7
         VlanID: 6
         VlanMode: Access
-      Ethernet3:
+      Ethernet92:
         Bandwidth: 100000
-        EndDevice: VM0104 # Are the vEOS switches automatically named in this format? If so, how?
-        EndPort: Ethernet2
-        VlanID: 7
-        VlanMode: Access
-      Ethernet6:
-        Bandwidth: 100000
-        EndDevice: VM0105
-        EndPort: Ethernet1
-        VlanID: 8
-        VlanMode: Access
-      Ethernet23:
-        Bandwidth: 100000
-        EndDevice: VM0106 # Are the vEOS switches automatically named in this format? If so, how?
-        EndPort: Ethernet1
+        EndDevice: nexus-5
+        EndPort: Ethernet1/8
         VlanID: 9
         VlanMode: Access
-      Ethernet25:
+      Ethernet100:
         Bandwidth: 100000
-        EndDevice: VM0106 # Are the vEOS switches automatically named in this format? If so, how?
-        EndPort: Ethernet2
+        EndDevice: nexus-5
+        EndPort: Ethernet1/9
         VlanID: 10
         VlanMode: Access
-      Ethernet28:
+      Ethernet112:
         Bandwidth: 100000
-        EndDevice: VM0107
-        EndPort: Ethernet1
+        EndDevice: nexus-5
+        EndPort: Ethernet1/10
         VlanID: 11
+        VlanMode: Access
+      Ethernet12:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/11
+        VlanID: 7
+        VlanMode: Access
+      Ethernet24:
+        Bandwidth: 100000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/12
+        VlanID: 8
         VlanMode: Access
 veos:
   cd_image_filename: Aboot-veos-serial-8.0.0.iso
