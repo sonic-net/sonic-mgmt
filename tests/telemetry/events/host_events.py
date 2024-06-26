@@ -81,7 +81,7 @@ def get_critical_process(duthost):
         if pid != "":
             return pid, "restapi"
     if is_container_running(duthost, "snmp"):
-        pid = duthost.shell("docker exec snmp pgrep -f snmpd")["stdout"]
+        pid = duthost.shell("docker exec snmp pgrep -f sonic_ax_impl")["stdout"]
         return pid, "snmp"
     return "", ""
 
