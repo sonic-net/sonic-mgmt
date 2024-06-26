@@ -15,7 +15,6 @@ from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [

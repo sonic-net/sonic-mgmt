@@ -7,7 +7,6 @@ import pytest
 
 from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'dualtor')

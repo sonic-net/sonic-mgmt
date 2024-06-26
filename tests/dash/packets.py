@@ -9,7 +9,6 @@ from constants import *  # noqa: F403
 import logging
 import sys
 import time
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from six import StringIO
 

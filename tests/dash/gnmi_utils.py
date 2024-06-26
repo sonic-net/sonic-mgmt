@@ -7,7 +7,6 @@ from functools import lru_cache
 import pytest
 
 import proto_utils
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 

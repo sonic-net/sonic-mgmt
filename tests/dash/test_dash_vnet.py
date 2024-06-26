@@ -7,7 +7,6 @@ from constants import LOCAL_PTF_INTF, REMOTE_PTF_INTF, ENI
 from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclRule
 import packets
 import time
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
