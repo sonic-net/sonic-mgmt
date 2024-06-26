@@ -201,12 +201,13 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
         else:
             apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
 
+        if skip_traffic_test:
+            return
+
         if 'dualtor' in tbinfo['topo']['name']:
             wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
 
         log_file = "/tmp/decap.{}.log".format(datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
-        if skip_traffic_test:
-            return
         ptf_runner(ptfhost,
                    "ptftests",
                    "IP_decap_test.DecapPacketTest",
