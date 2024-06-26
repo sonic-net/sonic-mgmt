@@ -752,9 +752,10 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     # Fill this array after first run of test case which will give neighbor selected
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
                                               "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
-                                              "td3": td3_asic_flow_map, "gr": gr_asic_flow_map,
-                                              "spc1": spc_asic_flow_map, "spc2": spc_asic_flow_map,
-                                              "spc3": spc_asic_flow_map, "spc4": spc_asic_flow_map}
+                                              "th4": th_asic_flow_map, "td3": td3_asic_flow_map,
+                                              "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
+                                              "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
+                                              "spc4": spc_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
