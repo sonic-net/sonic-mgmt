@@ -5,8 +5,7 @@ import pytest
 from tests.bfd.bfd_base import BfdBase
 from tests.bfd.bfd_helpers import get_ptf_src_port, get_backend_interface_in_use_by_counter, \
     prepare_traffic_test_variables, get_random_bgp_neighbor_ip_of_asic, toggle_port_channel_or_member, \
-    assert_bp_iface_after_shutdown, get_port_channel_by_member, wait_until_bfd_up, wait_until_given_bfd_down, \
-    assert_port_channel_after_shutdown, assert_traffic_switching
+    get_port_channel_by_member, wait_until_bfd_up, wait_until_given_bfd_down, assert_traffic_switching
 
 pytestmark = [pytest.mark.topology("t2")]
 
