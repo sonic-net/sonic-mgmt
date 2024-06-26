@@ -354,9 +354,9 @@ def check_reboot_cause(dut, reboot_cause_expected):
     @param reboot_cause_expected: The expected reboot cause.
     """
     # For kvm testbed, command `show reboot-cause` will return Unknown.
-    # So, return in advance if this check is running on kvm testbed.
+    # So, overwrite the reboot_cause_expected as `Unknown`
     if dut.facts["asic_type"] == "vs":
-        return True
+        reboot_cause_expected = "Unknown"
 
     reboot_cause_got = get_reboot_cause(dut)
     logger.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
