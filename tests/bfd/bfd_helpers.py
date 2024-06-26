@@ -599,7 +599,11 @@ def get_asic_frontend_port_channels(dut, dst_asic_index):
 
 def get_ptf_src_port(src_asic, tbinfo):
     src_asic_mg_facts = src_asic.get_extended_minigraph_facts(tbinfo)
-    return random.choice(list(src_asic_mg_facts["minigraph_ptf_indices"].values()))
+    ptf_src_ports = list(src_asic_mg_facts["minigraph_ptf_indices"].values())
+    if not ptf_src_ports:
+        pytest.skip("No PTF ports found for asic{}".format(src_asic.asic_index))
+
+    return random.choice(ptf_src_ports)
 
 
 def clear_interface_counters(dut):
@@ -647,17 +651,27 @@ def get_backend_interface_in_use_by_counter(
     ptfadapter,
     ptf_src_port,
     dst_neighbor_ip,
-    asic_index,
-    counter_key,
+    src_asic_index,
+    dst_asic_index,
 ):
     clear_interface_counters(dut)
     send_packets_batch_from_ptf(packet_count, version, src_asic_router_mac, ptfadapter, ptf_src_port, dst_neighbor_ip)
-    output = dut.show_and_parse("show int counters -n asic{} -d all".format(asic_index))
-    for item in output:
-        if "BP" in item.get("iface", "") and int(item.get(counter_key, "0").replace(',', '')) >= packet_count:
-            return item.get("iface", "")
+    src_output = dut.show_and_parse("show int counters -n asic{} -d all".format(src_asic_index))
+    dst_output = dut.show_and_parse("show int counters -n asic{} -d all".format(dst_asic_index))
+    src_bp_iface = None
+    for item in src_output:
+        if "BP" in item.get("iface", "") and int(item.get("tx_ok", "0").replace(',', '')) >= packet_count:
+            src_bp_iface = item.get("iface", "")
 
-    return None
+    dst_bp_iface = None
+    for item in dst_output:
+        if "BP" in item.get("iface", "") and int(item.get("rx_ok", "0").replace(',', '')) >= packet_count:
+            dst_bp_iface = item.get("iface", "")
+
+    if not src_bp_iface or not dst_bp_iface:
+        pytest.fail("Backend interface in use not found")
+
+    return src_bp_iface, dst_bp_iface
 
 
 def get_src_dst_asic_next_hops(version, dut, src_asic, dst_asic, request, backend_port_channels):
@@ -680,65 +694,165 @@ def get_src_dst_asic_next_hops(version, dut, src_asic, dst_asic, request, backen
     return src_asic_next_hops, dst_asic_next_hops, src_prefix, dst_prefix
 
 
-# def get_bfd_count_of_state(dut, asic_index, expected_bfd_state):
-#     bfd_cmd = "ip netns exec asic{} show bfd sum | grep -c {}"
-#     bfd_count = dut.shell(bfd_cmd.format(asic_index, expected_bfd_state))["stdout"]
-#     return int(bfd_count)
-#
-#
-# def verify_bfd_count_of_state(dut, asic_index, expected_bfd_state, expected_bfd_count):
-#     bfd_count = get_bfd_count_of_state(dut, asic_index, expected_bfd_state)
-#     return bfd_count == expected_bfd_count
-
-
-def toggle_port_channel(dut, asic, backend_port_channels, bp_iface_in_use_before_shutdown, request, action):
-    port_channel_to_toggle = None
+def get_port_channel_by_member(backend_port_channels, member):
     for port_channel in backend_port_channels:
-        if bp_iface_in_use_before_shutdown in backend_port_channels[port_channel]["members"]:
-            port_channel_to_toggle = port_channel
-            break
+        if member in backend_port_channels[port_channel]["members"]:
+            return port_channel
 
-    if not port_channel_to_toggle:
-        pytest.fail("No port channel found with interface in use")
+    return None
 
+
+def toggle_port_channel_or_member(
+    target_to_toggle,
+    dut,
+    asic,
+    request,
+    action,
+):
     request.config.portchannels_on_dut = "dut"
-    request.config.selected_portchannels = [port_channel_to_toggle]
+    request.config.selected_portchannels = [target_to_toggle]
     request.config.asic = asic
 
-    control_interface_state(dut, asic, port_channel_to_toggle, action)
-    if action == "shutdown":
-        # wait until the corresponding BFD sessions are down
-        time.sleep(120)
-
-
-def toggle_port_channel_member(dut, asic, bp_iface_in_use_before_shutdown, request, action):
-    request.config.portchannels_on_dut = "dut"
-    request.config.selected_portchannels = [bp_iface_in_use_before_shutdown]
-    request.config.asic = asic
-
-    control_interface_state(dut, asic, bp_iface_in_use_before_shutdown, action)
+    control_interface_state(dut, asic, target_to_toggle, action)
     if action == "shutdown":
         time.sleep(120)
 
 
 def assert_bp_iface_after_shutdown(
-    bp_iface_in_use_after_shutdown,
-    asic_index,
+    src_bp_iface_before_shutdown,
+    dst_bp_iface_before_shutdown,
+    src_bp_iface_after_shutdown,
+    dst_bp_iface_after_shutdown,
+    src_asic_index,
+    dst_asic_index,
     dut_hostname,
-    bp_iface_in_use_before_shutdown,
 ):
-    if not bp_iface_in_use_after_shutdown:
+    if src_bp_iface_before_shutdown == src_bp_iface_after_shutdown:
         pytest.fail(
-            "Backend interface in use on asic{} of dut {} is None after shutdown".format(
-                asic_index,
+            "Source backend interface in use on asic{} of dut {} does not change after shutdown".format(
+                src_asic_index,
                 dut_hostname,
             )
         )
 
-    if bp_iface_in_use_before_shutdown == bp_iface_in_use_after_shutdown:
+    if dst_bp_iface_before_shutdown == dst_bp_iface_after_shutdown:
         pytest.fail(
-            "Backend interface in use on asic{} of dut {} does not change after shutdown".format(
-                asic_index,
+            "Destination backend interface in use on asic{} of dut {} does not change after shutdown".format(
+                dst_asic_index,
                 dut_hostname,
             )
         )
+
+
+def assert_port_channel_after_shutdown(
+    src_port_channel_before_shutdown,
+    dst_port_channel_before_shutdown,
+    src_port_channel_after_shutdown,
+    dst_port_channel_after_shutdown,
+    src_asic_index,
+    dst_asic_index,
+    dut_hostname,
+):
+    if src_port_channel_before_shutdown == src_port_channel_after_shutdown:
+        pytest.fail(
+            "Source port channel in use on asic{} of dut {} does not change after shutdown".format(
+                src_asic_index,
+                dut_hostname,
+            )
+        )
+
+    if dst_port_channel_before_shutdown == dst_port_channel_after_shutdown:
+        pytest.fail(
+            "Destination port channel in use on asic{} of dut {} does not change after shutdown".format(
+                dst_asic_index,
+                dut_hostname,
+            )
+        )
+
+
+def verify_given_bfd_state(asic_next_hops, port_channel, asic_index, dut, expected_state):
+    current_state = extract_current_bfd_state(asic_next_hops[port_channel], asic_index, dut)
+    return current_state == expected_state
+
+
+def wait_until_given_bfd_down(
+    src_asic_next_hops,
+    src_port_channel,
+    src_asic_index,
+    dst_asic_next_hops,
+    dst_port_channel,
+    dst_asic_index,
+    dut,
+):
+    assert wait_until(
+        180,
+        10,
+        0,
+        lambda: verify_given_bfd_state(src_asic_next_hops, dst_port_channel, src_asic_index, dut, "Down"),
+    )
+
+    assert wait_until(
+        180,
+        10,
+        0,
+        lambda: verify_given_bfd_state(dst_asic_next_hops, src_port_channel, dst_asic_index, dut, "Down"),
+    )
+
+
+def assert_traffic_switching(
+    dut,
+    backend_port_channels,
+    src_asic_index,
+    src_bp_iface_before_shutdown,
+    src_bp_iface_after_shutdown,
+    src_port_channel_before_shutdown,
+    dst_asic_index,
+    dst_bp_iface_after_shutdown,
+    dst_bp_iface_before_shutdown,
+    dst_port_channel_before_shutdown,
+):
+    assert_bp_iface_after_shutdown(
+        src_bp_iface_before_shutdown,
+        dst_bp_iface_before_shutdown,
+        src_bp_iface_after_shutdown,
+        dst_bp_iface_after_shutdown,
+        src_asic_index,
+        dst_asic_index,
+        dut.hostname,
+    )
+
+    src_port_channel_after_shutdown = get_port_channel_by_member(
+        backend_port_channels,
+        src_bp_iface_after_shutdown,
+    )
+
+    dst_port_channel_after_shutdown = get_port_channel_by_member(
+        backend_port_channels,
+        dst_bp_iface_after_shutdown,
+    )
+
+    assert_port_channel_after_shutdown(
+        src_port_channel_before_shutdown,
+        dst_port_channel_before_shutdown,
+        src_port_channel_after_shutdown,
+        dst_port_channel_after_shutdown,
+        src_asic_index,
+        dst_asic_index,
+        dut.hostname,
+    )
+
+
+def wait_until_bfd_up(dut, src_asic_next_hops, src_asic, dst_asic_next_hops, dst_asic):
+    assert wait_until(
+        180,
+        10,
+        0,
+        lambda: verify_bfd_state(dut, src_asic_next_hops.values(), src_asic, "Up"),
+    )
+
+    assert wait_until(
+        180,
+        10,
+        0,
+        lambda: verify_bfd_state(dut, dst_asic_next_hops.values(), dst_asic, "Up"),
+    )

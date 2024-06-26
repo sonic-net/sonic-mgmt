@@ -3,10 +3,10 @@ import logging
 import pytest
 
 from tests.bfd.bfd_base import BfdBase
-from tests.bfd.bfd_helpers import get_ptf_src_port, get_backend_interface_in_use_by_counter, verify_bfd_state, \
-    prepare_traffic_test_variables, toggle_port_channel, get_random_bgp_neighbor_ip_of_asic, \
-    toggle_port_channel_member, assert_bp_iface_after_shutdown
-from tests.common.utilities import wait_until
+from tests.bfd.bfd_helpers import get_ptf_src_port, get_backend_interface_in_use_by_counter, \
+    prepare_traffic_test_variables, get_random_bgp_neighbor_ip_of_asic, toggle_port_channel_or_member, \
+    assert_bp_iface_after_shutdown, get_port_channel_by_member, wait_until_bfd_up, wait_until_given_bfd_down, \
+    assert_port_channel_after_shutdown, assert_traffic_switching
 
 pytestmark = [pytest.mark.topology("t2")]
 
@@ -43,7 +43,7 @@ class TestBfdTraffic(BfdBase):
             pytest.skip("No BGP neighbor found on asic{} of dut {}".format(dst_asic_index, dut.hostname))
 
         ptf_src_port = get_ptf_src_port(src_asic, tbinfo)
-        bp_iface_in_use_before_shutdown = get_backend_interface_in_use_by_counter(
+        src_bp_iface_before_shutdown, dst_bp_iface_before_shutdown = get_backend_interface_in_use_by_counter(
             dut,
             self.PACKET_COUNT,
             version,
@@ -51,23 +51,42 @@ class TestBfdTraffic(BfdBase):
             ptfadapter,
             ptf_src_port,
             dst_neighbor_ip,
+            src_asic_index,
             dst_asic_index,
-            "rx_ok",
         )
 
-        if not bp_iface_in_use_before_shutdown:
-            pytest.fail("No backend interface in use on asic{} of dut {}".format(dst_asic_index, dut.hostname))
+        dst_port_channel_before_shutdown = get_port_channel_by_member(
+            backend_port_channels,
+            dst_bp_iface_before_shutdown,
+        )
 
-        toggle_port_channel(
+        if not dst_port_channel_before_shutdown:
+            pytest.fail("No port channel found with interface in use")
+
+        toggle_port_channel_or_member(
+            dst_port_channel_before_shutdown,
             dut,
             dst_asic,
-            backend_port_channels,
-            bp_iface_in_use_before_shutdown,
             request,
             "shutdown",
         )
 
-        bp_iface_in_use_after_shutdown = get_backend_interface_in_use_by_counter(
+        src_port_channel_before_shutdown = get_port_channel_by_member(
+            backend_port_channels,
+            src_bp_iface_before_shutdown,
+        )
+
+        wait_until_given_bfd_down(
+            src_asic_next_hops,
+            src_port_channel_before_shutdown,
+            src_asic_index,
+            dst_asic_next_hops,
+            dst_port_channel_before_shutdown,
+            dst_asic_index,
+            dut,
+        )
+
+        src_bp_iface_after_shutdown, dst_bp_iface_after_shutdown = get_backend_interface_in_use_by_counter(
             dut,
             self.PACKET_COUNT,
             version,
@@ -75,38 +94,32 @@ class TestBfdTraffic(BfdBase):
             ptfadapter,
             ptf_src_port,
             dst_neighbor_ip,
+            src_asic_index,
             dst_asic_index,
-            "rx_ok",
         )
 
-        assert_bp_iface_after_shutdown(
-            bp_iface_in_use_after_shutdown,
+        assert_traffic_switching(
+            dut,
+            backend_port_channels,
+            src_asic_index,
+            src_bp_iface_before_shutdown,
+            src_bp_iface_after_shutdown,
+            src_port_channel_before_shutdown,
             dst_asic_index,
-            dut.hostname,
-            bp_iface_in_use_before_shutdown,
+            dst_bp_iface_after_shutdown,
+            dst_bp_iface_before_shutdown,
+            dst_port_channel_before_shutdown,
         )
 
-        toggle_port_channel(
+        toggle_port_channel_or_member(
+            dst_port_channel_before_shutdown,
             dut,
             dst_asic,
-            backend_port_channels,
-            bp_iface_in_use_before_shutdown,
             request,
             "startup",
         )
 
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: verify_bfd_state(dut, src_asic_next_hops.values(), src_asic, "Up"),
-        )
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: verify_bfd_state(dut, dst_asic_next_hops.values(), dst_asic, "Up"),
-        )
+        wait_until_bfd_up(dut, src_asic_next_hops, src_asic, dst_asic_next_hops, dst_asic)
 
     @pytest.mark.parametrize("version", ["ipv4", "ipv6"])
     def test_bfd_traffic_local_port_channel_shutdown(
@@ -135,7 +148,7 @@ class TestBfdTraffic(BfdBase):
             pytest.skip("No BGP neighbor found on asic{} of dut {}".format(dst_asic_index, dut.hostname))
 
         ptf_src_port = get_ptf_src_port(src_asic, tbinfo)
-        bp_iface_in_use_before_shutdown = get_backend_interface_in_use_by_counter(
+        src_bp_iface_before_shutdown, dst_bp_iface_before_shutdown = get_backend_interface_in_use_by_counter(
             dut,
             self.PACKET_COUNT,
             version,
@@ -144,22 +157,41 @@ class TestBfdTraffic(BfdBase):
             ptf_src_port,
             dst_neighbor_ip,
             src_asic_index,
-            "tx_ok",
+            dst_asic_index,
         )
 
-        if not bp_iface_in_use_before_shutdown:
-            pytest.fail("No backend interface in use on asic{} of dut {}".format(src_asic_index, dut.hostname))
+        src_port_channel_before_shutdown = get_port_channel_by_member(
+            backend_port_channels,
+            src_bp_iface_before_shutdown,
+        )
 
-        toggle_port_channel(
+        if not src_port_channel_before_shutdown:
+            pytest.fail("No port channel found with interface in use")
+
+        toggle_port_channel_or_member(
+            src_port_channel_before_shutdown,
             dut,
             src_asic,
-            backend_port_channels,
-            bp_iface_in_use_before_shutdown,
             request,
             "shutdown",
         )
 
-        bp_iface_in_use_after_shutdown = get_backend_interface_in_use_by_counter(
+        dst_port_channel_before_shutdown = get_port_channel_by_member(
+            backend_port_channels,
+            dst_bp_iface_before_shutdown,
+        )
+
+        wait_until_given_bfd_down(
+            src_asic_next_hops,
+            src_port_channel_before_shutdown,
+            src_asic_index,
+            dst_asic_next_hops,
+            dst_port_channel_before_shutdown,
+            dst_asic_index,
+            dut,
+        )
+
+        src_bp_iface_after_shutdown, dst_bp_iface_after_shutdown = get_backend_interface_in_use_by_counter(
             dut,
             self.PACKET_COUNT,
             version,
@@ -168,37 +200,31 @@ class TestBfdTraffic(BfdBase):
             ptf_src_port,
             dst_neighbor_ip,
             src_asic_index,
-            "tx_ok",
+            dst_asic_index,
         )
 
-        assert_bp_iface_after_shutdown(
-            bp_iface_in_use_after_shutdown,
+        assert_traffic_switching(
+            dut,
+            backend_port_channels,
             src_asic_index,
-            dut.hostname,
-            bp_iface_in_use_before_shutdown,
+            src_bp_iface_before_shutdown,
+            src_bp_iface_after_shutdown,
+            src_port_channel_before_shutdown,
+            dst_asic_index,
+            dst_bp_iface_after_shutdown,
+            dst_bp_iface_before_shutdown,
+            dst_port_channel_before_shutdown,
         )
 
-        toggle_port_channel(
+        toggle_port_channel_or_member(
+            src_port_channel_before_shutdown,
             dut,
             src_asic,
-            backend_port_channels,
-            bp_iface_in_use_before_shutdown,
             request,
             "startup",
         )
 
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: verify_bfd_state(dut, src_asic_next_hops.values(), src_asic, "Up"),
-        )
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: verify_bfd_state(dut, dst_asic_next_hops.values(), dst_asic, "Up"),
-        )
+        wait_until_bfd_up(dut, src_asic_next_hops, src_asic, dst_asic_next_hops, dst_asic)
 
     @pytest.mark.parametrize("version", ["ipv4", "ipv6"])
     def test_bfd_traffic_remote_port_channel_member_shutdown(
@@ -227,7 +253,7 @@ class TestBfdTraffic(BfdBase):
             pytest.skip("No BGP neighbor found on asic{} of dut {}".format(dst_asic_index, dut.hostname))
 
         ptf_src_port = get_ptf_src_port(src_asic, tbinfo)
-        bp_iface_in_use_before_shutdown = get_backend_interface_in_use_by_counter(
+        src_bp_iface_before_shutdown, dst_bp_iface_before_shutdown = get_backend_interface_in_use_by_counter(
             dut,
             self.PACKET_COUNT,
             version,
@@ -235,22 +261,42 @@ class TestBfdTraffic(BfdBase):
             ptfadapter,
             ptf_src_port,
             dst_neighbor_ip,
+            src_asic_index,
             dst_asic_index,
-            "rx_ok",
         )
 
-        if not bp_iface_in_use_before_shutdown:
-            pytest.fail("No backend interface in use on asic{} of dut {}".format(dst_asic_index, dut.hostname))
-
-        toggle_port_channel_member(
+        toggle_port_channel_or_member(
+            dst_bp_iface_before_shutdown,
             dut,
             dst_asic,
-            bp_iface_in_use_before_shutdown,
             request,
             "shutdown",
         )
 
-        bp_iface_in_use_after_shutdown = get_backend_interface_in_use_by_counter(
+        src_port_channel_before_shutdown = get_port_channel_by_member(
+            backend_port_channels,
+            src_bp_iface_before_shutdown,
+        )
+
+        dst_port_channel_before_shutdown = get_port_channel_by_member(
+            backend_port_channels,
+            dst_bp_iface_before_shutdown,
+        )
+
+        if not src_port_channel_before_shutdown or not dst_port_channel_before_shutdown:
+            pytest.fail("No port channel found with interface in use")
+
+        wait_until_given_bfd_down(
+            src_asic_next_hops,
+            src_port_channel_before_shutdown,
+            src_asic_index,
+            dst_asic_next_hops,
+            dst_port_channel_before_shutdown,
+            dst_asic_index,
+            dut,
+        )
+
+        src_bp_iface_after_shutdown, dst_bp_iface_after_shutdown = get_backend_interface_in_use_by_counter(
             dut,
             self.PACKET_COUNT,
             version,
@@ -258,37 +304,32 @@ class TestBfdTraffic(BfdBase):
             ptfadapter,
             ptf_src_port,
             dst_neighbor_ip,
+            src_asic_index,
             dst_asic_index,
-            "rx_ok",
         )
 
-        assert_bp_iface_after_shutdown(
-            bp_iface_in_use_after_shutdown,
+        assert_traffic_switching(
+            dut,
+            backend_port_channels,
+            src_asic_index,
+            src_bp_iface_before_shutdown,
+            src_bp_iface_after_shutdown,
+            src_port_channel_before_shutdown,
             dst_asic_index,
-            dut.hostname,
-            bp_iface_in_use_before_shutdown,
+            dst_bp_iface_after_shutdown,
+            dst_bp_iface_before_shutdown,
+            dst_port_channel_before_shutdown,
         )
 
-        toggle_port_channel_member(
+        toggle_port_channel_or_member(
+            dst_bp_iface_before_shutdown,
             dut,
             dst_asic,
-            bp_iface_in_use_before_shutdown,
             request,
             "startup",
         )
 
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: verify_bfd_state(dut, src_asic_next_hops.values(), src_asic, "Up"),
-        )
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: verify_bfd_state(dut, dst_asic_next_hops.values(), dst_asic, "Up"),
-        )
+        wait_until_bfd_up(dut, src_asic_next_hops, src_asic, dst_asic_next_hops, dst_asic)
 
     @pytest.mark.parametrize("version", ["ipv4", "ipv6"])
     def test_bfd_traffic_local_port_channel_member_shutdown(
@@ -317,7 +358,7 @@ class TestBfdTraffic(BfdBase):
             pytest.skip("No BGP neighbor found on asic{} of dut {}".format(dst_asic_index, dut.hostname))
 
         ptf_src_port = get_ptf_src_port(src_asic, tbinfo)
-        bp_iface_in_use_before_shutdown = get_backend_interface_in_use_by_counter(
+        src_bp_iface_before_shutdown, dst_bp_iface_before_shutdown = get_backend_interface_in_use_by_counter(
             dut,
             self.PACKET_COUNT,
             version,
@@ -326,21 +367,41 @@ class TestBfdTraffic(BfdBase):
             ptf_src_port,
             dst_neighbor_ip,
             src_asic_index,
-            "tx_ok",
+            dst_asic_index,
         )
 
-        if not bp_iface_in_use_before_shutdown:
-            pytest.fail("No backend interface in use on asic{} of dut {}".format(src_asic_index, dut.hostname))
-
-        toggle_port_channel_member(
+        toggle_port_channel_or_member(
+            src_bp_iface_before_shutdown,
             dut,
             src_asic,
-            bp_iface_in_use_before_shutdown,
             request,
             "shutdown",
         )
 
-        bp_iface_in_use_after_shutdown = get_backend_interface_in_use_by_counter(
+        src_port_channel_before_shutdown = get_port_channel_by_member(
+            backend_port_channels,
+            src_bp_iface_before_shutdown,
+        )
+
+        dst_port_channel_before_shutdown = get_port_channel_by_member(
+            backend_port_channels,
+            dst_bp_iface_before_shutdown,
+        )
+
+        if not src_port_channel_before_shutdown or not dst_port_channel_before_shutdown:
+            pytest.fail("No port channel found with interface in use")
+
+        wait_until_given_bfd_down(
+            src_asic_next_hops,
+            src_port_channel_before_shutdown,
+            src_asic_index,
+            dst_asic_next_hops,
+            dst_port_channel_before_shutdown,
+            dst_asic_index,
+            dut,
+        )
+
+        src_bp_iface_after_shutdown, dst_bp_iface_after_shutdown = get_backend_interface_in_use_by_counter(
             dut,
             self.PACKET_COUNT,
             version,
@@ -349,33 +410,28 @@ class TestBfdTraffic(BfdBase):
             ptf_src_port,
             dst_neighbor_ip,
             src_asic_index,
-            "tx_ok",
+            dst_asic_index,
         )
 
-        assert_bp_iface_after_shutdown(
-            bp_iface_in_use_after_shutdown,
+        assert_traffic_switching(
+            dut,
+            backend_port_channels,
             src_asic_index,
-            dut.hostname,
-            bp_iface_in_use_before_shutdown,
+            src_bp_iface_before_shutdown,
+            src_bp_iface_after_shutdown,
+            src_port_channel_before_shutdown,
+            dst_asic_index,
+            dst_bp_iface_after_shutdown,
+            dst_bp_iface_before_shutdown,
+            dst_port_channel_before_shutdown,
         )
 
-        toggle_port_channel_member(
+        toggle_port_channel_or_member(
+            src_bp_iface_before_shutdown,
             dut,
             src_asic,
-            bp_iface_in_use_before_shutdown,
             request,
             "startup",
         )
 
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: verify_bfd_state(dut, src_asic_next_hops.values(), src_asic, "Up"),
-        )
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: verify_bfd_state(dut, dst_asic_next_hops.values(), dst_asic, "Up"),
-        )
+        wait_until_bfd_up(dut, src_asic_next_hops, src_asic, dst_asic_next_hops, dst_asic)
