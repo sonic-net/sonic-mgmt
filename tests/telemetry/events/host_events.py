@@ -14,33 +14,35 @@ tag = "sonic-events-host"
 
 def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     logger.info("Beginning to test host events")
-    #run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
-    #         "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
-    #backup_monit_config(duthost)
-    #customize_monit_config(
-    #    duthost,
-    #    [
-    #        "> 90% for 10 times within 20 cycles then alert repeat every 1 cycles",
-    #        "> 2% for 1 times within 5 cycles then alert repeat every 1 cycles"
-    #    ]
-    #)
-    #try:
-    #    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
-    #             "memory_usage.json", "sonic-events-host:memory-usage", tag, False)
-    #    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
-    #             "disk_usage.json", "sonic-events-host:disk-usage", tag, False)
-    #    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
-    #             "cpu_usage.json", "sonic-events-host:cpu-usage", tag, False)
-    #   run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
-    #             "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag)
-    #    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
-    #             "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
-    #    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, mask_container,
-    #            "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
-    #finally:
-    #    restore_monit_config(duthost)
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
+             "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
+    backup_monit_config(duthost)
+    customize_monit_config(
+        duthost,
+        [
+            "> 90% for 10 times within 20 cycles then alert repeat every 1 cycles",
+            "> 2% for 1 times within 5 cycles then alert repeat every 1 cycles"
+        ]
+    )
+    try:
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+                 "memory_usage.json", "sonic-events-host:memory-usage", tag, False)
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+                 "disk_usage.json", "sonic-events-host:disk-usage", tag, False)
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+                 "cpu_usage.json", "sonic-events-host:cpu-usage", tag, False)
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
+                 "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag)
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
+                 "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, mask_container,
+                "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
+    finally:
+        restore_monit_config(duthost)
     add_test_watchdog_timeout_service(duthost)
     try:
+        # We need to alot flat 60 seconds for watchdog timeout to fire since the timer is set to 60\
+        # With a base limit of 30 seconds, we will use 90 seconds
         run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
                  "watchdog_timeout.json", "sonic-events-host:watchdog-timeout", tag, False, 90)
     finally:
