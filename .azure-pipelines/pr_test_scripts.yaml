@@ -346,12 +346,14 @@ onboarding_t0:
   - arp/test_stress_arp.py
   - arp/test_unknown_mac.py
   - arp/test_wr_arp.py
+  - decap/test_decap.py
   - everflow/test_everflow_per_interface.py
   - everflow/test_everflow_testbed.py
 
 onboarding_t1:
   - acl/test_acl.py
   - acl/test_stress_acl.py
+  - decap/test_decap.py
   - everflow/test_everflow_per_interface.py
   - everflow/test_everflow_testbed.py
 

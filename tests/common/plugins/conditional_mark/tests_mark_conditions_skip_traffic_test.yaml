@@ -53,6 +53,15 @@ arp/test_wr_arp.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####           decap             #####
+#######################################
+decap/test_decap.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####         everflow            #####
 #######################################
 everflow/test_everflow_ipv6.py:
