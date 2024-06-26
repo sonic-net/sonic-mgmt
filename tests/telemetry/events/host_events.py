@@ -36,7 +36,7 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
         run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
                  "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
         run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, mask_container,
-                "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
+                 "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
     finally:
         restore_monit_config(duthost)
     add_test_watchdog_timeout_service(duthost)
