@@ -72,7 +72,7 @@ kill -SIGSTOP $(pidof orchagent)
 8. Verify packets are not forwarded to any T1 peers of downstream line cards. And also make sure packets are forwarded to other T3 peers because of default route.
 9. Restore orchagent process on both asics by,
 ```
-kill -SIGSTOP $(pidof orchagent)
+kill -SIGCONT $(pidof orchagent)
 ```
 10. Make sure announced BGP routes are __not__ in __queued__ state in the DUT routing table.
 11. Make sure the routes are programmed in FIB by checking offloaded flag value in the DUT routing table.
@@ -91,7 +91,7 @@ kill -SIGSTOP $(pidof orchagent)
 5. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard.
 6.  Restore orchagent process on both asics by,
 ```
-kill -SIGSTOP $(pidof orchagent)
+kill -SIGCONT $(pidof orchagent)
 ```
 7. Make sure the routes are programmed in FIB by checking offloaded flag in the DUT routing table.
 8. Send traffic matching the prefixes from one of T3 peer and verify packets are forwarded to expected T1 peer only.
@@ -116,7 +116,7 @@ kill -SIGSTOP $(pidof orchagent)
 13. Verify packets are not forwarded to any T1 peers of downstream line cards. And also make sure packets are forwarded to other T3 peers because of default route.
 14. Restore orchagent process on both asics by,
 ```
-kill -SIGSTOP $(pidof orchagent)
+kill -SIGCONT $(pidof orchagent)
 ```
 14. Make sure announced BGP routes are __not__ in __queued__ state in the DUT routing table.
 15. Make sure the routes are programmed in FIB by checking offloaded flag in the DUT routing table.
@@ -137,7 +137,7 @@ kill -SIGSTOP $(pidof orchagent)
 7. Save configuration and do config reload on DUT.
 8. Restore orchagent process on both asics by,
 ```
-kill -SIGSTOP $(pidof orchagent)
+kill -SIGCONT $(pidof orchagent)
 ```
 9. Make sure the routes are programmed in FIB by checking offloaded flag in the DUT routing table.
 10. Send traffic matching the prefixes from one of T3 peer and verify packets are forwarded to expected T1 peer only.
@@ -157,7 +157,7 @@ kill -SIGSTOP $(pidof orchagent)
 8. Enable BGP suppress-fib-pending function at DUT
 9. Restore orchagent process on both asics by,
 ```
-kill -SIGSTOP $(pidof orchagent)
+kill -SIGCONT $(pidof orchagent)
 ```
 10. Verify the routes are programmed in FIB by checking offloaded flag in the DUT routing table
 11. Send traffic matching the prefixes from one of T3 peer and verify packets are forwarded to expected T1 peer only.
