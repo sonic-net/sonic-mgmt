@@ -75,14 +75,11 @@ def get_running_container(duthost):
 
 
 def get_critical_process(duthost):
-    logger.info("Check if restapi/snmpd process are running")
-    if is_container_running(duthost, "restapi"):
-        pid = duthost.shell("docker exec restapi pgrep -f restapi.sh")["stdout"]
+    logger.info("Check if bgp process is running")
+    if is_container_running(duthost, "bgp"):
+        pid = duthost.shell("docker exec bgp pgrep -f bgpd")["stdout"]
         if pid != "":
-            return pid, "restapi"
-    if is_container_running(duthost, "snmp"):
-        pid = duthost.shell("docker exec snmp pgrep -f sonic_ax_impl")["stdout"]
-        return pid, "snmp"
+            return pid, "bgp"
     return "", ""
 
 
