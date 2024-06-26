@@ -21,7 +21,6 @@ from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until, delete_running_config
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [

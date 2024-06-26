@@ -3,7 +3,6 @@ import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.dut_utils import is_container_running, get_disabled_container_list
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),

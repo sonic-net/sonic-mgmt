@@ -14,7 +14,6 @@ from tests.common.dualtor.dual_tor_common import cable_type                     
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.nic_simulator_control import stop_nic_grpc_server         # noqa F401
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator        # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [

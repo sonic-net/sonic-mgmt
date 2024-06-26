@@ -16,7 +16,6 @@ from tests.common.dualtor.dual_tor_common import active_active_ports            
 from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [

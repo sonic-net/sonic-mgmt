@@ -3,7 +3,6 @@ import logging
 from tests.common.constants import RESOLV_CONF_NAMESERVERS
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_image_type
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology("any")
