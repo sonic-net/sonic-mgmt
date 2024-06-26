@@ -426,6 +426,8 @@ def collect_result():
 
     global test_start_time
     test_start_time = extract_test_start_time(spytest_results_files)
+
+    exec_command_raise_error(client, f"cd {RESULT_FOLDER_PATH}; echo cisco123 | sudo -S chmod -R 644 tmp* | true")
     
     exec_command_raise_error(client, f"cd {RESULT_FOLDER_PATH}; tar -czvf spytest_result.tar.gz *")
     ftp_client.get(f"{RESULT_FOLDER_PATH}/spytest_result.tar.gz","./spytest_result.tar.gz")
