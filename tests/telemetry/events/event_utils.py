@@ -26,6 +26,7 @@ def delete_test_watchdog_timeout_service(duthost):
     duthost.shell("systemctl daemon-reload")
     duthost.shell("systemctl reset-failed")
 
+
 def backup_monit_config(duthost):
     logger.info("Backing up monit config files")
     duthost.shell("cp -f /etc/monit/monitrc ~/")
