@@ -348,12 +348,10 @@ onboarding_t0:
   - test_pktgen.py
   - acl/test_acl_outer_vlan.py
   - arp/test_unknown_mac.py
-
-onboarding_t1:
-  - arp/test_wr_arp.py
   - decap/test_decap.py
 
-
+onboarding_t1:
+  - decap/test_decap.py
 
 specific_param:
   t0-sonic:
