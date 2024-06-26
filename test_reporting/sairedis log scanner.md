@@ -94,9 +94,6 @@ python sai_swss_invocations.py --config_path <YOUR CONFIG FILE>
 Example:
 ```
 export TEST_REPORT_INGEST_KUSTO_CLUSTER="https://****.kusto.windows.net"
-export TEST_REPORT_AAD_TENANT_ID="****-86f1-*******"
-export TEST_REPORT_AAD_CLIENT_ID="****-ff00-*******"
-export TEST_REPORT_AAD_CLIENT_KEY=*******
 
 cd test_reporting
 python sai_swss_invocations.py --config_path swss.yml

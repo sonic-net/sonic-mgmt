@@ -37,17 +37,21 @@ jobs:
         env:
           AZURE_DEVOPS_MSSONIC_TOKEN: $(System.AccessToken)
 
-      - task: Bash@3
+      - task: AzureCLI@2
         displayName: Upload Inspection Results
         inputs:
-          targetType: 'inline'
-          script: |
+          azureSubscription: "SONiC-Automation"
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            pwd
+
+            accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+            export ACCESS_TOKEN=$accessToken
+
             set -x
 
             pip3 install -r test_reporting/requirements.txt
             python3 test_reporting/report_uploader.py -c "expected_runs" expected_runs.json SonicTestData
         env:
           TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
-          TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
-          TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
-          TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
