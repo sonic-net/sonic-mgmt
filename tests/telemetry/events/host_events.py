@@ -60,6 +60,7 @@ def trigger_kernel_event(duthost):
 
 
 def is_container_down(duthost, container):
+    duthost.shell("tail -n 50 /var/log/syslog")
     return not is_container_running(duthost, container)
 
 
