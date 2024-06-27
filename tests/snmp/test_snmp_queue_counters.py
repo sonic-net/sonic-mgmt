@@ -48,10 +48,28 @@ def test_snmp_queue_counters(duthosts,
         = "docker exec snmp snmpwalk -v2c -c {} {} {}".format(
             creds_all_duts[duthost.hostname]['snmp_rocommunity'], hostip,
             Ethernet0_queue_cntrs_oid)
+    # Generate sonic-cfggen commands for multi-asic and single-asic duts
+    nslist = duthost.get_asic_namespace_list()
+    if duthost.sonichost.is_multi_asic and nslist is not None:
+        cmd = "sonic-cfggen -n asic0 -d --print-data > {}".format(ORIG_CFG_DB)
+    else:
+        cmd = "sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB)
 
-    duthost.shell("sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB))
+    duthost.shell(cmd)
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                     verbose=False)['stdout'])
+    buffer_queue_to_del = None
+    # Get appropriate buffer queue value to delete for Ethernet0|3-4 in case of multi-asic
+    if duthost.sonichost.is_multi_asic:
+        buffer_queues = list(data['BUFFER_QUEUE'].keys())
+        iface_to_check = buffer_queues[0].split('|')[0]
+        iface_buffer_queues = [bq for bq in buffer_queues if any(val in iface_to_check for val in bq.split('|'))]
+        for queue in iface_buffer_queues:
+            if 'asic0' in queue and queue.split('|')[-1] == '3-4':
+                buffer_queue_to_del = queue
+                break
+    else:
+        buffer_queue_to_del = "Ethernet0|3-4"
 
     # Add create_only_config_db_buffers entry to device metadata to enable
     # counters optimization and get number of queue counters of Ethernet0 prior
@@ -63,7 +81,7 @@ def test_snmp_queue_counters(duthosts,
 
     # Remove buffer queue and reload and get number of queue counters of
     # Ethernet0 after removing two buffer queues
-    del data['BUFFER_QUEUE']["Ethernet0|3-4"]
+    del data['BUFFER_QUEUE'][buffer_queue_to_del]
     load_new_cfg(duthost, data)
     queue_counters_cnt_post = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
 
@@ -72,7 +90,9 @@ def test_snmp_queue_counters(duthosts,
                                                        * MULTICAST_CTRS)
     pytest_assert((queue_counters_cnt_pre - queue_counters_cnt_post)
                   in [unicast_expected_diff, multicast_expected_diff],
-                  "Queue counters count differs from expected")
+                  "Queue counters actual count {} differs from expected values {}, {}".
+                  format(queue_counters_cnt_post, (queue_counters_cnt_pre - unicast_expected_diff),
+                         (queue_counters_cnt_pre - multicast_expected_diff)))
 
 
 @pytest.fixture(scope="module")
