@@ -102,12 +102,18 @@ stages:
         steps:
 
           # - template: ../.azure-pipelines/nightly/templates/get_secrets.yml
-
-          - task: Bash@3
+          - task: AzureCLI@2
             displayName: Run Nightly Hawk Verify Script
             inputs:
-              targetType: 'inline'
-              script: |
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                pwd
+
+                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+
                 set -x
                 source /var/AzDevOps/env-python3/bin/activate
 

@@ -59,12 +59,18 @@ stages:
                 cat count.json
 
           - ${{ if eq(parameters.UPLOAD_TO_KUSTO, True) }}:
-            - task: Bash@3
+            - task: AzureCLI@2
               displayName: Upload to Kusto
-              timeoutInMinutes: 10
               inputs:
-                targetType: 'inline'
-                script: |
+                azureSubscription: "SONiC-Automation"
+                scriptType: 'bash'
+                scriptLocation: 'inlineScript'
+                inlineScript: |
+                  pwd
+
+                  accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                  export ACCESS_TOKEN=$accessToken
+
                   set -ex
 
                   export TEST_REPORT_INGEST_KUSTO_CLUSTER=$(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)

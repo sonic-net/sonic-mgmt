@@ -34,11 +34,18 @@ stages:
         - checkout: sonic-mgmt
           displayName: 'checkout sonic-mgmt repo'
 
-        - task: Bash@3
+        - task: AzureCLI@2
           displayName: Testscripts Collection
           inputs:
-            targetType: 'inline'
-            script: |
+            azureSubscription: "SONiC-Automation"
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              pwd
+
+              accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+              export ACCESS_TOKEN=$accessToken
+
               set -x
 
               cd .azure-pipelines/testscripts_analyse
