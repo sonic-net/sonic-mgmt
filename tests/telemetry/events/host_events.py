@@ -60,6 +60,8 @@ def trigger_kernel_event(duthost):
 
 
 def is_container_down(duthost, container):
+    duthost.shell("docker exec bgp ps aux")
+    duthost.shell("docker exec bgp ls /usr/bin | grep supervisor")
     duthost.shell("tail -n 50 /var/log/syslog")
     return not is_container_running(duthost, container)
 
