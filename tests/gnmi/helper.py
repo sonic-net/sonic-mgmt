@@ -13,6 +13,7 @@ GNMI_PORT = 0
 # Wait 15 seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 15
 
+
 def get_env(duthost):
     dut_command = "docker ps"
     container_list = duthost.shell(dut_command)
@@ -23,6 +24,7 @@ def get_env(duthost):
     else:
         raise ValueError("Expected modes 'telemetry' or 'gnmi' not found in container list output")
     return env
+
 
 def gnmi_container(duthost):
     env = get_env(duthost)
