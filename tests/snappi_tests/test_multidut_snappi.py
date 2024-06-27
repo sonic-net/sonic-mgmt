@@ -111,7 +111,7 @@ def test_snappi(request,
         assert False, "Invalid line_card_choice value passed in parameter"
 
     if len(linecard_configuration_set[line_card_choice]['hostname']) > 1:
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(list(duthosts), 2)
     elif len(linecard_configuration_set[line_card_choice]['hostname']) == 1:
         dut_list = [dut for dut in duthosts
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
