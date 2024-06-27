@@ -158,6 +158,13 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         time.sleep(wait)
 
     if wait_for_bgp:
-        bgp_neighbors = sonic_host.get_bgp_neighbors().keys()
-        pytest_assert(wait_until(120, 10, 0, sonic_host.check_bgp_session_state, bgp_neighbors),
-                      "Not all bgp sessions are established after config reload")
+        if sonic_host.is_multi_asic:
+            bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic()
+            pytest_assert(
+                wait_until(120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
+                "Not all bgp sessions are established after config reload",
+            )
+        else:
+            bgp_neighbors = sonic_host.get_bgp_neighbors().keys()
+            pytest_assert(wait_until(120, 10, 0, sonic_host.check_bgp_session_state, bgp_neighbors),
+                          "Not all bgp sessions are established after config reload")
