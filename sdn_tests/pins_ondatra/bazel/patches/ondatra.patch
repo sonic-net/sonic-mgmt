@@ -1,0 +1,52 @@
+diff --git a/binding/abstract.go b/binding/abstract.go
+index 4d431d1..0ff43a4 100644
+--- a/binding/abstract.go
++++ b/binding/abstract.go
+@@ -33,7 +33,7 @@ import (
+ 	credzpb "github.com/openconfig/gnsi/credentialz"
+ 	pathzpb "github.com/openconfig/gnsi/pathz"
+ 
+-	grpb "github.com/openconfig/gribi/v1/proto/service"
++	grpb "github.com/openconfig/gribi/proto/service"
+ 	opb "github.com/openconfig/ondatra/proto"
+ 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+ )
+diff --git a/binding/binding.go b/binding/binding.go
+index 2a4d7ae..96229b5 100644
+--- a/binding/binding.go
++++ b/binding/binding.go
+@@ -33,7 +33,7 @@ import (
+ 	certzpb "github.com/openconfig/gnsi/certz"
+ 	credzpb "github.com/openconfig/gnsi/credentialz"
+ 	pathzpb "github.com/openconfig/gnsi/pathz"
+-	grpb "github.com/openconfig/gribi/v1/proto/service"
++	grpb "github.com/openconfig/gribi/proto/service"
+ 	opb "github.com/openconfig/ondatra/proto"
+ 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+ )
+diff --git a/internal/rawapis/rawapis.go b/internal/rawapis/rawapis.go
+index bef545c..98df921 100644
+--- a/internal/rawapis/rawapis.go
++++ b/internal/rawapis/rawapis.go
+@@ -34,7 +34,7 @@ import (
+ 	"google.golang.org/grpc"
+ 
+ 	gpb "github.com/openconfig/gnmi/proto/gnmi"
+-	grpb "github.com/openconfig/gribi/v1/proto/service"
++	grpb "github.com/openconfig/gribi/proto/service"
+ 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+ )
+ 
+diff --git a/raw/raw.go b/raw/raw.go
+index 780e978..1821141 100644
+--- a/raw/raw.go
++++ b/raw/raw.go
+@@ -89,7 +89,7 @@ import (
+ 	"github.com/openconfig/ondatra/internal/rawapis"
+ 
+ 	gpb "github.com/openconfig/gnmi/proto/gnmi"
+-	grpb "github.com/openconfig/gribi/v1/proto/service"
++	grpb "github.com/openconfig/gribi/proto/service"
+ 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+ )
+ 

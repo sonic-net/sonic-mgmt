@@ -1,0 +1,71 @@
+#######################################
+#####            acl              #####
+#######################################
+acl/custom_acl_table/test_custom_acl_table.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+acl/null_route/test_null_route_helper.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+acl/test_acl.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+acl/test_acl_outer_vlan.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+acl/test_stress_acl.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####            arp              #####
+#######################################
+arp/test_stress_arp.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+arp/test_unknown_mac.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+arp/test_wr_arp.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####           decap             #####
+#######################################
+decap/test_decap.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####         everflow            #####
+#######################################
+everflow/test_everflow_ipv6.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
