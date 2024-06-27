@@ -37,9 +37,10 @@ class KustoConnector():
             by hosting a backup cluster, which is optional.
         """
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
-        access_token = os.environ.get('ACCESS_TOKEN', None)
+        access_token = os.getenv('ACCESS_TOKEN', None)
 
         if not ingest_cluster or not access_token:
+            print("Could not load Kusto Credentials from environment, ingest_cluster:{}, ACCESS_TOKEN:{}".format(ingest_cluster, access_token))
             raise RuntimeError(
                 "Could not load Kusto Credentials from environment")
         else:
