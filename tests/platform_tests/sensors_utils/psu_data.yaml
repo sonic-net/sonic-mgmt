@@ -1,0 +1,241 @@
+sensors_checks:
+    MTEF-PSF-AC-A:
+        alarms:
+            fan:
+                - dps460-i2c-*-*/PSU-* Fan 1/fan1_alarm
+                - dps460-i2c-*-*/PSU-* Fan 1/fan1_fault
+            power:
+                - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail (out)/in2_lcrit_alarm
+                - dps460-i2c-*-*/PSU-* 220V Rail Pwr (in)/power1_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_max_alarm
+                - dps460-i2c-*-*/PSU-* 220V Rail Curr (in)/curr1_max_alarm
+                - dps460-i2c-*-*/PSU-* 220V Rail Curr (in)/curr1_crit_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_max_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_crit_alarm
+            temp:
+                - dps460-i2c-*-*/PSU-* Temp 1/temp1_max_alarm
+                - dps460-i2c-*-*/PSU-* Temp 2/temp2_max_alarm
+        compares:
+            power: [ ]
+            temp:
+                - - dps460-i2c-*-*/PSU-* Temp 1/temp1_input
+                  - dps460-i2c-*-*/PSU-* Temp 1/temp1_max
+                - - dps460-i2c-*-*/PSU-* Temp 2/temp2_input
+                  - dps460-i2c-*-*/PSU-* Temp 2/temp2_max
+        non_zero:
+            fan: [ ]
+            power: [ ]
+            temp: [ ]
+        psu_skips: { }
+        sensor_skip_per_version: { }
+    MTEF-PSF-AC-C:
+        alarms:
+            fan:
+                - dps460-i2c-*-*/PSU-* Fan 1/fan1_alarm
+                - dps460-i2c-*-*/PSU-* Fan 1/fan1_fault
+            power:
+                - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_min_alarm
+                - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_max_alarm
+                - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_lcrit_alarm
+                - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_crit_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail (out)/in3_min_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail (out)/in3_max_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail (out)/in3_lcrit_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail (out)/in3_crit_alarm
+                - dps460-i2c-*-*/PSU-* 220V Rail Pwr (in)/power1_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_cap_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_max_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_crit_alarm
+                - dps460-i2c-*-*/PSU-* 220V Rail Curr (in)/curr1_max_alarm
+                - dps460-i2c-*-*/PSU-* 220V Rail Curr (in)/curr1_crit_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_max_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_lcrit_alarm
+                - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_crit_alarm
+            temp:
+                - dps460-i2c-*-*/PSU-* Temp 1/temp1_max_alarm
+                - dps460-i2c-*-*/PSU-* Temp 1/temp1_min_alarm
+                - dps460-i2c-*-*/PSU-* Temp 1/temp1_crit_alarm
+                - dps460-i2c-*-*/PSU-* Temp 1/temp1_lcrit_alarm
+                - dps460-i2c-*-*/PSU-* Temp 2/temp2_max_alarm
+                - dps460-i2c-*-*/PSU-* Temp 2/temp2_min_alarm
+                - dps460-i2c-*-*/PSU-* Temp 2/temp2_crit_alarm
+                - dps460-i2c-*-*/PSU-* Temp 2/temp2_lcrit_alarm
+                - dps460-i2c-*-*/PSU-* Temp 3/temp3_max_alarm
+                - dps460-i2c-*-*/PSU-* Temp 3/temp3_min_alarm
+                - dps460-i2c-*-*/PSU-* Temp 3/temp3_crit_alarm
+                - dps460-i2c-*-*/PSU-* Temp 3/temp3_lcrit_alarm
+        compares:
+            power: [ ]
+            temp:
+                - - dps460-i2c-*-*/PSU-* Temp 1/temp1_input
+                  - dps460-i2c-*-*/PSU-* Temp 1/temp1_crit
+                - - dps460-i2c-*-*/PSU-* Temp 2/temp2_input
+                  - dps460-i2c-*-*/PSU-* Temp 2/temp2_crit
+                - - dps460-i2c-*-*/PSU-* Temp 3/temp3_input
+                  - dps460-i2c-*-*/PSU-* Temp 3/temp3_crit
+        non_zero:
+            fan: [ ]
+            power: [ ]
+            temp: [ ]
+        psu_skips: { }
+        sensor_skip_per_version: { }
+    MTEF-PSF-AC-E:
+      alarms:
+        fan:
+          - dps460-i2c-*-*/PSU-* Fan 1/fan1_alarm
+          - dps460-i2c-*-*/PSU-* Fan 1/fan1_fault
+        power:
+          - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail Pwr (in)/power1_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_max_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail Curr (in)/curr1_max_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_max_alarm
+        temp:
+          - dps460-i2c-*-*/PSU-* Temp 1/temp1_max_alarm
+          - dps460-i2c-*-*/PSU-* Temp 2/temp2_max_alarm
+          - dps460-i2c-*-*/PSU-* Temp 3/temp3_max_alarm
+      compares:
+        power: [ ]
+        temp:
+          - - dps460-i2c-*-*/PSU-* Temp 1/temp1_input
+            - dps460-i2c-*-*/PSU-* Temp 1/temp1_max
+          - - dps460-i2c-*-*/PSU-* Temp 2/temp2_input
+            - dps460-i2c-*-*/PSU-* Temp 2/temp2_max
+          - - dps460-i2c-*-*/PSU-* Temp 3/temp3_input
+            - dps460-i2c-*-*/PSU-* Temp 3/temp3_max
+      non_zero:
+        fan: [ ]
+        power: [ ]
+        temp: [ ]
+      psu_skips: { }
+      sensor_skip_per_version: { }
+    MTEF-PSF-AC-F:
+      alarms:
+        fan:
+          - dps460-i2c-*-*/PSU-* Fan 1/fan1_alarm
+          - dps460-i2c-*-*/PSU-* Fan 1/fan1_fault
+        power:
+          - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_min_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_max_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_lcrit_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_crit_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail (out)/in3_min_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail (out)/in3_max_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail (out)/in3_lcrit_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail (out)/in3_crit_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail Pwr (in)/power1_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_max_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_crit_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail Curr (in)/curr1_max_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail Curr (in)/curr1_crit_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_max_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_crit_alarm
+        temp:
+          - dps460-i2c-*-*/PSU-* Temp 1/temp1_max_alarm
+          - dps460-i2c-*-*/PSU-* Temp 1/temp1_crit_alarm
+          - dps460-i2c-*-*/PSU-* Temp 2/temp2_max_alarm
+          - dps460-i2c-*-*/PSU-* Temp 2/temp2_crit_alarm
+          - dps460-i2c-*-*/PSU-* Temp 3/temp3_max_alarm
+          - dps460-i2c-*-*/PSU-* Temp 3/temp3_crit_alarm
+      compares:
+        power: [ ]
+        temp:
+          - - dps460-i2c-*-*/PSU-* Temp 1/temp1_input
+            - dps460-i2c-*-*/PSU-* Temp 1/temp1_crit
+          - - dps460-i2c-*-*/PSU-* Temp 2/temp2_input
+            - dps460-i2c-*-*/PSU-* Temp 2/temp2_crit
+          - - dps460-i2c-*-*/PSU-* Temp 3/temp3_input
+            - dps460-i2c-*-*/PSU-* Temp 3/temp3_crit
+      non_zero:
+        fan: [ ]
+        power: [ ]
+        temp: [ ]
+      psu_skips: { }
+      sensor_skip_per_version: { }
+    MTEF-PSF-AC-M:
+        alarms:
+            fan:
+                - pmbus-i2c-*-*/PSU-* Fan1/fan1_alarm
+                - pmbus-i2c-*-*/PSU-* Fan1/fan1_fault
+            power:
+                - pmbus-i2c-*-*/PSU-* 220V Rail(in)/in1_min_alarm
+                - pmbus-i2c-*-*/PSU-* 220V Rail(in)/in1_max_alarm
+                - pmbus-i2c-*-*/PSU-* 220V Rail(in)/in1_lcrit_alarm
+                - pmbus-i2c-*-*/PSU-* 220V Rail(in)/in1_crit_alarm
+                - pmbus-i2c-*-*/PSU-* 12V Rail(out)/in2_min_alarm
+                - pmbus-i2c-*-*/PSU-* 12V Rail(out)/in2_lcrit_alarm
+                - pmbus-i2c-*-*/PSU-* 12V Rail(out)/in2_crit_alarm
+                - pmbus-i2c-*-*/PSU-* 220V Rail Pwr(in)/power1_alarm
+                - pmbus-i2c-*-*/PSU-* 12V Rail Pwr(out)/power2_cap_alarm
+                - pmbus-i2c-*-*/PSU-* 12V Rail Pwr(out)/power2_max_alarm
+                - pmbus-i2c-*-*/PSU-* 220V Rail Curr(in)/curr1_max_alarm
+                - pmbus-i2c-*-*/PSU-* 12V Rail Curr(out)/curr2_max_alarm
+                - pmbus-i2c-*-*/PSU-* 12V Rail Curr(out)/curr2_crit_alarm
+            temp:
+                - pmbus-i2c-*-*/PSU-* Temp1/temp1_max_alarm
+                - pmbus-i2c-*-*/PSU-* Temp1/temp1_min_alarm
+                - pmbus-i2c-*-*/PSU-* Temp1/temp1_crit_alarm
+                - pmbus-i2c-*-*/PSU-* Temp1/temp1_lcrit_alarm
+                - pmbus-i2c-*-*/PSU-* Temp2/temp2_max_alarm
+                - pmbus-i2c-*-*/PSU-* Temp2/temp2_min_alarm
+                - pmbus-i2c-*-*/PSU-* Temp2/temp2_crit_alarm
+                - pmbus-i2c-*-*/PSU-* Temp2/temp2_lcrit_alarm
+                - pmbus-i2c-*-*/PSU-* Temp3/temp3_max_alarm
+                - pmbus-i2c-*-*/PSU-* Temp3/temp3_min_alarm
+                - pmbus-i2c-*-*/PSU-* Temp3/temp3_crit_alarm
+                - pmbus-i2c-*-*/PSU-* Temp3/temp3_lcrit_alarm
+        compares:
+            power: [ ]
+            temp:
+                - - pmbus-i2c-*-*/PSU-* Temp1/temp1_input
+                  - pmbus-i2c-*-*/PSU-* Temp1/temp1_crit
+                - - pmbus-i2c-*-*/PSU-* Temp2/temp2_input
+                  - pmbus-i2c-*-*/PSU-* Temp2/temp2_crit
+                - - pmbus-i2c-*-*/PSU-* Temp3/temp3_input
+                  - pmbus-i2c-*-*/PSU-* Temp3/temp3_crit
+        non_zero:
+            fan: [ ]
+            power: [ ]
+            temp: [ ]
+        psu_skips: { }
+        sensor_skip_per_version: { }
+    930-9SPSU-00RA-00B:
+      alarms:
+        fan:
+          - dps460-i2c-*-*/PSU-* Fan 1/fan1_alarm
+          - dps460-i2c-*-*/PSU-* Fan 1/fan1_fault
+        power:
+          - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_min_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_max_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_lcrit_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_crit_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail (out)/in3_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail Pwr (in)/power1_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_max_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_crit_alarm
+          - dps460-i2c-*-*/PSU-* 220V Rail Curr (in)/curr1_max_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_max_alarm
+          - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_crit_alarm
+        temp:
+          - dps460-i2c-*-*/PSU-* Temp 1/temp1_max_alarm
+          - dps460-i2c-*-*/PSU-* Temp 1/temp1_crit_alarm
+          - dps460-i2c-*-*/PSU-* Temp 2/temp2_max_alarm
+          - dps460-i2c-*-*/PSU-* Temp 2/temp2_crit_alarm
+          - dps460-i2c-*-*/PSU-* Temp 3/temp3_max_alarm
+          - dps460-i2c-*-*/PSU-* Temp 3/temp3_crit_alarm
+      compares:
+        power: [ ]
+        temp:
+          - - dps460-i2c-*-*/PSU-* Temp 1/temp1_input
+            - dps460-i2c-*-*/PSU-* Temp 1/temp1_crit
+          - - dps460-i2c-*-*/PSU-* Temp 2/temp2_input
+            - dps460-i2c-*-*/PSU-* Temp 2/temp2_crit
+          - - dps460-i2c-*-*/PSU-* Temp 3/temp3_input
+            - dps460-i2c-*-*/PSU-* Temp 3/temp3_crit
+      non_zero:
+        fan: [ ]
+        power: [ ]
+        temp: [ ]
+      psu_skips: { }
+      sensor_skip_per_version: { }
