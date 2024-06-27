@@ -138,8 +138,11 @@ def sonic_update_firmware(duthost, localhost, image_url, upgrade_type):
     return out['stdout'].rstrip('\n')
 
 
-def run_postupgrade_actions(duthost, tbinfo, metadata_process):
+def run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions):
     if not metadata_process:
+        return
+    if skip_postupgrade_actions:
+        logger.info("Skipping postupgrade_actions")
         return
     base_path = os.path.dirname(__file__)
     postupgrade_actions_data_dir_path = os.path.join(base_path, "../../../sonic-metadata/scripts/postupgrade_actions_data")
@@ -223,13 +226,14 @@ def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
     upgrade_type, from_image, to_image, _ = upgrade_path_lists
     modify_reboot_script = add_fail_step_to_reboot
     metadata_process = request.config.getoption('metadata_process')
+    skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
 
     def upgrade_path_preboot_setup():
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            metadata_process, upgrade_type, modify_reboot_script=modify_reboot_script, allow_fail=True)
 
     def upgrade_path_postboot_setup():
-        run_postupgrade_actions(duthost, tbinfo, metadata_process)
+        run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions)
         patch_rsyslog(duthost)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
@@ -246,13 +250,14 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _ = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
+    skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
 
     def upgrade_path_preboot_setup():
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            metadata_process, upgrade_type)
 
     def upgrade_path_postboot_setup():
-        run_postupgrade_actions(duthost, tbinfo, metadata_process)
+        run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions)
         patch_rsyslog(duthost)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
@@ -268,13 +273,14 @@ def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _ = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
+    skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
 
     def upgrade_path_preboot_setup():
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            metadata_process, upgrade_type)
 
     def upgrade_path_postboot_setup():
-        run_postupgrade_actions(duthost, tbinfo, metadata_process)
+        run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions)
         patch_rsyslog(duthost)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
@@ -292,6 +298,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfho
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _ = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
+    skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
     sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts,
         fanouthosts, vmhost, tbinfo, sad_case_type)
 
@@ -300,7 +307,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfho
                            metadata_process, upgrade_type)
 
     def upgrade_path_postboot_setup():
-        run_postupgrade_actions(duthost, tbinfo, metadata_process)
+        run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions)
         patch_rsyslog(duthost)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,

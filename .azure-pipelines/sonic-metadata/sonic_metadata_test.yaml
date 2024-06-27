@@ -45,6 +45,11 @@ parameters:
     - vsonic
     - ceos
 
+- name: SKIP_POSTUPGRADE_ACTIONS
+  default: false
+  type: boolean
+  displayName: "Skip post upgrade actions"
+
 - name: METADATA_UPGRADE_PATH
   default: true
   type: boolean
@@ -220,6 +225,7 @@ stages:
     POOL: ${{ parameters.POOL }}
     UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
     VM_TYPE: ${{ parameters.VM_TYPE }}
+    SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
     FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
     FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
     TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}

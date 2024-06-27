@@ -192,6 +192,9 @@ def pytest_addoption(parser):
     parser.addoption(
         "--metadata_process", action="store_true", default=False, help="Upgrade using metadata procedure"
     )
+    parser.addoption(
+        "--skip_postupgrade_actions", action="store_true", default=False, help="Don't run post upgrade actions"
+    )
 
     #####################################
     # SONiC Upgrade test with tcam hole #

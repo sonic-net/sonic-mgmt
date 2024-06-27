@@ -16,6 +16,10 @@ parameters:
   type: string
 - name: TO_IMAGE_URL
   type: string
+- name: SKIP_POSTUPGRADE_ACTIONS
+  default: true
+  type: boolean
+  displayName: "Skip post upgrade actions"
 - name: METADATA_UPGRADE_PATH
   default: true
   type: boolean
@@ -85,6 +89,10 @@ steps:
         TO_IMAGE_URL=`get_image_url ${{ parameters.TO_IMAGE_URL }} $IMAGE_TYPE`
         cd tests
 
+        if [[ ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }} == True ]]; then
+            skip_postupgrade_actions_option=--skip_postupgrade_actions
+        fi
+
         if [[ ${{ parameters.METADATA_UPGRADE_PATH }} == True ]]; then
             metadata_process_option=--metadata_process
         fi
@@ -125,7 +133,7 @@ steps:
             echo From URL is $from_url
             echo To URL is $to_url
 
-            EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $metadata_process_option $tcam_hole_option"
+            EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
 
             if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                 EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
