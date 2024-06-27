@@ -2,6 +2,8 @@
 
 import logging
 import time
+import random
+import pytest
 
 from run_events_test import run_test
 
@@ -10,6 +12,9 @@ tag = "sonic-events-bgp"
 
 
 def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
+    if duthost.is_supervisor_node():
+        pytest.skip(
+            "Skipping test for BGP onsupervisor card")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, drop_tcp_packets,
              "bgp_notification.json", "sonic-events-bgp:notification", tag)
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
@@ -17,9 +22,11 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
 
 
 def drop_tcp_packets(duthost):
-    bgp_neighbor = list(duthost.get_bgp_neighbors().keys())[0]
-
-    holdtime_timer_ms = duthost.get_bgp_neighbor_info(bgp_neighbor)["bgpTimerConfiguredHoldTimeMsecs"]
+    nslist = duthost.get_asic_namespace_list()
+    ns = random.choice(nslist)
+    asic_id = duthost.get_asic_id_from_namespace(ns)
+    bgp_neighbor = list(duthost.get_bgp_neighbors_for_asic(ns).keys())[0]
+    holdtime_timer_ms = duthost.get_bgp_neighbor_info(bgp_neighbor, asic_id)["bgpTimerConfiguredHoldTimeMsecs"]
 
     logger.info("Adding rule to drop TCP packets to test bgp-notification")
 

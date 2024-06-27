@@ -7,7 +7,7 @@ import re
 
 from run_events_test import run_test
 from tests.common.utilities import wait_until
-
+from tests.common.helpers.constants import NAMESPACE_PREFIX
 random.seed(10)
 logger = logging.getLogger(__name__)
 tag = "sonic-events-swss"
@@ -43,22 +43,33 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
 
 def shutdown_interface(duthost):
     logger.info("Shutting down interface")
-    interfaces = duthost.get_interfaces_status()
     pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
     interface_list = []
+    ns = ''
+    if duthost.is_multi_asic:
+        # Randomly choose one asic
+        nslist = duthost.get_asic_namespace_list()
+        ns = random.choice(nslist)
+        interfaces = duthost.get_interfaces_status(ns)
+    else:
+        interfaces = duthost.get_interfaces_status()
     for interface, status in interfaces.items():
         if pattern.match(interface) and status["oper"] == "up" and status["admin"] == "up":
             interface_list.append(interface)
     if_state_test_port = random.choice(interface_list)
     assert if_state_test_port is not None, "Unable to find valid interface for test"
-
-    ret = duthost.shell("config interface shutdown {}".format(if_state_test_port))
+    if duthost.is_multi_asic:
+        ret = duthost.shell("config interface -n {} shutdown {}".format(ns, if_state_test_port))
+    else:
+        ret = duthost.shell("config interface shutdown {}".format(if_state_test_port))    
     assert ret["rc"] == 0, "Failing to shutdown interface {}".format(if_state_test_port)
 
     # Wait until port goes down
     wait_until(15, 1, 0, verify_port_admin_oper_status, duthost, if_state_test_port, "down")
-
-    ret = duthost.shell("config interface startup {}".format(if_state_test_port))
+    if duthost.is_multi_asic:
+        ret = duthost.shell("config interface -n {} startup {}".format(ns, if_state_test_port))
+    else:
+        ret = duthost.shell("config interface startup {}".format(if_state_test_port))
     assert ret["rc"] == 0, "Failing to startup interface {}".format(if_state_test_port)
 
     # Wait until port comes back up

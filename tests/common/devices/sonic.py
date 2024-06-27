@@ -1350,7 +1350,7 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         addr = self.shell(cmd)["stdout"]
         return addr
 
-    def get_bgp_neighbor_info(self, neighbor_ip):
+    def get_bgp_neighbor_info(self, neighbor_ip, asic_id=None):
         """
         @summary: return bgp neighbor info
 
@@ -1358,9 +1358,16 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         """
         nbip = ipaddress.ip_address(neighbor_ip)
         if nbip.version == 4:
-            out = self.command("vtysh -c \"show ip bgp neighbor {} json\"".format(neighbor_ip))
+            if asic_id is None:
+                out = self.command("vtysh -c \"show ip bgp neighbor {} json\"".format(neighbor_ip))
+            else:
+                out = self.command("vtysh -n {} -c \"show ip bgp neighbor {} json\"".format(asic_id, neighbor_ip))
         else:
-            out = self.command("vtysh -c \"show bgp ipv6 neighbor {} json\"".format(neighbor_ip))
+            if asic_id is None:
+                out = self.command("vtysh -c \"show bgp ipv6 neighbor {} json\"".format(neighbor_ip))
+            else:
+                out = self.command("vtysh -n {} -c \"show bgp ipv6 neighbor {} json\"".format(asic_id, neighbor_ip))  
+
         nbinfo = json.loads(re.sub(r"\\\"", '"', re.sub(r"\\n", "", out['stdout'])))
         logging.info("bgp neighbor {} info {}".format(neighbor_ip, nbinfo))
 
@@ -1814,9 +1821,10 @@ Totals               6450                 6449
                     vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
-    def get_interfaces_status(self):
+    def get_interfaces_status(self, namespace=None):
         '''
-        Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Get interfaces status by running 'show interfaces status' or 'show interfaces status -n namespace' 
+        on the DUT, and parse the result into a dict.
 
         Example output:
             {
@@ -1848,7 +1856,11 @@ Totals               6450                 6449
                 }
             }
         '''
-        return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
+        if namespace is None:
+            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
+        else:
+            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status -n {}'.format(namespace))}
+
 
     def get_crm_facts(self):
         """Run various 'crm show' commands and parse their output to gather CRM facts
