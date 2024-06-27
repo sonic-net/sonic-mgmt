@@ -11,8 +11,8 @@ from tests.common.utilities import update_pfcwd_default_state
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.topology('t0', 't1', 'any'),
+    pytest.mark.disable_loganalyzer,
 ]
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
