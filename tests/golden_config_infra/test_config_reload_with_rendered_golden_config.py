@@ -5,8 +5,8 @@ import os
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload, config_reload_minigraph_with_rendered_golden_config_override
-from tests.override_config_table.utilities import get_running_config
-# from tests.override_config_table.utilities import backup_config, restore_config, get_running_config
+from tests.override_config_table.utilities import backup_config, restore_config, get_running_config
+from tests.common.utilities import update_pfcwd_default_state
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +16,16 @@ pytestmark = [
 ]
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
+GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
+
+
+def file_exists_on_dut(duthost, filename):
+    return duthost.stat(path=filename).get('stat', {}).get('exists', False)
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthosts, rand_one_dut_hostname):
+def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Setup/teardown
     Args:
@@ -30,43 +36,29 @@ def setup_env(duthosts, rand_one_dut_hostname):
     if duthost.is_multi_asic:
         pytest.skip("Skip test on multi-asic platforms as it is designed for single asic.")
 
+    topo_type = tbinfo["topo"]["type"]
+    if topo_type in ["m0", "mx"]:
+        original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
+
+    if file_exists_on_dut(duthost, GOLDEN_CONFIG):
+        backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
+
     # Reload test env with minigraph
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
     running_config = get_running_config(duthost)
 
     yield running_config
 
+    if topo_type in ["m0", "mx"]:
+        update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
+
+    if file_exists_on_dut(duthost, GOLDEN_CONFIG_BACKUP):
+        restore_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
+    else:
+        duthost.file(path=GOLDEN_CONFIG, state='absent')
+
     # Restore config before test
     config_reload(duthost)
-    
-    # duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # topo_type = tbinfo["topo"]["type"]
-    # if topo_type in ["m0", "mx"]:
-    #     original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
-    # # Backup configDB
-    # backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
-    # # Backup Golden Config if exists.
-    # if golden_config_exists_on_dut:
-    #     backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
-
-    # # Reload test env with minigraph
-    # config_reload(duthost, config_source="minigraph", safe_reload=True)
-    # running_config = get_running_config(duthost)
-
-    # yield running_config
-
-    # if topo_type in ["m0", "mx"]:
-    #     update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
-    # # Restore configDB after test.
-    # restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
-    # # Restore Golden Config after test, else cleanup test file.
-    # if golden_config_exists_on_dut:
-    #     restore_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
-    # else:
-    #     duthost.file(path=GOLDEN_CONFIG, state='absent')
-
-    # # Restore config before test
-    # config_reload(duthost)
 
 
 def compare_dicts_ignore_list_order(dict1, dict2):
