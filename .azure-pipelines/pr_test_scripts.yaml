@@ -347,6 +347,10 @@ onboarding_t0:
   - arp/test_unknown_mac.py
   - arp/test_wr_arp.py
   - decap/test_decap.py
+  - ecmp/inner_hashing/test_inner_hashing_lag.py
+  - ecmp/inner_hashing/test_inner_hashing.py
+  - ecmp/inner_hashing/test_wr_inner_hashing_lag.py
+  - ecmp/inner_hashing/test_wr_inner_hashing.py
 
 onboarding_t1:
   - acl/test_acl.py
