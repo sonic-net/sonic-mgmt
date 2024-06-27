@@ -43,7 +43,7 @@ def test_pfcwd_runtime_traffic(snappi_api,                  # noqa: F811
     pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(list(duthosts), 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
         dut_list = [dut for dut in duthosts if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]      # noqa: E501
