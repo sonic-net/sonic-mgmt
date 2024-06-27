@@ -1,8 +1,14 @@
 t0:
+  - acl/custom_acl_table/test_custom_acl_table.py
+  - acl/null_route/test_null_route_helper.py
+  - acl/test_acl.py
+  - acl/test_stress_acl.py
   - arp/test_arp_extended.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
+  - arp/test_stress_arp.py
   - arp/test_tagged_arp.py
+  - arp/test_wr_arp.py
   # Due to the auto start fails on container restapi, comment this case temporarily
 #  - autorestart/test_container_autorestart.py
   - bgp/test_bgp_dual_asn.py
@@ -184,6 +190,8 @@ dualtor:
   - arp/test_arp_extended.py
 
 t1-lag:
+  - acl/test_acl.py
+  - acl/test_stress_acl.py
   - arp/test_arpall.py
   - arp/test_neighbor_mac_noptf.py
   - bgp/test_bgp_allow_list.py
@@ -338,19 +346,11 @@ onboarding_t0:
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - system_health/test_system_health.py
   - test_pktgen.py
-  - acl/custom_acl_table/test_custom_acl_table.py
-  - acl/null_route/test_null_route_helper.py
-  - acl/test_acl.py
   - acl/test_acl_outer_vlan.py
-  - acl/test_stress_acl.py
-  - arp/test_stress_arp.py
   - arp/test_unknown_mac.py
-  - arp/test_wr_arp.py
   - decap/test_decap.py
 
 onboarding_t1:
-  - acl/test_acl.py
-  - acl/test_stress_acl.py
   - decap/test_decap.py
 
 specific_param:
