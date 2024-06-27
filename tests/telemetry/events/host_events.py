@@ -60,9 +60,6 @@ def trigger_kernel_event(duthost):
 
 
 def is_container_down(duthost, container):
-    duthost.shell("docker exec bgp ps aux")
-    duthost.shell("docker exec bgp ls /usr/bin | grep supervisor")
-    duthost.shell("tail -n 50 /var/log/syslog")
     return not is_container_running(duthost, container)
 
 
@@ -77,11 +74,15 @@ def get_running_container(duthost):
 
 
 def get_critical_process(duthost):
-    logger.info("Check if bgp process is running")
-    if is_container_running(duthost, "bgp"):
-        pid = duthost.shell("docker exec bgp pgrep -f bgpd")["stdout"]
+    logger.info("Check if snmpd/bgpd process is running")
+    if is_container_running(duthost, "snmp"):
+        pid = duthost.shell("docker exec snmp pgrep -f sonic_ax_impl")["stdout"]
         if pid != "":
-            return pid, "bgp"
+            return pid, "snmp"
+    if is_container_running(duthost, "bpg"):
+        pid = duthost.shell("docker exec bgp pgrep -f bpgd")["stdout"]
+        if pid != "":
+            return pid, "bgpd"
     return "", ""
 
 
@@ -114,9 +115,19 @@ def kill_critical_process(duthost):
     pid, container = get_critical_process(duthost)
     assert pid != "", "No available process for testing"
 
+    change_autorestart = False
+    autorestart = duthost.shell("show feature autorestart {}".format(container))['stdout_lines']
+    if "disabled" in str(autorestart):
+        change_autorestart = True
+        duthost.shell("config feature autorestart {} enabled".format(container))
+
     duthost.shell("docker exec {} kill -9 {}".format(container, pid), module_ignore_errors=True)
 
     # Wait until specified container is not running because of critical process exit
     wait_until(30, 5, 0, is_container_down, duthost, container)
+
+    if change_autorestart:
+        duthost.shell("config feature autorestart {} disabled".format(container))
+
     duthost.shell("systemctl reset-failed {}".format(container))
     duthost.shell("systemctl restart {}".format(container))
