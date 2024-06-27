@@ -1,6 +1,7 @@
 import pytest
 import random
 import logging
+from collections import defaultdict
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -405,13 +406,34 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
     _, lossless_prio = rand_one_dut_lossless_prio.split('|')
     lossless_prio = int(lossless_prio)
 
+    ports_dict = defaultdict(list)
+    for port in snappi_ports:
+        ports_dict[port['peer_device']].append(port['asic_value'])
+
+    for k in ports_dict.keys():
+        ports_dict[k] = list(set(ports_dict[k]))
+
     for duthost in dut_list:
-        logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
-        duthost.command("systemctl reset-failed {}".format(restart_service))
-        duthost.command("systemctl restart {}".format(restart_service))
-        logger.info("Wait until the system is stable")
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "Not all critical services are fully started")
+        if ("platform_asic" in duthost1.facts and duthost1.facts["platform_asic"] == "broadcom-dnx"):
+            asic_list = ports_dict[duthost.hostname]
+            for asic in asic_list:
+                if asic == 'asic0':
+                    proc = 'swss@0'
+                else:
+                    proc = 'swss@1'
+                logger.info("Issuing a restart of service {} on the dut {}".format(proc, duthost.hostname))
+                duthost.command("sudo systemctl reset-failed {}".format(proc))
+                duthost.command("sudo systemctl restart {}".format(proc))
+                logger.info("Wait until the system is stable")
+                pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                              "Not all critical services are fully started")
+        else:
+            logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
+            duthost.command("systemctl reset-failed {}".format(restart_service))
+            duthost.command("systemctl restart {}".format(restart_service))
+            logger.info("Wait until the system is stable")
+            pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                          "Not all critical services are fully started")
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.duthost1 = duthost1
@@ -488,14 +510,34 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
                                                                             snappi_ports,
                                                                             snappi_api)
+    ports_dict = defaultdict(list)
+    for port in snappi_ports:
+        ports_dict[port['peer_device']].append(port['asic_value'])
+
+    for k in ports_dict.keys():
+        ports_dict[k] = list(set(ports_dict[k]))
 
     for duthost in dut_list:
-        logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
-        duthost.command("systemctl reset-failed {}".format(restart_service))
-        duthost.command("systemctl restart {}".format(restart_service))
-        logger.info("Wait until the system is stable")
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "Not all critical services are fully started")
+        if ("platform_asic" in duthost1.facts and duthost1.facts["platform_asic"] == "broadcom-dnx"):
+            asic_list = ports_dict[duthost.hostname]
+            for asic in asic_list:
+                if asic == 'asic0':
+                    proc = 'swss@0'
+                else:
+                    proc = 'swss@1'
+                logger.info("Issuing a restart of service {} on the dut {}".format(proc, duthost.hostname))
+                duthost.command("sudo systemctl reset-failed {}".format(proc))
+                duthost.command("sudo systemctl restart {}".format(proc))
+                logger.info("Wait until the system is stable")
+                pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                              "Not all critical services are fully started")
+        else:
+            logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
+            duthost.command("systemctl reset-failed {}".format(restart_service))
+            duthost.command("systemctl restart {}".format(restart_service))
+            logger.info("Wait until the system is stable")
+            pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                          "Not all critical services are fully started")
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.duthost1 = duthost1
