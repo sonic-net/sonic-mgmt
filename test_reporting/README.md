@@ -24,9 +24,6 @@ pip3 install -r requirements.txt
 ## Uploading test results to a Kusto/Azure Data Explorer (ADX) cluster
 You need to export the following environment variables first:
 - TEST_REPORT_INGEST_KUSTO_CLUSTER: The ingest URL of your kusto/ADX cluster
-- TEST_REPORT_AAD_TENANT_ID: The tenant ID of your Azure Active Directory (AAD) tenant
-- TEST_REPORT_AAD_CLIENT_ID: The client ID for your AAD application
-- TEST_REPORT_AAD_CLIENT_KEY: The secret key for your AAD application
 
 Check out [this doc from Kusto](https://docs.microsoft.com/en-us/azure/data-explorer/provision-azure-ad-app) for more details about setting up AAD client applications for accessing Kusto.
 
