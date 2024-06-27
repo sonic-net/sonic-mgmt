@@ -1080,6 +1080,11 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
       - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type in ['nvidia-bluefield']"
 
+platform_tests/test_advanced_reboot.py:
+  skip:
+    reason: "Skip advanced reboot on vms20-t0-7050cx3-2 since no SSD on this device and failures to session teardown"
+    conditions: "topo_name in 'vms20-t0-7050cx3-2'"
+
 platform_tests/test_auto_negotiation.py:
   skip:
     reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
