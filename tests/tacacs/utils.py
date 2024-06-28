@@ -104,7 +104,8 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip,
     for tacacs_server in config_facts.get('TACPLUS_SERVER', {}):
         duthost.shell("sudo config tacacs delete %s" % tacacs_server)
         default_tacacs_servers.append(tacacs_server)
-    # setup TACACS server with port 59, because port 49 bind to another TACACS server
+    # setup TACACS server with port 59
+    # Port 49 bind to another TACACS server for daily work and none TACACS test case
     duthost.shell("sudo config tacacs add %s --port 59" % tacacs_server_ip)
     duthost.shell("sudo config tacacs authtype login")
 
