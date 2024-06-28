@@ -892,18 +892,18 @@ nat:
 #######################################
 #####           ntp               #####
 #######################################
+ntp/test_ntp.py::test_ntp:
+  xfail:
+    reason: "iburst not enabled by default on 202311 and newer images"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/19425
+
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
   # Due to NTP code bug, long jump will still happen after disable it.
   # Set xfail flag for this test case
   xfail:
     strict: True
     reason: "Known NTP bug"
-
-ntp/test_ntp.py::test_ntp:
-  xfail:
-    reason: "iburst not enabled by default on 202311 and newer images"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/19425
 
 #######################################
 #####           pc               #####
