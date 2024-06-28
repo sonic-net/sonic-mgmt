@@ -65,7 +65,7 @@ from switch_sai_thrift.sai_headers import SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRES
     SAI_SWITCH_ATTR_PORT_NUMBER, SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V4_STATE, SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V6_STATE,\
     SAI_VLAN_MEMBER_ATTR_VLAN_ID, SAI_PORT_STAT_IF_IN_UCAST_PKTS,\
     SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_QLEN, \
-    SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES
+    SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES, SAI_SWITCH_ATTR_CREDIT_WD
 
 
 from switch_sai_thrift.sai_headers import SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, SAI_SYSTEM_PORT_ATTR_QOS_VOQ_LIST
@@ -771,6 +771,24 @@ def sai_thrift_port_tx_enable(client, asic_type, port_ids, target='dst'):
 
     for port_id in port_ids:
         client.sai_thrift_set_port_attribute(port_list[target][port_id], attr)
+
+
+def sai_thrift_credit_wd_disable(client):
+    # Disable credit-watchdog on target asic index
+    attr_value = sai_thrift_attribute_value_t(booldata=0)
+    attr = sai_thrift_attribute_t(
+        id=SAI_SWITCH_ATTR_CREDIT_WD, value=attr_value)
+    status = client.sai_thrift_set_switch_attribute(attr)
+    return status
+
+
+def sai_thrift_credit_wd_enable(client):
+    # Enable credit-watchdog  on target asic-index
+    attr_value = sai_thrift_attribute_value_t(booldata=1)
+    attr = sai_thrift_attribute_t(
+        id=SAI_SWITCH_ATTR_CREDIT_WD, value=attr_value)
+    status = client.sai_thrift_set_switch_attribute(attr)
+    return status
 
 
 def sai_thrift_read_port_counters(client, asic_type, port):
