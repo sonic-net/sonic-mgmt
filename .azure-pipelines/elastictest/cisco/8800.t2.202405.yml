@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms68-t2-8800-1, vmsvc5-t2-8800-2"
+    default: "vms68-t2-8800-1, vmsvc5-t2-8800-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
