@@ -70,7 +70,7 @@ def test_gnoi_killprocess_restart(duthosts, rand_one_dut_hostname, localhost, re
 
 def test_invalid_signal(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
-    request_json_data = '{{"name": "snmp", "restart": true, "signal": 2}}'
+    request_json_data = '{"name": "snmp", "restart": true, "signal": 2}'
     ret, msg = gnoi_request(duthost, localhost, "KillProcess", request_json_data)
 
     pytest_assert(ret != 0, "KillProcess API unexpectedly succeeded with invalid request parameters")
