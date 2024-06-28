@@ -286,7 +286,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                 if egress_queue_val == -1 or egress_queue_count < DEFAULT_PKT_COUNT:
                     time.sleep(2)
                     egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val,
-                                                                                     dut_egress_port)
+                                                                                      dut_egress_port)
                 # Due to protocol packets, egress_queue_count can be greater than expected count.
                 verification_success = egress_queue_count >= DEFAULT_PKT_COUNT
 
