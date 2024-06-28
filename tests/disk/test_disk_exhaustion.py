@@ -9,7 +9,6 @@ from paramiko.ssh_exception import AuthenticationException
 from ptf import mask, packet
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import paramiko_ssh
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
