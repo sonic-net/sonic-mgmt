@@ -79,7 +79,8 @@ def _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv
 
     duthost.command("config ntp add %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
 
-    duthost.command("sonic-db-cli CONFIG_DB HSET 'NTP_SERVER|%s' iburst true" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
+    duthost.command("sonic-db-cli CONFIG_DB HSET 'NTP_SERVER|%s' iburst true"
+                    % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
     duthost.service(name="ntp-config", state="restarted")
 
     yield
