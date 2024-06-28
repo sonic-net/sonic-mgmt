@@ -7,7 +7,6 @@ import datetime as dt
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),
