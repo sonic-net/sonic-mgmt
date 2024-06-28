@@ -279,7 +279,8 @@ def run_pfc_test(api,
 
     # Verify in flight TX lossless packets do not leave the DUT when traffic is expected
     # to be paused, or leave the DUT when the traffic is not expected to be paused
-    verify_egress_queue_frame_count(duthost=duthost,
+    # Verifying the packets on DUT egress, especially for multi line card scenario
+    verify_egress_queue_frame_count(duthost=tx_dut,
                                     switch_flow_stats=switch_flow_stats,
                                     test_traffic_pause=test_traffic_pause,
                                     snappi_extra_params=snappi_extra_params)
