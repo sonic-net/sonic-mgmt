@@ -1,10 +1,10 @@
 diff --git a/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt b/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
-index be0ec2462..cf66cdc83 100644
+index 3c0ed7801a..719a11ad9b 100644
 --- a/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
 +++ b/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
-@@ -63,6 +63,13 @@ r, ".* ERR swss#orchagent:.*setPortFec: Unsupported mode fc on port .*"
- 
- r, ".* ERR syncd#syncd:.*SAI_LOG|SAI_API_TUNNEL: VLAN to VNI not implemented yet.*"
+@@ -69,6 +69,13 @@ r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Fail
+ r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
+ r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
  
 +# Sim related - Cisco
 +r, ".* ERR pmon#pcied.*: PCIe device status check : FAILED.*"
