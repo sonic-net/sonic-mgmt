@@ -52,7 +52,7 @@ EXAMPLES = '''
       ptf_ip: "192.168.1.10"
     delegate_to: localhost
 '''
-config_module_logging("announce_routes", log_path='../tests/logs')
+config_module_logging("announce_routes", log_path='../tests')
 
 TOPO_FILE_FOLDER = 'vars/'
 TOPO_FILENAME_TEMPLATE = 'topo_{}.yml'
