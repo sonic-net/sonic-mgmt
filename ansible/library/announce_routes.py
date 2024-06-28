@@ -11,10 +11,8 @@ import sys
 import socket
 import random
 import time
-import logging
 from multiprocessing.pool import ThreadPool
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.debug_utils import config_module_logging
 
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
@@ -52,7 +50,6 @@ EXAMPLES = '''
       ptf_ip: "192.168.1.10"
     delegate_to: localhost
 '''
-config_module_logging("announce_routes", log_path='../tests/logs')
 
 TOPO_FILE_FOLDER = 'vars/'
 TOPO_FILENAME_TEMPLATE = 'topo_{}.yml'
@@ -164,7 +161,7 @@ def change_routes(action, ptf_ip, port, routes):
             r = requests.post(url, data=data, timeout=360, proxies={"http": None, "https": None})
             break
         except Exception as e:
-            logging.debug("Got exception {}, will try to connect again".format(e))
+            print("Got exception {}, will try to connect again".format(e))
             time.sleep(0.01 * (i+1))
             if i == 4:
                 raise e
