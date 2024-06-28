@@ -164,4 +164,3 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.96/24
       ipv6: fc0a::c0/64
-
