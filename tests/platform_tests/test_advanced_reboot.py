@@ -16,6 +16,7 @@ from tests.common.dualtor.mux_simulator_control import get_mux_status, check_mux
     toggle_all_simulator_ports, toggle_simulator_port_to_upper_tor              # noqa F401
 from tests.common.dualtor.constants import LOWER_TOR
 from tests.common.utilities import wait_until
+from tests.conftest import get_tbinfo
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -32,6 +33,9 @@ logger = logging.getLogger()
 @pytest.fixture(scope="module", params=[SINGLE_TOR_MODE, DUAL_TOR_MODE])
 def testing_config(request, tbinfo):
     testing_mode = request.param
+    tbname, _ = get_tbinfo(request)
+    if tbname == "vms20-t0-7050cx3-2":
+        pytest.skip("skip advanced reboot on vms20-t0-7050cx3-2 since the failure to lacp session teardown")
     if 'dualtor' in tbinfo['topo']['name']:
         if testing_mode == SINGLE_TOR_MODE:
             pytest.skip("skip SINGLE_TOR_MODE tests on Dual ToR testbeds")
