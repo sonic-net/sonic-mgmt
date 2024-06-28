@@ -282,10 +282,10 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                 counter_poll_queue_interval = duthost.get_counter_poll_status()['QUEUE_STAT']['interval']
                 time.sleep(counter_poll_queue_interval / 1000 + 1)
                 egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val, dut_egress_port)
-                # Re-poll DUT if queue/count value could not be accurately found
+                # Re-poll DUT if queue/count value could not be accurately found.
                 if egress_queue_val == -1 or egress_queue_count < DEFAULT_PKT_COUNT:
-                   time.sleep(2)
-                   egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val,
+                    time.sleep(2)
+                    egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val,
                                                                                      dut_egress_port)
                 # Due to protocol packets, egress_queue_count can be greater than expected count.
                 verification_success = egress_queue_count >= DEFAULT_PKT_COUNT
