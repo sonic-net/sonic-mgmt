@@ -11,8 +11,10 @@ import sys
 import socket
 import random
 import time
+import logging
 from multiprocessing.pool import ThreadPool
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.debug_utils import config_module_logging
 
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
@@ -161,7 +163,7 @@ def change_routes(action, ptf_ip, port, routes):
             r = requests.post(url, data=data, timeout=360, proxies={"http": None, "https": None})
             break
         except Exception as e:
-            print("Got exception {}, will try to connect again".format(e))
+            logging.debug("Got exception {}, will try to connect again".format(e))
             time.sleep(0.01 * (i+1))
             if i == 4:
                 raise e
@@ -1038,9 +1040,12 @@ def main():
             ptf_ip=dict(required=True, type='str'),
             action=dict(required=False, type='str',
                         default='announce', choices=["announce", "withdraw"]),
-            path=dict(required=False, type='str', default='')
+            path=dict(required=False, type='str', default=''),
+            log_path=dict(required=False, type='str', default='/tmp')
         ),
         supports_check_mode=False)
+
+    config_module_logging("announce_routes", log_path=module.params['log_path'])
 
     topo_name = module.params['topo_name']
     ptf_ip = module.params['ptf_ip']
