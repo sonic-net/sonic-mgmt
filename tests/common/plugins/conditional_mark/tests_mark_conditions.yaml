@@ -1421,6 +1421,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
       and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
       and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/13503 and platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   skip:
@@ -1431,10 +1432,17 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
          and asic_type in ['cisco-8000']
          and https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100'] and topo_type in ['t1-64-lag']"
       - "topo_type in ['m0', 'mx']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/13503 and platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
   xfail:
     reason: "Headroom pool size not supported."
     conditions:
       - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueue:
+  skip:
+    reason: "LossyQueue test is not supported"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/13503 and platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
   skip:
