@@ -127,8 +127,6 @@ def send_and_verify_traffic(ptfadapter,
         logger.info("Received packet(s) on port {}".format(ptf_dst_port_ids[port_index]))
         global packet_egressed_success
         packet_egressed_success = True
-        # Wait for packets to be processed by the DUT
-        time.sleep(8)
         return ptf_dst_port_ids[port_index]
 
     except AssertionError as detail:
@@ -280,12 +278,15 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             if packet_egressed_success:
                 dut_egress_port = get_dut_pair_port_from_ptf_port(duthost, tbinfo, dst_ptf_port_id)
                 pytest_assert(dut_egress_port, "No egress port on DUT found for ptf port {}".format(dst_ptf_port_id))
+                # Wait for the queue counters polling.
+                counter_poll_queue_interval = duthost.get_counter_poll_status()['QUEUE_STAT']['interval']
+                time.sleep(counter_poll_queue_interval / 1000 + 1)
                 egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val, dut_egress_port)
-                # Re-poll DUT if queue value could not be accurately found
-                if egress_queue_val == -1:
-                    time.sleep(2)
-                    egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val,
-                                                                                      dut_egress_port)
+                # Re-poll DUT if queue/count value could not be accurately found
+                if egress_queue_val == -1 or egress_queue_count < DEFAULT_PKT_COUNT:
+                   time.sleep(2)
+                   egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val,
+                                                                                     dut_egress_port)
                 # Due to protocol packets, egress_queue_count can be greater than expected count.
                 verification_success = egress_queue_count >= DEFAULT_PKT_COUNT
 
