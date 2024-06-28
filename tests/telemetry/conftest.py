@@ -164,7 +164,8 @@ def do_init(duthost):
 
 
 @pytest.fixture(scope="module")
-def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter, setup_streaming_telemetry, gnxi_path):
+def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter,
+                        setup_streaming_telemetry, gnxi_path):
     """
     @summary: Test eventd heartbeat before testing all testcases
     """

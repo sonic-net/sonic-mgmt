@@ -4,11 +4,14 @@ import logging
 import time
 import ptf.testutils as testutils
 
+from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.utilities import wait_until
 from run_events_test import run_test
 from event_utils import find_test_port_and_mac, create_dhcp_discover_packet
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-dhcp-relay"
+
 
 def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test dhcp-relay events")
@@ -17,6 +20,8 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
 
 
 def send_dhcp_discover_packets(duthost, ptfadapter):
+    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "dhcp_relay"),
+              "dhcp_relay container not started")
     results = find_test_port_and_mac(duthost, 5)
     for result in results:
         packet = create_dhcp_discover_packet(result[1])
