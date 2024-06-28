@@ -84,9 +84,15 @@ def test_dequeue_ecn(request,
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
     snappi_extra_params.packet_capture_type = packet_capture.IP_CAPTURE
     snappi_extra_params.is_snappi_ingress_port_cap = True
-    snappi_extra_params.ecn_params = {'kmin': 50000, 'kmax': 51000, 'pmax': 100}
+    if (("platform_asic" in duthost1.facts) and (duthost1.facts["platform_asic"] == "broadcom-dnx")):
+        logger.info('Selecting different Kmin, Kmax for DNX based platform')
+        snappi_extra_params.ecn_params = {'kmin': 200000, 'kmax': 400000, 'pmax': 100}
+        data_flow_pkt_count = 5000
+    else:
+        snappi_extra_params.ecn_params = {'kmin': 50000, 'kmax': 51000, 'pmax': 100}
+        data_flow_pkt_count = 101
+
     data_flow_pkt_size = 1024
-    data_flow_pkt_count = 101
     num_iterations = 1
     logger.info("Running ECN dequeue test with params: {}".format(snappi_extra_params.ecn_params))
 
@@ -107,12 +113,26 @@ def test_dequeue_ecn(request,
                            snappi_extra_params=snappi_extra_params)[0]
 
     logger.info("Running verification for ECN dequeue test")
+
     # Check if all the packets are captured
     pytest_assert(len(ip_pkts) == data_flow_pkt_count,
                   'Only capture {}/{} IP packets'.format(len(ip_pkts), data_flow_pkt_count))
 
-    # Check if the first packet is ECN marked
-    pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
+    if (("platform_asic" in duthost1.facts) and (duthost1.facts["platform_asic"] == "broadcom-dnx")):
+        if (snappi_ports[0]['speed'] == '400000'):
+            # Check if 1000th packet is ECN marked for 400Gbps interface
+            pytest_assert(is_ecn_marked(ip_pkts[1000]), "The 1000th packet should be marked")
+        else:
+            # Check if the 300th packet is ECN marked for 100Gbps interface
+            pytest_assert(is_ecn_marked(ip_pkts[300]), "The 300th should be marked")
+
+        # Check if the 975th packet is not ECN marked
+        pytest_assert(is_ecn_marked(ip_pkts[4950]),
+                      "The 4950th packet should not be marked")
+
+    else:
+        # Check if the first packet is ECN marked
+        pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
 
     # Check if the last packet is not ECN marked
     pytest_assert(not is_ecn_marked(ip_pkts[-1]),
