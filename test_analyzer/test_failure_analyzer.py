@@ -98,11 +98,6 @@ class KustoConnector(object):
         self.db_name = DATABASE
         self.icm_db_name = ICM_DATABASE
         self.ado_db_name = ADO_DATABASE
-
-        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
-        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
-        service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
-        service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
         self.search_end_time = current_time
         self.search_start_time = self.search_end_time - \
             timedelta(days=int(self.config_info['threshold']['duration_days']))
@@ -111,54 +106,22 @@ class KustoConnector(object):
 
         logger.info("Select 7 days' start time: {}, 30 days' start time: {}, current time: {}".format(self.search_start_time, self.history_start_time, self.search_end_time))
 
-        if not ingest_cluster or not tenant_id or not service_id or not service_key:
-            logger.error(
-                "Could not load primary Kusto Credentials from environment, please check your environment setting.")
-            self._ingestion_client = None
-        else:
-            cluster = ingest_cluster.replace('ingest-', '')
-
-            if not all([cluster, tenant_id, service_id, service_key]):
-                raise RuntimeError(
-                    'Could not load Kusto credentials from environment')
-
-            kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(cluster,
-                                                                                        service_id,
-                                                                                        service_key,
-                                                                                        tenant_id)
-            kcsb_ingest = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
-                                                                                               service_id,
-                                                                                               service_key,
-                                                                                               tenant_id)
-            self.client = KustoClient(kcsb)
-            self._ingestion_client = KustoIngestClient(kcsb_ingest)
-
-        """
-            Kusto performance depends on the work load of cluster, to improve the high availability of test result
-            data service by hosting a backup cluster, which is optional.
-        """
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
-        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-        service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-        service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+        access_token = os.environ.get('ACCESS_TOKEN', None)
 
         icm_cluster = os.getenv("ICM_KUSTO_CLUSTER")
         ado_cluster = os.getenv("ADO_KUSTO_CLUSTER")
 
-        if not ingest_cluster or not tenant_id or not service_id or not service_key:
+        if not ingest_cluster or not access_token:
             logger.error(
                 "Could not load backup Kusto Credentials from environment, please check your environment setting.")
             self._ingestion_client_backup = None
         else:
             cluster = ingest_cluster.replace('ingest-', '')
-            kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(cluster,
-                                                                                        service_id,
-                                                                                        service_key,
-                                                                                        tenant_id)
-            kcsb_ingest = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
-                                                                                               service_id,
-                                                                                               service_key,
-                                                                                               tenant_id)
+            kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(cluster,
+                                                                                        access_token)
+            kcsb_ingest = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster,
+                                                                                               access_token)
             self.client_backup = KustoClient(kcsb)
             self._ingestion_client_backup = KustoIngestClient(kcsb_ingest)
 
@@ -167,10 +130,8 @@ class KustoConnector(object):
                 "Could not load IcM cluster url from environment, please check your environment setting.")
             self._icm_client = None
         else:
-            icm_kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(icm_cluster,
-                                                                                            service_id,
-                                                                                            service_key,
-                                                                                            tenant_id)
+            icm_kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(icm_cluster,
+                                                                                            access_token)
 
             self.icm_client = KustoClient(icm_kcsb)
         if not ado_cluster:
@@ -178,10 +139,8 @@ class KustoConnector(object):
                 "Could not load ADO cluster url from environment, please check your environment setting.")
             self._ado_client = None
         else:
-            ado_kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ado_cluster,
-                                                                                            service_id,
-                                                                                            service_key,
-                                                                                            tenant_id)
+            ado_kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ado_cluster,
+                                                                                            access_token)
 
             self.ado_client = KustoClient(ado_kcsb)
 
