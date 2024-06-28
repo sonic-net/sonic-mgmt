@@ -3,6 +3,9 @@ import os
 import json
 import re
 
+import ptf.packet as scapy
+import ptf.testutils as testutils
+
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
@@ -112,3 +115,33 @@ def verify_counter_increase(duthost, current_value, increase, stat):
     current_counters = read_event_counters(duthost)
     current_stat_counter = current_counters[stat]
     return current_stat_counter >= current_value + increase
+
+
+def find_test_port_and_mac(duthost, count):
+    # Will return up to count many up ports with their port index and mac address
+    results = []
+    interf_status = duthost.show_interface(command="status")['ansible_facts']['int_status']
+    for key in interf_status:
+        if len(results) == count:
+            return results
+        if interf_status[key]['admin_state'] == "up":
+            mac = duthost.get_dut_iface_mac(key)
+            minigraph_info = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+            port_index = minigraph_info['minigraph_port_indices'][key]
+            if not has_ipv4_addr(duthost, key) and mac != "" and port_index != "":
+                results.append([int(port_index), mac])
+    return results
+
+
+def has_ipv4_addr(duthost, port):
+    ip_interfaces = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
+    return port in ip_interfaces
+
+
+def create_dhcp_discover_packet(client_mac):
+    dst_mac = 'ff:ff:ff:ff:ff:ff'
+    dhcp_client_port = 68
+    discover_packet = testutils.dhcp_discover_packet(eth_client=client_mac, set_broadcast_bit=True)
+    discover_packet[scapy.Ether].dst = dst_mac
+    discover_packet[scapy.IP].sport = dhcp_client_port
+    return discover_packet
