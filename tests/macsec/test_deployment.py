@@ -1,5 +1,6 @@
 import pytest
 import logging
+import time
 
 from tests.common.utilities import wait_until
 from tests.common import config_reload
@@ -23,3 +24,25 @@ class TestDeployment():
         assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
         # Recover the original config file
         duthost.shell("sudo cp config_db.json /etc/sonic/config_db.json")
+
+    def test_delete_add_policy(self, macsec_duthost, ctrl_links, profile_name, default_priority,
+                               cipher_suite, primary_cak, primary_ckn, policy, rekey_period):
+        port_name, nbr = list(ctrl_links.items())[0]
+        if macsec_duthost.is_multi_asic:
+            ns = " -n " + macsec_duthost.get_port_asic_instance(port_name).namespace
+        else:
+            ns = ''
+
+        with pytest.raises(Exception) as e_info:
+            macsec_duthost.shell("sudo config macsec{} profile del {}".format(ns, profile_name))
+        assert "Error: {} is being used by port".format(profile_name) in str(e_info.value)
+        time.sleep(10)
+
+        with pytest.raises(Exception) as e_info:
+            macsec_duthost.shell("sudo config macsec{} profile add --cipher_suite {} --policy {} \
+                                 --primary_cak {} --primary_ckn {} --priority {} --rekey_period {} --send_sci {}"
+                                 .format(ns, cipher_suite, policy, primary_cak, primary_ckn,
+                                         default_priority, rekey_period, profile_name))
+
+        assert "Error: {} already exists".format(profile_name) in str(e_info.value)
+        time.sleep(10)

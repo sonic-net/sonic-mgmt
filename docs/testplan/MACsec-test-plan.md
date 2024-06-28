@@ -488,6 +488,11 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 - Verify macsec packet flow where the Ingress and Egress ports are on different Linecards.
    - TODO add expected behavior
 
+### Testcase : Delete and add in use Macsec policy
+
+- Verify deleting an in use policy fails
+- Verify adding an already configured policy fails
+
 ### Testcase : Scale tests
 
 #### Large number of interfaces having macsec enabled on the DUT/linecard
