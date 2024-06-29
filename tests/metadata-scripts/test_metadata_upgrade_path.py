@@ -260,11 +260,14 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
         run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions)
         patch_rsyslog(duthost)
 
+    # Disable CPA for Arista 7260 as its currently unsupported
+    enable_cpa = duthost.facts['platform'] != 'x86_64-arista_7260cx3_64'
+
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
-                        postboot_setup=upgrade_path_postboot_setup, enable_cpa=True)
+                        postboot_setup=upgrade_path_postboot_setup, enable_cpa=enable_cpa)
 
 
 def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
@@ -283,12 +286,15 @@ def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost
         run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions)
         patch_rsyslog(duthost)
 
+    # Disable CPA for Arista 7260 as its currently unsupported
+    enable_cpa = duthost.facts['platform'] != 'x86_64-arista_7260cx3_64'
+
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
                         postboot_setup=upgrade_path_postboot_setup,
-                        reboot_count=2, enable_cpa=True)
+                        reboot_count=2, enable_cpa=enable_cpa)
 
 
 def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
@@ -310,10 +316,13 @@ def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfho
         run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions)
         patch_rsyslog(duthost)
 
+    # Disable CPA for Arista 7260 as its currently unsupported
+    enable_cpa = duthost.facts['platform'] != 'x86_64-arista_7260cx3_64'
+
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
                         postboot_setup=upgrade_path_postboot_setup,
                         sad_preboot_list=sad_preboot_list,
-                        sad_inboot_list=sad_inboot_list, enable_cpa=True)
+                        sad_inboot_list=sad_inboot_list, enable_cpa=enable_cpa)
