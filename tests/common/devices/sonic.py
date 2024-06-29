@@ -16,8 +16,10 @@ from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
+
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
-from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_host_visible_vars, wait_until
+
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
@@ -1927,6 +1929,10 @@ Totals               6450                 6449
             section_id = 0
             for line in output:
                 if not_ready_prompt in line:
+                    logging.warning(
+                        "CRM counters are not ready yet, will retry after 10 seconds"
+                        "(if timeout not exceeded)"
+                    )
                     return False
                 if len(line.strip()) != 0:
                     if not in_section:
@@ -1961,15 +1967,7 @@ Totals               6450                 6449
             return True
         # Retry until crm resources are ready
         timeout = crm_facts['polling_interval'] + 10
-        while timeout >= 0:
-            ret = _show_and_parse_crm_resources()
-            if ret:
-                break
-            logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
-            time.sleep(10)
-            timeout -= 10
-        assert (timeout >= 0)
-
+        wait_until(timeout, 10, 10, lambda: _show_and_parse_crm_resources())
         return crm_facts
 
     def start_service(self, service_name, docker_name):
