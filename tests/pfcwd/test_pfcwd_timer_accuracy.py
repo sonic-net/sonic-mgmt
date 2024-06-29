@@ -193,6 +193,7 @@ class TestPfcwdAllTimer(object):
         else:
             storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
+
         logger.info("Wait for PFC storm end marker to appear in logs")
         time.sleep(16)
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
