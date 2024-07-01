@@ -23,7 +23,7 @@ in the snappi_sonic_devices.csv and asic values based on if its a chassis based 
     non_chassis_single_line_card : this option selects all the ports from the hostname
 
 '''
-line_card_choice = 'non_chassis_single_line_card'
+line_card_choice = 'chassis_multi_line_card_multi_asic'
 config_set = {
                 "chassis_single_line_card_single_asic": {
                     'hostname': ["sonic-s6100-dut1"],
@@ -51,9 +51,23 @@ config_set = {
                 }
             }
 
-dut_ip_start = '20.0.1.1'
-snappi_ip_start = '20.0.1.2'
-prefix_length = 24
+dut_ip_start = '20.1.1.0'
+snappi_ip_start = '20.1.1.1'
+prefix_length = 31
+
+dut_ipv6_start = '2000:1::1'
+snappi_ipv6_start = '2000:1::2'
+v6_prefix_length = 126
+
+pfcQueueGroupSize = 8  # can have values 4 or 8
+pfcQueueValueDict = {0: 0,
+                     1: 1,
+                     2: 0,
+                     3: 3,
+                     4: 2,
+                     5: 0,
+                     6: 1,
+                     7: 0}
 
 
 def create_ip_list(value, count, mask=32, incr=0):
@@ -84,8 +98,7 @@ def create_ip_list(value, count, mask=32, incr=0):
 
 
 # START ---------------------   T2 BGP Case -------------------
-# Pre-requisites
-# Expect the T1 and T2 orts to be routed ports and not part of any portchannel. The ports must not have ips configured
+# Expect the T1 and T2 ports to be routed ports and not part of any portchannel.
 T1_SNAPPI_AS_NUM = 65300
 T2_SNAPPI_AS_NUM = 65400
 T1_DUT_AS_NUM = 65200
@@ -97,12 +110,8 @@ v4_prefix_length = 24
 v6_prefix_length = 64
 TIMEOUT = 20
 
-# The order of the hostnames are important [ t1 hostname, t2 uplink hostname, t2 downlink hostname]
+# The order of hostname is very important for the outbound test (T1, T2 Uplink and T2 Downlink)
 t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink"]
-t2_asic_port_map = {
-        "asic0": ['Ethernet%d' % i for i in range(0, 144, 4)],
-        "asic1": ['Ethernet%d' % i for i in range(144, 276, 4)],
-    }
 
 t1_ports = {
                 t1_t2_device_hostnames[0]:
@@ -115,12 +124,14 @@ t1_ports = {
 t2_uplink_portchannel_members = {
                                     t1_t2_device_hostnames[1]:
                                     {
-                                        'asic0': {
-                                            'PortChannel0': ('Ethernet0', 'Ethernet88')
-                                        },
-                                        'asic1': {
-                                            'PortChannel1': ('Ethernet192', 'Ethernet144')
-                                        }
+                                        'asic0':
+                                            {
+                                                'PortChannel0': ['Ethernet0', 'Ethernet88']
+                                            },
+                                        'asic1':
+                                            {
+                                                'PortChannel1': ['Ethernet192', 'Ethernet144']
+                                            }
                                     }
                                 }
 

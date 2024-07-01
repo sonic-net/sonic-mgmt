@@ -4,20 +4,16 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert       
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
      fanout_graph_facts                                                                              # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-     snappi_api, multidut_snappi_ports_for_bgp                                                      # noqa: F401
+     snappi_api, multidut_snappi_ports_for_bgp                                                       # noqa: F401
 from tests.snappi_tests.variables import t1_t2_device_hostnames                                     # noqa: F401
 from tests.snappi_tests.multidut.bgp.files.bgp_outbound_helper import (
-     run_bgp_outbound_link_flap_test)                                                               # noqa: F401
+     run_bgp_outbound_service_restart_test)                                                         # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
-FLAP_EVENT = {
-        'hostname': 'snappi_sonic',
-        'port_name': ['Test_Port_3','Test_Port_4']
-    }
 ITERATION = 1
 ROUTE_RANGES = {
                 'IPv4': [
@@ -33,15 +29,15 @@ ROUTE_RANGES = {
 
 @pytest.mark.parametrize('traffic_type', ['IPv4'])
 @pytest.mark.parametrize('route_range', [ROUTE_RANGES])
-def test_bgp_outbound_flap_interconnectivity(snappi_api,                                     # noqa: F811
-                                             multidut_snappi_ports_for_bgp,                       # noqa: F811
-                                             conn_graph_facts,                             # noqa: F811
-                                             fanout_graph_facts,                           # noqa: F811
-                                             duthosts,
-                                             traffic_type,                                 # noqa: F811
-                                             route_range):
+def test_bgp_outbound_flap_uplink_swss(snappi_api,                                     # noqa: F811
+                                       multidut_snappi_ports_for_bgp,                 # noqa: F811
+                                       conn_graph_facts,                             # noqa: F811
+                                       fanout_graph_facts,                           # noqa: F811
+                                       duthosts,
+                                       traffic_type,                                 # noqa: F811
+                                       route_range):
     """
-    Gets the packet loss duration on flapping portchannel in uplink side
+    Gets the packet loss duration on flapping services in downlink
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
@@ -57,8 +53,11 @@ def test_bgp_outbound_flap_interconnectivity(snappi_api,                        
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.ROUTE_RANGE = route_range
     snappi_extra_params.iteration = ITERATION
-    snappi_extra_params.multi_dut_params.flap_event = FLAP_EVENT
-
+    snappi_extra_params.multi_dut_params.service_names = {
+                                                            'swss': "/usr/bin/orchagent",
+                                                            'syncd': "/usr/bin/syncd",
+                                                        }
+    snappi_extra_params.multi_dut_params.host_name = t1_t2_device_hostnames[2]
     if (len(t1_t2_device_hostnames) < 3) or (len(duthosts) < 3):
         pytest_assert(False, "Need minimum of 3 devices : One T1 and Two T2 line cards")
 
@@ -83,6 +82,6 @@ def test_bgp_outbound_flap_interconnectivity(snappi_api,                        
             pytest_assert(False, "Hostnames in variables.py doesn't match the dut hostname")
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
-    run_bgp_outbound_link_flap_test(api=snappi_api,
-                                    traffic_type=traffic_type,
-                                    snappi_extra_params=snappi_extra_params)
+    run_bgp_outbound_service_restart_test(api=snappi_api,
+                                          traffic_type=traffic_type,
+                                          snappi_extra_params=snappi_extra_params)

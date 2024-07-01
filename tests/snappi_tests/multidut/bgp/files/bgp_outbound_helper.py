@@ -1,6 +1,10 @@
 import logging
 import random
-
+import paramiko
+import json
+import time
+from ixnetwork_restpy import SessionAssistant
+from ixnetwork_restpy.testplatform.testplatform import TestPlatform
 from tabulate import tabulate
 from statistics import mean
 from tests.common.utilities import (wait, wait_until)  # noqa: F401
@@ -11,7 +15,7 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
      t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, \
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
-     BGP_TYPE, TIMEOUT, portchannel_count, t1_side_interconnected_port, t2_side_interconnected_port  # noqa: F401
+     BGP_TYPE, TIMEOUT, t1_side_interconnected_port, t2_side_interconnected_port  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +24,16 @@ ipv4_dest, ipv6_dest = [], []
 total_routes = 0
 
 
-def run_bgp_outbound(cvg_api,
-                     traffic_type,
-                     service_down,
-                     snappi_extra_params):
+def run_bgp_outbound_service_restart_test(api,
+                                          traffic_type,
+                                          snappi_extra_params):
     """
     Run Local link failover test
 
     Args:
-        cvg_api (pytest fixture): snappi API
-        traffic_type :
-        snappi_extra_params :
+        api (pytest fixture): snappi API
+        traffic_type : IPv4 or IPv6 traffic choice
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
 
     if snappi_extra_params is None:
@@ -42,26 +45,71 @@ def run_bgp_outbound(cvg_api,
     duthosts = [duthost1, duthost2, duthost3]
     route_range = snappi_extra_params.ROUTE_RANGE
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
-    flap_event = snappi_extra_params.multi_dut_params.flap_event
+    service_names = snappi_extra_params.multi_dut_params.service_names
+    host_name = snappi_extra_params.multi_dut_params.host_name
     iteration = snappi_extra_params.iteration
 
     """ Create bgp config on dut """
     duthost_bgp_config(duthosts,
                        snappi_ports)
 
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
-                                        duthosts,
-                                        snappi_ports,
-                                        traffic_type,
-                                        route_range)
+    """ Create snappi config """
+    snappi_bgp_config = __snappi_bgp_config(api,
+                                            duthosts,
+                                            snappi_ports,
+                                            traffic_type,
+                                            route_range)
 
-    get_install_time(duthosts,
-                     cvg_api,
-                     tgen_bgp_config,
-                     flap_event,
-                     service_down,
-                     traffic_type,
-                     iteration)
+    get_convergence_for_service_flap(duthosts,
+                                     api,
+                                     snappi_bgp_config,
+                                     traffic_type,
+                                     iteration,
+                                     service_names,
+                                     host_name)
+
+
+def run_bgp_outbound_link_flap_test(api,
+                                    traffic_type,
+                                    snappi_extra_params):
+    """
+    Run Local link failover test
+
+    Args:
+        api (pytest fixture): snappi API
+        traffic_type : IPv4 or IPv6 traffic choice
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    """
+
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()  # noqa F821
+
+    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    duthost3 = snappi_extra_params.multi_dut_params.duthost3
+    duthosts = [duthost1, duthost2, duthost3]
+    route_range = snappi_extra_params.ROUTE_RANGE
+    snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
+    iteration = snappi_extra_params.iteration
+    flap_event = snappi_extra_params.multi_dut_params.flap_event
+
+    """ Create bgp config on dut """
+    duthost_bgp_config(duthosts,
+                       snappi_ports)
+
+    """ Create snappi config """
+    snappi_bgp_config = __snappi_bgp_config(api,
+                                            duthosts,
+                                            snappi_ports,
+                                            traffic_type,
+                                            route_range)
+
+    get_convergence_for_link_flap(duthosts,
+                                  api,
+                                  snappi_bgp_config,
+                                  flap_event,
+                                  traffic_type,
+                                  iteration)
 
 
 def duthost_bgp_config(duthosts,
@@ -73,8 +121,11 @@ def duthost_bgp_config(duthosts,
         duthosts (pytest fixture): duthosts fixture
         snappi_ports (pytest fixture): Ports mapping info of T0 testbed
     """
+    duthosts[0].shell("sudo config save -y \n")
+    duthosts[0].shell("sudo cp {} {} \n".format("/etc/sonic/config_db.json",
+                      "/etc/sonic/config_db_backup.json"))
     # Add ips for t1 interfaces connected to tgen
-    logger.info('--------------- T1 - Tgen Section --------------------')
+    logger.info('--------------- T1 Snappi Section --------------------')
     logger.info('\n')
     for index, port in enumerate(t1_ports[duthosts[0].hostname]):
         intf_config = (
@@ -87,69 +138,42 @@ def duthost_bgp_config(duthosts,
         logger.info('Configuring IPs {} / {} on {} in {}'.
                     format(t1_t2_dut_ipv4_list[index],
                            t1_t2_dut_ipv6_list[index], port, duthosts[0].hostname))
-
-    # configure Route map
-    route_map_config = (
-        "vtysh "
-        "-c 'configure terminal' "
-        "-c 'route-map RM_SET_SRC6 permit 10' "
-        "-c 'on-match next' "
-        "-c 'set ipv6 next-hop prefer-global' "
-        "-c 'exit' "
-        "-c 'ip nht resolve-via-default' "
-        "-c 'ipv6 nht resolve-via-default' "
-        "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
-    )
-    duthosts[0].shell(route_map_config)
-    # Configure bgp on t1
-    logger.info('\n')
-    logger.info('T1 Dut AS Number: {}'.format(T1_DUT_AS_NUM))
-    logger.info('T1 Snappi AS Number: {}'.format(T1_SNAPPI_AS_NUM))
-    if list(t1_ports.keys())[0] == duthosts[0].hostname:
-        bgp_config = (
-            "vtysh "
-            "-c 'configure terminal' "
-            "-c 'no router bgp 65100' "
-            "-c 'router bgp %s' "
-            "-c 'no bgp ebgp-requires-policy' "
-            "-c 'bgp bestpath as-path multipath-relax' "
-            "-c 'maximum-paths %s' "
-            "-c 'exit' "
-        )
-        bgp_config %= (T1_DUT_AS_NUM, len(t1_ports[duthosts[0].hostname])+1)
-        duthosts[0].shell(bgp_config)
-
+    duthosts[0].shell('sudo config interface ip add Loopback0 1::1/124')
+    bgp_neighbors = {}
     for index, custom_port in enumerate(t1_ports[duthosts[0].hostname]):
         for snappi_port in snappi_ports:
             if custom_port == snappi_port['peer_port'] and snappi_port['peer_device'] == duthosts[0].hostname:
-                bgp_config_neighbor = (
-                    "vtysh "
-                    "-c 'configure terminal' "
-                    "-c 'router bgp %s' "
-                    "-c 'neighbor %s remote-as %s' "
-                    "-c 'address-family ipv4 unicast' "
-                    "-c 'neighbor %s activate' "
-                    "-c 'neighbor %s remote-as %s' "
-                    "-c 'address-family ipv6 unicast' "
-                    "-c 'neighbor %s activate' "
-                    "-c 'neighbor %s soft-reconfiguration inbound' "
-                    "-c 'neighbor %s route-map RM_SET_SRC6 in' "
-                    "-c 'maximum-paths 64' "
-                    "-c 'exit' "
-                )
-                bgp_config_neighbor %= (
-                    T1_DUT_AS_NUM, t1_t2_snappi_ipv4_list[index], T1_SNAPPI_AS_NUM, t1_t2_snappi_ipv4_list[index],
-                    t1_t2_snappi_ipv6_list[index], T1_SNAPPI_AS_NUM, t1_t2_snappi_ipv6_list[index],
-                    t1_t2_snappi_ipv6_list[index], t1_t2_snappi_ipv6_list[index]
-                )
-                duthosts[0].shell(bgp_config_neighbor)
-                logger.info('Configuring BGPv4 and BGP+ Neighbor {} {} in {}'.
-                            format(t1_t2_snappi_ipv4_list[index],
-                                   t1_t2_snappi_ipv6_list[index], duthosts[0].hostname))
-
+                bgp_neighbor = \
+                        {
+                            t1_t2_snappi_ipv4_list[index]:
+                            {
+                                "admin_status": "up",
+                                "asn": T1_SNAPPI_AS_NUM,
+                                "holdtime": "10",
+                                "keepalive": "3",
+                                "local_addr": t1_t2_dut_ipv4_list[index],
+                                "name": "snappi-sonic",
+                                "nhopself": "0",
+                                "rrclient": "0"
+                            },
+                            t1_t2_snappi_ipv6_list[index]:
+                            {
+                                "admin_status": "up",
+                                "asn": T1_SNAPPI_AS_NUM,
+                                "holdtime": "10",
+                                "keepalive": "3",
+                                "local_addr": t1_t2_dut_ipv6_list[index],
+                                "name": "snappi-sonic",
+                                "nhopself": "0",
+                                "rrclient": "0"
+                            },
+                        }
+                bgp_neighbors.update(bgp_neighbor)
     logger.info('\n')
-    # t1, t2 downlink interface config
-    logger.info('---------------T1 - T2 Downlink Inter-Connectivity Section --------------------')
+    logger.info('T1 Dut AS Number: {}'.format(T1_DUT_AS_NUM))
+    logger.info('T1 side Snappi AS Number: {}'.format(T1_SNAPPI_AS_NUM))
+    logger.info('\n')
+    logger.info('---------------T1 Inter-Connectivity Section --------------------')
     logger.info('\n')
     index = len(t1_ports[duthosts[0].hostname])
     t1_intf_config = (
@@ -161,50 +185,49 @@ def duthost_bgp_config(duthosts,
     duthosts[0].shell(t1_intf_config)
     logger.info('Configuring IPs {} {} to {} in {}'.format(t1_t2_dut_ipv4_list[index],
                 t1_t2_dut_ipv6_list[index], t1_side_interconnected_port, duthosts[0].hostname))
+    duthosts[0].shell("sudo config save -f -y \n")
+    logger.info('Saving the interface config in config_db.json in T1')
+    t1_config_db = json.loads(duthosts[0].shell("sonic-cfggen -d --print-data")['stdout'])
+    logger.info('Configuring BGP in T1 by writing into config_db')
+    bgp_neighbor = {
+                        t1_t2_snappi_ipv4_list[index]:
+                        {
+                            "admin_status": "up",
+                            "asn": T2_DUT_AS_NUM,
+                            "holdtime": "10",
+                            "keepalive": "3",
+                            "local_addr": t1_t2_dut_ipv4_list[index],
+                            "name": "T2",
+                            "nhopself": "0",
+                            "rrclient": "0"
+                        },
+                        t1_t2_snappi_ipv6_list[index]:
+                        {
+                            "admin_status": "up",
+                            "asn": T2_DUT_AS_NUM,
+                            "holdtime": "10",
+                            "keepalive": "3",
+                            "local_addr": t1_t2_dut_ipv6_list[index],
+                            "name": "T2",
+                            "nhopself": "0",
+                            "rrclient": "0"
+                        },
+                    }
+    bgp_neighbors.update(bgp_neighbor)
 
-    t2_downlink_intf_config = (
-        "sudo config interface -n %s ip add %s %s/%s\n"
-        "sudo config interface -n %s ip add %s %s/%s\n"
-    )
-    t2_downlink_intf_config %= (t2_side_interconnected_port['asic_value'], t2_side_interconnected_port['port_name'],
-                                t1_t2_snappi_ipv4_list[index], v4_prefix_length,
-                                t2_side_interconnected_port['asic_value'],
-                                t2_side_interconnected_port['port_name'],
-                                t1_t2_snappi_ipv6_list[index], v6_prefix_length)
-    duthosts[2].shell(t2_downlink_intf_config)
-    logger.info('Configuring IPs {} {} to {} -n {} in {}'.
-                format(t1_t2_snappi_ipv4_list[index], t1_t2_snappi_ipv6_list[index],
-                       t2_side_interconnected_port['port_name'], t2_side_interconnected_port['asic_value'],
-                       duthosts[2].hostname))
-    logger.info('\n')
-    logger.info('T1 Dut AS Number: {}'.format(T1_DUT_AS_NUM))
-    logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
-    t1_bgp = (
+    if "BGP_NEIGHBOR" not in t1_config_db.keys():
+        t1_config_db["BGP_NEIGHBOR"] = bgp_neighbors
+    else:
+        t1_config_db["BGP_NEIGHBOR"].update(bgp_neighbors)
+
+    with open("/tmp/temp_config.json", 'w') as fp:
+        json.dump(t1_config_db, fp, indent=4)
+    duthosts[0].copy(src="/tmp/temp_config.json", dest="/etc/sonic/config_db.json")
+    logger.info('Reloading config to apply the BGP configuration with T1 and snappi-sonic')
+    duthosts[0].shell("sudo config reload -f -y \n")
+    # configure Route map
+    route_map_config = (
         "vtysh "
-        "-c 'configure terminal' "
-        "-c 'router bgp %s' "
-        "-c 'neighbor %s remote-as %s' "
-        "-c 'address-family ipv4 unicast' "
-        "-c 'neighbor %s activate' "
-        "-c 'neighbor %s remote-as %s' "
-        "-c 'address-family ipv6 unicast' "
-        "-c 'neighbor %s activate' "
-        "-c 'neighbor %s soft-reconfiguration inbound' "
-        "-c 'neighbor %s route-map RM_SET_SRC6 in' "
-        "-c 'maximum-paths 64' "
-        "-c 'exit' "
-    )
-    t1_bgp %= (
-        T1_DUT_AS_NUM, t1_t2_snappi_ipv4_list[index], T2_DUT_AS_NUM, t1_t2_snappi_ipv4_list[index],
-        t1_t2_snappi_ipv6_list[index], T2_DUT_AS_NUM, t1_t2_snappi_ipv6_list[index],
-        t1_t2_snappi_ipv6_list[index], t1_t2_snappi_ipv6_list[index]
-    )
-    duthosts[0].shell(t1_bgp)
-    logger.info('Configuring BGPv4 and BGP+ Neighbor {} {} in {}'.
-                format(t1_t2_snappi_ipv4_list[index], t1_t2_snappi_ipv6_list[index], duthosts[0].hostname))
-
-    t2_downlink_bgp = (
-        "vtysh -n %s "
         "-c 'configure terminal' "
         "-c 'route-map RM_SET_SRC6 permit 10' "
         "-c 'on-match next' "
@@ -213,56 +236,296 @@ def duthost_bgp_config(duthosts,
         "-c 'ip nht resolve-via-default' "
         "-c 'ipv6 nht resolve-via-default' "
         "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
-        "-c 'router bgp %s' "
-        "-c 'neighbor %s remote-as %s' "
-        "-c 'address-family ipv4 unicast' "
-        "-c 'neighbor %s activate' "
-        "-c 'neighbor %s remote-as %s' "
-        "-c 'address-family ipv6 unicast' "
-        "-c 'neighbor %s activate' "
-        "-c 'neighbor %s soft-reconfiguration inbound' "
-        "-c 'neighbor %s route-map RM_SET_SRC6 in' "
-        "-c 'maximum-paths 64' "
         "-c 'exit' "
     )
-    t2_downlink_bgp %= (
-        t2_side_interconnected_port['asic_value'][-1], T2_DUT_AS_NUM,
-        t1_t2_dut_ipv4_list[index], T1_DUT_AS_NUM, t1_t2_dut_ipv4_list[index],
-        t1_t2_dut_ipv6_list[index], T1_DUT_AS_NUM, t1_t2_dut_ipv6_list[index],
-        t1_t2_dut_ipv6_list[index], t1_t2_dut_ipv6_list[index]
-    )
-    duthosts[2].shell(t2_downlink_bgp)
-    logger.info('Configuring BGPv4 and BGP+ Neighbor {} {} in {} frr {}'.format(t1_t2_dut_ipv4_list[index],
-                t1_t2_dut_ipv6_list[index], duthosts[2].hostname, t2_side_interconnected_port['asic_value'][-1]))
+    duthosts[0].shell(route_map_config)
+    logger.info('Applying RM_SET_SRC6 route map in T1')
+    logger.info('\n')
+    logger.info('---------------T2 Downlink Inter-Connectivity Section --------------------')
+    logger.info('\n')
+    if t2_side_interconnected_port['asic_value'] is not None:
+        duthosts[2].shell('sudo config interface -n {} ip add Loopback0 1.1.1.1/24'.
+                          format(t2_side_interconnected_port['asic_value']))
+        duthosts[2].shell('sudo config interface -n {} ip add Loopback0 1::1/124'.
+                          format(t2_side_interconnected_port['asic_value']))
+        t2_downlink_intf_config = (
+            "sudo config interface -n %s ip add %s %s/%s\n"
+            "sudo config interface -n %s ip add %s %s/%s\n"
+        )
+        t2_downlink_intf_config %= (t2_side_interconnected_port['asic_value'],
+                                    t2_side_interconnected_port['port_name'],
+                                    t1_t2_snappi_ipv4_list[index], v4_prefix_length,
+                                    t2_side_interconnected_port['asic_value'],
+                                    t2_side_interconnected_port['port_name'],
+                                    t1_t2_snappi_ipv6_list[index], v6_prefix_length)
+        duthosts[2].shell(t2_downlink_intf_config)
+        logger.info('Configuring IPs {} {} to {} -n {} in {}'.
+                    format(t1_t2_snappi_ipv4_list[index], t1_t2_snappi_ipv6_list[index],
+                           t2_side_interconnected_port['port_name'], t2_side_interconnected_port['asic_value'],
+                           duthosts[2].hostname))
+    else:
+        duthosts[2].shell('sudo config interface ip add Loopback0 1.1.1.1/24')
+        duthosts[2].shell('sudo config interface ip add Loopback0 1::1/124')
+        t2_downlink_intf_config = (
+            "sudo config interface ip add %s %s/%s\n"
+            "sudo config interface ip add %s %s/%s\n"
+        )
+        t2_downlink_intf_config %= (t2_side_interconnected_port['port_name'],
+                                    t1_t2_snappi_ipv4_list[index], v4_prefix_length,
+                                    t2_side_interconnected_port['port_name'],
+                                    t1_t2_snappi_ipv6_list[index], v6_prefix_length)
+        duthosts[2].shell(t2_downlink_intf_config)
+        logger.info('Configuring IPs {} {} to {} in {}'.
+                    format(t1_t2_snappi_ipv4_list[index], t1_t2_snappi_ipv6_list[index],
+                           t2_side_interconnected_port['port_name'],
+                           duthosts[2].hostname))
+    logger.info('T1 Dut AS Number: {}'.format(T1_DUT_AS_NUM))
+    logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
+    logger.info('Saving T2 Downlink interface config in config_db')
+    duthosts[2].shell("sudo config save -f -y \n")
+    device_neighbor = {
+                            t2_side_interconnected_port['port_name']:
+                            {
+                                "name": "T1",
+                                "port": "Ethernet1"
+                            }
+                        }
+
+    device_neighbor_metadata = {
+                                    "T1":
+                                    {
+                                        "hwsku": "Sonic-Dut",
+                                        "mgmt_addr": t1_t2_dut_ipv4_list[index],
+                                        "type": "LeafRouter"
+                                    }
+                                }
+    bgp_neighbor = {
+                        t1_t2_dut_ipv4_list[index]:
+                        {
+                            "admin_status": "up",
+                            "asn": T1_DUT_AS_NUM,
+                            "holdtime": "10",
+                            "keepalive": "3",
+                            "local_addr": t1_t2_snappi_ipv4_list[index],
+                            "name": "T1",
+                            "nhopself": "0",
+                            "rrclient": "0"
+                        },
+                        t1_t2_dut_ipv6_list[index]:
+                        {
+                            "admin_status": "up",
+                            "asn": T1_DUT_AS_NUM,
+                            "holdtime": "10",
+                            "keepalive": "3",
+                            "local_addr": t1_t2_snappi_ipv6_list[index],
+                            "name": "T1",
+                            "nhopself": "0",
+                            "rrclient": "0"
+                        },
+                    }
+
+    if t2_side_interconnected_port['asic_value'] is not None:
+        config_db = 'config_db'+list(t2_side_interconnected_port['asic_value'])[-1]+'.json'
+        t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d -n {} --print-data".
+                                  format(t2_side_interconnected_port['asic_value']))['stdout'])
+    else:
+        config_db = 'config_db.json'
+        t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d --print-data")['stdout'])
+
+    if "DEVICE_NEIGHBOR" not in t2_config_db.keys():
+        t2_config_db["DEVICE_NEIGHBOR"] = device_neighbor
+    else:
+        t2_config_db["DEVICE_NEIGHBOR"].update(device_neighbor)
+
+    if 'DEVICE_NEIGHBOR_METADATA' not in t2_config_db.keys():
+        t2_config_db["DEVICE_NEIGHBOR_METADATA"] = device_neighbor_metadata
+    else:
+        t2_config_db["DEVICE_NEIGHBOR_METADATA"].update(device_neighbor_metadata)
+
+    if "BGP_NEIGHBOR" not in t2_config_db.keys():
+        t2_config_db["BGP_NEIGHBOR"] = bgp_neighbor
+    else:
+        t2_config_db["BGP_NEIGHBOR"].update(bgp_neighbor)
+
+    with open("/tmp/temp_config.json", 'w') as fp:
+        json.dump(t2_config_db, fp, indent=4)
+    duthosts[2].copy(src="/tmp/temp_config.json", dest="/etc/sonic/%s" % config_db)
+    logger.info('Reloading config to apply the BGP configuration')
+    duthosts[2].shell("sudo config reload -f -y \n")
+    if t2_side_interconnected_port['asic_value'] is not None:
+        config_db = 'config_db'+list(t2_side_interconnected_port['asic_value'])[-1]+'.json'
+        t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d -n {} --print-data".
+                                  format(t2_side_interconnected_port['asic_value']))['stdout'])
+        logger.info('Configuring BGP in T2 Downlink by writing into {}'.format(config_db))
+        route_map_config = (
+            "vtysh -n %s"
+            "-c 'configure terminal' "
+            "-c 'route-map RM_SET_SRC6 permit 10' "
+            "-c 'on-match next' "
+            "-c 'set ipv6 next-hop prefer-global' "
+            "-c 'exit' "
+            "-c 'ip nht resolve-via-default' "
+            "-c 'ipv6 nht resolve-via-default' "
+            "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
+            "-c 'exit' "
+        )
+        route_map_config %= (
+            t2_side_interconnected_port['asic_value'][-1]
+        )
+    else:
+        t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d --print-data")['stdout'])
+        logger.info('Configuring BGP in T2 Downlink by writing into config_db.json')
+        route_map_config = (
+            "vtysh "
+            "-c 'configure terminal' "
+            "-c 'route-map RM_SET_SRC6 permit 10' "
+            "-c 'on-match next' "
+            "-c 'set ipv6 next-hop prefer-global' "
+            "-c 'exit' "
+            "-c 'ip nht resolve-via-default' "
+            "-c 'ipv6 nht resolve-via-default' "
+            "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
+            "-c 'exit' "
+        )
+    duthosts[2].shell(route_map_config)
+    logger.info('Applying RM_SET_SRC6 route map in T2')
+    ##################
 
     logger.info('--------------- T2 Uplink - Tgen Section --------------------')
-
     index = 0
     for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
-        for portchannel, ports in portchannel_info.items():
-            duthosts[1].command('sudo config portchannel -n {} add {} \n'.
-                                format(asic_value, portchannel))
-            logger.info('\n')
-            logger.info('Adding -n {} {} in {}'.format(asic_value, portchannel, duthosts[1].hostname))
-            for port in ports:
-                duthosts[1].command('sudo config portchannel -n {} member add {} {} \n'.
-                                    format(asic_value, portchannel, port))
-                logger.info('Adding member {} to {}'.format(port, portchannel))
+        if asic_value is not None:
+            duthosts[1].shell('sudo config interface -n {} ip add Loopback0 1.1.1.1/24'.format(asic_value))
+            duthosts[1].shell('sudo config interface -n {} ip add Loopback0 1::1/124'.format(asic_value))
+            for portchannel, ports in portchannel_info.items():
+                duthosts[1].shell('sudo config portchannel -n {} add {} \n'.
+                                  format(asic_value, portchannel))
+                logger.info('\n')
+                logger.info('Adding -n {} {} in {}'.format(asic_value, portchannel, duthosts[1].hostname))
+                for port in ports:
+                    duthosts[1].shell('sudo config portchannel -n {} member add {} {} \n'.
+                                      format(asic_value, portchannel, port))
+                    logger.info('Adding member {} to {}'.format(port, portchannel))
 
-            logger.info('Configuring IPs {} /  {}  to {}'.
-                        format(t2_dut_portchannel_ipv4_list[index], t2_dut_portchannel_ipv6_list[index], portchannel))
-            duthosts[1].command('sudo config interface -n {} ip add {} {}/{} \n'.
-                                format(asic_value, portchannel, t2_dut_portchannel_ipv4_list[index], v4_prefix_length))
-            duthosts[1].command('sudo config interface -n {} ip add {} {}/{} \n'.
-                                format(asic_value, portchannel, t2_dut_portchannel_ipv6_list[index], v6_prefix_length))
+                logger.info('Configuring IPs {} /  {}  to {}'.
+                            format(t2_dut_portchannel_ipv4_list[index], t2_dut_portchannel_ipv6_list[index],
+                                   portchannel))
+                duthosts[1].shell('sudo config interface -n {} ip add {} {}/{} \n'.
+                                  format(asic_value, portchannel, t2_dut_portchannel_ipv4_list[index],
+                                         v4_prefix_length))
+                duthosts[1].shell('sudo config interface -n {} ip add {} {}/{} \n'.
+                                  format(asic_value, portchannel, t2_dut_portchannel_ipv6_list[index],
+                                         v6_prefix_length))
+                index = index + 1
+        else:
+            duthosts[1].shell('sudo config interface ip add Loopback0 1.1.1.1/24')
+            duthosts[1].shell('sudo config interface ip add Loopback0 1::1/124')
+            for portchannel, ports in portchannel_info.items():
+                duthosts[1].command('sudo config portchannel add {} \n'.
+                                    format(portchannel))
+                logger.info('\n')
+                logger.info('Adding {} in {}'.format(portchannel, duthosts[1].hostname))
+                for port in ports:
+                    duthosts[1].command('sudo config portchannel member add {} {} \n'.
+                                        format(portchannel, port))
+                    logger.info('Adding member {} to {}'.format(port, portchannel))
+
+                logger.info('Configuring IPs {} /  {}  to {}'.
+                            format(t2_dut_portchannel_ipv4_list[index], t2_dut_portchannel_ipv6_list[index],
+                                   portchannel))
+                duthosts[1].command('sudo config interface ip add {} {}/{} \n'.
+                                    format(portchannel, t2_dut_portchannel_ipv4_list[index], v4_prefix_length))
+                duthosts[1].command('sudo config interface ip add {} {}/{} \n'.
+                                    format(portchannel, t2_dut_portchannel_ipv6_list[index], v6_prefix_length))
+                index = index + 1
+    logger.info('\n')
+    logger.info('Saving T2 Uplink interface config in config_db')
+    duthosts[1].shell("sudo config save -y \n")
+    logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
+    logger.info('T2 side Snappi AS Number: {}'.format(T2_SNAPPI_AS_NUM))
+    # Adding Device Metadata
+    index = 0
+    for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
+        bgp_neighbors = {}
+        device_neighbors = {}
+        device_neighbor_metadatas = {}
+        if asic_value is not None:
+            config_db = 'config_db'+list(asic_value)[-1]+'.json'
+            t2_config_db = json.loads(duthosts[1].shell("sonic-cfggen -d -n {} --print-data".
+                                      format(asic_value))['stdout'])
+        else:
+            config_db = 'config_db.json'
+            t2_config_db = json.loads(duthosts[1].shell("sonic-cfggen -d --print-data")['stdout'])
+        for portchannel, port_set in portchannel_info.items():
+            for port in port_set:
+                device_neighbor = {
+                    port: {
+                        "name": "snappi_"+portchannel,
+                        "port": "snappi_"+port,
+                    }
+                }
+                device_neighbors.update(device_neighbor)
+        for portchannel in portchannel_info:
+            device_neighbor_metadata = {
+                                            "snappi_"+portchannel:
+                                            {
+                                                "hwsku": "Ixia",
+                                                "mgmt_addr": snappi_portchannel_ipv4_list[index],
+                                                "type": "RegionalHub"
+                                            },
+                                        }
+            bgp_neighbor = {
+                                snappi_portchannel_ipv4_list[index]:
+                                {
+                                    "admin_status": "up",
+                                    "asn": T2_SNAPPI_AS_NUM,
+                                    "holdtime": "10",
+                                    "keepalive": "3",
+                                    "local_addr": t2_dut_portchannel_ipv4_list[index],
+                                    "name": "snappi_"+portchannel,
+                                    "nhopself": "0",
+                                    "rrclient": "0"
+                                },
+                                snappi_portchannel_ipv6_list[index]:
+                                {
+                                    "admin_status": "up",
+                                    "asn": T2_SNAPPI_AS_NUM,
+                                    "holdtime": "10",
+                                    "keepalive": "3",
+                                    "local_addr": t2_dut_portchannel_ipv6_list[index],
+                                    "name": "snappi_"+portchannel,
+                                    "nhopself": "0",
+                                    "rrclient": "0"
+                                },
+                            }
+            bgp_neighbors.update(bgp_neighbor)
+            device_neighbor_metadatas.update(device_neighbor_metadata)
             index = index + 1
+        if "DEVICE_NEIGHBOR" not in t2_config_db.keys():
+            t2_config_db["DEVICE_NEIGHBOR"] = device_neighbors
+        else:
+            t2_config_db["DEVICE_NEIGHBOR"].update(device_neighbors)
 
-    index = 0
+        if 'DEVICE_NEIGHBOR_METADATA' not in t2_config_db.keys():
+            t2_config_db["DEVICE_NEIGHBOR_METADATA"] = device_neighbor_metadatas
+        else:
+            t2_config_db["DEVICE_NEIGHBOR_METADATA"].update(device_neighbor_metadatas)
+
+        if "BGP_NEIGHBOR" not in t2_config_db.keys():
+            t2_config_db["BGP_NEIGHBOR"] = bgp_neighbors
+        else:
+            t2_config_db["BGP_NEIGHBOR"].update(bgp_neighbors)
+        with open("/tmp/temp_config.json", 'w') as fp:
+            json.dump(t2_config_db, fp, indent=4)
+        duthosts[1].copy(src="/tmp/temp_config.json", dest="/etc/sonic/%s" % config_db)
+        logger.info('Pushing bgp config into {}'.format(config_db))
+
+    logger.info('Reloading config to apply the BGP configuration')
+    duthosts[1].shell("sudo config reload -f -y \n")
     for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
-        for portchannel, ports in portchannel_info.items():
-            logger.info('\n')
-            bgp_config = (
-                "vtysh -n %s "
+        if asic_value is not None:
+            route_map_config = (
+                "vtysh -n %s"
                 "-c 'configure terminal' "
                 "-c 'route-map RM_SET_SRC6 permit 10' "
                 "-c 'on-match next' "
@@ -271,44 +534,27 @@ def duthost_bgp_config(duthosts,
                 "-c 'ip nht resolve-via-default' "
                 "-c 'ipv6 nht resolve-via-default' "
                 "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
-                "-c 'router bgp %s' "
-                "-c 'no bgp ebgp-requires-policy' "
-                "-c 'bgp bestpath as-path multipath-relax' "
-                "-c 'maximum-paths %s' "
                 "-c 'exit' "
             )
-            bgp_config %= (asic_value[-1], T2_DUT_AS_NUM, portchannel_count)
-            duthosts[1].shell(bgp_config)
-
-            bgp_config_neighbor = (
-                "vtysh -n %s "
+            route_map_config %= (
+                                    asic_value[-1]
+                                )
+            duthosts[1].shell(route_map_config)
+        else:
+            route_map_config = (
+                "vtysh -n"
                 "-c 'configure terminal' "
-                "-c 'router bgp %s' "
-                "-c 'neighbor %s remote-as %s' "
-                "-c 'address-family ipv4 unicast' "
-                "-c 'neighbor %s activate' "
-                "-c 'neighbor %s remote-as %s' "
-                "-c 'address-family ipv6 unicast' "
-                "-c 'neighbor %s activate' "
-                "-c 'neighbor %s soft-reconfiguration inbound' "
-                "-c 'neighbor %s route-map RM_SET_SRC6 in' "
-                "-c 'maximum-paths 64' "
+                "-c 'route-map RM_SET_SRC6 permit 10' "
+                "-c 'on-match next' "
+                "-c 'set ipv6 next-hop prefer-global' "
+                "-c 'exit' "
+                "-c 'ip nht resolve-via-default' "
+                "-c 'ipv6 nht resolve-via-default' "
+                "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
                 "-c 'exit' "
             )
-            bgp_config_neighbor %= (
-                asic_value[-1], T2_DUT_AS_NUM, snappi_portchannel_ipv4_list[index], T2_SNAPPI_AS_NUM,
-                snappi_portchannel_ipv4_list[index], snappi_portchannel_ipv6_list[index], T2_SNAPPI_AS_NUM,
-                snappi_portchannel_ipv6_list[index], snappi_portchannel_ipv6_list[index],
-                snappi_portchannel_ipv6_list[index]
-            )
-            duthosts[1].shell(bgp_config_neighbor)
-            logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
-            logger.info('T2 Snappi AS Number: {}'.format(T2_SNAPPI_AS_NUM))
-            logger.info('Configuring BGPv4 and BGP+ Neighbor {} {} in {} frr {}'.
-                        format(snappi_portchannel_ipv4_list[index],
-                               snappi_portchannel_ipv6_list[index], duthosts[1].hostname, asic_value[-1]))
-            index = index + 1
-        logger.info('\n')
+        duthosts[1].shell(route_map_config)
+    logger.info('Applying RM_SET_SRC6 route map in {}'.format(duthosts[1].hostname))
 
 
 def generate_mac_address():
@@ -316,23 +562,22 @@ def generate_mac_address():
     return ':'.join(map(lambda x: "%02x" % x, mac))
 
 
-def __tgen_bgp_config(cvg_api,
-                      duthosts,
-                      snappi_ports,
-                      traffic_type,
-                      route_range):
+def __snappi_bgp_config(api,
+                        duthosts,
+                        snappi_ports,
+                        traffic_type,
+                        route_range):
     """
     Creating  BGP config on TGEN
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        api (pytest fixture): snappi API
         duthosts: multipath + 1
         snappi_ports :  Number of IPv4/IPv6 Routes
         traffic_type: IPv4 or IPv6 routes
         route_range: speed of the port used for test
     """
-    conv_config = cvg_api.convergence_config()
-    config = conv_config.config
+    config = api.config()
     # get all the t1 and uplink ports from variables
     t1_variable_ports = t1_ports[duthosts[0].hostname]
     t2_variable_ports = []
@@ -522,138 +767,324 @@ def __tgen_bgp_config(cvg_api,
         for route in route_range['IPv6']:
             total_routes = total_routes+route[2]
         createTrafficItem("IPv6 Traffic", [ipv6_src[0]], ipv6_dest)
-    return conv_config
+    return config
 
 
-def get_flow_stats(cvg_api):
+def get_flow_stats(api):
     """
     Args:
-        cvg_api (pytest fixture): Snappi API
+        api (pytest fixture): Snappi API
     """
-    request = cvg_api.convergence_request()
-    request.metrics.flow_names = []
-    return cvg_api.get_results(request).flow_metric
+    request = api.metrics_request()
+    request.flow.flow_names = []
+    return api.get_metrics(request).flow_metrics
 
 
-def get_install_time(duthosts,
-                     cvg_api,
-                     bgp_config,
-                     flap_event,
-                     service_down,
-                     traffic_type,
-                     iteration):
+def get_port_stats(api):
+    """
+    Args:
+        api (pytest fixture): Snappi API
+    """
+    request = api.metrics_request()
+    return api.get_metrics(request).port_metrics
+
+
+def get_convergence_for_link_flap(duthosts,
+                                  api,
+                                  bgp_config,
+                                  flap_event,
+                                  traffic_type,
+                                  iteration):
     """
     Args:
         duthost (pytest fixture): duthost fixture
-        cvg_api (pytest fixture): Snappi API
-        bgp_config: __tgen_bgp_config
+        api (pytest fixture): Snappi API
+        bgp_config: __snappi_bgp_config
         flap_event: contains hostname and port / services that needs to be flapped
-        service_down(bool): If services on the dut needs to be brought down
         traffic_type : IPv4 / IPv6 traffic type
         iteration : Number of iterations
     """
-    cvg_api.set_config(bgp_config)
+    api.set_config(bgp_config)
+    t2_port_index_start = len(t1_ports[duthosts[0].hostname])
     avg_pld = []
-    delta_frames = 0
+    test_platform = TestPlatform(api._address)
+    test_platform.Authenticate(api._username, api._password)
+    session = SessionAssistant(IpAddress=api._address, UserName=api._username,
+                               SessionId=test_platform.Sessions.find()[-1].Id, Password=api._password)
+    ixnetwork = session.Ixnetwork
     for i in range(0, iteration):
         logger.info(
             '|--------------------------- Iteration : {} -----------------------|'.format(i+1))
-        """ Starting Protocols """
         logger.info("Starting all protocols ...")
-        cs = cvg_api.convergence_state()
-        cs.protocol.state = cs.protocol.START
-        cvg_api.set_state(cs)
+        ps = api.protocol_state()
+        ps.state = ps.START
+        api.set_protocol_state(ps)
         wait(TIMEOUT, "For Protocols To start")
 
         logger.info('Starting Traffic')
-        cs = cvg_api.convergence_state()
-        cs.transmit.state = cs.transmit.START
-        cvg_api.set_state(cs)
+        ts = api.transmit_state()
+        ts.state = ts.START
+        api.set_transmit_state(ts)
         wait(TIMEOUT, "For Traffic To start")
 
-        flow_stats = get_flow_stats(cvg_api)
+        flow_stats = get_flow_stats(api)
+        port_stats = get_port_stats(api)
+        logger.info('\n')
+        logger.info('Rx Snappi Port Name : Rx Frame Rate')
+        for port_stat in port_stats:
+            if int(port_stat.name.split('_')[-1]) >= t2_port_index_start-1:
+                logger.info('{} : {}'.format(port_stat.name, port_stat.frames_rx_rate))
+                pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving any packet'.format(port_stat.name))
+        logger.info('\n')
         logger.info('Loss %: {}'.format(int(flow_stats[0].loss)))
         pytest_assert(int(flow_stats[0].loss) == 0, 'Loss Observed in traffic flow before link Flap')
+
+        sum_t2_rx_frame_rate = 0
+        for port_stat in port_stats:
+            if int(port_stat.name.split('_')[-1]) >= t2_port_index_start:
+                sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + int(port_stat.frames_rx_rate)
         # Flap the required test port
-        if service_down is False:
-            if duthosts[0].hostname == flap_event['hostname']:
-                logger.info(' Shutting down {} port of {} dut !!'.
-                            format(flap_event['port_name'], flap_event['hostname']))
-                duthosts[0].command('sudo config interface shutdown {} \n'.
-                                    format(flap_event['port_name']))
-            elif 'sonic-sonic' == flap_event['hostname'] and isinstance(flap_event['port_name'], str):
-                cs = cvg_api.convergence_state()
-                cs.link.port_names = [flap_event['port_name']]
-                cs.link.state = cs.link.DOWN
-                cvg_api.set_state(cs)
-                logger.info('Shutting down snappi port : {}'.format(flap_event['port_name']))
-                wait(TIMEOUT, "For link to shutdown")
-            elif 'sonic-sonic' == flap_event['hostname'] and isinstance(flap_event['port_name'], list):
-                cs = cvg_api.convergence_state()
-                cs.link.port_names = flap_event['port_name']
-                cs.link.state = cs.link.DOWN
-                cvg_api.set_state(cs)
-                logger.info('Shutting down all LAG member ports : {}'.format(flap_event['port_name']))
-                wait(TIMEOUT, "For link to shutdown")
-        else:
-            # todo
-            pass
-        flow_stats = get_flow_stats(cvg_api)
-        pkt_loss_duration = 1000*((flow_stats[0].frames_tx - flow_stats[0].frames_rx)/flow_stats[0].frames_tx_rate)
+        if duthosts[0].hostname == flap_event['hostname']:
+            logger.info(' Shutting down {} port of {} dut !!'.
+                        format(flap_event['port_name'], flap_event['hostname']))
+            duthosts[0].command('sudo config interface shutdown {} \n'.
+                                format(flap_event['port_name']))
+        elif 'snappi_sonic' == flap_event['hostname'] and isinstance(flap_event['port_name'], list):
+            for port in flap_event['port_name']:
+                ixn_port = ixnetwork.Vport.find(Name=port)[0]
+                ixn_port.LinkUpDn("down")
+            logger.info('Shutting down snappi ports : {}'.format(flap_event['port_name']))
+        wait(TIMEOUT, "For link to shutdown")
+
+        flow_stats = get_flow_stats(api)
         delta_frames = flow_stats[0].frames_tx - flow_stats[0].frames_rx
-        pkt_loss_duration = 1000*(delta_frames/flow_stats[0].frames_tx_rate)
+        pkt_loss_duration = 1000 * (delta_frames / sum_t2_rx_frame_rate)
         logger.info('Delta Frames : {}'.format(delta_frames))
-        logger.info('|-------------------------------------|')
-        logger.info('|PACKET LOSS DURATION (ms): {}'.format(pkt_loss_duration))
-        logger.info('|-------------------------------------|')
+        logger.info('PACKET LOSS DURATION (ms): {}'.format(pkt_loss_duration))
         avg_pld.append(pkt_loss_duration)
 
-        flow_stats = get_flow_stats(cvg_api)
         pytest_assert(float((int(flow_stats[0].frames_tx_rate) - int(flow_stats[0].frames_tx_rate)) /
                       int(flow_stats[0].frames_tx_rate)) < 0.005,
                       'Traffic has not converged after link flap')
-        if service_down is False:
-            if duthosts[0].hostname == flap_event['hostname']:
-                logger.info(' Starting up {} port of {} dut !!'.
-                            format(flap_event['port_name'], flap_event['hostname']))
-                duthosts[0].command('sudo config interface startup {} \n'.
-                                    format(flap_event['port_name']))
-            elif 'sonic-sonic' == flap_event['hostname'] and isinstance(flap_event['port_name'], str):
-                cs = cvg_api.convergence_state()
-                cs.link.port_names = [flap_event['port_name']]
-                cs.link.state = cs.link.UP
-                cvg_api.set_state(cs)
-                logger.info('Starting up  snappi port : {}'.format(flap_event['port_name']))
-                wait(TIMEOUT, "For link to startup")
-            elif 'sonic-sonic' == flap_event['hostname'] and isinstance(flap_event['port_name'], list):
-                cs = cvg_api.convergence_state()
-                cs.link.port_names = flap_event['port_name']
-                cs.link.state = cs.link.UP
-                cvg_api.set_state(cs)
-                logger.info('Starting up all LAG member ports : {}'.format(flap_event['port_name']))
-                wait(TIMEOUT, "For link to startup")
-        else:
-            # todo
-            pass
-        flow_stats = get_flow_stats(cvg_api)
-        pytest_assert(float((int(flow_stats[0].frames_tx_rate) - int(flow_stats[0].frames_tx_rate)) /
-                      int(flow_stats[0].frames_tx_rate)) < 0.005,
-                      'Loss observed after bringing the link back up')
 
+        if duthosts[0].hostname == flap_event['hostname']:
+            logger.info(' Starting up {} port of {} dut !!'.
+                        format(flap_event['port_name'], flap_event['hostname']))
+            duthosts[0].command('sudo config interface startup {} \n'.
+                                format(flap_event['port_name']))
+        elif 'snappi_sonic' == flap_event['hostname'] and isinstance(flap_event['port_name'], list):
+            for port in flap_event['port_name']:
+                ixn_port = ixnetwork.Vport.find(Name=port)[0]
+                ixn_port.LinkUpDn("up")
+            logger.info('Starting up snappi ports : {}'.format(flap_event['port_name']))
+        wait(TIMEOUT+20, "For link to startup")
+        logger.info('\n')
+        port_stats = get_port_stats(api)
+        logger.info('Rx Snappi Port Name : Rx Frame Rate')
+        for port_stat in port_stats:
+            if int(port_stat.name.split('_')[-1]) >= t2_port_index_start-1:
+                logger.info('{} : {}'.format(port_stat.name, port_stat.frames_rx_rate))
+                pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving any packet'.format(port_stat.name))
         logger.info('Stopping Traffic')
-        cs = cvg_api.convergence_state()
-        cs.transmit.state = cs.transmit.STOP
-        cvg_api.set_state(cs)
-        wait(TIMEOUT, "For Traffic To stop")
+        ts = api.transmit_state()
+        ts.state = ts.STOP
+        api.set_transmit_state(ts)
 
-        """ Stopping Protocols """
         logger.info("Stopping all protocols ...")
-        cs = cvg_api.convergence_state()
-        cs.protocol.state = cs.protocol.STOP
-        cvg_api.set_state(cs)
-        wait(TIMEOUT, "For Protocols To stop")
+        ps = api.protocol_state()
+        ps.state = ps.STOP
+        api.set_protocol_state(ps)
         logger.info('\n')
 
     columns = ['Event Name', 'Iterations', 'Traffic Type', 'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
     logger.info("\n%s" % tabulate([[f"{flap_event['hostname']}:{flap_event['port_name']} \
                 Link Flap", iteration, traffic_type, total_routes, mean(avg_pld)]], headers=columns, tablefmt="psql"))
+
+
+def kill_process_inside_container(duthost, container_name, process_id):
+    """
+    Args:
+        duthost (pytest fixture): duthost fixture
+        container_name (str): Container name running in dut
+        process_id: process id that needs to be killed inside container
+    """
+    username = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['sonicadmin_user']
+    password = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['sonicadmin_password']
+    ip = duthost.mgmt_ip
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(ip, port=22, username=username, password=password)
+    command = f'docker exec {container_name} kill {process_id}'
+    stdin, stdout, stderr = ssh.exec_command(command)
+
+
+def get_container_names(duthost):
+    """
+    Args:
+        duthost (pytest fixture): duthost fixture
+    """
+    container_names = duthost.shell('docker ps --format \{\{.Names\}\}')['stdout_lines']
+    return container_names
+
+
+def check_container_status_up(duthost, container_name, timeout):
+    """
+    Args:
+        duthost (pytest fixture): duthost fixture
+        container_name (str): Container name running in dut
+        timeout(secs): Maximum time limit for polling
+    """
+    start_time = time.time()
+    while True:
+        running_containers_list = get_container_names(duthost)
+        if container_name in running_containers_list:
+            logger.info('PASS: {} is RUNNING after process kill'.format(container_name))
+            break
+        logger.info('Polling for {} to come UP.....'.format(container_name))
+        elapsed_time = time.time() - start_time
+        pytest_assert(elapsed_time < timeout, "Container did not come up in {} \
+                      seconds after process kill".format(timeout))
+        time.sleep(1)
+
+
+def check_container_status_down(duthost, container_name, timeout):
+    """
+    Args:
+        duthost (pytest fixture): duthost fixture
+        container_name (str): Container name running in dut
+        timeout(secs): Maximum time limit for polling
+    """
+    start_time = time.time()
+    while True:
+        running_containers_list = get_container_names(duthost)
+        if container_name not in running_containers_list:
+            logger.info('PASS: {} is DOWN after process kill'.format(container_name))
+            break
+        logger.info('Polling for {} to go Down.....'.format(container_name))
+        elapsed_time = time.time() - start_time
+        pytest_assert(elapsed_time < timeout, "Container is still running for {} \
+                      seconds after process kill".format(timeout))
+        time.sleep(1)
+
+
+def get_container_names_from_asic_count(duthost, container_name):
+    """
+    Args:
+        duthost (pytest fixture): duthost fixture
+        container_name (str): Container name running in dut
+    """
+    container_names = []
+    platform_summary = duthost.shell('show platform summary')['stdout_lines']
+    for line in platform_summary:
+        if 'ASIC Count' in line:
+            count = int(line.split(':')[-1].lstrip())
+    for i in range(0, count):
+        container_names.append(container_name+str(i))
+    return container_names
+
+
+def get_convergence_for_service_flap(duthosts,
+                                     api,
+                                     bgp_config,
+                                     traffic_type,
+                                     iteration,
+                                     service_names,
+                                     host_name):
+    """
+    Args:
+        duthost (pytest fixture): duthost fixture
+        api (pytest fixture): Snappi API
+        bgp_config: __snappi_bgp_config
+        traffic_type : IPv4 / IPv6 traffic type
+        iteration : Number of iterations
+        service_names : Name of the container in which specific service needs to be flapped
+        host_name : Dut hostname
+    """
+    api.set_config(bgp_config)
+    t2_port_index_start = len(t1_ports[duthosts[0].hostname])
+    table = []
+    for container_name, process_name in service_names.items():
+        for duthost in duthosts:
+            container_names = get_container_names_from_asic_count(duthost, container_name)
+            if duthost.hostname == host_name:
+                for container in container_names:
+                    row = []
+                    avg_pld = []
+                    for i in range(0, iteration):
+                        logger.info(
+                            '|---------------------------{} Iteration : {} --------------\
+                            ---------|'.format(container, i+1))
+                        logger.info("Starting all protocols ...")
+                        ps = api.protocol_state()
+                        ps.state = ps.START
+                        api.set_protocol_state(ps)
+                        wait(TIMEOUT, "For Protocols To start")
+
+                        logger.info('Starting Traffic')
+                        ts = api.transmit_state()
+                        ts.state = ts.START
+                        api.set_transmit_state(ts)
+                        wait(TIMEOUT, "For Traffic To start")
+
+                        flow_stats = get_flow_stats(api)
+                        logger.info('Loss %: {}'.format(int(flow_stats[0].loss)))
+                        logger.info('\n')
+                        port_stats = get_port_stats(api)
+                        logger.info('Rx Snappi Port Name : Rx Frame Rate')
+                        for port_stat in port_stats:
+                            if int(port_stat.name.split('_')[-1]) >= t2_port_index_start-1:
+                                logger.info('{} : {}'.format(port_stat.name, port_stat.frames_rx_rate))
+                                pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving \
+                                              any packet'.format(port_stat.name))
+                        pytest_assert(int(flow_stats[0].loss) == 0, 'Loss Observed in traffic \
+                                      flow before killing service in {}')
+                        logger.info('\n')
+                        sum_t2_rx_frame_rate = 0
+                        for port_stat in port_stats:
+                            if int(port_stat.name.split('_')[-1]) >= t2_port_index_start:
+                                sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + int(port_stat.frames_rx_rate)
+                        logger.info('Killing {}:{} service in {}'.format(container, process_name, host_name))
+                        PID = duthost.shell('docker exec {}  ps aux | grep {} \n'.
+                                            format(container, process_name))['stdout'].split(' ')[10]
+                        all_containers = get_container_names(duthost)
+                        logger.info('Runnnig containers before process kill: {}'.format(all_containers))
+                        kill_process_inside_container(duthost, container, PID)
+                        check_container_status_down(duthost, container, timeout=20)
+                        check_container_status_up(duthost, container, timeout=120)
+                        wait(180, "For Flows to be evenly distributed")
+                        port_stats = get_port_stats(api)
+                        for port_stat in port_stats:
+                            if int(port_stat.name.split('_')[-1]) > t2_port_index_start-1:
+                                logger.info('{}: {}'.format(port_stat.name, port_stat.frames_rx_rate))
+                                pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving any packet \
+                                              after container is up'.format(port_stat.name))
+                        flow_stats = get_flow_stats(api)
+                        delta_frames = flow_stats[0].frames_tx - flow_stats[0].frames_rx
+                        pkt_loss_duration = 1000*(delta_frames/sum_t2_rx_frame_rate)
+                        logger.info('Delta Frames : {}'.format(delta_frames))
+                        logger.info('PACKET LOSS DURATION (ms): {}'.format(pkt_loss_duration))
+                        avg_pld.append(pkt_loss_duration)
+
+                        logger.info('Stopping Traffic')
+                        ts = api.transmit_state()
+                        ts.state = ts.STOP
+                        api.set_transmit_state(ts)
+                        wait(TIMEOUT, "For Traffic To stop")
+
+                        logger.info("Stopping all protocols ...")
+                        ps = api.protocol_state()
+                        ps.state = ps.STOP
+                        api.set_protocol_state(ps)
+                        wait(TIMEOUT, "For Protocols To stop")
+                        logger.info('\n')
+                    row.append(host_name)
+                    row.append(f'{container}')
+                    row.append(f'{process_name}')
+                    row.append(iteration)
+                    row.append(traffic_type)
+                    row.append(total_routes)
+                    row.append(mean(avg_pld))
+                    table.append(row)
+    columns = ['Hostname', 'Container Name', 'Process Name', 'Iterations', 'Traffic Type',
+               'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
+    logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
