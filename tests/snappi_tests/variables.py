@@ -36,8 +36,8 @@ config_set = {
                     'asic': ["asic1"]
                 },
                 "chassis_multi_line_card_multi_asic": {
-                    'hostname': ["sonic-s6100-dut1", "sonic-s6100-dut2"],
-                    'asic': ["asic0", "asic1"]
+                    'hostname': ["svcstr2-8800-lc2-1", "svcstr2-8800-lc4-1"],
+                    'asic': ["asic0", "asic1", "asic2"]
                 },
                 "non_chassis_multi_line_card": {
                     'hostname': ["sonic-s6100-dut1", "sonic-s6100-dut2"],
