@@ -1,4 +1,3 @@
-import threading
 import logging
 import pytest
 
@@ -27,6 +26,7 @@ Testing cert rotation by telemetry
 4. Test that when we have certs, request will succeed, rotate certs, second request will also succeed
 
 """
+
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_telemetry_not_exit(duthosts, rand_one_dut_hostname, setup_streaming_telemetry, localhost):
