@@ -264,7 +264,8 @@ class PolicyTest(ControlPlaneBaseTest):
                  int(self.PPS_LIMIT_MAX),
                  str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
             )
-            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(rx_pps)
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint check failed, " \
+                "Actual PPS: {} Expected PPS range: {} - {}".format(rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
         else:
             self.log("Checking constraints (NoPolicyApplied):")
             self.log(
@@ -273,7 +274,8 @@ class PolicyTest(ControlPlaneBaseTest):
                  int(self.PPS_LIMIT_MIN),
                  str(rx_pps <= self.PPS_LIMIT_MIN))
             )
-            assert rx_pps <= self.PPS_LIMIT_MIN, "rx_pps {}".format(rx_pps)
+            assert rx_pps <= self.PPS_LIMIT_MIN, "Copp policer constraint check failed, Actual PPS: {} " \
+                "Expected PPS range: 0 - {}".format(rx_pps, self.PPS_LIMIT_MIN)
 
 
 # SONIC config contains policer CIR=600 for ARP
@@ -535,7 +537,8 @@ class BGPTest(PolicyTest):
                  int(self.PPS_LIMIT_MAX),
                  str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
             )
-            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(rx_pps)
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint check failed, " \
+                "Actual PPS: {} Expected PPS range: {} - {}".format(rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
         elif self.asic_type not in ['broadcom']:
             self.log("Checking constraints (NoPolicyApplied):")
             self.log(
@@ -544,7 +547,8 @@ class BGPTest(PolicyTest):
                  int(self.PPS_LIMIT_MIN),
                  str(rx_pps <= self.PPS_LIMIT_MIN))
             )
-            assert rx_pps <= self.PPS_LIMIT_MIN, "rx_pps {}".format(rx_pps)
+            assert rx_pps <= self.PPS_LIMIT_MIN, "Copp policer constraint check failed, Actual PPS: {} " \
+                "Expected PPS range: 0 - {}".format(rx_pps, self.PPS_LIMIT_MIN)
         else:
             self.log("Checking constraints (DefaultPolicyApplied):")
             self.log(
@@ -554,7 +558,9 @@ class BGPTest(PolicyTest):
                  int(self.DEFAULT_PPS_LIMIT_MAX),
                  str(self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX))
             )
-            assert self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX, "rx_pps {}".format(rx_pps)
+            assert self.DEFAULT_PPS_LIMIT_MIN <= rx_pps <= self.DEFAULT_PPS_LIMIT_MAX, "Copp policer constraint " \
+                "check failed, Actual PPS: {} Expected PPS range: {} - {}".format(
+                    rx_pps, self.DEFAULT_PPS_LIMIT_MIN, self.DEFAULT_PPS_LIMIT_MAX)
 
 
 # SONIC config contains policer CIR=6000 for LACP
