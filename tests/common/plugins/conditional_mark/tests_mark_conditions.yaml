@@ -86,6 +86,12 @@ bfd/test_bfd_static_route.py:
     conditions:
       - "(is_multi_asic is False) or (hwsku not in ['Cisco-88-LC0-36FH-M-O36', 'Cisco-8800-LC-48H-C48', 'Cisco-88-LC0-36FH-O36'])"
 
+bfd/test_bfd_traffic.py:
+  skip:
+    reason: "Test only supported on Cisco 8800 platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 #######################################
 #####            bgp              #####
 #######################################
