@@ -69,3 +69,15 @@ everflow/test_everflow_ipv6.py:
     reason: "Skip traffic test for KVM testbed"
     conditions:
       - "asic_type in ['vs']"
+
+everflow/test_everflow_per_interface.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+everflow/test_everflow_testbed.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
