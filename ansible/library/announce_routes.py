@@ -1041,11 +1041,12 @@ def main():
             action=dict(required=False, type='str',
                         default='announce', choices=["announce", "withdraw"]),
             path=dict(required=False, type='str', default=''),
-            log_path=dict(required=False, type='str', default='/tmp')
+            log_path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
 
-    config_module_logging("announce_routes", log_path=module.params['log_path'])
+    if module.params['log_path']:
+        config_module_logging("announce_routes", log_path=module.params['log_path'])
 
     topo_name = module.params['topo_name']
     ptf_ip = module.params['ptf_ip']
