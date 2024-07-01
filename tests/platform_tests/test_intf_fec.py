@@ -19,6 +19,15 @@ SUPPORTED_SPEEDS = [
 ]
 
 
+def is_supported_platform(duthost):
+    if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
+        skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305"])
+        return True
+    else:
+        pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
+        return False
+
+
 def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                               enum_frontend_asic_index, conn_graph_facts):
     """
@@ -27,11 +36,8 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
-        # Not supported on 202305 and older releases
-        skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305"])
-    else:
-        pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
+    if not is_supported_platform(duthost):
+        return
 
     logging.info("Get output of '{}'".format("show interface status"))
     intf_status = duthost.show_and_parse("show interface status")
@@ -61,11 +67,8 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
-        # Not supported on 202305 and older releases
-        skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305"])
-    else:
-        pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
+    if not is_supported_platform(duthost):
+        return
 
     logging.info("Get output of '{}'".format("show interface status"))
     intf_status = duthost.show_and_parse("show interface status")
@@ -100,11 +103,8 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
-        # Not supported on 202305 and older releases
-        skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305"])
-    else:
-        pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
+    if not is_supported_platform(duthost):
+        return
 
     logging.info("Get output of '{}'".format("show interfaces counters fec-stats"))
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
