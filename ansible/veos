@@ -327,7 +327,7 @@ vm_svc_host_3:
       ansible_host: 10.206.144.149
 vm_svc_host_5:
   hosts:
-    SVCSTR2-SERV-5:
+    SVCSTR2-SERVER-5:
       ansible_host: 10.206.144.247
 vm_bjw_host_6:
   hosts:
@@ -8171,7 +8171,7 @@ server_svc_3:
     vms_svc_3:
 server_svc_5:
   vars:
-    host_var_file: host_vars/SVCSTR2-SERV-5.yml
+    host_var_file: host_vars/SVCSTR2-SERVER-5.yml
   children:
     vm_svc_host_5:
     vms_svc_5:
