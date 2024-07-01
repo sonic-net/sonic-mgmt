@@ -98,8 +98,10 @@ def golden_config_override_with_general_template(duthost, initial_config):
         duthost, safe_reload=True, check_intf_up_ports=True
     )
     overrided_config = get_running_config(duthost)
-    with open("/etc/sonic/golden_config_db.json") as f:
-        golden_config = json.load(f)
+    golden_config = json.loads(
+        # duthost.shell("cat /etc/sonic/golden_config_db.json", verbose=False)['stdout']
+        duthost.shell("cat /etc/sonic/golden_config_db.json")['stdout']
+    )
 
     config_compare(golden_config, overrided_config)
 
@@ -114,8 +116,10 @@ def golden_config_override_with_specific_template(duthost, initial_config):
         local_golden_config_template=golden_config_j2
     )
     overrided_config = get_running_config(duthost)
-    with open("/etc/sonic/golden_config_db.json") as f:
-        golden_config = json.load(f)
+    golden_config = json.loads(
+        # duthost.shell("cat /etc/sonic/golden_config_db.json", verbose=False)['stdout']
+        duthost.shell("cat /etc/sonic/golden_config_db.json")['stdout']
+    )
 
     config_compare(golden_config, overrided_config)
 
