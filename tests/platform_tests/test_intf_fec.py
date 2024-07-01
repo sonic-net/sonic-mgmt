@@ -91,3 +91,35 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
             if not (fec == "rs"):
                 pytest.fail("FEC status is not restored for interface {}".format(intf['interface']))
+
+
+def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                   enum_frontend_asic_index, conn_graph_facts):
+    """
+    @Summary: Verify the FEC stats counters are valid
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
+        # Not supported on 202305 and older releases
+        skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305"])
+    else:
+        pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
+
+    logging.info("Get output of '{}'".format("show interfaces counters fec-stats"))
+    intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
+
+    for intf in intf_status:
+        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}"
+                                              .format(intf['iface']))
+        if sfp_presence:
+            presence = sfp_presence[0].get('presence', '').lower()
+            if presence == "not present":
+                continue
+
+        fec_corr = intf.get('fec_corr', '').lower()
+        fec_uncorr = intf.get('fec_uncorr', '').lower()
+        fec_symbol_err = intf.get('fec_symbol_err', '').lower()
+        if fec_corr == "n/a" or fec_uncorr == "n/a" or fec_symbol_err == "n/a":
+            # Verify the FEC stat counters are valid
+            pytest.fail("FEC stat counters are not valid for interface {}".format(intf['iface']))
