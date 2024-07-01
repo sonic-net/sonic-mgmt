@@ -3,7 +3,6 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.utilities import get_data_acl, recover_acl_rule
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 try:
     import ntplib

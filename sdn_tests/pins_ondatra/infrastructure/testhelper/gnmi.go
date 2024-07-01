@@ -2,8 +2,10 @@ package testhelper
 
 import (
 	"context"
+	"os"
 	"testing"
 
+	closer "github.com/openconfig/gocloser"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
 	"github.com/openconfig/ondatra/gnmi/oc/system"
@@ -87,4 +89,68 @@ func CreateSubscribeRequest(params SubscribeRequestParams) (*gpb.SubscribeReques
 			},
 		},
 	}, nil
+}
+
+// GNMIAble returns whether the gNMI server on the specified device is reachable
+// or not.
+func GNMIAble(t *testing.T, d *ondatra.DUTDevice) error {
+	// Since the Ondatra Get() API panics in case of failure, we need to use
+	// raw gNMI client to test reachability with the gNMI server on the switch.
+	// The gNMI server reachability is checked by fetching the system boot-time
+	// path from the switch.
+	params := SubscribeRequestParams{
+		Target: testhelperDUTNameGet(d),
+		Paths:  []ygnmi.PathStruct{gnmiSystemBootTimePath()},
+		Mode:   gpb.SubscriptionList_ONCE,
+	}
+	subscribeRequest, err := CreateSubscribeRequest(params)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create SubscribeRequest")
+	}
+
+	subscribeClient, err := gnmiSubscribeClientGet(t, d, context.Background())
+	if err != nil {
+		return errors.Wrapf(err, "unable to get subscribe client")
+	}
+	defer closer.CloseAndLog(subscribeClient.CloseSend, "error closing gNMI send stream")
+
+	if err := subscribeClient.Send(subscribeRequest); err != nil {
+		return errors.Wrapf(err, "failed to send gNMI subscribe request")
+	}
+
+	if _, err := subscribeClient.Recv(); err != nil {
+		return errors.Wrapf(err, "subscribe client Recv() failed")
+	}
+
+	return nil
+}
+
+// ConfigGet returns a full config for the given DUT.
+func (d GNMIConfigDUT) ConfigGet() ([]byte, error) {
+	return os.ReadFile("ondatra/data/config.json")
+}
+
+// ConfigPush pushes the given config onto the DUT. If nil is passed in for config,
+// this function will use ConfigGet() to get a full config for the DUT.
+func ConfigPush(t *testing.T, dut *ondatra.DUTDevice, config *[]byte) error {
+	if dut == nil {
+		return errors.New("nil DUT passed into ConfigPush()")
+	}
+	if config == nil {
+		getConfig, err := GNMIConfigDUT{dut}.ConfigGet()
+		if err != nil {
+			return err
+		}
+		config = &getConfig
+	}
+	setRequest := &gpb.SetRequest{
+		Prefix: &gpb.Path{Origin: "openconfig", Target: testhelperDUTNameGet(dut)},
+		Replace: []*gpb.Update{{
+			Path: &gpb.Path{},
+			Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: *config}},
+		}},
+	}
+	t.Logf("Pushing config on %v: %v", testhelperDUTNameGet(dut), setRequest)
+	_, err := gnmiSet(t, dut, setRequest)
+	return err
 }

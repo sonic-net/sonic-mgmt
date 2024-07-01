@@ -24,7 +24,6 @@ from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TE
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 logger = logging.getLogger(__name__)

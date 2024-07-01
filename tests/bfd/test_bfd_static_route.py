@@ -5,81 +5,28 @@ import pytest
 
 from tests.bfd.bfd_base import BfdBase
 from tests.bfd.bfd_helpers import verify_static_route, select_src_dst_dut_with_asic, control_interface_state, \
-    check_bgp_status, modify_all_bfd_sessions, find_bfd_peers_with_given_state, add_bfd, verify_bfd_state, delete_bfd, \
-    extract_backend_portchannels
+    check_bgp_status, add_bfd, verify_bfd_state, delete_bfd, extract_backend_portchannels
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs  # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 
-pytestmark = [pytest.mark.topology("t2")]
+pytestmark = [
+    pytest.mark.topology("t2"),
+    pytest.mark.device_type('physical')
+]
 
 logger = logging.getLogger(__name__)
 
 
 class TestBfdStaticRoute(BfdBase):
-    TOTAL_ITERATIONS = 100
-
-    @pytest.fixture(autouse=True, scope="class")
-    def modify_bfd_sessions(self, duthosts):
-        """
-        1. Gather all front end nodes
-        2. Modify BFD state to required state & issue config reload.
-        3. Wait for Critical processes
-        4. Gather all ASICs for each dut
-        5. Calls find_bfd_peers_with_given_state using wait_until
-            a. Runs ip netns exec asic{} show bfd sum
-            b. If expected state is "Total number of BFD sessions: 0" and it is in result, output is True
-            c. If expected state is "Up" and no. of down peers is 0, output is True
-            d. If expected state is "Down" and no. of up peers is 0, output is True
-        """
-        try:
-            duts = duthosts.frontend_nodes
-            for dut in duts:
-                modify_all_bfd_sessions(dut, "false")
-            for dut in duts:
-                # config reload
-                config_reload(dut)
-                wait_critical_processes(dut)
-            # Verification that all BFD sessions are deleted
-            for dut in duts:
-                asics = [
-                    asic.split("asic")[1] for asic in dut.get_asic_namespace_list()
-                ]
-                for asic in asics:
-                    assert wait_until(
-                        600,
-                        10,
-                        0,
-                        lambda: find_bfd_peers_with_given_state(
-                            dut, asic, "No BFD sessions found"
-                        ),
-                    )
-
-            yield
-
-        finally:
-            duts = duthosts.frontend_nodes
-            for dut in duts:
-                modify_all_bfd_sessions(dut, "true")
-            for dut in duts:
-                config_reload(dut)
-                wait_critical_processes(dut)
-            # Verification that all BFD sessions are added
-            for dut in duts:
-                asics = [
-                    asic.split("asic")[1] for asic in dut.get_asic_namespace_list()
-                ]
-                for asic in asics:
-                    assert wait_until(
-                        600,
-                        10,
-                        0,
-                        lambda: find_bfd_peers_with_given_state(
-                            dut, asic, "Up"
-                        ),
-                    )
+    COMPLETENESS_TO_ITERATIONS = {
+        'debug': 1,
+        'basic': 10,
+        'confident': 50,
+        'thorough': 100,
+        'diagnose': 200,
+    }
 
     @pytest.mark.parametrize("version", ["ipv4", "ipv6"])
     def test_bfd_with_lc_reboot(
@@ -347,6 +294,7 @@ class TestBfdStaticRoute(BfdBase):
         tbinfo,
         get_src_dst_asic_and_duts,
         bfd_cleanup_db,
+        get_function_completeness_level,
         version,
     ):
         """
@@ -403,8 +351,13 @@ class TestBfdStaticRoute(BfdBase):
             ),
         )
 
+        completeness_level = get_function_completeness_level
+        if completeness_level is None:
+            completeness_level = "thorough"
+
+        total_iterations = self.COMPLETENESS_TO_ITERATIONS[completeness_level]
         successful_iterations = 0  # Counter for successful iterations
-        for i in range(self.TOTAL_ITERATIONS):
+        for i in range(total_iterations):
             logger.info("Iteration {}".format(i))
 
             logger.info("BFD deletion on source dut")
@@ -492,7 +445,7 @@ class TestBfdStaticRoute(BfdBase):
 
         # Determine the success rate
         logger.info("successful_iterations: %d", successful_iterations)
-        success_rate = (successful_iterations / self.TOTAL_ITERATIONS) * 100
+        success_rate = (successful_iterations / total_iterations) * 100
 
         logger.info("Current success rate: %.2f%%", success_rate)
         # Check if the success rate is above the threshold (e.g., 98%)
