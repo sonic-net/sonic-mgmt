@@ -42,6 +42,8 @@ t0:
   - dut_console/test_escape_character.py
   - dut_console/test_idle_timeout.py
   - everflow/test_everflow_ipv6.py
+  - everflow/test_everflow_per_interface.py
+  - everflow/test_everflow_testbed.py
   - fdb/test_fdb.py
   - fdb/test_fdb_flush.py
   - fdb/test_fdb_mac_expire.py
@@ -205,6 +207,9 @@ t1-lag:
   - configlet/test_add_rack.py
   - container_checker/test_container_checker.py
   - dhcp_relay/test_dhcp_pkt_fwd.py
+  - everflow/test_everflow_ipv6.py
+  - everflow/test_everflow_per_interface.py
+  - everflow/test_everflow_testbed.py
   - fdb/test_fdb_flush.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - http/test_http_copy.py
