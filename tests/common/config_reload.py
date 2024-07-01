@@ -87,12 +87,12 @@ def config_reload_minigraph_with_rendered_golden_config_override(
     :param remote_src: Whether `src` is on the remote host or on the calling device.
     """
     # If dut_template_path is being set, we can directly generate Golden Config from there.
-    # Otherwise, we can use the j2 of 'tests/common/templates/goldel_config_db.j2'
+    # Otherwise, we can use the j2 of 'tests/common/templates/golden_config_db.j2'
     if dut_golden_config_template:
         sonic_host.shell("sonic-cfggen -d -t {} > {}".format(dut_golden_config_template, golden_config_path))
     else:
         dut_golden_config_template = '/tmp/golden_config_db.j2'
-        # default src: tests/common/templates/goldel_config_db.j2
+        # default src: tests/common/templates/golden_config_db.j2
         sonic_host.copy(src=local_golden_config_template, dest=dut_golden_config_template, remote_src=remote_src)
         # run sonic-cfggen to generate golden_config_db.json with existing config.
         sonic_host.shell("sonic-cfggen -d -t {} > {}".format(dut_golden_config_template, golden_config_path))

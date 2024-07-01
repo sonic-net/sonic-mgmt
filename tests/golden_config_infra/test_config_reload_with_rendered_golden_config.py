@@ -108,10 +108,10 @@ def golden_config_override_with_general_template(duthost, initial_config):
 def golden_config_override_with_specific_template(duthost, initial_config):
     base_dir = os.path.dirname(os.path.realpath(__file__))
     template_dir = os.path.join(base_dir, 'templates')
-    golden_config_j2 = os.path.join(template_dir, 'sample_goldel_config_db.j2')
+    golden_config_j2 = os.path.join(template_dir, 'sample_golden_config_db.j2')
     config_reload_minigraph_with_rendered_golden_config_override(
         duthost, safe_reload=True, check_intf_up_ports=True,
-        golden_config_template=golden_config_j2
+        local_golden_config_template=golden_config_j2
     )
     overrided_config = get_running_config(duthost)
     with open("/etc/sonic/golden_config_db.json") as f:
