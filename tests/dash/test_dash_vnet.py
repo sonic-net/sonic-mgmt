@@ -4,7 +4,6 @@ import ptf.testutils as testutils
 import packets
 
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_INTF
-import time
 
 logger = logging.getLogger(__name__)
 
