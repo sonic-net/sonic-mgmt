@@ -41,6 +41,10 @@ t0:
   - dut_console/test_console_baud_rate.py
   - dut_console/test_escape_character.py
   - dut_console/test_idle_timeout.py
+  - ecmp/inner_hashing/test_inner_hashing_lag.py
+  - ecmp/inner_hashing/test_inner_hashing.py
+  - ecmp/inner_hashing/test_wr_inner_hashing_lag.py
+  - ecmp/inner_hashing/test_wr_inner_hashing.py
   - everflow/test_everflow_ipv6.py
   - everflow/test_everflow_per_interface.py
   - everflow/test_everflow_testbed.py
