@@ -17,8 +17,6 @@ all:
         svc5-1:
           ansible_host: 10.206.144.253
           ansible_hostv6: 2a01:111:e205:100::ace:90fd
-        svc5-ixia-2-ptf:
-          ansible_host: 10.206.144.17
 fanout:
   hosts:
     svcstr2-7260cx3-acs-2:
@@ -31,9 +29,6 @@ fanout:
       ansible_host: 10.206.144.252
       ansible_hostv6: 2a01:111:e205:100::ace:90fc
       os: sonic
-    svc5-ixia-2:
-      ansible_host: 10.206.144.17
-      os: ixia
 
 sonic:
   vars:
