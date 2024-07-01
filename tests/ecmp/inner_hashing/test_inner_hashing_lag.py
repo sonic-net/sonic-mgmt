@@ -12,12 +12,12 @@ from retry.api import retry_call
 from tests.ptf_runner import ptf_runner
 from tests.ecmp.inner_hashing.conftest import get_src_dst_ip_range, FIB_INFO_FILE_DST,\
     VXLAN_PORT, PTF_QLEN, check_pbh_counters, OUTER_ENCAP_FORMATS, NVGRE_TNI, setup_lag_config, config_pbh_lag
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test   # noqa F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0'),
-    pytest.mark.asic('mellanox')
+    pytest.mark.topology('t0')
 ]
 
 
@@ -33,7 +33,7 @@ class TestDynamicInnerHashingLag():
 
     def test_inner_hashing(self, hash_keys, ptfhost, outer_ipver, inner_ipver, router_mac,
                            vlan_ptf_ports, symmetric_hashing, duthost, lag_mem_ptf_ports_groups,
-                           get_function_completeness_level):
+                           get_function_completeness_level, skip_traffic_test):     # noqa F811
         logging.info("Executing dynamic inner hash test for outer {} and inner {} with symmetric_hashing set to {}"
                      .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         with allure.step('Run ptf test InnerHashTest'):
@@ -54,6 +54,8 @@ class TestDynamicInnerHashingLag():
                 balancing_test_times = 20
                 balancing_range = 0.5
 
+            if skip_traffic_test is True:
+                return
             ptf_runner(ptfhost,
                        "ptftests",
                        "inner_hash_test.InnerHashTest",

@@ -62,6 +62,41 @@ decap/test_decap.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####             ecmp            #####
+#######################################
+ecmp/inner_hashing/test_inner_hashing.py:
+  skip_traffic_test:
+    conditions_logical_operator: or
+    reason: "Skip traffic test if not in mellanox platform."
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "asic_type not in ['mellanox']"
+
+ecmp/inner_hashing/test_inner_hashing_lag.py:
+  skip_traffic_test:
+    conditions_logical_operator: or
+    reason: "Skip traffic test if not in mellanox platform."
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "asic_type not in ['mellanox']"
+
+ecmp/inner_hashing/test_wr_inner_hashing.py:
+  skip_traffic_test:
+    conditions_logical_operator: or
+    reason: "Skip traffic test if not in mellanox platform."
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "asic_type not in ['mellanox']"
+
+ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
+  skip_traffic_test:
+    conditions_logical_operator: or
+    reason: "Skip traffic test if not in mellanox platform."
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "asic_type not in ['mellanox']"
+
+#######################################
 #####         everflow            #####
 #######################################
 everflow/test_everflow_ipv6.py:
