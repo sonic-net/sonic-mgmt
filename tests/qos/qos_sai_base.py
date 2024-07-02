@@ -27,6 +27,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import config_reload
+from tests.common.innovium_data import is_innovium_device
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class QosBase:
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
-                           "j2c+", "jr2", "th5"]
+                           "j2c+", "jr2", "th5", "tl7"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
 
@@ -1501,7 +1502,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
-        self, duthosts, get_src_dst_asic_and_duts,
+        self, request, duthosts, get_src_dst_asic_and_duts,
         dutConfig, ingressLosslessProfile, ingressLossyProfile,
         egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
         tbinfo, lower_tor_host # noqa F811
@@ -1637,6 +1638,23 @@ class QosSaiBase(QosBase):
                       bufferConfig,
                       portSpeedCableLength)
 
+            qosParams = qpm.run()
+        elif is_innovium_device(duthost):
+
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            sub_folder_dir = os.path.join(current_file_dir, "files/innovium/")
+            if sub_folder_dir not in sys.path:
+                sys.path.append(sub_folder_dir)
+            import qos_param_generator
+            qpm = qos_param_generator.QosParamInnovium(dutConfig, duthost, dut_asic,
+                                                       request,  # noqa F821
+                                                       portSpeedCableLength,
+                                                       ingressLosslessProfile,
+                                                       ingressLossyProfile,
+                                                       egressLosslessProfile,
+                                                       egressLossyProfile,
+                                                       get_src_dst_asic_and_duts['src_dut_index'],
+                                                       get_src_dst_asic_and_duts['src_asic_index'])
             qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
