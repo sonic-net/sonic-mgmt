@@ -87,6 +87,12 @@ bfd/test_bfd_static_route.py:
       - "is_multi_asic is False"
       - "asic_type in ['cisco-8000']"
 
+bfd/test_bfd_traffic.py:
+  skip:
+    reason: "Test only supported on Cisco 8800 platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 #######################################
 #####            bgp              #####
 #######################################
