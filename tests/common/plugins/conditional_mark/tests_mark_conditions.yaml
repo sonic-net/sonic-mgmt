@@ -473,9 +473,9 @@ ecmp/inner_hashing/test_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_inner_hashing_lag.py:
@@ -484,9 +484,9 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
@@ -495,9 +495,9 @@ ecmp/inner_hashing/test_wr_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
@@ -506,9 +506,9 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
 ecmp/test_ecmp_sai_value.py:
@@ -711,6 +711,39 @@ generic_config_updater/test_pg_headroom_update.py:
       - "topo_type in ['m0', 'mx']"
 
 #######################################
+#####           hash              #####
+#######################################
+hash/test_generic_hash.py::test_ecmp_and_lag_hash:
+  skip:
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    conditions:
+      - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_lag_member_flap:
+  skip:
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    conditions:
+      - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_lag_member_remove_add:
+  skip:
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    conditions:
+      - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_nexthop_flap:
+  skip:
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    conditions:
+      - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_reboot:
+  skip:
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    conditions:
+      - "asic_gen == 'spc1'"
+
+#######################################
 #####           http              #####
 #######################################
 http/test_http_copy.py:
@@ -795,6 +828,12 @@ ip/test_mgmt_ipv6_only.py:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
+ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
+  xfail:
+    reason: "iburst not enabled by default on 202311 and newer images"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/19425
+
 #######################################
 #####            ipfwd            #####
 #######################################
@@ -876,6 +915,12 @@ nat:
 #######################################
 #####           ntp               #####
 #######################################
+ntp/test_ntp.py::test_ntp:
+  xfail:
+    reason: "iburst not enabled by default on 202311 and newer images"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/19425
+
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
   # Due to NTP code bug, long jump will still happen after disable it.
   # Set xfail flag for this test case
@@ -1094,7 +1139,7 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
     reason: "Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000"
     conditions:
-      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305']"
+      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
 
 platform_tests/test_secure_upgrade.py:
   skip:
