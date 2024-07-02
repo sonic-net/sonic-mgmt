@@ -68,7 +68,7 @@ def get_ipv4_pkts(pcap_file_name, protocol_num=61):
 
     Args:
         pcap_file_name (str): name of the pcap/pcapng file to store captured packets
-        protocol_num (int): protocol number to filter packets. See 
+        protocol_num (int): protocol number to filter packets. See
                             https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
 
     Returns:
