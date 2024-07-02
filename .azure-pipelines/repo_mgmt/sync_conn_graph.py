@@ -27,6 +27,7 @@ TOPO_FILE_PATTERN = "topo_*.yml"
 LAB_GRAPHFILE_PATH = 'ansible/files/'
 LAB_GRAPH_GROUPS_FILE = "graph_groups.yml"
 GROUP_VARS_PATH = 'ansible/group_vars/'
+HOST_VARS_PATH = 'ansible/host_vars/'
 INV_MAPPING_FILE = "group_vars/all/inv_mapping.yml"
 SUPPORTED_CSV_FILES = {
     "devices": "sonic_{}_devices.csv",
@@ -115,6 +116,13 @@ def get_graph_files(repo_path):
         for file in files:
             file_relpath = os.path.relpath(os.path.join(root, file), group_vars_path)
             graph_file_list.append(os.path.join(GROUP_VARS_PATH, file_relpath))
+
+    # add all files under ansible/host_vars/
+    group_vars_path = os.path.join(repo_path, HOST_VARS_PATH)
+    for root, dirs, files in os.walk(group_vars_path):
+        for file in files:
+            file_relpath = os.path.relpath(os.path.join(root, file), group_vars_path)
+            graph_file_list.append(os.path.join(HOST_VARS_PATH, file_relpath))
 
     # get all graph group names from graph_groups.yml
     graph_group_file = os.path.join(repo_path, LAB_GRAPHFILE_PATH, LAB_GRAPH_GROUPS_FILE)
