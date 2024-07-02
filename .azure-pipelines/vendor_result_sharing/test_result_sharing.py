@@ -59,26 +59,20 @@ TABLE_MAPPING_LOOKUP = {
 
 class KustoChecker(object):
 
-    def __init__(self, cluster, tenant_id, client_id, client_key, database):
+    def __init__(self, cluster, access_token, database):
         self.ingest_cluster = cluster
         self.cluster = cluster.replace('ingest-', '')
-        self.tenant_id = tenant_id
-        self.client_id = client_id
-        self.client_key = client_key
+        self.access_token = access_token
         self.database = database
 
         self.logger = logging.getLogger('KustoChecker')
 
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.cluster,
-                                                                                    self.client_id,
-                                                                                    self.client_key,
-                                                                                    self.tenant_id
-                                                                                    )
-        kcsb_ingest = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.ingest_cluster,
-                                                                                           self.client_id,
-                                                                                           self.client_key,
-                                                                                           self.tenant_id
-                                                                                           )
+        kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(self.cluster,
+                                                                                      self.access_token
+                                                                                     )
+        kcsb_ingest = KustoConnectionStringBuilder.with_aad_application_token_authentication(self.ingest_cluster,
+                                                                                             self.access_token
+                                                                                            )
 
         self.client = KustoClient(kcsb)
         self.ingest_client = KustoIngestClient(kcsb_ingest)
@@ -378,15 +372,12 @@ class AzureBlobConnecter(object):
 def create_kusto_checker():
 
     ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
-    tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-    client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-    client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+    access_token = os.environ.get('ACCESS_TOKEN', None)
 
-    if not all([ingest_cluster, tenant_id, client_id, client_key]):
+    if not all([ingest_cluster, access_token]):
         raise RuntimeError('Could not load Kusto credentials from environment')
 
-    return KustoChecker(ingest_cluster, tenant_id, client_id, client_key, DATABASE)
-
+    return KustoChecker(ingest_cluster, access_token, DATABASE)
 
 def main(args):
 

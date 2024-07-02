@@ -55,11 +55,16 @@ stages:
 
           steps:
 
-            - task: Bash@3
+            - task: AzureCLI@2
               displayName: Run test_result_sharing.py script
               inputs:
-                targetType: 'inline'
-                script: |
+                azureSubscription: "SONiC-Automation"
+                scriptType: 'bash'
+                scriptLocation: 'inlineScript'
+                inlineScript: |
+                  accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                  export ACCESS_TOKEN=$accessToken
+
                   set -x
 
                   cd .azure-pipelines/vendor_result_sharing
@@ -69,9 +74,6 @@ stages:
 
               env:
                 TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-                TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
-                TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
-                TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
                 VENDOR_SHARING_SAS_TOKEN: $(VENDOR_SHARING_SAS_TOKEN)
                 NIGHTLY_TEST_SAS_TOKEN: $(NIGHTLY_TEST_SAS_TOKEN)
                 AZURE_DEVOPS_PAT_FOR_DUALTOR_RESULT: $(MSSONIC-TOKEN)
