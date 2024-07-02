@@ -5,7 +5,8 @@ import os
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload, config_reload_minigraph_with_rendered_golden_config_override
-from tests.override_config_table.utilities import backup_config, restore_config, get_running_config
+from tests.override_config_table.utilities import backup_config, restore_config, get_running_config, \
+    compare_dicts_ignore_list_order, NON_USER_CONFIG_TABLES
 from tests.common.utilities import update_pfcwd_default_state
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,6 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
 ]
 
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 
@@ -61,21 +61,6 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     config_reload(duthost)
 
 
-def compare_dicts_ignore_list_order(dict1, dict2):
-    def normalize(data):
-        if isinstance(data, list):
-            return set(data)
-        elif isinstance(data, dict):
-            return {k: normalize(v) for k, v in data.items()}
-        else:
-            return data
-
-    dict1_normalized = normalize(dict1)
-    dict2_normalized = normalize(dict2)
-
-    return dict1_normalized == dict2_normalized
-
-
 def config_compare(golden_config, running_config):
     for table in golden_config:
         if table in NON_USER_CONFIG_TABLES:
@@ -84,12 +69,12 @@ def config_compare(golden_config, running_config):
         if table == "ACL_TABLE":
             pytest_assert(
                 compare_dicts_ignore_list_order(golden_config[table], running_config[table]),
-                "empty input ACL_TABLE compare fail!"
+                "ACL_TABLE compare fail!"
             )
         else:
             pytest_assert(
                 golden_config[table] == running_config[table],
-                "empty input compare fail! {}".format(table)
+                "Table compare fail! {}".format(table)
             )
 
 
@@ -99,14 +84,12 @@ def golden_config_override_with_general_template(duthost, initial_config):
     )
     overrided_config = get_running_config(duthost)
     golden_config = json.loads(
-        # duthost.shell("cat /etc/sonic/golden_config_db.json", verbose=False)['stdout']
         duthost.shell("cat /etc/sonic/golden_config_db.json")['stdout']
     )
 
     config_compare(golden_config, overrided_config)
 
 
-# need to update test for common and sample, then trim the code to align
 def golden_config_override_with_specific_template(duthost, initial_config):
     base_dir = os.path.dirname(os.path.realpath(__file__))
     template_dir = os.path.join(base_dir, 'templates')
@@ -117,7 +100,6 @@ def golden_config_override_with_specific_template(duthost, initial_config):
     )
     overrided_config = get_running_config(duthost)
     golden_config = json.loads(
-        # duthost.shell("cat /etc/sonic/golden_config_db.json", verbose=False)['stdout']
         duthost.shell("cat /etc/sonic/golden_config_db.json")['stdout']
     )
 
