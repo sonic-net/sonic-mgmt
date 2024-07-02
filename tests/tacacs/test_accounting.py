@@ -260,8 +260,8 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
 
     duthost.shell("sudo config tacacs timeout 1")
     remove_all_tacacs_server(duthost)
-    duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
-    duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % invalid_tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % tacacs_server_ip)
     change_and_wait_aaa_config_update(duthost,
                                       "sudo config aaa accounting tacacs+",
                                       last_timestamp)

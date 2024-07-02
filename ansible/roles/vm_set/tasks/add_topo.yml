@@ -265,6 +265,9 @@
       nic_simulator_action: start
     when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
 
+  - name: Start tacacs+ daily daemon
+    include_tasks: start_tacacs_daily_daemon.yml
+
   when: container_type == "PTF"
 
 - name: Save PTF image
