@@ -25,6 +25,7 @@ import ptf.testutils as testutils
 from ipaddress import ip_network, IPv6Network, IPv4Network
 from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa F401
 from tests.generic_config_updater.gu_utils import expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
@@ -130,14 +131,11 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     is_dualtor = False
-    is_dualtor_aa = False
     if "dualtor" in tbinfo["topo"]["name"]:
         vlan_name = list(mg_facts['minigraph_vlans'].keys())[0]
         # Use VLAN MAC as router MAC on dual-tor testbed
         router_mac = rand_selected_dut.get_dut_iface_mac(vlan_name)
         is_dualtor = True
-        if "aa" in tbinfo["topo"]["name"]:
-            is_dualtor_aa = True
     else:
         router_mac = rand_selected_dut.facts['router_mac']
 
@@ -264,7 +262,6 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
         "dut_mac": dut_mac,
         "vlan_ips": vlan_ips,
         "is_dualtor": is_dualtor,
-        "is_dualtor_aa": is_dualtor_aa,
         "rand_unselected_dut": rand_unselected_dut,
         "switch_loopback_ip": switch_loopback_ip,
         "ipv4_vlan_mac": v4_vlan_mac,
@@ -285,7 +282,7 @@ def setup_env(rand_selected_dut, rand_unselected_dut, setup):
     """
 
     create_checkpoint(rand_selected_dut)
-    if setup["is_dualtor_aa"]:
+    if setup["is_dualtor"]:
         create_checkpoint(rand_unselected_dut)
 
     yield
@@ -293,11 +290,11 @@ def setup_env(rand_selected_dut, rand_unselected_dut, setup):
     try:
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(rand_selected_dut)
-        if setup["is_dualtor_aa"]:
+        if setup["is_dualtor"]:
             rollback_or_reload(rand_unselected_dut)
     finally:
         delete_checkpoint(rand_selected_dut)
-        if setup["is_dualtor_aa"]:
+        if setup["is_dualtor"]:
             delete_checkpoint(rand_unselected_dut)
 
 
@@ -1081,10 +1078,14 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
         show_cmd = "show arp"
         ipv6_ping_option = ""
         dynamic_acl_create_arp_forward_rule(rand_selected_dut, setup)
+        output = rand_selected_dut.show_and_parse("show arp")
+        logger.info("Result of show arp is: " + str(output))
     else:
         show_cmd = "nbrshow -6 -ip"
         ipv6_ping_option = "-6"
         dynamic_acl_create_ndp_forward_rule(rand_selected_dut, setup)
+        output = rand_selected_dut.show_and_parse("nbrshow -6")
+        logger.info("Result of nbrshow -6 is: " + str(output))
 
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup, port_name)
 

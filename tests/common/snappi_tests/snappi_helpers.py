@@ -80,7 +80,9 @@ class SnappiFanoutManager():
         self.ip_address = '0.0.0.0'
 
         for fanout in list(fanout_data.keys()):
-            self.fanout_list.append(fanout_data[fanout])
+            # only snappi fanout, skip other fanout type(eos, sonic, etc.)
+            if fanout_data[fanout]['device_info']['HwSku'] in ('SNAPPI-tester', 'IXIA-tester'):
+                self.fanout_list.append(fanout_data[fanout])
 
     def __parse_fanout_connections__(self):
         device_conn = self.last_device_connection_details
@@ -94,7 +96,7 @@ class SnappiFanoutManager():
                 format(self.ip_address, fanout_port, peer_port, peer_device, speed)
             retval.append(string)
 
-        return(retval)
+        return (retval)
 
     def get_fanout_device_details(self, device_number):
         """With the help of this function you can select the chassis you want
@@ -145,7 +147,7 @@ class SnappiFanoutManager():
         Returns:
             Details of the chassis connection as dictionary format.
         """
-        return(self.last_device_connection_details)
+        return (self.last_device_connection_details)
 
     def get_chassis_ip(self):
         """This function returns IP address of a particular chassis

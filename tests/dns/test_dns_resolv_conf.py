@@ -34,6 +34,6 @@ def test_dns_resolv_conf(duthost):
 
     logger.info("current nameservers: [{}]".format(" ".join(current_nameservers)))
 
-    pytest_assert(not(current_nameservers ^ expected_nameservers),
+    pytest_assert(not (current_nameservers ^ expected_nameservers),
                   "Mismatch between expected and current nameservers! Expected: [{}]. Current: [{}].".format(
                   " ".join(expected_nameservers), " ".join(current_nameservers)))

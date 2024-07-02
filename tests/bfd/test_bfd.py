@@ -8,7 +8,8 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1'),
+    pytest.mark.device_type('physical')
 ]
 
 BFD_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/bfd_responder.py'

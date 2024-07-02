@@ -125,7 +125,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
 
 
 def flap_neighbor_session(neigh):
-    while(True):
+    while (True):
         neigh.kill_bgpd()
         neigh.start_bgpd()
         if stop_threads:

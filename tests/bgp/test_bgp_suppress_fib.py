@@ -315,7 +315,7 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     duthost.template(src="bgp/vrf_config_db.j2", dest="/tmp/config_db_vrf.json")
     duthost.shell("cp -f /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 
 def setup_vrf(duthost, nbrhosts, tbinfo):
@@ -797,7 +797,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
         if vrf_type == USER_DEFINED_VRF:
             with allure.step("Clean user defined vrf"):
                 duthost.shell("cp -f /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-                config_reload(duthost)
+                config_reload(duthost, safe_reload=True)
 
 
 def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, restore_bgp_suppress_fib,
