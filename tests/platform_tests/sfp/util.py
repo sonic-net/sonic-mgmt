@@ -32,6 +32,20 @@ def parse_eeprom(output_lines):
     return res
 
 
+def parse_eeprom_hexdump(output_lines):
+    """
+    @summary: Parse the SFP eeprom hexdump information from command output
+    @param output_lines: Command output lines
+    @return: Returns result in a dictionary
+    """
+    res = {}
+    for line in output_lines:
+        if re.match(r".* Ethernet\d+$", line):
+            port = re.findall(r"Ethernet\d+$", line)[-1]
+            res[port] = re.sub(r"Ethernet\d+$", "", line).strip()
+    return res
+
+
 def get_dev_conn(duthost, conn_graph_facts, asic_index):
     dev_conn = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
 
