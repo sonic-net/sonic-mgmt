@@ -106,9 +106,11 @@ def get_graph_files(repo_path):
 
     # add all topo files under ansible/vars/
     topo_file_path = os.path.join(repo_path, TOPO_FILE_PATH)
-    topo_file_list = [file for file in os.listdir(topo_file_path) if fnmatch.fnmatch(file, TOPO_FILE_PATTERN)]
-    for topo_yml_name in topo_file_list:
-        graph_file_list.append(os.path.join(TOPO_FILE_PATH, topo_yml_name))
+    for root, dirs, files in os.walk(topo_file_path):
+        for file in files:
+            if fnmatch.fnmatch(file, TOPO_FILE_PATTERN):
+                file_relpath = os.path.relpath(os.path.join(root, file), topo_file_path)
+                graph_file_list.append(os.path.join(TOPO_FILE_PATH, file_relpath))
 
     # add all files under ansible/group_vars/
     group_vars_path = os.path.join(repo_path, GROUP_VARS_PATH)
@@ -118,10 +120,10 @@ def get_graph_files(repo_path):
             graph_file_list.append(os.path.join(GROUP_VARS_PATH, file_relpath))
 
     # add all files under ansible/host_vars/
-    group_vars_path = os.path.join(repo_path, HOST_VARS_PATH)
-    for root, dirs, files in os.walk(group_vars_path):
+    host_vars_path = os.path.join(repo_path, HOST_VARS_PATH)
+    for root, dirs, files in os.walk(host_vars_path):
         for file in files:
-            file_relpath = os.path.relpath(os.path.join(root, file), group_vars_path)
+            file_relpath = os.path.relpath(os.path.join(root, file), host_vars_path)
             graph_file_list.append(os.path.join(HOST_VARS_PATH, file_relpath))
 
     # get all graph group names from graph_groups.yml
