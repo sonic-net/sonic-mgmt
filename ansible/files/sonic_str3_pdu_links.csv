@@ -137,8 +137,8 @@ pdu-96,31,str3-s6100-acs-6,PSU1
 pdu-97,31,str3-s6100-acs-6,PSU2
 pdu-96,35,str3-s6100-acs-7,PSU1
 pdu-97,35,str3-s6100-acs-7,PSU2
-pdu-115,26,str3-msn4700-02,PSU1
-pdu-116,26,str3-msn4700-02,PSU2
+pdu-116,26,str3-msn4700-02,PSU1
+pdu-115,26,str3-msn4700-02,PSU2
 pdu-115,25,str3-msn4700-fanout-02,PSU1
 pdu-116,25,str3-msn4700-fanout-02,PSU2
 pdu-115,27,str3-s6100-acs-8,PSU1
