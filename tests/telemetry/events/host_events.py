@@ -129,5 +129,5 @@ def kill_critical_process(duthost):
     if change_autorestart:
         duthost.shell("config feature autorestart {} disabled".format(container))
 
-    duthost.shell("systemctl reset-failed {}".format(container))
-    duthost.shell("systemctl restart {}".format(container))
+    duthost.shell("systemctl reset-failed {}".format(container), module_ignore_errors=True)
+    wait_until(100, 10, 0, duthost.is_service_fully_started, container)
