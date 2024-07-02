@@ -70,8 +70,8 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
                     for k, v in list(snmp_facts['snmp_interfaces'].items()) if v['name'] in alias_port_name_map]
 
     for intf in q_interfaces:
-        assert intf in snmp_ifnames, "Port {} with QUEUE config is not present in snmp interfaces".format(intf)    
-    
+        assert intf in snmp_ifnames, "Port {} with QUEUE config is not present in snmp interfaces".format(intf)
+
     for k, v in snmp_facts['snmp_interfaces'].items():
         # v['name'] is  alias for example Ethernet1/1
         if v['name'] in alias_port_name_map and is_port_active(v):
