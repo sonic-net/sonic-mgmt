@@ -16,7 +16,7 @@ config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
-GOLDEN_CONFIG_TEMPLATE = os.path.join(TEMPLATE_DIR, 'golden_config.j2')
+GOLDEN_CONFIG_TEMPLATE = os.path.join(TEMPLATE_DIR, 'golden_config_db.j2')
 DEFAULT_GOLDEN_CONFIG_PATH = '/etc/sonic/golden_config_db.json'
 
 
@@ -72,7 +72,7 @@ def config_reload_minigraph_with_rendered_golden_config_override(
         safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
         check_intf_up_ports=False, traffic_shift_away=False,
         golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH,
-        golden_config_template=GOLDEN_CONFIG_TEMPLATE,
+        local_golden_config_template=GOLDEN_CONFIG_TEMPLATE,
         dut_golden_config_template=None, remote_src=False, is_dut=True):
     """
     This function facilitates new feature table testing without minigraph parser modification. It
@@ -82,18 +82,21 @@ def config_reload_minigraph_with_rendered_golden_config_override(
     :param config_source: Always set to 'minigraph' cuz Golden Config override are embeded in
                           load_minigraph
     :param override_config: Always True as it needs Golden Config to override
-    :param golden_config_path: Path of Golden Config
-    :param golden_config_j2: The j2 file to render Golden Config
+    :param golden_config_path: Path of Golden Config on DUT
+    :param local_golden_config_template: template in sonic-mgmt repo and will be copy to DUT to parse
+    :param dut_golden_config_template: template that located in remote DUT if there is any.
     :param remote_src: Whether `src` is on the remote host or on the calling device.
     """
     # If dut_template_path is being set, we can directly generate Golden Config from there.
-    # Otherwise, we can use the j2 of 'tests/common/templates/goldel_config_db.j2'
+    # Otherwise, we can copy and parse the template in sonic-mgmt repo
     if dut_golden_config_template:
         sonic_host.shell("sonic-cfggen -d -t {} > {}".format(dut_golden_config_template, golden_config_path))
     else:
         dut_golden_config_template = '/tmp/golden_config_db.j2'
-        # default src: tests/common/templates/goldel_config_db.j2
-        sonic_host.copy(src=golden_config_template, dest=dut_golden_config_template, remote_src=remote_src)
+        # default src: tests/common/templates/golden_config_db.j2
+        # The src could be specified in the template dir under your test.
+        # Check test_config_reload_with_rendered_golden_config.py
+        sonic_host.copy(src=local_golden_config_template, dest=dut_golden_config_template, remote_src=remote_src)
         # run sonic-cfggen to generate golden_config_db.json with existing config.
         sonic_host.shell("sonic-cfggen -d -t {} > {}".format(dut_golden_config_template, golden_config_path))
 
