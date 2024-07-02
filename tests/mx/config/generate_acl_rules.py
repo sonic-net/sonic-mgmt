@@ -157,13 +157,13 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
     sequence_id = 101
     for ip2me in ipv4_list:
         if ip2me.type != IP2ME_TYPE_IP_INTF:  # P2P IP not needed in northbound
-            acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr))
+            acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr), ethertype=ETHERTYPE_IPV4)
             sequence_id += 5
 
     # Allow DHCP packets from BMC to Mx
     sequence_id = 501
     acl_entries["{:04d}_ALLOW_DHCP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, src_ip="0.0.0.0/32", dst_ip="255.255.255.255/32", ip_protocol=IP_PROTOCOL_UDP, l4_dst_port=67)
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, src_ip="0.0.0.0/32", dst_ip="255.255.255.255/32", ip_protocol=IP_PROTOCOL_UDP, l4_dst_port=67, ethertype=ETHERTYPE_IPV4)
 
     # IN_PORTS = BMC, DST_IP = BMC => DROP
     sequence_id = 1001
@@ -171,7 +171,7 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
     bmc_nets = ip_merge(bmc_ips, rm_ips)
     for bmc_net in bmc_nets:
         acl_entries["{:04d}_IN_PORTS_BMC_DST_IP_BMC".format(sequence_id)] = \
-            acl_entry(sequence_id, dst_ip=format(bmc_net), interfaces=bmc_intfs)
+            acl_entry(sequence_id, dst_ip=format(bmc_net), interfaces=bmc_intfs, ethertype=ETHERTYPE_IPV4)
         sequence_id += 5
 
     # For same shelf:
@@ -183,10 +183,10 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
         rm = shelf['rm']
         rm_ip = ipaddress.ip_network(rm.get('ipv4_subnet', None) or rm['ipv4_addr'])
         acl_entries["{:04d}_SRC_IP_RM".format(sequence_id)] = \
-            acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(rm_ip))
+            acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(rm_ip), ethertype=ETHERTYPE_IPV4)
         sequence_id += 5
         acl_entries["{:04d}_DST_IP_RM".format(sequence_id)] = \
-            acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(rm_ip))
+            acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(rm_ip), ethertype=ETHERTYPE_IPV4)
         sequence_id += 5
     else:
         for shelf in shelfs:
@@ -198,20 +198,20 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
                 if bmc_gp.get('config', {}).get('ipv4_subnet', None):
                     bmc_ip = ipaddress.ip_network(bmc_gp['config']['ipv4_subnet'])
                     acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
-                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(bmc_ip))
+                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(bmc_ip), ethertype=ETHERTYPE_IPV4)
                     sequence_id += 5
                     acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
-                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(bmc_ip), dst_ip=format(rm_ip))
+                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(bmc_ip), dst_ip=format(rm_ip), ethertype=ETHERTYPE_IPV4)
                     sequence_id += 5
                 else:
                     gp_bmc_ips = [bh['ipv4_addr'] for bh in bmc_gp['hosts']]
                     gp_bmc_nets = ip_merge(gp_bmc_ips, list(set(bmc_ips) - set(gp_bmc_ips)) + rm_ips)
                     for gp_bmc_net in gp_bmc_nets:
                         acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
-                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(gp_bmc_net))
+                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(gp_bmc_net), ethertype=ETHERTYPE_IPV4)
                         sequence_id += 5
                         acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
-                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip))
+                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip), ethertype=ETHERTYPE_IPV4)
                         sequence_id += 5
 
     # All other ipv4 packages => DROP
@@ -242,7 +242,7 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
     _, ipv6_list = ip2me_list(rack_topo['config']['vlan_count'])
     for ip2me in ipv6_list:
         if ip2me.type != IP2ME_TYPE_IP_INTF:  # P2P IP not needed in northbound
-            acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr))
+            acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr), ethertype=ETHERTYPE_IPV6)
             sequence_id += 5
 
     # If IPv6 is supported on any RM
@@ -253,7 +253,7 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
         bmc_nets = ip_merge(bmc_ips, rm_ips)
         for bmc_net in bmc_nets:
             acl_entries["{:04d}_IN_PORTS_BMC_DST_IP_BMC".format(sequence_id)] = \
-                acl_entry(sequence_id, ACL_ACTION_DROP, dst_ip=format(bmc_net), interfaces=bmc_intfs)
+                acl_entry(sequence_id, ACL_ACTION_DROP, dst_ip=format(bmc_net), interfaces=bmc_intfs, ethertype=ETHERTYPE_IPV6)
             sequence_id += 5
 
         # IN_PORTS = RM, DST_IP = RM => DROP
@@ -261,7 +261,7 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
         rm_nets = ip_merge(rm_ips, bmc_ips)
         for rm_net in rm_nets:
             acl_entries["{:04d}_IN_PORTS_RM_DST_IP_RM".format(sequence_id)] = \
-                acl_entry(sequence_id, ACL_ACTION_DROP, dst_ip=format(rm_net), interfaces=rm_intfs)
+                acl_entry(sequence_id, ACL_ACTION_DROP, dst_ip=format(rm_net), interfaces=rm_intfs, ethertype=ETHERTYPE_IPV6)
             sequence_id += 5
 
     sequence_id = 8001
@@ -278,37 +278,37 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
                 if bmc_gp.get('config', {}).get('ipv6_subnet', None):
                     bmc_ip = ipaddress.ip_network(bmc_gp['config']['ipv6_subnet'])
                     acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
-                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(bmc_ip))
+                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(bmc_ip), ethertype=ETHERTYPE_IPV6)
                     sequence_id += 5
                     acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
-                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(bmc_ip), dst_ip=format(rm_ip))
+                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(bmc_ip), dst_ip=format(rm_ip), ethertype=ETHERTYPE_IPV6)
                     sequence_id += 5
                 else:
                     gp_bmc_ips = [bh['ipv6_addr'] for bh in bmc_gp['hosts']]
                     gp_bmc_nets = ip_merge(gp_bmc_ips, list(set(bmc_ips) - set(gp_bmc_ips)) + rm_ips)
                     for gp_bmc_net in gp_bmc_nets:
                         acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
-                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(gp_bmc_net))
+                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(gp_bmc_net), ethertype=ETHERTYPE_IPV6)
                         sequence_id += 5
                         acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
-                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip))
+                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip), ethertype=ETHERTYPE_IPV6)
                         sequence_id += 5
 
     # Allow NDP between Mx and BMC
     sequence_id = 9001  # icmp_type = 133: Router Solicitation
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=133, icmp_code=0)
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=133, icmp_code=0, ethertype=ETHERTYPE_IPV6)
     sequence_id = 9002  # icmp_type = 135: Neighbor Solicitation
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=135, icmp_code=0)
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=135, icmp_code=0, ethertype=ETHERTYPE_IPV6)
     sequence_id = 9003  # icmp_type = 136: Neighbor Advertisement
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0)
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0, ethertype=ETHERTYPE_IPV6)
 
     # Allow DHCPv6 packets from BMC to Mx
     sequence_id = 9011
     acl_entries["{:04d}_ALLOW_DHCPv6".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, dst_ip="ff02::1:2/128", ip_protocol=IP_PROTOCOL_UDP)
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, dst_ip="ff02::1:2/128", ip_protocol=IP_PROTOCOL_UDP, ethertype=ETHERTYPE_IPV6)
 
     # All other ipv6 packets => DROP
     # (Prevent BMC send package to upstream)
@@ -327,16 +327,16 @@ def gen_southbound_acl_entries_v6(rack_topo, hwsku):
     sequence_id = 101
     _, ipv6_list = ip2me_list(rack_topo['config']['vlan_count'])
     for ip2me in ipv6_list:
-        acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr))
+        acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr), ethertype=ETHERTYPE_IPV6)
         sequence_id += 5
 
     # Allow NDP between Mx and M0
     sequence_id = 9001  # icmp_type = 135: Neighbor Solicitation
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=135, icmp_code=0)
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=135, icmp_code=0, ethertype=ETHERTYPE_IPV6)
     sequence_id = 9002  # icmp_type = 136: Neighbor Advertisement
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0)
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0, ethertype=ETHERTYPE_IPV6)
 
     # By default, drop all the southbound traffic:
     # MARCH_ALL => DROP

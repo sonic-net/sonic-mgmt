@@ -18,6 +18,11 @@
                                     "config": {
                                         "destination-ip-address": "10.1.0.32/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "0106_IP2ME": {
@@ -32,6 +37,11 @@
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.62/32"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -49,6 +59,11 @@
                                         "destination-ip-address": "255.255.255.255/32",
                                         "protocol": "17",
                                         "source-ip-address": "0.0.0.0/32"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 },
                                 "transport": {
@@ -77,6 +92,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.128/25"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1006_IN_PORTS_BMC_DST_IP_BMC": {
@@ -98,6 +118,11 @@
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.64/26"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -121,6 +146,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.32/27"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1016_IN_PORTS_BMC_DST_IP_BMC": {
@@ -142,6 +172,11 @@
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.16/28"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -166,6 +201,11 @@
                                         "destination-ip-address": "172.17.0.16/28",
                                         "source-ip-address": "172.17.0.1/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1106_SHELF_1_SRC_IP_BMC_DST_IP_RM": {
@@ -188,6 +228,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.1/32",
                                         "source-ip-address": "172.17.0.16/28"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -212,6 +257,11 @@
                                         "destination-ip-address": "172.17.0.32/28",
                                         "source-ip-address": "172.17.0.1/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1116_SHELF_1_SRC_IP_BMC_DST_IP_RM": {
@@ -234,6 +284,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.1/32",
                                         "source-ip-address": "172.17.0.32/28"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -258,6 +313,11 @@
                                         "destination-ip-address": "172.17.0.48/29",
                                         "source-ip-address": "172.17.0.1/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1126_SHELF_1_SRC_IP_BMC_DST_IP_RM": {
@@ -280,6 +340,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.1/32",
                                         "source-ip-address": "172.17.0.48/29"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -304,6 +369,11 @@
                                         "destination-ip-address": "172.17.0.56/30",
                                         "source-ip-address": "172.17.0.1/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1136_SHELF_1_SRC_IP_BMC_DST_IP_RM": {
@@ -326,6 +396,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.1/32",
                                         "source-ip-address": "172.17.0.56/30"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -350,6 +425,11 @@
                                         "destination-ip-address": "172.17.0.64/27",
                                         "source-ip-address": "172.17.0.5/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1146_SHELF_2_SRC_IP_BMC_DST_IP_RM": {
@@ -372,6 +452,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.5/32",
                                         "source-ip-address": "172.17.0.64/27"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -396,6 +481,11 @@
                                         "destination-ip-address": "172.17.0.96/29",
                                         "source-ip-address": "172.17.0.5/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1156_SHELF_2_SRC_IP_BMC_DST_IP_RM": {
@@ -418,6 +508,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.5/32",
                                         "source-ip-address": "172.17.0.96/29"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -442,6 +537,11 @@
                                         "destination-ip-address": "172.17.0.60/30",
                                         "source-ip-address": "172.17.0.5/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1166_SHELF_2_SRC_IP_BMC_DST_IP_RM": {
@@ -464,6 +564,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.5/32",
                                         "source-ip-address": "172.17.0.60/30"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -488,6 +593,11 @@
                                         "destination-ip-address": "172.17.0.192/26",
                                         "source-ip-address": "172.17.0.9/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1176_SHELF_3_SRC_IP_BMC_DST_IP_RM": {
@@ -510,6 +620,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.9/32",
                                         "source-ip-address": "172.17.0.192/26"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -534,6 +649,11 @@
                                         "destination-ip-address": "172.17.0.112/28",
                                         "source-ip-address": "172.17.0.9/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1186_SHELF_3_SRC_IP_BMC_DST_IP_RM": {
@@ -556,6 +676,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.9/32",
                                         "source-ip-address": "172.17.0.112/28"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -580,6 +705,11 @@
                                         "destination-ip-address": "172.17.0.128/28",
                                         "source-ip-address": "172.17.0.9/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1196_SHELF_3_SRC_IP_BMC_DST_IP_RM": {
@@ -602,6 +732,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.9/32",
                                         "source-ip-address": "172.17.0.128/28"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -626,6 +761,11 @@
                                         "destination-ip-address": "172.17.0.104/29",
                                         "source-ip-address": "172.17.0.9/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1206_SHELF_3_SRC_IP_BMC_DST_IP_RM": {
@@ -648,6 +788,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.9/32",
                                         "source-ip-address": "172.17.0.104/29"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -672,6 +817,11 @@
                                         "destination-ip-address": "172.17.0.160/27",
                                         "source-ip-address": "172.17.0.13/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1216_SHELF_4_SRC_IP_BMC_DST_IP_RM": {
@@ -694,6 +844,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.13/32",
                                         "source-ip-address": "172.17.0.160/27"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -718,6 +873,11 @@
                                         "destination-ip-address": "172.17.0.144/28",
                                         "source-ip-address": "172.17.0.13/32"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
+                                    }
                                 }
                             },
                             "1226_SHELF_4_SRC_IP_BMC_DST_IP_RM": {
@@ -740,6 +900,11 @@
                                     "config": {
                                         "destination-ip-address": "172.17.0.13/32",
                                         "source-ip-address": "172.17.0.144/28"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 2048
                                     }
                                 }
                             },
@@ -777,6 +942,11 @@
                                     "config": {
                                         "destination-ip-address": "fc00:1::32/128"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
+                                    }
                                 }
                             },
                             "0106_IP2ME": {
@@ -791,6 +961,11 @@
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "fc02::abcd/128"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
                                     }
                                 }
                             },
@@ -813,6 +988,11 @@
                                     "config": {
                                         "protocol": "58"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
+                                    }
                                 }
                             },
                             "9002_ALLOW_NDP": {
@@ -833,6 +1013,11 @@
                                 "ip": {
                                     "config": {
                                         "protocol": "58"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
                                     }
                                 }
                             },
@@ -855,6 +1040,11 @@
                                     "config": {
                                         "protocol": "58"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
+                                    }
                                 }
                             },
                             "9011_ALLOW_DHCPv6": {
@@ -870,6 +1060,11 @@
                                     "config": {
                                         "destination-ip-address": "ff02::1:2/128",
                                         "protocol": "17"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
                                     }
                                 }
                             },
@@ -907,6 +1102,11 @@
                                     "config": {
                                         "destination-ip-address": "fc00:1::32/128"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
+                                    }
                                 }
                             },
                             "0106_IP2ME": {
@@ -921,6 +1121,11 @@
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "fc02::abcd/128"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
                                     }
                                 }
                             },
@@ -937,6 +1142,11 @@
                                     "config": {
                                         "destination-ip-address": "fc00::81/128"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
+                                    }
                                 }
                             },
                             "0116_IP2ME": {
@@ -951,6 +1161,11 @@
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "fc00::85/128"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
                                     }
                                 }
                             },
@@ -973,6 +1188,11 @@
                                     "config": {
                                         "protocol": "58"
                                     }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
+                                    }
                                 }
                             },
                             "9002_ALLOW_NDP": {
@@ -993,6 +1213,11 @@
                                 "ip": {
                                     "config": {
                                         "protocol": "58"
+                                    }
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
                                     }
                                 }
                             },
