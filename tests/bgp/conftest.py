@@ -329,7 +329,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
         finally:
             for conn in connections:
-                ptfhost.shell("ip address flush %s" % conn["neighbor_intf"])
+                ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
     def _setup_interfaces_t1_or_t2(mg_facts, peer_count):

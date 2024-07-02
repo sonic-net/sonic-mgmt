@@ -17,6 +17,7 @@ from tests.common import port_toggle
 from tests.common import constants
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
+from .files.pfcwd_helper import send_background_traffic
 
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
@@ -707,22 +708,27 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
         loganalyzer.match_regex = []
 
-        if action != "dontcare":
-            start_wd_on_ports(dut, port, restore_time, detect_time, action)
+        selected_test_ports = [self.pfc_wd['rx_port'][0]]
+        test_ports_info = {self.pfc_wd['rx_port'][0]: self.pfc_wd}
+        queues = [self.storm_hndle.pfc_queue_idx]
 
-        if not self.pfc_wd['fake_storm']:
-            self.storm_hndle.start_storm()
+        with send_background_traffic(dut, self.ptf, queues, selected_test_ports, test_ports_info):
+            if action != "dontcare":
+                start_wd_on_ports(dut, port, restore_time, detect_time, action)
 
-        if action == "dontcare":
-            self.traffic_inst.fill_buffer()
-            start_wd_on_ports(dut, port, restore_time, detect_time, "drop")
+            if not self.pfc_wd['fake_storm']:
+                self.storm_hndle.start_storm()
 
-        # placing this here to cover all action types. for 'dontcare' action,
-        # wd is started much later after the pfc storm is started
-        if self.pfc_wd['fake_storm']:
-            PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
+            if action == "dontcare":
+                self.traffic_inst.fill_buffer()
+                start_wd_on_ports(dut, port, restore_time, detect_time, "drop")
 
-        time.sleep(5)
+            # placing this here to cover all action types. for 'dontcare' action,
+            # wd is started much later after the pfc storm is started
+            if self.pfc_wd['fake_storm']:
+                PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
+
+            time.sleep(5)
 
         # storm detect
         logger.info("Verify if PFC storm is detected on port {}".format(port))

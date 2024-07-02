@@ -57,17 +57,17 @@ class SonicHost(AnsibleHostBase):
             vm = self.host.options['variable_manager']
             sonic_conn = vm.get_vars(
                 host=im.get_hosts(pattern='sonic')[0]
-                )['ansible_connection']
+            )['ansible_connection']
             hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
             # parse connection options and reset those options with
             # passed credentials
             connection_loader.get(sonic_conn, class_only=True)
             user_def = ansible_constants.config.get_configuration_definition(
                 "remote_user", "connection", sonic_conn
-                )
+            )
             pass_def = ansible_constants.config.get_configuration_definition(
                 "password", "connection", sonic_conn
-                )
+            )
             for user_var in (_['name'] for _ in user_def['vars']):
                 if user_var in hostvars:
                     vm.extra_vars.update({user_var: shell_user})
@@ -251,9 +251,9 @@ class SonicHost(AnsibleHostBase):
         py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
         if py_res["failed"]:
             out = self.shell(
-                             "python3 -c \"import sonic_platform.platform as P; \
+                "python3 -c \"import sonic_platform.platform as P; \
                              print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
-                             module_ignore_errors=True)
+                module_ignore_errors=True)
         else:
             out = self.shell(
                 "python -c \"import sonic_platform.platform as P; \
@@ -329,8 +329,8 @@ class SonicHost(AnsibleHostBase):
             except Exception:
                 # if platform.json does not exist, then it's not added currently for certain platforms
                 # eventually all the platforms should have the platform.json
-                logging.debug("platform.json is not available for this platform, "
-                              + "DUT facts will not contain complete platform information.")
+                logging.debug("platform.json is not available for this platform, " +
+                              "DUT facts will not contain complete platform information.")
 
         return result
 
@@ -1564,9 +1564,9 @@ Totals               6450                 6449
         for idx, line in enumerate(output_lines):
             if sep_line_pattern.match(line):
                 sep_line_found = True
-                header_lines = output_lines[idx-header_len:idx]
+                header_lines = output_lines[idx - header_len:idx]
                 sep_line = output_lines[idx]
-                content_lines = output_lines[idx+1:]
+                content_lines = output_lines[idx + 1:]
                 break
 
         if not sep_line_found:
@@ -1968,7 +1968,7 @@ Totals               6450                 6449
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert(timeout >= 0)
+        assert (timeout >= 0)
 
         return crm_facts
 
@@ -2198,32 +2198,6 @@ Totals               6450                 6449
             return False
         return True
 
-    def ping_v6(self, ipv6, count=1, ns_arg=""):
-        """
-        Returns 'True' if ping to IP address works, else 'False'
-        Args:
-            IPv6 address
-
-        Returns:
-            True or False
-        """
-        try:
-            socket.inet_pton(socket.AF_INET6, ipv6)
-        except socket.error:
-            raise Exception("Invalid IPv6 address {}".format(ipv6))
-
-        netns_arg = ""
-        if ns_arg is not DEFAULT_NAMESPACE:
-            netns_arg = "sudo ip netns exec {} ".format(ns_arg)
-
-        try:
-            self.shell("{}ping -6 -q -c{} {} > /dev/null".format(
-                netns_arg, count, ipv6
-            ))
-        except RunAnsibleModuleFail:
-            return False
-        return True
-
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
         # minigraph facts does not have backend portchannel IFs
@@ -2234,21 +2208,17 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all", ipv6_ifs=None):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
 
-        If ipv6_ifs exists, also returns the interfaces' IPv6 address and its peer
-        IPv6 addresses if found for each interface.
-
         Returns:
-            Dict of Interfaces and their IPv4 address (with IPv6 if ipv6_ifs exists)
+            Dict of Interfaces and their IPv4 address
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
-
         for k, v in list(ip_ifs.items()):
             if ((k.startswith("Ethernet") and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
@@ -2263,15 +2233,6 @@ Totals               6450                 6449
                         "bgp_neighbor": v["bgp_neighbor"]
                     }
                     active_ip_intf_cnt += 1
-
-                    if ipv6_ifs:
-                        ipv6_intf = ipv6_ifs[k]
-                        if (ipv6_intf["peer_ipv6"] != "N/A" and self.ping_v6(ipv6_intf["peer_ipv6"],
-                                                                             count=3, ns_arg=ns_arg)):
-                            ip_ifaces[k].update({
-                                "ipv6": ipv6_intf["ipv6"],
-                                "peer_ipv6": ipv6_intf["peer_ipv6"]
-                            })
 
                 if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
                     break
@@ -2528,6 +2489,50 @@ Totals               6450                 6449
         assert_exit_non_zero(out)
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
+
+    def get_switch_hash_capabilities(self):
+        out = self.shell('show switch-hash capabilities --json')
+        assert_exit_non_zero(out)
+        return SonicHost._parse_hash_fields(out)
+
+    def get_switch_hash_configurations(self):
+        out = self.shell('show switch-hash global  --json')
+        assert_exit_non_zero(out)
+        return SonicHost._parse_hash_fields(out)
+
+    def set_switch_hash_global(self, hash_type, fields, validate=True):
+        cmd = 'config switch-hash global {}-hash'.format(hash_type)
+        for field in fields:
+            cmd += ' ' + field
+        out = self.shell(cmd, module_ignore_errors=True)
+        if validate:
+            assert_exit_non_zero(out)
+        return out
+
+    def set_switch_hash_global_algorithm(self, hash_type, algorithm, validate=True):
+        cmd = 'config switch-hash global {}-hash-algorithm {}'.format(hash_type, algorithm)
+        out = self.shell(cmd, module_ignore_errors=True)
+        if validate:
+            assert_exit_non_zero(out)
+        return out
+
+    @staticmethod
+    def _parse_hash_fields(cli_output):
+        ecmp_hash_fields = []
+        lag_hash_fields = []
+        ecmp_hash_algorithm = lag_hash_algorithm = ''
+        if "No configuration is present in CONFIG DB" in cli_output['stdout']:
+            logger.info("No configuration is present in CONFIG DB")
+        else:
+            out_json = json.loads(cli_output['stdout'])
+            ecmp_hash_fields = out_json["ecmp"]["hash_field"]
+            lag_hash_fields = out_json["lag"]["hash_field"]
+            ecmp_hash_algorithm = out_json["ecmp"]["algorithm"]
+            lag_hash_algorithm = out_json["lag"]["algorithm"]
+        return {'ecmp': ecmp_hash_fields,
+                'lag': lag_hash_fields,
+                'ecmp_algo': ecmp_hash_algorithm,
+                'lag_algo': lag_hash_algorithm}
 
     def get_counter_poll_status(self):
         result_dict = {}

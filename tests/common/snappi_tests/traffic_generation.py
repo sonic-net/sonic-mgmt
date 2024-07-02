@@ -1,7 +1,7 @@
 """
 This module allows various snappi based tests to generate various traffic configurations.
 """
-
+import math
 import time
 import logging
 from tests.common.helpers.assertions import pytest_assert
@@ -11,6 +11,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     traffic_flow_mode
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,10 @@ def generate_test_flows(testbed_config,
         eth, ipv4 = test_flow.packet.ethernet().ipv4()
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
@@ -184,7 +188,10 @@ def generate_background_flows(testbed_config,
         eth, ipv4 = bg_flow.packet.ethernet().ipv4()
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
@@ -268,6 +275,24 @@ def generate_pause_flows(testbed_config,
     pause_flow.metrics.loss = True
 
 
+def clear_dut_interface_counters(duthost):
+    """
+    Clears the dut interface counter.
+    Args:
+        duthost (obj): DUT host object
+    """
+    duthost.command("sonic-clear counters \n")
+
+
+def clear_dut_que_counters(duthost):
+    """
+    Clears the dut que counter.
+    Args:
+        duthost (obj): DUT host object
+    """
+    duthost.command("sonic-clear queuecounters \n")
+
+
 def run_traffic(duthost,
                 api,
                 config,
@@ -294,10 +319,8 @@ def run_traffic(duthost,
     """
 
     api.set_config(config)
-
     logger.info("Wait for Arp to Resolve ...")
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
-
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
     switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"][1].values(), [])
@@ -312,6 +335,10 @@ def run_traffic(duthost,
         cs.port_names = snappi_extra_params.packet_capture_ports
         cs.state = cs.START
         api.set_capture_state(cs)
+
+    clear_dut_interface_counters(duthost)
+
+    clear_dut_que_counters(duthost)
 
     logger.info("Starting transmit on all flows ...")
     ts = api.transmit_state()
@@ -741,3 +768,66 @@ def verify_egress_queue_frame_count(duthost,
                 total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
                 pytest_assert(total_egress_packets == test_tx_frames[prio],
                               "Queue counters should increment for invalid PFC pause frames")
+
+
+def verify_m2o_oversubscribtion_results(rows,
+                                        test_flow_name,
+                                        bg_flow_name,
+                                        flag):
+    """
+    Verify if we get expected experiment results
+
+    Args:
+        rows (list): per-flow statistics
+        test_flow_name (str): name of test flows
+        bg_flow_name (str): name of background flows
+        flag (dict): Comprises of flow name and its loss criteria ,loss criteria value can be integer values
+                     of string type for definite results or 'continuing' for non definite loss value results
+                     example:{
+                                'Test Flow 1 -> 0 Rate:40': {
+                                    'loss': '0'
+                                },
+                                'PFC Pause': {
+                                    'loss': '100'
+                                },
+                                'Background Flow 1 -> 0 Rate:20': {
+                                    'loss': '5'
+                                },
+                                'Background Flow 2 -> 0 Rate:40': {
+                                    'loss': 'continuing'
+                                },
+                            }
+
+    Returns:
+        N/A
+    """
+
+    for flow_type, criteria in flag.items():
+        for row in rows:
+            tx_frames = row.frames_tx
+            rx_frames = row.frames_rx
+            if flow_type in row.name:
+                try:
+                    if isinstance(criteria, dict) and isinstance(criteria['loss'], str) and int(criteria['loss']) == 0:
+                        logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
+                        pytest_assert(tx_frames == rx_frames,
+                                      '{} should not have any dropped packet'.format(row.name))
+                        pytest_assert(row.loss == 0,
+                                      '{} should not have traffic loss'.format(row.name))
+                    elif (isinstance(criteria, dict) and isinstance(criteria['loss'], str)
+                          and int(criteria['loss']) != 0):
+                        pytest_assert(math.ceil(float(row.loss)) == float(flag[flow_type]['loss']) or
+                                      math.floor(float(row.loss)) == float(flag[flow_type]['loss']),
+                                      '{} should have traffic loss close to {} percent but got {}'.
+                                      format(row.name, float(flag[flow_type]['loss']), float(row.loss)))
+                    else:
+                        pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
+                                      string for loss criteria')
+                except Exception:
+                    if (isinstance(criteria, dict) and isinstance(criteria['loss'], str)
+                       and criteria['loss'] == 'continuing'):
+                        pytest_assert(int(row.loss) > 0, "{} should have continuing traffic loss greater than 0".
+                                      format(row.name))
+                    else:
+                        pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
+                                      string for loss criteria')

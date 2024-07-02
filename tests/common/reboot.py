@@ -34,6 +34,8 @@ REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
 REBOOT_TYPE_BIOS = "bios"
 REBOOT_TYPE_ASIC = "asic"
 REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
+REBOOT_TYPE_SUPERVISOR = "Reboot from Supervisor"
+REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS = "Heartbeat with the Supervisor card lost"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -117,6 +119,22 @@ reboot_ctrl_dict = {
         "wait": 120,
         "cause": "Kernel Panic",
         "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_SUPERVISOR: {
+        "command": "reboot",
+        "timeout": 300,
+        "wait": 120,
+        # When linecards are rebooted due to supervisor cold reboot
+        "cause": "reboot from Supervisor",
+        "test_reboot_cause_only": False
+    },
+    REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS: {
+        "command": "reboot",
+        "timeout": 300,
+        "wait": 120,
+        # When linecards are rebooted due to supervisor crash/abnormal reboot
+        "cause": "Heartbeat",
+        "test_reboot_cause_only": False
     }
 }
 
@@ -335,6 +353,11 @@ def check_reboot_cause(dut, reboot_cause_expected):
     @param dut: The AnsibleHost object of DUT.
     @param reboot_cause_expected: The expected reboot cause.
     """
+    # For kvm testbed, command `show reboot-cause` will return Unknown.
+    # So, overwrite the reboot_cause_expected as `Unknown`
+    if dut.facts["asic_type"] == "vs":
+        reboot_cause_expected = "Unknown"
+
     reboot_cause_got = get_reboot_cause(dut)
     logger.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
     return reboot_cause_got == reboot_cause_expected
@@ -433,6 +456,11 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     reboot_cause_history_got = dut.show_and_parse("show reboot-cause history")
     logger.debug("dut {} reboot-cause history {}. reboot type history queue is {}".format(
         dut.hostname, reboot_cause_history_got, reboot_type_history_queue))
+
+    # For kvm testbed, command `show reboot-cause history` will return None
+    # So, return in advance if this check is running on kvm.
+    if dut.facts["asic_type"] == "vs":
+        return True
 
     logger.info("Verify reboot-cause history title")
     if reboot_cause_history_got:
