@@ -212,3 +212,34 @@
     - lab-msft-lc2-1
     - lab-msft-sup-1
   comment: Chasiss Testbed
+
+- conf-name: vms-snappi-sonic
+  group-name: vms6-1
+  topo: ptf64
+  ptf_image_name: docker-ptf-snappi
+  ptf: snappi-sonic-ptf
+  ptf_ip: 10.251.0.232
+  ptf_ipv6:
+  server: Server_6
+  vm_base:
+  dut:
+    - sonic-s6100-dut1
+  inv_name: snappi-sonic
+  auto_recover: 'True'
+  comment: Batman
+
+- conf-name: vms-snappi-sonic-multidut
+  group-name: vms6-1
+  topo: ptf64
+  ptf_image_name: docker-ptf-snappi
+  ptf: snappi-sonic-ptf
+  ptf_ip: 10.251.0.232
+  ptf_ipv6:
+  server: Server_6
+  vm_base:
+  dut:
+    - sonic-s6100-dut1
+    - sonic-s6100-dut2
+  inv_name: snappi-sonic
+  auto_recover: 'True'
+  comment: Batman
