@@ -1,3 +1,42 @@
 t0:
   # This script only supported on Mellanox
   - restapi/test_restapi.py
+  # This script only supported on Mellanox
+  - generic_config_updater/test_pfcwd_interval.py
+  # There is no k8s in inventory file
+  - k8s/test_config_reload.py
+  - k8s/test_disable_flag.py
+  - k8s/test_join_available_master.py
+  # Neighbor type must be sonic
+  - ospf/test_ospf.py
+  - ospf/test_ospf_bfd.py
+  # Test is not supported on vs testbed
+  - platform_tests/test_intf_fec.py
+  - snmp/test_snmp_phy_entity.py
+
+t1:
+  # This script only supported on Mellanox
+  - generic_config_updater/test_pfcwd_interval.py
+  # There is no k8s in inventory file
+  - k8s/test_config_reload.py
+  - k8s/test_disable_flag.py
+  - k8s/test_join_available_master.py
+  # Neighbor type must be sonic
+  - ospf/test_ospf_bfd.py
+  # Test is not supported on vs testbed
+  - platform_tests/test_intf_fec.py
+  - snmp/test_snmp_phy_entity.py
+  # Not supported port type
+  - sub_port_interfaces/test_sub_port_l2_forwarding.py
+
+
+t2:
+  # This script only supported on Mellanox
+  - generic_config_updater/test_pfcwd_interval.py
+  # There is no k8s in inventory file
+  - k8s/test_config_reload.py
+  - k8s/test_disable_flag.py
+  - k8s/test_join_available_master.py
+  # Test is not supported on vs testbed
+  - platform_tests/test_intf_fec.py
+  - snmp/test_snmp_phy_entity.py

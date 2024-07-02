@@ -9,8 +9,7 @@ t0:
   - arp/test_stress_arp.py
   - arp/test_tagged_arp.py
   - arp/test_wr_arp.py
-  # Due to the auto start fails on container restapi, comment this case temporarily
-#  - autorestart/test_container_autorestart.py
+  - autorestart/test_container_autorestart.py
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py
@@ -33,6 +32,7 @@ t0:
   - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
+  - disk/test_disk_exhaustion.py
   - dns/static_dns/test_static_dns.py
   - dns/test_dns_resolv_conf.py
   - dualtor/test_orch_stress.py
@@ -99,7 +99,9 @@ t0:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  - platform_tests/sfp/test_show_intf_xcvr.py
   - platform_tests/sfp/test_sfpshow.py
+  - platform_tests/sfp/test_sfputil.py
   - platform_tests/test_kdump.py
   - platform_tests/test_advanced_reboot.py::test_warm_reboot
   - platform_tests/test_auto_negotiation.py
@@ -107,6 +109,7 @@ t0:
   # - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_cpu_memory_usage.py
   - platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py
+  - platform_tests/test_platform_info.py
   - platform_tests/test_port_toggle.py
   - platform_tests/test_power_off_reboot.py
   - platform_tests/test_secure_upgrade.py
@@ -291,28 +294,17 @@ dpu:
 
 onboarding_t0:
   # We will add a batch of T0 control plane cases and fix the failed cases later
-  - autorestart/test_container_autorestart.py
   - bgp/test_bgp_peer_shutdown.py
   - cacl/test_ebtables_application.py
   - clock/test_clock.py
-  - disk/test_disk_exhaustion.py
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
   - dualtor_mgmt/test_egress_drop_nvidia.py
   - dualtor_mgmt/test_grpc_periodical_sync.py
   - dualtor_mgmt/test_ingress_drop.py
   - generic_config_updater/test_dynamic_acl.py
-  - generic_config_updater/test_pfcwd_interval.py
   - generic_config_updater/test_pfcwd_status.py
   - generic_config_updater/test_pg_headroom_update.py
-  - gnmi/test_gnmi.py
-  - gnmi/test_gnmi_appldb.py
-  - gnmi/test_gnmi_configdb.py
-  - k8s/test_config_reload.py
-  - k8s/test_disable_flag.py
-  - k8s/test_join_available_master.py
   - mvrf/test_mgmtvrf.py
-  - ospf/test_ospf.py
-  - ospf/test_ospf_bfd.py
   - pc/test_lag_member.py
   - pfcwd/test_pfc_config.py
   - pfcwd/test_pfcwd_all_port_storm.py
@@ -337,22 +329,16 @@ onboarding_t0:
   - platform_tests/daemon/test_psud.py
   - platform_tests/daemon/test_syseepromd.py
   - platform_tests/link_flap/test_link_flap.py
-  - platform_tests/sfp/test_sfputil.py
-  - platform_tests/sfp/test_show_intf_xcvr.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
-  - platform_tests/test_intf_fec.py
   - platform_tests/test_memory_exhaustion.py
-  - platform_tests/test_platform_info.py
   - platform_tests/test_reboot.py
   - platform_tests/test_reload_config.py
   - snmp/test_snmp_link_local.py
-  - snmp/test_snmp_phy_entity.py
   - snmp/test_snmp_psu.py
   - snmp/test_snmp_queue_counters.py
   - sub_port_interfaces/test_show_subinterface.py
   - sub_port_interfaces/test_sub_port_interfaces.py
-  - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - system_health/test_system_health.py
   - test_pktgen.py
   - acl/test_acl_outer_vlan.py
