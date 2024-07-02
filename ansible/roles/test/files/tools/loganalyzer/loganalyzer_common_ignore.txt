@@ -282,3 +282,5 @@ r, ".* INFO .*[duty_cycle_map]: illegal pwm value .*"
 r, ".* INFO .*command '/usr/sbin/smartctl' failed: [116] Stale file handle.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'high_threshold' unavailable in database 'STATE_DB'.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'temperature' unavailable in database 'STATE_DB'.*"
+r, ".* ERR swss\d*#orchagent:.*doCfgSensorsTableTask: ASIC sensors : unsupported operation for poller state 1.*"
+
