@@ -437,6 +437,9 @@ def test_update_buffer_template(duthosts, enum_dut_hostname, localhost):
     '''
     duthost = duthosts[enum_dut_hostname]
     pytest_require(not any(vers in duthost.os_version for vers in ["201811", "201911", "202012", "202205"]), "Skip updating templates for {}".format(duthost.os_version))
+    # Skip updating cable length on mlnx to align with prod
+    dut_asic_type = duthost.facts["asic_type"].lower()
+    pytest_require(dut_asic_type not in ["mellanox"], "Skip updating templates for {}".format(dut_asic_type))
 
     hwsku = duthost.facts["hwsku"]
     platform = duthost.facts["platform"]
