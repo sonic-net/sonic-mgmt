@@ -205,23 +205,32 @@ jobs:
             print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
             print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
-      - script: |
-          TIMEOUT=7200
-          INTERVAL=60
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: "SONiC-Automation"
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            pwd
 
-          wait_time=0
-          lock_time=$(expr ${{ parameters.NIGHTLY_TEST_TIMEOUT }} / 60)
-          until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r "SONiC nightly for SAI release" -o $lock_time; do
-              if (( $wait_time >= $TIMEOUT)); then
-                  echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
-                  exit 1
-              fi
-              echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
-              sleep $INTERVAL
-              wait_time=$(expr $wait_time + $INTERVAL)
-          done
-        env:
-          ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
+            accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+            export ACCESS_TOKEN=$accessToken
+
+            TIMEOUT=7200
+            INTERVAL=60
+
+            wait_time=0
+            lock_time=$(expr ${{ parameters.NIGHTLY_TEST_TIMEOUT }} / 60)
+            until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r "SONiC nightly for SAI release" -o $lock_time; do
+
+                if (( $wait_time >= $TIMEOUT)); then
+                    echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                    exit 1
+                fi
+                echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+                sleep $INTERVAL
+                wait_time=$(expr $wait_time + $INTERVAL)
+            done
         displayName: Lock Testbed
 
       - task: Bash@3
@@ -595,22 +604,31 @@ jobs:
           testRunTitle: ${{ parameters.TESTBED_NAME}}.nightly
         condition: always()
 
-      - script: |
-          TIMEOUT=300
-          INTERVAL=60
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: "SONiC-Automation"
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            pwd
 
-          wait_time=0
-          until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release; do
-              if (( $wait_time >= $TIMEOUT)); then
-                  echo "Failed to release testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
-                  exit 1
-              fi
-              echo "Release testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
-              sleep $INTERVAL
-              wait_time=$(expr $wait_time + $INTERVAL)
-          done
-        env:
-          ELASTICTEST_MSAL_SECRET_VALUE: $(ELASTICTEST_MSAL_SECRET_VALUE)
+            accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+            export ACCESS_TOKEN=$accessToken
+
+            TIMEOUT=300
+            INTERVAL=60
+
+            wait_time=0
+            until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release; do
+
+                if (( $wait_time >= $TIMEOUT)); then
+                    echo "Failed to release testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                    exit 1
+                fi
+                echo "Release testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+                sleep $INTERVAL
+                wait_time=$(expr $wait_time + $INTERVAL)
+            done
         displayName: Release Testbed
         condition: always()
 
@@ -624,12 +642,19 @@ jobs:
           CleanTargetFolder: true
         condition: always()
 
-      - task: Bash@3
+      - task: AzureCLI@2
         displayName: Upload Test Results
         timeoutInMinutes: 20
         inputs:
-          targetType: 'inline'
-          script: |
+          azureSubscription: "SONiC-Automation"
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            pwd
+
+            accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+            export ACCESS_TOKEN=$accessToken
+
             set -x
 
             if [[ ${{ parameters.UPLOAD_TEST_REPORT }} == False ]]; then
@@ -662,47 +687,8 @@ jobs:
         condition: always()
         env:
           TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
-          TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
-          TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
-          TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
           TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-          TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
-          TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
-          TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
           AZURE_DEVOPS_MSSONIC_TOKEN: $(System.AccessToken)
-
-      - ${{ if in(parameters.TESTBED_NAME, 'vms21-t1-8102-01', 'vms28-t1-8102-02', 'vms28-dual-t0-8102') }}:
-        - task: Bash@3
-          displayName: Upload test results to Cisco Kusto Cluster
-          timeoutInMinutes: 20
-          inputs:
-            targetType: 'inline'
-            script: |
-              set -x
-
-              if [[ ${{ parameters.UPLOAD_TEST_REPORT }} == False ]]; then
-                  echo "UPLOAD_TEST_REPORT=False, skip uploading test results to Kusto"
-                  exit 0
-              fi
-
-              # Non-secret variables in variable group KUSTO_SECRETS are automatically exported as environment
-              # variables by Azure Pipeline. They cannot be override by value passed in from the "env" option
-              # of task. The workaround is to explicitly override the environment variables in bash here:
-              export TEST_REPORT_INGEST_KUSTO_CLUSTER=$(CISCO_INGEST_KUSTO_CLUSTER)
-              export TEST_REPORT_AAD_TENANT_ID=$(CISCO_AAD_TENANT_ID)
-              export TEST_REPORT_AAD_CLIENT_ID=$(CISCO_AAD_CLIENT_ID)
-
-              cd test_reporting
-
-              # temporary workaround to allow reboot timing data upload
-              # After recent test change, the file names get DUT name in them
-              # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
-              report_upload_files="../results $(find ../results -type f -regex '.*test_.*_reboot_\(summary\|report\).json')"
-
-              python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" $report_upload_files CiscoTestData
-          condition: always()
-          env:
-            TEST_REPORT_AAD_CLIENT_KEY: $(CISCO_AAD_CLIENT_KEY)
 
       - task: Bash@3
         displayName: Cleanup Test Results
