@@ -323,6 +323,21 @@
         ]
     },
     {
+        "feature": "dhcp_server",
+        "owner": "Wenda Chu",
+        "email": "wendachu@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "dhcp_server.test_dhcp_server",
+                    "dhcp_server.test_dhcp_server_multi_vlans.py"
+                ],
+                "owner": "Wenda Chu",
+                "email": "wendachu@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "disk",
         "owner": "Chun'ang Li",
         "email": "chunangli@microsoft.com",
