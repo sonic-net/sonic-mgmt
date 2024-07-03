@@ -9,8 +9,6 @@ t0:
   - dualtor_io/test_normal_op.py
   - dualtor_io/test_tor_bgp_failure.py
   - dualtor_io/test_tor_failure.py
-  # This script only supported on Broadcom and do not support master image
-  - ecmp/test_ecmp_sai_value.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
   # There is no k8s in inventory file
@@ -96,8 +94,6 @@ t1:
   - dualtor_io/test_normal_op.py
   - dualtor_io/test_tor_bgp_failure.py
   - dualtor_io/test_tor_failure.py
-  # This script only supported on Broadcom and do not support master image
-  - ecmp/test_ecmp_sai_value.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
   # dir bcast test do not supported on T1 topo
