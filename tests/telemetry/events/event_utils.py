@@ -117,25 +117,31 @@ def verify_counter_increase(duthost, current_value, increase, stat):
     return current_stat_counter >= current_value + increase
 
 
-def find_test_port_and_mac(duthost, count):
+def find_test_vlan(duthost):
+    vlan_brief = duthost.get_vlan_brief()
+    for vlan in vlan_brief:
+        output = duthost.shell("docker exec dhcp_relay supervisorctl status isc-dhcpv4-relay-{}".format(vlan))['stdout']
+        interface_ipv4 = vlan_brief[vlan]['interface_ipv4']
+        members = vlan_brief[vlan]['members']
+        if output is not None and len(interface_ipv4) > 0 and len(members) > 0:
+            return vlan, interface_ipv4[0], members
+    return "", "", []
+
+
+def find_test_port_and_mac(duthost, members, count):
     # Will return up to count many up ports with their port index and mac address
     results = []
     interf_status = duthost.show_interface(command="status")['ansible_facts']['int_status']
-    for key in interf_status:
+    for member_interface in members:
         if len(results) == count:
             return results
-        if interf_status[key]['admin_state'] == "up":
-            mac = duthost.get_dut_iface_mac(key)
+        if interf_status[member_interface]['admin_state'] == "up":
+            mac = duthost.get_dut_iface_mac(member_interface)
             minigraph_info = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-            port_index = minigraph_info['minigraph_port_indices'][key]
-            if not has_ipv4_addr(duthost, key) and mac != "" and port_index != "":
+            port_index = minigraph_info['minigraph_port_indices'][member_interface]
+            if mac != "" and port_index != "":
                 results.append([int(port_index), mac])
     return results
-
-
-def has_ipv4_addr(duthost, port):
-    ip_interfaces = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
-    return port in ip_interfaces
 
 
 def create_dhcp_discover_packet(client_mac):
