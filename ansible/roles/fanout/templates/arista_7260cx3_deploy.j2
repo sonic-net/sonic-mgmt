@@ -51,9 +51,9 @@ vrf definition management
    speed forced 40gfull
    no shutdown
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "10000" %}
-{%          for sub in range (1,5) %}
-{%              set subintf = 'Ethernet' + i|string + '/' + sub|string %}
-{%              if subintf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][subintf]['mode'] != "Trunk" %}
+{%         for sub in range (1,5) %}
+{%             set subintf = 'Ethernet' + i|string + '/' + sub|string %}
+{%             if subintf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][subintf]['mode'] != "Trunk" %}
    interface {{ subintf }}
    description {{ device_conn[inventory_hostname][subintf]['peerdevice'] }}-{{ device_conn[inventory_hostname][subintf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[inventory_hostname][subintf]['vlanids'] }}
@@ -62,8 +62,8 @@ vrf definition management
    speed forced 10gfull
    no shutdown
 !
-{%              endif %}
-{%          endfor %}
+{%             endif %}
+{%         endfor %}
 {%     elif device_conn[inventory_hostname][intf]['speed'] == "50000" %}
 interface {{ intf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
