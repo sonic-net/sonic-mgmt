@@ -62,11 +62,16 @@ jobs:
     steps:
       - template: ../nightly/templates/get_secrets.yml
 
-      - task: Bash@3
+      - task: AzureCLI@2
         displayName: Scan and Upload
         inputs:
-          targetType: 'inline'
-          script: |
+          azureSubscription: "SONiC-Automation"
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+            export ACCESS_TOKEN=$accessToken
+
             set -x
             BASH_WORKING_FOLDER=$(pwd)
 
@@ -111,9 +116,6 @@ jobs:
 
         env:
             TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
-            TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
-            TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
-            TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
             PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
             PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
             OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}

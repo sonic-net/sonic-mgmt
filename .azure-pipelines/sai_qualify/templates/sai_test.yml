@@ -945,12 +945,16 @@ jobs:
 
             python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
 
-      - task: Bash@3
+      - task: AzureCLI@2
         displayName: Upload Test Results
         condition: and(${{ parameters.RUN_TEST }}, ${{ parameters.UPLOAD_TEST_REPORT }}, eq(variables.IMG_UPGRADE_SUCC, 'succ'))
         inputs:
-          targetType: 'inline'
-          script: |
+          azureSubscription: "SONiC-Automation"
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+            export ACCESS_TOKEN=$accessToken
             set -x
 
             mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
@@ -967,9 +971,6 @@ jobs:
             cp ${BASH_WORKING_FOLDER}/test_reporting/tr.json $(System.DefaultWorkingDirectory)/publish/
         env:
           TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
-          TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
-          TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
-          TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
           BASH_WORKING_FOLDER: $(BASH_WORKING_FOLDER)
           SAI_TESTREPORT_PATH: ${{ parameters.SAI_TESTREPORT_PATH }}
           PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
@@ -979,12 +980,16 @@ jobs:
         artifact: sai_test_report
         displayName: "Public sai test report"
 
-      - task: Bash@3
+      - task: AzureCLI@2
         condition: ${{ parameters.RUNTIME_SCAN}}
         displayName: Runtime Scanning
         inputs:
-          targetType: 'inline'
-          script: |
+          azureSubscription: "SONiC-Automation"
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+            export ACCESS_TOKEN=$accessToken
             set -x
 
             SCAN_FILE_PATH=/tmp/scan
@@ -1004,8 +1009,5 @@ jobs:
 
         env:
           TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
-          TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
-          TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
-          TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
           PYTEST_PATH: ${{ parameters.PYTEST_PATH }}
           OVERWRITE_INTERNAL_MGMT: ${{ parameters.OVERWRITE_INTERNAL_MGMT }}
