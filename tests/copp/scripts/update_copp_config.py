@@ -75,13 +75,18 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
         raise ValueError("Invalid config format specified")
 
     for trap_group in trap_groups:
-        for _, group_config in list(trap_group.items()):
+        for group, group_config in list(trap_group.items()):
             # Notes:
             # CIR (committed information rate) - bandwidth limit set by the policer
             # CBS (committed burst size) - largest burst of packets allowed by the policer
             #
             # Setting these two values to pps_limit restricts the policer to allowing exactly
             # that number of packets per second, which is what we want for our tests.
+            # For queue4_group3, use the default value in copp configuration as this is lower
+            # than 600 PPS
+
+            if group == "queue4_group3":
+                continue
 
             if "cir" in group_config:
                 group_config["cir"] = pps_limit
