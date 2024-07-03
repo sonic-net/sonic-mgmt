@@ -1,32 +1,12 @@
 t0:
   # KVM do not support drop reason in testcase, and testcase would set drop reason in setup stage, can't do more test
   - drop_packets/test_configurable_drop_counters.py
-  # Dualtor-io scripts only supported on dualtor
-  - dualtor_io/test_grpc_server_failure.py
-  - dualtor_io/test_heartbeat_failure.py
-  - dualtor_io/test_link_drop.py
-  - dualtor_io/test_link_failure.py
-  - dualtor_io/test_normal_op.py
-  - dualtor_io/test_tor_bgp_failure.py
-  - dualtor_io/test_tor_failure.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
   # There is no k8s in inventory file
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
   - k8s/test_join_available_master.py
-  # Ixia tests are only supported on tgen topo and physical testbed
-  - ixia/ecn/test_dequeue_ecn.py
-  - ixia/ecn/test_red_accuracy.py
-  - ixia/pfc/test_global_pause.py
-  - ixia/pfc/test_pfc_congestion.py
-  - ixia/pfc/test_pfc_pause_lossless.py
-  - ixia/pfc/test_pfc_pause_lossy.py
-  - ixia/pfcwd/test_pfcwd_a2a.py
-  - ixia/pfcwd/test_pfcwd_basic.py
-  - ixia/pfcwd/test_pfcwd_burst_storm.py
-  - ixia/pfcwd/test_pfcwd_m2o.py
-  - ixia/pfcwd/test_pfcwd_runtime_traffic.py
   # Neighbor type must be sonic
   - ospf/test_ospf.py
   - ospf/test_ospf_bfd.py
@@ -35,81 +15,12 @@ t0:
   - snmp/test_snmp_phy_entity.py
   # This script only supported on Mellanox
   - restapi/test_restapi.py
-  # Voq test only support on T2 topo
-  - voq/test_fabric_cli_and_db.py
-  - voq/test_fabric_reach.py
-  - voq/test_voq_chassis_app_db_consistency.py
-  - voq/test_voq_disrupts.py
-  - voq/test_voq_fabric_isolation.py
-  - voq/test_voq_fabric_status_all.py
-  - voq/test_voq_intfs.py
-  - voq/test_voq_ipfwd.py
-  - voq/test_voq_nbr.py
-  # Wan test only support on wan topo
-  - wan/isis/test_isis_authentication.py
-  - wan/isis/test_isis_csnp_interval.py
-  - wan/isis/test_isis_database.py
-  - wan/isis/test_isis_dynamic_hostname.py
-  - wan/isis/test_isis_ecmp.py
-  - wan/isis/test_isis_hello_interval.py
-  - wan/isis/test_isis_hello_pad.py
-  - wan/isis/test_isis_holdtime.py
-  - wan/isis/test_isis_intf_passive.py
-  - wan/isis/test_isis_level_capacity.py
-  - wan/isis/test_isis_log_adjacency_change.py
-  - wan/isis/test_isis_lsp_fragment.py
-  - wan/isis/test_isis_lsp_gen_interval.py
-  - wan/isis/test_isis_lsp_lifetime.py
-  - wan/isis/test_isis_lsp_refresh.py
-  - wan/isis/test_isis_metric_wide.py
-  - wan/isis/test_isis_neighbor.py
-  - wan/isis/test_isis_overload_bit.py
-  - wan/isis/test_isis_redistribute.py
-  - wan/isis/test_isis_spf_default_interval.py
-  - wan/isis/test_isis_spf_ietf_interval.py
-  - wan/lacp/test_wan_lacp.py
-  - wan/lacp/test_wan_lag_member.py
-  - wan/lacp/test_wan_lag_min_link.py
-  - wan/lldp/test_wan_lldp.py
-  - wan/traffic_test/test_traffic.py
 
 t1:
   # KVM do not support drop reason in testcase, and testcase would set drop reason in setup stage, can't do more test
   - drop_packets/test_configurable_drop_counters.py
-  # Dualtor scripts do not support on T1
-  - dualtor/test_ipinip.py
-  - dualtor/test_orchagent_active_tor_downstream.py
-  - dualtor/test_orchagent_mac_move.py
-  - dualtor/test_orchagent_slb.py
-  - dualtor/test_orchagent_standby_tor_downstream.py
-  - dualtor/test_standby_tor_upstream_mux_toggle.py
-  - dualtor/test_switchover_failure.py
-  - dualtor/test_tor_ecn.py
-  - dualtor/test_tunnel_memory_leak.py
-  # Dualtor-io scripts only supported on dualtor
-  - dualtor_io/test_grpc_server_failure.py
-  - dualtor_io/test_heartbeat_failure.py
-  - dualtor_io/test_link_drop.py
-  - dualtor_io/test_link_failure.py
-  - dualtor_io/test_normal_op.py
-  - dualtor_io/test_tor_bgp_failure.py
-  - dualtor_io/test_tor_failure.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
-  # dir bcast test do not supported on T1 topo
-  - ipfwd/test_dir_bcast.py
-  # Ixia tests are only supported on tgen topo and physical testbed
-  - ixia/ecn/test_dequeue_ecn.py
-  - ixia/ecn/test_red_accuracy.py
-  - ixia/pfc/test_global_pause.py
-  - ixia/pfc/test_pfc_congestion.py
-  - ixia/pfc/test_pfc_pause_lossless.py
-  - ixia/pfc/test_pfc_pause_lossy.py
-  - ixia/pfcwd/test_pfcwd_a2a.py
-  - ixia/pfcwd/test_pfcwd_basic.py
-  - ixia/pfcwd/test_pfcwd_burst_storm.py
-  - ixia/pfcwd/test_pfcwd_m2o.py
-  - ixia/pfcwd/test_pfcwd_runtime_traffic.py
   # There is no k8s in inventory file
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
@@ -121,63 +32,8 @@ t1:
   - snmp/test_snmp_phy_entity.py
   # Not supported port type
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
-  # Voq test only support on T2 topo
-  - voq/test_fabric_cli_and_db.py
-  - voq/test_fabric_reach.py
-  - voq/test_voq_chassis_app_db_consistency.py
-  - voq/test_voq_disrupts.py
-  - voq/test_voq_fabric_isolation.py
-  - voq/test_voq_fabric_status_all.py
-  - voq/test_voq_intfs.py
-  - voq/test_voq_ipfwd.py
-  - voq/test_voq_nbr.py
-  # Wan test only support on wan topo
-  - wan/isis/test_isis_authentication.py
-  - wan/isis/test_isis_csnp_interval.py
-  - wan/isis/test_isis_database.py
-  - wan/isis/test_isis_dynamic_hostname.py
-  - wan/isis/test_isis_ecmp.py
-  - wan/isis/test_isis_hello_interval.py
-  - wan/isis/test_isis_hello_pad.py
-  - wan/isis/test_isis_holdtime.py
-  - wan/isis/test_isis_intf_passive.py
-  - wan/isis/test_isis_level_capacity.py
-  - wan/isis/test_isis_log_adjacency_change.py
-  - wan/isis/test_isis_lsp_fragment.py
-  - wan/isis/test_isis_lsp_gen_interval.py
-  - wan/isis/test_isis_lsp_lifetime.py
-  - wan/isis/test_isis_lsp_refresh.py
-  - wan/isis/test_isis_metric_wide.py
-  - wan/isis/test_isis_neighbor.py
-  - wan/isis/test_isis_overload_bit.py
-  - wan/isis/test_isis_redistribute.py
-  - wan/isis/test_isis_spf_default_interval.py
-  - wan/isis/test_isis_spf_ietf_interval.py
-  - wan/lacp/test_wan_lacp.py
-  - wan/lacp/test_wan_lag_member.py
-  - wan/lacp/test_wan_lag_min_link.py
-  - wan/lldp/test_wan_lldp.py
-  - wan/traffic_test/test_traffic.py
 
 t2:
-  # Dualtor scripts do not support on T2
-  - dualtor/test_ipinip.py
-  - dualtor/test_orchagent_active_tor_downstream.py
-  - dualtor/test_orchagent_mac_move.py
-  - dualtor/test_orchagent_slb.py
-  - dualtor/test_orchagent_standby_tor_downstream.py
-  - dualtor/test_standby_tor_upstream_mux_toggle.py
-  - dualtor/test_switchover_failure.py
-  - dualtor/test_tor_ecn.py
-  - dualtor/test_tunnel_memory_leak.py
-  # Dualtor-io scripts only supported on dualtor
-  - dualtor_io/test_grpc_server_failure.py
-  - dualtor_io/test_heartbeat_failure.py
-  - dualtor_io/test_link_drop.py
-  - dualtor_io/test_link_failure.py
-  - dualtor_io/test_normal_op.py
-  - dualtor_io/test_tor_bgp_failure.py
-  - dualtor_io/test_tor_failure.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
   # There is no k8s in inventory file
@@ -187,30 +43,3 @@ t2:
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
   - snmp/test_snmp_phy_entity.py
-  # Wan test only support on wan topo
-  - wan/isis/test_isis_authentication.py
-  - wan/isis/test_isis_csnp_interval.py
-  - wan/isis/test_isis_database.py
-  - wan/isis/test_isis_dynamic_hostname.py
-  - wan/isis/test_isis_ecmp.py
-  - wan/isis/test_isis_hello_interval.py
-  - wan/isis/test_isis_hello_pad.py
-  - wan/isis/test_isis_holdtime.py
-  - wan/isis/test_isis_intf_passive.py
-  - wan/isis/test_isis_level_capacity.py
-  - wan/isis/test_isis_log_adjacency_change.py
-  - wan/isis/test_isis_lsp_fragment.py
-  - wan/isis/test_isis_lsp_gen_interval.py
-  - wan/isis/test_isis_lsp_lifetime.py
-  - wan/isis/test_isis_lsp_refresh.py
-  - wan/isis/test_isis_metric_wide.py
-  - wan/isis/test_isis_neighbor.py
-  - wan/isis/test_isis_overload_bit.py
-  - wan/isis/test_isis_redistribute.py
-  - wan/isis/test_isis_spf_default_interval.py
-  - wan/isis/test_isis_spf_ietf_interval.py
-  - wan/lacp/test_wan_lacp.py
-  - wan/lacp/test_wan_lag_member.py
-  - wan/lacp/test_wan_lag_min_link.py
-  - wan/lldp/test_wan_lldp.py
-  - wan/traffic_test/test_traffic.py
