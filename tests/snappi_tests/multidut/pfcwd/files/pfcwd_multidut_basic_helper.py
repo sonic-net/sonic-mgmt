@@ -62,14 +62,16 @@ def run_pfcwd_basic_test(api,
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    start_pfcwd(duthost1, rx_port['asic_value'])
-    start_pfcwd(duthost2, tx_port['asic_value'])
-    if ("platform_asic" in duthost1.facts and duthost1.facts["platform_asic"] == "broadcom-dnx"):
+    if (duthost1.is_multi_asic):
         enable_packet_aging(duthost1, rx_port['asic_value'])
         enable_packet_aging(duthost2, tx_port['asic_value'])
+        start_pfcwd(duthost1, rx_port['asic_value'])
+        start_pfcwd(duthost2, tx_port['asic_value'])
     else:
         enable_packet_aging(duthost1)
         enable_packet_aging(duthost2)
+        start_pfcwd(duthost1)
+        start_pfcwd(duthost2)
 
     ini_stats = {}
     for prio in prio_list:
