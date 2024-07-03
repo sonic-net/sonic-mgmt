@@ -588,7 +588,7 @@ def verify_pause_frame_count_dut(rx_dut,
     on the DUT
 
     Args:
-        rx_dut (obj): Ingress DUT host object receiving packets from IXIA transmitter. 
+        rx_dut (obj): Ingress DUT host object receiving packets from IXIA transmitter.
         tx_dut (obj): Egress DUT host object sending packets to IXIA, hence also receiving PFCs from IXIA.
         test_traffic_pause (bool): whether test traffic is expected to be paused
         global_pause (bool): if pause frame is IEEE 802.3X pause i.e. global pause applied
