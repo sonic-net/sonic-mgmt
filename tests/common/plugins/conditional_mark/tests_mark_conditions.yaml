@@ -1647,7 +1647,7 @@ telemetry/test_events.py:
     reason: "Skip test events testcase due to known issue"
     conditions:
       - https://github.com/sonic-net/sonic-buildimage/issues/17654
-#     - "release in ['201811', '201911', '202012', '202205', '202211', '202305']"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305']"
 
 telemetry/test_telemetry.py:
   skip:
