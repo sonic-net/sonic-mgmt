@@ -62,12 +62,14 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
     return True, None
 
 
-def get_ip_pkts(pcap_file_name):
+def get_ipv4_pkts(pcap_file_name, protocol_num=61):
     """
-    Get IP packets from the pcap/pcapng file
+    Get IPv4 packets from the pcap/pcapng file
 
     Args:
         pcap_file_name (str): name of the pcap/pcapng file to store captured packets
+        protocol_num (int): protocol number to filter packets. See
+                            https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
 
     Returns:
         Captured IP packets (list)
@@ -82,7 +84,8 @@ def get_ip_pkts(pcap_file_name):
     for _, pkt in pcap:
         eth = dpkt.ethernet.Ethernet(pkt)
         if isinstance(eth.data, dpkt.ip.IP):
-            ip_pkts.append(eth.data)
+            if eth.data.p == protocol_num:
+                ip_pkts.append(eth.data)
 
     return ip_pkts
 
