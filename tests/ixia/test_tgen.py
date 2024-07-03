@@ -18,6 +18,10 @@ from abstract_open_traffic_generator.flow import Ethernet as EthernetHeader
 from abstract_open_traffic_generator.control import State, ConfigState, FlowTransmitState
 from abstract_open_traffic_generator.result import FlowRequest
 
+pytestmark = [
+    pytest.mark.device_type('physical')
+]
+
 
 @pytest.mark.topology("tgen")
 @pytest.mark.disable_loganalyzer

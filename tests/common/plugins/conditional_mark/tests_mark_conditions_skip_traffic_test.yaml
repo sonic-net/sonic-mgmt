@@ -116,3 +116,50 @@ everflow/test_everflow_testbed.py:
     reason: "Skip traffic test for KVM testbed"
     conditions:
       - "asic_type in ['vs']"
+
+#######################################
+#####            fib              #####
+#######################################
+fib/test_fib.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+fib/test_fib.py::test_ipinip_hash:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####            ip               #####
+#######################################
+ip/test_ip_packet.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+# Temporary add because conditional mark would only match longest prefix
+ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_drop:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+# Temporary add because conditional mark would only match longest prefix
+ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_tolerant:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####            ipfwd            #####
+#######################################
+ipfwd/test_dir_bcast.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
