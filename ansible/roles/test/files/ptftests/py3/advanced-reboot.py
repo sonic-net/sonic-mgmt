@@ -2005,10 +2005,10 @@ class ReloadTest(BaseTest):
                     prev_pkt_pt = prev_payload + 1
                     prev_sent_packet_time = None
                     while prev_pkt_pt < received_payload:
-                        try:
+                        if prev_pkt_pt in sent_packets:
                             prev_sent_packet_time = sent_packets[prev_pkt_pt]
                             break  # Found it
-                        except KeyError:
+                        else:
                             if prev_pkt_pt not in received_but_not_sent_packets:
                                 missing_sent_and_received_pkt_count += 1
                             prev_pkt_pt += 1
