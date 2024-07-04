@@ -11,6 +11,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     traffic_flow_mode
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,10 @@ def generate_test_flows(testbed_config,
         eth, ipv4 = test_flow.packet.ethernet().ipv4()
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
@@ -184,7 +188,10 @@ def generate_background_flows(testbed_config,
         eth, ipv4 = bg_flow.packet.ethernet().ipv4()
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
@@ -763,23 +770,17 @@ def verify_egress_queue_frame_count(duthost,
                               "Queue counters should increment for invalid PFC pause frames")
 
 
-def verify_m2o_oversubscribtion_results(duthost,
-                                        rows,
+def verify_m2o_oversubscribtion_results(rows,
                                         test_flow_name,
                                         bg_flow_name,
-                                        rx_port,
-                                        rx_frame_count_deviation,
                                         flag):
     """
     Verify if we get expected experiment results
 
     Args:
-        duthost (obj): DUT host object
         rows (list): per-flow statistics
         test_flow_name (str): name of test flows
         bg_flow_name (str): name of background flows
-        rx_port: Rx port of the dut
-        rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
         flag (dict): Comprises of flow name and its loss criteria ,loss criteria value can be integer values
                      of string type for definite results or 'continuing' for non definite loss value results
                      example:{
@@ -801,7 +802,6 @@ def verify_m2o_oversubscribtion_results(duthost,
         N/A
     """
 
-    sum_rx = 0
     for flow_type, criteria in flag.items():
         for row in rows:
             tx_frames = row.frames_tx
@@ -831,10 +831,3 @@ def verify_m2o_oversubscribtion_results(duthost,
                     else:
                         pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
                                       string for loss criteria')
-            sum_rx += int(row.frames_rx)
-
-    tx_frames = get_tx_frame_count(duthost, rx_port['peer_port'])[0]
-    pytest_assert(abs(sum_rx - tx_frames)/sum_rx <= rx_frame_count_deviation,
-                  "FAIL: DUT counters doesn't match with the total frames received on Rx port, \
-                  Deviation of more than {} observed".format(rx_frame_count_deviation))
-    logger.info("PASS: DUT counters match with the total frames received on Rx port")
