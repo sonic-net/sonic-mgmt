@@ -128,9 +128,14 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     config_db_mgmt_interface = config_db_json["MGMT_INTERFACE"]
     config_db_port = config_db_json["MGMT_PORT"]
 
-    # Skip multi-asic because override_config format are different.
+    # Skip if port does not exist
+    output = duthost.command("ip link show eth1", module_ignore_errors=True)
+    if output["failed"]:
+        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status, port does not exist")
+
+    # Skip if port is already in use
     if 'eth1' in config_db_port:
-        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status for multi-mgmt device")
+        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status, port in use")
 
     # Add eth1 to mgmt interface and port
     ipv4_forced_mgmt_address = "172.17.1.1/24"
