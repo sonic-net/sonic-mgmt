@@ -70,7 +70,7 @@ interface {{ subintf }}
 interface {{ intf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
    switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
-   switchport mode dot1q-tunnel 
+   switchport mode dot1q-tunnel
    spanning-tree portfast
    speed forced 50gfull
    no error-correction encoding
