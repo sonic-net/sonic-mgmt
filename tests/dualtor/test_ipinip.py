@@ -33,7 +33,7 @@ from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_act
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)
