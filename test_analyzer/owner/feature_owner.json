@@ -1238,16 +1238,16 @@
     },
     {
         "feature": "restapi",
-        "owner": "Prince Sunny",
-        "email": "prsunny@microsoft.com",
+        "owner": "Shahzad Iqbal",
+        "email": "shahzadiqbal@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "restapi.test_restapi",
                     "restapi.test_restapi_vxlan_ecmp"
                 ],
-                "owner": "Prince Sunny",
-                "email": "prsunny@microsoft.com"
+                "owner": "Shahzad Iqbal",
+                "email": "shahzadiqbal@microsoft.com"
             }
         ]
     },
