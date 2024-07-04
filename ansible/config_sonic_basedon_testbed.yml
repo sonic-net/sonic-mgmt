@@ -217,12 +217,12 @@
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
-      hwsku_list_compute_ai: "['Cisco-8111-O64']"
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32']"
 
   - name: enable ComputeAI deployment
     set_fact:
       enable_compute_ai_deployment: true
-    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed)"
+    when: "(hwsku in hwsku_list_compute_ai)"
 
   - name: set default vm file path
     set_fact:
