@@ -3,6 +3,7 @@ import json
 import logging
 import pytest
 import time
+import subprocess
 
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
@@ -29,6 +30,7 @@ CHECK_ITEMS = [
     'check_monit',
     'check_secureboot',
     'check_neighbor_macsec_empty',
+    'check_ipv6_mgmt',
     'check_mux_simulator']
 
 __all__ = CHECK_ITEMS
@@ -981,4 +983,38 @@ def check_neighbor_macsec_empty(ctrl_links):
             init_check_result["hosts"] = list(unhealthy_dut)
         return init_check_result
 
+    return _check
+
+
+# check ipv6 neighbor reachability
+@pytest.fixture(scope="module")
+def check_ipv6_mgmt(duthosts):
+    # check ipv6 mgmt interface reachability for debugging purpose only.
+    # No failure will be trigger for this sanity check.
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "ipv6_mgmt"}
+        result = parallel_run(_check_ipv6_mgmt_to_dut, args, kwargs, duthosts, timeout=30, init_result=init_result)
+        return list(result.values())
+
+    def _check_ipv6_mgmt_to_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+
+        logger.info("Checking ipv6 mgmt interface reachability on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "ipv6_mgmt", "host": dut.hostname}
+
+        # most of the testbed should reply within 10 ms, Set the timeout to 2 seconds to reduce the impact of delay.
+        try:
+            res = subprocess.check_output(["ping6", "-c", "2", str(dut.mgmt_ipv6)], stderr=subprocess.STDOUT)
+            logging.info("Ping6 output: %s" % res.decode("utf-8"))
+        except subprocess.CalledProcessError as exp:
+            # set to False for now to avoid blocking the test
+            check_result["failed"] = False
+            logging.info("Failed to ping ipv6 mgmt interface on %s, exception: %s" % (dut.hostname, repr(exp)))
+            logging.info("Ping6 output: %s" % exp.output.decode("utf-8"))
+        except Exception as e:
+            logger.info("Exception while checking ipv6_mgmt reachability for %s: %s" % (dut.hostname, repr(e)))
+        finally:
+            logger.info("Done checking ipv6 management reachability on %s" % dut.hostname)
+            results[dut.hostname] = check_result
     return _check
