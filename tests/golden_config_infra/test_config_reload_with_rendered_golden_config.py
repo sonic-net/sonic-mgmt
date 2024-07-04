@@ -12,7 +12,7 @@ from tests.common.utilities import update_pfcwd_default_state
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'any'),
+    pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -109,6 +109,9 @@ def golden_config_override_with_specific_template(duthost):
 
 def test_rendered_golden_config_override(duthosts, rand_one_dut_hostname, setup_env):
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.is_multi_asic:
+        pytest.skip("Skip this test on multi-asic platforms, \
+                    since golden config format here is not compatible with multi-asics")
 
     golden_config_override_with_general_template(duthost)
     golden_config_override_with_specific_template(duthost)
