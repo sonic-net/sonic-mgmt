@@ -31,7 +31,7 @@ from tests.common.utilities import dump_scapy_packet_show_output
 
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)
