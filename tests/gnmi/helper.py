@@ -59,7 +59,7 @@ def add_gnmi_client_common_name(duthost, cname):
 
 
 def del_gnmi_client_common_name(duthost, cname):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB hdel "GNMI_CLIENT_CERT|{}"'.format(cname), module_ignore_errors=True)
+    duthost.shell('sudo sonic-db-cli CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(cname), module_ignore_errors=True)
 
 
 def apply_cert_config(duthost):
