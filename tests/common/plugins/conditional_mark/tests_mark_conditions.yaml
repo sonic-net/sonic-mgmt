@@ -213,12 +213,22 @@ copp/test_copp.py::TestCOPP::test_add_new_trap:
     reason: "Copp test_add_new_trap is not yet supported on multi-asic platform"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "Test failed due to known issue on broadcom platform, xfail it on 202311"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13560
+      - "asic_type in ['broadcom'] and release in ['202311']"
 
 copp/test_copp.py::TestCOPP::test_remove_trap:
   skip:
     reason: "Copp test_remove_trap is not yet supported on multi-asic platform"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "Test failed due to known issue on broadcom platform, xfail it on 202311"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13560
+      - "asic_type in ['broadcom'] and release in ['202311']"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
