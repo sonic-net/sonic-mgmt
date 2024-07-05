@@ -86,6 +86,12 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
     # Install target image
     logger.info("Upgrading to {}".format(to_image))
     target_version = install_sonic(duthost, to_image, tbinfo)
+    # Remove config_db.json before cold-reboot to target image
+    # to ensure the new config_db.json is generated from minigraph
+    if "cold" in reboot_type \
+            and duthost.shell("ls /host/old_config/minigraph.xml", module_ignore_errors=True)['rc'] == 0:
+        logger.info("Remove config_db.json before cold reboot to target image")
+        duthost.shell("rm -f /host/old_config/config_db.json", module_ignore_errors=True)
 
     if allow_fail and modify_reboot_script:
         # add fail step to reboot script
