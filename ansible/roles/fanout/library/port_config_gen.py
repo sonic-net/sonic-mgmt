@@ -7,6 +7,7 @@ import tempfile
 import traceback
 import xml.dom.minidom as minidom
 import xml.etree.ElementTree as ET
+from copy import deepcopy
 
 from collections import OrderedDict
 from natsort import natsorted
@@ -107,13 +108,17 @@ class PortConfigGenerator(object):
         for alias_pattern in self.PORT_ALIAS_PATTERNS:
             m = alias_pattern.match(port_alias)
             if m:
-                return m.group("port_index"), m.group("lane")
+                if 'Ethernet' in port_alias:
+                    return str(int(m.group("port_index")) // 4 + 1), m.group("lane")
+                else:
+                    return m.group("port_index"), m.group("lane")
+
         raise ValueError("Invalid parse port alias format %s" % port_alias)
 
     def _create_sonic_sku(self, port_xml_file):
         shutil.rmtree(os.path.join(self.HWSKU_DIR_PREFIX,
                       self.fanout_hwsku), ignore_errors=True)
-        cmd = "sonic_sku_create.py -f %s -k %s" % (
+        cmd = "/tmp/sonic_sku_create.py -f %s -k %s" % (
             port_xml_file, self.fanout_hwsku)
         ret_code, stdout, stderr = self.module.run_command(
             cmd, executable='/bin/bash', use_unsafe_shell=True)
@@ -180,7 +185,17 @@ class PortConfigGenerator(object):
         self.platform_supported_hwsku_list = [_ for _ in os.listdir(
             self.HWSKU_DIR_PREFIX) if os.path.isdir(os.path.join(self.HWSKU_DIR_PREFIX, _))]
 
+    def char_generator(self):
+        current_char = ord('a')
+        while current_char <= ord('h'):
+            yield chr(current_char)
+            current_char += 1
+
+    def extract_number(self, port_name):
+        return int(port_name.lstrip('Ethernet'))
+
     def init_port_config(self):
+
         """Init the port config to be used by fanout."""
         if self.fanout_hwsku_type == "predefined":
             if self.fanout_hwsku not in self.platform_supported_hwsku_list:
@@ -197,12 +212,24 @@ class PortConfigGenerator(object):
             }
 
             fanout_connection = self.fanout_connections.copy()
-            for port_alias, port_config in fanout_connection.items():
-                port_index = self._parse_interface_alias(port_alias)[0]
-                default_hwsku_port_index_to_port_config.pop(port_index, None)
+            fanout_connection_with_alias = deepcopy(fanout_connection)
+            port_alias_count = {}
+            for port_name, port_config in fanout_connection.items():
+                port_index = self._parse_interface_alias(port_name)[0]
+                if port_index in default_hwsku_port_index_to_port_config:
+                    port_alias = default_hwsku_port_index_to_port_config[port_index]['alias']
+                    fanout_connection_with_alias[port_name]['alias'] = port_alias
+                    if port_alias not in port_alias_count:
+                        port_alias_count[port_alias] = 1
+                    else:
+                        port_alias_count[port_alias] += 1
 
-            for port_config in default_hwsku_port_index_to_port_config.values():
-                fanout_connection[port_config['alias']] = port_config
+            fanout_connection_with_alias = deepcopy(fanout_connection_with_alias)
+            for port_alias, count in port_alias_count.items():
+                char_gen = self.char_generator()
+                for port_name in sorted(fanout_connection_with_alias.keys(), key=self.extract_number):
+                    if port_alias == fanout_connection_with_alias[port_name]['alias'] and count > 1:
+                        fanout_connection_with_alias[port_name]['alias'] += str(next(char_gen))
 
             # create the xml file as input to sonic_sku_create.py script
             self.fanout_hwsku = self.platform_default_hwsku + "_NEW"
@@ -210,12 +237,16 @@ class PortConfigGenerator(object):
                 Vendor="Microsoft", HwSku=self.fanout_hwsku))
             ether_elem = ET.SubElement(xml_file_root, "Ethernet")
 
-            for index, port_alias in enumerate(natsorted(fanout_connection.keys()), start=1):
-                ET.SubElement(ether_elem, "Interface", attrib=OrderedDict(Index=str(index), PortName=str(
-                    index), InterfaceName=port_alias, Speed=fanout_connection[port_alias].get("speed", "100000")))
+            for index, port_name in enumerate(natsorted(fanout_connection_with_alias.keys()), start=1):
+                ET.SubElement(ether_elem, "Interface",
+                              attrib=OrderedDict(Index=str(index), PortName=str(index),
+                                                 InterfaceName=fanout_connection_with_alias[port_name]['alias'],
+                                                 Speed=fanout_connection_with_alias[port_name].
+                                                 get("speed", "100000")))
 
             with tempfile.NamedTemporaryFile(delete=False) as xml_file:
-                xml_file.write(self._prettify(xml_file_root))
+                xml_content = self._prettify(xml_file_root)
+                xml_file.write(xml_content.encode("utf-8"))
                 xml_file.flush()
                 self._create_sonic_sku(xml_file.name)
 
@@ -228,15 +259,20 @@ class PortConfigGenerator(object):
         self.fanout_port_config = self.fanout_connections.copy()
         fanout_port_name_to_alias_map = dict(
             [(cfg['name'], alias) for alias, cfg in hwsku_port_config.items()])
+        fanout_not_exist_list = []
         for port_name, port_config in self.fanout_port_config.items():
             port_alias = fanout_port_name_to_alias_map.get(port_name, '')
+
             if port_alias not in hwsku_port_config:
-                raise ValueError("Port %s is not defined in hwsku %s port config" % (
-                    port_alias, self.fanout_hwsku))
+                fanout_not_exist_list.append(port_name)
+                continue
+
             for k, v in hwsku_port_config[port_alias].items():
                 if k not in port_config:
                     port_config[k] = v
 
+        for port_name in fanout_not_exist_list:
+            del self.fanout_port_config[port_name]
         # add port configs for those ports that have no connections in the connection graph file
         for port_alias, port_config in hwsku_port_config.items():
             port_name = port_config['name']
