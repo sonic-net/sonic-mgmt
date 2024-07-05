@@ -96,6 +96,24 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
                 pytest.fail("FEC status is not restored for interface {}".format(intf['interface']))
 
 
+def get_interface_speed(duthost, interface_name):
+    """
+    Get the speed of a specific interface on the DUT.
+
+    :param duthost: The DUT host object.
+    :param interface_name: The name of the interface.
+    :return: The speed of the interface as a string.
+    """
+    logging.info(f"Getting speed for interface {interface_name}")
+    intf_status = duthost.show_and_parse("show interfaces status {}".format(interface_name))
+
+    speed = intf_status[0].get('speed')
+    logging.info(f"Interface {interface_name} has speed {speed}")
+    return speed
+
+    pytest.fail(f"Interface {interface_name} not found")
+
+
 def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                    enum_frontend_asic_index, conn_graph_facts):
     """
@@ -106,20 +124,18 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     if not is_supported_platform(duthost):
         return
 
-    logging.info("Get output of '{}'".format("show interfaces counters fec-stats"))
+    logging.info("Get output of 'show interfaces counters fec-stats'")
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
 
     for intf in intf_status:
-        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}"
-                                              .format(intf['iface']))
-        if sfp_presence:
-            presence = sfp_presence[0].get('presence', '').lower()
-            if presence == "not present":
-                continue
+        intf_name = intf['iface']
+        speed = get_interface_speed(duthost, intf_name)
+        if speed not in SUPPORTED_SPEEDS:
+            continue
 
         fec_corr = intf.get('fec_corr', '').lower()
         fec_uncorr = intf.get('fec_uncorr', '').lower()
         fec_symbol_err = intf.get('fec_symbol_err', '').lower()
         if fec_corr == "n/a" or fec_uncorr == "n/a" or fec_symbol_err == "n/a":
             # Verify the FEC stat counters are valid
-            pytest.fail("FEC stat counters are not valid for interface {}".format(intf['iface']))
+            pytest.fail("FEC stat counters are not valid for interface {}".format(intf_name))
