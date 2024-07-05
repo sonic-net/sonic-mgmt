@@ -100,7 +100,7 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             break
 
     if not portchannel:
-        pytest.skip( 'Can not get PortChannel interface for test' )
+        pytest.skip('Can not get PortChannel interface for test')
 
     pytest_assert(portchannel_members, 'Can not get PortChannel interface for test')
 
