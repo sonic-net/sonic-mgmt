@@ -3,7 +3,7 @@
 ## TACACS intro
 - RFC: https://www.rfc-editor.org/rfc/rfc8907.html
 
-- HLD: 
+- HLD:
    - https://github.com/sonic-net/SONiC/blob/master/doc/aaa/TACACS%2B%20Authentication.md?plain=1
    - https://github.com/sonic-net/SONiC/blob/master/doc/aaa/TACACS%2B%20Design.md?plain=1
 
@@ -27,7 +27,6 @@ TACPLUS_SERVER address 10.250.0.102 <== TACACS server address
                priority 1           <== TACACS server priority, will use TACACS server with bigger value first.
                tcp_port 49          <== TACACS server port
 ```
-
 
    - AAA config
 ```
