@@ -82,12 +82,14 @@
     delegate_to: "{{ ptf_host }}"
 
   - name: Add exabgpv4 supervisor config and start related processes
+    when: "{{ topology['VMs'] | length > 0 }}"
     supervisorctl:
       name: "exabgpv4:"
       state: present  # present contains `supervisorctl reread` and `supervisorctl add`
     delegate_to: "{{ ptf_host }}"
 
   - name: Add exabgpv6 supervisor config and start related processes
+    when: "{{ topology['VMs'] | length > 0 }}"
     supervisorctl:
       name: "exabgpv6:"
       state: present  # present contains `supervisorctl reread` and `supervisorctl add`
