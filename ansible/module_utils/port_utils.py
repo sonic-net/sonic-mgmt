@@ -243,15 +243,16 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 sonic_name = "Ethernet%d" % ((i - 1) * 8)
                 port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = sonic_name
         elif hwsku == "Arista-7800R3A-36DM2-C72" or\
-             hwsku == "Arista-7800R3A-36D-C72" or\
-             hwsku == "Arista-7800R3A-36P-C72" or\
-             hwsku == "Arista-7800R3AK-36DM2-C72" or\
-             hwsku == "Arista-7800R3AK-36D2-C72" or\
-             hwsku == "Arista-7800R3A-36D2-C72":
+                hwsku == "Arista-7800R3A-36D-C72" or\
+                hwsku == "Arista-7800R3A-36P-C72" or\
+                hwsku == "Arista-7800R3AK-36DM2-C72" or\
+                hwsku == "Arista-7800R3AK-36D2-C72" or\
+                hwsku == "Arista-7800R3A-36D2-C72":
+
             intf_idx = 0
             for i in range(1, 37):
                 for j in [1, 5]:
-                    port_alias_to_name_map["Ethernet%d/%d" % ( i, j)] = "Ethernet%d" % intf_idx
+                    port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % intf_idx
                     intf_idx += 4
         elif hwsku == "INGRASYS-S9100-C32":
             for i in range(1, 33):
