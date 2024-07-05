@@ -482,7 +482,7 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 
-    firmware_output = duthost.command(cmd, module_ignore_errors=True)["stdout_lines"]
+    firmware_output = duthost.command(cmd, module_ignore_errors=True)
     # For kvm testbed, command `show platform firmware status` will return the expected Error
     # `ModuleNotFoundError: No module named 'sonic_platform'`
     # So let this function return in advance
