@@ -21,6 +21,14 @@ def config_system_checks_passed(duthost, delayed_services=[]):
         logging.info("Checking failure reason")
         fail_reason = duthost.shell("systemctl list-units --state=failed", module_ignore_errors=True)
         logging.info(fail_reason['stdout_lines'])
+        # For kvm testbed
+        # Service watchdog-control loads failed because of the expected Error `No module named 'sonic_platform'
+        # Service system-health loads failed because of the failure of the above service.
+        # So in kvm testbed, if these two services load fail, we consider the system is healthy.
+        if duthost.facts["asic_type"] == "vs":
+            if any("watchdog-control.service" in service for service in fail_reason['stdout_lines']) \
+                    and any("system-health.service" in service for service in fail_reason['stdout_lines']):
+                return True
         return False
 
     logging.info("Checking if Orchagent up for at least 2 min")
