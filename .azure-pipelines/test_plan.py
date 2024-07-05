@@ -171,6 +171,14 @@ class TestPlanManager(object):
             self.get_token()
 
     def get_token(self):
+
+        access_token = os.environ.get('ACCESS_TOKEN', None)
+        if access_token:
+            print("Got ACCESS_TOKEN from environment variable.")
+            return access_token
+
+        print("No ACCESS_TOKEN in environment variable, try to get token using client secrets.")
+
         token_generate_time_valid = \
             self._token_generate_time is not None and \
             (datetime.utcnow() - self._token_generate_time) < timedelta(hours=TOKEN_EXPIRE_HOURS)

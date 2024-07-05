@@ -192,6 +192,9 @@ steps:
 
         rm -f new_test_plan_id.txt
 
+        accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+        export ACCESS_TOKEN=$accessToken
+
         python ./.azure-pipelines/test_plan.py create \
         -t ${{ parameters.TOPOLOGY }} \
         -o new_test_plan_id.txt \
@@ -252,6 +255,9 @@ steps:
         set -o
         echo "Lock testbed"
 
+        accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+        export ACCESS_TOKEN=$accessToken
+
         echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
         IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
         failure_count=0
@@ -288,6 +294,9 @@ steps:
         echo "Prepare testbed"
         echo "Preparing the testbed(add-topo, deploy-mg) may take 15-30 minutes. Before the testbed is ready, the progress of the test plan keeps displayed as 0, please be patient"
 
+        accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+        export ACCESS_TOKEN=$accessToken
+
         echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
         IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
         failure_count=0
@@ -322,6 +331,9 @@ steps:
       inlineScript: |
         set -o
         echo "Run test"
+
+        accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+        export ACCESS_TOKEN=$accessToken
 
         echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
         IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
@@ -360,6 +372,9 @@ steps:
             set -e
             echo "KVM dump"
 
+            accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+            export ACCESS_TOKEN=$accessToken
+
             echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
             IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
             for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
@@ -385,6 +400,10 @@ steps:
       inlineScript: |
         set -e
         echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
+
+        accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+        export ACCESS_TOKEN=$accessToken
+
         IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
         for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
         do
