@@ -107,15 +107,17 @@ def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     cmd = "sudo decode-syseeprom -s"
-    get_serial_no_cmd = duthost.command(cmd)
+    get_serial_no_cmd = duthost.command(cmd, module_ignore_errors=True)
+    # For kvm testbed, command `sudo decode-syseeprom -s` will return the expected Error
+    # `ModuleNotFoundError: No module named 'sonic_platform'`
+    # So let this function return in advance
+    if duthost.facts["asic_type"] == "vs" and get_serial_no_cmd["rc"] == 1:
+        return
+    assert get_serial_no_cmd['rc'] == 0, "Run command '{}' failed".format(cmd)
+
     logging.info("Verifying output of '{}' on '{}' ...".format(get_serial_no_cmd, duthost.hostname))
     get_serial_no_output = get_serial_no_cmd["stdout"].replace('\x00', '')
     expected_serial_no = dut_vars.get('serial', "")
-
-    # For kvm testbed, command `sudo decode-syseeprom -s` will return the string `Failed to read system EEPROM info`
-    # So let this function return before the final comparison
-    if duthost.facts["asic_type"] == "vs":
-        return
 
     pytest_assert(get_serial_no_output == expected_serial_no,
                   "Expected serial_no '{}' is not matching with {} in syseeprom on '{}'".
@@ -130,8 +132,15 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050", "arista_7260", "arista_7060"])
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
+    syseeprom_cmd = duthost.command(cmd, module_ignore_errors=True)
+    # For kvm testbed, command `show platform syseeprom` will return the expected Error
+    # `ModuleNotFoundError: No module named 'sonic_platform'`
+    # So let this function return in advance
+    if duthost.facts["asic_type"] == "vs" and syseeprom_cmd["rc"] == 1:
+        return
+    assert syseeprom_cmd['rc'] == 0, "Run command '{}' failed".format(cmd)
+
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
-    syseeprom_cmd = duthost.command(cmd)
     syseeprom_output = syseeprom_cmd["stdout"]
     syseeprom_output_lines = syseeprom_cmd["stdout_lines"]
 
@@ -473,8 +482,16 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 
+    firmware_output = duthost.command(cmd, module_ignore_errors=True)["stdout_lines"]
+    # For kvm testbed, command `show platform firmware status` will return the expected Error
+    # `ModuleNotFoundError: No module named 'sonic_platform'`
+    # So let this function return in advance
+    if duthost.facts["asic_type"] == "vs" and firmware_output["rc"] == 1:
+        return
+    assert firmware_output['rc'] == 0, "Run command '{}' failed".format(cmd)
+
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
-    firmware_output_lines = duthost.command(cmd)["stdout_lines"]
+    firmware_output_lines = firmware_output["stdout_lines"]
     verify_show_platform_firmware_status_output(firmware_output_lines, duthost.hostname)
 
     # TODO: Test values against platform-specific expected data
