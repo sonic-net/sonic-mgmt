@@ -4,7 +4,8 @@ import pytest
 import random
 from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import create_common_config_patch, append_common_config_patch, \
-    verify_discover_and_request_then_release, apply_dhcp_server_config_gcu, empty_config_patch
+    verify_discover_and_request_then_release, apply_dhcp_server_config_gcu, empty_config_patch, \
+    vlan_n2i, clean_dhcp_server_config
 
 
 pytestmark = [
@@ -113,20 +114,6 @@ def generate_four_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_
             + [remove_vlan_member_patch(new_vlan_name, member)[0] for member, _ in new_members_with_ptf_idx]
 
     return four_vlans_info, patch_setup, patch_restore
-
-
-def vlan_i2n(vlan_id):
-    """
-        Convert vlan id to vlan name
-    """
-    return "Vlan%s" % vlan_id
-
-
-def vlan_n2i(vlan_name):
-    """
-        Convert vlan name to vlan id
-    """
-    return vlan_name.replace("Vlan", "")
 
 
 def add_vlan_patch(vlan_name):
@@ -250,6 +237,7 @@ def test_single_ip_assignment(
             server_id=gateway,
             net_mask=net_mask
         )
+    clean_dhcp_server_config(duthost)
 
 
 def test_range_ip_assignment(
@@ -331,3 +319,4 @@ def test_range_ip_assignment(
         server_id=gateway_2,
         net_mask=net_mask_2
     )
+    clean_dhcp_server_config(duthost)
