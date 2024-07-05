@@ -12,6 +12,19 @@ t0:
   - ospf/test_ospf_bfd.py
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
+  # Platform api needs the module `sonic_platform`, which is not included in vs
+  # So skip these scripts
+  - platform_tests/api/test_chassis.py
+  - platform_tests/api/test_chassis_fans.py
+  - platform_tests/api/test_component.py
+  - platform_tests/api/test_fan_drawer.py
+  - platform_tests/api/test_fan_drawer_fans.py
+  - platform_tests/api/test_module.py
+  - platform_tests/api/test_psu.py
+  - platform_tests/api/test_psu_fans.py
+  - platform_tests/api/test_sfp.py
+  - platform_tests/api/test_thermal.py
+  - platform_tests/api/test_watchdog.py
   - snmp/test_snmp_phy_entity.py
 
 t1:
@@ -25,6 +38,19 @@ t1:
   - ospf/test_ospf_bfd.py
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
+  # Platform api needs the module `sonic_platform`, which is not included in vs
+  # So skip these scripts
+  - platform_tests/api/test_chassis.py
+  - platform_tests/api/test_chassis_fans.py
+  - platform_tests/api/test_component.py
+  - platform_tests/api/test_fan_drawer.py
+  - platform_tests/api/test_fan_drawer_fans.py
+  - platform_tests/api/test_module.py
+  - platform_tests/api/test_psu.py
+  - platform_tests/api/test_psu_fans.py
+  - platform_tests/api/test_sfp.py
+  - platform_tests/api/test_thermal.py
+  - platform_tests/api/test_watchdog.py
   - snmp/test_snmp_phy_entity.py
   # Not supported port type
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
@@ -37,6 +63,19 @@ t2:
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
   - k8s/test_join_available_master.py
+  # Platform api needs the module `sonic_platform`, which is not included in vs
+  # So skip these scripts
+  - platform_tests/api/test_chassis.py
+  - platform_tests/api/test_chassis_fans.py
+  - platform_tests/api/test_component.py
+  - platform_tests/api/test_fan_drawer.py
+  - platform_tests/api/test_fan_drawer_fans.py
+  - platform_tests/api/test_module.py
+  - platform_tests/api/test_psu.py
+  - platform_tests/api/test_psu_fans.py
+  - platform_tests/api/test_sfp.py
+  - platform_tests/api/test_thermal.py
+  - platform_tests/api/test_watchdog.py
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
   - snmp/test_snmp_phy_entity.py
