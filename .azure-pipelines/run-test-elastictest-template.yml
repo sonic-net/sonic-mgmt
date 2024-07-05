@@ -162,13 +162,13 @@ steps:
             curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
           fi
         displayName: "Download pr script"
-  - ${{ else }}:
-      - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
-          - script: |
-              # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
-              set -ex
-              curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-            displayName: "Download test plan script"
+#  - ${{ else }}:
+#      - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
+#          - script: |
+#              # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
+#              set -ex
+#              curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
+#            displayName: "Download test plan script"
 
   - script: |
       # Check if azure cli is installed. If not, try to install it
