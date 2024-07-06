@@ -72,6 +72,7 @@ t0:
   - gnmi/test_gnmi.py
   - gnmi/test_gnmi_appldb.py
   - gnmi/test_gnmi_configdb.py
+  - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - http/test_http_copy.py
   - iface_loopback_action/test_iface_loopback_action.py
   - iface_namingmode/test_iface_namingmode.py
@@ -219,6 +220,7 @@ t1-lag:
   - everflow/test_everflow_testbed.py
   - fdb/test_fdb_flush.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
+  - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
   - ipfwd/test_dip_sip.py
