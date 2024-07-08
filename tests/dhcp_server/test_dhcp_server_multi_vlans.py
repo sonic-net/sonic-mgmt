@@ -5,7 +5,7 @@ import random
 from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import create_common_config_patch, append_common_config_patch, \
     verify_discover_and_request_then_release, apply_dhcp_server_config_gcu, empty_config_patch, \
-    vlan_n2i, clean_dhcp_server_config
+    vlan_n2i
 
 
 pytestmark = [
@@ -237,7 +237,6 @@ def test_single_ip_assignment(
             server_id=gateway,
             net_mask=net_mask
         )
-    clean_dhcp_server_config(duthost)
 
 
 def test_range_ip_assignment(
@@ -319,4 +318,3 @@ def test_range_ip_assignment(
         server_id=gateway_2,
         net_mask=net_mask_2
     )
-    clean_dhcp_server_config(duthost)
