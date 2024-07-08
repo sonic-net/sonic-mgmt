@@ -209,6 +209,9 @@ r, ".* NOTICE ntpd.*: ERR: ntpd exiting on signal 15.*"
 # Race condition while removing a vlan member, no functionality impact
 r, ". *ERR swss#orchagent: :- update: FdbOrch MOVE notification: Failed to get port by bridge port ID.*"
 
+#Orchagent code prints error message even in the case of trying to enable an already enabled sensor poller.
+r, ".* ERR swss\d*#orchagent:.*doCfgSensorsTableTask: ASIC sensors : unsupported operation for poller state 1.*"
+
 # https://github.com/sonic-net/sonic-buildimage/issues/7895
 # https://github.com/Azure/sonic-sairedis/issues/582
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] mlnx_sai_utils.c\[\d+\]- get_dispatch_attribs_handler: Failed getting attrib SAI_BRIDGE_PORT_ATTR_ISOLATION_GROUP"
@@ -282,5 +285,3 @@ r, ".* INFO .*[duty_cycle_map]: illegal pwm value .*"
 r, ".* INFO .*command '/usr/sbin/smartctl' failed: [116] Stale file handle.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'high_threshold' unavailable in database 'STATE_DB'.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'temperature' unavailable in database 'STATE_DB'.*"
-r, ".* ERR swss\d*#orchagent:.*doCfgSensorsTableTask: ASIC sensors : unsupported operation for poller state 1.*"
-
