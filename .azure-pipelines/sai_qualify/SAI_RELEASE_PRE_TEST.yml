@@ -10,9 +10,6 @@ resources:
    - pipeline: Build.SAI.BRCM.7.0
      source: Build.SAI.BRCM.7.0
      project: internal
-   - pipeline: Build.SAI.BRCM.4.3
-     source: Build.SAI.BRCM.4.3
-     project: internal
 
 variables:
   - template: templates/template_variables.yml
