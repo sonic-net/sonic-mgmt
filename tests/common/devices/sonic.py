@@ -57,17 +57,17 @@ class SonicHost(AnsibleHostBase):
             vm = self.host.options['variable_manager']
             sonic_conn = vm.get_vars(
                 host=im.get_hosts(pattern='sonic')[0]
-            )['ansible_connection']
+                )['ansible_connection']
             hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
             # parse connection options and reset those options with
             # passed credentials
             connection_loader.get(sonic_conn, class_only=True)
             user_def = ansible_constants.config.get_configuration_definition(
                 "remote_user", "connection", sonic_conn
-            )
+                )
             pass_def = ansible_constants.config.get_configuration_definition(
                 "password", "connection", sonic_conn
-            )
+                )
             for user_var in (_['name'] for _ in user_def['vars']):
                 if user_var in hostvars:
                     vm.extra_vars.update({user_var: shell_user})
@@ -251,9 +251,9 @@ class SonicHost(AnsibleHostBase):
         py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
         if py_res["failed"]:
             out = self.shell(
-                "python3 -c \"import sonic_platform.platform as P; \
+                             "python3 -c \"import sonic_platform.platform as P; \
                              print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
-                module_ignore_errors=True)
+                             module_ignore_errors=True)
         else:
             out = self.shell(
                 "python -c \"import sonic_platform.platform as P; \
@@ -329,8 +329,8 @@ class SonicHost(AnsibleHostBase):
             except Exception:
                 # if platform.json does not exist, then it's not added currently for certain platforms
                 # eventually all the platforms should have the platform.json
-                logging.debug("platform.json is not available for this platform, " +
-                              "DUT facts will not contain complete platform information.")
+                logging.debug("platform.json is not available for this platform, "
+                              + "DUT facts will not contain complete platform information.")
 
         return result
 
@@ -1564,9 +1564,9 @@ Totals               6450                 6449
         for idx, line in enumerate(output_lines):
             if sep_line_pattern.match(line):
                 sep_line_found = True
-                header_lines = output_lines[idx - header_len:idx]
+                header_lines = output_lines[idx-header_len:idx]
                 sep_line = output_lines[idx]
-                content_lines = output_lines[idx + 1:]
+                content_lines = output_lines[idx+1:]
                 break
 
         if not sep_line_found:
