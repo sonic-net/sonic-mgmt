@@ -303,7 +303,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
         logging.info("Turn on outlet {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
-        time.sleep(10)
+        time.sleep(20)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
