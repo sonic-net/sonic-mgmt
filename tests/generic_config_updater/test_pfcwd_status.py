@@ -37,6 +37,12 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
                     '.*ERR syncd#syncd:.*SAI_API_SWITCH:sai_bulk_object_get_stats.* ',
                 ]
             )
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    '.*ERR syncd#syncd: :- queryStatsCapability: failed to find switch oid:.* in switch state map'
+                ]
+            )
 
     return
 
