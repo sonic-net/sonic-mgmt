@@ -11,6 +11,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     traffic_flow_mode
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,10 @@ def generate_test_flows(testbed_config,
         eth, ipv4 = test_flow.packet.ethernet().ipv4()
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
@@ -184,7 +188,10 @@ def generate_background_flows(testbed_config,
         eth, ipv4 = bg_flow.packet.ethernet().ipv4()
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
@@ -571,7 +578,8 @@ def verify_in_flight_buffer_pkts(duthost,
                               format(dropped_packets))
 
 
-def verify_pause_frame_count_dut(duthost,
+def verify_pause_frame_count_dut(rx_dut,
+                                 tx_dut,
                                  test_traffic_pause,
                                  global_pause,
                                  snappi_extra_params):
@@ -580,7 +588,8 @@ def verify_pause_frame_count_dut(duthost,
     on the DUT
 
     Args:
-        duthost (obj): DUT host object
+        rx_dut (obj): Ingress DUT host object receiving packets from IXIA transmitter.
+        tx_dut (obj): Egress DUT host object sending packets to IXIA, hence also receiving PFCs from IXIA.
         test_traffic_pause (bool): whether test traffic is expected to be paused
         global_pause (bool): if pause frame is IEEE 802.3X pause i.e. global pause applied
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
@@ -592,7 +601,7 @@ def verify_pause_frame_count_dut(duthost,
 
     for peer_port, prios in dut_port_config[1].items():  # PFC pause frames received on DUT's egress port
         for prio in prios:
-            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=False)
+            pfc_pause_rx_frames = get_pfc_frame_count(tx_dut, peer_port, prio, is_tx=False)
             # For now, all PFC pause test cases send out PFC pause frames from the TGEN RX port to the DUT TX port,
             # except the case with global pause frames which SONiC does not count currently
             if global_pause:
@@ -609,7 +618,7 @@ def verify_pause_frame_count_dut(duthost,
 
     for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
         for prio in prios:
-            pfc_pause_tx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=True)
+            pfc_pause_tx_frames = get_pfc_frame_count(rx_dut, peer_port, prio, is_tx=True)
             if test_traffic_pause:
                 pytest_assert(pfc_pause_tx_frames > 0,
                               "PFC pause frames should be transmitted and counted in TX PFC counters for priority {}"

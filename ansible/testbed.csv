@@ -84,3 +84,5 @@ vmsvc1-t1-n3164-acs-1,svc1-1,t1-64-lag,docker-ptf,svc1-1,10.206.144.19/24,,serve
 vmsvc1-t1-n3164-acs-2,svc1-2,t1-64-lag,docker-ptf,svc1-2,10.206.144.20/24,,server_svc_1,VM10024,svcstr-n3164-acs-2,strsvc,False,genhwa
 vms-example-ixia-1,vms6-1,t0-64,docker-ptf-ixia,example-ixia-ptf-1,10.0.0.30/32,,server_6,VM06000,example-s6100-dut-1,,False,superman
 ixanvl-vs-conf,anvl,ptf32,docker-ptf-anvl,ptf-unknown,10.250.0.100/24,,server_1,,vlab-01,lab,True,Test ptf ANVL SONIC VM
+vms-snappi-sonic,vms6-1,ptf64,docker-ptf-snappi,snappi-sonic-ptf,10.251.0.232,,Server_6,,sonic-s6100-dut1,snappi-sonic,True,Batman
+vms-snappi-sonic-multidut,vms6-1,ptf64,docker-ptf-snappi,snappi-sonic-ptf,10.251.0.232,,Server_6,,[sonic-s6100-dut1;sonic-s6100-dut2],snappi-sonic,True,Batman
