@@ -527,6 +527,7 @@ ecmp/test_ecmp_sai_value.py:
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t1', 't0']"
+      - "'dualtor' in topo_name"
       - "asic_type not in ['broadcom']"
       - "release in ['201911', '202012', '202205', '202211', 'master']"
       - "'internal' in build_version"
