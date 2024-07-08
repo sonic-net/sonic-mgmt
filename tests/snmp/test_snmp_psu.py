@@ -24,7 +24,7 @@ def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_al
         localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     res = duthost.shell("psuutil numpsus")
-    assert int(res['rc']) == 0, "Failed to get number of PSUs "
+    assert int(res['rc']) == 0, "Failed to get number of PSUs"
 
     numpsus = int(res['stdout'])
     assert numpsus == len(snmp_facts['snmp_psu'])
