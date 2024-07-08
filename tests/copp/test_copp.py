@@ -37,7 +37,6 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -285,7 +284,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "peerip": test_params.peerip,
               "send_rate_limit": test_params.send_rate_limit,
               "has_trap": has_trap,
-              "hw_sku": dut.facts["hwsku"]}
+              "hw_sku": dut.facts["hwsku"],
+              "asic_type": dut.facts["asic_type"]}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),

@@ -617,7 +617,7 @@ def get_multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):  
         ports = []
         for index, host in enumerate(duthosts):
             snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-            for i in range(0, 3):
+            for i in range(len(snappi_fanout_list.fanout_list)):
                 try:
                     snappi_fanout_list.get_fanout_device_details(i)
                 except Exception:
@@ -771,7 +771,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports):
                                         ip=tgenIp,
                                         mac=mac,
                                         gw=dutIp,
-                                        gw_mac=str(duthost.facts['router_mac']),
+                                        gw_mac=duthost.get_dut_iface_mac(port['peer_port']),
                                         prefix_len=prefix_length,
                                         port_type=SnappiPortType.IPInterface,
                                         peer_port=port['peer_port']
@@ -794,6 +794,7 @@ def get_multidut_tgen_peer_port_set(line_card_choice, ports, config_set, number_
     """
     linecards = {}
     try:
+        from itertools import product
         from itertools import izip_longest as zip_longest
     except ImportError:
         from itertools import zip_longest
@@ -849,8 +850,9 @@ def get_multidut_tgen_peer_port_set(line_card_choice, ports, config_set, number_
     elif line_card_choice in ['chassis_multi_line_card_multi_asic']:
         # Different line card and minimum one port from different asic number
         if len(linecards.keys()) >= 2:
-            host_asic = list(zip(config_set[line_card_choice]['hostname'], config_set[line_card_choice]['asic']))
-            peer_ports = list(zip_longest(*[linecards[host][asic] for host, asic in host_asic]))
+            host_asic = list(product(config_set[line_card_choice]['hostname'], config_set[line_card_choice]['asic']))
+            peer_ports = list(zip_longest(*[linecards[host][asic]
+                              for host, asic in host_asic if asic in linecards[host]]))
             peer_ports = [item for sublist in peer_ports for item in sublist]
             peer_ports = list(filter(None, peer_ports))
             return peer_ports[:number_of_tgen_peer_ports]
