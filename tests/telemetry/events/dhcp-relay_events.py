@@ -32,7 +32,7 @@ def trigger_dhcp_relay_disparity(duthost, ptfadapter):
     Sending at interval of 18 seconds because dhcpmon process will check health at that interval
     static int window_interval_sec = 18;
     """
-    send_dhcp_discover_packets(duthost, ptfadataper, 11, 18)
+    send_dhcp_discover_packets(duthost, ptfadapter, 11, 18)
 
 
 def send_dhcp_discover_packets(duthost, ptfadapter, packets_to_send=5, interval=1):
