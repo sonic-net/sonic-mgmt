@@ -163,9 +163,8 @@ def test_static_mac(setup_teardown_bvi):
         st.report_fail('msg', "MAC already present for host for node {}".format(data_glob.leaf0))
     st.config(data_glob.leaf0 , "fdbclear")
 
-    mac_obj.config_mac(data_glob.leaf0 , static_mac, data_glob.vlan[1], data_glob.members_dut1[1])
-    if not mac_obj.verify_mac_address_table(data_glob.leaf0, static_mac, vlan=data_glob.vlan[1], type='Static'):
-        st.report_fail('msg', "Static MAC absent for host for node {}".format(data_glob.leaf0))
+    #Configure the static mac
+    common_obj.config_mac(data_glob.leaf0 , static_mac, data_glob.vlan[1], data_glob.members_dut1[1], verify=True)
 
     #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
     #traffic check
@@ -184,9 +183,8 @@ def test_static_mac(setup_teardown_bvi):
     if mac_obj.verify_mac_address_table(data_glob.leaf0, static_mac, vlan=data_glob.vlan[1], type='Dynamic'):
         st.report_fail('msg', "Duplicate issue : Dynamic MAC already present for host for node {}".format(data_glob.leaf0))
 
-    mac_obj.delete_mac(data_glob.leaf0 , static_mac, data_glob.vlan[1])
-    if mac_obj.verify_mac_address_table(data_glob.leaf0, static_mac, vlan=data_glob.vlan[1], type='Static'):
-        st.report_fail('msg', "Static MAC already present for host for node {} after delete".format(data_glob.leaf0))
+    #Delete the static mac
+    common_obj.delete_mac(data_glob.leaf0 , static_mac, data_glob.vlan[1], verify=True)
 
     #leaf0 (10.0.1.1) -----> leaf1(10.0.1.2)
     #traffic check

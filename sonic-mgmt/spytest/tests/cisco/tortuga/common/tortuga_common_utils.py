@@ -7,6 +7,7 @@ import apis.system.basic as basic_obj
 import apis.system.port as papi
 import apis.switching.portchannel as portchannel_obj
 import apis.routing.ip as ip_obj
+import apis.switching.mac as mac_obj
 
 # Hierarchical Port Naming
 
@@ -382,6 +383,34 @@ def check_portchannel_ip_address(node, portchannel, ip_addr, family, add=True):
                 
 # L2 wrappers
 
+# Static Mac config
+def config_mac(node, mac, vlan, intf, verify=False):
+    #mac_add = '-'.join(mac.split(':'))
+    cmd = '''
+          docker exec swss sh -c 'echo "[{{\\"FDB_TABLE:Vlan{}:{}\\": {{\\"port\\" : \\"{}\\", \\"type\\" : \\"static\\"}},\\"OP\\": \\"SET\\"}}]" > ./fdb.json'
+          docker exec -it swss swssconfig ./fdb.json
+          '''.format(vlan, mac, intf)
+    st.config(node, cmd)
+    st.wait(1)
+
+    if verify:
+        if not mac_obj.verify_mac_address_table(node, mac, vlan=vlan, type='Static'):
+            st.report_fail('msg', "Static MAC add failed for mac {} host on vlan {} for node {}".format(mac, vlan, node))
+
+# Static Mac delete
+def delete_mac(node, mac, vlan, verify=False):
+    #mac_add = '-'.join(mac.split(':'))
+    cmd = '''
+          docker exec swss sh -c 'echo "[{{\\"FDB_TABLE:Vlan{}:{}\\": {{\\"type\\" : \\"static\\"}},\\"OP\\": \\"DEL\\"}}]" > ./fdb.json'
+          docker exec -it swss swssconfig ./fdb.json
+          '''.format(vlan, mac)
+    st.config(node, cmd)
+    st.wait(1)
+
+    if verify:
+        if mac_obj.verify_mac_address_table(node, mac, vlan=vlan, type='Static'):
+            st.report_fail('msg', "Static MAC delete for mac {} failed for host on vlan {} for node {}".format(mac, vlan, node))
+        
 # Mac API config_mac_agetime cli "config mac aging_time" is not supported yet
 # MAC API get_mac_agetime is community unsupported
 def update_mac_aging(node, mac_aging_time, verify=False):
