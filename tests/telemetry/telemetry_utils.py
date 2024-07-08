@@ -6,9 +6,10 @@ import re
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+
 logger = logging.getLogger(__name__)
 
-TELEMETRY_PORT = 50051
 METHOD_GET = "get"
 METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_STREAM = 0
@@ -56,21 +57,24 @@ def setup_telemetry_forpyclient(duthost):
     """ Set client_auth=false. This is needed for pyclient to successfully set up channel with gnmi server.
         Restart telemetry process
     """
-    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"',
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
     return client_auth
 
 
 def restore_telemetry_forpyclient(duthost, default_client_auth):
-    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"',
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
     if client_auth != default_client_auth:
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" {}'.format(default_client_auth),
+        duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" %s'
+                      % (env.gnmi_config_table, default_client_auth),
                       module_ignore_errors=False)
-        duthost.shell("systemctl reset-failed telemetry")
-        duthost.service(name="telemetry", state="restarted")
+        duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
+        duthost.service(name=env.gnmi_container, state="restarted")
 
 
 def check_gnmi_cli_running(ptfhost):
@@ -84,14 +88,13 @@ def parse_gnmi_output(gnmi_output, match_no, find_data):
     gnmi_str = gnmi_str.replace(' ', '')
     if find_data != "":
         result = fetch_json_ptf_output(ON_CHANGE_REGEX, gnmi_str, match_no)
-        return find_data in result
+        return find_data in result[match_no]
 
 
 def fetch_json_ptf_output(regex, output, match_no):
     match = re.findall(regex, output)
     assert len(match) > match_no, "Not able to parse json from output"
-    event_str = match[match_no]
-    return event_str
+    return match[:match_no+1]
 
 
 def listen_for_event(ptfhost, cmd, results):
@@ -100,9 +103,10 @@ def listen_for_event(ptfhost, cmd, results):
     results[0] = ret["stdout"]
 
 
-def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout):
+def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout, update_count=1,
+                      match_number=0):
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              submode=SUBMODE_ONCHANGE, update_count=1, xpath="all[heartbeat=2]",
+                              submode=SUBMODE_ONCHANGE, update_count=update_count, xpath="all[heartbeat=2]",
                               target="EVENTS", filter_event_regex=filter_event_regex)
     results = [""]
     event_thread = InterruptableThread(target=listen_for_event, args=(ptfhost, cmd, results,))
@@ -111,12 +115,16 @@ def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, 
     assert results[0] != "", "No output from PTF docker, thread timed out after {} seconds".format(thread_timeout)
     # regex logic and then to write to file
     result = results[0]
-    event_str = fetch_json_ptf_output(EVENT_REGEX, result, 0)
-    event_str = event_str.replace('\\', '')
-    event_json = json.loads(event_str)
+    event_strs = fetch_json_ptf_output(EVENT_REGEX, result, match_number)
     with open(op_file, "w") as f:
         f.write("[\n")
-        json.dump(event_json, f, indent=4)
+        for i in range(0, len(event_strs)):
+            str = event_strs[i]
+            event_str = str.replace('\\', '')
+            event_json = json.loads(event_str)
+            json.dump(event_json, f, indent=4)
+            if i < match_number:
+                f.write(",")
         f.write("\n]")
         f.close()
 
@@ -134,8 +142,9 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                         intervalms=0, update_count=3, create_connections=1, filter_event_regex=""):
     """ Generate the py_gnmicli command line based on the given params.
     """
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
-    cmd = cmdFormat.format(duthost.mgmt_ip, TELEMETRY_PORT, method, xpath, target, "ndastreamingservertest")
+    cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, "ndastreamingservertest")
 
     if method == METHOD_SUBSCRIBE:
         cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3} --create_connections {4}".format(

@@ -12,9 +12,10 @@ in .csv format etc.
 
 from enum import Enum
 import ipaddr
+import json
+import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.broadcom_data import is_broadcom_device as isBroadcomDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
 
@@ -31,7 +32,7 @@ def increment_ip_address(ip, incr=1):
     ipaddress = ipaddr.IPv4Address(ip)
     ipaddress = ipaddress + incr
     return_value = ipaddress._string_from_ip_int(ipaddress._ip)
-    return(return_value)
+    return return_value
 
 
 def ansible_stdout_to_str(ansible_stdout):
@@ -45,7 +46,7 @@ def ansible_stdout_to_str(ansible_stdout):
     """
     result = ""
     for x in ansible_stdout:
-        result += x.encode('UTF8')
+        result += x
     return result
 
 
@@ -97,7 +98,7 @@ def get_egress_lossless_buffer_size(host_ans):
 
 def get_lossless_buffer_size(host_ans):
     """
-    Get egress lossless buffer size of a switch, unless an 8102 switch,
+    Get egress lossless buffer size of a switch, unless a Cisco 8000 switch,
     in which case, get the ingress lossless buffer size
     Args:
         host_ans: Ansible host instance of the device
@@ -106,13 +107,13 @@ def get_lossless_buffer_size(host_ans):
     """
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
-    is_cisco_8102 = True if ('Cisco' or 'cisco') and '8102' in host_ans.facts['platform'] else False
+    is_cisco8000_platform = True if 'cisco-8000' in host_ans.facts['platform_asic'] else False
 
     if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
-    profile_name = 'ingress_lossless_pool' if is_cisco_8102 else 'egress_lossless_pool'
+    profile_name = 'ingress_lossless_pool' if is_cisco8000_platform else 'egress_lossless_pool'
 
     if profile_name not in list(buffer_pools.keys()):
         return None
@@ -484,8 +485,15 @@ def enable_ecn(host_ans, prio, asic_value=None):
     """
     if asic_value is None:
         host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
+        results = host_ans.shell('ecnconfig -q {}'.format(prio))
+        if re.search("queue {}: on".format(prio), results['stdout']):
+            return True
     else:
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
+        results = host_ans.shell('sudo ip netns exec {} ecnconfig {}'.format(asic_value, prio))
+        if re.search("queue {}: on".format(prio), results['stdout']):
+            return True
+    return False
 
 
 def disable_ecn(host_ans, prio, asic_value=None):
@@ -636,7 +644,7 @@ def get_pfcwd_poll_interval(host_ans, asic_value=None):
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope='GLOBAL',
                                     attr='POLL_INTERVAL',
-                                    namespace=asic_value)
+                                    asic_value=asic_value)
 
     if val is not None:
         return int(val)
@@ -663,7 +671,7 @@ def get_pfcwd_detect_time(host_ans, intf, asic_value=None):
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope=intf,
                                     attr='detection_time',
-                                    namespace=asic_value)
+                                    asic_value=asic_value)
 
     if val is not None:
         return int(val)
@@ -690,12 +698,49 @@ def get_pfcwd_restore_time(host_ans, intf, asic_value=None):
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope=intf,
                                     attr='restoration_time',
-                                    namespace=asic_value)
+                                    asic_value=asic_value)
 
     if val is not None:
         return int(val)
 
     return None
+
+
+def get_pfcwd_stats(duthost, port, prio, asic_value=None):
+    """
+    Get PFC watchdog statistics for given interface:prio
+    Args:
+        duthost		: Ansible host instance of the device
+        port		: Port for which stats needs to be gathered.
+        prio		: Lossless priority for which stats needs to be captured.
+        asic_value	: asic value of the host
+
+    Returns:
+        Dictionary with PFCWD statistics as key-value pair.
+        If the entry is not present, then values are returned as zero.
+    """
+
+    pfcwd_stats = {}
+    if asic_value is None:
+        raw_out = duthost.shell("show pfcwd stats | grep -E 'QUEUE|{}:{}'".format(port, prio))['stdout']
+    else:
+        comm = "sudo ip netns exec {} show pfcwd stats | grep -E 'QUEUE|{}:{}'".format(asic_value, port, prio)
+        raw_out = duthost.shell(comm)['stdout']
+
+    val_list = []
+    key_list = []
+    for line in raw_out.split('\n'):
+        if ('QUEUE' in line):
+            key_list = (re.sub(r"(\w) (\w)", r"\1_\2", line)).split()
+        else:
+            val_list = line.split()
+    if val_list:
+        for key, val in zip(key_list, val_list):
+            pfcwd_stats[key] = val
+    else:
+        pfcwd_stats = {key: '0/0' if '/' in key else 0 for key in key_list}
+
+    return pfcwd_stats
 
 
 def start_pfcwd(duthost, asic_value=None):
@@ -744,7 +789,7 @@ def disable_packet_aging(duthost, asic_value=None):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py disable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
-    elif isBroadcomDevice(duthost):
+    elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
         try:
             duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
         except Exception:
@@ -765,7 +810,7 @@ def enable_packet_aging(duthost, asic_value=None):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
-    elif isBroadcomDevice(duthost):
+    elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
         try:
             duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
         except Exception:
@@ -821,6 +866,56 @@ def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     return int(pause_frame_count.replace(',', ''))
 
 
+def get_port_stats(duthost, port, stat):
+    """
+    Get the port stats for a given port from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        stat (str): stat name
+    Returns:
+        int: port stats
+    """
+    raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
+    raw_out_stripped = re.sub(r'^.*?\n', '', raw_out, count=1)
+    raw_json = json.loads(raw_out_stripped)
+    port_stats = raw_json[port].get(stat)
+
+    return int(port_stats.replace(',', '')) if port_stats else -1
+
+
+def get_tx_frame_count(duthost, port):
+    """
+    Get the Tx_OK and Tx_DRP frame count for a given port ex. Ethernet4 from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name ex. Ethernet4
+    Returns:
+        tx_frame_count (int): Tx frame count
+        tx_drop_frame_count (int): Tx drop frame count
+    """
+    tx_ok_frame_count = get_port_stats(duthost, port, "TX_OK")
+    tx_drp_frame_count = get_port_stats(duthost, port, "TX_DRP")
+
+    return tx_ok_frame_count, tx_drp_frame_count
+
+
+def get_rx_frame_count(duthost, port):
+    """
+    Get the Rx_OK and Rx_DRP frame count for a given port ex. Ethernet4 from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name ex. Ethernet4
+    Returns:
+        rx_frame_count (int): Rx frame count
+        rx_frame_drop_count (int): Rx drop frame count
+    """
+    rx_ok_frame_count = get_port_stats(duthost, port, "RX_OK")
+    rx_drp_frame_count = get_port_stats(duthost, port, "RX_DRP")
+
+    return rx_ok_frame_count, rx_drp_frame_count
+
+
 def get_egress_queue_count(duthost, port, priority):
     """
     Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
@@ -833,8 +928,14 @@ def get_egress_queue_count(duthost, port, priority):
         tuple (int, int): total count of packets and bytes in the queue
     """
     raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
-    total_pkts = raw_out.split()[2]
-    total_bytes = raw_out.split()[3]
+    total_pkts = raw_out.split()[2] if 2 < len(raw_out.split()) else "0"
+    if total_pkts == "N/A":
+        total_pkts = "0"
+
+    total_bytes = raw_out.split()[3] if 3 < len(raw_out.split()) else "0"
+    if total_bytes == "N/A":
+        total_bytes = "0"
+
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
 
 
@@ -850,7 +951,25 @@ class packet_capture(Enum):
     IP_CAPTURE = "IP_Capture"
 
 
-def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None):
+class traffic_flow_mode(Enum):
+    """
+    ENUM of traffic flow mode settings
+    CONTINUOUS - -100
+        - continuous flow of traffic with no pauses at some specific rate
+    BURST - -99
+        - burst of traffic with breaks in flow for a certain duration at some specific rate
+    FIXED_PACKETS - -98
+        - sending a specific number of packets at some specific rate
+    FIXED_DURATION - -97
+        - sending traffic for a specific duration at some specific rate
+    """
+    CONTINUOUS = -100
+    BURST = -99
+    FIXED_PACKETS = -98
+    FIXED_DURATION = -97
+
+
+def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None, format="pcapng"):
     """
     Generate the configuration to capture packets on a port for a specific type of packet
 
@@ -859,7 +978,7 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
         port_names (list of string): names of ixia ports to capture packets on
         capture_type (Enum): Type of packet to capture
         capture_name (str): Name of the capture
-
+        format (str): Format of the capture (default pcapng), either pcap or pcapng
     Returns:
         N/A
     """
@@ -868,12 +987,23 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
     cap.port_names = []
     for p_name in port_names:
         cap.port_names.append(p_name)
-    cap.format = cap.PCAP
+    if format == "pcapng" or format == "pcap":
+        cap.format = format
+    else:
+        raise Exception("Unsupported capture format")
 
-    if capture_type == packet_capture.IP_CAPTURE:
-        # Capture IP packets
-        ip_filter = cap.filters.custom()[-1]
-        # Version for IPv4 packets is "4" which has to be in the upper 4 bits of the first byte, hence filter is 0x40
-        ip_filter.value = '40'
-        ip_filter.offset = 14  # Offset is the length of the Ethernet header
-        ip_filter.mask = '0f'  # Mask is 0x0f to only match the upper 4 bits of the first byte which is the version
+
+def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):
+    """
+    Calculate the pfc pause flow rate to block the flow of traffic through the port using a blocking
+    factor.
+    Args:
+        port_speed (int): port speed in gbps ex. 100
+        oversubscription_ratio (int): factor by which to block the port (default: 2)
+    Returns:
+        pps: pause frames to be sent per second to block port by block_factor
+    """
+    pause_dur = 65535 * 64 * 8.0 / (port_speed * 1e9)
+    pps = int(oversubscription_ratio / pause_dur)
+
+    return pps

@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -150,6 +151,25 @@ class LogAnalyzer:
                     .format(self.expected_matches_target, len(self.expect_regex))
                 raise LogAnalyzerError(err_target + result_str)
 
+    def save_matching_errors(self, result_log_errors):
+        """
+        save all the log errors in a file on the player.
+        :param result_log_errors: list of all the errors we found in the log - result["match_messages"].values()
+        """
+        if result_log_errors:
+            log_errors = ''
+            for error_list in result_log_errors:
+                log_errors += ''.join(error_list)
+
+            tmp_folder = "/tmp/loganalyzer/{}".format(self.ansible_host.hostname)
+            os.makedirs(tmp_folder, exist_ok=True)
+            cur_time = time.strftime("%d_%m_%Y_%H_%M_%S", time.gmtime())
+            file_path = os.path.join(tmp_folder, "log_error_{}_{}.json".format(self.marker_prefix, cur_time))
+            logging.info("Log errors will be saved in file: {}".format(file_path))
+            data = {'log_errors': log_errors}
+            with open(file_path, "w+") as file:
+                json.dump(data, file)
+
     def _results_repr(self, result):
         """
         @summary: The function converts error analysis dictionary to a readable string format.
@@ -284,7 +304,7 @@ class LogAnalyzer:
         self.ansible_host.command(cmd)
         return start_marker
 
-    def analyze(self, marker, fail=True, maximum_log_length=None):
+    def analyze(self, marker, fail=True, maximum_log_length=None, store_la_logs=False):
         """
         @summary: Extract syslog logs based on the start/stop markers and compose one file.
                   Download composed file, analyze file based on defined regular expressions.
@@ -292,6 +312,7 @@ class LogAnalyzer:
         @param marker: Marker obtained from "init" method.
         @param fail: Flag to enable/disable raising exception when loganalyzer find error messages.
         @param maximum_log_length: The long message (length > maximum_log_length) will be skipped.
+        @param store_la_logs: Flag to save the match lines
         @return: If "fail" is False - return dictionary of parsed syslog summary,
                  if dictionary can't be parsed - return empty dictionary.
                  If "fail" is True and if found match messages - raise exception.
@@ -381,6 +402,8 @@ class LogAnalyzer:
         analyzer_summary["total"]["expected_missing_match"] = len(unused_regex_messages)
         analyzer_summary["unused_expected_regexp"] = unused_regex_messages
         logging.debug("Analyzer summary: {}".format(pprint.pformat(analyzer_summary)))
+        if analyzer_summary["total"]["match"] != 0 and store_la_logs:
+            self.save_matching_errors(analyzer_summary["match_messages"].values())
 
         if fail:
             self._verify_log(analyzer_summary)

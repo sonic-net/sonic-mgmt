@@ -1,5 +1,7 @@
 import pytest
 
+from tests.common.dualtor.data_plane_utils import save_pcap                 # noqa F401
+
 
 def pytest_configure(config):
 

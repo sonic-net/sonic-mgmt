@@ -1,20 +1,18 @@
-import json
-import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
+from tests.common.config_reload import config_reload
+from utilities import backup_config, restore_config, get_running_config,\
+    reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
+    NON_USER_CONFIG_TABLES
 
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
-
-logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
@@ -35,44 +33,20 @@ def check_image_version(duthost):
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 
-def file_exists_on_dut(duthost, filename):
-    return duthost.stat(path=filename).get('stat', {}).get('exists', False)
+@pytest.fixture(scope="module")
+def golden_config_exists_on_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    return file_exists_on_dut(duthosts[enum_rand_one_per_hwsku_frontend_hostname], GOLDEN_CONFIG)
 
 
 @pytest.fixture(scope="module")
-def golden_config_exists_on_dut(duthost):
-    return file_exists_on_dut(duthost, GOLDEN_CONFIG)
-
-
-def backup_config(duthost, config, config_backup):
-    logger.info("Backup {} to {} on {}".format(
-        config, config_backup, duthost.hostname))
-    duthost.shell("cp {} {}".format(config, config_backup))
-
-
-def restore_config(duthost, config, config_backup):
-    logger.info("Restore {} with {} on {}".format(
-        config, config_backup, duthost.hostname))
-    duthost.shell("mv {} {}".format(config_backup, config))
-
-
-def get_running_config(duthost):
-    return json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
-
-
-def reload_minigraph_with_golden_config(duthost, json_data):
-    duthost.copy(content=json.dumps(json_data, indent=4), dest=GOLDEN_CONFIG)
-    config_reload(duthost, config_source="minigraph", safe_reload=True, override_config=True)
-
-
-@pytest.fixture(scope="module")
-def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
+def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Setup/teardown
     Args:
         duthost: DUT.
         golden_config_exists_on_dut: Check if golden config exists on DUT.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     topo_type = tbinfo["topo"]["type"]
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
@@ -114,10 +88,17 @@ def load_minigraph_with_golden_empty_input(duthost):
     for table in initial_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
-        pytest_assert(
-            initial_config[table] == current_config[table],
-            "empty input compare fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            pytest_assert(
+                compare_dicts_ignore_list_order(initial_config[table], current_config[table]),
+                "empty input ACL_TABLE compare fail!"
+            )
+        else:
+            pytest_assert(
+                initial_config[table] == current_config[table],
+                "empty input compare fail! {}".format(table)
+            )
 
 
 def load_minigraph_with_golden_partial_config(duthost):
@@ -171,10 +152,17 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
     for table in full_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
-        pytest_assert(
-            full_config[table] == current_config[table],
-            "full config override fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            pytest_assert(
+                compare_dicts_ignore_list_order(full_config[table], current_config[table]),
+                "full config ACL_TABLE compare fail!"
+            )
+        else:
+            pytest_assert(
+                full_config[table] == current_config[table],
+                "full config override fail! {}".format(table)
+            )
 
 
 def load_minigraph_with_golden_empty_table_removal(duthost):
@@ -195,9 +183,14 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     )
 
 
-def test_load_minigraph_with_golden_config(duthost, setup_env):
+def test_load_minigraph_with_golden_config(duthosts, setup_env,
+                                           enum_rand_one_per_hwsku_frontend_hostname):
     """Test Golden Config override during load minigraph
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.is_multi_asic:
+        pytest.skip("Skip override-config-table testing on multi-asic platforms,\
+                    test provided golden config format is not compatible with multi-asics")
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
     load_minigraph_with_golden_new_feature(duthost)

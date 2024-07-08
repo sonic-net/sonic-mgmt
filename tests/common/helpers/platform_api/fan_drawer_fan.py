@@ -67,8 +67,12 @@ def get_target_speed(conn, fan_drawer_idx, fan_idx):
     return fan_drawer_fan_api(conn, fan_drawer_idx, fan_idx, 'get_target_speed')
 
 
-def get_speed_tolerance(conn, fan_drawer_idx, fan_idx):
-    return fan_drawer_fan_api(conn, fan_drawer_idx, fan_idx, 'get_speed_tolerance')
+def is_under_speed(conn, fan_drawer_idx, fan_idx):
+    return fan_drawer_fan_api(conn, fan_drawer_idx, fan_idx, 'is_under_speed')
+
+
+def is_over_speed(conn, fan_drawer_idx, fan_idx):
+    return fan_drawer_fan_api(conn, fan_drawer_idx, fan_idx, 'is_over_speed')
 
 
 def set_speed(conn, fan_drawer_idx, fan_idx, speed):

@@ -48,7 +48,7 @@ from ptf.mask import Mask
 from device_connection import DeviceConnection
 
 
-def count_matched_packets_helper(test, exp_packet, exp_packet_number, port, device_number=0, timeout=1):
+def count_matched_packets_helper(test, exp_packet, exp_packet_number, port=None, device_number=0, timeout=1):
     """
     Add exp_packet_number to original ptf interface in order to
     stop waiting when expected number of packets is received
@@ -169,7 +169,11 @@ class Vxlan(BaseTest):
                 else:
                     addr += 1  # skip gw
             res[port] = host_ip
-            addr += 1
+            # skip soc IPs for aa dualtor
+            if self.is_active_active_dualtor:
+                addr += 2
+            else:
+                addr += 1
 
         return res
 
@@ -177,6 +181,7 @@ class Vxlan(BaseTest):
         self.dataplane = ptf.dataplane_instance
 
         self.test_params = testutils.test_params_get()
+        self.is_active_active_dualtor = self.test_params.get("is_active_active_dualtor", False)
         if 'vxlan_enabled' in self.test_params and self.test_params['vxlan_enabled']:
             self.vxlan_enabled = True
 
@@ -214,10 +219,16 @@ class Vxlan(BaseTest):
 
         self.pc_info = []
         self.net_ports = []
+        self.all_active_net_ports = []
         for name, val in graph['minigraph_portchannels'].items():
             members = [graph['minigraph_port_indices'][member]
                        for member in val['members']]
             self.net_ports.extend(members)
+            if self.is_active_active_dualtor:
+                self.all_active_net_ports.extend(members)
+                members = [graph['mg_unslctd_port_idx'][member]
+                           for member in val['members']]
+                self.all_active_net_ports.extend(members)
             ip = None
 
             for d in graph['minigraph_portchannel_interfaces']:
@@ -426,13 +437,16 @@ class Vxlan(BaseTest):
         self.work_test()
 
     def Vxlan(self, test):
-        for i, n in enumerate(test['acc_ports']):
-            for j, a in enumerate(test['acc_ports']):
-                res, out = self.checkVxlan(a, n, test, self.vlan_mac)
-                if not res:
-                    return False, out + " | net_port_rel(acc)=%d acc_port_rel=%d" % (i, j)
+        if not self.is_active_active_dualtor:
+            for i, n in enumerate(test['acc_ports']):
+                time.sleep(1)
+                for j, a in enumerate(test['acc_ports']):
+                    res, out = self.checkVxlan(a, n, test, self.vlan_mac)
+                    if not res:
+                        return False, out + " | net_port_rel(acc)=%d acc_port_rel=%d" % (i, j)
 
         for i, n in enumerate(self.net_ports):
+            time.sleep(1)
             for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkVxlan(a, n, test, self.dut_mac)
                 if not res:
@@ -483,17 +497,28 @@ class Vxlan(BaseTest):
 
         exp_packet = Mask(exp_packet)
         exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+        # skip smac check for aa dualtor
+        if self.is_active_active_dualtor:
+            exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
 
         self.dataplane.flush()
         for i in range(self.nr):
             testutils.send_packet(self, acc_port, packet)
-        nr_rcvd = count_matched_packets_all_ports_helper(
-            self, exp_packet, self.nr, pc_ports, timeout=20)
+        if self.is_active_active_dualtor:
+            nr_rcvd = count_matched_packets_all_ports_helper(
+                self, exp_packet, self.nr, self.all_active_net_ports, timeout=20)
+        else:
+            nr_rcvd = count_matched_packets_all_ports_helper(
+                self, exp_packet, self.nr, pc_ports, timeout=20)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:
-            arg = self.nr, nr_rcvd, str(acc_port), str(
-                pc_ports), src_mac, dst_mac, src_ip, dst_ip
+            if self.is_active_active_dualtor:
+                arg = self.nr, nr_rcvd, str(acc_port), str(
+                    self.all_active_net_ports), src_mac, dst_mac, src_ip, dst_ip
+            else:
+                arg = self.nr, nr_rcvd, str(acc_port), str(
+                    pc_ports), src_mac, dst_mac, src_ip, dst_ip
             out = "sent = %d rcvd = %d | src_port=%s dst_ports=%s | src_mac=%s dst_mac=%s src_ip=%s dst_ip=%s" % arg
         return rv, out
 
@@ -565,8 +590,12 @@ class Vxlan(BaseTest):
         self.dataplane.flush()
         for i in range(self.nr):
             testutils.send_packet(self, net_port, packet)
-        nr_rcvd = count_matched_packets_helper(
-            self, inpacket, self.nr, acc_port, timeout=20)
+        if self.is_active_active_dualtor:
+            nr_rcvd = count_matched_packets_helper(
+                self, inpacket, self.nr, timeout=20)
+        else:
+            nr_rcvd = count_matched_packets_helper(
+                self, inpacket, self.nr, acc_port, timeout=20)
         rv = nr_rcvd == self.nr
         out = ""
         if not rv:

@@ -215,6 +215,14 @@ def verify_show_sflow(duthost, status, **kwargs):
 # ----------------------------------------------------------------------------------
 
 
+def verify_sflow_config_apply(duthost):
+    sflow_sai_config_list = duthost.shell('redis-cli -n 1 keys *SAI_OBJECT_TYPE_SAMPLEPACKET*')['stdout_lines']
+    for sflow_sai_config in sflow_sai_config_list:
+        if 'SAI_OBJECT_TYPE_SAMPLEPACKET' in sflow_sai_config:
+            return True
+    return False
+
+
 def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
     show_sflow_intf = duthost.shell('show sflow interface')['stdout']
     assert re.search(r"%s\s+\|\s+%s\s+\|\s+%s" % (intf, status, sampling_rate),
@@ -500,6 +508,7 @@ class TestReboot():
         reboot(duthost, localhost)
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(60, 5, 0, verify_sflow_config_apply, duthost)
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'], polling_int=80)
         for intf in var['sflow_ports']:

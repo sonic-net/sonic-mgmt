@@ -35,6 +35,7 @@ from ansible.executor.task_queue_manager import TaskQueueManager
 from ansible.inventory.manager import InventoryManager
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
+from ansible.vars.hostvars import HostVars
 from ansible.playbook.play import Play
 
 from ansible.plugins.callback import CallbackBase
@@ -55,6 +56,10 @@ except Exception as e:
 
 
 class UnsupportedAnsibleModule(Exception):
+    pass
+
+
+class HostsUnreachable(Exception):
     pass
 
 
@@ -148,7 +153,7 @@ class BatchResultsCollector(CallbackBase):
 
         res = dict(hostname=hostname, reachable=False, failed=True)
         res.update(result._result)
-        self._results[hostname].append(result._result)
+        self._results[hostname].append(res)
 
     @property
     def results(self):
@@ -234,10 +239,17 @@ class AnsibleHostsBase(object):
         else:
             self.vm = VariableManager(loader=self.loader, inventory=self.im)
 
+        # Trigger ansible to load and render host variables
+        # After this operation, self.vm._hostvars will be populated with content
+        # self.vm._hostvars["example_hostname"] will return all variables visible by "example_hostname"
+        # The best part is that if the variable is a template, it is automatically rendered with correct data type
+        HostVars(inventory=self.im, variable_manager=self.vm, loader=self.loader)
+
         self.options = {
             "forks": 6,
             "connection": "smart",
             "verbosity": 2,
+            "timeout": 30,
             "become_method": "sudo"
         }
         if options:
@@ -383,10 +395,10 @@ class AnsibleHostsBase(object):
             raise TypeError("Unsupported type of object: {}".format(type(self)))
 
         if isinstance(module_info, dict):
-            module_names = json.dumps(module_info.get("module_name", ""))
+            module_names = module_info.get("module_name", "")
             hint_str = "AnsibleModule::{}".format(module_names)
         elif isinstance(module_info, list):
-            module_names = ", ".join([module_item.get("module_name", "") for module_item in module_info])
+            module_names = [module_item.get("module_name", "") for module_item in module_info]
             hint_str = "AnsibleModules::{}".format(json.dumps(module_names))
         else:
             raise TypeError("Got {}, expected tuple or list of tuples, tuple items: "
@@ -447,13 +459,13 @@ class AnsibleHostsBase(object):
         caller_str = "{}::{}#{}".format(filename, function_name, line_number)
 
         if isinstance(module_info, dict):
-            module_names = json.dumps(module_info.get("module_name", ""))
+            module_names = module_info.get("module_name", "")
             hint_str = "AnsibleModule::{}".format(module_names)
         elif isinstance(module_info, list):
-            module_names = ", ".join([module_item.get("module_name", "") for module_item in module_info])
+            module_names = [module_item.get("module_name", "") for module_item in module_info]
             hint_str = "AnsibleModules::{}".format(json.dumps(module_names))
         else:
-            raise TypeError("Got {}, expected tuple or list of tuples, tuple items: "
+            raise TypeError("Got module_info argument of type {}, expected dict or list of dicts, dict keys: "
                             "module_name, module_args, module_kwargs, module_attrs".format(type(module_info)))
 
         if verbosity == 1:      # Log module only
@@ -487,7 +499,7 @@ class AnsibleHostsBase(object):
                 from inspect.stack().
             module_info (dict or list): Information of ansible modules to be executed. If only one module is executed,
                 module_info is a dict. If multiple modules are executed, module_info is a list of dicts.
-            results (dict): Results of ansible modules.
+            results (dict): Results of ansible module or modules on single or multiple hosts.
             module_ignore_errors (bool): Ignore module errors or not. If True, no error will be raised even if module
                 execution failed.
             verbosity (int): Verbosity level. If verbosity is 0, details of failed modules will not be included in the
@@ -502,16 +514,41 @@ class AnsibleHostsBase(object):
         if isinstance(self, AnsibleHosts):
             hosts_str = json.dumps(self.hostnames)
         elif isinstance(self, AnsibleHost):
-            hosts_str = json.dumps(self.hostnames[0])
-            results = results.get(self.hostnames[0], {})
+            hosts_str = self.hostnames[0]
         else:
             raise TypeError("Unsupported type of object: {}".format(type(self)))
 
-        if isinstance(module_info, dict):
+        unreachable = False
+        failed = False
+        for _, module_results in results.items():
+            if isinstance(module_results, list):
+                for result in module_results:
+                    if "reachable" in result and not result["reachable"]:
+                        unreachable = True
+                    if "unreachable" in result and result["unreachable"]:
+                        unreachable = True
+                    if "failed" in result and result["failed"]:
+                        failed = True
+                    if unreachable and failed:
+                        break
+            elif isinstance(module_results, dict):
+                if "reachable" in module_results and not module_results["reachable"]:
+                    unreachable = True
+                if "unreachable" in module_results and module_results["unreachable"]:
+                    unreachable = True
+                if "failed" in module_results and module_results["failed"]:
+                    failed = True
+                if unreachable and failed:
+                    break
+            else:
+                raise TypeError("Got results of type {}, expected dict or list of dicts, dict keys: "
+                                "module_name, module_args, module_kwargs, module_attrs".format(type(module_results)))
+
+        if isinstance(module_info, dict):       # Run single module
             module_names = json.dumps(module_info.get("module_name", ""))
             hint_str = "AnsibleModule::{}".format(module_names)
-        elif isinstance(module_info, list):
-            module_names = ", ".join([module_item.get("module_name", "") for module_item in module_info])
+        elif isinstance(module_info, list):     # Run multiple modules
+            module_names = [module_item.get("module_name", "") for module_item in module_info]
             hint_str = "AnsibleModules::{}".format(json.dumps(module_names))
         else:
             raise TypeError("Got {}, expected tuple or list of tuples, tuple items: "
@@ -520,11 +557,15 @@ class AnsibleHostsBase(object):
         err_msg = ""
         if verbosity <= 0:      # No information of module and result
             err_msg = "Run ansible module failed"
+            if unreachable:
+                err_msg += " with hosts unreachable"
         elif verbosity == 1:    # Log module name only. Do not log args and result
-            err_msg = "{}: {} -> {} failed".format(
+            unreachable_str = " with hosts unreachable" if unreachable else ""
+            err_msg = "{}: {} -> {} failed{}".format(
                 caller_str,
                 hosts_str,
-                hint_str
+                hint_str,
+                unreachable_str
             )
         elif verbosity >= 2:    # Log module name, args and result
             if verbosity == 2:
@@ -532,23 +573,21 @@ class AnsibleHostsBase(object):
             elif verbosity >= 3:
                 indent = 4
 
-            err_msg = "{}: {} -> {} failed, Results => {}".format(
+            unreachable_str = " with hosts unreachable" if unreachable else ""
+            if isinstance(self, AnsibleHost):
+                results = results[self.hostnames[0]]
+            err_msg = "{}: {} -> {} failed{}, Results => {}".format(
                 caller_str,
                 hosts_str,
                 hint_str,
+                unreachable_str,
                 json.dumps(results, indent=indent)
             )
 
-        if isinstance(self, AnsibleHosts):
-            if isinstance(module_info, dict):
-                failed = any([res["failed"] for res in results.values()])
-            else:
-                failed = any([any([res["failed"] for res in module_results]) for module_results in results.values()])
-        elif isinstance(self, AnsibleHost):
-            if isinstance(module_info, dict):
-                failed = results["failed"]
-            else:
-                failed = any([res["failed"] for res in results])
+        # If a host is unreachable, the run ansible module result must be failed.
+        # If a host is reachable, the run ansible module result may be failed or succeeded.
+        if unreachable:
+            raise HostsUnreachable(err_msg)
         if failed:
             raise RunAnsibleModuleFailed(err_msg)
 
@@ -563,11 +602,12 @@ class AnsibleHostsBase(object):
 
         Special keyword arguments:
             module_ignore_errors: If this argument is set to True, no RunAnsibleModuleFailed exception will be raised.
+                Default is False.
             module_attrs: A dict for specifying module attributes that may affect execution of the ansible module.
                 Reference documents:
                 * https://docs.ansible.com/ansible/2.9/modules/list_of_all_modules.html
                 * https://docs.ansible.com/ansible/latest/collections/index.html
-            verbosity: integer from 0-3.
+            verbosity: Integer from 0-3. Default is 2.
 
         Raises:
             RunAnsibleModuleFailed: Raise this exception if result is failed AND keyword argument
@@ -575,7 +615,8 @@ class AnsibleHostsBase(object):
 
         Args:
             *args: Positional arguments of ansible module.
-            **kwargs: Keyword arguments of ansible module.
+            **kwargs: Keyword arguments of ansible module. Special keyword arguments will be popped out for special
+                processing. Rest of the keyword arguments are passed to ansible module as keyword arguments.
 
         Returns:
             dict: Ansible module execution result. If this function is executed on AnsibleHosts instance, the result
@@ -700,6 +741,7 @@ class AnsibleHostsBase(object):
                 }
         """
         caller_info = kwargs.pop("caller_info", None)
+        target_hosts = kwargs.pop("target_hosts", None)
         if not caller_info:
             previous_frame = inspect.currentframe().f_back
             caller_info = inspect.getframeinfo(previous_frame)
@@ -722,7 +764,10 @@ class AnsibleHostsBase(object):
         self._log_modules(caller_info, module_info, verbosity)
 
         task = self.build_task(**module_info)
-        results = self.run_tasks(self.host_pattern, self.loader, self.im, self.vm, self.options, tasks=[task])
+        host_pattern = self.host_pattern
+        if target_hosts:
+            host_pattern = target_hosts
+        results = self.run_tasks(host_pattern, self.loader, self.im, self.vm, self.options, tasks=[task])
 
         self._log_results(caller_info, module_info, results, verbosity)
         self._check_results(caller_info, module_info, results, module_ignore_errors, verbosity)
@@ -760,12 +805,13 @@ class AnsibleHostsBase(object):
                 Reference documents:
                 * https://docs.ansible.com/ansible/2.9/modules/list_of_all_modules.html
                 * https://docs.ansible.com/ansible/latest/collections/index.html
-            verbosity: integer from 0-3.
+            verbosity: Integer from 0-3. Default is 2.
 
         Args:
             module_name (str): Ansible module name.
             args (list): Ansible module arguments.
-            kwargs (dict): Ansible module keyword arguments.
+            **kwargs: Keyword arguments of ansible module. Special keyword arguments will be popped out for special
+                processing. Rest of the keyword arguments are passed to ansible module as keyword arguments.
 
         Raises:
             UnsupportedAnsibleModule: Unable to find ansible module specified by `module_name` from ansible builtin
@@ -817,7 +863,9 @@ class AnsibleHostsBase(object):
         """Run the list of loaded ansible modules.
 
         Args:
-            verbosity (int): Verbosity value from 0-3.
+            module_ignore_errors: If this argument is set to True, no RunAnsibleModuleFailed exception will be raised.
+                Default is False.
+            verbosity (int): Verbosity value from 0-3. Default is 2.
 
         Returns:
             dict: Ansible module execution results. Sample result:
@@ -907,7 +955,7 @@ class AnsibleHostsBase(object):
 
         loaded_modules = copy.deepcopy(self._loaded_modules)
         self.clear_loaded_modules()
-        self._log_modules(caller_info, self._loaded_modules, verbosity)
+        self._log_modules(caller_info, loaded_modules, verbosity)
 
         tasks = [
             self.build_task(**module) for module in loaded_modules
@@ -917,7 +965,26 @@ class AnsibleHostsBase(object):
         self._log_results(caller_info, loaded_modules, results, verbosity)
         self._check_results(caller_info, loaded_modules, results, module_ignore_errors, verbosity)
 
+        if isinstance(self, AnsibleHost):
+            results = results[self.hostnames[0]]
+
         return results
+
+    def reachable(self):
+        """Check if ansible hosts are reachable.
+
+        Returns:
+            (bool, dict): The first element in returned tuple indicates if all hosts are reachable.
+                True if all hosts are reachable. False if any host is unreachable. The second element
+                is the detailed ping check results.
+
+        """
+        results = self.run_module("ping", kwargs={"module_ignore_errors": True})
+        if isinstance(self, AnsibleHost):
+            is_reachable = results["reachable"]
+        else:
+            is_reachable = all([res["reachable"] for res in results.values()])
+        return is_reachable, results
 
     def get_inv_host(self, hostname, strict=False):
         """Tool for getting ansible.inventory.host.Host object from self.inventories using ansible inventory manager.

@@ -65,8 +65,12 @@ def get_target_speed(conn, index):
     return fan_api(conn, index, 'get_target_speed')
 
 
-def get_speed_tolerance(conn, index):
-    return fan_api(conn, index, 'get_speed_tolerance')
+def is_under_speed(conn, index):
+    return fan_api(conn, index, 'is_under_speed')
+
+
+def is_over_speed(conn, index):
+    return fan_api(conn, index, 'is_over_speed')
 
 
 def set_speed(conn, index, speed):

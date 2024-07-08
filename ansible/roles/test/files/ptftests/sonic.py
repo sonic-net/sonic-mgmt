@@ -61,7 +61,19 @@ class Sonic(host_device.HostDevice):
             attempts += 1
             try:
                 stdin, stdout, stderr = self.conn.exec_command(cmd, timeout=Sonic.SSH_CMD_TIMEOUT)
-                return stdout.read()
+                # Warning: This is a bit fragile. Both stdout and stderr use
+                # the same SSH channel, and if the buffer for that channel is
+                # full, then either stdout or stderr will block until there's
+                # space in the channel.
+                #
+                # Therefore, fully read stdout first before trying to read
+                # stderr. This assumes there's plenty of data on stdout to read,
+                # but not much on stderr.
+                stdoutOutput = six.ensure_str(stdout.read())
+                stderrOutput = six.ensure_str(stderr.read()).strip()
+                if len(stderrOutput) > 0:
+                    self.log("Output on stderr from command '{}': '{}'".format(cmd, stderrOutput))
+                return stdoutOutput
             except socket.timeout:
                 self.log("Timeout when running command: {}".format(cmd))
                 return ""
@@ -175,12 +187,12 @@ class Sonic(host_device.HostDevice):
         self.disconnect()
 
         # save data for troubleshooting
-        with open("/tmp/%s.data.pickle" % self.ip, "w") as fp:
+        with open("/tmp/%s.data.pickle" % self.ip, "wb") as fp:
             pickle.dump(data, fp)
 
         # save debug data for troubleshooting
         if self.DEBUG:
-            with open("/tmp/%s.raw.pickle" % self.ip, "w") as fp:
+            with open("/tmp/%s.raw.pickle" % self.ip, "wb") as fp:
                 pickle.dump(debug_data, fp)
             with open("/tmp/%s.logging" % self.ip, "w") as fp:
                 fp.write("\n".join(log_lines))
@@ -199,7 +211,7 @@ class Sonic(host_device.HostDevice):
             cli_data['route_timeout'] = route_timeout
 
             # {'10.0.0.38': [(0, '4200065100)')], 'fc00::2d': [(0, '4200065100)')]}
-            for nei in route_timeout.keys():
+            for nei in list(route_timeout.keys()):
                 asn = route_timeout[nei][0][-1]
                 msg = 'BGP route GR timeout: neighbor %s (ASN %s' % (nei, asn)
                 self.fails.add(msg)
@@ -276,23 +288,24 @@ class Sonic(host_device.HostDevice):
             assert first_state == 'DOWN', 'First PO state should be down, it was {}'.format(first_state)
             assert last_state == 'UP', 'Last PO state should be up, it was {}'.format(last_state)
 
-        for neig_ip in result_bgp.keys():
+        for neig_ip in list(result_bgp.keys()):
             key = "BGP IPv6 was down (seconds)" if ':' in neig_ip else "BGP IPv4 was down (seconds)"
             result[key] = result_bgp[neig_ip][-1][0] - result_bgp[neig_ip][0][0]
 
-        for neig_ip in result_bgp.keys():
+        for neig_ip in list(result_bgp.keys()):
             key = "BGP IPv6 was down (times)" if ':' in neig_ip else "BGP IPv4 was down (times)"
-            result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
+            result[key] = list(map(itemgetter(1), result_bgp[neig_ip])).count("Idle")
 
         result['PortChannel was down (seconds)'] = po_carrier_data[-1][0] - po_carrier_data[0][0] \
             if po_carrier_data else 0
         for if_name in sorted(result_if.keys()):
-            result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
+            result['Interface %s was down (times)' % if_name] = \
+                list(map(itemgetter(1), result_if[if_name])).count("down")
 
         bgp_po_offset = abs(initial_time_if - initial_time_bgp)
         result['BGP went down after portchannel went down (seconds)'] = bgp_po_offset
 
-        for neig_ip in result_bgp.keys():
+        for neig_ip in list(result_bgp.keys()):
             key = "BGP {} was gotten up after Po was up (seconds)".format("IPv6" if ':' in neig_ip else "IPv4")
             result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset
 
@@ -309,14 +322,14 @@ class Sonic(host_device.HostDevice):
         return 0, num_lag_flaps
 
     def parse_lacp(self, output):
-        return six.ensure_str(output).find('Bundled') != -1
+        return output.find('Bundled') != -1
 
     def parse_bgp_neighbor_once(self, output):
         is_gr_ipv4_enabled = False
         is_gr_ipv6_enabled = False
         restart_time = None
         obj = json.loads(output)
-        for prefix, attrs in obj.items():
+        for prefix, attrs in list(obj.items()):
             if "exabgp" in attrs["nbrDesc"]:
                 continue
             if attrs["gracefulRestartInfo"]["remoteGrMode"] == "Disable":
@@ -339,7 +352,7 @@ class Sonic(host_device.HostDevice):
         neigh_bgp = None
         dut_bgp = None
         asn = None
-        for neighbor, attrs in obj.items():
+        for neighbor, attrs in list(obj.items()):
             dut_bgp = neighbor
             asn = attrs["localAs"]
             neigh_bgp = attrs["hostLocal"]
@@ -350,7 +363,7 @@ class Sonic(host_device.HostDevice):
         gr_active = False
         gr_timer = None
         obj = json.loads(output)
-        for prefix, attrs in obj.items():
+        for prefix, attrs in list(obj.items()):
             if "exabgp" in attrs["nbrDesc"]:
                 continue
             if "gracefulRestartInfo" not in attrs:
@@ -367,7 +380,7 @@ class Sonic(host_device.HostDevice):
         prefixes = set()
         obj = json.loads(output)
 
-        for prefix, attrs in obj.items():
+        for prefix, attrs in list(obj.items()):
             attrs = attrs[0]
             if "nexthops" not in attrs:
                 continue
@@ -377,7 +390,7 @@ class Sonic(host_device.HostDevice):
         return set(expects).issubset(prefixes)
 
     def parse_supported_show_lacp_command(self):
-        show_lacp_command = "show lacp neighbor"
+        show_lacp_command = "show interface portchannel"
         self.log("show lacp command is '{}'".format(show_lacp_command))
         return show_lacp_command
 
@@ -481,6 +494,8 @@ class Sonic(host_device.HostDevice):
         # Note: this function may have false-positives (with regards to link flaps). The start time used here is
         # the system's boot time, not the test start time, which means any LAG flaps before the start of the test
         # would get included here.
+        #
+        # You probably really don't want to call this function.
         log_lines = self.do_cmd("sudo cat /var/log/teamd.log{,.1}").split('\n')
         boot_time = datetime.datetime.strptime(self.do_cmd("uptime -s").strip(), "%Y-%m-%d %H:%M:%S")
         _, flap_cnt = self.check_lag_flaps("PortChannel1", log_lines, time.mktime(boot_time.timetuple()))
@@ -495,7 +510,7 @@ class Sonic(host_device.HostDevice):
         if self.gr_timeout < 120:  # bgp graceful restart timeout less then 120 seconds
             self.fails.add("bgp graceful restart timeout ({}) is less then 120 seconds".format(self.gr_timeout))
 
-        for when, other in sorted(output.items(), key=lambda x: x[0]):
+        for when, other in sorted(list(output.items()), key=lambda x: x[0]):
             gr_active, timer = other['bgp_neig']
             # wnen it's False, it's ok, wnen it's True, check that inactivity timer not less then
             # self.min_bgp_gr_timeout seconds

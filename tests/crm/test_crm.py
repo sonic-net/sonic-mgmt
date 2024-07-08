@@ -17,6 +17,8 @@ from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLL
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa F401
 from tests.common.utilities import wait_until, get_data_acl
+from tests.common.mellanox_data import is_mellanox_device
+from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
 
 
 pytestmark = [
@@ -67,6 +69,17 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
     if loganalyzer:  # Skip if loganalyzer is disabled
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
+
+
+@pytest.fixture(scope="function")
+def handle_default_acl_rules(duthost, tbinfo):
+    """
+    Cleanup all the existing DATAACL rules and re-create them at the end of the test
+    """
+    data_acl = get_data_acl(duthost)
+    if data_acl:
+        duthost.shell('acl-loader delete DATAACL')
+        RESTORE_CMDS["test_acl_counter"].append({"data_acl": data_acl})
 
 
 def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
@@ -438,6 +451,16 @@ def get_crm_resources_fdb_and_ip_route(duthost, asic_ix):
     return result
 
 
+def get_nh_ip(duthost, asichost, crm_interface, ip_ver):
+    # Get NH IP
+    cmd = "{ip_cmd} -{ip_ver} neigh show dev {crm_intf} nud reachable nud stale \
+                        | grep -v fe80".format(ip_cmd=asichost.ip_cmd, ip_ver=ip_ver, crm_intf=crm_interface[0])
+    out = duthost.shell(cmd)
+    assert out["stdout"] != "", "Get Next Hop IP failed. Neighbor not found"
+    nh_ip = [item.split()[0] for item in out["stdout"].split("\n") if "REACHABLE" in item][0]
+    return nh_ip
+
+
 @pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("ip_ver,route_add_cmd,route_del_cmd", [("4", "{} route add 2.{}.2.0/24 via {}",
                                                                 "{} route del 2.{}.2.0/24 via {}"),
@@ -478,11 +501,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     logging.info("crm_stats_route_used {}, crm_stats_route_available {}, crm_stats_fdb_used {}".format(
         crm_stats_route_used, crm_stats_route_available, crm_stats_fdb_used))
     # Get NH IP
-    cmd = "{ip_cmd} -{ip_ver} neigh show dev {crm_intf} nud reachable nud stale \
-            | grep -v fe80".format(ip_cmd=asichost.ip_cmd, ip_ver=ip_ver, crm_intf=crm_interface[0])
-    out = duthost.shell(cmd)
-    pytest_assert(out["stdout"] != "", "Get Next Hop IP failed. Neighbor not found")
-    nh_ip = [item.split()[0] for item in out["stdout"].split("\n") if "REACHABLE" in item][0]
+    nh_ip = get_nh_ip(duthost, asichost, crm_interface, ip_ver)
 
     # Add IPv[4/6] routes
     # Cisco platforms need an upward of 64 routes for crm_stats_ipv4_route_available to decrement
@@ -524,6 +543,9 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         pytest.fail("\"crm_stats_ipv{}_route_used\" counter was not incremented".format(ip_ver))
     # Verify "crm_stats_ipv[4/6]_route_available" counter was decremented
     if check_available_counters and not (crm_stats_route_available - new_crm_stats_route_available >= 1):
+        if is_mellanox_device(duthost):
+            # Get sai sdk dump file in case test fail, we can get the LPM tree information
+            get_sai_sdk_dump_file(duthost, f"sai_sdk_dump_after_add_v{ip_ver}_router")
         for i in range(total_routes):
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_available\" counter was not decremented".format(ip_ver))
@@ -603,7 +625,7 @@ def get_expected_crm_stats_route_available(crm_stats_route_available, crm_stats_
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
 def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost):
+                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
@@ -624,6 +646,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             nexthop_del_cmd = "config route del prefix 3001::0/64 nexthop {}".format(nexthop)
         asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
         asichost.shell(ip_add_cmd)
+        asichost.shell("config interface startup Ethernet1")
     else:
         nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
@@ -945,6 +968,9 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
         # PCs are a single bind point
         portToLag = {}
         for lag, lagData in mg_facts["minigraph_portchannels"].items():
+            # Check if Portchannel belongs to this namespace
+            if duthost.sonichost.is_multi_asic and lagData['namespace'] != asichost.namespace:
+                continue
             for member in lagData['members']:
                 portToLag[member] = lag
         aclBindings = mg_facts["minigraph_acls"]["DataAcl"]
@@ -998,7 +1024,8 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     duthost.command("acl-loader delete")
 
 
-def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
+def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector,
+                     handle_default_acl_rules):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
