@@ -628,6 +628,7 @@ class ReloadTest(BaseTest):
 
     def setUp(self):
         self.fails['dut'] = set()
+        self.fails['infrastructure'] = set()
         self.dut_mac = self.test_params['dut_mac']
         self.vlan_mac = self.test_params['vlan_mac']
         self.lo_prefix = self.test_params['lo_prefix']
@@ -1943,14 +1944,17 @@ class ReloadTest(BaseTest):
         self.lost_packets = dict()
         self.max_disrupt, self.total_disruption = 0, 0
         sent_packets = dict()
+        # Track packet id's that were neither sent or received
+        missing_sent_and_received_packet_id_sequences = []
         self.fails['dut'].add("Sniffer failed to capture any traffic")
         self.assertTrue(packets, "Sniffer failed to capture any traffic")
         self.fails['dut'].clear()
         prev_payload = None
         if packets:
-            prev_payload, prev_time = 0, 0
+            prev_payload, prev_time = -1, 0
             sent_payload = 0
             received_counter = 0    # Counts packets from dut.
+            received_but_not_sent_packets = set()
             sent_counter = 0
             received_t1_to_vlan = 0
             received_vlan_to_t1 = 0
@@ -1985,31 +1989,60 @@ class ReloadTest(BaseTest):
                     prev_time = received_time
                     continue
                 if received_payload - prev_payload > 1:
-                    # Packets in a row are missing, a disruption.
+                    if received_payload not in sent_packets:
+                        self.log("Ignoring received packet with payload {}, as it was not sent".format(
+                            received_payload))
+                        received_but_not_sent_packets.add(received_payload)
+                        continue
+                    # Packets in a row are missing, a potential disruption.
                     self.log("received_payload: {}, prev_payload: {}, sent_counter: {}, received_counter: {}".format(
                         received_payload, prev_payload, sent_counter, received_counter))
                     # How many packets lost in a row.
                     lost_id = (received_payload - 1) - prev_payload
-                    # How long disrupt lasted.
-                    disrupt = (
-                        sent_packets[received_payload] - sent_packets[prev_payload + 1])
-                    # Add disrupt to the dict:
-                    self.lost_packets[prev_payload] = (
-                        lost_id, disrupt, received_time - disrupt, received_time)
-                    self.log("Disruption between packet ID %d and %d. For %.4f " % (
-                        prev_payload, received_payload, disrupt))
-                    for lost_index in range(prev_payload + 1, received_payload):
-                        # lost received for packet sent from vlan to T1.
-                        if (lost_index % 5) == 0:
-                            missed_vlan_to_t1 += 1
+
+                    # Find previous sequential sent packet that was captured
+                    missing_sent_and_received_pkt_count = 0
+                    prev_pkt_pt = prev_payload + 1
+                    prev_sent_packet_time = None
+                    while prev_pkt_pt < received_payload:
+                        if prev_pkt_pt in sent_packets:
+                            prev_sent_packet_time = sent_packets[prev_pkt_pt]
+                            break  # Found it
                         else:
-                            missed_t1_to_vlan += 1
-                    self.log("")
-                    if not self.disruption_start:
-                        self.disruption_start = datetime.datetime.fromtimestamp(
-                            prev_time)
-                    self.disruption_stop = datetime.datetime.fromtimestamp(
-                        received_time)
+                            if prev_pkt_pt not in received_but_not_sent_packets:
+                                missing_sent_and_received_pkt_count += 1
+                            prev_pkt_pt += 1
+                    if missing_sent_and_received_pkt_count > 0:
+                        missing_sent_and_received_packet_id_sequences_fmtd = \
+                            str(prev_payload + 1) if missing_sent_and_received_pkt_count == 1\
+                            else "{}-{}".format(prev_payload + 1, received_payload - 1)
+                        missing_sent_and_received_packet_id_sequences.append(
+                            missing_sent_and_received_packet_id_sequences_fmtd)
+                    if prev_sent_packet_time is not None:
+                        # Disruption occurred - some sent packets were not received
+
+                        # How long disrupt lasted.
+                        this_sent_packet_time = sent_packets[received_payload]
+                        disrupt = this_sent_packet_time - prev_sent_packet_time
+
+                        # Add disrupt to the dict:
+                        self.lost_packets[prev_payload] = (
+                            lost_id, disrupt, received_time - disrupt, received_time)
+                        self.log("Disruption between packet ID %d and %d. For %.4f " % (
+                            prev_payload, received_payload, disrupt))
+                        for lost_index in range(prev_payload + 1, received_payload):
+                            # lost received for packet sent from vlan to T1.
+                            if lost_index in sent_packets:
+                                if (lost_index % 5) == 0:
+                                    missed_vlan_to_t1 += 1
+                                else:
+                                    missed_t1_to_vlan += 1
+                        self.log("")
+                        if not self.disruption_start:
+                            self.disruption_start = datetime.datetime.fromtimestamp(
+                                prev_time)
+                        self.disruption_stop = datetime.datetime.fromtimestamp(
+                            received_time)
                 prev_payload = received_payload
                 prev_time = received_time
             self.log(
@@ -2042,6 +2075,11 @@ class ReloadTest(BaseTest):
             self.total_disrupt_packets = 0
             self.total_disrupt_time = 0
             self.log("Gaps in forwarding not found.")
+
+        if missing_sent_and_received_packet_id_sequences:
+            self.fails["infrastructure"].add(
+                "Missing sent and received packets: {}"
+                .format(missing_sent_and_received_packet_id_sequences))
 
         self.dataplane_loss_checked_successfully = True
 
