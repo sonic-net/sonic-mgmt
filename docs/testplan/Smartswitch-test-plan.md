@@ -8,14 +8,13 @@
     - [1.2 Check platform voltage](#12-check-platform-voltage)
     - [1.3 Check platform temperature](#13-check-platform-temperature)
     - [1.4 Check dpu console](#14-check-dpu-console)
-    - [1.5 Check midplane ip address between NPU and DPU](#15-check-midplane-ip-address-between-NPU-and-DPU)
-    - [1.6 Check DPU shutdown and power up individually](#16-check-DPU-shutdown-and-power-up-individually)
-    - [1.7 Check removal of pcie link between npu and dpu](#17-check-removal-of-pcie-link-between-npu-and-dpu)
-    - [1.8 Check the NTP date and timezone between DPU and NPU](#18-check-the-ntp-date-and-timezone-between-dpu-and-npu)
-    - [1.9 Check the State of DPUs](#19-check-the-state-of-dpus)
-    - [1.10 Check the Health of DPUs](#110-check-the-health-of-dpus)
-    - [1.11 Check reboot cause history](#111-check-reboot-cause-history)
-    - [1.12 Check the DPU state after OS reboot](#112-check-the-dpu-state-after-os-reboot)
+    - [1.5 Check DPU shutdown and power up individually](#15-check-DPU-shutdown-and-power-up-individually)
+    - [1.6 Check removal of pcie link between npu and dpu](#16-check-removal-of-pcie-link-between-npu-and-dpu)
+    - [1.7 Check the NTP date and timezone between DPU and NPU](#17-check-the-ntp-date-and-timezone-between-dpu-and-npu)
+    - [1.8 Check the State of DPUs](#18-check-the-state-of-dpus)
+    - [1.9 Check the Health of DPUs](#19-check-the-health-of-dpus)
+    - [1.10 Check reboot cause history](#110-check-reboot-cause-history)
+    - [1.11 Check the DPU state after OS reboot](#111-check-the-dpu-state-after-os-reboot)
 
 ## Introduction
 
@@ -44,23 +43,22 @@ For every test cases, all DPUs need to be powered on unless specified in any of 
 | 1.2 | Check platform voltage       |  To verify the Voltage sensor values and and functionality of alarm by changing the threshold values |
 | 1.3 | Check platform temperature       |  To Verify the Temperature sensor values and functionality of alarm by changing the threshold values |
 | 1.4 | Check dpu console       | To Verify console access for all DPUs       |
-| 1.5 | Check midplane ip address between NPU and DPU      | To Verify PCIe interface created between NPU and DPU according to bus number |
-| 1.6 | Check DPU shutdown and power up individually      |  To Verify one DPU shutdown  and other dpus in same as well in other sleds are up |
-| 1.7 | Check removal of pcie link between npu and dpu       | To Verify the PCie hot plug functinality        |
-| 1.8 | Check the NTP date and timezone between DPU and NPU       | To Verify NPU and DPU are in sync with respect to timezone and logs timestamp |
-| 1.9 | Check the State of DPUs      | To Verify DPU state details during online and offline      |
-| 1.10 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU |
-| 1.11 | Check reboot cause history       | To Verify reboot cause history cli |
-| 1.12 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot |
+| 1.5 | Check DPU shutdown and power up individually      |  To Verify one DPU shutdown  and other dpus in same as well in other sleds are up |
+| 1.6 | Check removal of pcie link between npu and dpu       | To Verify the PCie hot plug functinality        |
+| 1.7 | Check the NTP date and timezone between DPU and NPU       | To Verify NPU and DPU are in sync with respect to timezone and logs timestamp |
+| 1.8 | Check the State of DPUs      | To Verify DPU state details during online and offline      |
+| 1.9 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU |
+| 1.10 | Check reboot cause history       | To Verify reboot cause history cli |
+| 1.11 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot |
 
 
 ## Test Cases
 
 
-### 1.1 Check Platform Inventory
+### 1.1 Check DPU Status
 
 #### Steps
- * Use command `show platform inventory` to get inventory
+ * Use command `show chassis modules status` to get dpu status 
  * Get the number of dpu modules from PMON APIs - get_num_modules()
 
 #### Verify in
@@ -69,53 +67,21 @@ For every test cases, all DPUs need to be powered on unless specified in any of 
 #### Sample Output
 ```
 On Switch:
-
-root@sonic:/home/cisco# show platform inventory 
-    Name                Product ID      Version              Serial Number   Description
-
-Chassis
-    CHASSIS             8102-28FH-DPU-O 0.10                 FLM274802F3     Cisco 28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
-
-Route Processors
-    RP0                 8102-28FH-DPU-O 0.10                 FLM274802F3     Cisco 28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
-
-Sled Cards
-    SLED0               8K-DPU400-2A    0.10                 FLM2750036M     Cisco 800 2xDPU Sled AMD Elba
-    SLED1               8K-DPU400-2A    0.10                 FLM2750037E     Cisco 800 2xDPU Sled AMD Elba
-    SLED2               8K-DPU400-2A    0.10                 FLM27500389     Cisco 800 2xDPU Sled AMD Elba
-    SLED3               8K-DPU400-2A    0.10                 FLM2750038M     Cisco 800 2xDPU Sled AMD Elba
-
-Dpu Modules
-    DPU0                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750036M     Pensando DSC
-    DPU1                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750037M     Pensando DSC
-    DPU2                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750038E     Pensando DSC
-    DPU3                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750039E     Pensando DSC
-    DPU4                DSS-MTFUJI      6.1.0-11-2-arm64     FLM27500389     Pensando DSC
-    DPU5                DSS-MTFUJI      6.1.0-11-2-arm64     FLM27500390     Pensando DSC
-    DPU6                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750038M     Pensando DSC
-    DPU7                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750039M     Pensando DSC
-
-Power Supplies
-    psutray                                                                  
-        PSU0            UCSC-PSU1-2300W A0                   DTM274202UB     UCS 230000W AC-DC High Line RSP02 Power Supply
-        PSU1 -- not present
-
-Cooling Devices
-    fantray0            FAN-2RU-PI-V3   N/A                  N/A             Cisco 8000 Series 2RU Fan with Port-side Air Intake Ver 3
-    fantray1            FAN-2RU-PI-V3   N/A                  N/A             Cisco 8000 Series 2RU Fan with Port-side Air Intake Ver 3
-    fantray2            FAN-2RU-PI-V3   N/A                  N/A             Cisco 8000 Series 2RU Fan with Port-side Air Intake Ver 3
-    fantray3            FAN-2RU-PI-V3   N/A                  N/A             Cisco 8000 Series 2RU Fan with Port-side Air Intake Ver 3
-
-FPDs
-    RP0/info.0                          0.8.0-287                            \_SB_.PC00.RP07.PXSX.INFO
-    RP0/info.1                          0.4.7-122                            \_SB_.PC00.RP01.PXSX.INFO
-    RP0/info.2                          0.2.1-247                            \_SB_.PC00.RP10.PXSX.INFO
-    RP0/info.50.auto                    10.2.0-30                            \_SB_.PC00.RP07.PXSX.P2PF
+root@sonic:/home/cisco# show chassis modules status
+  Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
+------  -------------  ---------------  -------------  --------------  --------
+  DPU0            N/A               -1         Online              up       N/A
+  DPU1            N/A               -1         Online              up       N/A
+  DPU2            N/A               -1         Online              up       N/A
+  DPU3            N/A               -1         Online              up       N/A
+  DPU4            N/A               -1         Online              up       N/A
+  DPU5            N/A               -1         Online              up       N/A
+  DPU6            N/A               -1         Online              up       N/A
+  DPU7            N/A               -1         Online              up       N/A
 
 ```
 #### Pass/Fail Criteria
  *  Verify number of dpus from api and number of dpus shown in the cli output.
- *  Verify all the serial numbers of the dpus that are unique.
 
 
 ### 1.2 Check platform voltage
@@ -472,65 +438,16 @@ root@sonic:/home/cisco#
 #### Pass/Fail Criteria
  * Verify Login access is displayed.
  * cntrl+a and then cntrl+x to come out of the dpu console.
- 
- 
-### 1.5 Check midplane ip address between NPU and DPU 
 
-#### Steps
- * Use command `show ip interface` to get ip addresses 
- * Get the number of dpu modules from PMON APIs - get_num_modules()
- * Currently all the interfaces gets static ip address
- * Use the command `lspci -d 1dd8:1004` to list all the pcie buses for DPUs
- * Ip adddress mapping to dpu - 169.254.x.2 (switch side interface) and 169.254.x.1 (DPU side interface). where x - bus number in decimal number.
- * Work in progress - Dymanic assignment of ip address via dhcp
-
-#### Verify in
- * Switch
-
-#### Sample Output
-```
-    On Switch:
-
-    root@sonic:/home/cisco# lspci -d 1dd8:1004
-18:00.0 Ethernet controller: Pensando Systems DSC Management Controller
-1c:00.0 Ethernet controller: Pensando Systems DSC Management Controller
-20:00.0 Ethernet controller: Pensando Systems DSC Management Controller
-24:00.0 Ethernet controller: Pensando Systems DSC Management Controller
-8b:00.0 Ethernet controller: Pensando Systems DSC Management Controller
-8f:00.0 Ethernet controller: Pensando Systems DSC Management Controller
-93:00.0 Ethernet controller: Pensando Systems DSC Management Controller
-97:00.0 Ethernet controller: Pensando Systems DSC Management Controller
-root@sonic:/home/cisco# 
-
-
-      root@sonic:/home/cisco# show ip interface
-      Interface     Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
-      ------------  --------  -------------------  ------------  --------------  -------------
-      eth0                    172.25.42.65/24      up/up         N/A             N/A
-      eth1                    169.254.24.2/24      up/up         N/A             N/A
-      eth2                    169.254.28.2/24      up/up         N/A             N/A
-      eth3                    169.254.32.2/24      up/up         N/A             N/A
-      eth4                    169.254.36.2/24      up/up         N/A             N/A
-      eth5                    169.254.139.2/24     up/up         N/A             N/A
-      eth6                    169.254.143.2/24     up/up         N/A             N/A
-      eth7                    169.254.147.2/24     up/up         N/A             N/A
-      eth8                    169.254.151.2/24     up/up         N/A             N/A
-      lo                      127.0.0.1/16         up/up         N/A             N/A
-      root@sonic:/home/cisco# 
-```
-#### Pass/Fail Criteria
- * Verify output on switch to see all 169.254.x.x network interfaces are showing both Admin and Oper up.
- * Verify number of interfaces should be equal to number of dpu modules. 
-   
-   
-### 1.6 Check DPU shutdown and power up individually
+     
+### 1.5 Check DPU shutdown and power up individually
 
 #### Steps
  * Get the number of dpu modules from PMON APIs - get_num_modules()
  * Use command `config chassis modules shutdown <DPU_Number>` to shut down individual dpu
- * Use command `show platform inventory` to show dpu status
+ * Use command `show chassis modules status` to show dpu status
  * Use command `config chassis modules startup <DPU_Number>` to power up individual dpu
- * Use command `show platform inventory` to show dpu status
+ * Use command `show chassis modules status` to show dpu status
 
 #### Verify in
  * Switch
@@ -541,51 +458,39 @@ On Switch:
 
 root@sonic:/home/cisco# config chassis modules shutdown DPU4
 root@sonic:/home/cisco#
-root@sonic:/home/cisco# show platform inventory 
-    Name                Product ID      Version              Serial Number   Description
-
-Chassis
-    CHASSIS             8102-28FH-DPU-O 0.10                 FLM274802F3     Cisco 28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
-
-Route Processors
-    RP0                 8102-28FH-DPU-O 0.10                 FLM274802F3     Cisco 28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
-
-Dpu Modules
-    DPU0                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750036M     Pensando DSC
-    DPU1                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750037M     Pensando DSC
-    DPU2                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750037E     Pensando DSC
-    DPU3                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750038E     Pensando DSC
-    DPU4                DSS-MTFUJI                                           Powered off
-    DPU5                DSS-MTFUJI      6.1.0-11-2-arm64     FLM27500390     Pensando DSC
-    DPU6                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750038M     Pensando DSC
-    DPU7                DSS-MTFUJI      6.1.0-11-2-arm64     FLM2750039M     Pensando DSC
-
-Power Supplies
-    psutray                                                                  
-        PSU0            UCSC-PSU1-2300W A0                   DTM274202UB     UCS 230000W AC-DC High Line RSP02 Power Supply
-        PSU1 -- not present
-
-Cooling Devices
-    fantray0            FAN-2RU-PI-V3   N/A                  N/A             Cisco 8000 Series 2RU Fan with Port-side Air Intake Ver 3
-    fantray1            FAN-2RU-PI-V3   N/A                  N/A             Cisco 8000 Series 2RU Fan with Port-side Air Intake Ver 3
-    fantray2            FAN-2RU-PI-V3   N/A                  N/A             Cisco 8000 Series 2RU Fan with Port-side Air Intake Ver 3
-    fantray3            FAN-2RU-PI-V3   N/A                  N/A             Cisco 8000 Series 2RU Fan with Port-side Air Intake Ver 3
-
-FPDs
-    RP0/info.0                          0.8.0-287                            \_SB_.PC00.RP07.PXSX.INFO
-    RP0/info.1                          0.4.7-122                            \_SB_.PC00.RP01.PXSX.INFO
-    RP0/info.2                          0.2.1-247                            \_SB_.PC00.RP10.PXSX.INFO
-    RP0/info.50.auto                    10.2.0-30                            \_SB_.PC00.RP07.PXSX.P2PF
+root@sonic:/home/cisco# show chassis modules status
+  Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
+------  -------------  ---------------  -------------  --------------  --------
+  DPU0            N/A               -1         Online              up       N/A
+  DPU1            N/A               -1         Online              up       N/A
+  DPU2            N/A               -1         Online              up       N/A
+  DPU3            N/A               -1         Online              up       N/A
+  DPU4            N/A               -1        Offline            down       N/A
+  DPU5            N/A               -1         Online              up       N/A
+  DPU6            N/A               -1         Online              up       N/A
+  DPU7            N/A               -1         Online              up       N/A
 
 root@sonic:/home/cisco# config chassis modules startup DPU4
+root@sonic:/home/cisco# show chassis modules status
+  Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
+------  -------------  ---------------  -------------  --------------  --------
+  DPU0            N/A               -1         Online              up       N/A
+  DPU1            N/A               -1         Online              up       N/A
+  DPU2            N/A               -1         Online              up       N/A
+  DPU3            N/A               -1         Online              up       N/A
+  DPU4            N/A               -1         Online              up       N/A
+  DPU5            N/A               -1         Online              up       N/A
+  DPU6            N/A               -1         Online              up       N/A
+  DPU7            N/A               -1         Online              up       N/A
+
 
 ```
 #### Pass/Fail Criteria
- * Verify dpu powered off in platform inventory after dpu shut down
- * Verify dpu is shown in platform inventory after dpu powered on
+ * Verify dpu offline in show chassis modules status after dpu shut down
+ * Verify dpu is shown in show chassis modules status after dpu powered on
 
 
-### 1.7 Check removal of pcie link between npu and dpu
+### 1.6 Check removal of pcie link between npu and dpu
 
 #### Steps
  * Use command `pcieutil generate` to generate pcie yaml
@@ -620,7 +525,7 @@ root@sonic:/home/cisco# show platform pcieinfo -c
  * Verify pcieinfo test pass for all after bringing back up the link
 
 
-### 1.8 Check the NTP date and timezone between DPU and NPU
+### 1.7 Check the NTP date and timezone between DPU and NPU
 
 #### Steps
  * Use command `date` to get date and time zone on Swith
@@ -652,7 +557,8 @@ root@sonic:/home/cisco#
  * Verify the syslogs on both switch and dpu to be same
  * Verify by changing time intentionally in dpu and restart the dpu. Verify again for time sync
 
-### 1.9 Check the State of DPUs
+
+### 1.8 Check the State of DPUs
 
 #### Steps
  * Use command `show system-health DPU all` to get DPU health status. 
@@ -704,7 +610,7 @@ DPU0       1     Partial Online       dpu_midplane_link_state        up         
  * Verify powering down dpu and check for status and powering up again to check the status to show online. 
 
 
-### 1.10 Check the Health of DPUs
+### 1.9 Check the Health of DPUs
 
 #### Steps
  *  Use command `show system-health detail <DPU_SLOT_NUMBER>` to check the health of the dpu.
@@ -741,8 +647,9 @@ rsyslog                    OK        Process
  * Verify System Status - Green, Service Status - OK, Hardware Status - OK
  * Stop any docker in DPU and check for Service Status - Not OK and that docker as Not running
  * Start the docker again and Verify System Status - Green, Service Status - OK, Hardware Status - OK
- 
-### 1.11 Check reboot cause history
+
+
+### 1.10 Check reboot cause history
 
 #### Steps
  *  The "show reboot-cause" CLI on the switch shows the most recent rebooted device, time and the cause. 
@@ -795,7 +702,7 @@ DPU3        2023_10_02_17_23_46     Host Reset DPU                  Sun 02 Oct 2
  * Verify all the reboot causes - Watchdog, reboot command, Host Reset
 
 
-### 1.12 Check the DPU state after OS reboot
+### 1.11 Check the DPU state after OS reboot
 
 #### Steps
 
@@ -814,7 +721,7 @@ Existing Test case:
 Reboot Test Case for DPU:
  * After the exisiting case, Power on all the dpus using `config chassis modules startup <DPU_Number>`
  * Wait for DPUs to be up
- * Use command `show platform inventory` to get inventory
+ * Use command `show chassis modules status` to get dpu status
  * Get the number of dpu modules from PMON APIs - get_num_modules()
    
 #### Verify in
@@ -829,37 +736,19 @@ root@sonic:/home/cisco#
 root@sonic:/home/cisco# config chassis modules startup <DPU_Number>
 root@sonic:/home/cisco#
 root@sonic:/home/cisco#
-root@sonic:~#show platform inventory
-
-    Name                Product ID      Version         Serial Number   Description
-
-Chassis
-    CHASSIS             28FH-DPU-O 	0.10            FLM274802ER     28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
-
-Route Processors
-    RP0                 28FH-DPU-O 	0.10            FLM274802ER     28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
-
-DPU Modules
-    DPU0                8K-DPU400-2A    0.10            FLM2750036X     400G DPU 
-    DPU1                8K-DPU400-2A    0.10            FLM2750036S     400G DPU 
-    DPU2                8K-DPU400-2A    0.10            FLM274801EY     400G DPU 
-    DPU3                8K-DPU400-2A    0.10            FLM27500371     400G DPU
-
-Power Supplies                                                                
-    psutray                                                                                                                                                             
-        PSU0            PSUXKW-ACPI     0.0             POG2427K01K     AC Power Module with Port-side Air Intake                                                 
-        PSU1            PSUXKW-ACPI     0.0             POG2427K00Y     AC Power Module with Port-side Air Intake                                                 
-
-Cooling Devices
-    fantray0            FAN-2RU-PI-V3   N/A             N/A             8000 Series 2RU Fan 
-    fantray1            FAN-2RU-PI-V3   N/A             N/A             8000 Series 2RU Fan 
-
-FPDs
-    RP0/info.0                          0.5.6-253      
-
+root@sonic:/home/cisco# show chassis modules status
+  Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
+------  -------------  ---------------  -------------  --------------  --------
+  DPU0            N/A               -1         Online              up       N/A
+  DPU1            N/A               -1         Online              up       N/A
+  DPU2            N/A               -1         Online              up       N/A
+  DPU3            N/A               -1         Online              up       N/A
+  DPU4            N/A               -1         Online              up       N/A
+  DPU5            N/A               -1         Online              up       N/A
+  DPU6            N/A               -1         Online              up       N/A
+  DPU7            N/A               -1         Online              up       N/A
 ```
-#### Pass/Fail Criteria 
 
+#### Pass/Fail Criteria 
  *  Verify number of dpus from api and number of dpus shown in the cli output.
- *  Verify all the serial numbers of the dpus that are powered on are unique.
  
