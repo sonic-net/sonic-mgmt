@@ -6,7 +6,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI, \
     create_common_config_patch, generate_common_config_cli_commands, dhcp_server_config, \
-    validate_dhcp_server_pkts_custom_option, verify_lease, clean_dhcp_server_config, \
+    validate_dhcp_server_pkts_custom_option, verify_lease, \
     verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
     apply_dhcp_server_config_gcu, create_dhcp_client_packet, vlan_n2i
@@ -554,7 +554,6 @@ def test_dhcp_server_config_change_dhcp_interface(
         server_id=gateway,
         net_mask=net_mask
     )
-    clean_dhcp_server_config(duthost)
 
 
 def test_dhcp_server_config_change_common(
@@ -636,7 +635,6 @@ def test_dhcp_server_config_change_common(
         net_mask=net_mask,
         exp_lease_time=changed_lease_time
     )
-    clean_dhcp_server_config(duthost)
 
 
 def test_dhcp_server_config_vlan_member_change(
@@ -694,7 +692,6 @@ def test_dhcp_server_config_vlan_member_change(
         server_id=gateway,
         net_mask=net_mask
     )
-    clean_dhcp_server_config(duthost)
 
 
 def test_dhcp_server_lease_config_change(
@@ -741,7 +738,6 @@ def test_dhcp_server_lease_config_change(
     apply_dhcp_server_config_gcu(duthost, change_to_apply)
     client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
     verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip, DHCP_DEFAULT_LEASE_TIME)
-    clean_dhcp_server_config(duthost)
 
 
 def test_dhcp_server_config_vlan_intf_change(
@@ -818,4 +814,3 @@ def test_dhcp_server_config_vlan_intf_change(
         server_id=gateway_1,
         net_mask=net_mask_1
     )
-    clean_dhcp_server_config(duthost)
