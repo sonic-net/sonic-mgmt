@@ -2512,50 +2512,6 @@ Totals               6450                 6449
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
 
-    def get_switch_hash_capabilities(self):
-        out = self.shell('show switch-hash capabilities --json')
-        assert_exit_non_zero(out)
-        return SonicHost._parse_hash_fields(out)
-
-    def get_switch_hash_configurations(self):
-        out = self.shell('show switch-hash global  --json')
-        assert_exit_non_zero(out)
-        return SonicHost._parse_hash_fields(out)
-
-    def set_switch_hash_global(self, hash_type, fields, validate=True):
-        cmd = 'config switch-hash global {}-hash'.format(hash_type)
-        for field in fields:
-            cmd += ' ' + field
-        out = self.shell(cmd, module_ignore_errors=True)
-        if validate:
-            assert_exit_non_zero(out)
-        return out
-
-    def set_switch_hash_global_algorithm(self, hash_type, algorithm, validate=True):
-        cmd = 'config switch-hash global {}-hash-algorithm {}'.format(hash_type, algorithm)
-        out = self.shell(cmd, module_ignore_errors=True)
-        if validate:
-            assert_exit_non_zero(out)
-        return out
-
-    @staticmethod
-    def _parse_hash_fields(cli_output):
-        ecmp_hash_fields = []
-        lag_hash_fields = []
-        ecmp_hash_algorithm = lag_hash_algorithm = ''
-        if "No configuration is present in CONFIG DB" in cli_output['stdout']:
-            logger.info("No configuration is present in CONFIG DB")
-        else:
-            out_json = json.loads(cli_output['stdout'])
-            ecmp_hash_fields = out_json["ecmp"]["hash_field"]
-            lag_hash_fields = out_json["lag"]["hash_field"]
-            ecmp_hash_algorithm = out_json["ecmp"]["algorithm"]
-            lag_hash_algorithm = out_json["lag"]["algorithm"]
-        return {'ecmp': ecmp_hash_fields,
-                'lag': lag_hash_fields,
-                'ecmp_algo': ecmp_hash_algorithm,
-                'lag_algo': lag_hash_algorithm}
-
     def get_counter_poll_status(self):
         result_dict = {}
         output = self.shell("counterpoll show")["stdout_lines"][2::]
