@@ -5,112 +5,9 @@ simulation:
   sim_dir: /nobackup/sim
   sim_host: tortuga-1x3
   skip_auto_bringup: false
+
 devices:
-  trex1:
-    data_ports:
-      - eth1
-      - eth2
-    disks:
-      - hda_ref:
-          file: /nobackup/images/rhel7_serial.qcow2
-          type: reference
-    memory: 4GB
-    platform: linux
-    vcpu: 4
-    xr_port_redir:
-      - 22
-  trex2:
-    data_ports:
-      - eth1
-      - eth2
-    disks:
-      - hda_ref:
-          file: /nobackup/images/rhel7_serial.qcow2
-          type: reference
-    memory: 4GB
-    platform: linux
-    vcpu: 4
-    xr_port_redir:
-      - 22
-  trex3:
-    data_ports:
-      - eth1
-      - eth2
-    disks:
-      - hda_ref:
-          file: /nobackup/images/rhel7_serial.qcow2
-          type: reference
-    memory: 4GB
-    platform: linux
-    vcpu: 4
-    xr_port_redir:
-      - 22
-  trex4:
-    data_ports:
-      - eth1
-      - eth2
-    disks:
-      - hda_ref:
-          file: /nobackup/images/rhel7_serial.qcow2
-          type: reference
-    memory: 4GB
-    platform: linux
-    vcpu: 4
-    xr_port_redir:
-      - 22
-  trex5:
-    data_ports:
-      - eth1
-      - eth2
-    disks:
-      - hda_ref:
-          file: /nobackup/images/rhel7_serial.qcow2
-          type: reference
-    memory: 4GB
-    platform: linux
-    vcpu: 4
-    xr_port_redir:
-      - 22
-  trex6:
-    data_ports:
-      - eth1
-      - eth2
-    disks:
-      - hda_ref:
-          file: /nobackup/images/rhel7_serial.qcow2
-          type: reference
-    memory: 4GB
-    platform: linux
-    vcpu: 4
-    xr_port_redir:
-      - 22
-  trex7:
-    data_ports:
-      - eth1
-      - eth2
-    disks:
-      - hda_ref:
-          file: /nobackup/images/rhel7_serial.qcow2
-          type: reference
-    memory: 4GB
-    platform: linux
-    vcpu: 4
-    xr_port_redir:
-      - 22
-  trex8:
-    data_ports:
-      - eth1
-      - eth2
-    disks:
-      - hda_ref:
-          file: /nobackup/images/rhel7_serial.qcow2
-          type: reference
-    memory: 4GB
-    platform: linux
-    vcpu: 4
-    xr_port_redir:
-      - 22
-  trex9:
+  host: &host
     data_ports:
       - eth1
       - eth2
@@ -124,34 +21,63 @@ devices:
     xr_port_redir:
       - 22
 
-  L0:
+  switch: &switch
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - 8101-32FH
+    port_breakout:
+      lc0:
+        0..7: 1x400
+        8..15: 1x100
+        16..23: 4x25
+        24..31: 4x10
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.22/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.25/npl
         ConfigS1NpsuiteVer: 1.137.1
+        ConfigCardPidOverride: HF6100-32D
     linux_password: cisco123
     linux_username: cisco
     onie-install: /nobackup/images/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB
+    vcpu: 8
     platform: spitfire_f
     data_ports:
       - Ethernet0
+      - Ethernet1
+      - Ethernet2
+      - Ethernet3
+      - Ethernet4
+      - Ethernet5
+      - Ethernet6
+      - Ethernet7
       - Ethernet8
-      - Ethernet16
-      - Ethernet24
-      - Ethernet32
-      - Ethernet40
-      - Ethernet48
-      - Ethernet56
-      - Ethernet64
-      - Ethernet72
+      - Ethernet9
     xr_port_redir:
       - 22
-      - 23
+
+  trex1:
+    <<: *host
+  trex2:
+    <<: *host
+  trex3:
+    <<: *host
+  trex4:
+    <<: *host
+  trex5:
+    <<: *host
+  trex6:
+    <<: *host
+  trex7:
+    <<: *host
+  trex8:
+    <<: *host
+  trex9:
+    <<: *host
+
+  L0:
+    <<: *switch
     cli_commands: |
       sleep 60
       sudo config hostname tortuga-1x3-leaf0
@@ -165,33 +91,7 @@ devices:
       sudo systemctl restart azimuth
 
   L1:
-    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    linecard_types:
-      - 8101-32FH
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.22/npl
-        ConfigS1NpsuiteVer: 1.137.1
-    linux_password: cisco123
-    linux_username: cisco
-    onie-install: /nobackup/images/sonic-cisco-8000.bin
-    os_type: sonic
-    memory: 12GB
-    platform: spitfire_f
-    data_ports:
-      - Ethernet0
-      - Ethernet8
-      - Ethernet16
-      - Ethernet24
-      - Ethernet32
-      - Ethernet40
-      - Ethernet48
-      - Ethernet56
-      - Ethernet64
-      - Ethernet72
-    xr_port_redir:
-      - 22
-      - 23
+    <<: *switch
     cli_commands: |
       sleep 60
       sudo config hostname tortuga-1x3-leaf1
@@ -205,33 +105,7 @@ devices:
       sudo systemctl restart azimuth
 
   L2:
-    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    linecard_types:
-      - 8101-32FH
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.22/npl
-        ConfigS1NpsuiteVer: 1.137.1
-    linux_password: cisco123
-    linux_username: cisco
-    onie-install: /nobackup/images/sonic-cisco-8000.bin
-    os_type: sonic
-    memory: 12GB
-    platform: spitfire_f
-    data_ports:
-      - Ethernet0
-      - Ethernet8
-      - Ethernet16
-      - Ethernet24
-      - Ethernet32
-      - Ethernet40
-      - Ethernet48
-      - Ethernet56
-      - Ethernet64
-      - Ethernet72
-    xr_port_redir:
-      - 22
-      - 23
+    <<: *switch
     cli_commands: |
       sleep 60
       sudo config hostname tortuga-1x3-leaf2
@@ -245,33 +119,7 @@ devices:
       sudo systemctl restart azimuth
 
   S0:
-    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    linecard_types:
-      - 8101-32FH
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.22/npl
-        ConfigS1NpsuiteVer: 1.137.1
-    linux_password: cisco123
-    linux_username: cisco
-    onie-install: /nobackup/images/sonic-cisco-8000.bin
-    os_type: sonic
-    memory: 12GB
-    platform: spitfire_f
-    data_ports:
-      - Ethernet0
-      - Ethernet8
-      - Ethernet16
-      - Ethernet24
-      - Ethernet32
-      - Ethernet40
-      - Ethernet48
-      - Ethernet56
-      - Ethernet64
-      - Ethernet72
-    xr_port_redir:
-      - 22
-      - 23
+    <<: *switch
     cli_commands: |
       sleep 60
       sudo config hostname tortuga-1x3-spine0
@@ -287,47 +135,47 @@ devices:
 connections:
   hubs:
     L0_trex1:
-      - L0.Ethernet48
+      - L0.Ethernet6
       - trex1.eth1
     L0_trex2:
-      - L0.Ethernet56
+      - L0.Ethernet7
       - trex2.eth1
     L0_trex3:
-      - L0.Ethernet64
+      - L0.Ethernet8
       - trex3.eth1
     L1_trex4:
-      - L1.Ethernet48
+      - L1.Ethernet6
       - trex4.eth1
     L1_trex5:
-      - L1.Ethernet56
+      - L1.Ethernet7
       - trex5.eth1
     L1_trex6:
-      - L1.Ethernet64
+      - L1.Ethernet8
       - trex6.eth1
     L2_trex7:
-      - L2.Ethernet48
+      - L2.Ethernet6
       - trex7.eth1
     L2_trex8:
-      - L2.Ethernet56
+      - L2.Ethernet7
       - trex8.eth1
     L2_trex9:
-      - L2.Ethernet64
+      - L2.Ethernet8
       - trex9.eth1
     S0_L0_conn1:
       - S0.Ethernet0
       - L0.Ethernet0
     S0_L0_conn2:
-      - S0.Ethernet8
-      - L0.Ethernet8
+      - S0.Ethernet1
+      - L0.Ethernet1
     S0_L1_conn1:
-      - S0.Ethernet16
+      - S0.Ethernet2
       - L1.Ethernet0
     S0_L1_conn2:
-      - S0.Ethernet24
-      - L1.Ethernet8
+      - S0.Ethernet3
+      - L1.Ethernet1
     S0_L2_conn1:
-      - S0.Ethernet32
+      - S0.Ethernet4
       - L2.Ethernet0
     S0_L2_conn2:
-      - S0.Ethernet40
-      - L2.Ethernet8
+      - S0.Ethernet5
+      - L2.Ethernet1
