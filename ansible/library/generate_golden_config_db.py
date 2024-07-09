@@ -23,6 +23,7 @@ Description:
 
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 TEMP_GOLDEN_CONFIG_DB_PATH = "/tmp/golden_config_db.json"
+TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 
 
 class GenerateGoldenConfigDBModule(object):
@@ -64,11 +65,11 @@ class GenerateGoldenConfigDBModule(object):
         self.module.run_command("sudo sed -i \"s/dummy_single_quota/\'/g\" {}".format(GOLDEN_CONFIG_DB_PATH))
         if self.topo_name == "mx" and config != "{}":
             # Merge FEATURE configuration and dhcp_server related configuration
-            self.module.run_command("sudo sh -c 'jq -s \".[0] * .[1]\" /tmp/dhcp_server.json {} > {}'".format(GOLDEN_CONFIG_DB_PATH, TEMP_GOLDEN_CONFIG_DB_PATH))
+            self.module.run_command("sudo sh -c 'jq -s \".[0] * .[1]\" {} {} > {}'".format(TEMP_DHCP_SERVER_CONFIG_PATH, GOLDEN_CONFIG_DB_PATH, TEMP_GOLDEN_CONFIG_DB_PATH))
             rc, _, err = self.module.run_command("sudo cp {} {}".format(TEMP_GOLDEN_CONFIG_DB_PATH, GOLDEN_CONFIG_DB_PATH))
             if rc != 0:
                 self.module.fail_json(msg="Faild to generate golden_config_db.json with dhcp_server_ipv4: {}".format(err))
-        self.module.run_command("sudo rm -f /tmp/dhcp_server.json {}".format(TEMP_GOLDEN_CONFIG_DB_PATH))
+        self.module.run_command("sudo rm -f {} {}".format(TEMP_DHCP_SERVER_CONFIG_PATH, TEMP_GOLDEN_CONFIG_DB_PATH))
         self.module.exit_json(change=True, msg="Success to generate golden_config_db.json")
 
 
