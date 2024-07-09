@@ -118,14 +118,30 @@ def verify_counter_increase(duthost, current_value, increase, stat):
 
 
 def find_test_vlan(duthost):
+    """Returns vlan information for dhcp_relay tests
+    Returns dictionary of vlan port name, dhcrelay process name, ipv4 address, dhc6relay process name, ipv6 address, and member interfaces
+    """
     vlan_brief = duthost.get_vlan_brief()
     for vlan in vlan_brief:
-        output = duthost.shell("docker exec dhcp_relay supervisorctl status isc-dhcpv4-relay-{}".format(vlan))['stdout']
+        # Find dhcrelay process
+        dhcrelay_process = duthost.shell("docker exec dhcp_relay supervisorctl status | grep isc-dhcpv4-relay-%s | awk '{print $1}'" % vlan)['stdout']
+        dhcp6relay_process = duthost.shell("docker exec dhcp_relay supervisorctl status | grep dhcp6relay | awk '{print $1}'")['stdout']
         interface_ipv4 = vlan_brief[vlan]['interface_ipv4']
+        interface_ipv6 = vlan_brief[vlan]['interface_ipv6']
         members = vlan_brief[vlan]['members']
-        if output is not None and len(interface_ipv4) > 0 and len(members) > 0:
-            return vlan, interface_ipv4[0], members
-    return "", "", []
+
+        # Check all returning fields are non empty
+        results = [dhcrelay_process, interface_ipv4, dhcp6relay_process, interface_ipv6, members]
+        if all(result for result in results):
+            return {
+                "vlan": vlan,
+                "dhcrelay_process": dhcrelay_process,
+                "ipv4_address": interface_ipv4[0],
+                "dhcp6relay_process": dhcp6relay_process,
+                "ipv6_address": interface_ipv6[0],
+                "member_interface": members
+            }
+    return {}
 
 
 def find_test_port_and_mac(duthost, members, count):

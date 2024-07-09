@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import pytest
 import logging
 import time
 import ptf.testutils as testutils
@@ -14,11 +15,16 @@ tag = "sonic-events-dhcp-relay"
 
 
 def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+    features_states, succeeded = duthost.get_feature_status()
+    if not succeeded or features_states["dhcp_relay"] != "enabled":
+        pytest.skip("dhcp_relay is not enabled, skipping dhcp_relay events")
     logger.info("Beginning to test dhcp-relay events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_discard,
              "dhcp_relay_discard.json", "sonic-events-dhcp-relay:dhcp-relay-discard", tag, False, 30, ptfadapter)
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_disparity,
              "dhcp_relay_disparity.json", "sonic-events-dhcp-relay:dhcp-relay-disparity", tag, False, 30, ptfadapter)
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_bind_failure,
+             "dhcp_relay_bind_failure.json", "sonic-events-dhcp-relay:dhcp-relay-bind-failure", tag, False, 30)
 
 
 def trigger_dhcp_relay_discard(duthost, ptfadapter):
@@ -35,25 +41,58 @@ def trigger_dhcp_relay_disparity(duthost, ptfadapter):
     send_dhcp_discover_packets(duthost, ptfadapter, 11, 18)
 
 
+def trigger_dhcp_relay_bind_failure(duthost):
+    # Flush ipv6 vlan address and restart dhc6relay process
+    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "dhcp_relay"),
+              "dhcp_relay container not started")
+
+    # Get Vlan with IPv6 address configured
+    dhcp_test_info = find_test_vlan(duthost)
+    py_assert(len(dhcp_test_info) != 0, "Unable to find vlan for test")
+
+    vlan = dhcp_test_info["vlan"]
+    dhcp6_relay_process = dhcp_test_info["dhcp6relay_process"]
+    ipv6_ip = dhcp_test_info["ipv6_address"]
+
+    try:
+        # Flush ipv6 address from vlan
+        duthost.shell("ip -6 address flush dev {}".format(vlan))
+
+        # Restart dhcrelay process
+        duthost.shell("docker exec dhcp_relay supervisorctl restart {}".format(dhcp6_relay_process))
+
+    finally:
+        # Add back ipv6 address to vlan
+        duthost.shell("ip address add {} dev {}".format(ipv6_ip, vlan))
+
+        # Restart dhcrelay process
+        duthost.shell("docker exec dhcp_relay supervisorctl restart {}".format(dhcp6_relay_process))
+
+
 def send_dhcp_discover_packets(duthost, ptfadapter, packets_to_send=5, interval=1):
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "dhcp_relay"),
               "dhcp_relay container not started")
 
     # Get Vlan with IPv4 address configured
-    vlan, ipv4_ip, members = find_test_vlan(duthost)
-    py_assert(vlan != "", "Unable to find vlan for test")
+    dhcp_test_info = find_test_vlan(duthost)
+    py_assert(len(dhcp_test_info) != 0, "Unable to find vlan for test")
+
+    vlan = dhcp_test_info["vlan"]
+    dhcrelay_process = dhcp_test_info["dhcrelay_process"]
+    ipv4_ip = dhcp_test_info["ipv4_address"]
+    member_interfaces = dhcp_test_info["member_interface"]
 
     try:
         # Flush ipv4 address from vlan
         duthost.shell("ip -4 address flush dev {}".format(vlan))
 
         # Restart dhcrelay process
-        duthost.shell("docker exec dhcp_relay supervisorctl restart isc-dhcpv4-relay-{}".format(vlan))
+        duthost.shell("docker exec dhcp_relay supervisorctl restart {}".format(dhcrelay_process))
 
         # Send packets
 
         # results contains up to 5 tuples of member interfaces from vlan (port, mac address)
-        results = find_test_port_and_mac(duthost, members, 5)
+        results = find_test_port_and_mac(duthost, member_interfaces, 5)
 
         for i in range(packets_to_send):
             result = results[i % len(results)]
@@ -68,4 +107,4 @@ def send_dhcp_discover_packets(duthost, ptfadapter, packets_to_send=5, interval=
         duthost.shell("ip address add {} dev {}".format(ipv4_ip, vlan))
 
         # Restart dhcrelay process
-        duthost.shell("docker exec dhcp_relay supervisorctl restart isc-dhcpv4-relay-{}".format(vlan))
+        duthost.shell("docker exec dhcp_relay supervisorctl restart {}".format(dhcrelay_process))
