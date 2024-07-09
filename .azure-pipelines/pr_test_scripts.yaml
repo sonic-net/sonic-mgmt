@@ -314,11 +314,6 @@ onboarding_t0:
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
   - platform_tests/cli/test_show_platform.py
-  - platform_tests/daemon/test_fancontrol.py
-  - platform_tests/daemon/test_ledd.py
-  - platform_tests/daemon/test_pcied.py
-  - platform_tests/daemon/test_psud.py
-  - platform_tests/daemon/test_syseepromd.py
   - platform_tests/link_flap/test_link_flap.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
