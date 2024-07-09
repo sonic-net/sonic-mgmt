@@ -523,9 +523,20 @@
             path: /etc/sonic/port_config.json
             state: absent
 
-      - name: execute cli "config load_minigraph -y" to apply new minigraph
+      - name: Copy dhcp_server config
+        copy: src=golden_config_db/dhcp_server_mx.json
+              dest=/tmp/dhcp_server.json
         become: true
-        shell: config load_minigraph -y
+        when: topo == "mx"
+
+      - name: Generate golden_config_db.json
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+        become: true
+
+      - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
+        become: true
+        shell: config load_minigraph --override_config -y
 
       - name: Wait for switch to become reachable again
         become: false
