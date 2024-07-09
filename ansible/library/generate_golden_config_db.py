@@ -22,7 +22,6 @@ Description:
 '''
 
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
-TEMP_GOLDEN_CONFIG_DB_PATH = "/tmp/golden_config_db.json"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 DUMMY_QUOTA = "dummy_single_quota"
 
@@ -68,11 +67,7 @@ class GenerateGoldenConfigDBModule(object):
         dhcp_server_config_obj["DHCP_SERVER_IPV4_PORT"] = dhcp_server_port_config
 
         gold_config_db.update(dhcp_server_config_obj)
-        # To avoid single quotation exists in str which would cut cmd executed by run_command("sudo sh -c 'xxxxxx'")
-        ret = json.dumps(gold_config_db).replace("\'", DUMMY_QUOTA)
-
-        return (ret.replace("\"", "\\\"").replace("(", "\\(").replace(")", "\\)").replace("[", "\\[")
-                .replace("]", "\\]").replace("|", "\\|"))
+        return json.dumps(gold_config_db, indent=4)
 
     def generate(self):
         if self.topo_name == "mx":
@@ -80,17 +75,9 @@ class GenerateGoldenConfigDBModule(object):
         else:
             config = "{}"
 
-        cmd = ("sudo sh -c 'echo {} > {}'"
-               .format(config, TEMP_DHCP_SERVER_CONFIG_PATH))
-        rc, _, err = self.module.run_command(cmd)
-        if rc != 0:
-            self.module.fail_json(msg="Faild to generate golden_config_db.json: {}".format(err))
-        # Restore dummy_value
-        self.module.run_command("sudo sed -i \"s/{}/\'/g\" {}".format(DUMMY_QUOTA, TEMP_DHCP_SERVER_CONFIG_PATH))
-        # Re-format to make file readable for human
-        self.module.run_command("sudo sh -c 'jq . {} > {}'"
-                                .format(TEMP_DHCP_SERVER_CONFIG_PATH, GOLDEN_CONFIG_DB_PATH))
-        self.module.run_command("sudo rm -f {} {}".format(TEMP_DHCP_SERVER_CONFIG_PATH, TEMP_GOLDEN_CONFIG_DB_PATH))
+        with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
+            temp_file.write(config)
+        self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
         self.module.exit_json(change=True, msg="Success to generate golden_config_db.json")
 
 
