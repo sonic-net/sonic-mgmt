@@ -79,3 +79,7 @@ t2:
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
   - snmp/test_snmp_phy_entity.py
+
+dualtor:
+  # This test is only for Nvidia platforms.
+  - dualtor_mgmt/test_egress_drop_nvidia.py
