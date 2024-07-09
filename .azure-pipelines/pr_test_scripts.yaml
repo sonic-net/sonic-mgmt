@@ -347,6 +347,7 @@ onboarding_t0:
 
 onboarding_t1:
   - decap/test_decap.py
+  - generic_config_updater/test_cacl.py
 
 specific_param:
   t0-sonic:
