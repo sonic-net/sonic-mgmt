@@ -20,7 +20,7 @@ from tests.common.utilities import wait_until
 
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('dualtor'),
     pytest.mark.usefixtures('run_garp_service', 'run_icmp_responder')
 ]
 
