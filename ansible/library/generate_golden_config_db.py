@@ -11,7 +11,7 @@ import json
 from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = '''
-module: generate_golden_config.py
+module: generate_golden_config_db.py
 author: Yaqiang Zhu (yaqiangzhu@microsoft.com)
 short_description:   Generate golden_config_db.json
 Description:
@@ -24,32 +24,55 @@ Description:
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 TEMP_GOLDEN_CONFIG_DB_PATH = "/tmp/golden_config_db.json"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
+DUMMY_QUOTA = "dummy_single_quota"
 
 
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
-        self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str')),
+        self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
+                                                       port_index_map=dict(require=False, type='dict', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
+        self.port_index_map = self.module.params['port_index_map']
 
     def generate_mx_golden_config_db(self):
         """
         If FEATURE table in init_cfg.json contains dhcp_server, enable it.
+        And add dhcp_server related configuration
         """
         rc, out, err = self.module.run_command("cat /etc/sonic/init_cfg.json")
         if rc != 0:
             self.module.fail_json(msg="Failed to get init_cfg.json: {}".format(err))
+
+        # Generate FEATURE table from init_cfg.ini
         init_config_obj = json.loads(out)
         gold_config_db = {}
-        if "FEATURE" not in init_config_obj:
+        if "FEATURE" not in init_config_obj or "dhcp_server" not in init_config_obj["FEATURE"]:
             return "{}"
-        for feature in init_config_obj["FEATURE"].keys():
-            if feature == "dhcp_server":
-                init_config_obj["FEATURE"]["dhcp_server"]["state"] = "enabled"
-                gold_config_db = {"FEATURE": copy.deepcopy(init_config_obj["FEATURE"])}
+        init_config_obj["FEATURE"]["dhcp_server"]["state"] = "enabled"
+        gold_config_db = {"FEATURE": copy.deepcopy(init_config_obj["FEATURE"])}
+
+        # Generate dhcp_server related configuration
+        rc, out, err = self.module.run_command("cat {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get dhcp_server config: {}".format(err))
+        if self.port_index_map is None or self.port_index_map == {}:
+            self.module.fail_json(msg="port_index_map is missing")
+        dhcp_server_config_obj = json.loads(out)
+        # Update DHCP_SERVER_IPV4_PORT based on port index map
+        dhcp_server_port_config = {}
+        for key, value in dhcp_server_config_obj["DHCP_SERVER_IPV4_PORT"].items():
+            splits = key.split("|")
+            new_key = "{}|{}".format(splits[0], self.port_index_map[splits[1]])
+            dhcp_server_port_config[new_key] = value
+        dhcp_server_config_obj["DHCP_SERVER_IPV4_PORT"] = dhcp_server_port_config
+
+        gold_config_db.update(dhcp_server_config_obj)
         # To avoid single quotation exists in str which would cut cmd executed by run_command("sudo sh -c 'xxxxxx'")
-        ret = json.dumps(gold_config_db).replace("\'", "dummy_single_quota")
-        return ret.replace("\"", "\\\"").replace("(", "\\(").replace(")", "\\)")
+        ret = json.dumps(gold_config_db).replace("\'", DUMMY_QUOTA)
+
+        return (ret.replace("\"", "\\\"").replace("(", "\\(").replace(")", "\\)").replace("[", "\\[")
+                .replace("]", "\\]").replace("|", "\\|"))
 
     def generate(self):
         if self.topo_name == "mx":
@@ -58,21 +81,15 @@ class GenerateGoldenConfigDBModule(object):
             config = "{}"
 
         cmd = ("sudo sh -c 'echo {} > {}'"
-               .format(config, GOLDEN_CONFIG_DB_PATH))
+               .format(config, TEMP_DHCP_SERVER_CONFIG_PATH))
         rc, _, err = self.module.run_command(cmd)
         if rc != 0:
             self.module.fail_json(msg="Faild to generate golden_config_db.json: {}".format(err))
-        self.module.run_command("sudo sed -i \"s/dummy_single_quota/\'/g\" {}".format(GOLDEN_CONFIG_DB_PATH))
-        if self.topo_name == "mx" and config != "{}":
-            # Merge FEATURE configuration and dhcp_server related configuration
-            self.module.run_command("sudo sh -c 'jq -s \".[0] * .[1]\" {} {} > {}'"
-                                    .format(TEMP_DHCP_SERVER_CONFIG_PATH, GOLDEN_CONFIG_DB_PATH,
-                                            TEMP_GOLDEN_CONFIG_DB_PATH))
-            rc, _, err = self.module.run_command("sudo cp {} {}"
-                                                 .format(TEMP_GOLDEN_CONFIG_DB_PATH, GOLDEN_CONFIG_DB_PATH))
-            if rc != 0:
-                self.module.fail_json(msg="Faild to generate golden_config_db.json with dhcp_server_ipv4: {}"
-                                      .format(err))
+        # Restore dummy_value
+        self.module.run_command("sudo sed -i \"s/{}/\'/g\" {}".format(DUMMY_QUOTA, TEMP_DHCP_SERVER_CONFIG_PATH))
+        # Re-format to make file readable for human
+        self.module.run_command("sudo sh -c 'jq . {} > {}'"
+                                .format(TEMP_DHCP_SERVER_CONFIG_PATH, GOLDEN_CONFIG_DB_PATH))
         self.module.run_command("sudo rm -f {} {}".format(TEMP_DHCP_SERVER_CONFIG_PATH, TEMP_GOLDEN_CONFIG_DB_PATH))
         self.module.exit_json(change=True, msg="Success to generate golden_config_db.json")
 

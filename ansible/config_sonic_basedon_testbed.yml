@@ -523,7 +523,12 @@
             path: /etc/sonic/port_config.json
             state: absent
 
-      - name: Copy dhcp_server config
+      - name: find interface name mapping
+        port_alias:
+          hwsku: "{{ hwsku }}"
+        when: topo == "mx"
+
+      - name: Copy dhcp_server config hwsku {{ hwsku }}
         copy: src=golden_config_db/dhcp_server_mx.json
               dest=/tmp/dhcp_server.json
         become: true
@@ -532,6 +537,7 @@
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
+          port_index_map: "{{ port_index_map | default({}) }}"
         become: true
 
       - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
