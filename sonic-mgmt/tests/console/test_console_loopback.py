@@ -2,7 +2,6 @@ import pytest
 import string
 import random
 from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any')

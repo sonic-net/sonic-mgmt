@@ -1,0 +1,16 @@
+{% set portchannels= [] %}
+{% for pc, value in PORTCHANNEL.items() %}
+    {% set _ = portchannels.append(pc) %}
+{% endfor %}
+
+{
+    "NEW_FEATURE": {
+        "test_entry": {
+            "platform": "{{ DEVICE_METADATA.localhost.platform }}"
+            {% if portchannels %}
+                ,
+                "ports": "{{ portchannels | join(',') }}"
+            {% endif %}
+        }
+    }
+}

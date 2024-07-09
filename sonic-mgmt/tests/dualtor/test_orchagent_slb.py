@@ -21,7 +21,6 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses            
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # noqa F401
 from tests.common.helpers import bgp
 from tests.common.utilities import is_ipv4_address
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [

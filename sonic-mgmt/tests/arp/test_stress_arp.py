@@ -9,7 +9,6 @@ from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsm
                       in6_getnsma, inet_pton, inet_ntop, socket
 from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test   # noqa F401
 
 ARP_BASE_IP = "172.16.0.1/16"

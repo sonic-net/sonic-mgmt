@@ -166,15 +166,15 @@
     },
     "BUFFER_PORT_EGRESS_PROFILE_LIST": {
     {% for port_name in fanout_port_config %}
-         "{{ port_name }}|": {
-            "profile_list": "egress_lossless_profile,egress_lossy_profile"
+         "{{ port_name }}": {
+            "profile_list": "egress_lossy_profile"
         }{% if not loop.last %},{% endif %}
     {% endfor %}
     },
     "BUFFER_PORT_INGRESS_PROFILE_LIST": {
     {% for port_name in fanout_port_config %}
-         "{{ port_name }}|": {
-            "profile_list": "ingress_lossless_profile,ingress_lossy_profile"
+         "{{ port_name }}": {
+            "profile_list": "ingress_lossy_profile"
         }{% if not loop.last %},{% endif %}
     {% endfor %}
     },

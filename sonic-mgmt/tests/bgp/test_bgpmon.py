@@ -13,7 +13,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),

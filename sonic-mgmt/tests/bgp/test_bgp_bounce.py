@@ -10,7 +10,6 @@ from tests.common.helpers.assertions import pytest_assert
 from bgp_helpers import apply_bgp_config
 from bgp_helpers import get_no_export_output
 from bgp_helpers import BGP_ANNOUNCE_TIME
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t1')

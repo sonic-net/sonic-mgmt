@@ -49,7 +49,7 @@ def test_global_pause(snappi_api,                                   # noqa: F811
     pytest_require(len(linecard_configuration_set[line_card_choice]['hostname']) != 0,
                    "Hostname can't be an empty list")
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(list(duthosts), 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
         dut_list = [dut for dut in duthosts if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]      # noqa: E501

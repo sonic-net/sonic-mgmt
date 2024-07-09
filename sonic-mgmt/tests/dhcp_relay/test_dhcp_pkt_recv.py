@@ -7,7 +7,6 @@ from ptf import testutils
 from scapy.layers.dhcp6 import DHCP6_Solicit
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import capture_and_check_packet_on_dut
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology("t0", "m0", 'mx')

@@ -16,7 +16,6 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
