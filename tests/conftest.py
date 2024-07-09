@@ -867,7 +867,7 @@ def collect_techsupport_all_duts(request, duthosts):
 def collect_techsupport_all_nbrs(request, nbrhosts):
     yield
     if request.config.getoption("neighbor_type") == "sonic":
-        [collect_techsupport_on_dut(request, nbrhost) for nbrhost in nbrhosts]
+        [collect_techsupport_on_dut(request, nbrhosts[nbrhost]['host']) for nbrhost in nbrhosts]
 
 
 @pytest.fixture(scope="session", autouse=True)
