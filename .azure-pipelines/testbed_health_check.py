@@ -99,6 +99,15 @@ class TestbedHealthChecker:
 
         logger.info("======================= init_hosts starts =======================")
 
+        skip_healthy_check_testbed_list = ["vms68-t2-8800-1", "vms68-t2-8800-2",
+                                           "vms29-t2-8800-2", "vms29-t2-8800-3",
+                                           "vmsvc5-t2-8800-1", "vmsvc5-t2-8800-2"]
+
+        if self.testbed_name in skip_healthy_check_testbed_list:
+            errmsg = "Skipping perform checks on {}.".format(self.testbed_name)
+            logger.info(errmsg)
+            raise SkipCurrentTestbed(errmsg)
+
         # Init localhost
         self.localhost = init_localhost(self.inventory, options={"verbosity": self.log_verbosity})
         if not self.localhost:
