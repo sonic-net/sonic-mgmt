@@ -124,3 +124,7 @@ wan:
   - wan/lacp/test_wan_lag_min_link.py
   - wan/lldp/test_wan_lldp.py
   - wan/traffic_test/test_traffic.py
+
+dualtor:
+  # This test is only for Nvidia platforms.
+  - dualtor_mgmt/test_egress_drop_nvidia.py

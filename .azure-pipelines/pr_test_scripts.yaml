@@ -299,10 +299,6 @@ onboarding_t0:
   - bgp/test_bgp_peer_shutdown.py
   - cacl/test_ebtables_application.py
   - clock/test_clock.py
-  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
-  - dualtor_mgmt/test_egress_drop_nvidia.py
-  - dualtor_mgmt/test_grpc_periodical_sync.py
-  - dualtor_mgmt/test_ingress_drop.py
   - generic_config_updater/test_dynamic_acl.py
   - generic_config_updater/test_pfcwd_status.py
   - generic_config_updater/test_pg_headroom_update.py
@@ -338,6 +334,13 @@ onboarding_t0:
 
 onboarding_t1:
   - decap/test_decap.py
+
+onboarding_dualtor:
+  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
+  - dualtor_mgmt/test_grpc_periodical_sync.py
+  - dualtor_mgmt/test_ingress_drop.py
+  - dualtor_mgmt/test_server_failure.py
+  - dualtor_mgmt/test_toggle_mux.py
 
 specific_param:
   t0-sonic:
