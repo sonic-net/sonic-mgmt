@@ -119,13 +119,16 @@ def verify_counter_increase(duthost, current_value, increase, stat):
 
 def find_test_vlan(duthost):
     """Returns vlan information for dhcp_relay tests
-    Returns dictionary of vlan port name, dhcrelay process name, ipv4 address, dhc6relay process name, ipv6 address, and member interfaces
+    Returns dictionary of vlan port name, dhcrelay process name, ipv4 address,
+    dhc6relay process name, ipv6 address, and member interfaces
     """
     vlan_brief = duthost.get_vlan_brief()
     for vlan in vlan_brief:
         # Find dhcrelay process
-        dhcrelay_process = duthost.shell("docker exec dhcp_relay supervisorctl status | grep isc-dhcpv4-relay-%s | awk '{print $1}'" % vlan)['stdout']
-        dhcp6relay_process = duthost.shell("docker exec dhcp_relay supervisorctl status | grep dhcp6relay | awk '{print $1}'")['stdout']
+        dhcrelay_process = duthost.shell("docker exec dhcp_relay supervisorctl status " \
+                                         "| grep isc-dhcpv4-relay-%s | awk '{print $1}'" % vlan)['stdout']
+        dhcp6relay_process = duthost.shell("docker exec dhcp_relay supervisorctl status " \
+                                           "| grep dhcp6relay | awk '{print $1}'")['stdout']
         interface_ipv4 = vlan_brief[vlan]['interface_ipv4']
         interface_ipv6 = vlan_brief[vlan]['interface_ipv6']
         members = vlan_brief[vlan]['members']
