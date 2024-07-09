@@ -125,10 +125,10 @@ def find_test_vlan(duthost):
     vlan_brief = duthost.get_vlan_brief()
     for vlan in vlan_brief:
         # Find dhcrelay process
-        dhcrelay_process = duthost.shell("docker exec dhcp_relay supervisorctl status " \
-                                         "| grep isc-dhcpv4-relay-%s | awk '{print $1}'" % vlan)['stdout']
-        dhcp6relay_process = duthost.shell("docker exec dhcp_relay supervisorctl status " \
-                                           "| grep dhcp6relay | awk '{print $1}'")['stdout']
+        dhcrelay_process = duthost.shell("docker exec dhcp_relay supervisorctl status \
+                                         | grep isc-dhcpv4-relay-%s | awk '{print $1}'" % vlan)['stdout']
+        dhcp6relay_process = duthost.shell("docker exec dhcp_relay supervisorctl status \
+                                           | grep dhcp6relay | awk '{print $1}'")['stdout']
         interface_ipv4 = vlan_brief[vlan]['interface_ipv4']
         interface_ipv6 = vlan_brief[vlan]['interface_ipv6']
         members = vlan_brief[vlan]['members']
