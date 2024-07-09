@@ -3,6 +3,21 @@ t0:
   - restapi/test_restapi.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
+  # Ixia test only support on physical ixia testbed
+  - ixia/ecn/test_dequeue_ecn.py
+  - ixia/ecn/test_red_accuracy.py
+  - ixia/ixanvl/test_bgp_conformance.py
+  - ixia/pfc/test_global_pause.py
+  - ixia/pfc/test_pfc_congestion.py
+  - ixia/pfc/test_pfc_pause_lossless.py
+  - ixia/pfc/test_pfc_pause_lossy.py
+  - ixia/pfcwd/test_pfcwd_a2a.py
+  - ixia/pfcwd/test_pfcwd_basic.py
+  - ixia/pfcwd/test_pfcwd_burst_storm.py
+  - ixia/pfcwd/test_pfcwd_m2o.py
+  - ixia/pfcwd/test_pfcwd_runtime_traffic.py
+  - ixia/test_ixia_traffic.py
+  - ixia/test_tgen.py
   # There is no k8s in inventory file
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
@@ -26,10 +41,52 @@ t0:
   - platform_tests/api/test_thermal.py
   - platform_tests/api/test_watchdog.py
   - snmp/test_snmp_phy_entity.py
+  # Wan test only support on wan topo
+  - wan/isis/test_isis_authentication.py
+  - wan/isis/test_isis_csnp_interval.py
+  - wan/isis/test_isis_database.py
+  - wan/isis/test_isis_dynamic_hostname.py
+  - wan/isis/test_isis_ecmp.py
+  - wan/isis/test_isis_hello_interval.py
+  - wan/isis/test_isis_hello_pad.py
+  - wan/isis/test_isis_holdtime.py
+  - wan/isis/test_isis_intf_passive.py
+  - wan/isis/test_isis_level_capacity.py
+  - wan/isis/test_isis_log_adjacency_change.py
+  - wan/isis/test_isis_lsp_fragment.py
+  - wan/isis/test_isis_lsp_gen_interval.py
+  - wan/isis/test_isis_lsp_lifetime.py
+  - wan/isis/test_isis_lsp_refresh.py
+  - wan/isis/test_isis_metric_wide.py
+  - wan/isis/test_isis_neighbor.py
+  - wan/isis/test_isis_overload_bit.py
+  - wan/isis/test_isis_redistribute.py
+  - wan/isis/test_isis_spf_default_interval.py
+  - wan/isis/test_isis_spf_ietf_interval.py
+  - wan/lacp/test_wan_lacp.py
+  - wan/lacp/test_wan_lag_member.py
+  - wan/lacp/test_wan_lag_min_link.py
+  - wan/lldp/test_wan_lldp.py
+  - wan/traffic_test/test_traffic.py
 
 t1:
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
+  # Ixia test only support on physical ixia testbed
+  - ixia/ecn/test_dequeue_ecn.py
+  - ixia/ecn/test_red_accuracy.py
+  - ixia/ixanvl/test_bgp_conformance.py
+  - ixia/pfc/test_global_pause.py
+  - ixia/pfc/test_pfc_congestion.py
+  - ixia/pfc/test_pfc_pause_lossless.py
+  - ixia/pfc/test_pfc_pause_lossy.py
+  - ixia/pfcwd/test_pfcwd_a2a.py
+  - ixia/pfcwd/test_pfcwd_basic.py
+  - ixia/pfcwd/test_pfcwd_burst_storm.py
+  - ixia/pfcwd/test_pfcwd_m2o.py
+  - ixia/pfcwd/test_pfcwd_runtime_traffic.py
+  - ixia/test_ixia_traffic.py
+  - ixia/test_tgen.py
   # There is no k8s in inventory file
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
@@ -54,11 +111,52 @@ t1:
   - snmp/test_snmp_phy_entity.py
   # Not supported port type
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
-
+  # Wan test only support on wan topo
+  - wan/isis/test_isis_authentication.py
+  - wan/isis/test_isis_csnp_interval.py
+  - wan/isis/test_isis_database.py
+  - wan/isis/test_isis_dynamic_hostname.py
+  - wan/isis/test_isis_ecmp.py
+  - wan/isis/test_isis_hello_interval.py
+  - wan/isis/test_isis_hello_pad.py
+  - wan/isis/test_isis_holdtime.py
+  - wan/isis/test_isis_intf_passive.py
+  - wan/isis/test_isis_level_capacity.py
+  - wan/isis/test_isis_log_adjacency_change.py
+  - wan/isis/test_isis_lsp_fragment.py
+  - wan/isis/test_isis_lsp_gen_interval.py
+  - wan/isis/test_isis_lsp_lifetime.py
+  - wan/isis/test_isis_lsp_refresh.py
+  - wan/isis/test_isis_metric_wide.py
+  - wan/isis/test_isis_neighbor.py
+  - wan/isis/test_isis_overload_bit.py
+  - wan/isis/test_isis_redistribute.py
+  - wan/isis/test_isis_spf_default_interval.py
+  - wan/isis/test_isis_spf_ietf_interval.py
+  - wan/lacp/test_wan_lacp.py
+  - wan/lacp/test_wan_lag_member.py
+  - wan/lacp/test_wan_lag_min_link.py
+  - wan/lldp/test_wan_lldp.py
+  - wan/traffic_test/test_traffic.py
 
 t2:
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
+  # Ixia test only support on physical ixia testbed
+  - ixia/ecn/test_dequeue_ecn.py
+  - ixia/ecn/test_red_accuracy.py
+  - ixia/ixanvl/test_bgp_conformance.py
+  - ixia/pfc/test_global_pause.py
+  - ixia/pfc/test_pfc_congestion.py
+  - ixia/pfc/test_pfc_pause_lossless.py
+  - ixia/pfc/test_pfc_pause_lossy.py
+  - ixia/pfcwd/test_pfcwd_a2a.py
+  - ixia/pfcwd/test_pfcwd_basic.py
+  - ixia/pfcwd/test_pfcwd_burst_storm.py
+  - ixia/pfcwd/test_pfcwd_m2o.py
+  - ixia/pfcwd/test_pfcwd_runtime_traffic.py
+  - ixia/test_ixia_traffic.py
+  - ixia/test_tgen.py
   # There is no k8s in inventory file
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
@@ -79,3 +177,30 @@ t2:
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
   - snmp/test_snmp_phy_entity.py
+  # Wan test only support on wan topo
+  - wan/isis/test_isis_authentication.py
+  - wan/isis/test_isis_csnp_interval.py
+  - wan/isis/test_isis_database.py
+  - wan/isis/test_isis_dynamic_hostname.py
+  - wan/isis/test_isis_ecmp.py
+  - wan/isis/test_isis_hello_interval.py
+  - wan/isis/test_isis_hello_pad.py
+  - wan/isis/test_isis_holdtime.py
+  - wan/isis/test_isis_intf_passive.py
+  - wan/isis/test_isis_level_capacity.py
+  - wan/isis/test_isis_log_adjacency_change.py
+  - wan/isis/test_isis_lsp_fragment.py
+  - wan/isis/test_isis_lsp_gen_interval.py
+  - wan/isis/test_isis_lsp_lifetime.py
+  - wan/isis/test_isis_lsp_refresh.py
+  - wan/isis/test_isis_metric_wide.py
+  - wan/isis/test_isis_neighbor.py
+  - wan/isis/test_isis_overload_bit.py
+  - wan/isis/test_isis_redistribute.py
+  - wan/isis/test_isis_spf_default_interval.py
+  - wan/isis/test_isis_spf_ietf_interval.py
+  - wan/lacp/test_wan_lacp.py
+  - wan/lacp/test_wan_lag_member.py
+  - wan/lacp/test_wan_lag_min_link.py
+  - wan/lldp/test_wan_lldp.py
+  - wan/traffic_test/test_traffic.py
