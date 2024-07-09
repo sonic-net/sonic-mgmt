@@ -13,7 +13,7 @@ import pytest
 from .util import parse_eeprom
 from .util import parse_output
 from .util import get_dev_conn
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, wait_until
 from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa F401
 from tests.common.utilities import wait_until # noqa F811
 from tests.common.port_toggle import default_port_toggle_wait_time
@@ -38,6 +38,16 @@ pytestmark = [
 ]
 
 
+def check_interfaces_up(duthost, namespace, up_ports):
+    logging.info("Checking interface status")
+    intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
+    if len(intf_facts["ansible_interface_link_down_ports"]) == 0:
+        return True
+    else:
+        logging.info("Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"]))
+        return False
+
+
 def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                 enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
     """
@@ -49,7 +59,13 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
     logging.info("Check output of '{}'".format(cmd_sfp_presence))
-    sfp_presence = duthost.command(cmd_sfp_presence)
+    sfp_presence = duthost.command(cmd_sfp_presence, module_ignore_errors=True)
+
+    # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+    if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
+        return
+    assert sfp_presence['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
@@ -197,7 +213,13 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
     logging.info("Check output of '{}'".format(cmd_sfp_eeprom))
-    sfp_eeprom = duthost.command(cmd_sfp_eeprom)
+    sfp_eeprom = duthost.command(cmd_sfp_eeprom, module_ignore_errors=True)
+
+    # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+    if duthost.facts["asic_type"] == "vs" and sfp_eeprom['rc'] == 2:
+        return
+    assert sfp_eeprom['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+
     parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
@@ -270,7 +292,14 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     time.sleep(sleep_time)
 
     logging.info("Check sfp presence again after reset")
-    sfp_presence = duthost.command(cmd_sfp_presence)
+    sfp_presence = duthost.command(cmd_sfp_presence, module_ignore_errors=True)
+
+    # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+    if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
+        pass
+    else:
+        assert sfp_presence['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+
     parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
     for intf in intfs:
         assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
@@ -332,7 +361,14 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     global ans_host
     ans_host = duthost
     logging.info("Check output of '{}'".format(cmd_sfp_show_lpmode))
-    lpmode_show = duthost.command(cmd_sfp_show_lpmode)
+    lpmode_show = duthost.command(cmd_sfp_show_lpmode, module_ignore_errors=True)
+
+    # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+    if duthost.facts["asic_type"] == "vs" and lpmode_show['rc'] == 2:
+        pass
+    else:
+        assert lpmode_show['rc'] == 0, "Run command '{}' failed".format(cmd_sfp_presence)
+
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     original_lpmode = copy.deepcopy(parsed_lpmode)
     for intf in dev_conn:
@@ -434,6 +470,7 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     if enum_frontend_asic_index is not None:
         # Check if the interfaces of this AISC is present in conn_graph_facts
         up_ports = {k: v for k, v in list(portmap.items()) if k in mg_facts["minigraph_ports"]}
-    intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
-    assert len(intf_facts["ansible_interface_link_down_ports"]) == 0, \
-        "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])
+    all_intf_up = wait_until(100, 10, 0, check_interfaces_up, duthost, namespace, up_ports)
+    if not all_intf_up:
+        intf_facts = duthost.interface_facts(namespace=namespace, up_ports=up_ports)["ansible_facts"]
+        assert all_intf_up, "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])

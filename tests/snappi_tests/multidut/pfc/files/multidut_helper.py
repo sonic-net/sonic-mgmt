@@ -80,6 +80,14 @@ def run_pfc_test(api,
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
 
+    # rx_dut is ingress DUT receiving packets.
+    # tx_dut is egress DUT transmitting packets and also receiving PFCs.
+    tx_dut = duthost2
+    rx_dut = duthost1
+    if rx_port['peer_device'] == duthost1.hostname:
+        tx_dut = duthost1
+        rx_dut = duthost2
+
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
     stop_pfcwd(duthost1, rx_port['asic_value'])
@@ -103,7 +111,7 @@ def run_pfc_test(api,
                                                                      port_id=port_id)
 
     speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
+    speed_gbps = int(float(speed_str.split('_')[1]))
 
     if snappi_extra_params.headroom_test_params is not None:
         DATA_FLOW_DURATION_SEC += 10
@@ -263,13 +271,16 @@ def run_pfc_test(api,
                            snappi_extra_params=snappi_extra_params)
 
     # Verify PFC pause frame count on the DUT
-    verify_pause_frame_count_dut(duthost=duthost,
+    verify_pause_frame_count_dut(rx_dut=rx_dut,
+                                 tx_dut=tx_dut,
                                  test_traffic_pause=test_traffic_pause,
+                                 global_pause=global_pause,
                                  snappi_extra_params=snappi_extra_params)
 
     # Verify in flight TX lossless packets do not leave the DUT when traffic is expected
     # to be paused, or leave the DUT when the traffic is not expected to be paused
-    verify_egress_queue_frame_count(duthost=duthost,
+    # Verifying the packets on DUT egress, especially for multi line card scenario
+    verify_egress_queue_frame_count(duthost=tx_dut,
                                     switch_flow_stats=switch_flow_stats,
                                     test_traffic_pause=test_traffic_pause,
                                     snappi_extra_params=snappi_extra_params)

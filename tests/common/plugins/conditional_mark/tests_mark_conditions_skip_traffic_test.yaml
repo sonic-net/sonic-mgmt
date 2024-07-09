@@ -1,0 +1,118 @@
+#######################################
+#####            acl              #####
+#######################################
+acl/custom_acl_table/test_custom_acl_table.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+acl/null_route/test_null_route_helper.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+acl/test_acl.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+acl/test_acl_outer_vlan.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+acl/test_stress_acl.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####            arp              #####
+#######################################
+arp/test_stress_arp.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+arp/test_unknown_mac.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+arp/test_wr_arp.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####           decap             #####
+#######################################
+decap/test_decap.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####             ecmp            #####
+#######################################
+ecmp/inner_hashing/test_inner_hashing.py:
+  skip_traffic_test:
+    conditions_logical_operator: or
+    reason: "Skip traffic test if not in mellanox platform."
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "asic_type not in ['mellanox']"
+
+ecmp/inner_hashing/test_inner_hashing_lag.py:
+  skip_traffic_test:
+    conditions_logical_operator: or
+    reason: "Skip traffic test if not in mellanox platform."
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "asic_type not in ['mellanox']"
+
+ecmp/inner_hashing/test_wr_inner_hashing.py:
+  skip_traffic_test:
+    conditions_logical_operator: or
+    reason: "Skip traffic test if not in mellanox platform."
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "asic_type not in ['mellanox']"
+
+ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
+  skip_traffic_test:
+    conditions_logical_operator: or
+    reason: "Skip traffic test if not in mellanox platform."
+    conditions:
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "asic_type not in ['mellanox']"
+
+#######################################
+#####         everflow            #####
+#######################################
+everflow/test_everflow_ipv6.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+everflow/test_everflow_per_interface.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+everflow/test_everflow_testbed.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
