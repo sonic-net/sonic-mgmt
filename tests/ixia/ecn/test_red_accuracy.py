@@ -10,10 +10,7 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, lossless_prio_list    
 from files.helper import run_ecn_test, is_ecn_marked
 from tests.common.cisco_data import get_markings_dut, setup_markings_dut
 
-pytestmark = [
-    pytest.mark.topology('tgen'),
-    pytest.mark.device_type('physical')
-]
+pytestmark = [pytest.mark.topology('tgen')]
 
 
 def test_red_accuracy(request, ixia_api, ixia_testbed_config, conn_graph_facts,             # noqa F811

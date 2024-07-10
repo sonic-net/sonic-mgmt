@@ -25,10 +25,6 @@ from tests.common.ixia.ixia_helpers import IxiaFanoutManager, configure_ports,\
 from tests.common.ixia.common_helpers import get_vlan_subnet, get_addrs_in_subnet,\
     get_peer_ixia_chassis
 
-pytestmark = [
-    pytest.mark.device_type('physical')
-]
-
 
 pytestmark = [
     pytest.mark.topology('tgen'),

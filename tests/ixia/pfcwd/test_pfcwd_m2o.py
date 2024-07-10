@@ -10,10 +10,7 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list,\
 from .files.pfcwd_multi_node_helper import run_pfcwd_multi_node_test
 from .files.helper import skip_pfcwd_test
 
-pytestmark = [
-    pytest.mark.topology('tgen'),
-    pytest.mark.device_type('physical')
-]
+pytestmark = [pytest.mark.topology('tgen')]
 
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])

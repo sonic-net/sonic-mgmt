@@ -9,10 +9,7 @@ from tests.common.ixia.qos_fixtures import prio_dscp_map, all_prio_list, lossles
 
 from .files.helper import run_pfc_test
 
-pytestmark = [
-    pytest.mark.topology('tgen'),
-    pytest.mark.device_type('physical')
-]
+pytestmark = [pytest.mark.topology('tgen')]
 
 
 def test_global_pause(ixia_api, ixia_testbed_config, conn_graph_facts, fanout_graph_facts,      # noqa F811
