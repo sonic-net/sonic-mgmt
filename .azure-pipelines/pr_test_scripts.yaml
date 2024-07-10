@@ -161,6 +161,7 @@ t0:
   - tacacs/test_rw_user.py
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
+  - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
   - test_interfaces.py
   - test_procdockerstatsd.py
