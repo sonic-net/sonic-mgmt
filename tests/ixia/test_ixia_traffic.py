@@ -30,8 +30,12 @@ pytestmark = [
 ]
 
 
-@pytest.mark.disable_loganalyzer
-@pytest.mark.topology("tgen")
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.disable_loganalyzer
+]
+
+
 def test_testbed(conn_graph_facts, duthosts, rand_one_dut_hostname, fanout_graph_facts,     # noqa F811
                  ixia_api_server_session, fanouthosts):                                     # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
