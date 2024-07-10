@@ -64,12 +64,6 @@ decap/test_decap.py:
 #######################################
 #####           dualtor           #####
 #######################################
-dualtor/test_orch_stress.py:
-  skip_traffic_test:
-    reason: "Skip traffic test for KVM testbed"
-    conditions:
-      - "asic_type in ['vs']"
-
 dualtor/test_orchagent_active_tor_downstream.py:
   skip_traffic_test:
     reason: "Skip traffic test for KVM testbed"
