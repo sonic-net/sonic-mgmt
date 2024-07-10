@@ -154,3 +154,58 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
         if filter_event_regex != "":
             cmd += " --filter_event_regex {}".format(filter_event_regex)
     return cmd
+
+
+def unarchive_telemetry_certs(duthost):
+    # Move all files within old_certs directory to parent certs directory
+    path = "/etc/sonic/telemetry/"
+    archive_dir = path + "old_certs"
+    cmd = "ls {}".format(archive_dir)
+    filenames = duthost.shell(cmd)['stdout_lines']
+    for filename in filenames:
+        cmd = "mv {}/{} {}".format(archive_dir, filename, path)
+        duthost.shell(cmd)
+    cmd = "rm -rf {}".format(archive_dir)
+
+
+def archive_telemetry_certs(duthost):
+    # Move all files within certs directory to old_certs directory
+    path = "/etc/sonic/telemetry/"
+    archive_dir = path + "old_certs"
+    cmd = "mkdir -p {}".format(archive_dir)
+    duthost.shell(cmd)
+    cmd = "ls {}".format(path)
+    filenames = duthost.shell(cmd)['stdout_lines']
+    for filename in filenames:
+        if filename.endswith(".cer") or filename.endswith(".key"):
+            cmd = "mv {} {}".format(path + filename, archive_dir)
+            duthost.shell(cmd)
+
+
+def rotate_telemetry_certs(duthost, localhost):
+    path = "/etc/sonic/telemetry/"
+    # Create new certs to rotate
+    cmd = "openssl req \
+              -x509 \
+              -sha256 \
+              -nodes \
+              -newkey rsa:2048 \
+              -keyout streamingtelemetryserver.key \
+              -subj '/CN=ndastreamingservertest' \
+              -out streamingtelemetryserver.cer"
+    localhost.shell(cmd)
+    cmd = "openssl req \
+              -x509 \
+              -sha256 \
+              -nodes \
+              -newkey rsa:2048 \
+              -keyout dsmsroot.key \
+              -subj '/CN=ndastreamingclienttest' \
+              -out dsmsroot.cer"
+    localhost.shell(cmd)
+
+    # Rotate certs
+    duthost.copy(src="streamingtelemetryserver.cer", dest=path)
+    duthost.copy(src="streamingtelemetryserver.key", dest=path)
+    duthost.copy(src="dsmsroot.cer", dest=path)
+    duthost.copy(src="dsmsroot.key", dest=path)
