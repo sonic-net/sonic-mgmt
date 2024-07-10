@@ -38,6 +38,20 @@ DHCP_SERVER_SUPPORTED_OPTION_ID = (
 )
 
 
+def vlan_i2n(vlan_id):
+    """
+        Convert vlan id to vlan name
+    """
+    return "Vlan%s" % vlan_id
+
+
+def vlan_n2i(vlan_name):
+    """
+        Convert vlan name to vlan id
+    """
+    return vlan_name.replace("Vlan", "")
+
+
 def clean_fdb_table(duthost):
     duthost.shell("sonic-clear fdb all")
 
@@ -48,8 +62,16 @@ def ping_dut_refresh_fdb(ptfhost, interface):
 
 def clean_dhcp_server_config(duthost):
     keys = duthost.shell("sonic-db-cli CONFIG_DB KEYS DHCP_SERVER_IPV4*")
-    for key in keys["stdout_lines"]:
-        duthost.shell("sonic-db-cli CONFIG_DB DEL '{}'".format(key))
+    clean_order = [
+        "DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS",
+        "DHCP_SERVER_IPV4_RANGE",
+        "DHCP_SERVER_IPV4_PORT",
+        "DHCP_SERVER_IPV4"
+    ]
+    for key in clean_order:
+        for line in keys['stdout_lines']:
+            if line.startswith(key + '|'):
+                duthost.shell("sonic-db-cli CONFIG_DB DEL '{}'".format(line))
 
 
 def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
@@ -127,11 +149,14 @@ def empty_config_patch(customized_options=None):
         }
     ]
     if customized_options:
-        ret_empty_patch.append({
-            "op": "add",
-            "path": "/DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS",
-            "value": {}
-        })
+        ret_empty_patch.insert(
+            0,
+            {
+                "op": "add",
+                "path": "/DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS",
+                "value": {}
+            }
+        )
     return ret_empty_patch
 
 
@@ -145,12 +170,13 @@ def append_common_config_patch(
     customized_options=None
 ):
     pytest_require(len(dut_ports) == len(ip_ranges), "Invalid input, dut_ports and ip_ranges should have same length")
-    new_patch = generate_dhcp_interface_config_patch(vlan_name, gateway, net_mask, customized_options)
+    new_patch = []
+    if customized_options:
+        new_patch += generate_dhcp_custom_option_config_patch(customized_options)
+    new_patch += generate_dhcp_interface_config_patch(vlan_name, gateway, net_mask, customized_options)
     range_names = ["range_" + ip_range[0] for ip_range in ip_ranges]
     new_patch += generate_dhcp_range_config_patch(ip_ranges, range_names)
     new_patch += generate_dhcp_port_config_patch(vlan_name, dut_ports, range_names)
-    if customized_options:
-        new_patch += generate_dhcp_custom_option_config_patch(customized_options)
     config_patch += new_patch
 
 
