@@ -849,3 +849,15 @@ def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
             pytest_assert(addr not in cmd_output,
                           f"{hostname} {cmd_desc} still with addr {addr}")
             logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
+
+
+# Currently, conditional mark would only match longest prefix,
+# so our mark in tests_mark_conditions_skip_traffic_test.yaml couldn't be matched.
+# Use a temporary work around to add skip_traffic_test fixture here,
+# once conditional mark support add all matches, will remove this code.
+@pytest.fixture(scope="module")
+def skip_traffic_test(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.facts["asic_type"] == "vs":
+        return True
+    return False
