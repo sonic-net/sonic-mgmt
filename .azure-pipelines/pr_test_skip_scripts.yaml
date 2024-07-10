@@ -39,9 +39,9 @@ t0:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
-  - snmp/test_snmp_phy_entity.py
   # This script only supported on Mellanox
   - restapi/test_restapi.py
+  - snmp/test_snmp_phy_entity.py
 
 t1:
   # KVM do not support bfd test
