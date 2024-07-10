@@ -8,11 +8,11 @@ from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.bgp.test_traffic_shift import get_traffic_shift_state, parse_routes_on_neighbors,\
-    check_tsa_persistence_support, verify_current_routes_announced_to_neighs, check_and_log_routes_diff, \
+from tests.bgp.test_traffic_shift import get_traffic_shift_state, parse_routes_on_neighbors, \
+    verify_current_routes_announced_to_neighs, check_and_log_routes_diff, \
     verify_only_loopback_routes_are_announced_to_neighs
 from tests.bgp.test_startup_tsa_tsb_service import get_tsa_tsb_service_uptime, get_tsa_tsb_service_status, \
-    get_startup_tsb_timer
+    get_startup_tsb_timer, enable_disable_startup_tsa_tsb_service     # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -29,36 +29,7 @@ CONTAINER_STOP_THRESHOLD_SECS = 60
 CONTAINER_RESTART_THRESHOLD_SECS = 300
 PROGRAM_STATUS = "RUNNING"
 BGP_CRIT_PROCESS = "bgpcfgd"
-
-
-@pytest.fixture(scope="module", autouse=True)
-def enable_disable_startup_tsa_tsb_service(duthosts):
-    """
-    @summary: enable/disable startup-tsa-tsb.service during OC run.
-    Args:
-        duthosts: Fixture returns a list of Ansible object DuT.
-    Returns:
-        None.
-    """
-    for duthost in duthosts.frontend_nodes:
-        platform = duthost.facts['platform']
-        startup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/startup-tsa-tsb.conf".format(platform)
-        backup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/backup-startup-tsa-tsb.bck".format(platform)
-        out = duthost.shell("cat {}".format(backup_tsa_tsb_file_path), module_ignore_errors=True)['rc']
-        if not out:
-            duthost.shell("sudo mv {} {}".format(backup_tsa_tsb_file_path, startup_tsa_tsb_file_path),
-                          module_ignore_errors=True)
-    yield
-    for duthost in duthosts.frontend_nodes:
-        platform = duthost.facts['platform']
-        startup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/startup-tsa-tsb.conf".format(platform)
-        backup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/backup-startup-tsa-tsb.bck".format(platform)
-        out = duthost.shell("cat {}".format(startup_tsa_tsb_file_path), module_ignore_errors=True)['rc']
-        if not out:
-            duthost.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path),
-                          module_ignore_errors=True)
-            output = duthost.shell("TSB", module_ignore_errors=True)
-            pytest_assert(not output['rc'], "Failed TSB")
+supported_tsa_configs = ['false', 'true']
 
 
 @pytest.fixture
@@ -296,19 +267,20 @@ def clear_failed_flag_and_restart(duthost, service_name, container_name):
 
 @pytest.mark.disable_loganalyzer
 def test_sup_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_supervisor_dut_hostname,
-                                                    nbrhosts, traffic_shift_community, tbinfo):
+                                                    enable_disable_startup_tsa_tsb_service, nbrhosts,     # noqa: F811
+                                                    traffic_shift_community, tbinfo):
     """
     Test supervisor TSA action when supervisor and line cards are in TSB initially
     Verify supervisor config state changes to TSA and Line card BGP TSA operational state changes to TSA from TSB
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -345,6 +317,7 @@ def test_sup_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
 
 @pytest.mark.disable_loganalyzer
 def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                           enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                            nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSA action when supervisor is on TSB and line cards are in TSA initially
@@ -352,12 +325,12 @@ def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     dut_nbrhosts = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -402,6 +375,7 @@ def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
 
 @pytest.mark.disable_loganalyzer
 def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                           enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                            nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSB action when supervisor is on TSA and line cards are in TSB configuration initially but with
@@ -411,12 +385,12 @@ def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
     announced back to neighbors when the line cards are back to TSB.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     dut_nbrhosts = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
@@ -467,6 +441,7 @@ def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
 
 @pytest.mark.disable_loganalyzer
 def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                        enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                         nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSB action when supervisor and line cards are in TSA configuration initially
@@ -474,12 +449,12 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     dut_nbrhosts = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
@@ -535,6 +510,7 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
 
 @pytest.mark.disable_loganalyzer
 def test_dut_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                    enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                     nbrhosts, traffic_shift_community, tbinfo):
     """
     Test line card TSA action when supervisor and line cards are in TSB initially
@@ -543,12 +519,12 @@ def test_dut_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -589,6 +565,7 @@ def test_dut_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
 
 @pytest.mark.disable_loganalyzer
 def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                           enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                            nbrhosts, traffic_shift_community, tbinfo):
     """
     Test line card TSA action when supervisor is on TSA and line cards are in TSB initially
@@ -597,12 +574,12 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
@@ -660,6 +637,7 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
 
 @pytest.mark.disable_loganalyzer
 def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                           enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                            nbrhosts, traffic_shift_community, tbinfo):
     """
     Test line card TSB action when supervisor is on TSB and line cards are in TSA initially
@@ -668,12 +646,13 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state and all routes are
     announced back to neighbors when the line cards are back to TSB.
     """
+    suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -743,6 +722,7 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
 
 @pytest.mark.disable_loganalyzer
 def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                        enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                         nbrhosts, traffic_shift_community, tbinfo):
     """
     Test line card TSB action when supervisor and line cards are in TSA configuration initially
@@ -750,12 +730,12 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     dut_nbrhosts = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
@@ -815,6 +795,7 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
 
 @pytest.mark.disable_loganalyzer
 def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_hostname,
+                                     enable_disable_startup_tsa_tsb_service,                # noqa: F811
                                      nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSA action when supervisor and line cards are in TSB initially
@@ -824,14 +805,14 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
     After reboot, make sure the BGP TSA operational states are same as before reboot.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     tsa_tsb_timer = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -924,6 +905,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
 
 @pytest.mark.disable_loganalyzer
 def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                             enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                              nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSA action when supervisor is on TSB and line cards are in TSA initially
@@ -933,12 +915,12 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
     After config_relaod, make sure the BGP TSA operational states are same as before.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     dut_nbrhosts = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -996,6 +978,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
 
 @pytest.mark.disable_loganalyzer
 def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                          enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                           nbrhosts, traffic_shift_community, tbinfo):
     """
     Test line card TSA action when supervisor and line cards are in TSB initially
@@ -1006,14 +989,14 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
     After reboot, make sure the BGP TSA operational states are same as before reboot on line cards.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1092,6 +1075,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
 
 @pytest.mark.disable_loganalyzer
 def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                                  enable_disable_startup_tsa_tsb_service,     # noqa: F811, E501
                                                                   nbrhosts, traffic_shift_community, tbinfo):
     """
     Test line card TSA action when supervisor is on TSA and line cards are in TSB initially
@@ -1102,12 +1086,12 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
     After config_reload, make sure the BGP TSA operational states are same as before config reload on line card.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1163,6 +1147,7 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
 
 @pytest.mark.disable_loganalyzer
 def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                  enable_disable_startup_tsa_tsb_service,      # noqa: F811
                                                   nbrhosts, traffic_shift_community, tbinfo):
     """
     Test user initiated line card TSA action when supervisor and line cards are in TSB initially
@@ -1174,12 +1159,12 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supe
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1234,6 +1219,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supe
 
 @pytest.mark.disable_loganalyzer
 def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                  enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                   nbrhosts, traffic_shift_community, tbinfo):
     """
     Test user initiated line card TSA action when supervisor and line cards are in TSB initially
@@ -1245,12 +1231,12 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1305,6 +1291,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
 
 @pytest.mark.disable_loganalyzer
 def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                      enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                       nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSA action when startup-tsa-tsb service is running on line cards after reboot
@@ -1313,14 +1300,14 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     tsa_tsb_timer = dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1398,6 +1385,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
 
 @pytest.mark.disable_loganalyzer
 def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                      enable_disable_startup_tsa_tsb_service,     # noqa: F811
                                                       nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSB action when startup-tsa-tsb service is running on line cards after reboot
@@ -1406,14 +1394,14 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     are advertised back once the line cards are in normal state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     tsa_tsb_timer = dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1482,7 +1470,8 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
 
 @pytest.mark.disable_loganalyzer
 def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
-        duthosts, localhost, enum_supervisor_dut_hostname, nbrhosts, traffic_shift_community, tbinfo):
+        duthosts, localhost, enum_supervisor_dut_hostname, enable_disable_startup_tsa_tsb_service,     # noqa: F811
+        nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSB action when supervisor is on TSA and line cards are in TSB configuration initially but with
     BGP operational TSA states
@@ -1492,12 +1481,12 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
     announced back to neighbors when the line cards are back to TSB.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     dut_nbrhosts = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
@@ -1560,6 +1549,7 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
 
 @pytest.mark.disable_loganalyzer
 def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, localhost, enum_supervisor_dut_hostname,
+                                                                      enable_disable_startup_tsa_tsb_service,    # noqa: F811, E501
                                                                       nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSB action when supervisor and line cards are in TSA configuration initially
@@ -1568,12 +1558,12 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     dut_nbrhosts = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
@@ -1640,6 +1630,7 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
 @pytest.mark.disable_loganalyzer
 def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthosts, localhost,
                                                                          enum_supervisor_dut_hostname,
+                                                                         enable_disable_startup_tsa_tsb_service,     # noqa: F811, E501
                                                                          nbrhosts, traffic_shift_community, tbinfo):
     """
     Test line card TSB action when supervisor is on TSB and line cards are in TSA initially
@@ -1649,12 +1640,13 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state and all routes are
     announced back to neighbors when the line cards are back to TSB.
     """
+    suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1746,6 +1738,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
 @pytest.mark.disable_loganalyzer
 def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, localhost,
                                                                       enum_supervisor_dut_hostname,
+                                                                      enable_disable_startup_tsa_tsb_service,     # noqa: F811, E501
                                                                       nbrhosts, traffic_shift_community, tbinfo):
     """
     Test line card TSB action when supervisor and line cards are in TSA configuration initially
@@ -1754,12 +1747,12 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
     Make sure only loopback routes are advertised to neighbors during line cards' TSA state.
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
+    if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
+        pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
     dut_nbrhosts = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        if not check_tsa_persistence_support(linecard):
-            pytest.skip("TSA persistence not supported in the image")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
