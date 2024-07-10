@@ -378,18 +378,6 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     time.sleep(60)
 
 
-# Currently, conditional mark would only match longest prefix,
-# so our mark in tests_mark_conditions_skip_traffic_test.yaml couldn't be matched.
-# Use a temporary work around to add skip_traffic_test fixture here,
-# once conditional mark support add all matches, will remove this code.
-@pytest.fixture(scope="module")
-def skip_traffic_test(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    if duthost.facts["asic_type"] == "vs":
-        return True
-    return False
-
-
 # TODO: This should be refactored to some common area of sonic-mgmt.
 def add_route(duthost, prefix, nexthop, namespace):
     """

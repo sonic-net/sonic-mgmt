@@ -12,6 +12,33 @@ t0:
   - ospf/test_ospf_bfd.py
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
+  # Platform api needs the module `sonic_platform`, which is not included in vs
+  # So skip these scripts
+  - platform_tests/api/test_chassis.py
+  - platform_tests/api/test_chassis_fans.py
+  - platform_tests/api/test_component.py
+  - platform_tests/api/test_fan_drawer.py
+  - platform_tests/api/test_fan_drawer_fans.py
+  - platform_tests/api/test_module.py
+  - platform_tests/api/test_psu.py
+  - platform_tests/api/test_psu_fans.py
+  - platform_tests/api/test_sfp.py
+  - platform_tests/api/test_thermal.py
+  - platform_tests/api/test_watchdog.py
+  # These test scripts are aimed to test some daemons on physical testbed.
+  - platform_tests/daemon/test_fancontrol.py
+  - platform_tests/daemon/test_ledd.py
+  - platform_tests/daemon/test_pcied.py
+  - platform_tests/daemon/test_psud.py
+  - platform_tests/daemon/test_syseepromd.py
+  # These test scripts are aimed to run on mellanox platform
+  - platform_tests/mellanox/test_check_sfp_eeprom.py
+  - platform_tests/mellanox/test_check_sfp_presence.py
+  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
+  - platform_tests/mellanox/test_check_sysfs.py
+  - platform_tests/mellanox/test_hw_management_service.py
+  - platform_tests/mellanox/test_psu_power_threshold.py
+  - platform_tests/mellanox/test_reboot_cause.py
   - snmp/test_snmp_phy_entity.py
 
 t1:
@@ -25,10 +52,36 @@ t1:
   - ospf/test_ospf_bfd.py
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
+  # Platform api needs the module `sonic_platform`, which is not included in vs
+  # So skip these scripts
+  - platform_tests/api/test_chassis.py
+  - platform_tests/api/test_chassis_fans.py
+  - platform_tests/api/test_component.py
+  - platform_tests/api/test_fan_drawer.py
+  - platform_tests/api/test_fan_drawer_fans.py
+  - platform_tests/api/test_module.py
+  - platform_tests/api/test_psu.py
+  - platform_tests/api/test_psu_fans.py
+  - platform_tests/api/test_sfp.py
+  - platform_tests/api/test_thermal.py
+  - platform_tests/api/test_watchdog.py
+  # These test scripts are aimed to test some daemons on physical testbed.
+  - platform_tests/daemon/test_fancontrol.py
+  - platform_tests/daemon/test_ledd.py
+  - platform_tests/daemon/test_pcied.py
+  - platform_tests/daemon/test_psud.py
+  - platform_tests/daemon/test_syseepromd.py
+  # These test scripts are aimed to run on mellanox platform
+  - platform_tests/mellanox/test_check_sfp_eeprom.py
+  - platform_tests/mellanox/test_check_sfp_presence.py
+  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
+  - platform_tests/mellanox/test_check_sysfs.py
+  - platform_tests/mellanox/test_hw_management_service.py
+  - platform_tests/mellanox/test_psu_power_threshold.py
+  - platform_tests/mellanox/test_reboot_cause.py
   - snmp/test_snmp_phy_entity.py
   # Not supported port type
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
-
 
 t2:
   # This script only supported on Mellanox
@@ -37,6 +90,83 @@ t2:
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
   - k8s/test_join_available_master.py
+  # Platform api needs the module `sonic_platform`, which is not included in vs
+  # So skip these scripts
+  - platform_tests/api/test_chassis.py
+  - platform_tests/api/test_chassis_fans.py
+  - platform_tests/api/test_component.py
+  - platform_tests/api/test_fan_drawer.py
+  - platform_tests/api/test_fan_drawer_fans.py
+  - platform_tests/api/test_module.py
+  - platform_tests/api/test_psu.py
+  - platform_tests/api/test_psu_fans.py
+  - platform_tests/api/test_sfp.py
+  - platform_tests/api/test_thermal.py
+  - platform_tests/api/test_watchdog.py
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
+  # These test scripts are aimed to test some daemons on physical testbed.
+  - platform_tests/daemon/test_fancontrol.py
+  - platform_tests/daemon/test_ledd.py
+  - platform_tests/daemon/test_pcied.py
+  - platform_tests/daemon/test_psud.py
+  - platform_tests/daemon/test_syseepromd.py
+  # These test scripts are aimed to run on mellanox platform
+  - platform_tests/mellanox/test_check_sfp_eeprom.py
+  - platform_tests/mellanox/test_check_sfp_presence.py
+  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
+  - platform_tests/mellanox/test_check_sysfs.py
+  - platform_tests/mellanox/test_hw_management_service.py
+  - platform_tests/mellanox/test_psu_power_threshold.py
+  - platform_tests/mellanox/test_reboot_cause.py
   - snmp/test_snmp_phy_entity.py
+
+dualtor:
+  # This test is only for Nvidia platforms.
+  - dualtor_mgmt/test_egress_drop_nvidia.py
+
+tgen:
+  # Ixia test only support on physical ixia testbed
+  - ixia/ecn/test_dequeue_ecn.py
+  - ixia/ecn/test_red_accuracy.py
+  - ixia/ixanvl/test_bgp_conformance.py
+  - ixia/pfc/test_global_pause.py
+  - ixia/pfc/test_pfc_congestion.py
+  - ixia/pfc/test_pfc_pause_lossless.py
+  - ixia/pfc/test_pfc_pause_lossy.py
+  - ixia/pfcwd/test_pfcwd_a2a.py
+  - ixia/pfcwd/test_pfcwd_basic.py
+  - ixia/pfcwd/test_pfcwd_burst_storm.py
+  - ixia/pfcwd/test_pfcwd_m2o.py
+  - ixia/pfcwd/test_pfcwd_runtime_traffic.py
+  - ixia/test_ixia_traffic.py
+  - ixia/test_tgen.py
+
+wan:
+  # Currently PR test will not test wan topo
+  - wan/isis/test_isis_authentication.py
+  - wan/isis/test_isis_csnp_interval.py
+  - wan/isis/test_isis_database.py
+  - wan/isis/test_isis_dynamic_hostname.py
+  - wan/isis/test_isis_ecmp.py
+  - wan/isis/test_isis_hello_interval.py
+  - wan/isis/test_isis_hello_pad.py
+  - wan/isis/test_isis_holdtime.py
+  - wan/isis/test_isis_intf_passive.py
+  - wan/isis/test_isis_level_capacity.py
+  - wan/isis/test_isis_log_adjacency_change.py
+  - wan/isis/test_isis_lsp_fragment.py
+  - wan/isis/test_isis_lsp_gen_interval.py
+  - wan/isis/test_isis_lsp_lifetime.py
+  - wan/isis/test_isis_lsp_refresh.py
+  - wan/isis/test_isis_metric_wide.py
+  - wan/isis/test_isis_neighbor.py
+  - wan/isis/test_isis_overload_bit.py
+  - wan/isis/test_isis_redistribute.py
+  - wan/isis/test_isis_spf_default_interval.py
+  - wan/isis/test_isis_spf_ietf_interval.py
+  - wan/lacp/test_wan_lacp.py
+  - wan/lacp/test_wan_lag_member.py
+  - wan/lacp/test_wan_lag_min_link.py
+  - wan/lldp/test_wan_lldp.py
+  - wan/traffic_test/test_traffic.py
