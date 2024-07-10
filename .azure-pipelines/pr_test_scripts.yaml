@@ -93,13 +93,6 @@ t0:
   - platform_tests/counterpoll/test_counterpoll_watermark.py
   - platform_tests/fwutil/test_fwutil.py
   - platform_tests/link_flap/test_cont_link_flap.py
-  - platform_tests/mellanox/test_check_sfp_eeprom.py
-  - platform_tests/mellanox/test_check_sfp_presence.py
-  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
-  - platform_tests/mellanox/test_check_sysfs.py
-  - platform_tests/mellanox/test_hw_management_service.py
-  - platform_tests/mellanox/test_psu_power_threshold.py
-  - platform_tests/mellanox/test_reboot_cause.py
   - platform_tests/sfp/test_show_intf_xcvr.py
   - platform_tests/sfp/test_sfpshow.py
   - platform_tests/sfp/test_sfputil.py
@@ -310,11 +303,6 @@ onboarding_t0:
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
   - platform_tests/cli/test_show_platform.py
-  - platform_tests/daemon/test_fancontrol.py
-  - platform_tests/daemon/test_ledd.py
-  - platform_tests/daemon/test_pcied.py
-  - platform_tests/daemon/test_psud.py
-  - platform_tests/daemon/test_syseepromd.py
   - platform_tests/link_flap/test_link_flap.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
