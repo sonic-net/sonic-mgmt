@@ -4,6 +4,7 @@ import logging
 import time
 from run_events_test import run_test
 from event_utils import backup_monit_config, customize_monit_config, restore_monit_config
+from event_utils import add_test_watchdog_timeout_service, delete_test_watchdog_timeout_service
 from telemetry_utils import trigger_logger
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.utilities import wait_until
@@ -42,6 +43,14 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
                  "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
     finally:
         restore_monit_config(duthost)
+    add_test_watchdog_timeout_service(duthost)
+    try:
+        # We need to alot flat 60 seconds for watchdog timeout to fire since the timer is set to 60\
+        # With a base limit of 30 seconds, we will use 90 seconds
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, None,
+                 "watchdog_timeout.json", "sonic-events-host:watchdog-timeout", tag, False, 90)
+    finally:
+        delete_test_watchdog_timeout_service(duthost)
 
 
 def trigger_mem_threshold_exceeded_alert(duthost):
