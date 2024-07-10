@@ -2177,6 +2177,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             # Current skipped keys:
             # 1. "MUX_LINKMGR|LINK_PROBER"
             # 2. "MUX_LINKMGR|TIMED_OSCILLATION"
+            # 3. "LOGGER|linkmgrd"
             # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
             # to account for the lower performance of the ICMP responder/mux simulator compared to
             # real servers and mux cables.
@@ -2186,7 +2187,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if "dualtor" in tbinfo["topo"]["name"]:
                 EXCLUDE_CONFIG_KEY_NAMES = [
                     'MUX_LINKMGR|LINK_PROBER',
-                    'MUX_LINKMGR|TIMED_OSCILLATION'
+                    'MUX_LINKMGR|TIMED_OSCILLATION',
+                    'LOGGER|linkmgrd'
                 ]
             else:
                 EXCLUDE_CONFIG_KEY_NAMES = []
