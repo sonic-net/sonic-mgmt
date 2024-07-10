@@ -175,6 +175,10 @@ def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, set
 
     module = __import__("eventd_events")
 
+    duthost.shell("systemctl restart eventd")
+
+    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started.")
+
     module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, None)
 
     logger.info("Completed test file: {}".format("eventd_events test completed."))
