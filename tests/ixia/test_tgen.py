@@ -19,8 +19,12 @@ from abstract_open_traffic_generator.control import State, ConfigState, FlowTran
 from abstract_open_traffic_generator.result import FlowRequest
 
 
-@pytest.mark.topology("tgen")
-@pytest.mark.disable_loganalyzer
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.disable_loganalyzer
+]
+
+
 def __gen_all_to_all_traffic(testbed_config,
                              port_config_list,
                              dut_hostname,
