@@ -8,13 +8,14 @@
     - [1.2 Check platform voltage](#12-check-platform-voltage)
     - [1.3 Check platform temperature](#13-check-platform-temperature)
     - [1.4 Check dpu console](#14-check-dpu-console)
-    - [1.5 Check DPU shutdown and power up individually](#15-check-DPU-shutdown-and-power-up-individually)
-    - [1.6 Check removal of pcie link between npu and dpu](#16-check-removal-of-pcie-link-between-npu-and-dpu)
-    - [1.7 Check the NTP date and timezone between DPU and NPU](#17-check-the-ntp-date-and-timezone-between-dpu-and-npu)
-    - [1.8 Check the State of DPUs](#18-check-the-state-of-dpus)
-    - [1.9 Check the Health of DPUs](#19-check-the-health-of-dpus)
-    - [1.10 Check reboot cause history](#110-check-reboot-cause-history)
-    - [1.11 Check the DPU state after OS reboot](#111-check-the-dpu-state-after-os-reboot)
+    - [1.5 Check midplane ip address between NPU and DPU](#15-check-midplane-ip-address-between-npu-and-dpu)
+    - [1.6 Check DPU shutdown and power up individually](#16-check-DPU-shutdown-and-power-up-individually)
+    - [1.7 Check removal of pcie link between npu and dpu](#17-check-removal-of-pcie-link-between-npu-and-dpu)
+    - [1.8 Check the NTP date and timezone between DPU and NPU](#18-check-the-ntp-date-and-timezone-between-dpu-and-npu)
+    - [1.9 Check the State of DPUs](#19-check-the-state-of-dpus)
+    - [1.10 Check the Health of DPUs](#110-check-the-health-of-dpus)
+    - [1.11 Check reboot cause history](#111-check-reboot-cause-history)
+    - [1.12 Check the DPU state after OS reboot](#112-check-the-dpu-state-after-os-reboot)
 
 ## Introduction
 
@@ -439,8 +440,40 @@ root@sonic:/home/cisco#
  * Verify Login access is displayed.
  * cntrl+a and then cntrl+x to come out of the dpu console.
 
-     
-### 1.5 Check DPU shutdown and power up individually
+
+### 1.5 Check midplane ip address between NPU and DPU 
+
+#### Steps 
+ * Get the number of dpu modules from PMON APIs - get_num_modules()
+ * Get mid plane ip address for each dpu module from PMON APIs - get_midplane_ip()
+
+#### Verify in
+ * Switch
+
+#### Sample Output
+```
+    On Switch:
+
+      root@sonic:/home/cisco# show ip interface
+      Interface     Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
+      ------------  --------  -------------------  ------------  --------------  -------------
+      eth0                    172.25.42.65/24      up/up         N/A             N/A
+      eth1                    169.254.24.2/24      up/up         N/A             N/A
+      eth2                    169.254.28.2/24      up/up         N/A             N/A
+      eth3                    169.254.32.2/24      up/up         N/A             N/A
+      eth4                    169.254.36.2/24      up/up         N/A             N/A
+      eth5                    169.254.139.2/24     up/up         N/A             N/A
+      eth6                    169.254.143.2/24     up/up         N/A             N/A
+      eth7                    169.254.147.2/24     up/up         N/A             N/A
+      eth8                    169.254.151.2/24     up/up         N/A             N/A
+      lo                      127.0.0.1/16         up/up         N/A             N/A
+      root@sonic:/home/cisco# 
+```
+#### Pass/Fail Criteria
+ * Verify Ping works to all the mid plane ip listed in the api output
+
+   
+### 1.6 Check DPU shutdown and power up individually
 
 #### Steps
  * Get the number of dpu modules from PMON APIs - get_num_modules()
@@ -490,7 +523,7 @@ root@sonic:/home/cisco# show chassis modules status
  * Verify dpu is shown in show chassis modules status after dpu powered on
 
 
-### 1.6 Check removal of pcie link between npu and dpu
+### 1.7 Check removal of pcie link between npu and dpu
 
 #### Steps
  * Use command `pcieutil generate` to generate pcie yaml
@@ -525,7 +558,7 @@ root@sonic:/home/cisco# show platform pcieinfo -c
  * Verify pcieinfo test pass for all after bringing back up the link
 
 
-### 1.7 Check the NTP date and timezone between DPU and NPU
+### 1.8 Check the NTP date and timezone between DPU and NPU
 
 #### Steps
  * Use command `date` to get date and time zone on Swith
@@ -558,7 +591,7 @@ root@sonic:/home/cisco#
  * Verify by changing time intentionally in dpu and restart the dpu. Verify again for time sync
 
 
-### 1.8 Check the State of DPUs
+### 1.9 Check the State of DPUs
 
 #### Steps
  * Use command `show system-health DPU all` to get DPU health status. 
@@ -610,7 +643,7 @@ DPU0       1     Partial Online       dpu_midplane_link_state        up         
  * Verify powering down dpu and check for status and powering up again to check the status to show online. 
 
 
-### 1.9 Check the Health of DPUs
+### 1.10 Check the Health of DPUs
 
 #### Steps
  *  Use command `show system-health detail <DPU_SLOT_NUMBER>` to check the health of the dpu.
@@ -649,7 +682,7 @@ rsyslog                    OK        Process
  * Start the docker again and Verify System Status - Green, Service Status - OK, Hardware Status - OK
 
 
-### 1.10 Check reboot cause history
+### 1.11 Check reboot cause history
 
 #### Steps
  *  The "show reboot-cause" CLI on the switch shows the most recent rebooted device, time and the cause. 
@@ -702,7 +735,7 @@ DPU3        2023_10_02_17_23_46     Host Reset DPU                  Sun 02 Oct 2
  * Verify all the reboot causes - Watchdog, reboot command, Host Reset
 
 
-### 1.11 Check the DPU state after OS reboot
+### 1.12 Check the DPU state after OS reboot
 
 #### Steps
 
