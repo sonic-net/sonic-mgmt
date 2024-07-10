@@ -69,9 +69,11 @@ def skip_cleanup(request):
 def skip_dataplane_checking(request):
     return request.config.getoption("--skip_dataplane_checking")
 
+
 @pytest.fixture(scope="module")
 def skip_cert_cleanup(request):
     return request.config.getoption("--skip_cert_cleanup")
+
 
 @pytest.fixture(scope="module")
 def config_facts(duthost):
