@@ -25,6 +25,20 @@ t0:
   - platform_tests/api/test_sfp.py
   - platform_tests/api/test_thermal.py
   - platform_tests/api/test_watchdog.py
+  # These test scripts are aimed to test some daemons on physical testbed.
+  - platform_tests/daemon/test_fancontrol.py
+  - platform_tests/daemon/test_ledd.py
+  - platform_tests/daemon/test_pcied.py
+  - platform_tests/daemon/test_psud.py
+  - platform_tests/daemon/test_syseepromd.py
+  # These test scripts are aimed to run on mellanox platform
+  - platform_tests/mellanox/test_check_sfp_eeprom.py
+  - platform_tests/mellanox/test_check_sfp_presence.py
+  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
+  - platform_tests/mellanox/test_check_sysfs.py
+  - platform_tests/mellanox/test_hw_management_service.py
+  - platform_tests/mellanox/test_psu_power_threshold.py
+  - platform_tests/mellanox/test_reboot_cause.py
   - snmp/test_snmp_phy_entity.py
 
 t1:
@@ -51,6 +65,20 @@ t1:
   - platform_tests/api/test_sfp.py
   - platform_tests/api/test_thermal.py
   - platform_tests/api/test_watchdog.py
+  # These test scripts are aimed to test some daemons on physical testbed.
+  - platform_tests/daemon/test_fancontrol.py
+  - platform_tests/daemon/test_ledd.py
+  - platform_tests/daemon/test_pcied.py
+  - platform_tests/daemon/test_psud.py
+  - platform_tests/daemon/test_syseepromd.py
+  # These test scripts are aimed to run on mellanox platform
+  - platform_tests/mellanox/test_check_sfp_eeprom.py
+  - platform_tests/mellanox/test_check_sfp_presence.py
+  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
+  - platform_tests/mellanox/test_check_sysfs.py
+  - platform_tests/mellanox/test_hw_management_service.py
+  - platform_tests/mellanox/test_psu_power_threshold.py
+  - platform_tests/mellanox/test_reboot_cause.py
   - snmp/test_snmp_phy_entity.py
   # Not supported port type
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
@@ -77,6 +105,20 @@ t2:
   - platform_tests/api/test_watchdog.py
   # Test is not supported on vs testbed
   - platform_tests/test_intf_fec.py
+  # These test scripts are aimed to test some daemons on physical testbed.
+  - platform_tests/daemon/test_fancontrol.py
+  - platform_tests/daemon/test_ledd.py
+  - platform_tests/daemon/test_pcied.py
+  - platform_tests/daemon/test_psud.py
+  - platform_tests/daemon/test_syseepromd.py
+  # These test scripts are aimed to run on mellanox platform
+  - platform_tests/mellanox/test_check_sfp_eeprom.py
+  - platform_tests/mellanox/test_check_sfp_presence.py
+  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
+  - platform_tests/mellanox/test_check_sysfs.py
+  - platform_tests/mellanox/test_hw_management_service.py
+  - platform_tests/mellanox/test_psu_power_threshold.py
+  - platform_tests/mellanox/test_reboot_cause.py
   - snmp/test_snmp_phy_entity.py
 
 dualtor:
