@@ -48,7 +48,6 @@ The primary goal is to cover SmartSwitch specific PMON APIs. The corresponding C
 | 1.2 | Check modified ChassisClass APIs for SmartSwitch       |  To verify the existing ChassisClass APIs that undergo minor changes with the addition of SmartSwitch|
 | 1.3 | Check DpuModule APIs for SmartSwitch       |  To verify the newly implemented  DpuModule APIs for SmartSwitch|
 | 1.4 | Check modified ModuleClass APIs for SmartSwitch       |  To verify the existing ModuleClass APIs that undergo minor changes with the addition of SmartSwitch|
-| 1.5 | Check SwitchModule APIs for SmartSwitch       |  To verify the newly implemented  SwitchModule APIs for SmartSwitch|
 | 1.6 | Check the show reboot-cause CLI on the DPU       |  To verify the reboot-cause CLI on the DPU is unaffected |
 | 1.7 | Check the show reboot-cause history CLI on the DPU       |  To verify the reboot-cause history CLI on the DPU is unaffected|
 | 1.8 | Check the show reboot-cause CLI on the SWITCH       |  To verify the reboot-cause CLI on the SWITCH is unaffected and the new extensions of the CLI work as intended|
@@ -68,14 +67,14 @@ The primary goal is to cover SmartSwitch specific PMON APIs. The corresponding C
 ### 1.1 Check SmartSwitch specific ChassisClass APIs
 
 #### Steps
- * Execute the following CLIs on SmartSwitch
+ * Execute the following APIs on SmartSwitch
  * get_dpu_id(self, name):
-    * Provide DPU0-DPU7
-    * This API should return 1-8 for DPU0-DPU7
+    * Provide name (Example: DPU0 - Get it from platform.json file)
+    * This API should return an integer from 1-8 (check it against platform.json)
  * is_smartswitch(self):
     * This API should return True
  * get_module_dpu_data_port(self, index):
-    * For index: 1 will return the dup0 port association which is "Ethernet224: Ethernet0" where the string left of ":" (Ethernet224) is the NPU port and the string right of ":" (Ethernet0) is the DPU port.
+    * For index: 1 will return the dpu0 port association which is "Ethernet224: Ethernet0" where the string left of ":" (Ethernet224) is the NPU port and the string right of ":" (Ethernet0) is the DPU port.
  
 
 #### Verify in
@@ -104,9 +103,10 @@ On Switch:
  * is_modular_chassis(self):
     * Should return False
  * get_num_modules(self):
-    * Should return number of DPUs + 1 switch
+    * Should return number of DPUs
  * get_module(self, index):
     * Make sure for each index this API returns an object and has some content and not None
+    * Check that the object's class is inherited from the ModuleBase class
  * get_all_modules(self):
     * This should return a list of items
  * get_module_index(self, module_name):
@@ -123,7 +123,7 @@ On Switch:
     Output: False
 
     get_num_modules(self):
-    Output: number of DPUs + 1
+    Output: number of DPUs
 
     get_module(self, DPU0):
     Output: DPU0 object
@@ -149,7 +149,8 @@ On Switch:
  * get_state_info(self):
     * This should return an object
     * Stop one of the DPU containers on this DPU
-    * Execute the CLI and check the dpu-controlplane value should be down
+    * Execute the CLI and check the dpu-control-plane value should be down
+    * Check the complete list of containers without which the control plane can be up.
  * get_health_info(self):
     * This should return an object
     * Stop one of the DPU containers on this DPU
@@ -195,9 +196,11 @@ On Switch:
     * Should return the operational status of the DPU
     * Stop one ore more containers
     * Execute the CLI and see if it is down
+    * Power down the dpu and check if the operational status is down.
  * reboot(self, reboot_type):
     * Issue this CLI with input “MODULE_REBOOT_DEFAULT”
     * verify if the module reboots
+    * The reboot type should be updated based on SmartSwitch reboot HLD sonic-net/SONiC#1699
  * get_midplane_ip(self):
     * should return the midplane IP
 
@@ -230,80 +233,6 @@ On Switch:
 
     get_midplane_ip(self):
     Output: 169.254.200.1
-
-```
-#### Pass/Fail Criteria
- *  The test result is a pass if the return value matches the expected value as shown in the "steps" and "Sample Output".
-
-### 1.5 Check SwitchModule APIs for SmartSwitch
-* This includes the appropriate new and modified ChassisClass and ModuleClass APIs 
-
-#### Steps
- * get_dpu_id(self, name):
-    * Provide “SWITCH”
-    * Should return 0
- * is_smartswitch(self):
-    * This API should return True
- * get_module_dpu_port(self, index):
-    * For index 0 should return None
- * get_base_mac(self):
-    * Should return the base mac address of the switch
- * get_system_eeprom_info(self):
-    * Verify the returned dictionary key:value
- * get_name(self):
-    * Verify if this API returns “SWITCH”
- * get_description(self):
-    * Should return a string
- * get_type(self):
-    * Should return “SWITCH” which is “MODULE_TYPE_SWITCH”
- * get_oper_status(self):
-    * Should return the operational status of the DPU
-    * Stop one ore more containers
-    * Execute the CLI and see if it is down
- * reboot(self, reboot_type):
-    * Issue this CLI with input “MODULE_REBOOT_DEFAULT”
-    * verify if the chassis is rebooted
- * get_midplane_ip(self):
-    * should return the midplane IP of the switch
-
-#### Verify in
- * Switch
-   
-#### Sample Output
-```
-On Switch:
-    get_dpu_id(self, SWITCH)
-    Output: 0
-
-    is_smartswitch(self):
-    Output: True
-
-    get_module_dpu_data_port(self, DPU0):
-    Output: None
-
-    get_base_mac(self):
-    Output: AA:CE:DD:D0:D0:78
-
-    get_system_eeprom_info(self):
-    Output: eeprom info object
-
-    get_name(self):
-    Output: SWITCH
-
-    get_description(self):
-    Output "Cisco 28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW"
-
-    get_type(self):
-    Output: SWITCH
-
-    get_oper_status(self):
-    Output: Online
-
-    reboot(self, reboot_type):
-    Result: the Chassis should reboot
-
-    get_midplane_ip(self):
-    Output: 169.254.200.254
 
 ```
 #### Pass/Fail Criteria
@@ -455,7 +384,7 @@ On Switch: “show system-health summary"
 
 System status summary
 
-  System status LED  green
+  System status LED  red
   Services:
     Status: Not OK
     Not Running: container_checker, lldp:lldpmgrd
@@ -467,7 +396,7 @@ On Switch: “show system-health summary DPU0"
 DPU0
 System status summary
 
-  System status LED  green
+  System status LED  red
   Services:
     Status: Not OK
     Not Running: container_checker, macsec, dhcp_relay, mux, snmp, lldp, mgmt-framework, gnmi, swss:vlanmgrd, swss:vxlanmgrd, teamd:teammgrd, teamd:teamsyncd
@@ -479,7 +408,7 @@ On Switch: “show system-health summary SWITCH"
 SWITCH
 System status summary
 
-  System status LED  green
+  System status LED  red
   Services:
     Status: Not OK
     Not Running: container_checker, lldp:lldpmgrd
@@ -491,7 +420,7 @@ On Switch: “show system-health summary all"
 SWITCH
 System status summary
 
-  System status LED  green
+  System status LED  red
   Services:
     Status: Not OK
     Not Running: container_checker, lldp:lldpmgrd
@@ -501,7 +430,7 @@ System status summary
 DPU1
 System status summary
 
-  System status LED  green
+  System status LED red 
   Services:
     Status: Not OK
     Not Running: container_checker, mux, dhcp_relay, gnmi, lldp, mgmt-framework, macsec, snmp, swss:vlanmgrd, swss:vxlanmgrd, teamd:teammgrd, teamd:teamsyncd
@@ -701,7 +630,7 @@ On Switch: “show system-health detail"
 
 System status summary
 
-  System status LED  green
+  System status LED  red
   Services:
     Status: Not OK
     Not Running: container_checker, lldp:lldpmgrd
@@ -743,7 +672,7 @@ On Switch: “show system-health detail DPU0"
 DPU0
 System status summary
 
-  System status LED  green
+  System status LED  red
   Services:
     Status: Not OK
     Not Running: container_checker, macsec, dhcp_relay, mux, snmp, lldp, mgmt-framework, gnmi, swss:vlanmgrd, swss:vxlanmgrd, teamd:teammgrd, teamd:teamsyncd
@@ -859,8 +788,8 @@ On Switch: "show chassis modules status"
 
   Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
 ------  -------------  ---------------  -------------  --------------  --------
-  DPU0            N/A               -1         Online              up       N/A
-  DPU1            N/A               -1         Online              up       N/A
+  DPU0   Pensando DSC               -1         Online              up       225207731731968
+  DPU1   Pensando DSC               -1         Online              up       225207731731984
   DPU2            N/A               -1        Offline            down       N/A
 
 ```
