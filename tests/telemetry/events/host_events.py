@@ -6,6 +6,7 @@ from run_events_test import run_test
 from event_utils import backup_monit_config, customize_monit_config, restore_monit_config
 from telemetry_utils import trigger_logger
 from tests.common.helpers.dut_utils import is_container_running
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-host"
@@ -15,6 +16,9 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     logger.info("Beginning to test host events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
              "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, kill_critical_process,
+             "process_exited_unexpectedly.json", "sonic-events-host:process-exited-unexpectedly",
+             tag, False)
     backup_monit_config(duthost)
     customize_monit_config(
         duthost,
@@ -55,26 +59,41 @@ def trigger_kernel_event(duthost):
     trigger_logger(duthost, "zlib decompression failed, data probably corrupt", "kernel")
 
 
+def is_container_down(duthost, container):
+    return not is_container_running(duthost, container)
+
+
 def get_running_container(duthost):
     logger.info("Check if acms or snmp container is running")
-    container = "acms"
-    container_running = is_container_running(duthost, container)
-    if not container_running:
-        container = "snmp"
+    if is_container_running(duthost, "acms"):
+        return "acms"
+    elif is_container_running(duthost, "snmp"):
+        return "snmp"
     else:
-        return container
-    container_running = is_container_running(duthost, container)
-    if not container_running:
         return ""
-    return container
+
+
+def get_critical_process(duthost):
+    logger.info("Check if snmpd/bgpd process is running")
+    if is_container_running(duthost, "snmp"):
+        pid = duthost.shell("docker exec snmp pgrep -f sonic_ax_impl")["stdout"]
+        if pid != "":
+            return pid, "snmp"
+    if is_container_running(duthost, "bpg"):
+        pid = duthost.shell("docker exec bgp pgrep -f bpgd")["stdout"]
+        if pid != "":
+            return pid, "bgpd"
+    return "", ""
 
 
 def restart_container(duthost):
     logger.info("Stopping container for event stopped event")
     container = get_running_container(duthost)
     assert container != "", "No available container for testing"
-
+    duthost.shell("systemctl reset-failed {}".format(container))
     duthost.shell("systemctl restart {}".format(container))
+    is_container_running = wait_until(100, 10, 0, duthost.is_service_fully_started, container)
+    assert is_container_running, "{} not running after restart".format(container)
 
 
 def mask_container(duthost):
@@ -89,3 +108,26 @@ def mask_container(duthost):
 
     duthost.shell("systemctl unmask {}".format(container))
     duthost.shell("systemctl restart {}".format(container))
+
+
+def kill_critical_process(duthost):
+    logger.info("Killing critical process for exited unexpectedly event")
+    pid, container = get_critical_process(duthost)
+    assert pid != "", "No available process for testing"
+
+    change_autorestart = False
+    autorestart = duthost.shell("show feature autorestart {}".format(container))['stdout_lines']
+    if "disabled" in str(autorestart):
+        change_autorestart = True
+        duthost.shell("config feature autorestart {} enabled".format(container))
+
+    duthost.shell("docker exec {} kill -9 {}".format(container, pid), module_ignore_errors=True)
+
+    # Wait until specified container is not running because of critical process exit
+    wait_until(30, 5, 0, is_container_down, duthost, container)
+
+    if change_autorestart:
+        duthost.shell("config feature autorestart {} disabled".format(container))
+
+    duthost.shell("systemctl reset-failed {}".format(container), module_ignore_errors=True)
+    wait_until(100, 10, 0, duthost.is_service_fully_started, container)
