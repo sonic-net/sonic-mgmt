@@ -1,5 +1,6 @@
 import logging
 import os
+import pytest
 import json
 import re
 
@@ -86,6 +87,11 @@ def verify_received_output(received_file, N):
 
 
 def restart_eventd(duthost):
+    status = duthost.get_feature_status()
+    platform = duthost.facts["platform"]
+    if platform in ['x86_64-arista_7060_cx32s'] and ('eventd' not in status or status['eventd'] == 'disabled'):
+        pytest.skip("eventd is not enabled in slim image")
+
     duthost.shell("systemctl reset-failed eventd")
     duthost.service(name="eventd", state="restarted")
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started")
