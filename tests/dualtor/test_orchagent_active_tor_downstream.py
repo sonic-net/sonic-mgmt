@@ -186,8 +186,6 @@ def test_downstream_ecmp_nexthops(
             logging.info("Verify traffic to this route destination is sent to single downlink or uplink")
             check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
                                            tbinfo, nexthop_interfaces_copy, skip_traffic_test)
-            if skip_traffic_test is True:
-                break
 
         # Revert two mux states to active
         for index, interface in reversed(list(enumerate(nexthop_interfaces))):
@@ -197,8 +195,6 @@ def test_downstream_ecmp_nexthops(
             logging.info("Verify traffic to this route destination is sent to single downlink or uplink")
             check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
                                            tbinfo, nexthop_interfaces_copy, skip_traffic_test)
-            if skip_traffic_test is True:
-                break
     finally:
         # Remove the nexthop route
         remove_static_routes(rand_selected_dut, dst_server_addr)
