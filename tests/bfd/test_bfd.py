@@ -8,7 +8,8 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1'),
+    pytest.mark.device_type('physical')
 ]
 
 BFD_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/bfd_responder.py'
@@ -321,6 +322,15 @@ def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neig
     logger.info("BFD Summary dump: {}".format(temp['stdout']))
 
 
+def bfd_echo_mode(duthost, neighbor_addrs,):
+    # Apply BFD echo mode configuration with vtysh
+    cmd = "vtysh -c 'configure terminal' -c 'bfd'"
+    for neighbor_addr in neighbor_addrs:
+        cmd += " -c 'bfd peer {}' -c 'echo-mode'".format(neighbor_addr)
+    cmd += " -c 'end' -c 'do write' -c 'exit'"
+    duthost.shell(cmd)
+
+
 def remove_bfd_sessions(duthost, neighbor_addrs):
     # Create a tempfile for BFD sessions
     bfd_file_dir = duthost.shell('mktemp')['stdout']
@@ -481,3 +491,35 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
         duthost.shell(cmd_buffer, module_ignore_errors=True)
         ptfhost.command('supervisorctl stop bfd_responder')
         ptfhost.file(path=BFD_RESPONDER_SCRIPT_DEST_PATH, state="absent")
+
+
+@pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
+def test_bfd_echo_mode(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
+    duthost = rand_selected_dut
+    bfd_session_cnt = int(request.config.getoption('--num_sessions'))
+
+    # Get neighbors for BFD sessions
+    neighbor_addrs = get_neighbors(duthost, tbinfo, ipv6, count=bfd_session_cnt)[2]
+
+    try:
+        # Use bfd_echo_mode function for direct configuration
+        bfd_echo_mode(duthost, neighbor_addrs)  # Pass None for optional logger
+
+        # Verify BFD sessions with echo mode enabled
+        time.sleep(30)  # Wait for BFD sessions to be established
+        result = duthost.shell("vtysh -c 'show bfd peer'")['stdout'].split('\n')
+        error = False
+        for line in result:
+            if ('Echo transmission interval:' in line) or (
+                    'Echo receive interval:' in line):
+                if 'disabled' in line:
+                    error = True
+        assert error is False
+    finally:
+        # Cleanup: Remove BFD sessions and echo mode configurations
+        remove_bfd_sessions(duthost, neighbor_addrs)
+
+        # No need for temporary BFD echo mode config file or cleanup for it
+
+        # FRR commands to disable bfd instances.
+        duthost.shell("vtysh -c 'configure terminal' -c 'no bfd' -c 'end' -c 'do write' -c 'exit'")

@@ -227,6 +227,50 @@ class AclPriorityTest(AclRuleTest):
                                         expected_receiving=True))
 
 
+class AclTcpRstTest(AclRuleTest):
+    def __init__(self, localhost, duthost, ptfhost, dash_config_info, default_action):
+        super(AclTcpRstTest, self).__init__(localhost, duthost, ptfhost, dash_config_info, default_action)
+        self.acl_group = DEFAULT_ACL_GROUP
+
+    def config(self):
+        server_port = 80
+        client_port = 24563
+
+        self.add_rule({
+            ACL_GROUP: self.acl_group,
+            ACL_RULE: "priority_1_allow_port1",
+            ACL_PRIORITY: 1,
+            ACL_ACTION: "allow",
+            ACL_TERMINATING: "true",
+            ACL_PROTOCOL: "6",
+            ACL_SRC_ADDR: f"{self.dash_config_info[LOCAL_CA_IP]}/32",
+            ACL_SRC_PORT: client_port,
+            ACL_DST_ADDR: f"{self.dash_config_info[REMOTE_CA_IP]}/32",
+            ACL_DST_PORT: server_port,
+        })
+        self.add_rule({
+            ACL_GROUP: self.acl_group,
+            ACL_RULE: "priority_2_deny_port1",
+            ACL_PRIORITY: 1,
+            ACL_ACTION: "deny",
+            ACL_TERMINATING: "true",
+            ACL_PROTOCOL: "6",
+            ACL_SRC_ADDR: f"{self.dash_config_info[REMOTE_CA_IP]}/32",
+            ACL_SRC_PORT: server_port,
+            ACL_DST_ADDR: f"{self.dash_config_info[LOCAL_CA_IP]}/32",
+            ACL_DST_PORT: client_port,
+        })
+        dash_config_info = copy.deepcopy(self.dash_config_info)
+        self.add_test_pkt(AclTestPacket(dash_config_info,
+                                        inner_extra_conf={"tcp_sport": client_port,
+                                                          "tcp_dport": server_port, "tcp_flags": "A"},
+                                        expected_receiving=True))
+        self.add_test_pkt(AclTestPacket(dash_config_info,
+                                        inner_extra_conf={"tcp_sport": server_port,
+                                                          "tcp_dport": client_port, "tcp_flags": "A"},
+                                        expected_receiving=False))
+
+
 class AclProtocolTest(AclRuleTest):
     def __init__(self, localhost, duthost, ptfhost, dash_config_info, default_action):
         super(AclProtocolTest, self).__init__(localhost, duthost, ptfhost, dash_config_info, default_action)
@@ -766,6 +810,33 @@ def acl_fields_test(request, apply_vnet_configs, localhost, duthost, ptfhost, da
     time.sleep(WAIT_AFTER_CONFIG)
 
 
+@pytest.fixture(scope="function")
+def acl_tcp_rst_test(request, apply_vnet_configs, localhost, duthost, ptfhost, dash_config_info):
+    if "nvidia-bluefield" not in duthost.facts['asic_type']:
+        pytest.skip("Skip the test, as it is only supported on nvidia dpu")
+    testcases = []
+
+    default_acl_group = AclGroup(localhost, duthost, ptfhost, DEFAULT_ACL_GROUP, dash_config_info[ENI])
+    default_action = "allow"
+    default_acl_rule = DefaultAclRule(localhost, duthost, ptfhost, dash_config_info, default_action)
+
+    testcases.append(default_acl_rule)
+    testcases.append(AclTcpRstTest(localhost, duthost, ptfhost, dash_config_info, default_action))
+
+    for t in testcases:
+        t.config()
+    default_acl_group.bind(1)
+    time.sleep(WAIT_AFTER_CONFIG)
+
+    yield testcases
+
+    default_acl_group.unbind()
+    for t in reversed(testcases):
+        t.teardown()
+    del default_acl_group
+    time.sleep(WAIT_AFTER_CONFIG)
+
+
 def acl_tag_test_config(localhost, duthost, ptfhost, dash_config_info, testcase):
     testcases = []
 
@@ -1036,3 +1107,102 @@ def check_dataplane(ptfadapter, testcases):
                                            expected_packet,
                                            ports=pkt.dash_config_info[REMOTE_PTF_INTF])
         time.sleep(0.1)
+
+
+def check_tcp_rst_dataplane(ptfadapter, testcases):
+    tcp_ct_timeout = 10
+    test_pkts = []
+    if isinstance(testcases, Iterable):
+        for t in testcases:
+            test_pkts.extend(t.test_pkts)
+    else:
+        test_pkts = testcases.test_pkts
+
+    def _check_tcp_rst_pkt_acl_permit(pkt):
+        _, vxlan_packet, expected_packet = packets.outbound_vnet_packets(pkt.dash_config_info,
+                                                                         pkt.inner_extra_conf,
+                                                                         inner_packet_type='tcp')
+        testutils.send(ptfadapter,
+                       pkt.dash_config_info[LOCAL_PTF_INTF],
+                       vxlan_packet, 1)
+        # Verify packet(no SYN) can be forwarded
+        testutils.verify_packets_any(ptfadapter,
+                                     expected_packet,
+                                     ports=pkt.dash_config_info[REMOTE_PTF_INTF])
+
+    def _check_tcp_rst_pkt_acl_deny(pkt):
+        def _set_do_not_care_fields(expected_rst_packt, bit_length_after_inner_tcp_falg):
+            expected_rst_packt.set_do_not_care(128, 16)  # external packet total length
+            expected_rst_packt.set_do_not_care(304, 16)  # udp length
+            expected_rst_packt.set_do_not_care(336, 16)  # vxlan flags
+            expected_rst_packt.set_do_not_care(352, 16)  # vxlan group policy id
+            expected_rst_packt.set_do_not_care(528, 16)  # inner ip total length
+            expected_rst_packt.set_do_not_care(592, 16)  # checksum in inner packet
+            # it includes the fields after inner tcp flag
+            expected_rst_packt.set_do_not_care(784, bit_length_after_inner_tcp_falg)
+
+        def _get_expected_rst_packet_to_receiver():
+            logger.info("Generate the expected rst packet sent to receiver")
+            inner_extra_conf_to_receiver = copy.deepcopy(pkt.inner_extra_conf)
+            inner_extra_conf_to_receiver["tcp_flags"] = "R"
+            inner_extra_conf_to_receiver["ip_id"] = 0x0000
+            _, _, _, expected_rst_packet_to_receiver = packets.inbound_vnet_packets(pkt.dash_config_info,
+                                                                                    inner_extra_conf_to_receiver,
+                                                                                    inner_packet_type='tcp')
+            logger.info("Set ignore fields for expected rst packet sent to receiver")
+            _set_do_not_care_fields(expected_rst_packet_to_receiver, 416)
+
+            return expected_rst_packet_to_receiver
+
+        def _get_expected_rst_packet_to_sender():
+            logger.info("Generate the expected rst packet sent to sender")
+            inner_extra_conf_to_sender = copy.deepcopy(pkt.inner_extra_conf)
+            inner_extra_conf_to_sender["tcp_flags"] = "R"
+            inner_extra_conf_to_sender["pktlen"] = 54
+            inner_extra_conf_to_sender["ip_id"] = 0x0000
+            inner_extra_conf_to_sender["tcp_sport"], inner_extra_conf_to_sender["tcp_dport"] = \
+                inner_extra_conf_to_sender["tcp_dport"], inner_extra_conf_to_sender["tcp_sport"]
+            _, _, expected_rst_packet_to_sender = packets.outbound_vnet_packets(pkt.dash_config_info,
+                                                                                inner_extra_conf_to_sender,
+                                                                                inner_packet_type='tcp')
+            logger.info("Set ignore fields for expected rst packet sent to sender")
+            _set_do_not_care_fields(expected_rst_packet_to_sender, 48)
+
+            return expected_rst_packet_to_sender
+
+        _, pa_match_packet, _, expected_drop_packet = packets.inbound_vnet_packets(pkt.dash_config_info,
+                                                                                   pkt.inner_extra_conf,
+                                                                                   inner_packet_type='tcp')
+
+        sent_port = pkt.dash_config_info[REMOTE_PTF_INTF][-1]
+        rec_port = pkt.dash_config_info[LOCAL_PTF_INTF]
+
+        time.sleep(tcp_ct_timeout)
+        ptfadapter.dataplane.flush()
+        testutils.send(ptfadapter,
+                       sent_port,
+                       pa_match_packet, 1)
+
+        # Verify packet(no syn) is dropped
+        # verify packet RST packet is sent to two ends
+        len_expected_rst_packet_to_receiver = 150
+        len_expected_rst_packet_to_sender = 104
+        packets.verify_tcp_packet_drop_rst_packet_sent(
+            ptfadapter,
+            exp_rst_pkts=[_get_expected_rst_packet_to_receiver(), _get_expected_rst_packet_to_sender()],
+            drop_tcp_pkts=[expected_drop_packet],
+            ports=[rec_port, sent_port],
+            filter_pkt_lens=[len_expected_rst_packet_to_receiver, len_expected_rst_packet_to_sender])
+
+    counter = 0
+    # The first packet is for case: CT miss +  No SYN packet(ACK) + ACL permit
+    acl_permit_packet_index = 1
+    # The second packet is for case: CT miss +  No SYN packet(ACK) + ACL deny
+    acl_deny_packet_index = 2
+    for pkt in test_pkts:
+        logger.info("Testing packet: {}".format(pkt.get_description()))
+        counter += 1
+        if counter == acl_permit_packet_index:
+            _check_tcp_rst_pkt_acl_permit(pkt)
+        elif counter == acl_deny_packet_index:
+            _check_tcp_rst_pkt_acl_deny(pkt)

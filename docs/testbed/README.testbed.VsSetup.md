@@ -101,18 +101,15 @@ cd sonic-mgmt
 ./setup-container.sh -n <container name> -d /data
 ```
 
-2. (Required for IPv6 test cases): Follow the steps [IPv6 for docker default bridge](https://docs.docker.com/config/daemon/ipv6/#use-ipv6-for-the-default-bridge-network) to enable IPv6 for container. Here is an example which uses ULA address to setup `/etc/docker/daemon.json` if no special requirement or no local docker configuration. Then restart docker daemon to take effect.
+2. (Required for IPv6 test cases): Follow the steps [IPv6 for docker default bridge](https://docs.docker.com/config/daemon/ipv6/#use-ipv6-for-the-default-bridge-network) to enable IPv6 for container. For example, edit the Docker daemon configuration file located at `/etc/docker/daemon.json` with the following parameters to use ULA address if no special requirement. Then restart docker daemon by running `sudo systemctl restart docker` to take effect.
 
-```
-$ sudo bash -c 'cat <<EOF > /etc/docker/daemon.json 
+```json
 {
     "ipv6": true,
     "fixed-cidr-v6": "fd00:1::1/64",
     "experimental": true,
     "ip6tables": true
 }
-EOF'
-$ sudo systemctl restart docker
 ```
 
 3. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
@@ -216,7 +213,7 @@ foo ALL=(ALL) NOPASSWD:ALL
 
 4. Verify that you can login into the **host** (e.g. `ssh foo@172.17.0.1`, if the default docker bridge IP is `172.18.0.1/16`, follow https://docs.docker.com/network/bridge/#configure-the-default-bridge-network to change it to `172.17.0.1/16`, delete the current `sonic-mgmt` docker using command `docker rm -f <sonic-mgmt_container_name>`, then start over from step 1 of section **Setup sonic-mgmt docker** ) from the `sonic-mgmt` **container** without any password prompt.
 
-5. (Required for IPv6 test cases) Verify that you can login into the **host** via IPv6 (e.g. `ssh foo@fd00:1::1` if the default docker bridge is `fd00:1::1/64`) from the `sonic-mgmt` **container** without any password prompt. 
+5. (Required for IPv6 test cases) Verify that you can login into the **host** via IPv6 (e.g. `ssh foo@fd00:1::1` if the default docker bridge is `fd00:1::1/64`) from the `sonic-mgmt` **container** without any password prompt.
 
 6. Verify that you can use `sudo` without a password prompt inside the **host** (e.g. `sudo bash`).
 
@@ -384,12 +381,12 @@ Peers 4, using 87264 KiB of memory
 Peer groups 4, using 256 bytes of memory
 
 
-Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down      State/PfxRcd  NeighborName
------------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
-10.0.0.57      4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA01T1
-10.0.0.59      4  64600       3792       3795         0      0       0  00:29:24             6400  ARISTA02T1
-10.0.0.61      4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA03T1
-10.0.0.63      4  64600       3795       3796         0      0       0  00:29:24             6400  ARISTA04T1
+Neighbor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down      State/PfxRcd  NeighborName
+----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
+10.0.0.57     4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA01T1
+10.0.0.59     4  64600       3792       3795         0      0       0  00:29:24             6400  ARISTA02T1
+10.0.0.61     4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA03T1
+10.0.0.63     4  64600       3795       3796         0      0       0  00:29:24             6400  ARISTA04T1
 
 Total number of neighbors 4
 ```
@@ -407,12 +404,12 @@ Peers 4, using 83680 KiB of memory
 Peer groups 4, using 256 bytes of memory
 
 
-Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
------------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
-10.0.0.57      4  64600          8          8         0      0       0  00:00:10   3               ARISTA01T1
-10.0.0.59      4  64600          0          0         0      0       0  00:00:10   3               ARISTA02T1
-10.0.0.61      4  64600          0          0         0      0       0  00:00:11   3               ARISTA03T1
-10.0.0.63      4  64600          0          0         0      0       0  00:00:11   3               ARISTA04T1
+Neighbor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
+----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
+10.0.0.57     4  64600          8          8         0      0       0  00:00:10   3               ARISTA01T1
+10.0.0.59     4  64600          0          0         0      0       0  00:00:10   3               ARISTA02T1
+10.0.0.61     4  64600          0          0         0      0       0  00:00:11   3               ARISTA03T1
+10.0.0.63     4  64600          0          0         0      0       0  00:00:11   3               ARISTA04T1
 
 ```
 

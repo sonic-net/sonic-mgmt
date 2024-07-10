@@ -146,6 +146,9 @@ class TestCOPP(object):
         4. Verify the trap status is uninstalled by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if (duthost.facts["asic_type"] == "cisco-8000"):
+            logger.info("Sleep 120 seconds for Cisco platform")
+            time.sleep(120)
 
         if self.trap_id == "bgp":
             logger.info("Uninstall trap ip2me")
@@ -281,7 +284,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "peerip": test_params.peerip,
               "send_rate_limit": test_params.send_rate_limit,
               "has_trap": has_trap,
-              "hw_sku": dut.facts["hwsku"]}
+              "hw_sku": dut.facts["hwsku"],
+              "asic_type": dut.facts["asic_type"]}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
