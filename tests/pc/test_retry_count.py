@@ -291,7 +291,8 @@ class TestNeighborRetryCount:
                 pytest_assert(not status["runner"]["selected"], "lag member is still up")
 
 
-def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peers, disable_retry_count_on_peer):
+def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peers, disable_retry_count_on_peer,
+                                   collect_techsupport_all_nbrs):
     """
     Test that peers reset the retry count to 3 when the feature is disabled
     """
@@ -364,7 +365,8 @@ class TestDutRetryCount:
                 pytest_assert(not status["runner"]["selected"], "lag member is still up")
 
 
-def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, disable_retry_count_on_dut):
+def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, disable_retry_count_on_dut,
+                                  collect_techsupport_all_nbrs):
     """
     Test that DUT resets the retry count to 3 when the feature is disabled
     """
