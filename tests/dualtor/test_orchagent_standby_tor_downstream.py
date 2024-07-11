@@ -64,12 +64,13 @@ def get_function_completeness_level(pytestconfig):
 
 @pytest.fixture
 def get_testbed_params(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo,
-                       ip_version, setup_testbed_ipv6, get_function_completeness_level):
+                       ip_version, setup_testbed_ipv6, get_function_completeness_level, skip_traffic_test): # noqa F811
     """Return a function to get testbed params."""
     def _get_testbed_params():
         params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut,
                               tbinfo, get_function_completeness_level)
         params["check_ipv6"] = (ip_version == "ipv6")
+        params["skip_traffic_test"] = skip_traffic_test
         return params
 
     return _get_testbed_params
@@ -137,18 +138,18 @@ def shutdown_one_bgp_session(rand_selected_dut):
     startup_bgp_session(rand_selected_dut, bgp_shutdown)
 
 
-def test_standby_tor_downstream(rand_selected_dut, get_testbed_params, skip_traffic_test):      # noqa F811
+def test_standby_tor_downstream(rand_selected_dut, get_testbed_params):
     """
     Verify tunnel traffic to active ToR is distributed equally across nexthops, and
     no traffic is forwarded to server from standby ToR
     """
     params = get_testbed_params()
-    check_tunnel_balance(**params, skip_traffic_test=skip_traffic_test)
+    check_tunnel_balance(**params)
 
 
 def test_standby_tor_downstream_t1_link_recovered(
     rand_selected_dut, verify_crm_nexthop_counter_not_increased,
-    tbinfo, get_testbed_params, skip_traffic_test                                               # noqa F811
+    tbinfo, get_testbed_params
 ):
     """
     Verify traffic is distributed evenly after t1 link is recovered;
@@ -160,7 +161,7 @@ def test_standby_tor_downstream_t1_link_recovered(
     time.sleep(PAUSE_TIME)
     params = get_testbed_params()
     try:
-        check_tunnel_balance(**params, skip_traffic_test=skip_traffic_test)
+        check_tunnel_balance(**params)
     except Exception as e:
         no_shutdown_t1_link(rand_selected_dut, down_link)
         raise e
@@ -172,12 +173,12 @@ def test_standby_tor_downstream_t1_link_recovered(
     if 't0' in tbinfo['topo']['name']:
         remove_static_routes(rand_selected_dut, params['active_tor_ip'])
         add_nexthop_routes(rand_selected_dut, params['active_tor_ip'])
-    check_tunnel_balance(**params, skip_traffic_test=skip_traffic_test)
+    check_tunnel_balance(**params)
 
 
 def test_standby_tor_downstream_bgp_recovered(
     rand_selected_dut, verify_crm_nexthop_counter_not_increased,
-    get_testbed_params, tbinfo, skip_traffic_test                                               # noqa F811
+    get_testbed_params, tbinfo
 ):
     """
     Verify traffic is shifted to the active links and no traffic drop observed;
@@ -190,7 +191,7 @@ def test_standby_tor_downstream_bgp_recovered(
     time.sleep(PAUSE_TIME)
     params = get_testbed_params()
     try:
-        check_tunnel_balance(**params, skip_traffic_test=skip_traffic_test)
+        check_tunnel_balance(**params)
     except Exception as e:
         startup_bgp_session(rand_selected_dut, down_bgp)
         raise e
@@ -198,7 +199,7 @@ def test_standby_tor_downstream_bgp_recovered(
     startup_bgp_session(rand_selected_dut, down_bgp)
     time.sleep(PAUSE_TIME)
     params = get_testbed_params()
-    check_tunnel_balance(**params, skip_traffic_test=skip_traffic_test)
+    check_tunnel_balance(**params)
 
 
 def route_matches_expected_state(duthost, route_ip, expect_route):
@@ -209,7 +210,7 @@ def route_matches_expected_state(duthost, route_ip, expect_route):
 
 @pytest.fixture
 def remove_peer_loopback_route(rand_selected_dut, rand_unselected_dut,
-                               shutdown_bgp_sessions, get_testbed_params):  # noqa: F811
+                               shutdown_bgp_sessions, get_testbed_params):      # noqa F811
     """
     Remove routes to peer ToR loopback IP by shutting down BGP sessions on the peer
     """
@@ -239,7 +240,7 @@ def remove_peer_loopback_route(rand_selected_dut, rand_unselected_dut,
 
 def test_standby_tor_downstream_loopback_route_readded(
     rand_selected_dut, rand_unselected_dut, get_testbed_params,
-    tbinfo, remove_peer_loopback_route, skip_traffic_test                                       # noqa: F811
+    tbinfo, remove_peer_loopback_route
 ):
     """
     Verify traffic is equally distributed via loopback route
@@ -255,7 +256,7 @@ def test_standby_tor_downstream_loopback_route_readded(
         "Unexpected route {} found on {}".format(active_tor_loopback0, rand_selected_dut)
     )
     # Verify traffic is equally distributed
-    check_tunnel_balance(**params, skip_traffic_test=skip_traffic_test)
+    check_tunnel_balance(**params)
 
     # Readd loopback routes and verify traffic is equally distributed
     if rand_unselected_dut is None:
@@ -269,7 +270,7 @@ def test_standby_tor_downstream_loopback_route_readded(
             lambda: route_matches_expected_state(rand_selected_dut, active_tor_loopback0, expect_route=True)),
         "Expected route {} not found on {}".format(active_tor_loopback0, rand_selected_dut)
     )
-    check_tunnel_balance(**params, skip_traffic_test=skip_traffic_test)
+    check_tunnel_balance(**params)
 
 
 def test_standby_tor_remove_neighbor_downstream_standby(
@@ -351,11 +352,12 @@ def test_downstream_standby_mux_toggle_active(
 
     def monitor_tunnel_and_server_traffic(torhost, expect_tunnel_traffic=True,
                                           expect_server_traffic=True, skip_traffic_test=False):
-        tunnel_monitor = tunnel_traffic_monitor(rand_selected_dut, existing=True, skip_traffic_test=skip_traffic_test)
+        if skip_traffic_test is True:
+            return
+        tunnel_monitor = tunnel_traffic_monitor(rand_selected_dut, existing=True)
         server_traffic_monitor = ServerTrafficMonitor(
             torhost, ptfhost, vmhost, tbinfo, test_params["selected_port"],
-            conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo),
-            skip_traffic_test=skip_traffic_test
+            conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)
         )
         tunnel_monitor.existing = expect_tunnel_traffic
         server_traffic_monitor.existing = expect_server_traffic
@@ -368,7 +370,7 @@ def test_downstream_standby_mux_toggle_active(
     add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthops=[target_server])
     time.sleep(30)
     logger.info("Step 1.2: Verify traffic to this route dst is forwarded to Active ToR and equally distributed")
-    check_tunnel_balance(**test_params, skip_traffic_test=skip_traffic_test)
+    check_tunnel_balance(**test_params)
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=False,
                                       expect_tunnel_traffic=True, skip_traffic_test=skip_traffic_test)
 
@@ -388,6 +390,6 @@ def test_downstream_standby_mux_toggle_active(
                 is now redirected back to Active ToR and equally distributed")
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=False,
                                       expect_tunnel_traffic=True, skip_traffic_test=skip_traffic_test)
-    check_tunnel_balance(**test_params, skip_traffic_test=skip_traffic_test)
+    check_tunnel_balance(**test_params)
 
     remove_static_routes(rand_selected_dut, random_dst_ip)
