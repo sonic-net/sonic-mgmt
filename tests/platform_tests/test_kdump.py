@@ -64,12 +64,7 @@ class TestKernelPanic:
         if "Enabled" not in out["stdout"]:
             pytest.skip('DUT {}: Skip test since kdump is not enabled'.format(hostname))
 
-        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_KERNEL_PANIC, safe_reboot=duthost.is_supervisor_node())
-
-        # Wait until all critical processes are healthy. Skip if DUT is supervisor node since we have
-        # already confirmed the critical processes for a supervisor node in above reboot function.
-        if not duthost.is_supervisor_node():
-            wait_critical_processes(duthost)
+        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_KERNEL_PANIC, safe_reboot=True)
 
         check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname],
                                       xcvr_skip_list, reboot_type=REBOOT_TYPE_KERNEL_PANIC)
