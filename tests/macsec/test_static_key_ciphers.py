@@ -27,7 +27,7 @@ def macsec_check(host, cli_options, int, neighv4, neighv6, macsec=True, cipher=N
         output = host.shell('ps aux | grep "USER\\|wpa_supplicant"', module_ignore_errors=True)['stdout']
         logger.debug(output)
         assert int in output
-        # Verify macsec is enabled on port and session is up
+        # Verify macsec is enabled on port and session is up and established
         output = host.shell("show macsec{} {}".format(cli_options, int), module_ignore_errors=True)
         output = output['stdout'].split("\n")
         logger.debug(output)
