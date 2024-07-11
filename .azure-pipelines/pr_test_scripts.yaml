@@ -52,6 +52,7 @@ t0:
   - fdb/test_fdb_flush.py
   - fdb/test_fdb_mac_expire.py
   - fdb/test_fdb_mac_move.py
+  - fib/test_fib.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgp_speaker.py
   - generic_config_updater/test_bgpl.py
@@ -76,7 +77,10 @@ t0:
   - http/test_http_copy.py
   - iface_loopback_action/test_iface_loopback_action.py
   - iface_namingmode/test_iface_namingmode.py
+  - ip/test_mgmt_ipv6_only.py
+  - ip/test_ip_packet.py
   - ipfwd/test_dip_sip.py
+  - ipfwd/test_dir_bcast.py
   - lldp/test_lldp.py
   - log_fidelity/test_bgp_shutdown.py
   - macsec/test_controlplane.py
@@ -172,7 +176,6 @@ t0:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
-  - ip/test_mgmt_ipv6_only.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -213,10 +216,12 @@ t1-lag:
   - everflow/test_everflow_per_interface.py
   - everflow/test_everflow_testbed.py
   - fdb/test_fdb_flush.py
+  - fib/test_fib.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - golden_config_infra/test_config_reload_with_rendered_golden_config.py
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
+  - ip/test_ip_packet.py
   - ipfwd/test_dip_sip.py
   - ipfwd/test_mtu.py
   - lldp/test_lldp.py
