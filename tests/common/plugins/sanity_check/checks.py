@@ -64,25 +64,6 @@ def _find_down_ip_ports(dut, ip_interfaces):
     return down_ip_ports
 
 
-def _parse_bfd_output(output):
-    data_rows = output[3:]
-    data_dict = {}
-    for data in data_rows:
-        data = data.split()
-        data_dict[data[0]] = {}
-        data_dict[data[0]]['Interface'] = data[1]
-        data_dict[data[0]]['Vrf'] = data[2]
-        data_dict[data[0]]['State'] = data[3]
-        data_dict[data[0]]['Type'] = data[4]
-        data_dict[data[0]]['Local Addr'] = data[5]
-        data_dict[data[0]]['TX Interval'] = data[6]
-        data_dict[data[0]]['RX Interval'] = data[7]
-        data_dict[data[0]]['Multiplier'] = data[8]
-        data_dict[data[0]]['Multihop'] = data[9]
-        data_dict[data[0]]['Local Discriminator'] = data[10]
-    return data_dict
-
-
 def _find_down_ports(dut, phy_interfaces, ip_interfaces):
     """Finds the ports which are operationally down
 
@@ -228,6 +209,13 @@ def check_bgp(duthosts, tbinfo):
 
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
+
+        # If the topology doesn't have any VMs, it is not using BGP feature at all, hence skip checking
+        # the BGP status here.
+        if len(tbinfo['topo']['properties']['topology']['VMs']) == 0:
+            logger.info("No VMs in topology, skip checking bgp status on host %s ..." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
 
         networking_uptime = dut.get_networking_uptime().seconds
         if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:
@@ -611,10 +599,14 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
             return False, err_msg, {}
 
     if not check_success:
-        if len(dut_wrong_mux_status_ports) == 0:
+        if len(dut_wrong_mux_status_ports) != 0:
             # NOTE: Let's probe here to see if those inconsistent mux ports could be
             # restored before using the recovery method.
-            _probe_mux_ports(duthosts, dut_wrong_mux_status_ports)
+            port_index_map = duts_minigraph_facts[duthosts[0].hostname][0][1]['minigraph_port_indices']
+            dut_wrong_mux_status_ports = set(dut_wrong_mux_status_ports)
+            inconsistent_mux_ports = [port for port, port_index in port_index_map.items()
+                                      if port_index in dut_wrong_mux_status_ports]
+            _probe_mux_ports(duthosts, inconsistent_mux_ports)
         if not wait_until(60, 10, 0, _check_mux_status_helper):
             if err_msg_from_mux_status:
                 err_msg = err_msg_from_mux_status[-1]
@@ -799,10 +791,14 @@ def check_processes(duthosts):
             processes_status = dut.all_critical_process_status()
             check_result["processes_status"] = processes_status
             check_result["services_status"] = {}
-            for k, v in list(processes_status.items()):
-                if v['status'] is False or len(v['exited_critical_process']) > 0:
+            for container_name, processes in list(processes_status.items()):
+                if processes['status'] is False or len(processes['exited_critical_process']) > 0:
+                    logger.info("The status of checking process in container '{}' is: {}"
+                                .format(container_name, processes["status"]))
+                    logger.info("The processes not running in container '{}' are: '{}'"
+                                .format(container_name, processes["exited_critical_process"]))
                     check_result['failed'] = True
-                check_result["services_status"].update({k: v['status']})
+                check_result["services_status"].update({container_name: processes['status']})
         else:  # Retry checking processes status
             start = time.time()
             elapsed = 0
@@ -811,10 +807,14 @@ def check_processes(duthosts):
                 processes_status = dut.all_critical_process_status()
                 check_result["processes_status"] = processes_status
                 check_result["services_status"] = {}
-                for k, v in list(processes_status.items()):
-                    if v['status'] is False or len(v['exited_critical_process']) > 0:
+                for container_name, processes in list(processes_status.items()):
+                    if processes['status'] is False or len(processes['exited_critical_process']) > 0:
+                        logger.info("The status of checking process in container '{}' is: {}"
+                                    .format(container_name, processes["status"]))
+                        logger.info("The processes not running in container '{}' are: '{}'"
+                                    .format(container_name, processes["exited_critical_process"]))
                         check_result['failed'] = True
-                    check_result["services_status"].update({k: v['status']})
+                    check_result["services_status"].update({container_name: processes['status']})
 
                 if check_result["failed"]:
                     wait(interval,

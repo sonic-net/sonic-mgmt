@@ -1,6 +1,8 @@
 import re
 import time
 
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
+
 TOPO_FILENAME_TEMPLATE = 'topo_{}.yml'
 SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
 LOOP_TIMES_LEVEL_MAP = {
@@ -12,16 +14,23 @@ LOOP_TIMES_LEVEL_MAP = {
 }
 
 
-def get_crm_resources(duthost, resource, status):
-    return duthost.get_crm_resources().get("main_resources").get(resource).get(status)
+def get_crm_resource_status(duthost, resource, status, namespace=DEFAULT_NAMESPACE):
+    return duthost.get_crm_resources(namespace).get("main_resources").get(resource).get(status)
 
 
 def check_queue_status(duthost, queue):
     bgp_neighbors = duthost.show_and_parse(SHOW_BGP_SUMMARY_CMD)
     bgp_neighbor_addr_regex = re.compile(r"^([0-9]{1,3}\.){3}[0-9]{1,3}")
     for neighbor in bgp_neighbors:
-        if bgp_neighbor_addr_regex.match(neighbor["neighbhor"]) and int(neighbor[queue]) != 0:
-            return False
+        if "neighbor" in neighbor:
+            if bgp_neighbor_addr_regex.match(neighbor["neighbor"]) and int(neighbor[queue]) != 0:
+                return False
+        elif "neighbhor" in neighbor:
+            if bgp_neighbor_addr_regex.match(neighbor["neighbhor"]) and int(neighbor[queue]) != 0:
+                return False
+        else:
+            raise ValueError("Unexpected neighbor key in bgp summary output")
+
     return True
 
 

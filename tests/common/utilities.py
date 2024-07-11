@@ -22,6 +22,7 @@ import paramiko
 from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
+from paramiko.ssh_exception import AuthenticationException
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -169,7 +170,7 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           state='started',
                           timeout=timeout_s,
                           module_ignore_errors=True)
-    if 'exception' in res:
+    if 'exception' in res or res.get('failed') is True:
         logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
                     (str(server_hostname), listening_port, timeout_s))
         return False
@@ -982,7 +983,6 @@ def recover_acl_rule(duthost, data_acl):
             acl_entry_config[seq_id]["config"]["sequence-id"] = seq_id
             acl_entry_config[seq_id]["l2"]["config"]["ethertype"] = value["ETHER_TYPE"]
             acl_entry_config[seq_id]["l2"]["config"]["vlan_id"] = value["VLAN_ID"]
-            acl_entry_config[seq_id]["input_interface"]["interface_ref"]["config"]["interface"] = value["IN_PORTS"]
 
     with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
         json.dump(acl_config, fp)
@@ -1096,6 +1096,8 @@ def capture_and_check_packet_on_dut(
     interface='any',
     pkts_filter='',
     pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured"),
+    pkts_validator_args=[],
+    pkts_validator_kwargs={},
     wait_time=1
 ):
     """
@@ -1105,6 +1107,9 @@ def capture_and_check_packet_on_dut(
         interface: the interface to capture packets on, default is 'any'
         pkts_filter: the PCAP-FILTER to apply to the captured packets, default is '' means no filter
         pkts_validator: the function to validate the captured packets, default is to check if any packet is captured
+        pkts_validator_args: ther args to pass to the pkts_validator function
+        pkts_validator_kwargs: the kwargs to pass to the pkts_validator function
+        wait_time: the time to wait before stopping the packet capture, default is 1 second
     """
     pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
     cmd_capture_pkts = "sudo nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
@@ -1121,7 +1126,7 @@ def capture_and_check_packet_on_dut(
         duthost.shell("kill -s 2 %s" % tcpdump_pid)
         with tempfile.NamedTemporaryFile() as temp_pcap:
             duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
-            pkts_validator(scapy_sniff(offline=temp_pcap.name))
+            pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
     finally:
         duthost.file(path=pcap_save_path, state="absent")
 
@@ -1151,15 +1156,25 @@ def _paramiko_ssh(ip_address, username, passwords):
             ssh.connect(ip_address, username=username, password=password,
                         allow_agent=False, look_for_keys=False, timeout=10)
             return ssh, password
-        except paramiko.AuthenticationException:
+        except AuthenticationException:
             continue
         except Exception as e:
             logging.info("Cannot access device {} via ssh, error: {}".format(ip_address, e))
             raise e
     logging.info("Cannot access device {} via ssh, error: Password incorrect".format(ip_address))
-    raise paramiko.AuthenticationException
+    raise AuthenticationException
 
 
 def paramiko_ssh(ip_address, username, passwords):
     ssh, pwd = _paramiko_ssh(ip_address, username, passwords)
     return ssh
+
+
+def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
+    try:
+        _, passwd = _paramiko_ssh(ipv4_address, username, passwords)
+    except AuthenticationException:
+        raise
+    except Exception:
+        _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
+    return passwd

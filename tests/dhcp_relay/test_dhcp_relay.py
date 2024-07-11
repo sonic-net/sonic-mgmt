@@ -327,6 +327,7 @@ def setup_active_active_as_active_standby(
 
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                            setup_standby_ports_on_rand_unselected_tor,												# noqa F811
                             active_active_ports,                                                    # noqa F811
                             rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
                             setup_active_active_as_active_standby):                                 # noqa F811
@@ -348,17 +349,11 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 if testing_mode == DUAL_TOR_MODE:
                     standby_duthost = rand_unselected_dut
                     start_dhcp_monitor_debug_counter(standby_duthost)
-                    client_iface = str(dhcp_relay['client_iface']['name'])
-                    # In case of active-standby ports northbound  trafic is duplicated
-                    # to both ToRs by the y-cable whereas is case of active-active
-                    # ports the traffic is ECMPd, therefore only one ToR receives
-                    # northbound packets
-                    discReqCount = 0 if client_iface in active_active_ports else 1
                     expected_standby_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                         r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
-                        r"Discover: +%d/ +0, Offer: +0/ +0, Request: +%d/ +0, ACK: +0/ +0+"
-                    ) % (dhcp_relay['downlink_vlan_iface']['name'], discReqCount, discReqCount)
+                        r"Discover: +0/ +0, Offer: +0/ +0, Request: +0/ +0, ACK: +0/ +0+"
+                    ) % (dhcp_relay['downlink_vlan_iface']['name'])
                     loganalyzer_standby = LogAnalyzer(ansible_host=standby_duthost, marker_prefix="dhcpmon counter")
                     marker_standby = loganalyzer_standby.init()
                     loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
@@ -537,6 +532,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                                setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
                                 toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
                                 setup_active_active_as_active_standby):            # noqa F811
     """Test DHCP relay functionality on T0 topology with unicast mac
@@ -576,6 +572,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
 
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                                 setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
                                  toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
                                  setup_active_active_as_active_standby):            # noqa F811
     """Test DHCP relay functionality on T0 topology with random source port (sport)
@@ -645,6 +642,7 @@ def init_counter(duthost, ifname):
 
 
 def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                            setup_standby_ports_on_rand_unselected_tor,
                             toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     testing_mode, duthost, testbed_mode = testing_config
 
@@ -677,7 +675,7 @@ def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
-                   log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+                   log_file="/tmp/dhcp_relay_test_counter.DHCPTest.log", is_python3=True)
         for type in dhcp_message_types:
             if type in ["Discover", "Request"]:
                 cnt = get_dhcp_relay_counter(duthost, dhcp_relay['client_iface']['name'], type, "RX")
