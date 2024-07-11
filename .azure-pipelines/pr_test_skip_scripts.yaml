@@ -1,6 +1,6 @@
 t0:
-  # This script only supported on Mellanox
-  - restapi/test_restapi.py
+  # KVM do not support drop reason in testcase, and testcase would set drop reason in setup stage, can't do more test
+  - drop_packets/test_configurable_drop_counters.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
   # There is no k8s in inventory file
@@ -39,9 +39,15 @@ t0:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  # This script only supported on Mellanox
+  - restapi/test_restapi.py
   - snmp/test_snmp_phy_entity.py
 
 t1:
+  # KVM do not support bfd test
+  - bfd/test_bfd.py
+  # KVM do not support drop reason in testcase, and testcase would set drop reason in setup stage, can't do more test
+  - drop_packets/test_configurable_drop_counters.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
   # There is no k8s in inventory file
@@ -84,6 +90,9 @@ t1:
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
 
 t2:
+  # KVM do not support bfd test
+  - bfd/test_bfd_static_route.py
+  - bfd/test_bfd_traffic.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
   # There is no k8s in inventory file
