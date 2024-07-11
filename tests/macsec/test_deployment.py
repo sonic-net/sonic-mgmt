@@ -33,6 +33,7 @@ class TestDeployment():
         else:
             ns = ''
 
+        # Ensure the proper error is thrown
         with pytest.raises(Exception) as e_info:
             macsec_duthost.shell("sudo config macsec{} profile del {}".format(ns, profile_name))
         assert "Error: {} is being used by port".format(profile_name) in str(e_info.value)
