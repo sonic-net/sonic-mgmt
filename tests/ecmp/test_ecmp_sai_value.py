@@ -126,10 +126,14 @@ def check_config_bcm_file(duthost, topo_type):
             logging.info("sai_hash_seed_config_hash_offset_enable={}".format(value))
         else:
             logging.info("sai_hash_seed_config_hash_offset_enable not found in the file.")
-        if topo_type == "t0":
-            pytest_assert(not cat_output, "sai_hash_seed_config_hash_offset_enable should not set for T0")
-        if topo_type == "t1":
-            pytest_assert(cat_output and value == "1", "sai_hash_seed_config_hash_offset_enable is not set to 1")
+        # with code change https://github.com/sonic-net/sonic-buildimage/pull/18912,
+        # the sai_hash_seed_config_hash_offset_enable is not set in config.bcm,
+        # it's set by swss config on 202311 and later image
+        if "20230531" in duthost.os_version:
+            if topo_type == "t0":
+                pytest_assert(not cat_output, "sai_hash_seed_config_hash_offset_enable should not set for T0")
+            if topo_type == "t1":
+                pytest_assert(cat_output and value == "1", "sai_hash_seed_config_hash_offset_enable is not set to 1")
     else:
         pytest.fail("Config bcm file not found.")
 
