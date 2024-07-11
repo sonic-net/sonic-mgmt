@@ -328,6 +328,7 @@ onboarding_t0:
 
 onboarding_t1:
   - decap/test_decap.py
+  - generic_config_updater/test_cacl.py
 
 onboarding_dualtor:
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
