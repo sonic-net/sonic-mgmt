@@ -7324,6 +7324,148 @@ vms_bjw2_2:
   hosts:
     VM82011:
       ansible_host: 172.16.204.11
+    VM82012:
+      ansible_host: 172.16.204.12
+    VM82013:
+      ansible_host: 172.16.204.13
+    VM82014:
+      ansible_host: 172.16.204.14
+    VM82015:
+      ansible_host: 172.16.204.15
+    VM82016:
+      ansible_host: 172.16.204.16
+    VM82017:
+      ansible_host: 172.16.204.17
+    VM82018:
+      ansible_host: 172.16.204.18
+    VM82019:
+      ansible_host: 172.16.204.19
+    VM82020:
+      ansible_host: 172.16.204.20
+    VM82021:
+      ansible_host: 172.16.204.21
+    VM82022:
+      ansible_host: 172.16.204.22
+    VM82023:
+      ansible_host: 172.16.204.23
+    VM82024:
+      ansible_host: 172.16.204.24
+    VM82025:
+      ansible_host: 172.16.204.25
+    VM82026:
+      ansible_host: 172.16.204.26
+    VM82027:
+      ansible_host: 172.16.204.27
+    VM82028:
+      ansible_host: 172.16.204.28
+    VM82029:
+      ansible_host: 172.16.204.29
+    VM82030:
+      ansible_host: 172.16.204.30
+    VM82031:
+      ansible_host: 172.16.204.31
+    VM82032:
+      ansible_host: 172.16.204.32
+    VM82033:
+      ansible_host: 172.16.204.33
+    VM82034:
+      ansible_host: 172.16.204.34
+    VM82035:
+      ansible_host: 172.16.204.35
+    VM82036:
+      ansible_host: 172.16.204.36
+    VM82037:
+      ansible_host: 172.16.204.37
+    VM82038:
+      ansible_host: 172.16.204.38
+    VM82039:
+      ansible_host: 172.16.204.39
+    VM82040:
+      ansible_host: 172.16.204.40
+    VM82041:
+      ansible_host: 172.16.204.41
+    VM82042:
+      ansible_host: 172.16.204.42
+    VM82043:
+      ansible_host: 172.16.204.43
+    VM82044:
+      ansible_host: 172.16.204.44
+    VM82045:
+      ansible_host: 172.16.204.45
+    VM82046:
+      ansible_host: 172.16.204.46
+    VM82047:
+      ansible_host: 172.16.204.47
+    VM82048:
+      ansible_host: 172.16.204.48
+    VM82049:
+      ansible_host: 172.16.204.49
+    VM82050:
+      ansible_host: 172.16.204.50
+    VM82051:
+      ansible_host: 172.16.204.51
+    VM82052:
+      ansible_host: 172.16.204.52
+    VM82053:
+      ansible_host: 172.16.204.53
+    VM82054:
+      ansible_host: 172.16.204.54
+    VM82055:
+      ansible_host: 172.16.204.55
+    VM82056:
+      ansible_host: 172.16.204.56
+    VM82057:
+      ansible_host: 172.16.204.57
+    VM82058:
+      ansible_host: 172.16.204.58
+    VM82059:
+      ansible_host: 172.16.204.59
+    VM82060:
+      ansible_host: 172.16.204.60
+    VM82061:
+      ansible_host: 172.16.204.61
+    VM82062:
+      ansible_host: 172.16.204.62
+    VM82063:
+      ansible_host: 172.16.204.63
+    VM82064:
+      ansible_host: 172.16.204.64
+    VM82065:
+      ansible_host: 172.16.204.65
+    VM82066:
+      ansible_host: 172.16.204.66
+    VM82067:
+      ansible_host: 172.16.204.67
+    VM82068:
+      ansible_host: 172.16.204.68
+    VM82069:
+      ansible_host: 172.16.204.69
+    VM82070:
+      ansible_host: 172.16.204.70
+    VM82071:
+      ansible_host: 172.16.204.71
+    VM82072:
+      ansible_host: 172.16.204.72
+    VM82073:
+      ansible_host: 172.16.204.73
+    VM82074:
+      ansible_host: 172.16.204.74
+    VM82075:
+      ansible_host: 172.16.204.75
+    VM82076:
+      ansible_host: 172.16.204.76
+    VM82077:
+      ansible_host: 172.16.204.77
+    VM82078:
+      ansible_host: 172.16.204.78
+    VM82079:
+      ansible_host: 172.16.204.79
+    VM82080:
+      ansible_host: 172.16.204.80
+    VM82081:
+      ansible_host: 172.16.204.81
+    VM82082:
+      ansible_host: 172.16.204.82
 
 vms_bjw2_3:
   hosts:

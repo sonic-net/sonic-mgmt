@@ -63,6 +63,12 @@ bjw2-can-8102-3,10.150.22.47/23,Cisco-8102-C64,DevSonic,,sonic
 bjw2-can-8102-4,10.150.22.49/23,Cisco-8102-C64,DevSonic,,sonic
 bjw2-can-8102-5,10.150.22.51/23,Cisco-8102-C64,DevSonic,,sonic
 bjw2-can-8102-6,10.150.22.53/23,Cisco-8102-C64,DevSonic,,sonic
+bjw2-can-7260-1,10.150.22.31/23,Arista-7260CX3-D108C8,DevSonic,,sonic
+bjw2-can-7260-2,10.150.22.33/23,Arista-7260CX3-D108C8,DevSonic,,sonic
+bjw2-can-7260-3,10.150.22.35/23,Arista-7260CX3-D108C8,DevSonic,,sonic
+bjw2-can-7260-4,10.150.22.37/23,Arista-7260CX3-D108C8,DevSonic,,sonic
+bjw2-can-7260-5,10.150.22.39/23,Arista-7260CX3-C64,DevSonic,,sonic
+bjw2-can-7260-6,10.150.22.41/23,Arista-7260CX3-C64,DevSonic,,sonic
 bjw2-pdu-127-166,10.150.127.166,Vertiv,Pdu,snmp,
 bjw2-pdu-126-81,10.150.126.81,Vertiv,Pdu,snmp,
 bjw2-pdu-126-82,10.150.126.82,Vertiv,Pdu,snmp,
