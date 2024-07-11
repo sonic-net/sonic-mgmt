@@ -1086,6 +1086,12 @@ platform_tests/test_reboot.py::test_warm_reboot:
     conditions:
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
 
+platform_tests/test_reload_config.py::test_reload_configuration_checks:
+  xfail:
+    reason: "Known testcase issue in Cisco platforms."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####           qos               #####
 #######################################
