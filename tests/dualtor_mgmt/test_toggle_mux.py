@@ -10,7 +10,7 @@ from tests.common.utilities import wait_until
 
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)
@@ -36,8 +36,9 @@ def restore_mux_auto_mode(duthosts):
 def get_interval_v4(duthosts):
     mux_linkmgr_output = duthosts.shell('sonic-cfggen -d --var-json MUX_LINKMGR')
     mux_linkmgr = list(mux_linkmgr_output.values())[0]['stdout']
-    if len(mux_linkmgr) != 0:
-        cur_interval_v4 = json.loads(mux_linkmgr)['LINK_PROBER']['interval_v4']
+    mux_linkmgr_json = json.loads(mux_linkmgr)
+    if len(mux_linkmgr) != 0 and 'LINK_PROBER' in mux_linkmgr_json:
+        cur_interval_v4 = mux_linkmgr_json['LINK_PROBER']['interval_v4']
         return cur_interval_v4
     else:
         return None
