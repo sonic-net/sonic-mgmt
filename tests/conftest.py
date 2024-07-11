@@ -863,6 +863,13 @@ def collect_techsupport_all_duts(request, duthosts):
     [collect_techsupport_on_dut(request, a_dut) for a_dut in duthosts]
 
 
+@pytest.fixture
+def collect_techsupport_all_nbrs(request, nbrhosts):
+    yield
+    if request.config.getoption("neighbor_type") == "sonic":
+        [collect_techsupport_on_dut(request, nbrhosts[nbrhost]['host']) for nbrhost in nbrhosts]
+
+
 @pytest.fixture(scope="session", autouse=True)
 def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_property):
     if not request.config.getoption("--junit-xml"):
