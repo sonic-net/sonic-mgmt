@@ -11,6 +11,7 @@ from .files.helper import run_pfc_test
 
 pytestmark = [pytest.mark.topology('tgen')]
 
+
 def test_global_pause(ixia_api, ixia_testbed_config, conn_graph_facts, fanout_graph_facts,      # noqa F811
                       duthosts, rand_one_dut_hostname, rand_one_dut_portname_oper_up,
                       lossless_prio_list, lossy_prio_list, prio_dscp_map):                      # noqa F811

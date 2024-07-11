@@ -158,6 +158,9 @@ def is_mellanox_devices(hwsku):
 def is_mellanox_fanout(duthost, localhost):
     # Ansible localhost fixture which calls ansible playbook on the local host
 
+    if duthost.facts.get("asic_type") == "vs":
+        return False
+
     try:
         dut_facts = \
             localhost.conn_graph_facts(host=duthost.hostname, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]

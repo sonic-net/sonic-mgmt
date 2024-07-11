@@ -2,7 +2,7 @@ import pytest
 import json
 import logging
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, skip_traffic_test   # noqa F401
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -65,7 +65,7 @@ def ptf_test_port_map(duthost, ptfhost, mg_facts, testbed_type, tbinfo):
 
 
 def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
-                   toggle_all_simulator_ports_to_rand_selected_tor_m):      # noqa F811
+                   toggle_all_simulator_ports_to_rand_selected_tor_m, skip_traffic_test):      # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     testbed_type = tbinfo['topo']['name']
 
@@ -81,6 +81,8 @@ def test_dir_bcast(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
         'ptf_test_port_map': PTF_TEST_PORT_MAP
     }
     log_file = "/tmp/dir_bcast.BcastTest.{}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
+    if skip_traffic_test is True:
+        return
     ptf_runner(
         ptfhost,
         'ptftests',

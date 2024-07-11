@@ -7,7 +7,10 @@ from tests.bfd.bfd_helpers import get_ptf_src_port, get_backend_interface_in_use
     prepare_traffic_test_variables, get_random_bgp_neighbor_ip_of_asic, toggle_port_channel_or_member, \
     get_port_channel_by_member, wait_until_bfd_up, wait_until_given_bfd_down, assert_traffic_switching
 
-pytestmark = [pytest.mark.topology("t2")]
+pytestmark = [
+    pytest.mark.topology("t2"),
+    pytest.mark.device_type('physical')
+]
 
 logger = logging.getLogger(__name__)
 
