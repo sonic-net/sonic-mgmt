@@ -45,7 +45,7 @@ The device_groups section generates the lab file which is the inventory file nec
 ### devices section
 **USAGE**: files/sonic_lab_devices, group_vars/fanout/secrets, group_vars/lab/secrets, lab
 
-The devices section is a dictionary that contains all devices and hosts. This section does not contain information on PTF containers. For more information on PTF containers, see the testbed.csv file.
+The devices section is a dictionary that contains all devices and hosts. This section does not contain information on PTF containers. For more information on PTF containers, see the testbed.yaml file.
 
 For each device that you add, add the following:
 
@@ -107,15 +107,28 @@ Define:
     - define the IPs of the VMs (i.e." 10.250.1.0, 10.250.1.1, 10.250.1.2, etc...)
 
 ### testbed section:
-**USAGE**: testbed.csv
+**USAGE**: testbed.yaml
 
+testbed.csv is deprecated, please use testbed.yaml instead.
 This is where the topology configuration file for the testbed will collect information from when running TestbedProcessing.py.
 
-| #conf-name        | group-name         | topo    | ptf_image_name | ptf|ptf_ip |ptf_ipv6    | server         | vm_base   | dut   | inv_name   | auto_recover   | comment   |
-| ----------------- | ------------------ | ------- | -------------- |---------- |------------ |------------|-------------- | --------- | ----- | ---------- | -------------- | --------- |
-| [ptf32 conf-name] | [ptf32 group-name] | [ptf32] | [docker-ptf]   |[ptf-name] |[ip address] | [ipv6 address]|[server group] | [vm_base] | [dut] | [inv_name] | [auto_recover] | [comment] |
-| [t0 conf-name]    | [t0 group-name]    | [t0]    | [docker-ptf]   |[ptf-name] |[ip address] | [ipv6 address]|[server group] | [vm_base] | [dut] | [inv_name] | [auto_recover] | [comment] |
-
+```
+- conf-name: vms-sn2700-t1
+  group-name: vms1-1
+  topo: t1
+  ptf_image_name: docker-ptf
+  ptf: ptf_vms1-1
+  ptf_ip: 10.255.0.178/24
+  ptf_ipv6: 2001:db8:1::3/64
+  ptf_extra_mgmt_ip: []
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - str-msn2700-01
+  inv_name: lab
+  auto_recover: 'True'
+  comment: Tests Mellanox SN2700 vms
+```
 
 For each topology you use in your testbed environment, define the following:
 - conf-name - to address row in table
@@ -174,6 +187,106 @@ docker_registry_username: root
 docker_registry_password: root
 ```
 
+### inventory file:
+
+The inventory file contains all device host/IP information for testbeds within its inventory.
+For example, the testbed `vms-sn2700-t1` uses the inventory file lab ( seecified by `inv_name: lab` in `testbed.yaml`).
+
+The `ansible/lab` inventory file includes three types of section for different devices:
+- sonic
+- fanout/pdu/mgmt/server
+- ptf
+
+1. sonic Section
+
+The sonic section lists various SONiC platforms, such as `sonic_sn2700_40`, `sonic_a7260`, etc.
+Ensure that the following fields are correctly filled for your Device Under Test (DUT):
+
+```
+sonic_sn2700_40:
+  vars:
+    hwsku: ACS-MSN2700
+    iface_speed: 40000
+  hosts:
+    str-msn2700-01:
+      ansible_host: 10.251.0.188
+      model: MSN2700-CS2FO
+      serial: MT1234X56789
+      base_mac: 24:8a:07:12:34:56
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2FO"
+        "0x23": "MT1234X56789"
+        "0x24": "24:8a:07:12:34:56"
+        "0x25": "12/07/2016"
+        "0x26": "0"
+        "0x28": "x86_64-mlnx_x86-r0"
+        "0x29": "2016.11-5.1.0008-9600"
+        "0x2A": "128"
+        "0x2B": "Mellanox"
+        "0xFE": "0xFBA1E964"
+```
+- `iface_speed` is the speed of DUT's interface. For a 40G switch, `iface_speed` should be 40000; for a 100G switch, it should be 100000. The test `iface_namingmode/test_iface_namingmode.py` will fail if iface_speed is missing or incorrect.
+
+- For the fields under `syseeprom_info`,  the EEPROM type descriptions are defined in `test_chassis.py` as follows:
+
+```
+# Valid OCP ONIE TlvInfo EEPROM type codes as defined here:
+# https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
+ONIE_TLVINFO_TYPE_CODE_PRODUCT_NAME = '0x21'    # Product Name
+ONIE_TLVINFO_TYPE_CODE_PART_NUMBER = '0x22'     # Part Number
+ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER = '0x23'   # Serial Number
+ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR = '0x24'   # Base MAC Address
+ONIE_TLVINFO_TYPE_CODE_MFR_DATE = '0x25'        # Manufacture Date
+ONIE_TLVINFO_TYPE_CODE_DEVICE_VERSION = '0x26'  # Device Version
+ONIE_TLVINFO_TYPE_CODE_LABEL_REVISION = '0x27'  # Label Revision
+ONIE_TLVINFO_TYPE_CODE_PLATFORM_NAME = '0x28'   # Platform Name
+ONIE_TLVINFO_TYPE_CODE_ONIE_VERSION = '0x29'    # ONIE Version
+ONIE_TLVINFO_TYPE_CODE_NUM_MACS = '0x2A'        # Number of MAC Addresses
+ONIE_TLVINFO_TYPE_CODE_MANUFACTURER = '0x2B'    # Manufacturer
+ONIE_TLVINFO_TYPE_CODE_COUNTRY_CODE = '0x2C'    # Country Code
+ONIE_TLVINFO_TYPE_CODE_VENDOR = '0x2D'          # Vendor
+ONIE_TLVINFO_TYPE_CODE_DIAG_VERSION = '0x2E'    # Diag Version
+ONIE_TLVINFO_TYPE_CODE_SERVICE_TAG = '0x2F'     # Service Tag
+ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
+ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
+```
+
+- `show platform syseeprom` can get some of these values,
+- The command `show platform syseeprom` can retrieve some of these values. The test case `tests/platform_tests/api/test_chassis.py` verifies the correctness of these fields. If some fields are unknown, running the test will show expected values for the unfilled fields, providing a summary of discrepancies. The summary looks like this:
+
+```
+Failed: 'base_mac' value is incorrect. Got '74:83:ef:63:e2:86', expected '74:83:ef:63:e2:87'
+```
+
+2. Fanout, PDU, Mgmt and Server Sections
+
+Those record the hostname and IP address of the respective fanout switch, PDU, or console server.
+Those devices are also recorded in the following csv files:
+
+- `ansible/files/sonic_lab_devices.csv`
+- `ansible/files/sonic_lab_pdu_links.csv`
+- `ansible/files/sonic_lab_console_links.csv`
+
+3. `ptf` Section
+
+In `ptf` section the `ansible_ssh_user` and `ansible_ssh_pass` variables specify the credentials for the PTF container.
+`ansible_host` should match the `ptf_ip` in `testbed.yaml`.
+
+```
+    ptf:
+      vars:
+        ansible_ssh_user: root
+        ansible_ssh_pass: root
+      hosts:
+        ptf_ptf1:
+          ansible_host: 10.255.0.188
+          ansible_hostv6: 2001:db8:1::1/64
+```
+
+Ensure that these configurations are correct to facilitate proper communication and testing within the testbed environment.
+
+
 # Testbed Processing Script
 **NOTE**:
 - This section is an example of starting VMs, deploying topology and running test cases with ansible-playbook. However, it is old-fasioned.
@@ -218,6 +331,9 @@ Run the following commands:
 > echo $TESTCASE_NAME <br/>
 > ansible-playbook -i lab -l sonic-ag9032 test_sonic.yml -e testbed_name=$TESTBED_NAME -e testcase_name=$TESTCASE_NAME
 
+### Additional steps before running QoS SAI Test Case
+
+Unlike other SONiC test case, QoS SAI requires additional setup and syncd RPC container image building. Please refer [here](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.QosRpc.md)
 
 # Troubleshooting
 Issue: Testbed Command Line complains there is no password file available. <br/>

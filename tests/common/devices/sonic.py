@@ -57,17 +57,17 @@ class SonicHost(AnsibleHostBase):
             vm = self.host.options['variable_manager']
             sonic_conn = vm.get_vars(
                 host=im.get_hosts(pattern='sonic')[0]
-                )['ansible_connection']
+            )['ansible_connection']
             hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
             # parse connection options and reset those options with
             # passed credentials
             connection_loader.get(sonic_conn, class_only=True)
             user_def = ansible_constants.config.get_configuration_definition(
                 "remote_user", "connection", sonic_conn
-                )
+            )
             pass_def = ansible_constants.config.get_configuration_definition(
                 "password", "connection", sonic_conn
-                )
+            )
             for user_var in (_['name'] for _ in user_def['vars']):
                 if user_var in hostvars:
                     vm.extra_vars.update({user_var: shell_user})
@@ -251,9 +251,9 @@ class SonicHost(AnsibleHostBase):
         py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
         if py_res["failed"]:
             out = self.shell(
-                             "python3 -c \"import sonic_platform.platform as P; \
+                "python3 -c \"import sonic_platform.platform as P; \
                              print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
-                             module_ignore_errors=True)
+                module_ignore_errors=True)
         else:
             out = self.shell(
                 "python -c \"import sonic_platform.platform as P; \
@@ -329,8 +329,8 @@ class SonicHost(AnsibleHostBase):
             except Exception:
                 # if platform.json does not exist, then it's not added currently for certain platforms
                 # eventually all the platforms should have the platform.json
-                logging.debug("platform.json is not available for this platform, "
-                              + "DUT facts will not contain complete platform information.")
+                logging.debug("platform.json is not available for this platform, " +
+                              "DUT facts will not contain complete platform information.")
 
         return result
 
@@ -1564,9 +1564,9 @@ Totals               6450                 6449
         for idx, line in enumerate(output_lines):
             if sep_line_pattern.match(line):
                 sep_line_found = True
-                header_lines = output_lines[idx-header_len:idx]
+                header_lines = output_lines[idx - header_len:idx]
                 sep_line = output_lines[idx]
-                content_lines = output_lines[idx+1:]
+                content_lines = output_lines[idx + 1:]
                 break
 
         if not sep_line_found:
@@ -2400,6 +2400,28 @@ Totals               6450                 6449
         """
         self.command("config interface ip add {} {} {}".format(port, ip, gwaddr))
 
+    def remove_ip_addr_from_vlan(self, vlan, ip):
+        """
+        Remove ip addr from the vlan.
+        :param vlan: vlan name
+        :param ip: IP address
+
+        Example:
+            config interface ip remove Vlan1000 192.168.0.0/24
+        """
+        self.command("config interface ip remove {} {}".format(vlan, ip))
+
+    def add_ip_addr_to_vlan(self, vlan, ip):
+        """
+        Add ip addr to the vlan.
+        :param vlan: vlan name
+        :param ip: IP address
+
+        Example:
+            config interface ip add Vlan1000 192.168.0.0/24
+        """
+        self.command("config interface ip add {} {}".format(vlan, ip))
+
     def remove_vlan(self, vlan_id):
         """
         Remove vlan
@@ -2489,6 +2511,50 @@ Totals               6450                 6449
         assert_exit_non_zero(out)
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
+
+    def get_switch_hash_capabilities(self):
+        out = self.shell('show switch-hash capabilities --json')
+        assert_exit_non_zero(out)
+        return SonicHost._parse_hash_fields(out)
+
+    def get_switch_hash_configurations(self):
+        out = self.shell('show switch-hash global  --json')
+        assert_exit_non_zero(out)
+        return SonicHost._parse_hash_fields(out)
+
+    def set_switch_hash_global(self, hash_type, fields, validate=True):
+        cmd = 'config switch-hash global {}-hash'.format(hash_type)
+        for field in fields:
+            cmd += ' ' + field
+        out = self.shell(cmd, module_ignore_errors=True)
+        if validate:
+            assert_exit_non_zero(out)
+        return out
+
+    def set_switch_hash_global_algorithm(self, hash_type, algorithm, validate=True):
+        cmd = 'config switch-hash global {}-hash-algorithm {}'.format(hash_type, algorithm)
+        out = self.shell(cmd, module_ignore_errors=True)
+        if validate:
+            assert_exit_non_zero(out)
+        return out
+
+    @staticmethod
+    def _parse_hash_fields(cli_output):
+        ecmp_hash_fields = []
+        lag_hash_fields = []
+        ecmp_hash_algorithm = lag_hash_algorithm = ''
+        if "No configuration is present in CONFIG DB" in cli_output['stdout']:
+            logger.info("No configuration is present in CONFIG DB")
+        else:
+            out_json = json.loads(cli_output['stdout'])
+            ecmp_hash_fields = out_json["ecmp"]["hash_field"]
+            lag_hash_fields = out_json["lag"]["hash_field"]
+            ecmp_hash_algorithm = out_json["ecmp"]["algorithm"]
+            lag_hash_algorithm = out_json["lag"]["algorithm"]
+        return {'ecmp': ecmp_hash_fields,
+                'lag': lag_hash_fields,
+                'ecmp_algo': ecmp_hash_algorithm,
+                'lag_algo': lag_hash_algorithm}
 
     def get_counter_poll_status(self):
         result_dict = {}

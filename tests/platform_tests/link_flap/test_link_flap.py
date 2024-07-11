@@ -4,17 +4,16 @@ Tests the link flap in SONiC.
 import logging
 import pytest
 
-from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link, check_orch_cpu_utilization
-from tests.common.platform.device_utils import fanout_switch_port_lookup
-from tests.common.helpers.assertions import pytest_assert
+from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link, \
+    check_orch_cpu_utilization, build_test_candidates
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('any')
 ]
 
 
@@ -49,12 +48,8 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
 
     loop_times = get_loop_times
 
-    port_lists = get_port_list(duthost, tbinfo)
-
-    candidates = []
-    for port in port_lists:
-        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
-        candidates.append((port, fanout, fanout_port))
+    candidates = build_test_candidates(duthost, fanouthosts, 'all_ports')
+    pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
 
     for loop_time in range(0, loop_times):
         watch = False
