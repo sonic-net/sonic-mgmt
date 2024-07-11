@@ -1,3 +1,5 @@
+import sys
+from ipaddress import ip_address, IPv4Address, IPv6Address
 '''
 In this file user can modify the line_card_choice and it chooses the corresponding hostname
 and asic values from the config_set hostnames can be modified according to the dut hostname mentioned
@@ -66,3 +68,111 @@ pfcQueueValueDict = {0: 0,
                      5: 0,
                      6: 1,
                      7: 0}
+
+
+def create_ip_list(value, count, mask=32, incr=0):
+    '''
+        Create a list of ips based on the count provided
+        Parameters:
+            value: start value of the list
+            count: number of ips required
+            mask: subnet mask for the ips to be created
+            incr: increment value of the ip
+    '''
+    if sys.version_info.major == 2:
+        value = unicode(value)          # noqa: F821
+
+    ip_list = [value]
+    for i in range(1, count):
+        if ip_address(value).version == 4:
+            incr1 = pow(2, (32 - int(mask))) + incr
+            value = (IPv4Address(value) + incr1).compressed
+        elif ip_address(value).version == 6:
+            if mask == 32:
+                mask = 64
+            incr1 = pow(2, (128 - int(mask))) + incr
+            value = (IPv6Address(value) + incr1).compressed
+        ip_list.append(value)
+
+    return ip_list
+
+
+# START ---------------------   T2 BGP Case -------------------
+
+# *********** Common variables for Performance and Outbound Cases ****************
+T2_SNAPPI_AS_NUM = 65400
+T2_DUT_AS_NUM = 65100
+BGP_TYPE = 'ebgp'
+v4_prefix_length = 24
+v6_prefix_length = 64
+TIMEOUT = 20
+AS_PATHS = [65002]
+
+# *********** Performance case variables ****************
+
+# asic_value is None if it's non-chassis based or single line card
+t2_ports = [
+            {'port_name': 'Ethernet0', 'hostname': "sonic-t2-uplink", 'asic_value': 'asic0'},
+            {'port_name': 'Ethernet88', 'hostname': "sonic-t2-uplink", 'asic_value': 'asic0'},
+            {'port_name': 'Ethernet192', 'hostname': "sonic-t2-uplink", 'asic_value': 'asic1'},
+            {'port_name': 'Ethernet144', 'hostname': "sonic-t2-uplink", 'asic_value': 'asic1'},
+]
+t2_dut_ipv4_list = create_ip_list('20.0.1.1', len(t2_ports), mask=v4_prefix_length)
+t2_dut_ipv6_list = create_ip_list('2000:1::1', len(t2_ports), mask=v6_prefix_length)
+t2_snappi_ipv4_list = create_ip_list('20.0.1.2', len(t2_ports), mask=v4_prefix_length)
+t2_snappi_ipv6_list = create_ip_list('2000:1::2', len(t2_ports), mask=v6_prefix_length)
+
+# *********** Outbound case variables ****************
+
+# Pre-requisite: The T1 and T2 ports to be routed ports and not part of any portchannel.
+T1_SNAPPI_AS_NUM = 65300
+T1_DUT_AS_NUM = 65200
+
+# The order of hostname is very important for the outbound test (T1, T2 Uplink and T2 Downlink)
+t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink"]
+
+t1_ports = {
+                t1_t2_device_hostnames[0]:
+                [
+                    'Ethernet8',
+                    'Ethernet16'
+                ]
+            }
+
+# asic_value is None if it's non-chassis based or single line card
+t2_uplink_portchannel_members = {
+                                    t1_t2_device_hostnames[1]:
+                                    {
+                                        'asic0':
+                                            {
+                                                'PortChannel0': ['Ethernet0', 'Ethernet88']
+                                            },
+                                        'asic1':
+                                            {
+                                                'PortChannel1': ['Ethernet192', 'Ethernet144']
+                                            }
+                                    }
+                                }
+
+t1_side_interconnected_port = 'Ethernet120'
+t2_side_interconnected_port = {'port_name': 'Ethernet272', 'asic_value': 'asic1'}
+
+routed_port_count = 1+len(t1_ports[t1_t2_device_hostnames[0]])
+portchannel_count = sum([len(portchannel_info) for asic, portchannel_info in
+                        t2_uplink_portchannel_members[t1_t2_device_hostnames[1]].items()])
+
+
+t1_t2_dut_ipv4_list = create_ip_list('20.0.1.1', routed_port_count, mask=v4_prefix_length)
+t1_t2_dut_ipv6_list = create_ip_list('2000:1::1', routed_port_count, mask=v6_prefix_length)
+
+t1_t2_snappi_ipv4_list = create_ip_list('20.0.1.2', routed_port_count, mask=v4_prefix_length)
+t1_t2_snappi_ipv6_list = create_ip_list('2000:1::2', routed_port_count, mask=v6_prefix_length)
+
+
+t2_dut_portchannel_ipv4_list = create_ip_list('30.0.1.1', portchannel_count, mask=v4_prefix_length)
+t2_dut_portchannel_ipv6_list = create_ip_list('3000:1::1', portchannel_count, mask=v6_prefix_length)
+
+snappi_portchannel_ipv4_list = create_ip_list('30.0.1.2', portchannel_count, mask=v4_prefix_length)
+snappi_portchannel_ipv6_list = create_ip_list('3000:1::2', portchannel_count, mask=v6_prefix_length)
+
+# END ---------------------   T2 BGP Case -------------------
