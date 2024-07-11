@@ -280,7 +280,7 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     elif parameter == "reload":
         logging.info("Run config reload on DUT")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-        check_hash_seed_value(duthost, asic_name, topo_type)
+        check_ecmp_offset_value(duthost, asic_name, topo_type)
     elif parameter == "reboot":
         logging.info("Run cold reboot on DUT")
         reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,
