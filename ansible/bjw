@@ -15,7 +15,8 @@ all:
         ansible_user: root
         ansible_password: root
       hosts:
-        # 10.150.23.<1~48>/23 reserved for server BMC (iDRAC)
+        # 10.150.23.<1~40>/23 reserved for server BMC (iDRAC)
+        # 10.150.23.<41~49>/23 can be used for miscellanious purposes
         # Please order the followng ptf hosts by IP address
         bjw6-1:
           ansible_host: 10.150.23.50
