@@ -216,7 +216,7 @@ class EverflowPolicerTest(BaseTest):
         if self.asic_type in ["mellanox"]:
             import binascii
             payload = binascii.unhexlify("0"*44) + str(payload)     # Add the padding
-        elif self.asic_type in ["innovium"]:
+        elif self.asic_type in ["innovium"] or self.hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx", "Nokia-7215-A1"]:
             import binascii
             payload = binascii.unhexlify("0"*24) + str(payload)     # Add the padding
 
@@ -252,6 +252,7 @@ class EverflowPolicerTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
         if self.asic_type in ["marvell"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
 
         if exp_pkt.haslayer(scapy.ERSPAN_III):
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "span_id")
@@ -269,7 +270,7 @@ class EverflowPolicerTest(BaseTest):
                 pkt = scapy.Ether(pkt).load
                 pkt = pkt[22:]  # Mask the Mellanox specific inner header
                 pkt = scapy.Ether(pkt)
-            elif self.asic_type in ["innovium"]:
+            elif self.asic_type in ["innovium"] or self.hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx", "Nokia-7215-A1"]:
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
                 pkt_str = str(pkt)
                 pkt = scapy.Ether(pkt_str[8:])
