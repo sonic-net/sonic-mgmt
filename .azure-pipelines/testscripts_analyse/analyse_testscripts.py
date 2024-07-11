@@ -52,6 +52,8 @@ def topo_name_to_type(topo_name):
         topo_type = 't0'
     if topo_type in ['mc0']:
         topo_type = 'm0'
+    if topo_type in ['multidut-tgen']:
+        topo_type = 'tgen'
     return topo_type
 
 
