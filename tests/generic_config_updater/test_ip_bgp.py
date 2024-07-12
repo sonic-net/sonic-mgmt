@@ -196,6 +196,7 @@ def delete_ip_neighbor(duthost, ip_version=6):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 @pytest.mark.parametrize("ip_version", [6, 4])
 def test_ip_suite(duthost, ensure_dut_readiness, ip_version):
     add_deleted_ip_neighbor(duthost, ip_version)
