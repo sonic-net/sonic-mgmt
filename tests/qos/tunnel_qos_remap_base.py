@@ -505,7 +505,7 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
     logger.info("Start running {} on ptf host".format(test_case))
     pytest_assert(ptfhost.shell(
         argv=[
-            "/root/env-python3/bin/ptf",
+            "/usr/local/bin/ptf",
             "--test-dir",
             "saitests/py3",
             test_case,

@@ -144,7 +144,6 @@ class QosBase:
             params=testParams,
             log_file="/tmp/{0}{1}.log".format(testCase, logfile_suffix),  # Include suffix in the logfile name,
             qlen=10000,
-            is_python3=True,
             relax=relax,
             timeout=1200,
             socket_recv_size=16384,

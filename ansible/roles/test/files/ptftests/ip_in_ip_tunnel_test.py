@@ -2,7 +2,7 @@
 Description:    This file contains the IPinIP test for dualtor testbed
 
 Usage:          Examples of how to start this script
-                /usr/bin/ptf --test-dir ptftests ip_in_ip_tunnel_test.IpinIPTunnelTest \
+                /usr/local/bin/ptf --test-dir ptftests ip_in_ip_tunnel_test.IpinIPTunnelTest \
                     --platform-dir ptftests \
                     --qlen=2000 \
                     --platform remote \

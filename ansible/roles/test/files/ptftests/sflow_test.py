@@ -10,7 +10,7 @@
             --log-file /tmp/TestSflowCollector.test_two_collectors.log \
             --socket-recv-size 16384
 
-        /usr/bin/python /usr/bin/ptf --test-dir ptftests sflow_test \
+        /usr/local/bin/python /usr/bin/ptf --test-dir ptftests sflow_test \
             --platform-dir ptftests \
             --platform remote \
             -t "enabled_sflow_interfaces=[u'Ethernet116', u'Ethernet124', u'Ethernet112', u'Ethernet120'];\

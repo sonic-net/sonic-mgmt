@@ -234,8 +234,7 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
                            "qos_remap_enabled": is_tunnel_qos_remap_enabled(duthosts[0])
                            },
                    qlen=PTFRUNNER_QLEN,
-                   log_file=log_file,
-                   is_python3=True)
+                   log_file=log_file)
     finally:
         # Remove test decap configuration
         if vxlan != "set_unset":

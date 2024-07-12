@@ -246,8 +246,7 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
                        platform_dir="ptftests",
                        params=ptf_params,
                        qlen=1000,
-                       log_file=log_file,
-                       is_python3=True)
+                       log_file=log_file)
     else:
         ptf_runner(ptfhost,
                    "ptftests",
@@ -255,8 +254,7 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
                    platform_dir="ptftests",
                    params=ptf_params,
                    qlen=1000,
-                   log_file=log_file,
-                   is_python3=True)
+                   log_file=log_file)
 
 
 def get_expected_flow_counter_packets_number(vnet_json_data):

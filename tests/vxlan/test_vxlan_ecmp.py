@@ -450,8 +450,7 @@ class Test_VxLAN():
                    log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(
                        tcname,
                        encap_type,
-                       datetime.now().strftime('%Y-%m-%d-%H:%M:%S')),
-                   is_python3=True)
+                       datetime.now().strftime('%Y-%m-%d-%H:%M:%S')))
 
     def update_monitor_list(self, bfd_enable, encap_type, ip_address_list):
         '''

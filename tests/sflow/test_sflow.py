@@ -247,8 +247,7 @@ def partial_ptf_runner(request, ptfhost, tbinfo):
                    params=params,
                    socket_recv_size=16384,
                    log_file="/tmp/{}.{}.log".format(
-                       request.cls.__name__, request.function.__name__),
-                   is_python3=True)
+                       request.cls.__name__, request.function.__name__))
 
     return _partial_ptf_runner
 

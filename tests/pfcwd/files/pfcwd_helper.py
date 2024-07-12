@@ -452,7 +452,7 @@ def start_background_traffic(
                 pfc_queue_idx)
     supervisor_conf_content = ('''
 [program:{program_name}]
-command=/root/env-python3/bin/ptf --test-dir /root/ptftests/py3 {program_name}.BG_pkt_sender'''
+command=/usr/local/bin/ptf --test-dir /root/ptftests/py3 {program_name}.BG_pkt_sender'''
                                ''' --platform-dir /root/ptftests/ -t'''
                                ''' '{script_args}' --relax  --platform remote
 process_name={program_name}
@@ -528,7 +528,7 @@ def _send_background_traffic(ptfhost, ptf_params):
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/pfc_wd_background_traffic.PfcWdBackgroundTrafficTest.{}.log".format(timestamp)
     ptf_runner(ptfhost, "ptftests", "pfc_wd_background_traffic.PfcWdBackgroundTrafficTest", "/root/ptftests",
-               params=ptf_params, log_file=log_file, is_python3=True, async_mode=True)
+               params=ptf_params, log_file=log_file, async_mode=True)
 
     return log_file
 

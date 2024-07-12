@@ -58,7 +58,7 @@ app = Flask(__name__)
 # Setup a command route to listen for prefix advertisements
 @app.route('/', methods=['POST'])
 def run_command():
-    if request.form.has_key('commands'):
+    if 'commands' in request.form:
         cmds = request.form['commands'].split(';')
     else:
         cmds = [ request.form['command'] ]
@@ -82,6 +82,7 @@ dump_config_tmpl = '''\
     }
 '''
 
+# exabgp v3 configuration file format
 exabgp_conf_tmpl = '''\
 group exabgp {
 {{ dump_config }}
@@ -102,6 +103,35 @@ group exabgp {
         listen {{ listen_port }};
         {%- endif %}
     }
+}
+'''
+
+# exabgp v4 for py3 uses a different configuration file
+# format. The dump_config would come from the user. The caller
+# must pass v4 compatible config.
+# Example configs are available here
+# https://github.com/Exa-Networks/exabgp/tree/master/etc/exabgp
+# Look for sample for a given section for details
+exabgp_v4_conf_tmpl = '''\
+{{ dump_config }}
+process http-api {
+   run /usr/bin/python /usr/share/exabgp/http_api.py {{ port }};
+   encoder json;
+}
+neighbor {{ peer_ip }} {
+   router-id {{ router_id }};
+   local-address {{ local_ip }};
+   peer-as {{ peer_asn }};
+   local-as {{ local_asn }};
+   auto-flush {{ auto_flush }};
+   group-updates {{ group_updates }};
+   {%- if passive %}
+   passive;
+   listen {{ listen_port }};
+   {%- endif %}
+   api {
+       processes [ http-api ];
+   }
 }
 '''
 
@@ -182,7 +212,7 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
         dump_config = jinja2.Template(
             dump_config_tmpl).render(dump_script=dump_script)
 
-    t = jinja2.Template(exabgp_conf_tmpl)
+    t = jinja2.Template(exabgp_v4_conf_tmpl)
     data = t.render(name=name,
                     router_id=router_id,
                     local_ip=local_ip,

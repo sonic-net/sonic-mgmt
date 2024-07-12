@@ -284,8 +284,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                    log_file="/tmp/vxlan-tests.{}.{}.{}.log".format(
                        tcname,
                        encap_type,
-                       datetime.now().strftime('%Y-%m-%d-%H:%M:%S')),
-                   is_python3=True)
+                       datetime.now().strftime('%Y-%m-%d-%H:%M:%S')))
 
     def test_vxlan_priority_single_pri_sec_switchover(self, setUp, encap_type):
         '''

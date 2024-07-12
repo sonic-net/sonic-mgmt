@@ -38,5 +38,4 @@ def test_mtu(tbinfo, ptfhost, mtu, gather_facts):
                        "dst_ptf_port_list": gather_facts['dst_port_ids']
                        },
                log_file=log_file,
-               socket_recv_size=16384,
-               is_python3=True)
+               socket_recv_size=16384)

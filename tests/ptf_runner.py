@@ -49,26 +49,21 @@ def get_dut_type(host):
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
                socket_recv_size=None, log_file=None, device_sockets=[], timeout=0, custom_options="",
-               module_ignore_errors=False, is_python3=False, async_mode=False):
-    # Call virtual env ptf for migrated py3 scripts.
-    # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
-    # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
+               module_ignore_errors=False, async_mode=False):
     dut_type = get_dut_type(host)
     if dut_type == "kvm" and params.get("kvm_support", True) is False:
         logger.info("Skip test case {} for not support on KVM DUT".format(testname))
         return True
 
-    if is_python3:
-        path_exists = host.stat(path="/root/env-python3/bin/ptf")
-        if path_exists["stat"]["exists"]:
-            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir + '/py3', testname)
-        else:
-            error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\n" \
-                        "Please check and update docker-ptf image, make sure to use the correct one."
-            logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, error_msg))
-            raise Exception(error_msg)
+    ptf_path = '/usr/local/bin/ptf'
+    path_exists = host.stat(path=ptf_path)
+    if path_exists["stat"]["exists"]:
+        cmd = ptf_path + " --test-dir {} {}".format(testdir, testname)
     else:
-        cmd = "ptf --test-dir {} {}".format(testdir, testname)
+        error_msg = "PTF doesn't exist.\n" \
+                    "Please check and update docker-ptf image, make sure to use the correct one."
+        logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, error_msg))
+        raise Exception(error_msg)
 
     if platform_dir:
         cmd += " --platform-dir {}".format(platform_dir)
@@ -105,9 +100,6 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         cmd += " " + custom_options
 
     if hasattr(host, "macsec_enabled") and host.macsec_enabled:
-        if not is_python3:
-            logger.error("MACsec is only available in Python3")
-            raise Exception("MACsec is only available in Python3")
         host.create_macsec_info()
 
     try:

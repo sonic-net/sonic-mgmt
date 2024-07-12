@@ -133,8 +133,7 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
         },
         log_file=log_file,
         qlen=PTF_QLEN,
-        socket_recv_size=16384,
-        is_python3=True
+        socket_recv_size=16384
     )
 
 
@@ -362,8 +361,7 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
         },
         log_file=log_file,
         qlen=PTF_QLEN,
-        socket_recv_size=16384,
-        is_python3=True
+        socket_recv_size=16384
     )
 
 # The test case is to verify src-ip, dst-ip, src-port, dst-port and ip-proto of inner_frame in a IPinIP packet are
@@ -449,5 +447,4 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
                },
                log_file=log_file,
                qlen=PTF_QLEN,
-               socket_recv_size=16384,
-               is_python3=True)
+               socket_recv_size=16384)
