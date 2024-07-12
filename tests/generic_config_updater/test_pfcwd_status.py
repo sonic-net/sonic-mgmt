@@ -13,8 +13,7 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
-    pytest.mark.topology('any'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
@@ -35,6 +34,12 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
                 [
                     '.*ERR syncd#syncd:.*SAI_API_QUEUE:_brcm_sai_cosq_stat_get:.* ',
                     '.*ERR syncd#syncd:.*SAI_API_SWITCH:sai_bulk_object_get_stats.* ',
+                ]
+            )
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    '.*ERR syncd#syncd: :- queryStatsCapability: failed to find switch oid:.* in switch state map'
                 ]
             )
 
