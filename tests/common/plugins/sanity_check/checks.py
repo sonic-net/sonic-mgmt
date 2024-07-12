@@ -3,7 +3,6 @@ import json
 import logging
 import pytest
 import time
-import subprocess
 
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
@@ -15,6 +14,7 @@ from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_PO
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.dualtor.mux_simulator_control import _probe_mux_ports
 from tests.common.fixtures.duthost_utils import check_bgp_router_id
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -988,7 +988,7 @@ def check_neighbor_macsec_empty(ctrl_links):
 
 # check ipv6 neighbor reachability
 @pytest.fixture(scope="module")
-def check_ipv6_mgmt(duthosts):
+def check_ipv6_mgmt(duthosts, localhost):
     # check ipv6 mgmt interface reachability for debugging purpose only.
     # No failure will be trigger for this sanity check.
     def _check(*args, **kwargs):
@@ -1005,13 +1005,12 @@ def check_ipv6_mgmt(duthosts):
 
         # most of the testbed should reply within 10 ms, Set the timeout to 2 seconds to reduce the impact of delay.
         try:
-            res = subprocess.check_output(["ping6", "-c", "2", str(dut.mgmt_ipv6)], stderr=subprocess.STDOUT)
-            logging.info("Ping6 output: %s" % res.decode("utf-8"))
-        except subprocess.CalledProcessError as exp:
+            shell_result = localhost.shell("ping6 -c 2 -W 2 " + dut.mgmt_ipv6)
+            logging.info("ping6 output: %s" % shell_result["stdout"])
+        except RunAnsibleModuleFail as e:
             # set to False for now to avoid blocking the test
             check_result["failed"] = False
-            logging.info("Failed to ping ipv6 mgmt interface on %s, exception: %s" % (dut.hostname, repr(exp)))
-            logging.info("Ping6 output: %s" % exp.output.decode("utf-8"))
+            logging.info("Failed to ping ipv6 mgmt interface on %s, exception: %s" % (dut.hostname, repr(e)))
         except Exception as e:
             logger.info("Exception while checking ipv6_mgmt reachability for %s: %s" % (dut.hostname, repr(e)))
         finally:
