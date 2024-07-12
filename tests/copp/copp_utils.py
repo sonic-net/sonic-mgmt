@@ -37,11 +37,6 @@ _SYNCD_NN_FILE = "ptf_nn_agent.conf"
 _CONFIG_DB = "/etc/sonic/config_db.json"
 _TEMP_CONFIG_DB = "/home/admin/config_db_copp_backup.json"
 
-_APT_SOURCE_LIST_BULLSEYE = "deb [arch=amd64] http://deb.debian.org/debian/ bullseye main contrib non-free"
-_APT_SOURCE_LIST_BOOKWORM = "deb [arch=amd64] http://deb.debian.org/debian/ bookworm main contrib non-free-firmware"
-
-_APT_SOURCE_LIST_PATH = "/etc/apt/sources.list.d/sources.list"
-
 
 def limit_policer(dut, pps_limit, nn_target_namespace):
     """
@@ -213,9 +208,6 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
     if output["stdout"] == "copp":
         http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
         https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
-        # Add a temp apt source list to install the required packages
-        dut.command("docker exec -i {} bash -c 'echo \"{}\" > {}'"
-                    .format(syncd_docker_name, _APT_SOURCE_LIST_BOOKWORM, _APT_SOURCE_LIST_PATH))
         # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
         cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
                 chmod 1777 /tmp \
@@ -261,9 +253,6 @@ def _install_nano(dut, creds,  syncd_docker_name):
         check_cmd = "docker exec -i {} bash -c 'cat /etc/os-release'".format(syncd_docker_name)
         # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
         if "bullseye" in dut.shell(check_cmd)['stdout'].lower():
-            # Add a temp apt source list to install the required packages
-            dut.command("docker exec -i {} bash -c 'echo \"{}\" > {}'"
-                        .format(syncd_docker_name, _APT_SOURCE_LIST_BULLSEYE, _APT_SOURCE_LIST_PATH))
             cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
                     chmod 1777 /tmp \
                     && rm -rf /var/lib/apt/lists/* \
