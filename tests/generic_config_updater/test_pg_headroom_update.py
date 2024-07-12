@@ -101,7 +101,6 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_
                           {"op": "{}".format(operation),
                            "path": "/BUFFER_PROFILE/{}/xoff".format(profile_name),
                            "value": "{}".format(value)})
-
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "BUFFER_PROFILE", "PG headroom modification", operation):
