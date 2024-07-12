@@ -291,6 +291,13 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "et6448m":
             for i in range(0, 52):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+        elif hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx", "Nokia-7215-A1"]:
+            for i in range(0, 32):
+                port_alias_to_name_map["oneGigE%d" % i] = "Ethernet%d" % i
+            for i in range(32, 48):
+                port_alias_to_name_map["twod5GigE%d" % i] = "Ethernet%d" % i
+            for i in range(48, 54):
+                port_alias_to_name_map["twenty5GigE%d" % i] = "Ethernet%d" % i
         elif hwsku == "Nokia-IXR7250E-36x400G" or hwsku == "Nokia-IXR7250E-36x100G":
             for i in range(1, 37):
                 sonic_name = "Ethernet%d" % ((i - 1) * 8)
