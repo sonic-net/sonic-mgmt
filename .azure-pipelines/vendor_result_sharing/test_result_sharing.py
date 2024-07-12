@@ -27,7 +27,6 @@ from msrest.authentication import (
     OAuthTokenAuthentication)
 from azure.devops.connection import Connection
 import requests
-import zipfile
 # Install the following package before running this program
 # pip install azure-storage-blob azure-identity azure-devops
 
@@ -68,11 +67,9 @@ class KustoChecker(object):
         self.logger = logging.getLogger('KustoChecker')
 
         kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(self.cluster,
-                                                                                      self.access_token
-                                                                                     )
+                                                                                      self.access_token)
         kcsb_ingest = KustoConnectionStringBuilder.with_aad_application_token_authentication(self.ingest_cluster,
-                                                                                             self.access_token
-                                                                                            )
+                                                                                             self.access_token)
 
         self.client = KustoClient(kcsb)
         self.ingest_client = KustoIngestClient(kcsb_ingest)
@@ -331,8 +328,7 @@ class AzureBlobConnecter(object):
                                      credential=self.token,
                                      blob_name=blob_name,
                                      max_single_get_size=1024 * 1024 * 32,  # 32 MiB
-                                     max_chunk_get_size=1024 * 1024 * 4  # 4 MiB
-                                    )
+                                     max_chunk_get_size=1024 * 1024 * 4)
 
             # download artifact to the local file
             with open(local_file_path, "wb") as download_file:
@@ -378,6 +374,7 @@ def create_kusto_checker():
         raise RuntimeError('Could not load Kusto credentials from environment')
 
     return KustoChecker(ingest_cluster, access_token, DATABASE)
+
 
 def main(args):
 
@@ -467,7 +464,7 @@ def main(args):
 
         if pipeline_type == "ElasticTest":
             nightly_test_storage_connecter.download_artifacts_from_container_recursively(NIGHTLY_TEST_CONTAINER_NAME, buildid, base_path)
-            shutil.make_archive(buildid, 'zip', base_path)
+            shutil.make_archive(buildid, 'zip', base_path + '/' + buildid)
         else:
             # dualtor test result is in the azure devops build artifacts
             azure_devops_connecter.download_artifacts(buildid, buildid)
