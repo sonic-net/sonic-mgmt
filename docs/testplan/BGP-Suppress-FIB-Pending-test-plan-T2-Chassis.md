@@ -174,7 +174,7 @@ kill -SIGCONT $(pidof orchagent)
 ```
 kill -SIGSTOP $(pidof orchagent)
 ```
-5. Announce 1K BGP prefixes to DUT from T1 peer by exabgp
+5. Announce 33K BGP prefixes to DUT from T1 peer by exabgp
 6. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard.
 7. Send traffic matching the prefixes in the BGP route flap from one of T3 VM and verify packets are forwarded back to the same T3 VM.
 8. Enable BGP suppress-fib-pending function at downstream DUT.
@@ -190,9 +190,9 @@ kill -SIGCONT $(pidof orchagent)
 
 1. Enable BGP suppress-fib-pending function at the downstream DUT.
 2. Start tcpdump capture at the ingress and egress port at DUTs
-3. Announce 1K BGP prefixes to DUT from T1 VM by exabgp
+3. Announce 33K BGP prefixes to DUT from T1 VM by exabgp
 4. Verify the routes are announced via __IBGP__ and __EBGP__ to all T3 peer neighbors on the upstream linecard.
-5. Withdraw 1K BGP prefixes to DUT from the same T1 VM using exabgp
+5. Withdraw 33K BGP prefixes to DUT from the same T1 VM using exabgp
 6. Verify the BGP routes are withdrawn from all T3 VM peer neighbors.
 7. Stop tcpdump capture on the DUTs' ingress and egress ports.
 8. Verify the average as well as middle route process time is under threshold.
