@@ -40,7 +40,7 @@ from report_data_storage import KustoConnector
 
 
 def topo_name_to_type(topo_name):
-    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu|any)')
+    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|mgmttor|m0|mc0|mx|dpu|any|snappi)')
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
@@ -52,6 +52,8 @@ def topo_name_to_type(topo_name):
         topo_type = 't0'
     if topo_type in ['mc0']:
         topo_type = 'm0'
+    if topo_type in ['multidut-tgen']:
+        topo_type = 'tgen'
     return topo_type
 
 
