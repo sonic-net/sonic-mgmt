@@ -2842,3 +2842,126 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t0-4600c-1
+  group-name: bjw2-2-1
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: bjw2-2-1
+  ptf_ip: 10.150.23.94/23
+  ptf_ipv6: 2404:f801:10:2200::a96:175e/52
+  server: server_bjw2_2
+  vm_base: VM82011
+  dut:
+    - bjw2-can-4600c-1
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t0-4600c-2
+  group-name: bjw2-2-2
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: bjw2-2-2
+  ptf_ip: 10.150.23.95/23
+  ptf_ipv6: 2404:f801:10:2200::a96:175f/52
+  server: server_bjw2_2
+  vm_base: VM82015
+  dut:
+    - bjw2-can-4600c-2
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t1-4600c-3
+  group-name: bjw2-2-3
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw2-2-3
+  ptf_ip: 10.150.23.96/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1760/52
+  server: server_bjw2_2
+  vm_base: VM82019
+  dut:
+    - bjw2-can-4600c-3
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t1-4600c-4
+  group-name: bjw2-2-4
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw2-2-4
+  ptf_ip: 10.150.23.97/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1761/52
+  server: server_bjw2_2
+  vm_base: VM82043
+  dut:
+    - bjw2-can-4600c-4
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t0-7260-1
+  group-name: bjw2-2-5
+  topo: t0-116
+  ptf_image_name: docker-ptf
+  ptf: bjw2-2-5
+  ptf_ip: 10.150.23.98/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1762/52
+  server: server_bjw2_2
+  vm_base: VM82067
+  dut:
+    - bjw2-can-7260-1
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t0-7260-2
+  group-name: bjw2-2-6
+  topo: t0-116
+  ptf_image_name: docker-ptf
+  ptf: bjw2-2-6
+  ptf_ip: 10.150.23.99/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1763/52
+  server: server_bjw2_2
+  vm_base: VM82071
+  dut:
+    - bjw2-can-7260-2
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-dual-t0-7260-1
+  group-name: bjw2-2-7
+  topo: dualtor-120
+  ptf_image_name: docker-ptf
+  ptf: bjw2-2-7
+  ptf_ip: 10.150.23.100/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1764/52
+  server: server_bjw2_2
+  vm_base: VM82075
+  dut:
+    - bjw2-can-7260-3
+    - bjw2-can-7260-4
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-dual-t0-7260-2
+  group-name: bjw2-2-8
+  topo: dualtor-aa-56
+  ptf_image_name: docker-ptf
+  ptf: bjw2-2-8
+  ptf_ip: 10.150.23.101/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1765/52
+  netns_mgmt_ip: 10.150.23.48/23
+  server: server_bjw2_2
+  vm_base: VM82079
+  dut:
+    - bjw2-can-7260-5
+    - bjw2-can-7260-6
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
