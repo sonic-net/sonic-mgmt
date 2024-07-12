@@ -151,7 +151,7 @@ tgen:
   - ixia/test_ixia_traffic.py
   - ixia/test_tgen.py
 
-wan:
+wan-pub:
   # Currently PR test will not test wan topo
   - wan/isis/test_isis_authentication.py
   - wan/isis/test_isis_csnp_interval.py
