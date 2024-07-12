@@ -78,13 +78,11 @@ def config_ipv4_traffic(tg, tg_ph, data1, data2, mac_src, dst_mac, ip_src_addr, 
     data1.tr1=tg.tg_traffic_config(port_handle=tg_ph, mode='create', transmit_mode=data1.transmit_mode, length_mode='fixed',
             l3_protocol='ipv4', mac_dst=dst_mac, mac_src=mac_src, pkts_per_burst=data1.pkts_per_burst,
             l3_length=data1.tgen_l3_len, rate_pps=data1.tgen_rate_pps, ip_src_addr=ip_src_addr, ip_dst_addr=ip_dst_addr)
-    st.wait(5)
     
 def config_ipv6_traffic(tg, tg_ph, data1, data2, mac_src, dst_mac, ipv6_src_addr, ipv6_dst_addr):
     data1.tr1=tg.tg_traffic_config(port_handle=tg_ph, mode='create', transmit_mode='single_burst', length_mode='fixed',
             l3_protocol='ipv6', mac_src=mac_src, mac_dst=dst_mac, pkts_per_burst=data1.pkts_per_burst,
             rate_pps=data1.tgen_rate_pps, ipv6_src_addr=ipv6_src_addr, ipv6_dst_addr=ipv6_dst_addr)
-    st.wait(5)
     
 def verify_ping_helper(tg, tg_ph, handle, dest_ip):
     res = tgapi.verify_ping(src_obj=tg, port_handle=tg_ph, dev_handle=handle, dst_ip=dest_ip, ping_count='10', exp_count='10')
@@ -113,23 +111,19 @@ def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True, ver
 
     if ipv4 :
         handle1 = config_ipv4_intf(tg1, tg_ph_1, data1, data1.t1d3_ip_addr, data1.t1d3_mac_addr, data1.t1d3_ip_gateway)
-        st.wait(5) 
         handle2 = config_ipv4_intf(tg2, tg_ph_2, data2, data2.t1d4_ip_addr, data2.t1d4_mac_addr, data2.t1d4_ip_gateway)
-        st.wait(5)
         # Ping from tgen to tgen.
         if verify_ping:
             verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ip_addr)
-            st.wait(5)
+            st.wait(2)
             verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ip_addr)
     else:
         handle1 = config_ipv6_intf(tg1, tg_ph_1, data1, data1.t1d3_ipv6_addr, data1.t1d3_mac_addr, data1.t1d3_ipv6_gateway)
-        st.wait(5)
         handle2 = config_ipv6_intf(tg2, tg_ph_2, data2, data2.t1d4_ipv6_addr, data2.t1d4_mac_addr, data2.t1d4_ipv6_gateway)
-        st.wait(5)
         # Ping from tgen to tgen.
         if verify_ping:
             verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ipv6_addr)
-            st.wait(5)
+            st.wait(2)
             verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ipv6_addr)
         
 
@@ -191,13 +185,13 @@ def traffic_start(handles, data1, data2):
     st.wait(data1.traffic_run_time)
     st.log("TR_CTRL: " + str(t_run1) + "t run2 " + str(t_run2))
 
-def traffic_stop(handles):
+def traffic_stop(handles, mode="continuous"):
     handles['tg_handle_1'].tg_traffic_control(action='stop', port_handle=handles['port_handle_1'])
     handles['tg_handle_2'].tg_traffic_control(action='stop', port_handle=handles['port_handle_2'])
-    st.wait(5)
-    handles['tg_handle_1'].tg_packet_control(port_handle=handles['port_handle_1'], action='stop')
-    handles['tg_handle_2'].tg_packet_control(port_handle=handles['port_handle_2'], action='stop')
-    st.wait(30)
+    if mode == "continuous":
+        st.wait(30)
+    else:
+        st.wait(5)
     
 def traffic_test_check(handles, d3t1port, d4t1port, data1, data2):
     vars = st.get_testbed_vars()
