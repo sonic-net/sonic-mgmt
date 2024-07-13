@@ -4,7 +4,8 @@ import os
 import re
 import time
 
-NO_OF_RETRIES = 6
+NO_OF_RETRIES = 6 
+REMOTE_VTEP_COUNT = '1'
 
 def config_vlan(node, vlan, members = [], vrf = None, add = True, tagged = False):
     config = ''
@@ -321,7 +322,7 @@ def verify_vtep_state (vtep_ip_dict):
     iter = 0
     start_time = time.time()
 
-    while len(leaf0_parsed) == 0 and iter < NO_OF_RETRIES: 
+    while len(leaf0_parsed) == 0 and iter < NO_OF_RETRIES:
         st.wait(10)
         leaf0_output = st.show('leaf0', "show vxlan remotevtep", skip_tmpl=True)
 
@@ -338,7 +339,7 @@ def verify_vtep_state (vtep_ip_dict):
 
     end_time = time.time()
     st.log("Remote VTEP found on leaf0 after {} secs".format(end_time-start_time))
-    
+
     vtep_num = 0
     for path in leaf0_parsed:
         vtep_num += 1
@@ -352,7 +353,7 @@ def verify_vtep_state (vtep_ip_dict):
             report_fail('leaf0', msg='Tunnel is not in up status in leaf0')
     if vtep_num != 1:
         report_fail('leaf0', msg='Incorrect number of VTEPs found in leaf0')
- 
+
     iter = 0
     start_time = time.time()
     while len(leaf1_parsed) == 0 and iter < NO_OF_RETRIES:
@@ -364,12 +365,12 @@ def verify_vtep_state (vtep_ip_dict):
         if len(leaf1_parsed) == 0:
             iter += 1
             continue
-    
+
     if iter == NO_OF_RETRIES:
         end_time = time.time()
         st.log("No remote VTEP found on leaf1 after {} secs".format(end_time-start_time))
         report_fail('leaf1', msg='No remote VTEP found in leaf1')
-    
+
     end_time = time.time()
     st.log("Remote VTEP found on leaf1 after {} secs".format(end_time-start_time))
 
@@ -398,4 +399,61 @@ def check_hw_or_sim(node):
     except:
         dut_type = "hw"
     return dut_type
+
+def verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP):
+    '''
+    root@sonic:/home/cisco# show vxlan remotevtep
+    +---------------------+--------------------+-------------------+--------------+
+    | SIP                 | DIP                | Creation Source   | OperStatus   |
+    +=====================+====================+===================+==============+
+    | fd27::22d:b87f:214b | fd27::280:10f1:25f | EVPN              | oper_up      |
+    +---------------------+--------------------+-------------------+--------------+
+    Total count : 1
+
+    '''
+    for node in ['leaf0', 'leaf1']:
+        dut = nodes[node]
+        expected_sip = LEAF0_VTEP_IP if node == 'leaf0' else LEAF1_VTEP_IP
+        expected_dip = LEAF1_VTEP_IP if node == 'leaf0' else LEAF0_VTEP_IP
+
+        output = st.config(dut, "show vxlan remotevtep")
+        output_parsed = st.parse_show(dut, "show vxlan remotevtep", output, "show_vxlan_remote.tmpl")
+        iter = 0
+        for vtep in output_parsed:
+            start_time = time.time()
+            while vtep['tun_status'] != 'oper_up' and iter < NO_OF_RETRIES:
+                iter += 1
+                st.wait(10)
+                output = st.config(dut, "show vxlan remotevtep")
+                output_parsed = st.parse_show(dut, "show vxlan remotevtep", output, "show_vxlan_remote.tmpl")
+                vtep = output_parsed[0]
+
+            if iter == NO_OF_RETRIES:
+                end_time = time.time()
+                iter = 0
+                if vtep['tun_status'] == 'oper_down':
+                    st.log("Tunnel State is not Up after {} secs".format(end_time - start_time))
+                    report_fail(dut, msg='Tunnel State is not up. Status : oper_down')
+                else:
+                    st.log("Tunnel State is not set after {} secs".format(end_time - start_time))
+                    report_fail(dut, msg='Tunnel State is not set')
+
+            #Test 1: Verify if the State is UP - oper_up
+            if vtep['tun_status'] == 'oper_up':
+                end_time = time.time()
+                st.log("Tunnel State is up after {} secs Status : oper_up" .format(end_time-start_time), dut)
+            # Test 2: Verify SIP and DIP
+            if vtep['src_vtep'] == expected_sip:
+                st.log("Source vtep validated", dut)
+            else:
+                report_fail(dut, msg='Source vtep is not as expected. Found {} Expected {}'.format(vtep['src_vtep'], expected_sip))
+            if vtep['dst_vtep'] == expected_dip:
+                st.log("Destination vtep validated", dut)
+            else:
+                report_fail(dut, msg='Source vtep is not as expected. Found {} Expected {}'.format(vtep['dst_vtep'], expected_dip))
+            # Test 3: Verify if the Total Count is 1
+            if vtep['total_count'] == REMOTE_VTEP_COUNT:
+                st.log("All remote VTEPs detected", dut)
+            else:
+                report_fail(dut, msg='Remote Vteps discovered count not as expected. Found {} Expected {}'.format(vtep['total_count'], REMOTE_VTEP_COUNT))
 

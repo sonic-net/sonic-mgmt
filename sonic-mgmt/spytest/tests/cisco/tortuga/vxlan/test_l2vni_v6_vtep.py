@@ -116,56 +116,6 @@ def setup_and_teardown():
     #router_preconfig_cleanup()
     vxlan_obj.remove_temp_config(updated_config_file)
 
-def verify_vtep_state(nodes):
-    '''
-    root@sonic:/home/cisco# show vxlan remotevtep
-    +---------------------+--------------------+-------------------+--------------+
-    | SIP                 | DIP                | Creation Source   | OperStatus   |
-    +=====================+====================+===================+==============+
-    | fd27::22d:b87f:214b | fd27::280:10f1:25f | EVPN              | oper_up      |
-    +---------------------+--------------------+-------------------+--------------+
-    Total count : 1
-
-    '''
-    for node in ['leaf0', 'leaf1']:
-        dut = nodes[node]
-        expected_sip = LEAF0_VTEP_IP if node == 'leaf0' else LEAF1_VTEP_IP
-        expected_dip = LEAF1_VTEP_IP if node == 'leaf0' else LEAF0_VTEP_IP
-
-        output = st.config(dut, "show vxlan remotevtep")
-        output_parsed = st.parse_show(dut, "show vxlan remotevtep", output, "show_vxlan_remote.tmpl")
-
-        for vtep in output_parsed:
-	    # Test 1: Verify if the State is UP - oper_up
-            if vtep['tun_status'] == 'oper_up':
-                st.log("Tunnel State is up. Status : oper_up", dut)
-            elif vtep['tun_status'] == 'oper_down':
-                # Waiting for 10 more seconds for the operational status to come up
-                # If not then fail the test
-                st.wait(10)
-                if vtep['tun_status'] == 'oper_up':
-                    st.log("Tunnel State is up. Status : oper_up", dut)
-                else:
-                    report_fail(dut, msg='Tunnel State is not up. Status : oper_down')
-            else:
-                report_fail(dut, msg='Tunnel State is not set')
-
-	    # Test 2: Verify SIP and DIP
-            if vtep['src_vtep'] == expected_sip:
-                st.log("Source vtep validated", dut)
-            else:
-                report_fail(dut, msg='Source vtep is not as expected. Found {} Expected {}'.format(vtep['src_vtep'], expected_sip))
-            if vtep['dst_vtep'] == expected_dip:
-                st.log("Destination vtep validated", dut)
-            else:
-                report_fail(dut, msg='Source vtep is not as expected. Found {} Expected {}'.format(vtep['dst_vtep'], expected_dip))
-
-	    # Test 3: Verify if the Total Count is 1
-            if vtep['total_count'] == REMOTE_VTEP_COUNT:
-                st.log("All remote VTEPs detected", dut)
-            else:
-                report_fail(dut, msg='Remote Vteps discovered count not as expected. Found {} Expected {}'.format(vtep['total_count'], REMOTE_VTEP_COUNT))
-
 def test_v6_vtep_basic():
     vars = st.get_testbed_vars()
 
@@ -174,7 +124,7 @@ def test_v6_vtep_basic():
     nodes['leaf1'] = vars.D4
 
     # Test remote vtep status on LEAF0 and LEAF1
-    verify_vtep_state(nodes)
+    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
 
     #Traffic Test
     result = run_traffic_test(handles)
@@ -190,7 +140,7 @@ def test_v6_vtep_delete_add_sonic():
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
     
-    verify_vtep_state(nodes)
+    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
 
     result = run_traffic_test(handles)
     if result:
@@ -206,8 +156,8 @@ def test_v6_vtep_delete_add_sonic():
     st.wait(40)
     st.banner("Restored sonic configs on LEAF0")
     
-    verify_vtep_state(nodes)
-    
+    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
+
     result = run_traffic_test(handles)
     if result:
         st.report_pass('test_case_passed')
@@ -221,8 +171,8 @@ def test_v6_vtep_delete_add_bgp():
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
 
-    verify_vtep_state(nodes)
-    
+    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
+
     result = run_traffic_test(handles)
     if result:
         st.report_pass('test_case_passed')
@@ -237,8 +187,8 @@ def test_v6_vtep_delete_add_bgp():
     st.wait(40)
     st.banner("Restored BGP configs on LEAF1")
 
-    verify_vtep_state(nodes)
-    
+    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
+
     result = run_traffic_test(handles)
     if result:
         st.report_pass('test_case_passed')
@@ -252,7 +202,7 @@ def test_v6_vtep_delete_add_all_configs():
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
 
-    verify_vtep_state(nodes)
+    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
 
     result = run_traffic_test(handles)
     if result:
@@ -270,8 +220,8 @@ def test_v6_vtep_delete_add_all_configs():
     st.wait(40)
     st.banner("Restored BGP Sonic & configs on LEAF1")
 
-    verify_vtep_state(nodes)
-    
+    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
+
     result = run_traffic_test(handles)
     if result:
         st.report_pass('test_case_passed')
@@ -285,8 +235,8 @@ def test_v6_vtep_port_flap():
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
 
-    verify_vtep_state(nodes)
-    
+    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
+
     result = run_traffic_test(handles)
     if result:
         st.report_pass('test_case_passed')
@@ -302,8 +252,8 @@ def test_v6_vtep_port_flap():
     st.wait(40)
     st.banner("Spine links restored on LEAF0")
 
-    verify_vtep_state(nodes)
-    
+    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
+
     result = run_traffic_test(handles)
     if result:
         st.report_pass('test_case_passed')
@@ -370,7 +320,7 @@ def test_v6_vtep_multiple_vni():
 	#Validate vlan vni mapping control plane
         verify_vlanvnimap(nodes)         
 
-        verify_vtep_state(nodes)
+        vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
 
         leaf0_output = st.show(nodes['leaf0'], 'show bgp l2vpn evpn vni', type='vtysh', skip_tmpl=True, skip_error_check=True)
         leaf0_parsed = st.parse_show(nodes['leaf0'], 'show bgp l2vpn evpn vni', leaf0_output, 'show_bgp_l2vpn_evpn_vni.tmpl')

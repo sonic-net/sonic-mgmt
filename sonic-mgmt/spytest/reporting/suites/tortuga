@@ -3,6 +3,7 @@
 +file:cisco/tortuga/vxlan/test_subint_basic.py
 +file:cisco/tortuga/vxlan/test_l2vni.py
 +file:cisco/tortuga/vxlan/test_l2vni_sag_irb.py
++file:cisco/tortuga/vxlan/test_l2vni_ipv6_sag_irb.py
 +file:cisco/tortuga/vxlan/test_l3vni_basic.py
 +file:cisco/tortuga/vxlan/test_l2vni_v6_vtep.py
 +file:cisco/tortuga/l2_switching/test_portchannel_l2.py
@@ -24,5 +25,7 @@
 +args:--load-config-method=none
 +args:--module-init-max-timeout 9000
 +args:--tc-max-timeout 5400
++args:--max-time module 2400
++args:--max-time function 2400
 +args:--logs-level=debug
 +args:--random-order=0
