@@ -107,13 +107,16 @@ def get_lossless_buffer_size(host_ans):
     """
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
+    device_mtd = config_facts['DEVICE_METADATA']['localhost']['hwsku']
+
     is_cisco8000_platform = True if 'cisco-8000' in host_ans.facts['platform_asic'] else False
+    is_nokia_7250 = True if ('Nokia' or 'nokia') and '7250' in device_mtd else False
 
     if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
-    profile_name = 'ingress_lossless_pool' if is_cisco8000_platform else 'egress_lossless_pool'
+    profile_name = 'ingress_lossless_pool' if (is_cisco8000_platform or is_nokia_7250) else 'egress_lossless_pool'
 
     if profile_name not in list(buffer_pools.keys()):
         return None
@@ -811,10 +814,11 @@ def enable_packet_aging(duthost, asic_value=None):
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
     elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
-        try:
-            duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
-        except Exception:
-            duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
+        for asic_value in duthost.facts['asics_present']:
+            try:
+                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
+            except Exception:
+                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
 
 
 def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
@@ -927,14 +931,24 @@ def get_egress_queue_count(duthost, port, priority):
     Returns:
         tuple (int, int): total count of packets and bytes in the queue
     """
-    raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
-    total_pkts = raw_out.split()[2] if 2 < len(raw_out.split()) else "0"
-    if total_pkts == "N/A":
-        total_pkts = "0"
+    if duthost.is_multi_asic:
+        if (int(port.split('Ethernet')[1])) in range(0, 144):
+            asic = 'asic0'
+        else:
+            asic = 'asic1'
+        raw_out = duthost.shell("sudo ip netns exec {} show queue counters {} | sed -n '/UC{}/p'".
+                                format(asic, port, priority))['stdout']
+        total_pkts = "0" if raw_out.split()[2] == "N/A" else raw_out.split()[2]
+        total_bytes = "0" if raw_out.split()[3] == "N/A" else raw_out.split()[3]
+    else:
+        raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
+        total_pkts = raw_out.split()[2] if 2 < len(raw_out.split()) else "0"
+        if total_pkts == "N/A":
+            total_pkts = "0"
 
-    total_bytes = raw_out.split()[3] if 3 < len(raw_out.split()) else "0"
-    if total_bytes == "N/A":
-        total_bytes = "0"
+        total_bytes = raw_out.split()[3] if 3 < len(raw_out.split()) else "0"
+        if total_bytes == "N/A":
+            total_bytes = "0"
 
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
 
@@ -1007,3 +1021,116 @@ def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):
     pps = int(oversubscription_ratio / pause_dur)
 
     return pps
+
+
+def clear_counters(duthost, port):
+    """
+    Clear PFC, Queuecounters, Drop and generic counters from SONiC CLI.
+    Args:
+        duthost (Ansible host instance): Device under test
+        port (str): port name
+    Returns:
+        None
+    """
+    if (duthost.is_multi_asic):
+        if (int(port.split('Ethernet')[1])) in range(0, 144):
+            asic = 'asic0'
+        else:
+            asic = 'asic1'
+        duthost.shell("sudo ip netns exec {} sonic-clear queuecounters \n".format(asic))
+        duthost.shell("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
+        duthost.shell("sudo sonic-clear counters \n")
+        duthost.shell("sudo sonic-clear pfccounters \n")
+    else:
+        duthost.shell("sonic-clear queuecounters \n")
+        duthost.shell("sonic-clear dropcounters \n")
+        duthost.shell("sudo sonic-clear counters \n")
+        duthost.shell("sudo sonic-clear pfccounters \n")
+
+
+def interface_stats(duthost, port):
+    """
+    Get the Rx and Tx port utilization, throughput and pkts from SONiC CLI.
+    This is the equivalent of the "show interface counters" command.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+    Returns:
+        i_stats (dict): key-value of various interface stats
+    """
+
+    i_stats = {}
+    dut_key = (duthost.hostname+'_'+port).lower()
+    # raw_out = duthost.shell("show interface counters | grep '{} '".format(port,))['stdout']
+    # x = re.findall('\S+', raw_out)
+
+    n_raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
+    raw_out_stripped = re.sub(r'^.*?\n', '', n_raw_out, count=1)
+    raw_json = json.loads(raw_out_stripped)
+    rx_err = ['RX_DRP', 'RX_ERR', 'RX_OVR']
+    tx_err = ['TX_DRP', 'TX_ERR', 'TX_OVR']
+    rx_fail = 0
+    tx_fail = 0
+    for m in rx_err:
+        rx_fail = rx_fail + int(raw_json[port].get(m).replace(',', ''))
+    for m in tx_err:
+        tx_fail = tx_fail + int(raw_json[port].get(m).replace(',', ''))
+    thrput = raw_json[port].get('RX_BPS')
+    if thrput.split(' ')[1] == 'MB/s' and (thrput.split(' ')[0]) != '0.00':
+        i_stats[dut_key+'_rx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
+    else:
+        i_stats[dut_key+'_rx_thrput_Mbps'] = 0
+    thrput = raw_json[port].get('TX_BPS')
+    if thrput.split(' ')[1] == 'MB/s' and (thrput.split(' ')[0]) != '0.00':
+        i_stats[dut_key+'_tx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
+    else:
+        i_stats[dut_key+'_tx_thrput_Mbps'] = 0
+
+    i_stats[dut_key+'_rx_pkts'] = int(raw_json[port].get('RX_OK').replace(',', ''))
+    i_stats[dut_key+'_tx_pkts'] = int(raw_json[port].get('TX_OK').replace(',', ''))
+    i_stats[dut_key+'_rx_fail'] = rx_fail
+    i_stats[dut_key+'_tx_fail'] = tx_fail
+
+    return i_stats
+
+
+def get_queue_count(duthost, port):
+    """
+    Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
+    This is the equivalent of the "show queue counters" command.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+    Returns:
+        queue_dict (dict): key-value with key=dut+port+prio and value=queue count
+    """
+    queue_dict = {}
+    for priority in range(7):
+        dut_key = (duthost.hostname+'_'+port+'_prio_'+str(priority)).lower()
+        total_pkts, _ = get_egress_queue_count(duthost, port, priority)
+        queue_dict.update({dut_key: total_pkts})
+    return queue_dict
+
+
+def get_pfc_count(duthost, port):
+    """
+    Get the PFC frame count for a given port from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+    Returns:
+        pfc_dict (dict): Returns Rx and Tx PFC for the given DUT and interface in dictionary format
+    """
+    dut_key = (duthost.hostname + '_' + port).lower()
+    pfc_dict = {}
+    raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep '{} '".format(port))['stdout']
+    pause_frame_count = raw_out.split()
+    for m in range(1, len(pause_frame_count)):
+        pfc_dict[dut_key+'_tx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
+
+    raw_out = duthost.shell("show pfc counters | sed -n '/Port Rx/,/^$/p' | grep '{} '".format(port))['stdout']
+    pause_frame_count = raw_out.split()
+    for m in range(1, len(pause_frame_count)):
+        pfc_dict[dut_key+'_rx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
+
+    return pfc_dict

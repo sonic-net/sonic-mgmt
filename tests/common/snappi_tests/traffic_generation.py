@@ -4,14 +4,24 @@ This module allows various snappi based tests to generate various traffic config
 import math
 import time
 import logging
+import pandas as pd
+from datetime import datetime
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
     get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
-    traffic_flow_mode
+    traffic_flow_mode, get_pfc_count, clear_counters, interface_stats, get_queue_count
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+
+# Imported to support rest_py in ixnetwork
+from ixnetwork_restpy import SessionAssistant
+from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
+from ixnetwork_restpy.testplatform.testplatform import TestPlatform
+import snappi
+
 
 logger = logging.getLogger(__name__)
 
@@ -833,3 +843,697 @@ def verify_m2o_oversubscribtion_results(rows,
                     else:
                         pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
                                       string for loss criteria')
+
+
+def tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names):
+    """
+    Print the current tgen metrics
+
+    Arg:
+        traf_metrics (obj): Current traffic item stats on IXIA.
+        curr_flow_metrics (obj): Current tgen stats.
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic.
+    Returns:
+        stats (dictionary): Dictionary of DUTs statistics
+
+    """
+    stats = {}
+    for metric in traf_metrics:
+        if metric['Traffic Item'] not in data_flow_names:
+            continue
+        rx_rate_gbps = 0
+        tx_rate_gbps = 0
+        if (int(metric['Rx Rate (Mbps)'] != 0)):
+            rx_rate_gbps = round(float(metric['Rx Rate (Mbps)'])*1024/(10**6), 2)
+        if (int(metric['Tx Rate (Mbps)'] != 0)):
+            tx_rate_gbps = round(float(metric['Tx Rate (Mbps)'])*1024/(10**6), 2)
+
+        metric_name = metric['Traffic Item'].replace(' ', '_').lower()
+        stats[metric_name+'_txrate_fps'] = float(metric['Tx Frame Rate'])
+        stats[metric_name+'_txrate_Gbps'] = tx_rate_gbps
+        stats[metric_name+'_rxrate_fps'] = float(metric['Rx Frame Rate'])
+        stats[metric_name+'_rxrate_Gbps'] = rx_rate_gbps
+        stats[metric_name+'_LI_rxrate_Gbps'] = float(metric['Rx L1 Rate (Gbps)'])
+
+    for metric in flow_metrics:
+        if metric.name not in data_flow_names:
+            continue
+        metric_name = metric.name.replace(' ', '_').lower()
+        stats[metric_name+'_rx_pkts'] = metric.frames_rx
+        stats[metric_name+'_tx_pkts'] = metric.frames_tx
+        stats[metric_name+'_loss'] = metric.loss
+        stats[metric_name+'_avg_latency_ns'] = metric.latency.average_ns
+        stats[metric_name+'_max_latency_ns'] = metric.latency.maximum_ns
+        stats[metric_name+'_min_latency_ns'] = metric.latency.minimum_ns
+    return stats
+
+
+def verify_sys_egress_queue_count(duthost,
+                                  switch_flow_stats,
+                                  test_traffic_pause,
+                                  snappi_extra_params,
+                                  egress_queue_frame_count_tol=10):
+    """
+    Verify correct frame count for regular traffic from DUT egress queue
+
+    Args:
+        duthost (obj): DUT host object
+        switch_flow_stats (dict): switch flow statistics
+        test_traffic_pause (bool): whether test traffic is expected to be paused
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        egress_queue_frame_count_tol (int): tolerance for egress queue frame count when traffic is expected
+                                            to be paused
+    Returns:
+
+    """
+
+    dut_port_config = snappi_extra_params.base_flow_config[0]["dut_port_config"]
+    pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
+    set_class_enable_vec = snappi_extra_params.set_pfc_class_enable_vec
+    test_tx_frames = snappi_extra_params.test_tx_frames
+
+    if test_traffic_pause:
+        pytest_assert(switch_flow_stats, "Switch flow statistics is not provided")
+        for prio, poll_data in switch_flow_stats["tx_frames"].items():
+            mid_poll_index = int(len(poll_data)/2)
+            next_poll_index = mid_poll_index + 1
+            mid_poll_egress_queue_count = switch_flow_stats["tx_frames"][prio][mid_poll_index]
+            next_poll_egress_queue_count = switch_flow_stats["tx_frames"][prio][next_poll_index]
+            pytest_assert(next_poll_egress_queue_count - mid_poll_egress_queue_count <= egress_queue_frame_count_tol,
+                          "Egress queue frame count should not increase when test traffic is paused")
+
+    if not set_class_enable_vec and not test_traffic_pause:
+        for peer_port, prios in dut_port_config[1].items():
+            for prio in range(len(prios)):
+                total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
+                pytest_assert(total_egress_packets == test_tx_frames[prio],
+                              "Queue counters should increment for invalid PFC pause frames")
+
+
+def get_ixnet_rest_api(api):
+    """
+    To enable the data-slicing on IXIA session.
+    This is for ARES chassis as we cannot capture more than 1024 packets in PCAP.
+    Enabling data-slicing helps to capture more than 1000 packets.
+
+    Args:
+        snappi_api(obj): Snappi API object.
+    Returns:
+        ixnetwork(obj): rest_py API object.
+    """
+
+    api = snappi.api(location="1.1.30.1", ext="ixnetwork")
+    api._username = "admin"
+    api._password = "admin"
+    username = api._username
+    ip = api._address
+    password = api._password
+    test_platform = TestPlatform(ip)
+    test_platform.Authenticate(username, password)
+
+    id = test_platform.Sessions.find()[-1].Id  # takes the latest session id
+    session = SessionAssistant(IpAddress=ip, UserName=username, SessionId=id, Password=password)
+    ixnetwork = session.Ixnetwork
+
+    return ixnetwork
+
+
+def run_sys_traffic(rx_duthost,
+                    tx_duthost,
+                    api,
+                    config,
+                    data_flow_names,
+                    all_flow_names,
+                    exp_dur_sec,
+                    port_map,
+                    fname,
+                    stats_interval,
+                    imix,
+                    snappi_extra_params):
+
+    """
+    Run traffic and return per-flow statistics, and capture packets if needed.
+    Args:
+        rx_duthost (obj): Traffic receiving DUT host object - Ingress DUT
+        tx_duthost (obj): Traffic transmitting DUT host object - Egress DUT
+        api (obj): snappi session
+        config (obj): experiment config (testbed config + flow config)
+        data_flow_names (list): list of names of data (test and background flows
+        all_flow_names (list): list of names of all the flows
+        exp_dur_sec (int): experiment duration in second
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    Returns:
+        per-flow statistics (list)
+    """
+
+    api.set_config(config)
+
+    logger.info("Wait for Arp to Resolve ...")
+    wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
+
+    pcap_type = snappi_extra_params.packet_capture_type
+
+    dutport_list = []
+
+    for m in snappi_extra_params.multi_dut_params.multi_dut_ports:
+        if m['peer_device'] == snappi_extra_params.multi_dut_params.duthost1.hostname:
+            dutport_list.append([snappi_extra_params.multi_dut_params.duthost1, m['peer_port']])
+        else:
+            dutport_list.append([snappi_extra_params.multi_dut_params.duthost2, m['peer_port']])
+
+    switch_tx_lossless_prios = sum(snappi_extra_params.base_flow_config[0]["dut_port_config"][1].values(), [])
+
+    # Clearing stats before starting the test
+    # PFC, counters, queue-counters and dropcounters
+    # logger.debug('Clearing PFC, dropcounters, queuecounters and stats')
+    for dut, port in dutport_list:
+        clear_counters(dut, port)
+
+    if pcap_type != packet_capture.NO_CAPTURE:
+        logger.info("Starting packet capture ...")
+        cs = api.capture_state()
+        cs.port_names = snappi_extra_params.packet_capture_ports
+        cs.state = cs.START
+        api.set_capture_state(cs)
+
+    # Returns the rest API object for features not present in Snappi
+    ixnet_rest_api = get_ixnet_rest_api(api)
+
+    # If imix flag is set, IMIX packet-profile is enabled.
+    if (imix):
+        logger.info('Test packet-profile setting to IMIX')
+        for traff_item in ixnet_rest_api.Traffic.TrafficItem.find():
+            config_ele = traff_item.ConfigElement.find()[0].FrameSize
+            config_ele.PresetDistribution = "imix"
+            config_ele.Type = "weightedPairs"
+            config_ele.WeightedPairs = ["128", "7", "570", "4", "1518", "1"]
+
+        ixnet_rest_api.Traffic.TrafficItem.find().Generate()
+        ixnet_rest_api.Traffic.Apply()
+
+    logger.info("Starting transmit on all flows ...")
+    ts = api.transmit_state()
+    ts.state = ts.START
+    api.set_transmit_state(ts)
+
+    time.sleep(5)
+    iter_count = round((int(exp_dur_sec) - stats_interval)/stats_interval)
+
+    f_stats = {}
+    logger.info('Polling DUT and tool for traffic statistics for {} iterations and {} seconds'.
+                format(iter_count, exp_dur_sec))
+    switch_device_results = {}
+    switch_device_results["tx_frames"] = {}
+    switch_device_results["rx_frames"] = {}
+    for lossless_prio in switch_tx_lossless_prios:
+        switch_device_results["tx_frames"][lossless_prio] = []
+        switch_device_results["rx_frames"][lossless_prio] = []
+
+    exp_dur_sec = exp_dur_sec + ANSIBLE_POLL_DELAY_SEC
+
+    for m in range(int(iter_count)):
+        now = datetime.now()
+        logger.info('----------- Collecting Stats for Iteration : {} ------------'.format(m+1))
+        f_stats[m] = {'Date': datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}
+        flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
+        traf_metrics = StatViewAssistant(ixnet_rest_api, 'Traffic Item Statistics').Rows
+        tx_frame = sum([metric.frames_tx for metric in flow_metrics if metric.name in data_flow_names])
+        f_stats[m]['tgen_tx_frames'] = tx_frame
+        rx_frame = sum([metric.frames_rx for metric in flow_metrics if metric.name in data_flow_names])
+        f_stats[m]['tgen_rx_frames'] = rx_frame
+        f_stats = update_dict(m, f_stats, tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names))
+        for dut, port in dutport_list:
+            f_stats = update_dict(m, f_stats, interface_stats(dut, port))
+            f_stats = update_dict(m, f_stats, get_pfc_count(dut, port))
+            f_stats = update_dict(m, f_stats, get_queue_count(dut, port))
+
+        logger.info("Polling DUT for Egress Queue statistics")
+
+        for lossless_prio in switch_tx_lossless_prios:
+            count_frames = 0
+            for n in range(port_map[0]):
+                dut, port = dutport_list[n]
+                count_frames = count_frames + (get_egress_queue_count(dut, port, lossless_prio)[0])
+                logger.info('Egress Queue Count for DUT:{} and Port:{} - {}'.format(dut.hostname, port, count_frames))
+            switch_device_results["tx_frames"][lossless_prio].append(count_frames)
+            count_frames = 0
+            for n in range(port_map[2]):
+                dut, port = dutport_list[-(n+1)]
+                count_frames = count_frames + (get_egress_queue_count(dut, port, lossless_prio)[0])
+                logger.info('Ingress Queue Count for DUT:{} and Port:{} - {}'.format(dut.hostname, port, count_frames))
+            switch_device_results["rx_frames"][lossless_prio].append(count_frames)
+        later = datetime.now()
+        time.sleep(abs(round(stats_interval - ((later - now).total_seconds()))))
+        logger.info('------------------------------------------------------------')
+
+    attempts = 0
+    max_attempts = 10
+
+    while attempts < max_attempts:
+        logger.info("Checking if all flows have stopped. Attempt #{}".format(attempts + 1))
+        flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
+
+        # If all the data flows have stopped
+        transmit_states = [metric.transmit for metric in flow_metrics]
+        if len(flow_metrics) == len(data_flow_names) and\
+           list(set(transmit_states)) == ['stopped']:
+            logger.info("All test and background traffic flows stopped")
+            time.sleep(SNAPPI_POLL_DELAY_SEC)
+            break
+        else:
+            if (attempts == 4):
+                logger.info("Stopping transmit on all remaining flows")
+                ts = api.transmit_state()
+                ts.state = ts.STOP
+                api.set_transmit_state(ts)
+            time.sleep(stats_interval/4)
+            attempts += 1
+
+    pytest_assert(attempts < max_attempts,
+                  "Flows do not stop in {} seconds".format(max_attempts*stats_interval))
+
+    if pcap_type != packet_capture.NO_CAPTURE:
+        logger.info("Stopping packet capture ...")
+        request = api.capture_request()
+        request.port_name = snappi_extra_params.packet_capture_ports[0]
+        cs = api.capture_state()
+        cs.state = cs.STOP
+        api.set_capture_state(cs)
+        logger.info("Retrieving and saving packet capture to {}.pcapng".format(snappi_extra_params.packet_capture_file))
+        pcap_bytes = api.get_capture(request)
+        with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
+            fid.write(pcap_bytes.getvalue())
+
+    # Dump per-flow statistics for final rows
+    logger.info("Dumping per-flow statistics for final row")
+    m = iter_count
+    f_stats[m] = {'Date': datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}
+    flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
+    traf_metrics = StatViewAssistant(ixnet_rest_api, 'Traffic Item Statistics').Rows
+    tx_frame = sum([metric.frames_tx for metric in flow_metrics if metric.name in data_flow_names])
+    rx_frame = sum([metric.frames_rx for metric in flow_metrics if metric.name in data_flow_names])
+    f_stats[m]['tgen_tx_frames'] = tx_frame
+    f_stats[m]['tgen_rx_frames'] = rx_frame
+    f_stats = update_dict(m, f_stats, tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names))
+    for dut, port in dutport_list:
+        f_stats = update_dict(m, f_stats, interface_stats(dut, port))
+        f_stats = update_dict(m, f_stats, get_pfc_count(dut, port))
+        f_stats = update_dict(m, f_stats, get_queue_count(dut, port))
+
+    for lossless_prio in switch_tx_lossless_prios:
+        for dut, port in dutport_list:
+            logger.info('Queue count for DUT: {}, Port:{} is {}'.
+                        format(dut.hostname, port, (get_egress_queue_count(dut, port, lossless_prio)[0])))
+    flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+    time.sleep(10)
+
+    df = pd.DataFrame(f_stats)
+    df_t = df.T
+    df_t = df_t.reindex(sorted(df_t.columns), axis=1)
+    flow_list = []
+    all_flow_names = [flow.name for flow in config.flows]
+    for item in all_flow_names:
+        flow_list.append(item.replace(' ', '_').lower())
+    results = list(df_t.columns)
+    fname = fname + '-' + datetime.now().strftime('%Y-%m-%d-%H-%M')
+    with open(fname+'.txt', 'w') as f:
+        f.write('Captured data for {} iterations at {} seconds interval \n'.format(m, stats_interval))
+        test_stats = {}
+        test_stats['tgen_loss_pkts'] = 0
+        test_stats['tgen_lossy_rx_pkts'] = 0
+        test_stats['tgen_lossy_tx_pkts'] = 0
+        test_stats['tgen_lossless_rx_pkts'] = 0
+        test_stats['tgen_lossless_tx_pkts'] = 0
+        test_stats['tgen_rx_rate'] = 0
+        test_stats['tgen_tx_rate'] = 0
+        for flow in flow_list:
+            rx_rate = 0
+            tx_rate = 0
+            for item in results:
+                if (flow in item and item.split(flow)[1] == '_avg_latency_ns'):
+                    avg_latency = round(df_t[item].mean(), 2)
+                if (flow in item and item.split(flow)[1] == '_rx_pkts'):
+                    rx_pkts = df_t[item].max()
+                if (flow in item and item.split(flow)[1] == '_rx_pkts' and ('prio_3' in flow or 'prio_4' in flow)):
+                    test_stats['tgen_lossless_rx_pkts'] += rx_pkts
+                if (flow in item and item.split(flow)[1] == '_rx_pkts'
+                        and ('prio_3' not in flow and 'prio_4' not in flow)):
+                    test_stats['tgen_lossy_rx_pkts'] += rx_pkts
+                if (flow in item and item.split(flow)[1] == '_tx_pkts'):
+                    tx_pkts = df_t[item].max()
+                if ((flow in item and item.split(flow)[1] == '_tx_pkts')
+                        and ('prio_3' in flow or 'prio_4' in flow)):
+                    test_stats['tgen_lossless_tx_pkts'] += tx_pkts
+                if ((flow in item and item.split(flow)[1] == '_tx_pkts')
+                        and ('prio_3' not in flow and 'prio_4' not in flow)):
+                    test_stats['tgen_lossy_tx_pkts'] += tx_pkts
+                if (flow in item and item.split(flow)[1] == '_rxrate_Gbps'):
+                    rx_rate = round(df_t.loc[df_t[item] != 0, item].mean(), 2)
+                    test_stats['tgen_rx_rate'] += round(rx_rate, 2)
+                if (flow in item and item.split(flow)[1] == '_txrate_Gbps'):
+                    tx_rate = round(df_t.loc[df_t[item] != 0, item].mean(), 2)
+                    test_stats['tgen_tx_rate'] += round(tx_rate, 2)
+                if (flow in item and item.split(flow)[1] == '_loss'):
+                    loss = df_t[item].max()
+            if ('pause' not in flow):
+                test_stats['tgen_loss_pkts'] += (int(tx_pkts) - int(rx_pkts))
+            f.write('For {} - Avg_Latency:{}, rx_pkts:{}, tx_pkts:{}, rx_thrput:{}, tx_thrput:{} and loss prcnt:{} \n'
+                    .format(flow, avg_latency, rx_pkts, tx_pkts, rx_rate, tx_rate, loss))
+        f.write('Total Lossless Rx pkts:{} and Tx pkts:{} \n'.
+                format(test_stats['tgen_lossless_rx_pkts'], test_stats['tgen_lossless_tx_pkts']))
+        f.write('Total Lossy Rx pkts:{} and Tx pkts:{} \n'.
+                format(test_stats['tgen_lossy_rx_pkts'], test_stats['tgen_lossy_tx_pkts']))
+        f.write('Total TGEN Loss Pkts:{} \n'.format(test_stats['tgen_loss_pkts']))
+        test_stats['dut_loss_pkts'] = 0
+        for dut, port in dutport_list:
+            new_key = (dut.hostname + '_' + port).lower()
+            rx_thrput = 0
+            tx_thrput = 0
+            for item in results:
+                if (new_key in item and item.split(new_key)[1] == '_rx_thrput_Mbps'):
+                    rx_thrput = round(df_t.loc[df_t[item] != 0, item].mean(), 2)
+                if (new_key in item and item.split(new_key)[1] == '_tx_thrput_Mbps'):
+                    tx_thrput = round(df_t.loc[df_t[item] != 0, item].mean(), 2)
+                if (new_key in item and item.split(new_key)[1] == '_rx_pkts'):
+                    rx_pkts = df_t[item].max()
+                if (new_key in item and item.split(new_key)[1] == '_tx_pkts'):
+                    tx_pkts = df_t[item].max()
+                if (new_key in item and item.split(new_key)[1] == '_tx_fail'):
+                    tx_fail = df_t[item].max()
+                if (new_key in item and item.split(new_key)[1] == '_rx_fail'):
+                    rx_fail = df_t[item].max()
+            test_stats['dut_loss_pkts'] += (int(tx_fail) + int(rx_fail))
+            f.write('For {} - rx_pkts:{}, tx_pkts:{}, rx_thrput:{}, tx_thrput:{} and rx_loss:{}, tx_loss:{} \n'.
+                    format(new_key, rx_pkts, tx_pkts, rx_thrput, tx_thrput, rx_fail, tx_fail))
+        f.write('Total DUT Loss Pkts:{} \n'.format(test_stats['dut_loss_pkts']))
+        test_stats['dut_lossless_pkts'] = 0
+        test_stats['dut_lossy_pkts'] = 0
+        prio_key = ['_prio_']
+        for dut, port in dutport_list:
+            new_key = (dut.hostname + '_' + port).lower()
+            prio_dict = {}
+            for item in results:
+                for key in prio_key:
+                    if (new_key in item and key in item.split(new_key)[1]):
+                        prio_dict[item.split(new_key)[1]] = df_t[item].max()
+            f.write('for {} : \n'.format(new_key))
+            for key, val in prio_dict.items():
+                if val != 0:
+                    if ('prio_3' in key) or ('prio_4' in key):
+                        test_stats['dut_lossless_pkts'] += val
+                    else:
+                        test_stats['dut_lossy_pkts'] += val
+                    f.write('{}:{} \n'.format(key, val))
+
+        f.write('Received or Transmitted PFC counts \n')
+        for item in results:
+            if ('egl-board' in item and 'pfc' in item):
+                if (df_t[item].max() != 0):
+                    f.write('{} : {} \n'.format(item, df_t[item].max()))
+
+    fname = fname + '.csv'
+    logger.info('Writing statistics to file : {}'.format(fname))
+    df_t.to_csv(fname, index=False)
+
+    return flow_metrics, switch_device_results, test_stats
+
+
+def update_dict(m,
+                orig_dict,
+                new_dict):
+    """
+    Merges the info from new_dict into orig_dict at index of m
+    Args:
+        m (int): index of the orig_dict
+        orig_dict (dict): original dictionary to be updated
+        new_dict (dict): dictionary that needs to be fitted in orig_dict
+    Returns:
+        orig_dict (dict): Updated orig_dict with new values of new_dict
+    """
+    for key, value in new_dict.items():
+        orig_dict[m][key] = value
+
+    return orig_dict
+
+
+def generate_sys_pause_flows(testbed_config,
+                             pause_prio_list,
+                             global_pause,
+                             snappi_extra_params,
+                             snap_index):
+    """
+    Generate configurations of pause flows.
+
+    Args:
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        pause_prio_list (list): list of pause priorities
+        global_pause (bool): global pause or per priority pause
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    """
+    # base_flow_config = snappi_extra_params.base_flow_config[0]
+    base_flow_config = snappi_extra_params.base_flow_config[snap_index]
+    pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
+    pause_flow_config = snappi_extra_params.traffic_flow_config.pause_flow_config
+    pytest_assert(pause_flow_config is not None, "Cannot find pause flow configuration")
+
+    # pause_flow = testbed_config.flows.flow(name="{} Stream {}".format(pause_flow_config["flow_name"],0))[-1]
+    pause_flow = testbed_config.flows.flow(name="{} Stream {}".format(pause_flow_config["flow_name"], snap_index))[-1]
+    pause_flow.tx_rx.port.tx_name = testbed_config.ports[base_flow_config["rx_port_id"]].name
+    pause_flow.tx_rx.port.rx_name = testbed_config.ports[base_flow_config["tx_port_id"]].name
+
+    if global_pause:
+        pause_pkt = pause_flow.packet.ethernetpause()[-1]
+        pause_pkt.dst.value = "01:80:C2:00:00:01"
+        pause_pkt.src.value = snappi_extra_params.pfc_pause_src_mac if snappi_extra_params.pfc_pause_src_mac \
+            else "00:00:fa:ce:fa:ce"
+    else:
+        pause_time = []
+        for x in range(8):
+            if x in pause_prio_list:
+                pause_time.append(int('ffff', 16))
+            else:
+                pause_time.append(int('0000', 16))
+
+        vector = pfc_class_enable_vector(pause_prio_list)
+        pause_pkt = pause_flow.packet.pfcpause()[-1]
+        pause_pkt.src.value = snappi_extra_params.pfc_pause_src_mac if snappi_extra_params.pfc_pause_src_mac \
+            else "00:00:fa:ce:fa:ce"
+        pause_pkt.dst.value = "01:80:C2:00:00:01"
+        pause_pkt.class_enable_vector.value = vector if snappi_extra_params.set_pfc_class_enable_vec else 0
+        pause_pkt.pause_class_0.value = pause_time[0]
+        pause_pkt.pause_class_1.value = pause_time[1]
+        pause_pkt.pause_class_2.value = pause_time[2]
+        pause_pkt.pause_class_3.value = pause_time[3]
+        pause_pkt.pause_class_4.value = pause_time[4]
+        pause_pkt.pause_class_5.value = pause_time[5]
+        pause_pkt.pause_class_6.value = pause_time[6]
+        pause_pkt.pause_class_7.value = pause_time[7]
+
+    # Pause frames are sent from the RX port of ixia
+    pause_flow.rate.pps = pause_flow_config["flow_rate_pps"]
+    pause_flow.size.fixed = pause_flow_config["flow_pkt_size"]
+    pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(
+        pause_flow_config["flow_delay_sec"]))
+
+    if pause_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
+        pause_flow.duration.fixed_seconds.seconds = pause_flow_config["flow_dur_sec"]
+    elif pause_flow_config["flow_traffic_type"] == traffic_flow_mode.CONTINUOUS:
+        pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
+
+    pause_flow.metrics.enable = True
+    pause_flow.metrics.loss = True
+    pause_flow.metrics.latency.enable = True
+
+
+def generate_sys_test_flows(testbed_config,
+                            test_flow_prio_list,
+                            prio_dscp_map,
+                            snappi_extra_params,
+                            snap_index):
+    """
+    Generate configurations of test flows. Test flows and background flows are also known as data flows.
+
+    Args:
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        test_flow_prio_list (list): list of test flow priorities
+        prio_dscp_map (dict): priority to DSCP mapping
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    """
+    base_flow_config = snappi_extra_params.base_flow_config[snap_index]
+    pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
+    data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
+    pytest_assert(data_flow_config is not None, "Cannot find data flow configuration")
+    test_flow_name_dut_rx_port_map = {}
+    test_flow_name_dut_tx_port_map = {}
+
+    for prio in test_flow_prio_list:
+        test_flow_name = "{} Prio {} Stream {}".format(data_flow_config["flow_name"], prio, snap_index)
+        test_flow = testbed_config.flows.flow(name=test_flow_name)[-1]
+        test_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
+        test_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
+
+        eth, ipv4 = test_flow.packet.ethernet().ipv4()
+        eth.src.value = base_flow_config["tx_mac"]
+        eth.dst.value = base_flow_config["rx_mac"]
+
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
+
+        logger.info('Prio:{}, Queue Value:{}'.format(prio, eth.pfc_queue.value))
+        ipv4.src.value = base_flow_config["tx_port_config"].ip
+        ipv4.dst.value = base_flow_config["rx_port_config"].ip
+        ipv4.priority.choice = ipv4.priority.DSCP
+        ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
+        ipv4.priority.dscp.ecn.value = (
+            ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+
+        test_flow.size.fixed = data_flow_config["flow_pkt_size"]
+        test_flow.rate.percentage = data_flow_config["flow_rate_percent"]
+        if data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
+            test_flow.duration.fixed_seconds.seconds = data_flow_config["flow_dur_sec"]
+            test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
+                                                                     (data_flow_config["flow_delay_sec"]))
+        elif data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
+            test_flow.duration.fixed_packets.packets = data_flow_config["flow_pkt_count"]
+            test_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec
+                                                                     (data_flow_config["flow_delay_sec"]))
+
+        test_flow.metrics.enable = True
+        test_flow.metrics.loss = True
+        # Added this to enabled latency measurement on test flows
+        test_flow.metrics.latency.enable = True
+
+        """ Set flow port config values """
+        dut_port_config = base_flow_config["dut_port_config"]
+        dut_port_config[0][str(base_flow_config["tx_port_config"].peer_port)].append(int(prio))
+        dut_port_config[1][str(base_flow_config["rx_port_config"].peer_port)].append(int(prio))
+        base_flow_config["dut_port_config"] = dut_port_config
+
+        # Save flow name to TX and RX port mapping for DUT
+        test_flow_name_dut_rx_port_map[test_flow_name] = [base_flow_config["tx_port_config"].peer_port]
+        test_flow_name_dut_tx_port_map[test_flow_name] = [base_flow_config["rx_port_config"].peer_port]
+
+    base_flow_config["test_flow_name_dut_rx_port_map"] = test_flow_name_dut_rx_port_map
+    base_flow_config["test_flow_name_dut_tx_port_map"] = test_flow_name_dut_tx_port_map
+
+    snappi_extra_params.base_flow_config[snap_index] = base_flow_config
+
+
+def generate_sys_background_flows(testbed_config,
+                                  bg_flow_prio_list,
+                                  prio_dscp_map,
+                                  snappi_extra_params,
+                                  snap_index):
+    """
+    Generate background configurations of flows. Test flows and background flows are also known as data flows.
+
+    Args:
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        bg_flow_prio_list (list): list of background flow priorities
+        prio_dscp_map (dict): priority to DSCP mapping
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    """
+    base_flow_config = snappi_extra_params.base_flow_config[snap_index]
+    pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
+    bg_flow_config = snappi_extra_params.traffic_flow_config.background_flow_config
+    pytest_assert(bg_flow_config is not None, "Cannot find background flow configuration")
+
+    for prio in bg_flow_prio_list:
+        bg_flow = testbed_config.flows.flow(name='{} Prio {} Stream {}'.
+                                            format(bg_flow_config["flow_name"], prio, snap_index))[-1]
+        bg_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
+        bg_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
+
+        eth, ipv4 = bg_flow.packet.ethernet().ipv4()
+        eth.src.value = base_flow_config["tx_mac"]
+        eth.dst.value = base_flow_config["rx_mac"]
+
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
+
+        # logger.info('Prio:{}, Queue Value:{}'.format(prio, eth.pfc_queue.value))
+        ipv4.src.value = base_flow_config["tx_port_config"].ip
+        ipv4.dst.value = base_flow_config["rx_port_config"].ip
+        ipv4.priority.choice = ipv4.priority.DSCP
+        ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
+        ipv4.priority.dscp.ecn.value = (
+            ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+
+        bg_flow.size.fixed = bg_flow_config["flow_pkt_size"]
+        bg_flow.rate.percentage = bg_flow_config["flow_rate_percent"]
+        bg_flow.duration.fixed_seconds.seconds = bg_flow_config["flow_dur_sec"]
+        bg_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
+                                                               (bg_flow_config["flow_delay_sec"]))
+
+        bg_flow.metrics.enable = True
+        bg_flow.metrics.loss = True
+        # Added this to enabled latency measurement on BG flows
+        bg_flow.metrics.latency.enable = True
+
+
+def new_base_traffic_config(testbed_config,
+                            port_config_list,
+                            rx_port_id,
+                            tx_port_id):
+    """
+    Generate base configurations of flows, including test flows, background flows and
+    pause storm. Test flows and background flows are also known as data flows.
+    Args:
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        port_config_list (list): list of port configuration
+        rx_port_id (int): Rx ID of DUT port to test
+        tx_port_id (int): Tx ID of DUT port to test
+
+    Returns:
+        base_flow_config (dict): base flow configuration containing dut_port_config, tx_mac,
+            rx_mac, tx_port_config, rx_port_config, tx_port_name, rx_port_name
+            dict key-value pairs (all keys are strings):
+                tx_port_id (int): ID of ixia TX port ex. 1
+                rx_port_id (int): ID of ixia RX port ex. 2
+                tx_port_config (SnappiPortConfig): port config obj for ixia TX port
+                rx_port_config (SnappiPortConfig): port config obj for ixia RX port
+                tx_mac (str): MAC address of ixia TX port ex. '00:00:fa:ce:fa:ce'
+                rx_mac (str): MAC address of ixia RX port ex. '00:00:fa:ce:fa:ce'
+                tx_port_name (str): name of ixia TX port ex. 'Port 1'
+                rx_port_name (str): name of ixia RX port ex. 'Port 2'
+                dut_port_config (list): a list of two dictionaries of tx and rx ports on the peer (switch) side,
+                                        and the associated test priorities
+                                        ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
+                test_flow_name_dut_rx_port_map (dict): Mapping of test flow name to DUT RX port(s)
+                                                  ex. {'flow1': [Ethernet4, Ethernet8]}
+                test_flow_name_dut_tx_port_map (dict): Mapping of test flow name to DUT TX port(s)
+                                                  ex. {'flow1': [Ethernet4, Ethernet8]}
+    """
+    base_flow_config = {}
+    base_flow_config["rx_port_id"] = rx_port_id
+    base_flow_config["tx_port_id"] = tx_port_id
+
+    tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
+    rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+    base_flow_config["tx_port_config"] = tx_port_config
+    base_flow_config["rx_port_config"] = rx_port_config
+
+    # Instantiate peer ports in dut_port_config
+    dut_port_config = []
+    tx_dict = {str(tx_port_config.peer_port): []}
+    rx_dict = {str(rx_port_config.peer_port): []}
+    dut_port_config.append(tx_dict)
+    dut_port_config.append(rx_dict)
+    base_flow_config["dut_port_config"] = dut_port_config
+
+    base_flow_config["tx_mac"] = tx_port_config.mac
+    if tx_port_config.gateway == rx_port_config.gateway and \
+       tx_port_config.prefix_len == rx_port_config.prefix_len:
+        """ If soruce and destination port are in the same subnet """
+        base_flow_config["rx_mac"] = rx_port_config.mac
+    else:
+        base_flow_config["rx_mac"] = tx_port_config.gateway_mac
+
+    base_flow_config["tx_port_name"] = testbed_config.ports[tx_port_id].name
+    base_flow_config["rx_port_name"] = testbed_config.ports[rx_port_id].name
+
+    return base_flow_config
