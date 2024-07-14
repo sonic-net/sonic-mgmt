@@ -2576,8 +2576,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                         pkts_num_dismiss_pfc - hysteresis) // cell_occupancy - margin
                 )
                 log_message(
-                    'send_packet(src_port_id, pkt, ({} + {} - {} - {}) // {})\n'.format(
-                        pkts_num_leak_out, pkts_num_trig_pfc, pkts_num_dismiss_pfc, hysteresis, cell_occupancy),
+                    'send_packet(src_port_id, pkt, ({} + {} - {} - {}) // {} - {})\n'.format(
+                        pkts_num_leak_out, pkts_num_trig_pfc, pkts_num_dismiss_pfc, hysteresis, cell_occupancy, margin),
                     to_stderr=True)
 
             capture_diag_counter(self, 'SndDst')
@@ -2627,7 +2627,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                      hysteresis) // cell_occupancy + margin * 2 - 1
                 )
                 log_message(
-                    'send_packet(src_port_id, pkt2, ({} + {} + {}) // {} + {} - 1)\n'.format(
+                    'send_packet(src_port_id, pkt2, ({} + {} + {}) // {} + {} * 2 - 1)\n'.format(
                         pkts_num_leak_out, pkts_num_dismiss_pfc, hysteresis, cell_occupancy, margin),
                     to_stderr=True)
 
@@ -2660,7 +2660,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                         pkt3, int(self.test_params['pg']), asic_type, pkts_num_egr_mem3)
                     send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
             else:
-                send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1)
+                send_packet(self, src_port_id, pkt3, pkts_num_leak_out + 1 + margin)
                 log_message('send_packet(src_port_id, pkt3, ({} + 1)\n'.format(pkts_num_leak_out), to_stderr=True)
             capture_diag_counter(self, 'SndDst3')
 
