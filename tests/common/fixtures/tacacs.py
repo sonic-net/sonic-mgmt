@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 TACACS_CREDS_FILE = 'tacacs_creds.yaml'
 
 
-
 def drop_all_ssh_session(duthost):
     try:
         duthost.shell('sudo ss -K sport ssh')
