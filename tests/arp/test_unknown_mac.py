@@ -41,6 +41,7 @@ def initClassVars(func):
         func(self, *args)
     return wrapper
 
+
 @pytest.fixture(autouse=True, scope="module")
 def dut_disable_arp_update(rand_selected_dut):
     """
@@ -50,11 +51,14 @@ def dut_disable_arp_update(rand_selected_dut):
         rand_selected_dut(AnsibleHost) : dut instance
     """
     duthost = rand_selected_dut
-    assert duthost.shell("docker exec -t swss supervisorctl stop arp_update")['stdout_lines'][0] == 'arp_update: stopped'
+    assert duthost.shell("docker exec -t swss supervisorctl stop arp_update")['stdout_lines'][0] \
+        == 'arp_update: stopped'
 
     yield
 
-    assert duthost.shell("docker exec -t swss supervisorctl start arp_update")['stdout_lines'][0] == 'arp_update: started'
+    assert duthost.shell("docker exec -t swss supervisorctl start arp_update")['stdout_lines'][0] \
+        == 'arp_update: started'
+
 
 @pytest.fixture(autouse=True, scope="module")
 def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
