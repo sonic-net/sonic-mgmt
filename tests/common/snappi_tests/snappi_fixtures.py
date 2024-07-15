@@ -963,13 +963,13 @@ def pre_configure_dut_interface(duthost, snappi_ports):
 
 
 @pytest.fixture(scope="module")
-def multidut_snappi_ports_for_bgp(duthosts, conn_graph_facts, fanout_graph_facts):            # noqa: F811
+def multidut_snappi_ports_for_bgp(duthosts, conn_graph_facts, fanout_graph_facts_multidut):            # noqa: F811
     """
     Populate snappi ports and connected DUT ports info of T1 and T2 testbed and returns as a list
     Args:
         duthost (pytest fixture): duthost fixture
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
     Return:
         return tuple of duts and snappi ports
     """
@@ -982,8 +982,10 @@ def multidut_snappi_ports_for_bgp(duthosts, conn_graph_facts, fanout_graph_facts
     for duthost in duthosts:
         snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
                                                 dut_hostname=duthost.hostname)
-        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
-        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+        if snappi_fanout is None:
+            continue
+        snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
+        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
         snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
         snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
         port_speed = None

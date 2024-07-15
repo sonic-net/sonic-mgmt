@@ -122,25 +122,24 @@ def duthost_bgp_config(duthosts,
         duthosts (pytest fixture): duthosts fixture
         snappi_ports (pytest fixture): Ports mapping info of T0 testbed
     """
-    duthosts[0].shell("sudo config save -y \n")
-    duthosts[0].shell("sudo cp {} {} \n".format("/etc/sonic/config_db.json",
-                      "/etc/sonic/config_db_backup.json"))
-    # Add ips for t1 interfaces connected to tgen
     logger.info('--------------- T1 Snappi Section --------------------')
-    logger.info('\n')
-    for index, port in enumerate(t1_ports[duthosts[0].hostname]):
-        intf_config = (
-            "sudo config interface ip add %s %s/%s\n"
-            "sudo config interface ip add %s %s/%s\n"
-        )
-        intf_config %= (port, t1_t2_dut_ipv4_list[index], v4_prefix_length,
-                        port, t1_t2_dut_ipv6_list[index], v6_prefix_length)
-        duthosts[0].shell(intf_config)
+    t1_config_db = json.loads(duthosts[0].shell("sonic-cfggen -d --print-data")['stdout'])
+    interfaces = dict()
+    interfaces.update({"Loopback0": {}})
+    interfaces.update({"Loopback0|1.1.1.1/24": {}})
+    interfaces.update({"Loopback0|1::1/124": {}})
+    for index, custom_port in enumerate(t1_ports[duthosts[0].hostname]):
+        interface_name = {custom_port: {}}
+        v4_interface = {f"{custom_port}|{t1_t2_dut_ipv4_list[index]}/{v4_prefix_length}": {}}
+        v6_interface = {f"{custom_port}|{t1_t2_dut_ipv6_list[index]}/{v6_prefix_length}": {}}
+        interfaces.update(interface_name)
+        interfaces.update(v4_interface)
+        interfaces.update(v6_interface)
         logger.info('Configuring IPs {} / {} on {} in {}'.
                     format(t1_t2_dut_ipv4_list[index],
-                           t1_t2_dut_ipv6_list[index], port, duthosts[0].hostname))
-    duthosts[0].shell('sudo config interface ip add Loopback0 1::1/124')
-    bgp_neighbors = {}
+                           t1_t2_dut_ipv6_list[index], custom_port, duthosts[0].hostname))
+
+    bgp_neighbors = dict()
     for index, custom_port in enumerate(t1_ports[duthosts[0].hostname]):
         for snappi_port in snappi_ports:
             if custom_port == snappi_port['peer_port'] and snappi_port['peer_device'] == duthosts[0].hostname:
@@ -170,25 +169,23 @@ def duthost_bgp_config(duthosts,
                             },
                         }
                 bgp_neighbors.update(bgp_neighbor)
-    logger.info('\n')
+
     logger.info('T1 Dut AS Number: {}'.format(T1_DUT_AS_NUM))
     logger.info('T1 side Snappi AS Number: {}'.format(T1_SNAPPI_AS_NUM))
     logger.info('\n')
     logger.info('---------------T1 Inter-Connectivity Section --------------------')
     logger.info('\n')
     index = len(t1_ports[duthosts[0].hostname])
-    t1_intf_config = (
-        "sudo config interface ip add %s %s/%s\n"
-        "sudo config interface ip add %s %s/%s\n"
-    )
-    t1_intf_config %= (t1_side_interconnected_port, t1_t2_dut_ipv4_list[index], v4_prefix_length,
-                       t1_side_interconnected_port, t1_t2_dut_ipv6_list[index], v6_prefix_length)
-    duthosts[0].shell(t1_intf_config)
-    logger.info('Configuring IPs {} {} to {} in {}'.format(t1_t2_dut_ipv4_list[index],
-                t1_t2_dut_ipv6_list[index], t1_side_interconnected_port, duthosts[0].hostname))
-    duthosts[0].shell("sudo config save -f -y \n")
-    logger.info('Saving the interface config in config_db.json in T1')
-    t1_config_db = json.loads(duthosts[0].shell("sonic-cfggen -d --print-data")['stdout'])
+    interface_name = {t1_side_interconnected_port: {}}
+    v4_interface = {f"{t1_side_interconnected_port}|{t1_t2_dut_ipv4_list[index]}/{v4_prefix_length}": {}}
+    v6_interface = {f"{t1_side_interconnected_port}|{t1_t2_dut_ipv6_list[index]}/{v6_prefix_length}": {}}
+    interfaces.update(interface_name)
+    interfaces.update(v4_interface)
+    interfaces.update(v6_interface)
+    logger.info('Configuring IP {} / {} on {} in {} for the T1 interconnectivity'.
+                format(t1_t2_dut_ipv4_list[index],
+                       t1_t2_dut_ipv6_list[index], t1_side_interconnected_port, duthosts[0].hostname))
+
     logger.info('Configuring BGP in T1 by writing into config_db')
     bgp_neighbor = {
                         t1_t2_snappi_ipv4_list[index]:
@@ -216,6 +213,11 @@ def duthost_bgp_config(duthosts,
                     }
     bgp_neighbors.update(bgp_neighbor)
 
+    if "INTERFACE" not in t1_config_db.keys():
+        t1_config_db["INTERFACE"] = interfaces
+    else:
+        t1_config_db["INTERFACE"].update(interfaces)
+
     if "BGP_NEIGHBOR" not in t1_config_db.keys():
         t1_config_db["BGP_NEIGHBOR"] = bgp_neighbors
     else:
@@ -224,9 +226,12 @@ def duthost_bgp_config(duthosts,
     with open("/tmp/temp_config.json", 'w') as fp:
         json.dump(t1_config_db, fp, indent=4)
     duthosts[0].copy(src="/tmp/temp_config.json", dest="/etc/sonic/config_db.json")
-    logger.info('Reloading config to apply the BGP configuration with T1 and snappi-sonic')
-    duthosts[0].shell("sudo config reload -f -y \n")
-    # configure Route map
+
+    logger.info('Reloading config_db.json to apply IP and BGP configuration on {}'.format(duthosts[0].hostname))
+    pytest_assert(duthosts[0].shell("sudo config reload -f -y \n")['stderr_lines'] == [],
+                  'Config Reload UnSuccessful in {} !!!!!'.format(duthosts[0].hostname))
+    logger.info('Config Reload Successful in {} !!!'.format(duthosts[0].hostname))
+
     route_map_config = (
         "vtysh "
         "-c 'configure terminal' "
@@ -241,49 +246,28 @@ def duthost_bgp_config(duthosts,
     )
     duthosts[0].shell(route_map_config)
     logger.info('Applying RM_SET_SRC6 route map in T1')
+
     logger.info('\n')
     logger.info('---------------T2 Downlink Inter-Connectivity Section --------------------')
     logger.info('\n')
-    if t2_side_interconnected_port['asic_value'] is not None:
-        duthosts[2].shell('sudo config interface -n {} ip add Loopback0 1.1.1.1/24'.
-                          format(t2_side_interconnected_port['asic_value']))
-        duthosts[2].shell('sudo config interface -n {} ip add Loopback0 1::1/124'.
-                          format(t2_side_interconnected_port['asic_value']))
-        t2_downlink_intf_config = (
-            "sudo config interface -n %s ip add %s %s/%s\n"
-            "sudo config interface -n %s ip add %s %s/%s\n"
-        )
-        t2_downlink_intf_config %= (t2_side_interconnected_port['asic_value'],
-                                    t2_side_interconnected_port['port_name'],
-                                    t1_t2_snappi_ipv4_list[index], v4_prefix_length,
-                                    t2_side_interconnected_port['asic_value'],
-                                    t2_side_interconnected_port['port_name'],
-                                    t1_t2_snappi_ipv6_list[index], v6_prefix_length)
-        duthosts[2].shell(t2_downlink_intf_config)
-        logger.info('Configuring IPs {} {} to {} -n {} in {}'.
-                    format(t1_t2_snappi_ipv4_list[index], t1_t2_snappi_ipv6_list[index],
-                           t2_side_interconnected_port['port_name'], t2_side_interconnected_port['asic_value'],
-                           duthosts[2].hostname))
-    else:
-        duthosts[2].shell('sudo config interface ip add Loopback0 1.1.1.1/24')
-        duthosts[2].shell('sudo config interface ip add Loopback0 1::1/124')
-        t2_downlink_intf_config = (
-            "sudo config interface ip add %s %s/%s\n"
-            "sudo config interface ip add %s %s/%s\n"
-        )
-        t2_downlink_intf_config %= (t2_side_interconnected_port['port_name'],
-                                    t1_t2_snappi_ipv4_list[index], v4_prefix_length,
-                                    t2_side_interconnected_port['port_name'],
-                                    t1_t2_snappi_ipv6_list[index], v6_prefix_length)
-        duthosts[2].shell(t2_downlink_intf_config)
-        logger.info('Configuring IPs {} {} to {} in {}'.
-                    format(t1_t2_snappi_ipv4_list[index], t1_t2_snappi_ipv6_list[index],
-                           t2_side_interconnected_port['port_name'],
-                           duthosts[2].hostname))
     logger.info('T1 Dut AS Number: {}'.format(T1_DUT_AS_NUM))
     logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
-    logger.info('Saving T2 Downlink interface config in config_db')
-    duthosts[2].shell("sudo config save -f -y \n")
+
+    interfaces = dict()
+    interfaces.update({"Loopback0": {}})
+    interfaces.update({"Loopback0|1.1.1.1/24": {}})
+    interfaces.update({"Loopback0|1::1/124": {}})
+    index = len(t1_ports[duthosts[0].hostname])
+    interface_name = {t2_side_interconnected_port['port_name']: {}}
+    v4_interface = {
+                    f"{t2_side_interconnected_port['port_name']}|{t1_t2_snappi_ipv4_list[index]}/{v4_prefix_length}": {}
+                }
+    v6_interface = {
+                    f"{t2_side_interconnected_port['port_name']}|{t1_t2_snappi_ipv6_list[index]}/{v6_prefix_length}": {}
+                }
+    interfaces.update(interface_name)
+    interfaces.update(v4_interface)
+    interfaces.update(v6_interface)
     device_neighbor = {
                             t2_side_interconnected_port['port_name']:
                             {
@@ -333,6 +317,11 @@ def duthost_bgp_config(duthosts,
         config_db = 'config_db.json'
         t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d --print-data")['stdout'])
 
+    if "INTERFACE" not in t2_config_db.keys():
+        t2_config_db["INTERFACE"] = interfaces
+    else:
+        t2_config_db["INTERFACE"].update(interfaces)
+
     if "DEVICE_NEIGHBOR" not in t2_config_db.keys():
         t2_config_db["DEVICE_NEIGHBOR"] = device_neighbor
     else:
@@ -351,13 +340,14 @@ def duthost_bgp_config(duthosts,
     with open("/tmp/temp_config.json", 'w') as fp:
         json.dump(t2_config_db, fp, indent=4)
     duthosts[2].copy(src="/tmp/temp_config.json", dest="/etc/sonic/%s" % config_db)
-    logger.info('Reloading config to apply the BGP configuration')
-    duthosts[2].shell("sudo config reload -f -y \n")
+
+    logger.info('Reloading config_db.json to apply IP and BGP configuration on {}'.format(duthosts[2].hostname))
+
+    pytest_assert('Error' not in duthosts[2].shell("sudo config reload -f -y \n")['stderr'],
+                  'Error while reloading config in {} !!!!!'.format(duthosts[2].hostname))
+    logger.info('Config Reload Successful in {} !!!'.format(duthosts[2].hostname))
+
     if t2_side_interconnected_port['asic_value'] is not None:
-        config_db = 'config_db'+list(t2_side_interconnected_port['asic_value'])[-1]+'.json'
-        t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d -n {} --print-data".
-                                  format(t2_side_interconnected_port['asic_value']))['stdout'])
-        logger.info('Configuring BGP in T2 Downlink by writing into {}'.format(config_db))
         route_map_config = (
             "vtysh -n %s"
             "-c 'configure terminal' "
@@ -374,8 +364,6 @@ def duthost_bgp_config(duthosts,
             t2_side_interconnected_port['asic_value'][-1]
         )
     else:
-        t2_config_db = json.loads(duthosts[2].shell("sonic-cfggen -d --print-data")['stdout'])
-        logger.info('Configuring BGP in T2 Downlink by writing into config_db.json')
         route_map_config = (
             "vtysh "
             "-c 'configure terminal' "
@@ -390,66 +378,19 @@ def duthost_bgp_config(duthosts,
         )
     duthosts[2].shell(route_map_config)
     logger.info('Applying RM_SET_SRC6 route map in T2')
-    ##################
 
     logger.info('--------------- T2 Uplink - Tgen Section --------------------')
-    index = 0
-    for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
-        if asic_value is not None:
-            duthosts[1].shell('sudo config interface -n {} ip add Loopback0 1.1.1.1/24'.format(asic_value))
-            duthosts[1].shell('sudo config interface -n {} ip add Loopback0 1::1/124'.format(asic_value))
-            for portchannel, ports in portchannel_info.items():
-                duthosts[1].shell('sudo config portchannel -n {} add {} \n'.
-                                  format(asic_value, portchannel))
-                logger.info('\n')
-                logger.info('Adding -n {} {} in {}'.format(asic_value, portchannel, duthosts[1].hostname))
-                for port in ports:
-                    duthosts[1].shell('sudo config portchannel -n {} member add {} {} \n'.
-                                      format(asic_value, portchannel, port))
-                    logger.info('Adding member {} to {}'.format(port, portchannel))
-
-                logger.info('Configuring IPs {} /  {}  to {}'.
-                            format(t2_dut_portchannel_ipv4_list[index], t2_dut_portchannel_ipv6_list[index],
-                                   portchannel))
-                duthosts[1].shell('sudo config interface -n {} ip add {} {}/{} \n'.
-                                  format(asic_value, portchannel, t2_dut_portchannel_ipv4_list[index],
-                                         v4_prefix_length))
-                duthosts[1].shell('sudo config interface -n {} ip add {} {}/{} \n'.
-                                  format(asic_value, portchannel, t2_dut_portchannel_ipv6_list[index],
-                                         v6_prefix_length))
-                index = index + 1
-        else:
-            duthosts[1].shell('sudo config interface ip add Loopback0 1.1.1.1/24')
-            duthosts[1].shell('sudo config interface ip add Loopback0 1::1/124')
-            for portchannel, ports in portchannel_info.items():
-                duthosts[1].command('sudo config portchannel add {} \n'.
-                                    format(portchannel))
-                logger.info('\n')
-                logger.info('Adding {} in {}'.format(portchannel, duthosts[1].hostname))
-                for port in ports:
-                    duthosts[1].command('sudo config portchannel member add {} {} \n'.
-                                        format(portchannel, port))
-                    logger.info('Adding member {} to {}'.format(port, portchannel))
-
-                logger.info('Configuring IPs {} /  {}  to {}'.
-                            format(t2_dut_portchannel_ipv4_list[index], t2_dut_portchannel_ipv6_list[index],
-                                   portchannel))
-                duthosts[1].command('sudo config interface ip add {} {}/{} \n'.
-                                    format(portchannel, t2_dut_portchannel_ipv4_list[index], v4_prefix_length))
-                duthosts[1].command('sudo config interface ip add {} {}/{} \n'.
-                                    format(portchannel, t2_dut_portchannel_ipv6_list[index], v6_prefix_length))
-                index = index + 1
-    logger.info('\n')
-    logger.info('Saving T2 Uplink interface config in config_db')
-    duthosts[1].shell("sudo config save -y \n")
     logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
     logger.info('T2 side Snappi AS Number: {}'.format(T2_SNAPPI_AS_NUM))
-    # Adding Device Metadata
+
     index = 0
     for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
-        bgp_neighbors = {}
-        device_neighbors = {}
-        device_neighbor_metadatas = {}
+        bgp_neighbors = dict()
+        device_neighbors = dict()
+        device_neighbor_metadatas = dict()
+        PORTCHANNELS = dict()
+        PORTCHANNEL_INTERFACES = dict()
+        PORTCHANNEL_MEMBERS = dict()
         if asic_value is not None:
             config_db = 'config_db'+list(asic_value)[-1]+'.json'
             t2_config_db = json.loads(duthosts[1].shell("sonic-cfggen -d -n {} --print-data".
@@ -466,13 +407,35 @@ def duthost_bgp_config(duthosts,
                     }
                 }
                 device_neighbors.update(device_neighbor)
+                MEMBER = {f"{portchannel}|{port}": {}}
+                PORTCHANNEL_MEMBERS.update(MEMBER)
+            PORTCHANNEL = {
+                                portchannel:
+                                {
+                                    "admin_status": "up",
+                                    "lacp_key": "auto",
+                                    "min_links": "1",
+                                    "mtu": "9100"
+                                }
+                          }
+            PORTCHANNELS.update(PORTCHANNEL)
+            logger.info('Creating {} in {}'.format(portchannel, duthosts[1].hostname))
+            interface_name = {portchannel: {}}
+            v4_interface = {f"{portchannel}|{t2_dut_portchannel_ipv4_list[index]}/{v4_prefix_length}": {}}
+            v6_interface = {f"{portchannel}|{t2_dut_portchannel_ipv6_list[index]}/{v6_prefix_length}": {}}
+            PORTCHANNEL_INTERFACES.update(interface_name)
+            PORTCHANNEL_INTERFACES.update(v4_interface)
+            PORTCHANNEL_INTERFACES.update(v6_interface)
+            logger.info('Configuring IPs {} / {} on {} in {}'.
+                        format(t2_dut_portchannel_ipv4_list[index],
+                               t2_dut_portchannel_ipv6_list[index], portchannel, duthosts[1].hostname))
         for portchannel in portchannel_info:
             device_neighbor_metadata = {
                                             "snappi_"+portchannel:
                                             {
                                                 "hwsku": "Ixia",
                                                 "mgmt_addr": snappi_portchannel_ipv4_list[index],
-                                                "type": "RegionalHub"
+                                                "type": "AZNGHub"
                                             },
                                         }
             bgp_neighbor = {
@@ -502,6 +465,21 @@ def duthost_bgp_config(duthosts,
             bgp_neighbors.update(bgp_neighbor)
             device_neighbor_metadatas.update(device_neighbor_metadata)
             index = index + 1
+        if "PORTCHANNEL_INTERFACE" not in t2_config_db.keys():
+            t2_config_db["PORTCHANNEL_INTERFACE"] = PORTCHANNEL_INTERFACES
+        else:
+            t2_config_db["PORTCHANNEL_INTERFACE"].update(PORTCHANNEL_INTERFACES)
+
+        if "PORTCHANNEL" not in t2_config_db.keys():
+            t2_config_db["PORTCHANNEL"] = PORTCHANNELS
+        else:
+            t2_config_db["PORTCHANNEL"].update(PORTCHANNELS)
+
+        if "PORTCHANNEL_MEMBER" not in t2_config_db.keys():
+            t2_config_db["PORTCHANNEL_MEMBER"] = PORTCHANNEL_MEMBERS
+        else:
+            t2_config_db["PORTCHANNEL_MEMBER"].update(PORTCHANNEL_MEMBERS)
+
         if "DEVICE_NEIGHBOR" not in t2_config_db.keys():
             t2_config_db["DEVICE_NEIGHBOR"] = device_neighbors
         else:
@@ -519,10 +497,13 @@ def duthost_bgp_config(duthosts,
         with open("/tmp/temp_config.json", 'w') as fp:
             json.dump(t2_config_db, fp, indent=4)
         duthosts[1].copy(src="/tmp/temp_config.json", dest="/etc/sonic/%s" % config_db)
-        logger.info('Pushing bgp config into {}'.format(config_db))
+        logger.info('Pushing IP and BGP config into {}'.format(config_db))
 
-    logger.info('Reloading config to apply the BGP configuration')
-    duthosts[1].shell("sudo config reload -f -y \n")
+    logger.info('Reloading config_db.json to apply IP and BGP configuration on {}'.format(duthosts[1].hostname))
+    pytest_assert('Error' not in duthosts[1].shell("sudo config reload -f -y \n")['stderr'],
+                  'Error while reloading config in {} !!!!!'.format(duthosts[1].hostname))
+    logger.info('Config Reload Successful in {} !!!'.format(duthosts[1].hostname))
+
     for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
         if asic_value is not None:
             route_map_config = (
@@ -931,7 +912,7 @@ def get_container_names(duthost):
     Args:
         duthost (pytest fixture): duthost fixture
     """
-    container_names = duthost.shell('docker ps --format \{\{.Names\}\}')['stdout_lines']
+    container_names = duthost.shell('docker ps --format \{\{.Names\}\}')['stdout_lines']  # noqa: W605
     return container_names
 
 

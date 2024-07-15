@@ -2,7 +2,7 @@ import pytest
 import logging
 from tests.common.helpers.assertions import pytest_require, pytest_assert                            # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
-     fanout_graph_facts                                                                              # noqa: F401
+     fanout_graph_facts_multidut                                                                     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api, multidut_snappi_ports_for_bgp                                                      # noqa: F401
 from tests.snappi_tests.variables import t1_t2_device_hostnames                                     # noqa: F401
@@ -46,7 +46,7 @@ ROUTE_RANGES = [{
 def test_bgp_outbound_flap_interconnectivity(snappi_api,                                     # noqa: F811
                                              multidut_snappi_ports_for_bgp,                   # noqa: F811
                                              conn_graph_facts,                             # noqa: F811
-                                             fanout_graph_facts,                           # noqa: F811
+                                             fanout_graph_facts_multidut,                   # noqa: F811
                                              duthosts,
                                              traffic_type,                                 # noqa: F811
                                              ):
@@ -57,7 +57,7 @@ def test_bgp_outbound_flap_interconnectivity(snappi_api,                        
         snappi_api (pytest fixture): SNAPPI session
         multidut_snappi_ports_for_bgp (pytest fixture):  Port mapping info on multidut testbed
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         traffic_type: IPv4 or IPv6 traffic type to be tested
     Returns:
