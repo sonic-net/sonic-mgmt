@@ -24,6 +24,7 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
     """
     f = open(pfc_pcap_file, "rb")
     pcap = dpkt.pcapng.Reader(f)
+    seen_non_zero_cev = False  # Flag for checking if any PFC frame has non-zero class enable vector
 
     curPktCount = 0
     curPFCPktCount = 0
@@ -34,33 +35,41 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
         if eth.type == PFC_MAC_CONTROL_CODE:
             dest_mac = mac_to_str(eth.dst)
             if dest_mac.lower() != PFC_DEST_MAC:
-                return False
+                return False, "Destination MAC address is not 01:80:c2:00:00:01"
             pfc_packet = PFCPacket(pfc_frame_bytes=bytes(eth.data))
             if not pfc_packet.is_valid():
                 logger.info("PFC frame {} is not valid. Please check the capture file.".format(curPktCount))
-                return False
+                return False, "PFC frame is not valid"
+            cev = [int(i) for i in pfc_packet.class_enable_vec]
+            seen_non_zero_cev = True if sum(cev) > 0 else seen_non_zero_cev
             curPFCPktCount += 1
         curPktCount += 1
+
+    if not seen_non_zero_cev:
+        logger.info("No PFC frames with non-zero class enable vector found in the capture file.")
+        return False, "No PFC frames with non-zero class enable vector found"
 
     f.close()
     pfc_util = curPktCount / SAMPLE_SIZE
 
     if curPktCount == 0:
         logger.info("No PFC frames found in the capture file.")
-        return False
+        return False, "No PFC frames found in the capture file"
     elif pfc_util < UTIL_THRESHOLD:
         logger.info("PFC utilization is too low. Please check the capture file.")
-        return False
+        return False, "PFC utilization is too low"
 
-    return True
+    return True, None
 
 
-def get_ip_pkts(pcap_file_name):
+def get_ipv4_pkts(pcap_file_name, protocol_num=61):
     """
-    Get IP packets from the pcap/pcapng file
+    Get IPv4 packets from the pcap/pcapng file
 
     Args:
         pcap_file_name (str): name of the pcap/pcapng file to store captured packets
+        protocol_num (int): protocol number to filter packets. See
+                            https://en.wikipedia.org/wiki/List_of_IP_protocol_numbers
 
     Returns:
         Captured IP packets (list)
@@ -75,7 +84,8 @@ def get_ip_pkts(pcap_file_name):
     for _, pkt in pcap:
         eth = dpkt.ethernet.Ethernet(pkt)
         if isinstance(eth.data, dpkt.ip.IP):
-            ip_pkts.append(eth.data)
+            if eth.data.p == protocol_num:
+                ip_pkts.append(eth.data)
 
     return ip_pkts
 

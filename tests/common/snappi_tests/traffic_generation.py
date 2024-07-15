@@ -1,7 +1,7 @@
 """
 This module allows various snappi based tests to generate various traffic configurations.
 """
-
+import math
 import time
 import logging
 from tests.common.helpers.assertions import pytest_assert
@@ -11,6 +11,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     traffic_flow_mode
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,10 @@ def generate_test_flows(testbed_config,
         eth, ipv4 = test_flow.packet.ethernet().ipv4()
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
@@ -184,7 +188,10 @@ def generate_background_flows(testbed_config,
         eth, ipv4 = bg_flow.packet.ethernet().ipv4()
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
@@ -268,6 +275,24 @@ def generate_pause_flows(testbed_config,
     pause_flow.metrics.loss = True
 
 
+def clear_dut_interface_counters(duthost):
+    """
+    Clears the dut interface counter.
+    Args:
+        duthost (obj): DUT host object
+    """
+    duthost.command("sonic-clear counters \n")
+
+
+def clear_dut_que_counters(duthost):
+    """
+    Clears the dut que counter.
+    Args:
+        duthost (obj): DUT host object
+    """
+    duthost.command("sonic-clear queuecounters \n")
+
+
 def run_traffic(duthost,
                 api,
                 config,
@@ -287,20 +312,22 @@ def run_traffic(duthost,
         exp_dur_sec (int): experiment duration in second
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
-        per-flow statistics (list)
+        flow_metrics (snappi metrics object): per-flow statistics from TGEN (right after flows end)
+        switch_device_results (dict): statistics from DUT on both TX and RX and per priority
+        in_flight_flow_metrics (snappi metrics object): in-flight statistics per flow from TGEN
+                                                        (right before flows end)
     """
 
     api.set_config(config)
-
     logger.info("Wait for Arp to Resolve ...")
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
-
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
     switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"][1].values(), [])
     switch_rx_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
     switch_tx_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
     switch_device_results = None
+    in_flight_flow_metrics = None
 
     if pcap_type != packet_capture.NO_CAPTURE:
         logger.info("Starting packet capture ...")
@@ -308,6 +335,10 @@ def run_traffic(duthost,
         cs.port_names = snappi_extra_params.packet_capture_ports
         cs.state = cs.START
         api.set_capture_state(cs)
+
+    clear_dut_interface_counters(duthost)
+
+    clear_dut_que_counters(duthost)
 
     logger.info("Starting transmit on all flows ...")
     ts = api.transmit_state()
@@ -326,7 +357,7 @@ def run_traffic(duthost,
         exp_dur_sec = exp_dur_sec + ANSIBLE_POLL_DELAY_SEC  # extra time to allow for device polling
         poll_freq_sec = int(exp_dur_sec / 10)
 
-        for _ in range(10):
+        for poll_iter in range(10):
             for lossless_prio in switch_tx_lossless_prios:
                 switch_device_results["tx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_tx_port,
                                                                                                 lossless_prio)[0])
@@ -334,9 +365,21 @@ def run_traffic(duthost,
                                                                                                 lossless_prio)[0])
             time.sleep(poll_freq_sec)
 
+            if poll_iter == 5:
+                logger.info("Polling TGEN for in-flight traffic statistics...")
+                in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+                flow_names = [metric.name for metric in in_flight_flow_metrics if metric.name in data_flow_names]
+                tx_frames = [metric.frames_tx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
+                rx_frames = [metric.frames_rx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
+                logger.info("In-flight traffic statistics for flows: {}".format(flow_names))
+                logger.info("In-flight TX frames: {}".format(tx_frames))
+                logger.info("In-flight RX frames: {}".format(rx_frames))
         logger.info("DUT polling complete")
     else:
-        time.sleep(exp_dur_sec)  # no polling required
+        time.sleep(exp_dur_sec*(2/5))  # no switch polling required, only TGEN polling
+        logger.info("Polling TGEN for in-flight traffic statistics...")
+        in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)  # fetch in-flight metrics from TGEN
+        time.sleep(exp_dur_sec*(3/5))
 
     attempts = 0
     max_attempts = 20
@@ -379,7 +422,7 @@ def run_traffic(duthost,
     ts.state = ts.STOP
     api.set_transmit_state(ts)
 
-    return flow_metrics, switch_device_results
+    return flow_metrics, switch_device_results, in_flight_flow_metrics
 
 
 def verify_pause_flow(flow_metrics,
@@ -535,7 +578,8 @@ def verify_in_flight_buffer_pkts(duthost,
                               format(dropped_packets))
 
 
-def verify_pause_frame_count_dut(duthost,
+def verify_pause_frame_count_dut(rx_dut,
+                                 tx_dut,
                                  test_traffic_pause,
                                  global_pause,
                                  snappi_extra_params):
@@ -544,7 +588,8 @@ def verify_pause_frame_count_dut(duthost,
     on the DUT
 
     Args:
-        duthost (obj): DUT host object
+        rx_dut (obj): Ingress DUT host object receiving packets from IXIA transmitter.
+        tx_dut (obj): Egress DUT host object sending packets to IXIA, hence also receiving PFCs from IXIA.
         test_traffic_pause (bool): whether test traffic is expected to be paused
         global_pause (bool): if pause frame is IEEE 802.3X pause i.e. global pause applied
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
@@ -556,7 +601,7 @@ def verify_pause_frame_count_dut(duthost,
 
     for peer_port, prios in dut_port_config[1].items():  # PFC pause frames received on DUT's egress port
         for prio in prios:
-            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=False)
+            pfc_pause_rx_frames = get_pfc_frame_count(tx_dut, peer_port, prio, is_tx=False)
             # For now, all PFC pause test cases send out PFC pause frames from the TGEN RX port to the DUT TX port,
             # except the case with global pause frames which SONiC does not count currently
             if global_pause:
@@ -573,7 +618,7 @@ def verify_pause_frame_count_dut(duthost,
 
     for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
         for prio in prios:
-            pfc_pause_tx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=True)
+            pfc_pause_tx_frames = get_pfc_frame_count(rx_dut, peer_port, prio, is_tx=True)
             if test_traffic_pause:
                 pytest_assert(pfc_pause_tx_frames > 0,
                               "PFC pause frames should be transmitted and counted in TX PFC counters for priority {}"
@@ -725,3 +770,66 @@ def verify_egress_queue_frame_count(duthost,
                 total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
                 pytest_assert(total_egress_packets == test_tx_frames[prio],
                               "Queue counters should increment for invalid PFC pause frames")
+
+
+def verify_m2o_oversubscribtion_results(rows,
+                                        test_flow_name,
+                                        bg_flow_name,
+                                        flag):
+    """
+    Verify if we get expected experiment results
+
+    Args:
+        rows (list): per-flow statistics
+        test_flow_name (str): name of test flows
+        bg_flow_name (str): name of background flows
+        flag (dict): Comprises of flow name and its loss criteria ,loss criteria value can be integer values
+                     of string type for definite results or 'continuing' for non definite loss value results
+                     example:{
+                                'Test Flow 1 -> 0 Rate:40': {
+                                    'loss': '0'
+                                },
+                                'PFC Pause': {
+                                    'loss': '100'
+                                },
+                                'Background Flow 1 -> 0 Rate:20': {
+                                    'loss': '5'
+                                },
+                                'Background Flow 2 -> 0 Rate:40': {
+                                    'loss': 'continuing'
+                                },
+                            }
+
+    Returns:
+        N/A
+    """
+
+    for flow_type, criteria in flag.items():
+        for row in rows:
+            tx_frames = row.frames_tx
+            rx_frames = row.frames_rx
+            if flow_type in row.name:
+                try:
+                    if isinstance(criteria, dict) and isinstance(criteria['loss'], str) and int(criteria['loss']) == 0:
+                        logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
+                        pytest_assert(tx_frames == rx_frames,
+                                      '{} should not have any dropped packet'.format(row.name))
+                        pytest_assert(row.loss == 0,
+                                      '{} should not have traffic loss'.format(row.name))
+                    elif (isinstance(criteria, dict) and isinstance(criteria['loss'], str)
+                          and int(criteria['loss']) != 0):
+                        pytest_assert(math.ceil(float(row.loss)) == float(flag[flow_type]['loss']) or
+                                      math.floor(float(row.loss)) == float(flag[flow_type]['loss']),
+                                      '{} should have traffic loss close to {} percent but got {}'.
+                                      format(row.name, float(flag[flow_type]['loss']), float(row.loss)))
+                    else:
+                        pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
+                                      string for loss criteria')
+                except Exception:
+                    if (isinstance(criteria, dict) and isinstance(criteria['loss'], str)
+                       and criteria['loss'] == 'continuing'):
+                        pytest_assert(int(row.loss) > 0, "{} should have continuing traffic loss greater than 0".
+                                      format(row.name))
+                    else:
+                        pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
+                                      string for loss criteria')

@@ -43,7 +43,8 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx")
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx"),
+    pytest.mark.device_type('physical')
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -145,6 +146,9 @@ class TestCOPP(object):
         4. Verify the trap status is uninstalled by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if (duthost.facts["asic_type"] == "cisco-8000"):
+            logger.info("Sleep 120 seconds for Cisco platform")
+            time.sleep(120)
 
         if self.trap_id == "bgp":
             logger.info("Uninstall trap ip2me")
@@ -225,22 +229,27 @@ def copp_testbed(
     ptfhost,
     tbinfo,
     duts_minigraph_facts,
-    request
+    request,
+    is_backend_topology
 ):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
     """
+    upStreamDuthost = None
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts)
-    upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+
+    if not is_backend_topology:
+        # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
+        upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
 
     try:
         _setup_multi_asic_proxy(duthost, creds, test_params, tbinfo)
-        _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost)
+        _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost, is_backend_topology)
         yield test_params
     finally:
         _teardown_multi_asic_proxy(duthost, creds, test_params, tbinfo)
-        _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost)
+        _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost, is_backend_topology)
 
 
 @pytest.fixture(autouse=True)
@@ -275,7 +284,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "peerip": test_params.peerip,
               "send_rate_limit": test_params.send_rate_limit,
               "has_trap": has_trap,
-              "hw_sku": dut.facts["hwsku"]}
+              "hw_sku": dut.facts["hwsku"],
+              "asic_type": dut.facts["asic_type"]}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
@@ -360,13 +370,10 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                                nn_target_vlanid=nn_target_vlanid)
 
 
-def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
+def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_backend_topology):
     """
         Sets up the testbed to run the COPP tests.
     """
-    mg_facts = dut.get_extended_minigraph_facts(tbinfo)
-    is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
-
     logging.info("Set up the PTF for COPP tests")
     copp_utils.configure_ptf(ptf, test_params, is_backend_topology)
 
@@ -393,16 +400,18 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
-    # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
-    upStreamDuthost.command("sudo config bgp shutdown all")
-    time.sleep(30)
+    if not is_backend_topology:
+        # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
+        upStreamDuthost.command("sudo config bgp shutdown all")
+        time.sleep(30)
+
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
                                test_params.nn_target_namespace, test_params.nn_target_vlanid,
                                test_params.swap_syncd, creds)
 
 
-def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
+def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_backend_topology):
     """
         Tears down the testbed, returning it to its initial state.
     """
@@ -420,7 +429,9 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
-    upStreamDuthost.command("sudo config bgp startup all")
+    if not is_backend_topology:
+        # Testbed is not a T1 backend device, so bring up bgp session to upstream device
+        upStreamDuthost.command("sudo config bgp startup all")
 
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):

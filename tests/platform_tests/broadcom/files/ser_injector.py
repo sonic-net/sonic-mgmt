@@ -8,6 +8,9 @@ import subprocess
 import sys
 import time
 from collections import defaultdict
+import logging
+
+log_filename = "/tmp/ser_injector.log"
 
 # Global parameter for memory scanners
 MEMORY_SCAN_INTERVAL_USEC = int(3e5)
@@ -120,6 +123,11 @@ SKIP_MEMORY_PER_ASIC = {
             'EGR_ZONE_1_DOT1P_MAPPING_TABLE_4.eABLE_4.epipe0', 'EGR_ZONE_3_DOT1P_MAPPING_TABLE_1.epipe0',
             'EGR_FLEX_CONTAINER_UPDATE_PROFILE_1.epipe0', 'EGR_ZONE_3_DOT1P_MAPPING_TABLE_3.epipe0',
             'EGR_VLAN_CONTROL_2.epipe0', 'EGR_ZONE_1_DOT1P_MAPPING_TABLE_4.epipe0',
+            'MMU_MTRO_CONFIG_L1_MEM.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_A.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_B.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_A_PIPE0.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_B_PIPE0.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_PIPE0.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_PIPE1.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_PIPE2.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_PIPE3.mmu_sed0',
         ],
         'timeout_basic': [
             'EGR_ZONE_0_EDITOR_CONTROL_TCAM.epipe0', 'DLB_ECMP_FLOWSET_MEMBER.ipipe0',
@@ -266,7 +274,11 @@ SKIP_MEMORY_PER_ASIC = {
             'IS_TDM_CALENDAR0.ipipe0', 'IS_TDM_CALENDAR1.ipipe0', 'IS_TDM_CALENDAR0_PIPE0.ipipe0',
             'IS_TDM_CALENDAR0_PIPE1.ipipe0', 'IS_TDM_CALENDAR0_PIPE2.ipipe0', 'IS_TDM_CALENDAR0_PIPE3.ipipe0',
             'IS_TDM_CALENDAR1_PIPE0.ipipe0', 'IS_TDM_CALENDAR1_PIPE1.ipipe0', 'IS_TDM_CALENDAR1_PIPE2.ipipe0',
-            'IS_TDM_CALENDAR1_PIPE3.ipipe0',
+            'IS_TDM_CALENDAR1_PIPE3.ipipe0', 'MMU_MTRO_CONFIG_L1_MEM.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_A.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_B.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_A_PIPE0.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_B_PIPE0.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_PIPE0.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_PIPE1.mmu_sed0',
+            'MMU_MTRO_CONFIG_L1_MEM_PIPE2.mmu_sed0', 'MMU_MTRO_CONFIG_L1_MEM_PIPE3.mmu_sed0',
         ],
         'timeout_basic': [
         ],
@@ -362,9 +374,11 @@ def run_cmd(cmd, asic_id=None):
             args = " ".join(cmd)
             cmd = ["bcmcmd", "-n", str(asic_id), args]
 
+    logging.debug("cmd: {}".format(cmd))
     out = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                            stderr=subprocess.STDOUT)
     stdout, stderr = out.communicate()
+    logging.debug("stdout: {}; stderr {}".format(stdout, stderr))
     return stdout, stderr
 
 
@@ -375,7 +389,8 @@ def get_asic_name():
     if ("Broadcom Limited Device b960" in output or
         "Broadcom Limited Broadcom BCM56960" in output or
         "Broadcom Inc. and subsidiaries Device b960" in output or
-            "Broadcom Inc. and subsidiaries Broadcom BCM56960" in output):
+        "Broadcom Inc. and subsidiaries Broadcom BCM56960" in output or
+            "Broadcom Inc. and subsidiaries BCM56960" in output):
         asic = "th"
     elif ("Broadcom Limited Device b971" in output or
           "Broadcom Inc. and subsidiaries Device b971" in output):
@@ -521,7 +536,7 @@ class BcmMemory():
             self.cached_memory[mem] = self.get_memory_attributes(mem)
             self.memory_address[self.cached_memory[mem]['address']].append(mem)
             if VERBOSE:
-                print(('--- found cache memory {} : {} : {}'.format(mem, hex(
+                logging.info(('--- found cache memory {} : {} : {}'.format(mem, hex(
                     self.cached_memory[mem]['address']), self.memory_address[self.cached_memory[mem]['address']])))
 
         self.write_memory_to_file()
@@ -649,7 +664,7 @@ class SerTest(object):
             count += 1
             size_before = len(self.mem_verification_pending)
             batch_size = min(batch_size, size_before)
-            print(("Test iteration {}, stalled {}, candidate(s) left {} batch_size {}".format(
+            logging.info(("Test iteration {}, stalled {}, candidate(s) left {} batch_size {}".format(
                 count, stall, size_before, batch_size)))
             test_memory = list(self.mem_verification_pending[0:batch_size])
             self.run_test(test_memory)
@@ -665,38 +680,34 @@ class SerTest(object):
                                  batch_size + self.batch_size)
                 if stall >= self.stall_indication:
                     if VERBOSE:
-                        print('--- stall detected. Stop testing')
+                        logging.info('--- stall detected. Stop testing')
                     break
 
-        print(("SER test on ASIC : {}".format(get_asic_name())))
+        logging.info(("SER test on ASIC : {}".format(get_asic_name())))
         if VERBOSE:
-            print(("SER Test memories candidates (%s): %s" %
-                  (len(self.test_candidates), self.test_candidates)))
-            print(("SER Test succeeded for memories (%s): %s" %
-                  (len(self.mem_verified), self.mem_verified)))
-            print(("SER Test skipped memories (%s): %s" %
-                  (len(skip_list), skip_list)))
+            logging.info(("SER Test memories candidates (%s): %s" % (len(self.test_candidates), self.test_candidates)))
+            logging.info(("SER Test succeeded for memories (%s): %s" % (len(self.mem_verified), self.mem_verified)))
+            logging.info(("SER Test skipped memories (%s): %s" % (len(skip_list), skip_list)))
         else:
-            print(("SER Test memories candidates (%s)" %
-                  (len(self.test_candidates))))
-            print(("SER Test succeeded for memories (%s)" %
-                  (len(self.mem_verified))))
-        print(("SER Test failed for memories (%s): %s %s" % (
-            len(self.mem_failed), self.mem_failed, list(self.mem_failed.keys()))))
-        print(("SER Test timed out for memories (%s): %s" % (
-            len(self.mem_verification_pending), self.mem_verification_pending)))
-        print(("SER Test is not supported for memories (%s): %s" %
-              (len(self.mem_ser_unsupported), self.mem_ser_unsupported)))
+            logging.info(("SER Test memories candidates (%s)" % (len(self.test_candidates))))
+            logging.info(("SER Test succeeded for memories (%s)" % (len(self.mem_verified))))
+        logging.info(("SER Test failed for memories (%s): %s %s" %
+                      (len(self.mem_failed), self.mem_failed, list(self.mem_failed.keys()))))
+        logging.info(("SER Test timed out for memories (%s): %s" %
+                      (len(self.mem_verification_pending), self.mem_verification_pending)))
+        logging.info(("SER Test is not supported for memories (%s): %s" %
+                      (len(self.mem_ser_unsupported), self.mem_ser_unsupported)))
         slow_injection = {k: v for k, v in list(
             self.mem_injection_speed.items()) if v['slow'] > 0}
-        print(("SER Test memory error injection too slow (%s): %s %s" %
-              (len(slow_injection), slow_injection, list(slow_injection.keys()))))
+        logging.info(("SER Test memory error injection too slow (%s): %s %s" %
+                      (len(slow_injection), slow_injection, list(slow_injection.keys()))))
 
         if VERBOSE:
-            print("--- found {} memory location(s) reported misaligned correction events ---"
-                  .format(len(self.miss_counts)))
+            logging.info("--- found {} memory location(s) reported misaligned "
+                         "correction events ---".format(len(self.miss_counts)))
+
             for address, count in list(self.miss_counts.items()):
-                print(
+                logging.info(
                     ("--- unknown address {} was triggered {} times".format(hex(address), count)))
 
         return len(self.mem_failed) + len(self.mem_verification_pending)
@@ -750,7 +761,7 @@ class SerTest(object):
         '''
         m = re.search(r"^.*addr:(.*) port.*index: (\d+)", log)
         if not m:
-            print(("--- cannot parse log {}".format(log)))
+            logging.info(("--- cannot parse log {}".format(log)))
             return None, None
 
         address = int(m.group(1), 16)
@@ -766,7 +777,7 @@ class SerTest(object):
             self.miss_counts[address] = 1
 
         if VERBOSE:
-            print(("--- addr {} ({}) not found in dict: {} time(s)".format(
+            logging.info(("--- addr {} ({}) not found in dict: {} time(s)".format(
                 hex(address), address, self.miss_counts[address])))
 
         return None, None
@@ -778,7 +789,7 @@ class SerTest(object):
         @param index: index of the entry to inject SER into
         '''
         if VERBOSE:
-            print(('--- injecting error at {} index {} tag {}'.format(mem, index, tag)))
+            logging.info(('--- injecting error at {} index {} tag {}'.format(mem, index, tag)))
         return run_cmd(
             [
                 "bcmcmd",
@@ -801,22 +812,22 @@ class SerTest(object):
                     if m in self.mem_verified:
                         self.mem_verified[m] += 1
                     else:
-                        print(("Successfully tested memory %s" % m))
+                        logging.info(("Successfully tested memory %s" % m))
                         self.mem_verified.update({m: 1})
                 else:
                     if m in self.mem_failed:
                         self.mem_failed[m] += 1
                     else:
-                        print(
+                        logging.info(
                             ("Failed verification for memory %s, syslog '%s'" % (m, line)))
                         self.mem_failed.update({m: 1})
 
                 if m in self.mem_verification_pending:
                     self.mem_verification_pending.remove(m)
                 else:
-                    print(("Memory %s appeared more than once" % m))
+                    logging.info(("Memory %s appeared more than once" % m))
         elif VERBOSE:
-            print(
+            logging.info(
                 ("Memory corresponding to the following syslog was not found! Syslog: '%s'" % line))
 
     def run_test(self, memory, entry=0):
@@ -845,11 +856,11 @@ class SerTest(object):
                     speed['slow'] = speed['slow'] + 1
                     speed['slow_times'].append(inj_time)
                     if VERBOSE:
-                        print(
+                        logging.info(
                             ('--- mem {} error inject is slow: {}'.format(mem, speed)))
                 self.mem_injection_speed[mem] = speed
                 if stdout.decode().find('SER correction for it is not currently supported') > -1:
-                    print(("memory %s does not support ser" % mem))
+                    logging.info(("memory %s does not support ser" % mem))
                     self.mem_ser_unsupported.append(mem)
                 else:
                     self.mem_verification_pending.append(mem)
@@ -866,7 +877,7 @@ class SerTest(object):
                     current_time = time.time()
                     elapsed_time = current_time - wait_start_time
                     if elapsed_time > self.test_time_sec:
-                        print("timed out waiting for ser correction...")
+                        logging.info("timed out waiting for ser correction...")
                         break
 
 
@@ -922,7 +933,15 @@ def main():
         help='ASIC ID on multi ASIC platform, default is None',
         type=int, required=False, default=None
     )
+    parser.add_argument(
+        '-f', '--log_filename',
+        type=str, required=False, default=log_filename,
+    )
     args = parser.parse_args()
+
+    logging.basicConfig(filename=args.log_filename,
+                        level=logging.DEBUG,
+                        format='%(asctime)s-%(levelname)s-%(lineno)d - %(message)s')
 
     VERBOSE = args.verbose
 
@@ -936,7 +955,7 @@ def main():
         asic_id=args.asic_id
     )
     rc = serTest.test_memory(args.completeness)
-    print(("--- %s seconds, rc %d ---" % ((time.time() - start_time), rc)))
+    logging.info(("--- %s seconds, rc %d ---" % ((time.time() - start_time), rc)))
     sys.exit(rc)
 
 

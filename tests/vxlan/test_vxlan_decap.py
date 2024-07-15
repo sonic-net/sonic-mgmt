@@ -187,8 +187,8 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, tbinf
                      ptfhost, creds, toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
 
-    sonic_admin_alt_password = duthost.host.options[
-        'variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
+    sonic_admin_alt_password = duthost.host.options['variable_manager'].\
+        _hostvars[duthost.hostname]['sonic_default_passwords']
 
     vxlan_enabled, scenario = vxlan_status
     is_active_active_dualtor = False

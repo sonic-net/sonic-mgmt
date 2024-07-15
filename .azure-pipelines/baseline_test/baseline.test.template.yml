@@ -3,7 +3,7 @@ jobs:
   displayName: "kvmtest-t0 by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -21,7 +21,7 @@ jobs:
   displayName: "kvmtest-t0-2vlans by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -41,7 +41,7 @@ jobs:
   displayName: "kvmtest-t1-lag by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -59,7 +59,7 @@ jobs:
   displayName: "kvmtest-dualtor-t0 by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -78,7 +78,7 @@ jobs:
   displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -98,7 +98,7 @@ jobs:
   displayName: "kvmtest-t0-sonic by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -115,20 +115,20 @@ jobs:
         STOP_ON_FAILURE: "False"
         TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
 
-# - job: dpu_elastictest
-#   displayName: "kvmtest-dpu by Elastictest"
-#   timeoutInMinutes: 240
-#   continueOnError: false
-#   pool: ubuntu-20.04
-#   steps:
-#     - template: ../run-test-elastictest-template.yml
-#       parameters:
-#         TOPOLOGY: dpu
-#         MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
-#         MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
-#         KVM_IMAGE_BRANCH: "master"
-#         MGMT_BRANCH: "master"
-#         BUILD_REASON: "BaselineTest"
-#         RETRY_TIMES: "0"
-#         STOP_ON_FAILURE: "False"
-#         TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+- job: dpu_elastictest
+  displayName: "kvmtest-dpu by Elastictest"
+  timeoutInMinutes: 240
+  continueOnError: false
+  pool: sonic-ubuntu-1c
+  steps:
+    - template: ../run-test-elastictest-template.yml
+      parameters:
+        TOPOLOGY: dpu
+        MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
+        MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
+        KVM_IMAGE_BRANCH: "master"
+        MGMT_BRANCH: "master"
+        BUILD_REASON: "BaselineTest"
+        RETRY_TIMES: "0"
+        STOP_ON_FAILURE: "False"
+        TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)

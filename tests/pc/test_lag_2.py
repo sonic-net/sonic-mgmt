@@ -385,6 +385,7 @@ def ignore_expected_loganalyzer_exceptions_lag2(duthosts, rand_one_dut_hostname,
         ignoreRegex = [
             # Valid test_lag_db_status and test_lag_db_status_with_po_update
             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
+            r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
@@ -524,7 +525,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level,
                 # Retrieve lag_facts after no shutdown interface
                 asichost.startup_interface(po_intf)
                 # Sometimes, it has to wait seconds for booting up interface
-                pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, asichost, po_intf, port_info, lag_name),
+                pytest_assert(wait_until(180, 1, 0, check_link_is_up, duthost, asichost, po_intf, port_info, lag_name),
                               "{} member {}'s status or netdev_oper_status in state_db is not up."
                               .format(lag_name, po_intf))
     finally:

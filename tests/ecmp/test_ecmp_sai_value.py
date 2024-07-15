@@ -45,6 +45,24 @@ seed_cmd_td3 = [
 offset_cmd = 'bcmcmd  "dump RTAG7_PORT_BASED_HASH 0 392 OFFSET_ECMP"'
 
 
+@pytest.fixture
+def enable_container_autorestart(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    # Enable autorestart for all features
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    feature_list, _ = duthost.get_feature_status()
+    container_autorestart_states = duthost.get_container_autorestart_states()
+    for feature, status in list(feature_list.items()):
+        # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+
+    yield
+    for feature, status in list(feature_list.items()):
+        # Disable container autorestart back if it was initially disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
+            duthost.shell("sudo config feature autorestart {} disabled".format(feature))
+
+
 def parse_hash_seed(output, asic_name):
     logger.info("Checking seed config: {}".format(output))
     # RTAG7_HASH_SEED_A.ipipe0[1][0x16001500]=0: <HASH_SEED_A=0>
@@ -108,10 +126,14 @@ def check_config_bcm_file(duthost, topo_type):
             logging.info("sai_hash_seed_config_hash_offset_enable={}".format(value))
         else:
             logging.info("sai_hash_seed_config_hash_offset_enable not found in the file.")
-        if topo_type == "t0":
-            pytest_assert(not cat_output, "sai_hash_seed_config_hash_offset_enable should not set for T0")
-        if topo_type == "t1":
-            pytest_assert(cat_output and value == "1", "sai_hash_seed_config_hash_offset_enable is not set to 1")
+        # with code change https://github.com/sonic-net/sonic-buildimage/pull/18912,
+        # the sai_hash_seed_config_hash_offset_enable is not set in config.bcm,
+        # it's set by swss config on 202311 and later image
+        if "20230531" in duthost.os_version:
+            if topo_type == "t0":
+                pytest_assert(not cat_output, "sai_hash_seed_config_hash_offset_enable should not set for T0")
+            if topo_type == "t1":
+                pytest_assert(cat_output and value == "1", "sai_hash_seed_config_hash_offset_enable is not set to 1")
     else:
         pytest.fail("Config bcm file not found.")
 
@@ -174,7 +196,8 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku):
 
 
 @pytest.mark.parametrize("parameter", ["common", "restart_syncd", "reload", "reboot", "warm-reboot"])
-def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, parameter):
+def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, parameter,
+                              enable_container_autorestart):
     """
     Check ecmp HASH_SEED
     """
@@ -222,7 +245,8 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
 
 
 @pytest.mark.parametrize("parameter", ["common", "restart_syncd", "reload", "reboot", "warm-reboot"])
-def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, parameter):
+def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, parameter,
+                           enable_container_autorestart):
     """
     Check ecmp HASH_OFFSET
     """
@@ -256,7 +280,7 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     elif parameter == "reload":
         logging.info("Run config reload on DUT")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-        check_hash_seed_value(duthost, asic_name, topo_type)
+        check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku)
     elif parameter == "reboot":
         logging.info("Run cold reboot on DUT")
         reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,

@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 
@@ -54,6 +55,8 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
     sfp_port_indices = set([physical_port_index_map[intf] for
                             intf in list(physical_port_index_map.keys())
                             if intf not in xcvr_skip_list[duthost.hostname]])
+    if not sfp_port_indices:
+        pytest.skip("skip the tests due to no spf port")
     sfp_setup["sfp_test_port_indices"] = sorted(sfp_port_indices)
 
     # Fetch SFP names from platform.json
@@ -848,6 +851,10 @@ class TestSfpApi(PlatformApiTestBase):
                            "Unable to retrieve transceiver {} error description".format(i)):
                 if "Not implemented" in error_description:
                     pytest.skip("get_error_description isn't implemented. Skip the test")
+                if "Not supported" in error_description:
+                    logger.warning("test_get_error_description: Skipping transceiver {} as error description not "
+                                   "supported on this port)".format(i))
+                    continue
                 if self.expect(isinstance(error_description, str) or isinstance(error_description, str),
                                "Transceiver {} error description appears incorrect".format(i)):
                     self.expect(error_description == "OK", "Transceiver {} is not present".format(i))

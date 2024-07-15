@@ -80,6 +80,14 @@ def run_pfc_test(api,
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
 
+    # rx_dut is ingress DUT receiving packets.
+    # tx_dut is egress DUT transmitting packets and also receiving PFCs.
+    tx_dut = duthost2
+    rx_dut = duthost1
+    if rx_port['peer_device'] == duthost1.hostname:
+        tx_dut = duthost1
+        rx_dut = duthost2
+
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
     stop_pfcwd(duthost1, rx_port['asic_value'])
@@ -103,7 +111,7 @@ def run_pfc_test(api,
                                                                      port_id=port_id)
 
     speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
+    speed_gbps = int(float(speed_str.split('_')[1]))
 
     if snappi_extra_params.headroom_test_params is not None:
         DATA_FLOW_DURATION_SEC += 10
@@ -225,13 +233,14 @@ def run_pfc_test(api,
     time.sleep(1)
 
     """ Run traffic """
-    tgen_flow_stats, switch_flow_stats = run_traffic(duthost=duthost,
-                                                     api=api,
-                                                     config=testbed_config,
-                                                     data_flow_names=data_flow_names,
-                                                     all_flow_names=all_flow_names,
-                                                     exp_dur_sec=DATA_FLOW_DURATION_SEC + data_flow_delay_sec,
-                                                     snappi_extra_params=snappi_extra_params)
+    tgen_flow_stats, switch_flow_stats, in_flight_flow_metrics = run_traffic(duthost=duthost,
+                                                                             api=api,
+                                                                             config=testbed_config,
+                                                                             data_flow_names=data_flow_names,
+                                                                             all_flow_names=all_flow_names,
+                                                                             exp_dur_sec=DATA_FLOW_DURATION_SEC +
+                                                                             data_flow_delay_sec,
+                                                                             snappi_extra_params=snappi_extra_params)
 
     # Reset pfc delay parameter
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
@@ -239,8 +248,8 @@ def run_pfc_test(api,
 
     # Verify PFC pause frames
     if valid_pfc_frame_test:
-        is_valid_pfc_frame = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
-        pytest_assert(is_valid_pfc_frame, "PFC frames invalid")
+        is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+        pytest_assert(is_valid_pfc_frame, error_msg)
         return
 
     # Verify pause flows
@@ -262,13 +271,16 @@ def run_pfc_test(api,
                            snappi_extra_params=snappi_extra_params)
 
     # Verify PFC pause frame count on the DUT
-    verify_pause_frame_count_dut(duthost=duthost,
+    verify_pause_frame_count_dut(rx_dut=rx_dut,
+                                 tx_dut=tx_dut,
                                  test_traffic_pause=test_traffic_pause,
+                                 global_pause=global_pause,
                                  snappi_extra_params=snappi_extra_params)
 
     # Verify in flight TX lossless packets do not leave the DUT when traffic is expected
     # to be paused, or leave the DUT when the traffic is not expected to be paused
-    verify_egress_queue_frame_count(duthost=duthost,
+    # Verifying the packets on DUT egress, especially for multi line card scenario
+    verify_egress_queue_frame_count(duthost=tx_dut,
                                     switch_flow_stats=switch_flow_stats,
                                     test_traffic_pause=test_traffic_pause,
                                     snappi_extra_params=snappi_extra_params)
@@ -276,7 +288,7 @@ def run_pfc_test(api,
     if test_traffic_pause:
         # Verify in flight TX packets count relative to switch buffer size
         verify_in_flight_buffer_pkts(duthost=duthost,
-                                     flow_metrics=tgen_flow_stats,
+                                     flow_metrics=in_flight_flow_metrics,
                                      snappi_extra_params=snappi_extra_params)
     else:
         # Verify zero pause frames are counted when the PFC class enable vector is not set
