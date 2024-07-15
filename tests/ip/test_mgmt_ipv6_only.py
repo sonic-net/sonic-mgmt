@@ -67,7 +67,7 @@ def log_tacacs(duthosts, ptfhost):
         ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
         if 'ansible_hostv6' in ptfhost_vars:
             tacacs_server_ip = ptfhost_vars['ansible_hostv6']
-            ping_result = duthost.shell("ping {} -c 1 -W 3".format(tacacs_server_ip), module_ignore_errors=True)["stdout"]
+            ping_result = duthost.shell(f"ping {tacacs_server_ip} -c 1 -W 3", module_ignore_errors=True)["stdout"]
             logging.debug(f"Checking ping_result [{ping_result}]")
 
 
