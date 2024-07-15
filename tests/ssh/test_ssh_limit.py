@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.tacacs.conftest import tacacs_creds      # noqa F401
 from tests.tacacs.utils import setup_local_user
 from tests.common.utilities import paramiko_ssh
-from tests.generic_config_updater.test_aaa import get_aaa_sub_options_value
+from tests.common.fixtures.tacacs import get_aaa_sub_options_value
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
