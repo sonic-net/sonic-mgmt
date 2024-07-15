@@ -12,6 +12,21 @@ EVENT_COUNTER_KEYS = ["missed_to_cache", "published"]
 PUBLISHED = 1
 
 
+def add_test_watchdog_timeout_service(duthost):
+    logger.info("Adding mock watchdog.service to systemd")
+    duthost.copy(src="telemetry/events/events_data/test-watchdog-timeout.service", dest="/etc/systemd/system/")
+    duthost.shell("systemctl daemon-reload")
+    duthost.shell("systemctl start test-watchdog-timeout.service")
+
+
+def delete_test_watchdog_timeout_service(duthost):
+    logger.info("Deleting mock test-watchdog-timeout.service")
+    duthost.shell("systemctl stop test-watchdog-timeout.service", module_ignore_errors=True)
+    duthost.shell("rm /etc/systemd/system/test-watchdog-timeout.service", module_ignore_errors=True)
+    duthost.shell("systemctl daemon-reload")
+    duthost.shell("systemctl reset-failed")
+
+
 def backup_monit_config(duthost):
     logger.info("Backing up monit config files")
     duthost.shell("cp -f /etc/monit/monitrc ~/")
