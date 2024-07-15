@@ -154,7 +154,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
         get_crm_resources(duthost, "fdb_entry", "used")
     pytest_assert(ipv6_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
-    nd_avaliable = int(min(ipv6_avaliable, ENTRIES_NUMBERS) * 2 / 3)
+    nd_avaliable = int(min(ipv6_avaliable, ENTRIES_NUMBERS) / 3 * 2)
 
     while loop_times > 0:
         loop_times -= 1
