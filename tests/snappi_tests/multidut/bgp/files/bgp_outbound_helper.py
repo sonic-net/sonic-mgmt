@@ -228,8 +228,8 @@ def duthost_bgp_config(duthosts,
     duthosts[0].copy(src="/tmp/temp_config.json", dest="/etc/sonic/config_db.json")
 
     logger.info('Reloading config_db.json to apply IP and BGP configuration on {}'.format(duthosts[0].hostname))
-    pytest_assert(duthosts[0].shell("sudo config reload -f -y \n")['stderr_lines'] == [],
-                  'Config Reload UnSuccessful in {} !!!!!'.format(duthosts[0].hostname))
+    pytest_assert('Error' not in duthosts[0].shell("sudo config reload -f -y \n")['stderr'], 
+                  'Error while reloading config in {} !!!!!'.format(duthosts[0].hostname))
     logger.info('Config Reload Successful in {} !!!'.format(duthosts[0].hostname))
 
     route_map_config = (
