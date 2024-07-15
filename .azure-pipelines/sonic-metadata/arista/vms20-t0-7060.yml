@@ -52,10 +52,10 @@ parameters:
 - name: VM_TYPE
   type: string
   displayName: "VM type of neighbor devices"
-  default: ceos
+  default: vsonic
   values:
-    - vsonic
-    - ceos
+  - vsonic
+  - ceos
 
 - name: FROM_IMAGE_LIST
   type: string
