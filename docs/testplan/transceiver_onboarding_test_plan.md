@@ -9,14 +9,14 @@ This test plan outlines a comprehensive framework for ensuring feature parity fo
 - **Firmware**: Check firmware version readability and compliance with vendor-suggested values, using regex for version pattern matching.
 - **DOM Data**: Ensure Digital Optical Monitoring (DOM) data is correctly read and within acceptable ranges.
 - **Flags and Alerts**: Confirm no unexpected flags (e.g., Loss of Signal (LOS), Loss of Lock (LOL), DOM warnings) are set.
-- **Firmware Management**: Test firmware upgrade and downgrade processes under various scenarios.
+- **Firmware Management**: Test firmware upgrade under various scenarios.
 - **Remote Reseat**: Verify support for remote reseat functionality.
 
 **Transceiver Specific Capabilities** (if available):
 
 - Adjustments to frequency and tx power.
 - Configuration of different Forward Error Correction (FEC) modes.
-- For breakout cables, ensure specific lanes are correctly modified by shut/no shut or lane specific commands.
+- For breakout cables, ensure specific lanes are correctly modified by shut/no shut or other lane specific commands.
 
 **Optics Scope**:
 The test plan includes various optics types, such as:
@@ -66,13 +66,13 @@ A total of 2 ports of a device with the onboarding transceiver should be connect
     +-----------------+     +-----------------+
     ```
 
-3. Topology with port connected between SONiC and a server using a Y-cable
+3. Topology with port connected between SONiC device and a server using a Y-cable
 
     ```text
     +-----------------+       +-----------------+
     |                 |<----->|Port 1           |
     |           Port 1|       |     Server      |
-    |    Device 1     |<----->|Port 2           |
+    |    Device       |<----->|Port 2           |
     |                 |       |                 |
     |                 |       |                 |
     +-----------------+       +-----------------+
@@ -91,7 +91,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
 **Pre-requisites for the Below Tests:**
 
-1. A file "transceiver_static_info.yaml" should be present to describe the metadata of the transceiver. Following should be the format of the file
+1. A file `transceiver_static_info.yaml` should be present to describe the metadata of the transceiver. Following should be the format of the file
 
     ```yaml
     topology:
@@ -115,17 +115,17 @@ The following tests aim to validate the link status and stability of transceiver
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
-| Issue CLI command to shutdown a port | Validate link status using CLI configuration | Ensure both local and remote sides are linked down |
-| Issue CLI command to startup a port | Validate link status using CLI configuration | Ensure both local and remote sides are linked up, and both ports appear in the LLDP table. For CMIS-supported transceivers, verify the CMIS state machine initializes the port successfully on the first attempt |
+| Issue CLI command to shutdown a port | Validate link status using CLI configuration | Ensure that the link goes down |
+| Issue CLI command to startup a port | Validate link status using CLI configuration | Ensure that the link is up and the port appears in the LLDP table. For CMIS-supported transceivers, verify the CMIS state machine initializes the port successfully on the first attempt |
 | In a loop, issue startup/shutdown command 100 times | Stress test for link status validation | Ensure link status toggles to up/down appropriately with each startup/shutdown command. Verify ports appear in the LLDP table when the link is up |
 | Restart `xcvrd` | Test link stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
 | Induce I2C errors and restart `xcvrd` | Test link stability in case of `xcvrd` restart + I2C errors | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
-| Restart `pmon` | Validate module re-initialization and link status post-process crash | Ensure `xcvrd` restarts and the expected port links up again, with port details visible in the LLDP table |
+| Restart `pmon` | Test link stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
 | Restart `swss` | Validate module re-initialization and link status post-process crash | Ensure `xcvrd` restarts and the expected port links up again, with port details visible in the LLDP table |
 | Restart `syncd` | Validate module re-initialization and link status post-process crash | Ensure `xcvrd` restarts and the expected port links up again, with port details visible in the LLDP table |
 | Perform a config reload | Test module re-initialization and link status | Ensure `xcvrd` restarts and the expected port links up again, with port details visible in the LLDP table |
 | Execute a cold reboot | Validate module re-initialization and link status post-device reboot | Confirm the expected port links up again post-reboot, with port details visible in the LLDP table |
-| Execute a warm reboot | Test link stability through the reboot process | Ensure `xcvrd` restarts and maintains link stability for the interested ports, with their presence confirmed in the LLDP table |
+| Execute a warm reboot | Test link stability through the warm reboot | Ensure `xcvrd` restarts and maintains link stability for the interested ports, with their presence confirmed in the LLDP table |
 
 **Note:** For CMIS-supported transceivers, it's crucial to monitor the CMIS state machine's behavior closely, especially during initialization and reboot scenarios, to ensure compatibility and performance within the SONiC environment.
 
@@ -135,13 +135,13 @@ The following tests aim to validate various functionalities of the transceiver u
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
-| Reset the module followed by issuing shutdown and then startup command | Module reset validation | Ensure both local and remote sides are linked down after reset, and the local port is in low power mode. The shutdown and startup commands are later issued to re-initialize the port and bring the link up |
-| Put module in low power mode followed by issuing shutdown and then startup command | Module low power mode validation | Ensure both local and remote sides are linked down after putting the module in low power mode. Ensure that the local port is in low power mode. The shutdown and startup commands are later issued to re-initialize the port and bring the link up |
+| Reset the module followed by issuing shutdown and then startup command | Module reset validation | Ensure that the port is linked down after reset and is in low power mode (if transceiver supports it). The shutdown and startup commands are later issued to re-initialize the port and bring the link up |
+| Put module in low power mode (if transceiver supports it) followed by issuing shutdown and then startup command | Module low power mode validation | Ensure that the port is linked down after putting the module in low power mode. Ensure that the port is in low power mode. The shutdown and startup commands are later issued to re-initialize the port and bring the link up |
 | Verify if transceiver presence works with CLI | Module presence validation | Ensure module presence is detected |
-| Verify EEPROM of the module using CLI | Module specific fields validation from EEPROM | Ensure module specific fields are matching with the values retrieved from "transceiver_static_info.yaml" file |
+| Verify EEPROM of the module using CLI | Module specific fields validation from EEPROM | Ensure module specific fields are matching with the values retrieved from `transceiver_static_info.yaml` file |
 | Verify EEPROM DOM of the module using CLI when interface is in shutdown and no shutdown state | EEPROM DOM validation | Ensure the fields are in line with the expectation based on interface shutdown/no shutdown state |
 | Verify EEPROM hexdump of the module using CLI | Module EEPROM hexdump validation | Ensure the output shows Lower Page (0h) and Upper Page (0h) for all 128 bytes on each page. Also, ensure that page 11h shows the Data Path state correctly |
-| Verify firmware version of the module using CLI | Firmware version validation | Ensure the active and inactive firmware version is in line with the expectation |
+| Verify firmware version of the module using CLI (requires disabling DOM config) | Firmware version validation | Ensure the active and inactive firmware version is in line with the expectation |
 | Verify different types of loopback | Module loopback validation | Ensure that the various supported types of loopback work on the module. The LLDP neighbor can also be used to verify the data path after enabling loopback |
 
 #### 1.3 sfpshow Command Tests
@@ -150,7 +150,7 @@ The following tests aim to validate various functionalities of the transceiver u
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
-| Verify transceiver specific information through CLI | Validate CLI relying on redis-db | Ensure module specific fields match the values retrieved from "transceiver_static_info.yaml" file |
+| Verify transceiver specific information through CLI | Validate CLI relying on redis-db | Ensure module specific fields match the values retrieved from `transceiver_static_info.yaml` file |
 | Verify DOM data is read correctly and is within an acceptable range | Validate CLI relying on redis-db | Ensure DOM data is read correctly and falls within the acceptable range |
 | Verify transceiver status when the interface is in shutdown and no shutdown state | Validate CLI relying on redis-db | Ensure the fields align with expectations based on the interface being in shutdown or no shutdown state |
 | Verify transceiver error-status | Validate CLI relying on redis-db | Ensure the relevant port is in an "OK" state |
@@ -163,14 +163,14 @@ All the firmware related tests assume that the DOM monitoring is disabled for th
 | Step | Goal | Expected Results |
 |------|------|------------------|
 | Download invalid firmware | Firmware download validation | Ensure that the active and inactive firmware versions do not change. Also, ensure no link flap is seen during this process. |
-| Execute “reboot” or kill the process which is downloading the firmware | Firmware download validation | Ensure that the active and inactive firmware versions do not change. Also, ensure no link flap is seen during this process. |
+| Execute `reboot` or kill the process which is downloading the firmware | Firmware download validation | Ensure that the active and inactive firmware versions do not change. Also, ensure no link flap is seen during this process. |
 | Download firmware which is valid | Firmware download validation | Look for a “Firmware download complete success” message to confirm if the firmware is downloaded successfully. Also, a return code of 0 will denote CLI executed successfully. The inactive firmware version should show the firmware which was downloaded, and also ensure no link flap is seen. |
 | Execute module reset after firmware download | Firmware download validation | Ensure that the active and inactive firmware versions do not change. Ensure the link goes down after the module reset is performed, and then perform shutdown followed by startup to bring the link up. |
-| Execute firmware run command | Firmware run validation | Look for a “Firmware run in mode=0 success” message to confirm if the firmware is successfully running. Also, a return code of 0 will denote CLI executed successfully. With the firmware version dump CLI, ensure the “Active Firmware” shows the new firmware version. |
-| Execute firmware commit command | Firmware commit validation | Look for a “Firmware commit successful” message. Please do not proceed further if this message is not seen. Also, a return code of 0 will denote CLI executed successfully. With the firmware version dump CLI, ensure the “Committed Image” field is updated with the relevant bank. Also, ensure no link flap is seen during this process. |
+| Execute firmware run command (with port in shutdown state) | Firmware run validation | Look for a “Firmware run in mode=0 success” message to confirm if the firmware is successfully running. Also, a return code of 0 will denote CLI executed successfully. With the firmware version dump CLI, ensure the “Active Firmware” shows the new firmware version. |
+| Execute firmware commit command (with port in shutdown state) | Firmware commit validation | Look for a “Firmware commit successful” message. Please do not proceed further if this message is not seen. Also, a return code of 0 will denote CLI executed successfully. With the firmware version dump CLI, ensure the “Committed Image” field is updated with the relevant bank. |
 | Execute module reset post firmware run | Firmware run validation | Ensure that the active and inactive firmware versions are the same as what was captured before initiating the firmware run. |
 
-#### 1.5 Remote Reseat Testing
+#### 1.5 Remote Reseat related tests
 
 The following tests aim to validate the functionality of remote reseating of the transceiver module.
 
