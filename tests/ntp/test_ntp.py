@@ -39,9 +39,9 @@ def config_long_jump(duthost, enable=False):
             regex = "s/NTPD_OPTS='-g'/NTPD_OPTS='-x'/"
 
     if using_ntpsec:
-        duthost.command("sed -i '%s' /etc/default/ntpsec" % regex)
+        duthost.command("sudo sed -i '%s' /etc/default/ntpsec" % regex)
     else:
-        duthost.command("sed -i %s /etc/default/ntp" % regex)
+        duthost.command("sudo sed -i %s /etc/default/ntp" % regex)
     duthost.service(name='ntp', state='restarted')
 
 
