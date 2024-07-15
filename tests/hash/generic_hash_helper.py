@@ -59,6 +59,7 @@ vlans_to_remove = []
 interfaces_to_startup = []
 balancing_test_times = 240
 balancing_range = 0.25
+balancing_range_in_port = 0.8
 vxlan_ecmp_utils = VxLAN_Ecmp_Utils()
 vxlan_port_list = [13330, 4789]
 restore_vxlan = False
@@ -72,6 +73,15 @@ def get_supported_hash_algorithms(request):
     else:
         supported_hash_algorithm_list = DEFAULT_SUPPORTED_HASH_ALGORITHM[:]
     return supported_hash_algorithm_list
+
+
+@pytest.fixture(scope="module")
+def get_balance_range_for_ingress_port_field(request):
+    asic_type = get_asic_type(request)
+    if asic_type in 'mellanox':
+        return balancing_range_in_port
+    else:
+        return balancing_range
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -646,7 +656,7 @@ def get_vlan_intf_mac(duthost):
 
 
 def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipver, encap_type, uplink_interfaces,
-                         downlink_interfaces, ecmp_hash, lag_hash, is_l2_test=False):
+                         downlink_interfaces, ecmp_hash, lag_hash, is_l2_test=False, balancing_range=balancing_range):
     """
     Generate ptf test parameters.
     Args:
@@ -661,6 +671,7 @@ def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipv
         lag_hash: if lag hash is tested
         encap_type: the encapsulation type when testing inner fields
         is_l2_test: if L2 traffic is should be used in test
+        balancing_range: hash result deviation threshold
     """
     src_ip_range, dst_ip_range, inner_src_ip_range, inner_dst_ip_range = get_ip_range(ipver, inner_ipver)
     # Get the ptf src and dst ports
