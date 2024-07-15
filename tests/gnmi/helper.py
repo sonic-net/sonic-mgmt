@@ -251,3 +251,21 @@ def gnoi_reboot(duthost, method, delay, message):
         return -1, output['stderr']
     else:
         return 0, output['stdout']
+
+
+def gnoi_request(duthost, localhost, rpc, request_json_data):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    ip = duthost.mgmt_ip
+    port = env.gnmi_port
+    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
+    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
+    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-logtostderr -rpc {} ".format(rpc)
+    cmd += f'-jsonin \'{request_json_data}\''
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    if output['stderr']:
+        logger.error(output['stderr'])
+        return -1, output['stderr']
+    else:
+        return 0, output['stdout']
