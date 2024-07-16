@@ -190,15 +190,17 @@ docker_registry_password: root
 ### inventory file:
 
 The inventory file contains all device host/IP information for testbeds within its inventory.
-For example, the testbed `vms-sn2700-t1` uses the inventory file lab (`inv_name: lab` in `testbed.yaml`).
+For example, the testbed `vms-sn2700-t1` uses the inventory file lab ( seecified by `inv_name: lab` in `testbed.yaml`).
 
-The `ansible/lab` inventory file includes three sections of devices:
+The `ansible/lab` inventory file includes three types of section for different devices:
 - sonic
 - fanout/pdu/mgmt/server
 - ptf
 
-Under `sonic` sections, it has several different SONiC platforms, such as `sonic_sn2700_40`.
-Please ensure that the following fields are correctly filled for your DUT. The test case `tests/platform_tests/api/test_chassis.py` will verify the correctness of these fields.
+1. sonic Section
+
+The sonic section lists various SONiC platforms, such as `sonic_sn2700_40`, `sonic_a7260`, etc.
+Ensure that the following fields are correctly filled for your Device Under Test (DUT):
 
 ```
 sonic_sn2700_40:
@@ -224,16 +226,52 @@ sonic_sn2700_40:
         "0x2B": "Mellanox"
         "0xFE": "0xFBA1E964"
 ```
+- `iface_speed` is the speed of DUT's interface. For a 40G switch, `iface_speed` should be 40000; for a 100G switch, it should be 100000. The test `iface_namingmode/test_iface_namingmode.py` will fail if iface_speed is missing or incorrect.
 
-For the `fanout`, `pdu`, `mgmt`, and `server` sections, those record the hostname and IP address of the respective fanout switch, PDU, or console server.
+- For the fields under `syseeprom_info`,  the EEPROM type descriptions are defined in `test_chassis.py` as follows:
+
+```
+# Valid OCP ONIE TlvInfo EEPROM type codes as defined here:
+# https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
+ONIE_TLVINFO_TYPE_CODE_PRODUCT_NAME = '0x21'    # Product Name
+ONIE_TLVINFO_TYPE_CODE_PART_NUMBER = '0x22'     # Part Number
+ONIE_TLVINFO_TYPE_CODE_SERIAL_NUMBER = '0x23'   # Serial Number
+ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR = '0x24'   # Base MAC Address
+ONIE_TLVINFO_TYPE_CODE_MFR_DATE = '0x25'        # Manufacture Date
+ONIE_TLVINFO_TYPE_CODE_DEVICE_VERSION = '0x26'  # Device Version
+ONIE_TLVINFO_TYPE_CODE_LABEL_REVISION = '0x27'  # Label Revision
+ONIE_TLVINFO_TYPE_CODE_PLATFORM_NAME = '0x28'   # Platform Name
+ONIE_TLVINFO_TYPE_CODE_ONIE_VERSION = '0x29'    # ONIE Version
+ONIE_TLVINFO_TYPE_CODE_NUM_MACS = '0x2A'        # Number of MAC Addresses
+ONIE_TLVINFO_TYPE_CODE_MANUFACTURER = '0x2B'    # Manufacturer
+ONIE_TLVINFO_TYPE_CODE_COUNTRY_CODE = '0x2C'    # Country Code
+ONIE_TLVINFO_TYPE_CODE_VENDOR = '0x2D'          # Vendor
+ONIE_TLVINFO_TYPE_CODE_DIAG_VERSION = '0x2E'    # Diag Version
+ONIE_TLVINFO_TYPE_CODE_SERVICE_TAG = '0x2F'     # Service Tag
+ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
+ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
+```
+
+- `show platform syseeprom` can get some of these values,
+- The command `show platform syseeprom` can retrieve some of these values. The test case `tests/platform_tests/api/test_chassis.py` verifies the correctness of these fields. If some fields are unknown, running the test will show expected values for the unfilled fields, providing a summary of discrepancies. The summary looks like this:
+
+```
+Failed: 'base_mac' value is incorrect. Got '74:83:ef:63:e2:86', expected '74:83:ef:63:e2:87'
+```
+
+2. Fanout, PDU, Mgmt and Server Sections
+
+Those record the hostname and IP address of the respective fanout switch, PDU, or console server.
 Those devices are also recorded in the following csv files:
 
 - `ansible/files/sonic_lab_devices.csv`
 - `ansible/files/sonic_lab_pdu_links.csv`
 - `ansible/files/sonic_lab_console_links.csv`
 
-For `ptf` section, the `ansible_ssh_user` and `ansible_ssh_pass` variables are the credentials for the PTF container.
-`ansible_host` should be same with `ptf_ip` in `testbed.yaml`.
+3. `ptf` Section
+
+In `ptf` section the `ansible_ssh_user` and `ansible_ssh_pass` variables specify the credentials for the PTF container.
+`ansible_host` should match the `ptf_ip` in `testbed.yaml`.
 
 ```
     ptf:
@@ -245,6 +283,9 @@ For `ptf` section, the `ansible_ssh_user` and `ansible_ssh_pass` variables are t
           ansible_host: 10.255.0.188
           ansible_hostv6: 2001:db8:1::1/64
 ```
+
+Ensure that these configurations are correct to facilitate proper communication and testing within the testbed environment.
+
 
 # Testbed Processing Script
 **NOTE**:

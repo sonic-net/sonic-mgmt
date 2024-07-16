@@ -15,7 +15,6 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -158,6 +157,9 @@ def is_mellanox_devices(hwsku):
 
 def is_mellanox_fanout(duthost, localhost):
     # Ansible localhost fixture which calls ansible playbook on the local host
+
+    if duthost.facts.get("asic_type") == "vs":
+        return False
 
     try:
         dut_facts = \

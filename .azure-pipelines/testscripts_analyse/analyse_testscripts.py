@@ -40,7 +40,7 @@ from report_data_storage import KustoConnector
 
 
 def topo_name_to_type(topo_name):
-    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu|any)')
+    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|mgmttor|m0|mc0|mx|dpu|any|snappi)')
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
@@ -52,6 +52,8 @@ def topo_name_to_type(topo_name):
         topo_type = 't0'
     if topo_type in ['mc0']:
         topo_type = 'm0'
+    if topo_type in ['multidut-tgen']:
+        topo_type = 'tgen'
     return topo_type
 
 
@@ -117,7 +119,23 @@ def get_PRChecker_scripts():
     except Exception as e:
         logging.error('Failed to load file {}, error {}'.format(f, e))
 
+    # Get all the skip scripts
+    pr_test_skip_scripts_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../",
+                                             "pr_test_skip_scripts.yaml")
+    pr_test_skip_scripts = {}
+    try:
+        with open(pr_test_skip_scripts_file) as f:
+            pr_test_skip_scripts = yaml.safe_load(f)
+    except Exception as e:
+        logging.error('Failed to load file {}, error {}'.format(f, e))
+
     topology_type_pr_test_scripts = {}
+
+    for key, value in pr_test_skip_scripts.items():
+        if key in pr_test_scripts:
+            pr_test_scripts[key].extend(value)
+        else:
+            pr_test_scripts[key] = value
 
     for key, value in pr_test_scripts.items():
         topology_type = PR_TOPOLOGY_MAPPING.get(key, "")
@@ -178,7 +196,6 @@ def main():
             script["category"] = "data"
         else:
             script["category"] = "control"
-
     upload_results(expanded_test_scripts)
 
 
