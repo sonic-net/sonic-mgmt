@@ -284,7 +284,7 @@ def run_pfc_test(api,
 
     test_check = test_def['test_check']
     if (not test_check['loss_expected']):
-        # Check for loss packets on IXIA and DUT.
+        # Check for packet loss on IXIA and DUT.
         pytest_assert(test_stats['tgen_loss_pkts'] == 0, 'Loss seen on TGEN')
         pytest_assert(test_stats['dut_loss_pkts'] == 0, 'Loss seen on DUT')
 
@@ -301,16 +301,26 @@ def run_pfc_test(api,
                       'Losses observed in lossy traffic streams on DUT Tx and IXIA Rx')
     else:
         # Check for lossless and lossy stream percentage drop for a given tolerance limit.
-        lossless_drop = (1 - test_stats['tgen_lossless_rx_pkts'] / test_stats['tgen_lossless_tx_pkts']) * 100
-        lossy_drop = (1 - test_stats['tgen_lossy_rx_pkts'] / test_stats['tgen_lossy_tx_pkts']) * 100
-        pytest_assert(lossless_drop < test_check['lossless'], 'Lossless packet drop outside tolerance limit')
-        pytest_assert(lossy_drop < test_check['lossy'], 'Lossy packet drop outside tolerance limit')
+        lossless_drop = round((1 - float(test_stats['tgen_lossless_rx_pkts']) / test_stats['tgen_lossless_tx_pkts']), 2)
+        lossy_drop = round((1 - float(test_stats['tgen_lossy_rx_pkts']) / test_stats['tgen_lossy_tx_pkts']), 2)
+        logger.info('Lossless Drop %:{}, Lossy Drop %:{}'.format(lossless_drop, lossy_drop))
+        pytest_assert((lossless_drop*100) <= test_check['lossless'], 'Lossless packet drop outside tolerance limit')
+        pytest_assert((lossy_drop*100) <= test_check['lossy'], 'Lossy packet drop outside tolerance limit')
 
     # Checking if the actual line rate on egress is within tolerable limit of egress line speed.
-    pytest_assert(((1 - test_stats['tgen_rx_rate'] / float(port_map[2]*port_map[3]))*100) < test_check['speed_tol'],
+    pytest_assert(((1 - test_stats['tgen_rx_rate'] / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol'],
                   'Egress speed beyond tolerance range')
 
-    # import pdb; pdb.set_trace()
+    # Checking for PFC counts on DUT
+    if (not test_check['pfc']):
+        pytest_assert(test_stats['lossless_tx_pfc'] == 0, 'Error:PFC transmitted by DUT for lossless priorities')
+        pytest_assert(test_stats['lossy_rx_tx_pfc'] == 0, 'Error:PFC transmitted by DUT for lossy priorities')
+    else:
+        if (test_stats['lossless_rx_pfc'] != 0):
+            pytest_assert(test_stats['lossless_tx_pfc'] > 0, 'Error:No Tx PFCs from DUT after receiving PFCs')
+        pytest_assert(test_stats['lossless_tx_pfc'] > 0, 'Error: PFC not be transmitted from DUT on congestion')
+        pytest_assert(test_stats['lossy_rx_tx_pfc'] == 0, 'Error:Incorrect Rx/Tx PFCs on DUT for lossy priorities')
+
     # Reset pfc delay parameter
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0

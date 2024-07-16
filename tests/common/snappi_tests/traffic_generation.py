@@ -1245,11 +1245,20 @@ def run_sys_traffic(rx_duthost,
                         test_stats['dut_lossy_pkts'] += val
                     f.write('{}:{} \n'.format(key, val))
 
+        test_stats['lossless_tx_pfc'] = 0
+        test_stats['lossless_rx_pfc'] = 0
+        test_stats['lossy_rx_tx_pfc'] = 0
         f.write('Received or Transmitted PFC counts \n')
         for item in results:
             if ('egl-board' in item and 'pfc' in item):
                 if (df_t[item].max() != 0):
                     f.write('{} : {} \n'.format(item, df_t[item].max()))
+                    if (('tx_pfc_3' in item) or ('tx_pfc_4' in item)):
+                        test_stats['lossless_tx_pfc'] += int(df_t[item].max())
+                    elif (('rx_pfc_3' in item) or ('rx_pfc_4' in item)):
+                        test_stats['lossless_rx_pfc'] += int(df_t[item].max())
+                    else:
+                        test_stats['lossy_rx_tx_pfc'] += int(df_t[item].max())
 
     fname = fname + '.csv'
     logger.info('Writing statistics to file : {}'.format(fname))
