@@ -17,7 +17,7 @@ from enum import Enum
 __metaclass__ = type
 BUILDIMAGE_REPO_FLAG = "buildimage"
 MGMT_REPO_FLAG = "sonic-mgmt"
-INTERNAL_REPO_LIST = ["Networking-acs-buildimage", "sonic-mgmt-int"]
+INTERNAL_REPO_LIST = ["Networking-acs-buildimage", "sonic-mgmt-int", "sonic-metadata"]
 GITHUB_SONIC_MGMT_REPO = "https://github.com/sonic-net/sonic-mgmt"
 INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
