@@ -176,7 +176,7 @@ class Sonic(host_device.HostDevice):
         logs_to_output = {log_file: self.do_cmd("sudo cat {}".format(log_file)).split('\n')
                           for log_file in log_files}
         log_lines = [line for output in logs_to_output.values() for line in output]
-        syslog_regex_r = r'^(\S+\s+\d+\s+\d+:\d+:\d+)\.\d+ \S+ [A-Z]+ ([a-z\-]+#[/a-zA-Z0-9_]+)' \
+        syslog_regex_r = r'^(?:\d{4}\s+)?(\S+\s+\d+\s+\d+:\d+:\d+)\.\d+ \S+ [A-Z]+ ([a-z\-]+#[/a-zA-Z0-9_]+)' \
             r'(?:\s+\d+-\d+-\d+\s+\d+:\d+:\d+,\d+\s+[A-Z]+\s+\w+)?(?:\[\d+\])?: (.+)$'
         parsed_logs = {}
         total_lag_flaps = 0
