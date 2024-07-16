@@ -16,7 +16,6 @@ from tests.common.dualtor.mux_simulator_control import get_mux_status, check_mux
     toggle_all_simulator_ports, toggle_simulator_port_to_upper_tor              # noqa F401
 from tests.common.dualtor.constants import LOWER_TOR
 from tests.common.utilities import wait_until
-from tests.conftest import get_tbinfo
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -48,10 +47,9 @@ def check_if_ssd(duthost):
 def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
     testing_mode = request.param
     duthost = duthosts[rand_one_dut_hostname]
-    tbname, _ = get_tbinfo(request)
     is_ssd = check_if_ssd(duthost)
     neighbor_type = request.config.getoption("--neighbor_type")
-    if '7050' in tbname and not is_ssd and neighbor_type == 'eos':
+    if duthost.facts['platform'] == 'x86_64-arista_7050cx3_32s' and not is_ssd and neighbor_type == 'eos':
         pytest.skip("skip advanced reboot tests on 7050 devices without SSD")
     if 'dualtor' in tbinfo['topo']['name']:
         if testing_mode == SINGLE_TOR_MODE:
