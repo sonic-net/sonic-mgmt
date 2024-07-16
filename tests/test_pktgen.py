@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.device_type('cisco-8000')
+    pytest.mark.asic('cisco-8000')
 ]
 
 ignoreRegex = [
