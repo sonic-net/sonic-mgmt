@@ -885,16 +885,6 @@ nat:
       - "'nat' not in feature_status"
 
 #######################################
-#####           ntp               #####
-#######################################
-ntp/test_ntp.py::test_ntp_long_jump_disabled:
-  # Due to NTP code bug, long jump will still happen after disable it.
-  # Set xfail flag for this test case
-  xfail:
-    strict: True
-    reason: "Known NTP bug"
-
-#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:

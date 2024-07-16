@@ -146,8 +146,8 @@ def test_ntp_long_jump_disabled(duthosts, rand_one_dut_hostname, setup_ntp, setu
 
     config_long_jump(duthost, enable=False)
 
-    if wait_until(720, 10, 0, check_ntp_status, duthost):
-        pytest.fail("NTP long jump disable failed")
+    pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost),
+                  "NTP long jump disable failed")
 
 
 def run_ntp(duthosts, rand_one_dut_hostname, setup_ntp):
