@@ -45,7 +45,7 @@ def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):
 
         # Get current forced mgmt routes
         forced_mgmt_routes_config = duthost.command("sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@"
-                                                      .format(interface_key))['stdout']
+                                                    .format(interface_key))['stdout']
 
         original_forced_mgmt_routes = []
         if forced_mgmt_routes_config != "":
@@ -64,30 +64,24 @@ def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):
                       .format(interface_address, original_forced_mgmt_routes, updated_forced_mgmt_routes))
 
         def update_forced_mgmt_route(duthost, routes):
-            current_forced_mgmt_routes_config = duthost.command("sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@"
-                                                                                        .format(interface_key))['stdout']
-            operation = "add"
-            if current_forced_mgmt_routes_config != "":
-                operation = "replace"
-
             # Escape '/' in interface key
-            mgmt_interface_path = "/MGMT_INTERFACE/eth0|{}/forced_mgmt_routes".format(interface_address.replace("/", "~1"))
-            json_patch = None
+            json_patch = [
+                {
+                    "path": "/MGMT_INTERFACE/eth0|{}/forced_mgmt_routes".format(interface_address.replace("/", "~1"))
+                }
+            ]
+
             if len(routes) == 0:
-                json_patch = [
-                    {
-                        "op": "remove",
-                        "path": mgmt_interface_path
-                    }
-                 ]
+                json_patch[0]["op"] = "remove"
             else:
-                json_patch = [
-                    {
-                        "op": operation,
-                        "path": mgmt_interface_path,
-                        "value": routes
-                    }
-                ]
+                json_patch[0]["value"] = routes
+                # Replace if forced_mgmt_routes already exist
+                current_config = duthost.command("sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@"
+                                                 .format(interface_key))['stdout']
+                if current_config != "":
+                    json_patch[0]["op"] = "replace"
+                else:
+                    json_patch[0]["op"] = "add"
 
             tmpfile = generate_tmpfile(duthost)
             try:
