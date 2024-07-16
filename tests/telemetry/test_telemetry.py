@@ -39,7 +39,7 @@ def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, iface, gnmi_port):
     for i in range(MAX_UC_CNT):
         cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} \
             -p {1} -m get -x COUNTERS_QUEUE_NAME_MAP/{2}:{3} \
-            -xt COUNTERS_DB -o "ndastreamingservertest" \
+            -xt COUNTERS_DB -o "ndastreamingservertest" -n \
             '.format(dut_ip, gnmi_port, iface, i)
 
         cmd_output = ptfhost.shell(cmd, module_ignore_errors=True)
@@ -105,9 +105,7 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
             pytest_assert(str(v) == status_expected,
                           "Telemetry feature is not enabled")
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, gnxi_path):
+def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -118,7 +116,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
     cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt \
-        COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
+        COUNTERS_DB -o "ndastreamingservertest" -n'.format(dut_ip, env.gnmi_port)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
@@ -128,9 +126,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                                    setup_streaming_telemetry, gnxi_path):
+def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """
     Run pyclient from ptfdocker and check number of queue counters to check
     correctness of the feature of polling only configured port buffer queues.
@@ -182,8 +178,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     pytest_assert(pre_del_cnt > post_del_cnt,
                   "Number of queue counters count differs from expected")
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
+def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """ Test osbuild/version query.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -198,8 +193,7 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gn
     assert_equal(len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)),
                  0, "invalid build_version value at {0}".format(result))
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
+def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
               whether the value of 'system uptime' was float number and whether the value was
@@ -211,7 +205,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
     cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
-           -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
+           -o "ndastreamingservertest" -n'.format(dut_ip, env.gnmi_port)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_1st = 0
     found_system_uptime_field = False
@@ -247,8 +241,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
+def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
     logger.info('start virtual db sample streaming testing')
@@ -276,8 +269,7 @@ def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
     assert ret["rc"] == 0, "PTF docker did not get a response"
     callback(ret["stdout"])
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
+def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     logger.info("Testing on change update notifications")
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_supervisor_node():
@@ -320,9 +312,8 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     duthost.shell(cmd)
     client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 @pytest.mark.disable_loganalyzer
-def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path, virtualdb_table_streaming):
+def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
     """Test whether memory usage of telemetry container will exceed threshold
     if python gNMI client continuously creates channels with gNMI server.
     """
