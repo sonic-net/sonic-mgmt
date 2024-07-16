@@ -51,11 +51,11 @@ def run_pfcwd_runtime_traffic_test(api,
     # Traffic flow:
     # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
 
-    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    rx_port = snappi_extra_params.rx_port
     egress_duthost = rx_port['duthost']
     rx_port_id = snappi_extra_params.rx_port_id
 
-    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    tx_port = snappi_extra_params.tx_port
     ingress_duthost = tx_port['duthost']
     tx_port_id = snappi_extra_params.tx_port_id
 
