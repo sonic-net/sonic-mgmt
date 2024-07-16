@@ -196,8 +196,7 @@ def main():
             script["category"] = "data"
         else:
             script["category"] = "control"
-    print(expanded_test_scripts)
-    # upload_results(expanded_test_scripts)
+    upload_results(expanded_test_scripts)
 
 
 if __name__ == '__main__':
