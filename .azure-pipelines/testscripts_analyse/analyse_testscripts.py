@@ -137,7 +137,7 @@ def get_PRChecker_scripts():
         else:
             pr_test_scripts[key] = value
 
-    for key, value in pr_test_skip_scripts.items():
+    for key, value in pr_test_scripts.items():
         topology_type = PR_TOPOLOGY_MAPPING.get(key, "")
         if topology_type:
             if topology_type_pr_test_scripts.get(topology_type, ""):
