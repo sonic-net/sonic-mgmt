@@ -66,16 +66,23 @@ A total of 2 ports of a device with the onboarding transceiver should be connect
     +-----------------+     +-----------------+
     ```
 
-3. Topology with port connected between SONiC device and a server using a Y-cable
+3. Topology with port connected between SONiC device and 2 servers using a Y-cable
 
     ```text
-    +-----------------+       +-----------------+
-    |                 |<----->|Port 1           |
-    |           Port 1|       |     Server      |
-    |    Device       |<----->|Port 2           |
-    |                 |       |                 |
-    |                 |       |                 |
-    +-----------------+       +-----------------+
+                               +-----------------+
+                               |                 |
+                               |     Server 1    |
+    +-----------------+        |                 |
+    |                 |    +-->| Port            |
+    |                 |    |   |                 |
+    |   SONiC Device  |    |   +-----------------+
+    |                 |<---+   +-----------------+
+    |                 |    |   |                 |
+    |                 |    |   |     Server 2    |
+    +-----------------+    +-->| Port            |
+                               |                 |
+                               |                 |
+                               +-----------------+
     ```
 
 ## Test Cases
@@ -185,8 +192,10 @@ The following tests aim to validate the functionality of remote reseating of the
 | Issue CLI command to startup the port | Remote reseat validation | Ensure both local and remote sides are linked up and both ports are seen in the LLDP table. For CMIS supported transceivers, ensure the CMIS state machine initializes the port in the first attempt |
 | Issue CLI command to enable DOM monitoring for the port | Remote reseat validation | Ensure that the DOM monitoring is enabled for the port |
 
-
 #### CLI commands
+
+**Note**
+For all tests requiring to verify messages from syslog, it is implicit that the test case also ensures to parse logs which are relevant to the timings of the test execution.
 
 Issuing shutdown command for a port
 ```
@@ -226,10 +235,10 @@ For disable: "dom_polling" = "disabled"
 Check if CMIS initialization is successful in 1st attempt
 ```
 1. Ensure the o/p "CMIS: <port>: READY" is seen upon executing the below command
-sudo cat /var/log/syslog | grep READY
+show logging | grep READY
 
 2. To ensure CMIS initialization is successful in 1st attempt, execute the below command and ensure not o/p is seen
-cat syslog | grep $lport | grep DP_ACTIVATION | grep -v retries=0
+show logging | grep PORT | grep DP_ACTIVATION | grep -v retries=0
 ```
 
 Restart xcvrd
@@ -241,13 +250,13 @@ docker exec pmon supervisorctl restart xcvrd
 Ensure from syslogs that xcvrd has restarted (below command should return the o/p being searched for)
 
 ```
-sudo cat /var/log/syslog | grep "SfpStateUpdateTask: Posted all port DOM/SFP info to DB"
+show logging | grep "SfpStateUpdateTask: Posted all port DOM/SFP info to DB"
 ```
 
 Ensure from syslogs that no link flap was observed for any ports (below command should return no o/p)
 
 ```
-sudo cat /var/log/syslog | grep updatePort
+show logging | grep updatePort
 ```
 
 Restart pmon
