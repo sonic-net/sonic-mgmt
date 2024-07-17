@@ -163,7 +163,7 @@ def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, pt
     # Update DEVICE_METADATA table to trigger onchange event
     def worker(duthost, run_flag):
         for i in range(100):
-            if run_flag.value == False:
+            if not run_flag.value:
                 break
             time.sleep(0.5)
             cmd = "sonic-db-cli CONFIG_DB hdel \"DEVICE_METADATA|localhost\" bgp_asn "

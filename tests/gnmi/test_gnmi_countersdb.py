@@ -4,7 +4,6 @@ import re
 
 from .helper import gnmi_get, gnmi_subscribe_polling, gnmi_subscribe_streaming_sample
 from tests.common.helpers.assertions import pytest_assert
-from tests.common import config_reload
 
 
 logger = logging.getLogger(__name__)
