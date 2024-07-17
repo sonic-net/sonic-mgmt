@@ -1,8 +1,12 @@
 import json
 import logging
 import pytest
+import multiprocessing
+import time
 
 from .helper import gnmi_set, gnmi_get, gnoi_reboot
+from .helper import gnmi_subscribe_polling
+from .helper import gnmi_subscribe_streaming_sample, gnmi_subscribe_streaming_onchange
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -103,6 +107,79 @@ def test_gnmi_configdb_incremental_02(duthosts, rand_one_dut_hostname, ptfhost):
         logger.info("Incremental config failed: " + str(e))
     else:
         pytest.fail("Set request with invalid path")
+
+
+test_data_metadata = [
+    {
+        "name": "Subscribe table for DEVICE_METADATA",
+        "path": "/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA"
+    },
+    {
+        "name": "Subscribe table key for DEVICE_METADATA",
+        "path": "/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost"
+    },
+    {
+        "name": "Subscribe table field for DEVICE_METADATA",
+        "path": "/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA/localhost/bgp_asn"
+    }
+]
+
+
+@pytest.mark.parametrize('test_data', test_data_metadata)
+def test_gnmi_configdb_polling_01(duthosts, rand_one_dut_hostname, ptfhost, test_data):
+    '''
+    Verify GNMI subscribe API, streaming onchange mode
+    Subscribe polling mode
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    exp_cnt = 3
+    path_list = [test_data["path"]]
+    msg = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
+    assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
+
+
+@pytest.mark.parametrize('test_data', test_data_metadata)
+def test_gnmi_configdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptfhost, test_data):
+    '''
+    Verify GNMI subscribe API, streaming onchange mode
+    Subscribe streaming sample mode
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    exp_cnt = 5
+    path_list = [test_data["path"]]
+    msg = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
+
+
+@pytest.mark.parametrize('test_data', test_data_metadata)
+def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, ptfhost, test_data):
+    '''
+    Verify GNMI subscribe API, streaming onchange mode
+    Subscribe streaming onchange mode
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    run_flag = multiprocessing.Value('I', True)
+
+    # Update DEVICE_METADATA table to trigger onchange event
+    def worker(duthost, run_flag):
+        for i in range(100):
+            if run_flag.value == False:
+                break
+            time.sleep(0.5)
+            cmd = "sonic-db-cli CONFIG_DB hdel \"DEVICE_METADATA|localhost\" bgp_asn "
+            duthost.shell(cmd, module_ignore_errors=True)
+            time.sleep(0.5)
+            cmd = "sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" bgp_asn " + str(i+1000)
+            duthost.shell(cmd, module_ignore_errors=True)
+
+    client_task = multiprocessing.Process(target=worker, args=(duthost, run_flag,))
+    client_task.start()
+    exp_cnt = 5
+    path_list = [test_data["path"]]
+    msg = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, exp_cnt*2)
+    run_flag.value = False
+    client_task.join()
+    assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
 
 
 def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
