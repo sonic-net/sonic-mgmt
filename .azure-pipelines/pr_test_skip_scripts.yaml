@@ -86,8 +86,6 @@ t1:
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
   - snmp/test_snmp_phy_entity.py
-  # Not supported port type
-  - sub_port_interfaces/test_sub_port_l2_forwarding.py
 
 t2:
   # KVM do not support bfd test
