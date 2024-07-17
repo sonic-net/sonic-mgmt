@@ -1,14 +1,14 @@
 import logging
 import sys
 import os
-import copy
 import json
 from datetime import datetime, time, timedelta
-from collections import Counter
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 from azure.loganalytics import LogAnalyticsDataClient
 from azure.loganalytics.models import QueryBody
-from azure.common.credentials import ServicePrincipalCredentials
+from azure.core.credentials import AccessToken
+from requests import Session
+
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,9 +17,9 @@ DATABASE = 'SonicTestData'
 ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
 cluster = ingest_cluster.replace('ingest-', '')
 access_token = os.environ.get('ACCESS_TOKEN', None)
+log_analytics_token = os.getenv("LOG_ANALYTICS_ACCESS_TOKEN")
 workspace_id = os.getenv("ELASTICTEST_LOG_ANALYTICS_WORKSPACE_ID")
 client_id = os.getenv("ELASTICTEST_MSAL_CLIENT_ID")
-client_secret = os.getenv("ELASTICTEST_MSAL_CLIENT_SECRET")
 tenant_id = os.getenv("ELASTICTEST_MSAL_TENANT_ID")
 
 
@@ -288,10 +288,29 @@ def add_data_to_dict(data_dict, testplan, key, value):
     return data_dict
 
 
+class AccessTokenCredential:
+    def __init__(self, token):
+        self.token = token
+
+    def get_token(self):
+        return AccessToken(self.token, float('inf'))
+
+    def signed_session(self, session=None):
+        if not session:
+            session = self.create_session()
+        session.headers.update({
+            "Authorization": f"Bearer {self.token}"
+        })
+        return session
+
+    def create_session(self):
+        return Session()
+
+
 def main():
     kusto_conn_str_builder = KustoConnectionStringBuilder.with_aad_application_token_authentication(cluster, access_token)
     client_kusto = KustoClient(kusto_conn_str_builder)
-    credentials = ServicePrincipalCredentials(client_id=client_id, secret=client_secret, tenant=tenant_id, resource='https://api.loganalytics.io')
+    credentials = AccessTokenCredential(log_analytics_token)
     client_loganalytics = LogAnalyticsDataClient(credentials, base_url=None)
 
     missing_data = {}

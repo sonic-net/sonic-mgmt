@@ -1435,7 +1435,6 @@
         "scripts": [
             {
                 "scripts": [
-                    "syslog.test_logrotate",
                     "syslog.test_syslog",
                     "syslog.test_syslog_rate_limit"
                 ],
@@ -1450,6 +1449,13 @@
                         "email": "lawlee@microsoft.com"
                     }
                 ]
+            },
+            {
+                "scripts": [
+                    "syslog.test_logrotate"
+                ],
+                "owner": "Vasundhara Volam",
+                "email": "vvolam@microsoft.com"
             }
         ]
     },
