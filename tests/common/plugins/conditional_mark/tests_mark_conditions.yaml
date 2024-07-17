@@ -1627,15 +1627,15 @@ vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
   skip:
     reason: "Unsupported platform."
     conditions:
-      - "asic_type not in ['mellanox', 'barefoot']"
+      - "asic_type not in ['mellanox', 'barefoot', 'cisco-8000']"
 
 vlan/test_vlan_ping.py:
   skip:
-    reason: "test_vlan_ping doesn't work on Broadcom platform. Ignored on dualtor topo and mellanox and Cisco-8000 setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9642."
+    reason: "test_vlan_ping doesn't work on Broadcom platform. Ignored on dualtor topo and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9642."
     conditions_logical_operator: OR
     conditions:
       - "asic_type in ['broadcom']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/9642 and 'dualtor' in topo_name and asic_type in ['mellanox', 'cisco-8000']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/9642 and 'dualtor' in topo_name and asic_type in ['mellanox']"
 
 #######################################
 #####             voq             #####
