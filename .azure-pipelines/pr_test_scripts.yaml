@@ -296,7 +296,6 @@ dpu:
 onboarding_t0:
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - bgp/test_bgp_peer_shutdown.py
-  - cacl/test_ebtables_application.py
   - clock/test_clock.py
   - generic_config_updater/test_dynamic_acl.py
   - generic_config_updater/test_pfcwd_status.py

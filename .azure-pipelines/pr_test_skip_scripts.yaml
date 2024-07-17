@@ -42,6 +42,11 @@ t0:
   # This script only supported on Mellanox
   - restapi/test_restapi.py
   - snmp/test_snmp_phy_entity.py
+  # Avoid running ebtables test in KVM sonic-net/sonic-buildimage#11585
+  # Ebtables shouldn't be installed in KVM which blocks L2 forwarding
+  # So removed the logic to install ebtables rules in SONiC.
+  # Hence removing the ebtables tests to be executed on KVM.
+  - cacl/test_ebtables_application.py
 
 t1:
   # KVM do not support bfd test
@@ -88,6 +93,11 @@ t1:
   - snmp/test_snmp_phy_entity.py
   # Not supported port type
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
+  # Avoid running ebtables test in KVM sonic-net/sonic-buildimage#11585
+  # Ebtables shouldn't be installed in KVM which blocks L2 forwarding
+  # So removed the logic to install ebtables rules in SONiC.
+  # Hence removing the ebtables tests to be executed on KVM.
+  - cacl/test_ebtables_application.py
 
 t2:
   # KVM do not support bfd test
@@ -129,6 +139,11 @@ t2:
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
   - snmp/test_snmp_phy_entity.py
+  # Avoid running ebtables test in KVM sonic-net/sonic-buildimage#11585
+  # Ebtables shouldn't be installed in KVM which blocks L2 forwarding
+  # So removed the logic to install ebtables rules in SONiC.
+  # Hence removing the ebtables tests to be executed on KVM.
+  - cacl/test_ebtables_application.py
 
 dualtor:
   # This test is only for Nvidia platforms.
