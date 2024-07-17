@@ -5,7 +5,7 @@ This section of the document described how to build a sonic-mgmt docker
 https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#setup-sonic-mgmt-docker
 
 
-(Optional) if your environment is under a proxy to you can setup it in [`absible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
+(Optional) If your organization uses a proxy server (e.g Squid Proxy) to connect to the internet, you may need to configure the Docker daemon to use the proxy server. You can configure it in [`ansible /group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
 
 1. install the sonic image in the DUT(device under test)
 for example

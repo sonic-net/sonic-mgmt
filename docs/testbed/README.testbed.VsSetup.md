@@ -341,7 +341,7 @@ cd /data/sonic-mgmt/ansible
 ## Deploy minigraph on the DUT
 Once the topology has been created, we need to give the DUT an initial configuration.
 
-(Optional) if your environment needs proxy running `testbed-cli.sh` you can setup it in [`absible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
+(Optional) If your organization uses a proxy server (e.g Squid Proxy) to connect to the internet, you may need to configure the Docker daemon to use the proxy server. You can configure it in [`ansible /group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
 
 
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
