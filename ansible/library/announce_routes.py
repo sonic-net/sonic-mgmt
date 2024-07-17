@@ -10,8 +10,8 @@ import json
 import sys
 import socket
 import random
-import time
 import logging
+import time
 from multiprocessing.pool import ThreadPool
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.debug_utils import config_module_logging
