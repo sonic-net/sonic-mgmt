@@ -3,6 +3,10 @@ In this article, you will get to know how to use the sonic-mgmt docker to set up
 **Those commands need to be run within a sonic-mgmt docker, or you need to run them within a similar environment.**
 This section of the document described how to build a sonic-mgmt docker
 https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#setup-sonic-mgmt-docker
+
+
+(Optional) if your environment is under a proxy to you can setup it in [`absible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
+
 1. install the sonic image in the DUT(device under test)
 for example
 ```
@@ -41,6 +45,7 @@ For example, we want to use the config `vms-sn2700-t1-lag`, then we need to chan
 **for the topo, if it ends with 64, then the topo should be ptf64, please change it according to the actual device port.**
 
 4. deploy the new topology
+
 ```
 ./testbed-cli.sh -t testbed.yaml add-topo vms-sn2700-t1 password.txt
 ```

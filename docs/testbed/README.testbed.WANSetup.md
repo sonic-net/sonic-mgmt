@@ -147,6 +147,7 @@ In order to configure the testbed on your host automatically, Ansible needs to b
 ## Deploy multiple devices topology
 Now we're finally ready to deploy the topology for our testbed! Run the following command:
 
+(Optional) if your environment needs proxy running `testbed-cli.sh` you can setup it in [`absible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
 
 ### cEOS
    ```

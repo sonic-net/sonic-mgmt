@@ -96,10 +96,11 @@ All testbed configuration steps and tests are run from a `sonic-mgmt` docker con
 
 1. Run the `setup-container.sh` in the root directory of the sonic-mgmt repository:
 
-```
+```bash
 cd sonic-mgmt
 ./setup-container.sh -n <container name> -d /data
 ```
+
 
 2. (Required for IPv6 test cases): Follow the steps [IPv6 for docker default bridge](https://docs.docker.com/config/daemon/ipv6/#use-ipv6-for-the-default-bridge-network) to enable IPv6 for container. For example, edit the Docker daemon configuration file located at `/etc/docker/daemon.json` with the following parameters to use ULA address if no special requirement. Then restart docker daemon by running `sudo systemctl restart docker` to take effect.
 
@@ -112,7 +113,26 @@ cd sonic-mgmt
 }
 ```
 
-3. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
+
+
+3. (Optional) Set up proxy: if you get the error `ERROR: unable to find a usable default docker image, please specify one manually` you might need to setup proxy to pull docker image.
+
+   Follows the steps in [Configure docker daemon proxy](https://docs.docker.com/config/daemon/proxy/#daemon-configuration) to setup proxies. You can add these configuration in `etc/docker/daemon.json` and then run `sudo systemctl restart docker` to take effect.
+
+   ```json
+   {
+        ...
+        "proxies": {
+                "http-proxy": "http://proxy.example.com:3128",
+                "https-proxy": "https://proxy.example.com:3129",
+                "no-proxy": "*.test.example.com,.example.org,127.0.0.0/8"
+        }
+   }
+   ```
+
+
+
+4. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
 
 
 You can enter your sonic-mgmt container with the following command:
@@ -320,6 +340,9 @@ cd /data/sonic-mgmt/ansible
 
 ## Deploy minigraph on the DUT
 Once the topology has been created, we need to give the DUT an initial configuration.
+
+(Optional) if your environment needs proxy running `testbed-cli.sh` you can setup it in [`absible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
+
 
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
 
