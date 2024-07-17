@@ -127,8 +127,8 @@ def duthost_bgp_config(duthosts,
     interfaces = dict()
     loopback_interfaces = dict()
     loopback_interfaces.update({"Loopback0": {}})
-    loopback_interfaces.update({"Loopback0|1.1.1.1/24": {}})
-    loopback_interfaces.update({"Loopback0|1::1/124": {}})
+    loopback_interfaces.update({"Loopback0|1.1.1.1/32": {}})
+    loopback_interfaces.update({"Loopback0|1::1/128": {}})
     for index, custom_port in enumerate(t1_ports[duthosts[0].hostname]):
         interface_name = {custom_port: {}}
         v4_interface = {f"{custom_port}|{t1_t2_dut_ipv4_list[index]}/{v4_prefix_length}": {}}
@@ -175,13 +175,13 @@ def duthost_bgp_config(duthosts,
                 device_neighbor = {
                                             custom_port:
                                             {
-                                                "name": "snappi-sonic",
+                                                "name": "snappi-sonic"+str(index),
                                                 "port": "Ethernet1"
                                             }
                                         }
                 device_neighbors.update(device_neighbor)
                 device_neighbor_metadata = {
-                                                "snappi-sonic":
+                                                "snappi-sonic"+str(index):
                                                 {
                                                     "hwsku": "Snappi",
                                                     "mgmt_addr": "172.16.149.206",
@@ -291,8 +291,8 @@ def duthost_bgp_config(duthosts,
     interfaces = dict()
     loopback_interfaces = dict()
     loopback_interfaces.update({"Loopback0": {}})
-    loopback_interfaces.update({"Loopback0|2.2.2.2/24": {}})
-    loopback_interfaces.update({"Loopback0|2::2/124": {}})
+    loopback_interfaces.update({"Loopback0|2.2.2.2/32": {}})
+    loopback_interfaces.update({"Loopback0|2::2/128": {}})
     index = len(t1_ports[duthosts[0].hostname])
     interface_name = {t2_side_interconnected_port['port_name']: {}}
     v4_interface = {
@@ -393,8 +393,8 @@ def duthost_bgp_config(duthosts,
     logger.info('T2 side Snappi AS Number: {}'.format(T2_SNAPPI_AS_NUM))
     loopback_interfaces = dict()
     loopback_interfaces.update({"Loopback0": {}})
-    loopback_interfaces.update({"Loopback0|3.3.3.3/24": {}})
-    loopback_interfaces.update({"Loopback0|3::3/124": {}})
+    loopback_interfaces.update({"Loopback0|3.3.3.3/32": {}})
+    loopback_interfaces.update({"Loopback0|3::3/128": {}})
     index = 0
     for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
         bgp_neighbors = dict()
