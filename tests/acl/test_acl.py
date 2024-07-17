@@ -9,6 +9,7 @@ import six
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
+import paramiko
 
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
@@ -142,6 +143,9 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 PACKETS_COUNT = "packets_count"
 BYTES_COUNT = "bytes_count"
 
+DUT_USER = "admin"
+DUT_PASSWD = "YourPaSsWoRd"
+
 
 @pytest.fixture(scope="module", autouse=True)
 def remove_dataacl_table(duthosts):
@@ -252,7 +256,8 @@ def get_t2_info(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario, vlan_name):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo,
+          ptfadapter, topo_scenario, vlan_name, creds):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -273,6 +278,11 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     vlan_mac = None
     # Need to refresh below constants for two scenarios of M0
     global DOWNSTREAM_DST_IP, DOWNSTREAM_IP_TO_ALLOW, DOWNSTREAM_IP_TO_BLOCK
+
+    # Update creds based on user setup
+    global DUT_USER, DUT_PASSWD
+
+    DUT_USER, DUT_PASSWD = creds['sonicadmin_user'], creds['sonicadmin_password']
 
     if topo == "mx":
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
@@ -536,6 +546,33 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
     time.sleep(30)
 
 
+def check_create_msg_in_syslog(duthost, ssh_hdl, log_msg):
+    """
+    Checks for a given log message after the last start-LogAnalyzer message in syslog
+
+    Args:
+        duthosts: All DUTs belong to the testbed.
+        ssh_hdl: SSH handle to the DUT
+        log_msg: Log message to be searched
+
+    Yields:
+        True if log message is present or returns False
+    """
+    stdin, stdout, stderr = ssh_hdl.exec_command("sudo grep 'start-LogAnalyzer-' /var/log/syslog \
+                    | grep -v ansible | tail -n 1 | awk -F 'INFO ' '{print $2}'")
+    output = stdout.read().decode("ascii").strip()
+    if not output:
+        return False
+    cmd = "sudo awk '/%s/{p=1; next} p{print}' /var/log/syslog \
+        | grep '%s'" % (output, log_msg)
+    stdin, stdout, stderr = ssh_hdl.exec_command(cmd)
+    output = stdout.read().decode("ascii").strip()
+    if output:
+        return True
+    else:
+        return False
+
+
 @pytest.fixture(scope="module")
 def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo):
     """Apply ACL table configuration and remove after tests.
@@ -567,6 +604,10 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo)
     for duthost in duthosts:
         if duthost.is_supervisor_node():
             continue
+        ssh_hdl = paramiko.SSHClient()
+        ssh_hdl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh_hdl.connect(duthost.mgmt_ip, username=DUT_USER, password=DUT_PASSWD,
+                        allow_agent=False, look_for_keys=False)
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
         loganalyzer.load_common_config()
         dut_to_analyzer_map[duthost] = loganalyzer
@@ -577,6 +618,9 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo)
             loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
                 create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
+                wait_until(300, 20, 0, check_create_msg_in_syslog,
+                           duthost, ssh_hdl, LOG_EXPECT_ACL_TABLE_CREATE_RE)
+                ssh_hdl.close()
         except LogAnalyzerError as err:
             # Cleanup Config DB if table creation failed
             logger.error("ACL table creation failed, attempting to clean-up...")
@@ -660,6 +704,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         for duthost in duthosts:
             if duthost.is_supervisor_node():
                 continue
+            ssh_hdl = paramiko.SSHClient()
+            ssh_hdl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh_hdl.connect(duthost.mgmt_ip, username=DUT_USER, password=DUT_PASSWD,
+                            allow_agent=False, look_for_keys=False)
             loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
             loganalyzer.load_common_config()
             dut_to_analyzer_map[duthost] = loganalyzer
@@ -672,6 +720,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     self.setup_rules(duthost, acl_table, ip_version)
                     # Give the dut some time for the ACL rules to be applied and LOG message generated
                     time.sleep(30)
+                    wait_until(300, 20, 0, check_create_msg_in_syslog,
+                               duthost, ssh_hdl, LOG_EXPECT_ACL_RULE_CREATE_RE)
+                    ssh_hdl.close()
 
                 self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
 
