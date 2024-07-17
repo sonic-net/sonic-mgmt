@@ -296,6 +296,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             if exc_info[0]:
                 return
             if self.skip_traffic_test is True:
+                logging.info("Skip tunnel traffic verify due to traffic test was skipped.")
                 return
             try:
                 port_index, rec_pkt = testutils.verify_packet_any_port(

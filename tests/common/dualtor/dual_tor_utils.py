@@ -849,7 +849,9 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
     Returns:
         None.
     """
-
+    if skip_traffic_test is True:
+        logging.info("Skip checking tunnel balance due to traffic test was skipped")
+        return
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     params = {
         "server_ip": target_server_ip,
@@ -869,8 +871,6 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/ip_in_ip_tunnel_test.{}.log".format(timestamp)
     logging.info("PTF log file: %s" % log_file)
-    if skip_traffic_test is True:
-        return
     ptf_runner(ptfhost,
                "ptftests",
                "ip_in_ip_tunnel_test.IpinIPTunnelTest",
@@ -1116,6 +1116,7 @@ def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_pa
         logging.info("Packets received on portchannel {}: {}".format(pc, count))
 
         if skip_traffic_test is True:
+            logging.info("Skip checking single uplink balance due to traffic test was skipped")
             continue
         if count > 0 and count != expect_packet_num:
             pytest.fail("Packets not sent up single standby port {}".format(pc))
@@ -1139,6 +1140,7 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
     packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr,
                                                        expect_packet_num)
     if skip_traffic_test is True:
+        logging.info("Skip checking single downlink balance due to traffic test was skipped")
         return
     for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
@@ -1219,6 +1221,7 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip,
     logger.info("Verifying upstream traffic. packet number = {} interface = {} \
                 server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
     if skip_traffic_test is True:
+        logger.info("Skip verifying upstream traffic due to traffic test was skipped")
         return
     for i in range(0, pkt_num):
         ptfadapter.dataplane.flush()

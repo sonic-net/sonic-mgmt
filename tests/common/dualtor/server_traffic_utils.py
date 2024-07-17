@@ -123,6 +123,7 @@ class ServerTrafficMonitor(object):
         self.matched_packets = [p for p in self.captured_packets if match_exp_pkt(self.exp_pkt, p)]
         logging.info("received %d matched packets", len(self.matched_packets))
         if self.skip_traffic_test is True:
+            logging.info("Skip matched_packets verify due to traffic test was skipped.")
             return
         if self.matched_packets:
             logging.info(
