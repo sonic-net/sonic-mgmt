@@ -39,19 +39,19 @@ stages:
 
                 accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
                 export ACCESS_TOKEN=$accessToken
+                log_analytics_token=$(az account get-access-token --resource https://api.loganalytics.io --query accessToken -o tsv)
+                export LOG_ANALYTICS_ACCESS_TOKEN=$log_analytics_token
 
                 set -x
 
                 source /var/AzDevOps/env-python3/bin/activate
 
                 cd test_analyzer
-                pip3 install -r requirements.txt
+                pip install -r requirements.txt
 
-                python3 elastictest_data_monitor.py
+                python elastictest_data_monitor.py
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-              AZURE_DEVOPS_MSAZURE_TOKEN: $(AZURE_DEVOPS_MSAZURE_TOKEN)
               ELASTICTEST_LOG_ANALYTICS_WORKSPACE_ID: $(ELASTICTEST_LOG_ANALYTICS_WORKSPACE_ID)
               ELASTICTEST_MSAL_CLIENT_ID: $(ELASTICTEST_MSAL_CLIENT_ID)
-              ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
               ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
