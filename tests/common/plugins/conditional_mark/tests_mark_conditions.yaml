@@ -86,6 +86,12 @@ bfd/test_bfd_static_route.py:
     conditions:
       - "(is_multi_asic is False) or (hwsku not in ['Cisco-88-LC0-36FH-M-O36', 'Cisco-8800-LC-48H-C48', 'Cisco-88-LC0-36FH-O36'])"
 
+bfd/test_bfd_traffic.py:
+  skip:
+    reason: "Test only supported on Cisco 8800 platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 #######################################
 #####            bgp              #####
 #######################################
@@ -207,22 +213,12 @@ copp/test_copp.py::TestCOPP::test_add_new_trap:
     reason: "Copp test_add_new_trap is not yet supported on multi-asic platform"
     conditions:
       - "is_multi_asic==True"
-  xfail:
-    reason: "Can't unisntall trap on broadcom platform successfully"
-    conditions:
-      - "asic_type in ['broadcom']"
-      - "release in ['202305']"
 
 copp/test_copp.py::TestCOPP::test_remove_trap:
   skip:
     reason: "Copp test_remove_trap is not yet supported on multi-asic platform"
     conditions:
       - "is_multi_asic==True"
-  xfail:
-    reason: "Can't unisntall trap on broadcom platform successfully"
-    conditions:
-      - "asic_type in ['broadcom']"
-      - "release in ['202305']"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
@@ -483,9 +479,9 @@ ecmp/inner_hashing/test_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_inner_hashing_lag.py:
@@ -494,9 +490,9 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing.py:
@@ -505,9 +501,9 @@ ecmp/inner_hashing/test_wr_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
 ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
@@ -516,26 +512,20 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - "platform not in ['x86_64-mlnx_msn3800-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0']"
       - "topo_type not in ['t0']"
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
 ecmp/test_ecmp_sai_value.py:
   skip:
-    reason: "Only support Broadcom T1/T0 topology with 20230531 image, 7050cx3 T1 doesn't enable this feature"
+    reason: "Only support Broadcom T1/T0 topology with 20230531 and above image, 7050cx3 T1 doesn't enable this feature"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t1', 't0']"
       - "asic_type not in ['broadcom']"
-      - "release in ['201911', '202012', '202205', '202211', 'master']"
-      - "'internal' in build_version"
+      - "release in ['201911', '202012', '202205', '202211']"
       - "topo_type in ['t1'] and hwsku in ['Arista-7050CX3-32S-C32']"
-  xfail:
-    reason: "This feature is not supported in 202311 as the code was not merged into 202311"
-    conditions:
-      - "release in ['202311']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/11310
 
 ecmp/test_fgnhg.py:
   skip:
@@ -838,6 +828,12 @@ ip/test_mgmt_ipv6_only.py:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
+ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
+  xfail:
+    reason: "iburst not enabled by default on 202311 and newer images"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/19425
+
 #######################################
 #####            ipfwd            #####
 #######################################
@@ -919,6 +915,12 @@ nat:
 #######################################
 #####           ntp               #####
 #######################################
+ntp/test_ntp.py::test_ntp:
+  xfail:
+    reason: "iburst not enabled by default on 202311 and newer images"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/19425
+
 ntp/test_ntp.py::test_ntp_long_jump_disabled:
   # Due to NTP code bug, long jump will still happen after disable it.
   # Set xfail flag for this test case
@@ -1137,7 +1139,7 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
     reason: "Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000"
     conditions:
-      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305']"
+      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
 
 platform_tests/test_secure_upgrade.py:
   skip:

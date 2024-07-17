@@ -867,6 +867,13 @@ def collect_techsupport_all_duts(request, duthosts):
     [collect_techsupport_on_dut(request, a_dut) for a_dut in duthosts]
 
 
+@pytest.fixture
+def collect_techsupport_all_nbrs(request, nbrhosts):
+    yield
+    if request.config.getoption("neighbor_type") == "sonic":
+        [collect_techsupport_on_dut(request, nbrhosts[nbrhost]['host']) for nbrhost in nbrhosts]
+
+
 @pytest.fixture(scope="session", autouse=True)
 def tag_test_report(request, pytestconfig, tbinfo, duthost, record_testsuite_property):
     if not request.config.getoption("--junit-xml"):
@@ -2061,7 +2068,7 @@ def compare_running_config(pre_running_config, cur_running_config):
             for key in pre_running_config.keys():
                 if not compare_running_config(pre_running_config[key], cur_running_config[key]):
                     return False
-                return True
+            return True
         # We only have string in list in running config now, so we can ignore the order of the list.
         elif type(pre_running_config) is list:
             if set(pre_running_config) != set(cur_running_config):
@@ -2181,6 +2188,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             # Current skipped keys:
             # 1. "MUX_LINKMGR|LINK_PROBER"
             # 2. "MUX_LINKMGR|TIMED_OSCILLATION"
+            # 3. "LOGGER|linkmgrd"
             # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
             # to account for the lower performance of the ICMP responder/mux simulator compared to
             # real servers and mux cables.
@@ -2190,7 +2198,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if "dualtor" in tbinfo["topo"]["name"]:
                 EXCLUDE_CONFIG_KEY_NAMES = [
                     'MUX_LINKMGR|LINK_PROBER',
-                    'MUX_LINKMGR|TIMED_OSCILLATION'
+                    'MUX_LINKMGR|TIMED_OSCILLATION',
+                    'LOGGER|linkmgrd'
                 ]
             else:
                 EXCLUDE_CONFIG_KEY_NAMES = []
