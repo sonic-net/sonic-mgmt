@@ -172,9 +172,8 @@ def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, set
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     status = duthost.get_feature_status()
-    platform = duthost.facts["platform"]
-    if platform in ['x86_64-arista_7060_cx32s'] and ('eventd' not in status or status['eventd'] == 'disabled'):
-        pytest.skip("eventd is not enabled in slim image")
+    if 'eventd' not in status or status['eventd'] == 'disabled':
+        pytest.skip("eventd is disabled on the system")
 
     do_init(duthost)
 
