@@ -85,11 +85,13 @@ def config_ipv6_traffic(tg, tg_ph, data1, data2, mac_src, dst_mac, ipv6_src_addr
             rate_pps=data1.tgen_rate_pps, ipv6_src_addr=ipv6_src_addr, ipv6_dst_addr=ipv6_dst_addr)
     
 def verify_ping_helper(tg, tg_ph, handle, dest_ip):
-    res = tgapi.verify_ping(src_obj=tg, port_handle=tg_ph, dev_handle=handle, dst_ip=dest_ip, ping_count='10', exp_count='10')
-    st.log("PING_RES: " + str(res))
-    if res:
-        st.log("Ping succeeded.")
-        return
+    ping_max_iteration=2
+    for iter in range(ping_max_iteration):
+        res = tgapi.verify_ping(src_obj=tg, port_handle=tg_ph, dev_handle=handle, dst_ip=dest_ip, ping_count='5', exp_count='5')
+        st.log("PING_RES: " + str(res))
+        if res:
+            st.log("Ping succeeded.")
+            return
     st.report_fail('msg', "Ping Failed")
     
 def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True, verify_ping=True, is_l2=False):
@@ -286,14 +288,14 @@ def portchannel_add_del_member(node, portchannel='', members=[], add=True):
             if not portchannel_obj.delete_portchannel_member(node, portchannel, members):
                 st.report_fail('msg', "{} delete members failed".format(portchannel))
                 
-def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[], add=True):
+def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[], min_link="", add=True):
     
     if not portchannel:
        return
 
     if add:
         #add PortChannelxx
-        if not portchannel_obj.create_portchannel(node, portchannel):
+        if not portchannel_obj.create_portchannel(node, portchannel, min_link=min_link):
             st.report_fail('msg', "{} create failed".format(portchannel))
 
         if ipv4_add:
