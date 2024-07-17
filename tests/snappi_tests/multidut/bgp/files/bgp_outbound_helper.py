@@ -125,9 +125,10 @@ def duthost_bgp_config(duthosts,
     logger.info('--------------- T1 Snappi Section --------------------')
     t1_config_db = json.loads(duthosts[0].shell("sonic-cfggen -d --print-data")['stdout'])
     interfaces = dict()
-    interfaces.update({"Loopback0": {}})
-    interfaces.update({"Loopback0|1.1.1.1/24": {}})
-    interfaces.update({"Loopback0|1::1/124": {}})
+    loopback_interfaces = dict()
+    loopback_interfaces.update({"Loopback0": {}})
+    loopback_interfaces.update({"Loopback0|1.1.1.1/24": {}})
+    loopback_interfaces.update({"Loopback0|1::1/124": {}})
     for index, custom_port in enumerate(t1_ports[duthosts[0].hostname]):
         interface_name = {custom_port: {}}
         v4_interface = {f"{custom_port}|{t1_t2_dut_ipv4_list[index]}/{v4_prefix_length}": {}}
@@ -140,6 +141,8 @@ def duthost_bgp_config(duthosts,
                            t1_t2_dut_ipv6_list[index], custom_port, duthosts[0].hostname))
 
     bgp_neighbors = dict()
+    device_neighbors = dict()
+    device_neighbor_metadatas = dict()
     for index, custom_port in enumerate(t1_ports[duthosts[0].hostname]):
         for snappi_port in snappi_ports:
             if custom_port == snappi_port['peer_port'] and snappi_port['peer_device'] == duthosts[0].hostname:
@@ -169,7 +172,23 @@ def duthost_bgp_config(duthosts,
                             },
                         }
                 bgp_neighbors.update(bgp_neighbor)
-
+                device_neighbor = {
+                                            custom_port:
+                                            {
+                                                "name": "snappi-sonic",
+                                                "port": "Ethernet1"
+                                            }
+                                        }
+                device_neighbors.update(device_neighbor)
+                device_neighbor_metadata = {
+                                                "snappi-sonic":
+                                                {
+                                                    "hwsku": "Snappi",
+                                                    "mgmt_addr": "172.16.149.206",
+                                                    "type": "ToRRouter"
+                                                }
+                                            }
+                device_neighbor_metadatas.update(device_neighbor_metadata)
     logger.info('T1 Dut AS Number: {}'.format(T1_DUT_AS_NUM))
     logger.info('T1 side Snappi AS Number: {}'.format(T1_SNAPPI_AS_NUM))
     logger.info('\n')
@@ -212,16 +231,47 @@ def duthost_bgp_config(duthosts,
                         },
                     }
     bgp_neighbors.update(bgp_neighbor)
-
+    device_neighbor = {
+                                t1_side_interconnected_port:
+                                {
+                                    "name": "T2",
+                                    "port": "Ethernet1"
+                                }
+                            }
+    device_neighbors.update(device_neighbor)
+    device_neighbor_metadata = {
+                                    "T2":
+                                    {
+                                        "hwsku": "Sonic-Dut",
+                                        "mgmt_addr": "172.16.149.206",
+                                        "type": "SpineRouter"
+                                    }
+                                }
+    device_neighbor_metadatas.update(device_neighbor_metadata)
     if "INTERFACE" not in t1_config_db.keys():
         t1_config_db["INTERFACE"] = interfaces
     else:
         t1_config_db["INTERFACE"].update(interfaces)
 
+    if "LOOPBACK_INTERFACE" not in t1_config_db.keys():
+        t1_config_db["LOOPBACK_INTERFACE"] = loopback_interfaces
+    else:
+        t1_config_db["LOOPBACK_INTERFACE"].update(loopback_interfaces)
+
     if "BGP_NEIGHBOR" not in t1_config_db.keys():
         t1_config_db["BGP_NEIGHBOR"] = bgp_neighbors
     else:
         t1_config_db["BGP_NEIGHBOR"].update(bgp_neighbors)
+
+    if "DEVICE_NEIGHBOR" not in t1_config_db.keys():
+        t1_config_db["DEVICE_NEIGHBOR"] = device_neighbors
+    else:
+        t1_config_db["DEVICE_NEIGHBOR"].update(device_neighbors)
+
+    if 'DEVICE_NEIGHBOR_METADATA' not in t1_config_db.keys():
+        t1_config_db["DEVICE_NEIGHBOR_METADATA"] = device_neighbor_metadatas
+    else:
+        t1_config_db["DEVICE_NEIGHBOR_METADATA"].update(device_neighbor_metadatas)
 
     with open("/tmp/temp_config.json", 'w') as fp:
         json.dump(t1_config_db, fp, indent=4)
@@ -232,21 +282,6 @@ def duthost_bgp_config(duthosts,
                   'Error while reloading config in {} !!!!!'.format(duthosts[0].hostname))
     logger.info('Config Reload Successful in {} !!!'.format(duthosts[0].hostname))
 
-    route_map_config = (
-        "vtysh "
-        "-c 'configure terminal' "
-        "-c 'route-map RM_SET_SRC6 permit 10' "
-        "-c 'on-match next' "
-        "-c 'set ipv6 next-hop prefer-global' "
-        "-c 'exit' "
-        "-c 'ip nht resolve-via-default' "
-        "-c 'ipv6 nht resolve-via-default' "
-        "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
-        "-c 'exit' "
-    )
-    duthosts[0].shell(route_map_config)
-    logger.info('Applying RM_SET_SRC6 route map in T1')
-
     logger.info('\n')
     logger.info('---------------T2 Downlink Inter-Connectivity Section --------------------')
     logger.info('\n')
@@ -254,9 +289,10 @@ def duthost_bgp_config(duthosts,
     logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
 
     interfaces = dict()
-    interfaces.update({"Loopback0": {}})
-    interfaces.update({"Loopback0|1.1.1.1/24": {}})
-    interfaces.update({"Loopback0|1::1/124": {}})
+    loopback_interfaces = dict()
+    loopback_interfaces.update({"Loopback0": {}})
+    loopback_interfaces.update({"Loopback0|2.2.2.2/24": {}})
+    loopback_interfaces.update({"Loopback0|2::2/124": {}})
     index = len(t1_ports[duthosts[0].hostname])
     interface_name = {t2_side_interconnected_port['port_name']: {}}
     v4_interface = {
@@ -322,6 +358,11 @@ def duthost_bgp_config(duthosts,
     else:
         t2_config_db["INTERFACE"].update(interfaces)
 
+    if "LOOPBACK_INTERFACE" not in t2_config_db.keys():
+        t2_config_db["LOOPBACK_INTERFACE"] = loopback_interfaces
+    else:
+        t2_config_db["LOOPBACK_INTERFACE"].update(loopback_interfaces)
+
     if "DEVICE_NEIGHBOR" not in t2_config_db.keys():
         t2_config_db["DEVICE_NEIGHBOR"] = device_neighbor
     else:
@@ -347,42 +388,13 @@ def duthost_bgp_config(duthosts,
                   'Error while reloading config in {} !!!!!'.format(duthosts[2].hostname))
     logger.info('Config Reload Successful in {} !!!'.format(duthosts[2].hostname))
 
-    if t2_side_interconnected_port['asic_value'] is not None:
-        route_map_config = (
-            "vtysh -n %s"
-            "-c 'configure terminal' "
-            "-c 'route-map RM_SET_SRC6 permit 10' "
-            "-c 'on-match next' "
-            "-c 'set ipv6 next-hop prefer-global' "
-            "-c 'exit' "
-            "-c 'ip nht resolve-via-default' "
-            "-c 'ipv6 nht resolve-via-default' "
-            "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
-            "-c 'exit' "
-        )
-        route_map_config %= (
-            t2_side_interconnected_port['asic_value'][-1]
-        )
-    else:
-        route_map_config = (
-            "vtysh "
-            "-c 'configure terminal' "
-            "-c 'route-map RM_SET_SRC6 permit 10' "
-            "-c 'on-match next' "
-            "-c 'set ipv6 next-hop prefer-global' "
-            "-c 'exit' "
-            "-c 'ip nht resolve-via-default' "
-            "-c 'ipv6 nht resolve-via-default' "
-            "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
-            "-c 'exit' "
-        )
-    duthosts[2].shell(route_map_config)
-    logger.info('Applying RM_SET_SRC6 route map in T2')
-
     logger.info('--------------- T2 Uplink - Tgen Section --------------------')
     logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
     logger.info('T2 side Snappi AS Number: {}'.format(T2_SNAPPI_AS_NUM))
-
+    loopback_interfaces = dict()
+    loopback_interfaces.update({"Loopback0": {}})
+    loopback_interfaces.update({"Loopback0|3.3.3.3/24": {}})
+    loopback_interfaces.update({"Loopback0|3::3/124": {}})
     index = 0
     for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
         bgp_neighbors = dict()
@@ -465,6 +477,11 @@ def duthost_bgp_config(duthosts,
             bgp_neighbors.update(bgp_neighbor)
             device_neighbor_metadatas.update(device_neighbor_metadata)
             index = index + 1
+        if "LOOPBACK_INTERFACE" not in t2_config_db.keys():
+            t2_config_db["LOOPBACK_INTERFACE"] = loopback_interfaces
+        else:
+            t2_config_db["LOOPBACK_INTERFACE"].update(loopback_interfaces)
+
         if "PORTCHANNEL_INTERFACE" not in t2_config_db.keys():
             t2_config_db["PORTCHANNEL_INTERFACE"] = PORTCHANNEL_INTERFACES
         else:
@@ -497,46 +514,12 @@ def duthost_bgp_config(duthosts,
         with open("/tmp/temp_config.json", 'w') as fp:
             json.dump(t2_config_db, fp, indent=4)
         duthosts[1].copy(src="/tmp/temp_config.json", dest="/etc/sonic/%s" % config_db)
-        logger.info('Pushing IP and BGP config into {}'.format(config_db))
 
-    logger.info('Reloading config_db.json to apply IP and BGP configuration on {}'.format(duthosts[1].hostname))
+    logger.info('Reloading config to apply IP and BGP configuration on {}'.format(duthosts[1].hostname))
     pytest_assert('Error' not in duthosts[1].shell("sudo config reload -f -y \n")['stderr'],
                   'Error while reloading config in {} !!!!!'.format(duthosts[1].hostname))
     logger.info('Config Reload Successful in {} !!!'.format(duthosts[1].hostname))
-
-    for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
-        if asic_value is not None:
-            route_map_config = (
-                "vtysh -n %s"
-                "-c 'configure terminal' "
-                "-c 'route-map RM_SET_SRC6 permit 10' "
-                "-c 'on-match next' "
-                "-c 'set ipv6 next-hop prefer-global' "
-                "-c 'exit' "
-                "-c 'ip nht resolve-via-default' "
-                "-c 'ipv6 nht resolve-via-default' "
-                "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
-                "-c 'exit' "
-            )
-            route_map_config %= (
-                                    asic_value[-1]
-                                )
-            duthosts[1].shell(route_map_config)
-        else:
-            route_map_config = (
-                "vtysh -n"
-                "-c 'configure terminal' "
-                "-c 'route-map RM_SET_SRC6 permit 10' "
-                "-c 'on-match next' "
-                "-c 'set ipv6 next-hop prefer-global' "
-                "-c 'exit' "
-                "-c 'ip nht resolve-via-default' "
-                "-c 'ipv6 nht resolve-via-default' "
-                "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
-                "-c 'exit' "
-            )
-        duthosts[1].shell(route_map_config)
-    logger.info('Applying RM_SET_SRC6 route map in {}'.format(duthosts[1].hostname))
+    wait(120, "For configs to be loaded on the duts")
 
 
 def generate_mac_address():
