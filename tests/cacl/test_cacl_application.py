@@ -17,6 +17,18 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope="module", autouse=True)
+def disable_port_toggle(duthosts, tbinfo):
+    # set mux mode to manual on both TORs to avoid port state change during test
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode manual all")
+    yield
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode auto all")
+
+
 @pytest.fixture(scope="function", params=["active_tor", "standby_tor"])
 def duthost_dualtor(request, upper_tor_host, lower_tor_host):       # noqa F811
     which_tor = request.param
@@ -363,11 +375,13 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
 
 
 def append_midplane_traffic_rules(duthost, iptables_rules):
-    result = duthost.shell('ip link show | grep -w "eth1-midplane"', module_ignore_errors=True)['stdout']
+    # Get the kernel intf name in the event that eth1-midplane is an altname
+    result = duthost.shell('ip link show eth1-midplane | awk \'NR==1{print$2}\' | cut -f1 -d"@" | cut -f1 -d":"',
+                           module_ignore_errors=True)['stdout']
     if result:
         midplane_ip = duthost.shell('ip -4 -o addr show eth1-midplane | awk \'{print $4}\' | cut -d / -f1 | head -1',
                                     module_ignore_errors=True)['stdout']
-        iptables_rules.append("-A INPUT -i eth1-midplane -j ACCEPT")
+        iptables_rules.append("-A INPUT -i {} -j ACCEPT".format(result))
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(midplane_ip, midplane_ip))
 
 

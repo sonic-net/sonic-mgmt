@@ -218,7 +218,7 @@ config_db.db_connect('CONFIG_DB')
 
 # Don't enable dynamic buffer calculation if it is not a default SKU
 metadata = config_db.get_entry('DEVICE_METADATA', 'localhost')
-if 'ACS-MSN' not in metadata['hwsku']:
+if 'ACS-MSN' not in metadata['hwsku'] and 'ACS-SN' not in metadata['hwsku']:
     print("Don't enable dynamic buffer calculation for non-default SKUs")
     exit(0)
 

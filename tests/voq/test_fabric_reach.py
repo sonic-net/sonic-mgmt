@@ -12,6 +12,7 @@ pytestmark = [
 localModule = 0
 supervisorAsicBase = 1
 supReferenceData = {}
+linecardModule = []
 
 
 # Try to get the reference data, and if the reference data files
@@ -36,7 +37,7 @@ def refData(duthosts):
         fileName = lc_sku + "_" + fabric_sku + "_" + "LC" + str(slot) + ".yaml"
         f = open("voq/fabric_data/{}".format(fileName))
         pytest_assert(f, "Need to update expected data for {}".format(fileName))
-        referenceData[slot] = yaml.load(f)
+        referenceData[slot] = yaml.safe_load(f)
     return referenceData
 
 
@@ -53,7 +54,7 @@ def supData(duthosts):
     fileName = fabric_sku + ".yaml"
     f = open("voq/fabric_data/{}".format(fileName))
     pytest_assert(f, "Need to update expected data for {}".format(fileName))
-    supData = yaml.load(f)
+    supData = yaml.safe_load(f)
     f.close()
     return supData
 
@@ -87,6 +88,7 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
     global localModule
     global supervisorAsicBase
     global supReferenceData
+    global linecardModule
 
     if not supReferenceData:
         supRefData(duthosts)
@@ -127,8 +129,7 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
 
             # tokens: [localPort, remoteModule, remotLink, localLinkStatus]
             # Example output: ['0', '304', '171', 'up']
-            localPortName = tokens[0]
-            referencePortData = asicReferenceData[localPortName]
+            localPortName = int(tokens[0])
             remoteModule = tokens[1]
             remotePort = tokens[2]
             pytest_assert(localPortName in asicReferenceData,
@@ -150,6 +151,8 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
             # build reference data for sup: supReferenceData
             fabricAsic = 'asic' + str(remoteMod - supervisorAsicBase)
             lkData = {'peer slot': slot, 'peer lk': localPortName, 'peer asic': asic, 'peer mod': localModule}
+            if localModule not in linecardModule:
+                linecardModule.append(localModule)
             supReferenceData[fabricAsic].update({referenceRemotePort: lkData})
         # the module number increased by number of asics per slot.
         localModule += asicPerSlot
@@ -189,6 +192,9 @@ def test_fabric_reach_supervisor(duthosts, enum_supervisor_dut_hostname, refData
             localPortName = tokens[0]
             remoteModule = int(tokens[1])
             remotePort = int(tokens[2])
+            if remoteModule not in linecardModule:
+                logger.info("The linecard is not inserted or down.")
+                continue
             pytest_assert(localPortName in asicReferenceData,
                           "Reference port data for {} not found!".format(localPortName))
             referencePortData = asicReferenceData[localPortName]

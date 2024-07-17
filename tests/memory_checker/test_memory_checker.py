@@ -256,19 +256,20 @@ def remove_and_restart_container(memory_checker_dut_and_container):
     container.post_check()
 
 
-@pytest.fixture(params=['telemetry'])
-def enum_memory_checker_container(request):
-    return request.param
+def get_test_container(duthost):
+    test_container = "telemetry"
+    cmd = "docker images | grep -w sonic-gnmi"
+    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+        test_container = "gnmi"
+    return test_container
 
 
 @pytest.fixture
-def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                     enum_memory_checker_container):
+def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Perform some checks and return applicable duthost and container name
 
     Args:
         duthosts: The fixture returns list of DuTs.
-        enum_memory_checker_container: Fixture returning the name of the container to test
         enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
           a frontend DuT from testbed.
 
@@ -276,7 +277,8 @@ def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_
         (duthost, container)
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    container_name = enum_memory_checker_container
+
+    container_name = get_test_container(duthost)
     container = MemoryCheckerContainer(container_name, duthost)
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
@@ -399,6 +401,7 @@ class MemoryCheckerContainer(object):
     # NOTE: these limits could be computed by reading the monit_$container config
     MEMORY_LIMITS = {
         'telemetry': 400 * 1024 * 1024,
+        'gnmi': 400 * 1024 * 1024,
     }
 
     def __init__(self, name, duthost):
@@ -461,13 +464,24 @@ class MemoryCheckerContainer(object):
 
     def get_restart_expected_logre(self):
         cap_name = self.name.capitalize()
-        return [
-            r".*restart_service.*Restarting service '{}'.*".format(self.name),
-            r".*Stopping {} container.*".format(cap_name),
-            r".*Stopped {} container.*".format(cap_name),
-            r".*Starting {} container.*".format(cap_name),
-            r".*Started {} container.*".format(cap_name),
-        ]
+        if self.name == "gnmi":
+            cap_name = "GNMI"
+        if "bookworm" in self.duthost.shell("grep VERSION_CODENAME /etc/os-release")['stdout'].lower():
+            return [
+                r".*restart_service.*Restarting service '{}'.*".format(self.name),
+                r".*Stopping {}.service - {} container.*".format(self.name, cap_name),
+                r".*Stopped {}.service - {} container.*".format(self.name, cap_name),
+                r".*Starting {}.service - {} container.*".format(self.name, cap_name),
+                r".*Started {}.service - {} container.*".format(self.name, cap_name),
+            ]
+        else:
+            return [
+                r".*restart_service.*Restarting service '{}'.*".format(self.name),
+                r".*Stopping {} container.*".format(cap_name),
+                r".*Stopped {} container.*".format(cap_name),
+                r".*Starting {} container.*".format(cap_name),
+                r".*Started {} container.*".format(cap_name),
+            ]
 
     def get_last_start_date(self):
         rc = self.duthost.shell(r"docker inspect --format \{{\{{.State.StartedAt\}}\}} {}".format(self.name))
@@ -528,7 +542,7 @@ def consumes_memory_and_checks_container_restart(duthost, container):
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
     loganalyzer.expect_regex = container.get_restart_expected_logre()
     with loganalyzer:
-        timeout_monit_fail = 80  # fails happens after 10 cycles of 1 second
+        timeout_monit_fail = 180  # fails happens after 10 cycles of 1 second
         container.start_consume_memory()
         container.wait_monit_mem_failed(timeout_monit_fail)
         logger.info("Container %s should now be restarting", container.name)

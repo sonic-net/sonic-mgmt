@@ -78,6 +78,10 @@ The T0 type topology has different variations. The differences are just the numb
 * t0-116
 * t0-120
 * t0-backend
+* t0-standalone-32
+* t0-standalone-64
+* t0-standalone-128
+* t0-standalone-256
 
 Below are details of some of the T0 variations:
 
@@ -133,7 +137,7 @@ Like the T0 type topology, the T1 type topology also has variations:
 
 * The DUT has 32 ports.
 * Requires 24 VMs.
-* 16 of the ports are connected to 16 VMs simulating upstream T2 neighbors. Each VM has 2 links connected. The connection to each upstream T2 is configured as a port-channel with 2 links.
+* 16 of the ports are connected to 8 VMs simulating upstream T2 neighbors. Each VM has 2 links connected. The connection to each upstream T2 is configured as a port-channel with 2 links.
 * 16 of the ports are connected to another 16 VMs simulating downstream T0 neighbors. No port-channel is configured for the links between DUT and T0 neighbors.
 
 ### T2 type topology

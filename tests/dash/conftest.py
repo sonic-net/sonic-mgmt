@@ -5,7 +5,7 @@ from ipaddress import ip_interface
 from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC,\
     LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC,\
     REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
-    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP
+    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 
@@ -43,6 +43,12 @@ def pytest_addoption(parser):
         help="Skip dataplane checking"
     )
 
+    parser.addoption(
+        "--skip_cert_cleanup",
+        action="store_true",
+        help="Skip certificates cleanup after test"
+    )
+
 
 @pytest.fixture(scope="module")
 def config_only(request):
@@ -62,6 +68,11 @@ def skip_cleanup(request):
 @pytest.fixture(scope="module")
 def skip_dataplane_checking(request):
     return request.config.getoption("--skip_dataplane_checking")
+
+
+@pytest.fixture(scope="module")
+def skip_cert_cleanup(request):
+    return request.config.getoption("--skip_cert_cleanup")
 
 
 @pytest.fixture(scope="module")
@@ -95,13 +106,11 @@ def get_intf_from_ip(local_ip, config_facts):
 
 @pytest.fixture(params=["no-underlay-route", "with-underlay-route"])
 def use_underlay_route(request):
-    if request.param == "with-underlay-route":
-        pytest.skip("Underlay route not supported yet")
     return request.param == "with-underlay-route"
 
 
 @pytest.fixture(scope="function")
-def dash_config_info(duthost, config_facts, minigraph_facts):
+def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
     dash_info = {
         ENI: "F4939FEFC47E",
         VM_VNI: 4321,
@@ -114,20 +123,41 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
         REMOTE_ENI_MAC: "F9:22:83:99:22:A2",
         LOCAL_ENI_MAC: "F4:93:9F:EF:C4:7E",
         REMOTE_CA_PREFIX: "20.2.2.0/24",
+        ACL_GROUP: "group1",
+        ACL_STAGE: 5
     }
     loopback_intf_ip = ip_interface(list(list(config_facts["LOOPBACK_INTERFACE"].values())[0].keys())[0])
     dash_info[LOOPBACK_IP] = str(loopback_intf_ip.ip)
     dash_info[DUT_MAC] = config_facts["DEVICE_METADATA"]["localhost"]["mac"]
 
     neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
+    topo = tbinfo["topo"]["name"]
     for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
-        # Pick the first two BGP neighbor IPs since these should already be learned on the DUT
+        # For dpu with 2 ports Pick the first two BGP neighbor IPs since these should already be learned on the DUT
+        # Take neighbor 1 as local PA, take neighbor 2 as remote PA
         if ip_interface(neigh_ip).version == 4:
             if LOCAL_PA_IP not in dash_info:
                 dash_info[LOCAL_PA_IP] = neigh_ip
                 intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
                 dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
                 dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+                if topo == 'dpu-1' and REMOTE_PA_IP not in dash_info:
+                    # For DPU with only one single port, we just have one neighbor (neighbor 1).
+                    # So, we take neighbor 1 as the local PA. For the remote PA,
+                    # we take the original neighbor 2's IP as the remote PA IP,
+                    # and the original neighbor 2's network as the remote PA network.
+                    # Take the mac of neighbor 1's mac as the mac of remote PA,
+                    # because the BGP route to neighbor 1 is the default route,
+                    # and only the mac of neighbor 1 exists in the arp table.
+                    # The remote ptf intf will take the value of neighbor 1
+                    # because the packet to remote PA will be forwarded to the ptf port corresponding to neighbor 1.
+                    fake_neighbor_2_ip = '10.0.2.2'
+                    fake_neighbor_2_prefix = "10.0.2.0/24"
+                    dash_info[REMOTE_PA_IP] = fake_neighbor_2_ip
+                    dash_info[REMOTE_PTF_INTF] = dash_info[LOCAL_PTF_INTF]
+                    dash_info[REMOTE_PTF_MAC] = dash_info[LOCAL_PTF_MAC]
+                    dash_info[REMOTE_PA_PREFIX] = fake_neighbor_2_prefix
+                    break
             elif REMOTE_PA_IP not in dash_info:
                 dash_info[REMOTE_PA_IP] = neigh_ip
                 intf, intf_ip = get_intf_from_ip(config['local_addr'], config_facts)
@@ -140,7 +170,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
 
 
 @pytest.fixture(scope="function")
-def apply_config(duthost, ptfhost, skip_config, skip_cleanup):
+def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
     configs = []
     op = "SET"
 
@@ -155,7 +185,7 @@ def apply_config(duthost, ptfhost, skip_config, skip_cleanup):
         dest_path = "/tmp/{}.json".format(config)
         render_template_to_host(template_name, duthost, dest_path, config_info, op=op)
         if ENABLE_GNMI_API:
-            apply_gnmi_file(duthost, ptfhost, dest_path)
+            apply_gnmi_file(localhost, duthost, ptfhost, dest_path)
         else:
             apply_swssconfig_file(duthost, dest_path)
 
@@ -186,11 +216,14 @@ def apply_inbound_configs(dash_inbound_configs, apply_config):
 
 
 @pytest.fixture(scope="function")
-def dash_outbound_configs(dash_config_info, use_underlay_route, minigraph_facts):
+def dash_outbound_configs(dash_config_info, use_underlay_route, minigraph_facts, tbinfo):
     if use_underlay_route:
         dash_config_info[REMOTE_PA_IP] = u"30.30.30.30"
         dash_config_info[REMOTE_PA_PREFIX] = "30.30.30.30/32"
-        dash_config_info[REMOTE_PTF_INTF] = list(minigraph_facts["minigraph_ptf_indices"].values())
+        if tbinfo["topo"]["name"] == "dpu-1":
+            dash_config_info[REMOTE_PTF_INTF] = [dash_config_info[REMOTE_PTF_INTF]]
+        else:
+            dash_config_info[REMOTE_PTF_INTF] = list(minigraph_facts["minigraph_ptf_indices"].values())
     else:
         dash_config_info[REMOTE_PTF_INTF] = [dash_config_info[REMOTE_PTF_INTF]]
 
@@ -222,7 +255,7 @@ def apply_direct_configs(dash_outbound_configs, apply_config):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, skip_cert_cleanup):
     if not ENABLE_GNMI_API:
         yield
         return
@@ -231,7 +264,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     generate_gnmi_cert(localhost, duthost)
     apply_gnmi_cert(duthost, ptfhost)
     yield
-    recover_gnmi_cert(localhost, duthost)
+    recover_gnmi_cert(localhost, duthost, skip_cert_cleanup)
 
 
 @pytest.fixture(scope="function")
@@ -241,3 +274,8 @@ def asic_db_checker(duthost):
             output = duthost.shell("sonic-db-cli ASIC_DB keys 'ASIC_STATE:{}:*'".format(table))
             assert output["stdout"].strip() != "", "No entries found in ASIC_DB table {}".format(table)
     yield _check_asic_db
+
+
+@pytest.fixture(scope="function", params=['udp', 'tcp', 'echo_request', 'echo_reply'])
+def inner_packet_type(request):
+    return request.param
