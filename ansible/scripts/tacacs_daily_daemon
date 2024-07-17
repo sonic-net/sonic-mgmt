@@ -1,10 +1,13 @@
 #!/bin/sh
 
-# Always kill running tac_plus process on port 49 to reload config
+# This TACACS server need bind to port 49, because SONiC load_minigraph only support port 49
+TACPLUS_PORT=49
+
+# Always kill running tac_plus process on port $TACPLUS_PORT to reload config
 # It will be start later by tacacs_daily_daemon
-TACPLUS_PID=$(ps -ef | grep "tac_plus .* -p 49" | grep -v "grep" |  awk '{print $2}')
+TACPLUS_PID=$(ps -ef | grep "tac_plus .* -p $TACPLUS_PORT" | grep -v "grep" |  awk '{print $2}')
 if [ $TACPLUS_PID ]; then
-    echo "tac_plus already running on port 49, stop it to reload config"
+    echo "tac_plus already running on port $TACPLUS_PORT, stop it to reload config"
     kill -9 $TACPLUS_PID
 fi
 
@@ -28,7 +31,6 @@ while true;
 do
     # start tac_plus will kill existed tac_plus instance bind to same port
     # Enable Authentication/Authorization/Accounting debug by: -d 88
-    # Bind to port 49, because SONiC load_minigraph only support port 49: -p 49
-    /usr/sbin/tac_plus -d 88 -l /var/log/tac_plus_daily.log -C /etc/tac_plus_daily.conf  -p 49 -G
+    /usr/sbin/tac_plus -d 88 -l /var/log/tac_plus_daily.log -C /etc/tac_plus_daily.conf  -p $TACPLUS_PORT -G
     echo "tac_plus existed, restarting"
 done
