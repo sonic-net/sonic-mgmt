@@ -1268,8 +1268,6 @@ class TestAclWithReboot(TestBasicAcl):
             populate_vlan_arp_entries: A fixture to populate ARP/FDB tables for VLAN interfaces.
 
         """
-        if dut.get_facts()['asic_type'] == 'vs' and 't1' in tbinfo['topo']['name']:
-            pytest.skip("Skip ACL test for t1 topology with vs platform")
         dut.command("config save -y")
         reboot(dut, localhost, wait=240)
         # We need some additional delay on e1031
