@@ -6,11 +6,11 @@
 
 # Test name
 
-BGP Session Flaps
+BGP 4-Byte AS Translation
 
 ## Overview
 
-The goal of this test is to verify that the CPU and memory do not spike during cycles of BGP sessions flapping.
+The goal of this test is to verify that the 4-byte to 2-byte AS translation feature operates as expected.
 
 ### Scope
 
