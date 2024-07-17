@@ -2064,7 +2064,7 @@ def compare_running_config(pre_running_config, cur_running_config):
             for key in pre_running_config.keys():
                 if not compare_running_config(pre_running_config[key], cur_running_config[key]):
                     return False
-                return True
+            return True
         # We only have string in list in running config now, so we can ignore the order of the list.
         elif type(pre_running_config) is list:
             if set(pre_running_config) != set(cur_running_config):
