@@ -2850,6 +2850,7 @@
   ptf: bjw2-2-1
   ptf_ip: 10.150.23.94/23
   ptf_ipv6: 2404:f801:10:2200::a96:175e/52
+  ptf_extra_mgmt_ip: ["172.16.188.94/17"]
   server: server_bjw2_2
   vm_base: VM82011
   dut:
@@ -2865,6 +2866,7 @@
   ptf: bjw2-2-2
   ptf_ip: 10.150.23.95/23
   ptf_ipv6: 2404:f801:10:2200::a96:175f/52
+  ptf_extra_mgmt_ip: ["172.16.188.95/17"]
   server: server_bjw2_2
   vm_base: VM82015
   dut:
@@ -2880,6 +2882,7 @@
   ptf: bjw2-2-3
   ptf_ip: 10.150.23.96/23
   ptf_ipv6: 2404:f801:10:2200::a96:1760/52
+  ptf_extra_mgmt_ip: ["172.16.188.96/17"]
   server: server_bjw2_2
   vm_base: VM82019
   dut:
@@ -2895,6 +2898,7 @@
   ptf: bjw2-2-4
   ptf_ip: 10.150.23.97/23
   ptf_ipv6: 2404:f801:10:2200::a96:1761/52
+  ptf_extra_mgmt_ip: ["172.16.188.97/17"]
   server: server_bjw2_2
   vm_base: VM82043
   dut:
@@ -2910,6 +2914,7 @@
   ptf: bjw2-2-5
   ptf_ip: 10.150.23.98/23
   ptf_ipv6: 2404:f801:10:2200::a96:1762/52
+  ptf_extra_mgmt_ip: ["172.16.188.98/17"]
   server: server_bjw2_2
   vm_base: VM82067
   dut:
@@ -2925,6 +2930,7 @@
   ptf: bjw2-2-6
   ptf_ip: 10.150.23.99/23
   ptf_ipv6: 2404:f801:10:2200::a96:1763/52
+  ptf_extra_mgmt_ip: ["172.16.188.99/17"]
   server: server_bjw2_2
   vm_base: VM82071
   dut:
@@ -2940,6 +2946,7 @@
   ptf: bjw2-2-7
   ptf_ip: 10.150.23.100/23
   ptf_ipv6: 2404:f801:10:2200::a96:1764/52
+  ptf_extra_mgmt_ip: ["172.16.188.100/17"]
   server: server_bjw2_2
   vm_base: VM82075
   dut:
@@ -2956,6 +2963,7 @@
   ptf: bjw2-2-8
   ptf_ip: 10.150.23.101/23
   ptf_ipv6: 2404:f801:10:2200::a96:1765/52
+  ptf_extra_mgmt_ip: ["172.16.188.101/17"]
   netns_mgmt_ip: 10.150.23.48/23
   server: server_bjw2_2
   vm_base: VM82079
