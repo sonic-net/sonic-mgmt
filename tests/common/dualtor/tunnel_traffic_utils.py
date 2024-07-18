@@ -250,7 +250,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             return " ,".join(check_res)
 
         def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None,
-                     check_items=("ttl", "tos", "queue"), packet_count=10):
+                     check_items=("ttl", "tos", "queue"), packet_count=10, skip_traffic_test=False):
             """
             Init the tunnel traffic monitor.
 
@@ -262,6 +262,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             self.listen_ports = sorted(self._get_t1_ptf_port_indexes(standby_tor, tbinfo))
             self.ptfadapter = ptfadapter
             self.packet_count = packet_count
+            self.skip_traffic_test = skip_traffic_test
 
             standby_tor_cfg_facts = self.standby_tor.config_facts(
                 host=self.standby_tor.hostname, source="running"
@@ -293,6 +294,9 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
 
         def __exit__(self, *exc_info):
             if exc_info[0]:
+                return
+            if self.skip_traffic_test is True:
+                logging.info("Skip tunnel traffic verify due to traffic test was skipped.")
                 return
             try:
                 port_index, rec_pkt = testutils.verify_packet_any_port(
