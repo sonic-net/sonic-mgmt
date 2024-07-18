@@ -325,6 +325,10 @@ onboarding_t0:
   - acl/test_acl_outer_vlan.py
   - arp/test_unknown_mac.py
   - decap/test_decap.py
+  - dualtor/test_orchagent_active_tor_downstream.py
+  - dualtor/test_orchagent_mac_move.py
+  - dualtor/test_orchagent_standby_tor_downstream.py
+  - dualtor/test_standby_tor_upstream_mux_toggle.py
 
 onboarding_t1:
   - decap/test_decap.py
