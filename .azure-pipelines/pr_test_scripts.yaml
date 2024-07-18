@@ -320,12 +320,16 @@ onboarding_t0:
   - snmp/test_snmp_queue_counters.py
   - sub_port_interfaces/test_show_subinterface.py
   - sub_port_interfaces/test_sub_port_interfaces.py
-  - system_health/test_system_health.py
+  - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - test_pktgen.py
   - acl/test_acl_outer_vlan.py
   - arp/test_unknown_mac.py
   - decap/test_decap.py
   - hash/test_generic_hash.py
+  - dualtor/test_orchagent_active_tor_downstream.py
+  - dualtor/test_orchagent_mac_move.py
+  - dualtor/test_orchagent_standby_tor_downstream.py
+  - dualtor/test_standby_tor_upstream_mux_toggle.py
 
 onboarding_t1:
   - decap/test_decap.py
