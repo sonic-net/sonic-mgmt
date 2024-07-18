@@ -49,6 +49,7 @@ import six
 import ipaddress
 import itertools
 import fib
+import macsec
 
 import ptf
 import ptf.packet as scapy
@@ -492,6 +493,11 @@ class DecapPacketTest(BaseTest):
                 if src_port in exp_port_list:
                     break
             else:
+                # MACsec link only receive encrypted packets
+                # It's hard to simulate encrypted packets on the injected port
+                # Because the MACsec is session based channel but the injected ports are stateless ports
+                if src_port in macsec.MACSEC_INFOS.keys():
+                    continue
                 logging.info('src_port={}, exp_port_lists={}, active_dut_index={}'.format(
                     src_port, exp_port_lists, active_dut_indexes))
                 break
