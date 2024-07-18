@@ -10,7 +10,7 @@ from tests.common.utilities import wait_until
 
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)

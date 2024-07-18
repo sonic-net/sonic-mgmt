@@ -15,7 +15,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
     get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown # noqa F401
 from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue,\
-    get_egress_queue_pkt_count_all_prio
+    get_egress_queue_pkt_count_all_prio, wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module # noqa F401
 
@@ -127,8 +127,6 @@ def send_and_verify_traffic(ptfadapter,
         logger.info("Received packet(s) on port {}".format(ptf_dst_port_ids[port_index]))
         global packet_egressed_success
         packet_egressed_success = True
-        # Wait for packets to be processed by the DUT
-        time.sleep(8)
         return ptf_dst_port_ids[port_index]
 
     except AssertionError as detail:
@@ -280,15 +278,10 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             if packet_egressed_success:
                 dut_egress_port = get_dut_pair_port_from_ptf_port(duthost, tbinfo, dst_ptf_port_id)
                 pytest_assert(dut_egress_port, "No egress port on DUT found for ptf port {}".format(dst_ptf_port_id))
+                # Wait for the queue counters to be populated.
+                verification_success = wait_until(60, 2, 0, lambda: find_queue_count_and_value(duthost,
+                                                  queue_val, dut_egress_port)[0] >= DEFAULT_PKT_COUNT)
                 egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val, dut_egress_port)
-                # Re-poll DUT if queue value could not be accurately found
-                if egress_queue_val == -1:
-                    time.sleep(2)
-                    egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val,
-                                                                                      dut_egress_port)
-                # Due to protocol packets, egress_queue_count can be greater than expected count.
-                verification_success = egress_queue_count >= DEFAULT_PKT_COUNT
-
                 if verification_success:
                     logger.info("SUCCESS: Received expected number of packets on queue {}".format(queue_val))
                     output_table.append([rotating_dscp, queue_val, egress_queue_count, "SUCCESS", queue_val])

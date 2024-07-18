@@ -40,7 +40,7 @@ from report_data_storage import KustoConnector
 
 
 def topo_name_to_type(topo_name):
-    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu|any)')
+    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|mgmttor|m0|mc0|mx|dpu|any|snappi)')
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
@@ -52,6 +52,8 @@ def topo_name_to_type(topo_name):
         topo_type = 't0'
     if topo_type in ['mc0']:
         topo_type = 'm0'
+    if topo_type in ['multidut-tgen']:
+        topo_type = 'tgen'
     return topo_type
 
 
@@ -129,10 +131,13 @@ def get_PRChecker_scripts():
 
     topology_type_pr_test_scripts = {}
 
-    for key, value in pr_test_scripts.items():
-        if pr_test_skip_scripts.get(key, ""):
-            pr_test_scripts[key].extend(pr_test_skip_scripts[key])
+    for key, value in pr_test_skip_scripts.items():
+        if key in pr_test_scripts:
+            pr_test_scripts[key].extend(value)
+        else:
+            pr_test_scripts[key] = value
 
+    for key, value in pr_test_scripts.items():
         topology_type = PR_TOPOLOGY_MAPPING.get(key, "")
         if topology_type:
             if topology_type_pr_test_scripts.get(topology_type, ""):

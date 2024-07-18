@@ -18,7 +18,7 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0', 'm0', 'mx', 't1'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -134,24 +134,24 @@ def expect_res_success_acl_rule(duthost, expected_content_list, unexpected_conte
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
 
-def cacl_tc1_add_new_table(duthost):
+def cacl_tc1_add_new_table(duthost, protocol):
     """ Add acl table for test
 
     Sample output
     admin@vlab-01:~$ show acl table
-    Name    Type       Binding    Description    Stage
-    ------  ---------  ---------  -------------  -------
-    ...
-    TEST_1  CTRLPLANE  SNMP       Test_Table_1   ingress
+    Name                    Type       Binding          Description                   Stage    Status
+    ----------------------  ---------  ---------------  ----------------------------  -------  --------
+    SNMP_TEST_1             CTRLPLANE  SNMP             SNMP_Test_Table_1             ingress  Active
     """
+    table = "{}_TEST_1".format(protocol)
     json_patch = [
         {
             "op": "add",
-            "path": "/ACL_TABLE/TEST_1",
+            "path": "/ACL_TABLE/{}".format(table),
             "value": {
-                "policy_desc": "Test_Table_1",
+                "policy_desc": "{}_Test_Table_1".format(protocol),
                 "services": [
-                    "SNMP"
+                    protocol
                 ],
                 "stage": "ingress",
                 "type": "CTRLPLANE"
@@ -166,23 +166,27 @@ def cacl_tc1_add_new_table(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        expected_content_list = ["TEST_1", "CTRLPLANE", "SNMP", "Test_Table_1", "ingress"]
-        expect_acl_table_match(duthost, "TEST_1", expected_content_list)
+        expected_content_list = [table, "CTRLPLANE", protocol, "{}_Test_Table_1".format(protocol), "ingress"]
+        expect_acl_table_match(duthost, table, expected_content_list)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc1_add_duplicate_table(duthost):
+def cacl_tc1_add_duplicate_table(duthost, protocol):
     """ Add duplicate acl table
     """
+    if protocol == 'SSH':
+        table_name = "SSH_ONLY"
+    else:
+        table_name = "{}_ACL".format(protocol)
     json_patch = [
         {
             "op": "add",
-            "path": "/ACL_TABLE/SNMP_ACL",
+            "path": "/ACL_TABLE/{}".format(table_name),
             "value": {
-                "policy_desc": "SNMP_ACL",
+                "policy_desc": table_name,
                 "services": [
-                    "SNMP"
+                    protocol
                 ],
                 "stage": "ingress",
                 "type": "CTRLPLANE"
@@ -200,32 +204,53 @@ def cacl_tc1_add_duplicate_table(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc1_replace_table_variable(duthost):
+def cacl_tc1_replace_table_variable(duthost, protocol):
     """ Replace acl table with SSH service
 
     Expected output
     admin@vlab-01:~$ show acl table
     Name        Type       Binding          Description    Stage
     ----------  ---------  ---------------  -------------  -------
-    SNMP_ACL    CTRLPLANE  SSH              SNMP_TO_SSH    egress
+    SNMP_ACL    CTRLPLANE  SNMP             SNMP_TO_SSH    egress
     """
-    json_patch = [
-        {
-            "op": "replace",
-            "path": "/ACL_TABLE/SNMP_ACL/stage",
-            "value": "egress"
-        },
-        {
-            "op": "replace",
-            "path": "/ACL_TABLE/SNMP_ACL/services/0",
-            "value": "SSH"
-        },
-        {
-            "op": "replace",
-            "path": "/ACL_TABLE/SNMP_ACL/policy_desc",
-            "value": "SNMP_TO_SSH"
-        }
-    ]
+    if protocol == 'SSH':
+        table_name = "SSH_ONLY"
+        json_patch = [
+            {
+                "op": "replace",
+                "path": "/ACL_TABLE/{}/stage".format(table_name),
+                "value": "egress"
+            },
+            {
+                "op": "replace",
+                "path": "/ACL_TABLE/{}/services/0".format(table_name),
+                "value": "NTP"
+            },
+            {
+                "op": "replace",
+                "path": "/ACL_TABLE/{}/policy_desc".format(table_name),
+                "value": "{}_TO_NTP".format(protocol)
+            }
+        ]
+    else:
+        table_name = "{}_ACL".format(protocol)
+        json_patch = [
+            {
+                "op": "replace",
+                "path": "/ACL_TABLE/{}/stage".format(table_name),
+                "value": "egress"
+            },
+            {
+                "op": "replace",
+                "path": "/ACL_TABLE/{}/services/0".format(table_name),
+                "value": "SSH"
+            },
+            {
+                "op": "replace",
+                "path": "/ACL_TABLE/{}/policy_desc".format(table_name),
+                "value": "{}_TO_SSH".format(protocol)
+            }
+        ]
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -233,23 +258,26 @@ def cacl_tc1_replace_table_variable(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-
-        expected_content_list = ["SNMP_ACL", "CTRLPLANE", "SSH",
-                                 "SNMP_TO_SSH", "egress"]
-        expect_acl_table_match(duthost, "SNMP_ACL", expected_content_list)
+        if protocol == 'SSH':
+            expected_content_list = [table_name, "CTRLPLANE", "NTP",
+                                     "{}_TO_NTP".format(protocol), "egress"]
+        else:
+            expected_content_list = [table_name, "CTRLPLANE", "SSH",
+                                     "{}_TO_SSH".format(protocol), "egress"]
+        expect_acl_table_match(duthost, table_name, expected_content_list)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc1_add_invalid_table(duthost):
+def cacl_tc1_add_invalid_table(duthost, protocol):
     """ Add invalid acl table
 
     {"service": "SSH", "stage": "ogress", "type": "CTRLPLANE"}, # wrong stage
     {"service": "SSH", "stage": "ingress", "type": "TRLPLANE"}  # wrong type
     """
     invalid_table = [
-        {"service": "SSH", "stage": "ogress", "type": "CTRLPLANE"},
-        {"service": "SSH", "stage": "ingress", "type": "TRLPLANE"}
+        {"service": protocol, "stage": "ogress", "type": "CTRLPLANE"},
+        {"service": protocol, "stage": "ingress", "type": "TRLPLANE"}
     ]
 
     for ele in invalid_table:
@@ -297,13 +325,17 @@ def cacl_tc1_remove_unexisted_table(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc1_remove_table(duthost):
+def cacl_tc1_remove_table(duthost, protocol):
     """ Remove acl table test
     """
+    if protocol == 'SSH':
+        table_name = "SSH_ONLY"
+    else:
+        table_name = "{}_ACL".format(protocol)
     json_patch = [
         {
             "op": "remove",
-            "path": "/ACL_TABLE/SSH_ONLY"
+            "path": "/ACL_TABLE/{}".format(table_name)
         }
     ]
 
@@ -314,21 +346,12 @@ def cacl_tc1_remove_table(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        expect_acl_table_match(duthost, "SSH_ONLY", [])
+        expect_acl_table_match(duthost, table_name, [])
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_cacl_tc1_acl_table_suite(rand_selected_dut):
-    cacl_tc1_add_new_table(rand_selected_dut)
-    cacl_tc1_add_duplicate_table(rand_selected_dut)
-    cacl_tc1_replace_table_variable(rand_selected_dut)
-    cacl_tc1_add_invalid_table(rand_selected_dut)
-    cacl_tc1_remove_unexisted_table(rand_selected_dut)
-    cacl_tc1_remove_table(rand_selected_dut)
-
-
-def cacl_tc2_add_init_rule(duthost):
+def cacl_tc2_add_init_rule(duthost, protocol):
     """ Add acl rule for test
 
     Check 'ip tables' to make sure rule is actually being applied
@@ -342,51 +365,93 @@ def cacl_tc2_add_init_rule(duthost):
                                                  SRC_IP: 9.9.9.9/32
 
     """
+    params_dict = {}
+
+    if protocol == 'SSH':
+        params_dict["table"] = "SSH_ONLY"
+        params_dict["IP_PROTOCOL"] = "6"
+        params_dict["L4_DST_PORT"] = "22"
+    elif protocol == 'SNMP':
+        params_dict["table"] = "SNMP_ACL"
+        params_dict["IP_PROTOCOL"] = "17"
+        params_dict["L4_DST_PORT"] = "161"
+    elif protocol == 'NTP':
+        params_dict["table"] = "NTP_ACL"
+        params_dict["IP_PROTOCOL"] = "17"
+        params_dict["L4_DST_PORT"] = "123"
+    elif protocol == 'EXTERNAL_CLIENT':
+        params_dict["table"] = "EXTERNAL_CLIENT_ACL"
+        params_dict["IP_PROTOCOL"] = "6"
+        params_dict["L4_DST_PORT"] = "8081"
     json_patch = [
         {
             "op": "add",
             "path": "/ACL_RULE",
             "value": {
-                "SSH_ONLY|TEST_DROP": {
-                 "L4_DST_PORT": "22",
-                 "IP_PROTOCOL": "6",
-                 "IP_TYPE": "IP",
-                 "PACKET_ACTION": "DROP",
-                 "PRIORITY": "9998",
-                 "SRC_IP": "9.9.9.9/32"
+                "{}|TEST_DROP".format(params_dict["table"]): {
+                    "IP_PROTOCOL": "{}".format(params_dict["IP_PROTOCOL"]),
+                    "L4_DST_PORT": "{}".format(params_dict["L4_DST_PORT"]),
+                    "IP_TYPE": "IP",
+                    "PACKET_ACTION": "DROP",
+                    "PRIORITY": "9998",
+                    "SRC_IP": "9.9.9.9/32"
                 }
             }
         }
     ]
-
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-
-        expected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 22 -j DROP"]
+        if protocol == 'SSH':
+            expected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 22 -j DROP"]
+        if protocol == 'NTP':
+            expected_content_list = ["-A INPUT -s 9.9.9.9/32 -p udp -m udp --dport 123 -j DROP"]
+        elif protocol == 'SNMP':
+            expected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 161 -j DROP",
+                                     "-A INPUT -s 9.9.9.9/32 -p udp -m udp --dport 161 -j DROP"]
+        elif protocol == 'EXTERNAL_CLIENT':
+            expected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 8081 -j DROP"]
         expect_res_success_acl_rule(duthost, expected_content_list, [])
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_add_duplicate_rule(duthost):
+def cacl_tc2_add_duplicate_rule(duthost, protocol):
     """ Add duplicate acl rule for test
     """
+    params_dict = {}
+
+    if protocol == 'SSH':
+        params_dict["table"] = "SSH_ONLY"
+        params_dict["IP_PROTOCOL"] = "6"
+        params_dict["L4_DST_PORT"] = "22"
+    elif protocol == 'SNMP':
+        params_dict["table"] = "SNMP_ACL"
+        params_dict["IP_PROTOCOL"] = "17"
+        params_dict["L4_DST_PORT"] = "161"
+    elif protocol == 'NTP':
+        params_dict["table"] = "NTP_ACL"
+        params_dict["IP_PROTOCOL"] = "6"
+        params_dict["L4_DST_PORT"] = "123"
+    elif protocol == 'EXTERNAL_CLIENT':
+        params_dict["table"] = "EXTERNAL_CLIENT_ACL"
+        params_dict["IP_PROTOCOL"] = "6"
+        params_dict["L4_DST_PORT"] = "8081"
     json_patch = [
         {
             "op": "add",
             "path": "/ACL_RULE",
             "value": {
-                "SSH_ONLY|TEST_DROP": {
-                 "L4_DST_PORT": "22",
-                 "IP_PROTOCOL": "6",
-                 "IP_TYPE": "IP",
-                 "PACKET_ACTION": "DROP",
-                 "PRIORITY": "9998",
-                 "SRC_IP": "9.9.9.9/32"
+                "{}|TEST_DROP".format(params_dict["table"]): {
+                    "IP_PROTOCOL": "{}".format(params_dict["IP_PROTOCOL"]),
+                    "L4_DST_PORT": "{}".format(params_dict["L4_DST_PORT"]),
+                    "IP_TYPE": "IP",
+                    "PACKET_ACTION": "DROP",
+                    "PRIORITY": "9998",
+                    "SRC_IP": "9.9.9.9/32"
                 }
             }
         }
@@ -402,7 +467,7 @@ def cacl_tc2_add_duplicate_rule(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_replace_rule(duthost):
+def cacl_tc2_replace_rule(duthost, protocol):
     """ Replace a value from acl rule test
 
     Check 'ip tables' to make sure rule is actually being applied
@@ -415,23 +480,41 @@ def cacl_tc2_replace_rule(duthost):
                                                  L4_DST_PORT: 22
                                                  SRC_IP: 8.8.8.8/32
     """
+    if protocol == 'SSH':
+        table = 'SSH_ONLY'
+    elif protocol == 'SNMP':
+        table = 'SNMP_ACL'
+    elif protocol == 'NTP':
+        table = 'NTP_ACL'
+    elif protocol == 'EXTERNAL_CLIENT':
+        table = 'EXTERNAL_CLIENT_ACL'
     json_patch = [
         {
             "op": "replace",
-            "path": "/ACL_RULE/SSH_ONLY|TEST_DROP/SRC_IP",
+            "path": "/ACL_RULE/{}|TEST_DROP/SRC_IP".format(table),
             "value": "8.8.8.8/32"
         }
     ]
-
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-
-        expected_content_list = ["-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 22 -j DROP"]
-        unexpected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 22 -j DROP"]
+        if protocol == 'SSH':
+            expected_content_list = ["-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 22 -j DROP"]
+            unexpected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 22 -j DROP"]
+        if protocol == 'NTP':
+            expected_content_list = ["-A INPUT -s 8.8.8.8/32 -p udp -m udp --dport 123 -j DROP"]
+            unexpected_content_list = ["-A INPUT -s 9.9.9.9/32 -p udp -m udp --dport 123 -j DROP"]
+        elif protocol == 'SNMP':
+            expected_content_list = ["-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 161 -j DROP",
+                                     "-A INPUT -s 8.8.8.8/32 -p udp -m udp --dport 161 -j DROP"]
+            unexpected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 161 -j DROP",
+                                       "-A INPUT -s 9.9.9.9/32 -p udp -m udp --dport 161 -j DROP"]
+        elif protocol == 'EXTERNAL_CLIENT':
+            expected_content_list = ["-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 8081 -j DROP"]
+            unexpected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 8081 -j DROP"]
         expect_res_success_acl_rule(duthost, expected_content_list, unexpected_content_list)
     finally:
         delete_tmpfile(duthost, tmpfile)
@@ -465,13 +548,21 @@ def cacl_tc2_add_rule_to_unexisted_table(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_remove_table_before_rule(duthost):
+def cacl_tc2_remove_table_before_rule(duthost, protocol):
     """ Remove acl table before removing acl rule
     """
+    if protocol == 'SSH':
+        table = 'SSH_ONLY'
+    elif protocol == 'SNMP':
+        table = 'SNMP_ACL'
+    elif protocol == 'NTP':
+        table = 'NTP_ACL'
+    elif protocol == 'EXTERNAL_CLIENT':
+        table = 'EXTERNAL_CLIENT_ACL'
     json_patch = [
         {
             "op": "remove",
-            "path": "/ACL_TABLE/SSH_ONLY"
+            "path": "/ACL_TABLE/{}".format(table)
         }
     ]
 
@@ -485,13 +576,21 @@ def cacl_tc2_remove_table_before_rule(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def cacl_tc2_remove_unexist_rule(duthost):
+def cacl_tc2_remove_unexist_rule(duthost, protocol):
     """ Remove unexisted acl rule
     """
+    if protocol == 'SSH':
+        table = 'SSH_ONLY'
+    elif protocol == 'SNMP':
+        table = 'SNMP_ACL'
+    elif protocol == 'NTP':
+        table = 'NTP_ACL'
+    elif protocol == 'EXTERNAL_CLIENT':
+        table = 'EXTERNAL_CLIENT_ACL'
     json_patch = [
         {
             "op": "remove",
-            "path": "/ACL_RULE/SSH_ONLY|TEST_DROP2"
+            "path": "/ACL_RULE/{}|TEST_DROP2".format(table)
         }
     ]
     tmpfile = generate_tmpfile(duthost)
@@ -520,18 +619,80 @@ def cacl_tc2_remove_rule(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        unexpected_content_list = ["-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 22 -j DROP"]
+        unexpected_content_list = ["-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 22 -j DROP",
+                                   "-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 161 -j DROP",
+                                   "-A INPUT -s 8.8.8.8/32 -p udp -m udp --dport 161 -j DROP",
+                                   "-A INPUT -s 8.8.8.8/32 -p tcp -m udp --dport 123 -j DROP",
+                                   "-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 8081 -j DROP"]
         expect_res_success_acl_rule(duthost, [], unexpected_content_list)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
+def cacl_external_client_add_new_table(duthost):
+    """ Add acl table for test
+    Sample output
+    admin@vlab-01:~$ show acl table
+    Name                    Type       Binding          Description                   Stage    Status
+    ----------------------  ---------  ---------------  ----------------------------  -------  --------
+    EXTERNAL_CLIENT_ACL     CTRLPLANE  EXTERNAL_CLIENT  EXTERNAL_CLIENT_ACL           ingress  Active
+    """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/ACL_TABLE/EXTERNAL_CLIENT_ACL",
+            "value": {
+                "policy_desc": "EXTERNAL_CLIENT_ACL",
+                "services": [
+                    "EXTERNAL_CLIENT"
+                ],
+                "stage": "ingress",
+                "type": "CTRLPLANE"
+            }
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        expected_content_list = ["EXTERNAL_CLIENT_ACL", "CTRLPLANE", "EXTERNAL_CLIENT",
+                                 "EXTERNAL_CLIENT_ACL", "ingress"]
+        expect_acl_table_match(duthost, "EXTERNAL_CLIENT_ACL", expected_content_list)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+@pytest.fixture(scope="module", params=["SSH", "NTP", "SNMP", "EXTERNAL_CLIENT"])
+def cacl_protocol(request):       # noqa F811
+    """
+    Return the protocol to be tested
+    """
+    return request.param
+
+
+def test_cacl_tc1_acl_table_suite(cacl_protocol, rand_selected_dut):
+    logger.info("Test acl table for protocol {}".format(cacl_protocol))
+    cacl_tc1_add_new_table(rand_selected_dut, cacl_protocol)
+    cacl_tc1_add_duplicate_table(rand_selected_dut, cacl_protocol)
+    cacl_tc1_replace_table_variable(rand_selected_dut, cacl_protocol)
+    cacl_tc1_add_invalid_table(rand_selected_dut, cacl_protocol)
+    cacl_tc1_remove_unexisted_table(rand_selected_dut)
+    cacl_tc1_remove_table(rand_selected_dut, cacl_protocol)
+
+
 # ACL_RULE tests are related. So group them into one test.
-def test_cacl_tc2_acl_rule_test(rand_selected_dut):
-    cacl_tc2_add_init_rule(rand_selected_dut)
-    cacl_tc2_add_duplicate_rule(rand_selected_dut)
-    cacl_tc2_replace_rule(rand_selected_dut)
+def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_dut):
+    logger.info("Test acl table for protocol {}".format(cacl_protocol))
+    if cacl_protocol == 'EXTERNAL_CLIENT':
+        cacl_external_client_add_new_table(rand_selected_dut)
+    cacl_tc2_add_init_rule(rand_selected_dut, cacl_protocol)
+    cacl_tc2_add_duplicate_rule(rand_selected_dut, cacl_protocol)
+    cacl_tc2_replace_rule(rand_selected_dut, cacl_protocol)
     cacl_tc2_add_rule_to_unexisted_table(rand_selected_dut)
-    cacl_tc2_remove_table_before_rule(rand_selected_dut)
-    cacl_tc2_remove_unexist_rule(rand_selected_dut)
+    cacl_tc2_remove_table_before_rule(rand_selected_dut, cacl_protocol)
+    cacl_tc2_remove_unexist_rule(rand_selected_dut, cacl_protocol)
     cacl_tc2_remove_rule(rand_selected_dut)

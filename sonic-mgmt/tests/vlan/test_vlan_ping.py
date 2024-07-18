@@ -3,8 +3,13 @@ import pytest
 import ipaddress
 import logging
 import ptf.testutils as testutils
+import ptf.packet as scapy
+from ptf.mask import Mask
 import six
+from ipaddress import ip_address, IPv4Address
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +52,7 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
 
 
 @pytest.fixture(scope='module')
-def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
+def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, lower_tor_host):   # noqa F811
     """
     Setup:      Collecting vm_host_info, ptfhost_info
     Teardown:   Removing all added ipv4 and ipv6 neighbors
@@ -69,11 +74,28 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     else:
         vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Port-Channel1']['ipv4'])
         output = vm_info['host'].command("ip addr show dev po1")
+        # in case of lower tor host we need to use the next portchannel
+        if "dualtor-aa" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
+            vm_ip_with_prefix = six.ensure_text(vm_info['conf']['interfaces']['Port-Channel2']['ipv4'])
+            output = vm_info['host'].command("ip addr show dev po2")
     vm_host_info["mac"] = output['stdout_lines'][1].split()[1]
     vm_ip_intf = ipaddress.IPv4Interface(vm_ip_with_prefix).ip
     vm_host_info["ipv4"] = vm_ip_intf
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        idx = duthosts.index(duthost)
+        unselected_duthost = duthosts[1 - idx]
+        unslctd_mg_facts = unselected_duthost.minigraph_facts(host=unselected_duthost.hostname)['ansible_facts']
+        unslctd_mg_facts['mg_ptf_idx'] = unslctd_mg_facts['minigraph_port_indices'].copy()
+        try:
+            map = tbinfo['topo']['ptf_map'][str(1 - idx)]
+            if map:
+                for port, index in list(unslctd_mg_facts['minigraph_port_indices'].items()):
+                    if str(index) in map:
+                        unslctd_mg_facts['mg_ptf_idx'][port] = map[str(index)]
+        except (ValueError, KeyError):
+            pass
     my_cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     ptfhost_info = {}
     ip4 = None
@@ -88,14 +110,24 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
                         vm_host_info['port_index_list'] = [mg_facts['minigraph_ptf_indices'][intf['attachto']]]
                         break
             else:
-                for intf in mg_facts['minigraph_portchannel_interfaces']:
-                    if intf['peer_addr'] == str(vm_host_info['ipv4']):
-                        portchannel = intf['attachto']
-                        ifaces_list = []
-                        for iface in mg_facts['minigraph_portchannels'][portchannel]['members']:
-                            ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
-                        vm_host_info['port_index_list'] = ifaces_list
+                ifaces_list = []
+                # UL pkt may take any of the tor in case of dualtor-aa
+                if "dualtor-aa" in tbinfo["topo"]["name"]:
+                    for intf in mg_facts['minigraph_portchannel_interfaces']:
+                        if type(ip_address(intf['peer_addr'])) is IPv4Address:
+                            portchannel = intf['attachto']
+                            for iface in mg_facts['minigraph_portchannels'][portchannel]['members']:
+                                ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
+                                ifaces_list.append(unslctd_mg_facts['mg_ptf_idx'][iface])
+                    ifaces_list = list(dict.fromkeys(ifaces_list))
+                else:
+                    for intf in mg_facts['minigraph_portchannel_interfaces']:
+                        if intf['peer_addr'] == str(vm_host_info['ipv4']):
+                            portchannel = intf['attachto']
+                            for iface in mg_facts['minigraph_portchannels'][portchannel]['members']:
+                                ifaces_list.append(mg_facts['minigraph_ptf_indices'][iface])
                         break
+                vm_host_info['port_index_list'] = ifaces_list
             break
 
     # getting the ipv4, ipv6 and vlan id of a vlan in DUT with 2 or more vlan members
@@ -143,21 +175,38 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo):
     yield vm_host_info, ptfhost_info
 
     logger.info("Removing all added ipv4 and ipv6 neighbors")
-    neigh_list = duthost.shell("sudo ip neigh | grep PERMANENT")["stdout_lines"]
-    for neigh in neigh_list:
-        cmd = neigh.split(" PERMANENT")[0]
-        duthost.shell("sudo ip neigh del {}".format(cmd))
+    duthost.shell("sudo ip neigh flush nud permanent")
 
 
-def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter):
-    pkt = testutils.simple_icmp_packet(eth_src=str(src_port['mac']),
-                                       eth_dst=str(dut_mac),
-                                       ip_src=str(src_port['ipv4']),
-                                       ip_dst=str(dst_port['ipv4']), ip_ttl=64)
-    exptd_pkt = testutils.simple_icmp_packet(eth_src=str(dut_mac),
-                                             eth_dst=str(dst_port['mac']),
-                                             ip_src=str(src_port['ipv4']),
-                                             ip_dst=str(dst_port['ipv4']), ip_ttl=63)
+def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo, vlan_mac=None, dtor_ul=False, dtor_dl=False):
+    if dtor_ul is True:
+        # use vlan int mac in case of dualtor UL test pkt
+        pkt = testutils.simple_icmp_packet(eth_src=str(src_port['mac']),
+                                           eth_dst=str(vlan_mac),
+                                           ip_src=str(src_port['ipv4']),
+                                           ip_dst=str(dst_port['ipv4']), ip_ttl=64)
+    else:
+        # use dut mac addr for all other test pkts
+        pkt = testutils.simple_icmp_packet(eth_src=str(src_port['mac']),
+                                           eth_dst=str(dut_mac),
+                                           ip_src=str(src_port['ipv4']),
+                                           ip_dst=str(dst_port['ipv4']), ip_ttl=64)
+    if dtor_dl is True:
+        # expect vlan int mac as src mac in dualtor DL test pkt
+        exptd_pkt = testutils.simple_icmp_packet(eth_src=str(vlan_mac),
+                                                 eth_dst=str(dst_port['mac']),
+                                                 ip_src=str(src_port['ipv4']),
+                                                 ip_dst=str(dst_port['ipv4']), ip_ttl=63)
+    else:
+        # expect dut mac as src mac for non dualtor DL test pkt
+        exptd_pkt = testutils.simple_icmp_packet(eth_src=str(dut_mac),
+                                                 eth_dst=str(dst_port['mac']),
+                                                 ip_src=str(src_port['ipv4']),
+                                                 ip_dst=str(dst_port['ipv4']), ip_ttl=63)
+    # skip smac check for dualtor-aa UL test pkt
+    if "dualtor-aa" in tbinfo["topo"]["name"] and dtor_ul is True:
+        exptd_pkt = Mask(exptd_pkt)
+        exptd_pkt.set_do_not_care_scapy(scapy.Ether, "src")
     for i in range(5):
         testutils.send_packet(ptfadapter, src_port['port_index_list'][0], pkt)
         try:
@@ -169,7 +218,8 @@ def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter):
                 raise e  # If it fails on the last attempt, raise the exception
 
 
-def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter):
+def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
+                   ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
     """
     test for checking connectivity of statically added ipv4 and ipv6 arp entries
     """
@@ -177,14 +227,33 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter)
     vmhost_info, ptfhost_info = vlan_ping_setup
     device2 = dict(list(ptfhost_info.items())[1:])
     device1 = dict(list(ptfhost_info.items())[:1])
+    # use mac addr of vlan interface in case of dualtor
+    dualtor_topo = ["dualtor", "dualtor-aa"]
+    if tbinfo["topo"]["name"] in dualtor_topo:
+        vlan_table = duthost.get_running_config_facts()['VLAN']
+        vlan_name = list(vlan_table.keys())[0]
+        vlan_mac = duthost.get_dut_iface_mac(vlan_name)
+        # dump neigh entries
+        logger.info("Dumping all ipv4 and ipv6 neighbors")
+        duthost.shell("sudo ip neigh show")
+        # flush entries of vlan interface in case of dualtor to avoid issue#12302
+        logger.info("Flushing all ipv4 and ipv6 neighbors on {}".format(vlan_name))
+        duthost.shell("sudo ip neigh flush dev {} all".format(vlan_name))
 
     # initial setup and checking connectivity, try to break in more chunks
     logger.info("initializing setup for ipv4 and ipv6")
     static_neighbor_entry(duthost, ptfhost_info, "add")
     logger.info("Checking connectivity to ptf ports")
+
     for member in ptfhost_info:
-        verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter)
-        verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter)
+        if tbinfo["topo"]["name"] in dualtor_topo:
+            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
+                               vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True)
+            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+                               ptfadapter, tbinfo, vlan_mac, dtor_dl=True)
+        else:
+            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo)
+            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo)
 
     # flushing and re-adding ipv6 static arp entry
     static_neighbor_entry(duthost, ptfhost_info, "del", "6")
@@ -201,5 +270,11 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter)
     # Checking for connectivity
     logger.info("Check connectivity to both ptfhost")
     for member in ptfhost_info:
-        verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter)
-        verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter)
+        if tbinfo["topo"]["name"] in dualtor_topo:
+            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
+                               vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True)
+            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+                               ptfadapter, tbinfo, vlan_mac, dtor_dl=True)
+        else:
+            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo)
+            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo)

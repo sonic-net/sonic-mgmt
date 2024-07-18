@@ -426,20 +426,6 @@ class VMTopology(object):
             self.destroy_ovs_bridge(VS_CHASSIS_INBAND_BRIDGE_NAME)
             self.destroy_ovs_bridge(VS_CHASSIS_MIDPLANE_BRIDGE_NAME)
 
-    def reinsert_8021q(self):
-        """
-        Reinsert module 8021q in case of vconfig add command failed to work
-        Would not do reinsert in a shared test server, in case of affect traffic
-        """
-        ngts_docker_count = 0
-        out = VMTopology.cmd('docker ps')
-        for line in out.split('\n'):
-            if 'docker-ngts' in line:
-                ngts_docker_count += 1
-        if ngts_docker_count < 2:
-            VMTopology.cmd('rmmod 8021q')
-            VMTopology.cmd('modprobe 8021q')
-
     def destroy_ovs_bridge(self, bridge_name):
         logging.info('=== Destroy bridge %s ===' % bridge_name)
         VMTopology.cmd('ovs-vsctl --if-exists del-br %s' % bridge_name)
@@ -1309,13 +1295,6 @@ class VMTopology(object):
                 if isinstance(intf, list):
                     host_ifindex = intf[0][2] if len(intf[0]) == 3 else i
                     is_active_active = intf in self.host_interfaces_active_active
-                    dual_if_template = ACTIVE_ACTIVE_INTERFACES_TEMPLATE \
-                        if is_active_active else MUXY_INTERFACES_TEMPLATE
-                    dual_if = adaptive_name(
-                        dual_if_template, self.vm_set_name, host_ifindex)
-                    ptf_if = PTF_FP_IFACE_TEMPLATE % host_ifindex
-                    tmp_name = ptf_if + VMTopology._generate_fingerprint(dual_if, MAX_INTF_LEN-len(ptf_if))
-                    self.remove_veth_if_from_docker(dual_if, ptf_if, tmp_name)
                     self.remove_dualtor_cable(
                         host_ifindex, is_active_active=is_active_active)
                 else:
@@ -1774,7 +1753,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             cmd=dict(required=True, choices=['create', 'bind', 'bind_keysight_api_server_ip',
-                     'renumber', 'unbind', 'destroy', "connect-vms", "disconnect-vms", "reinsert-8021q"]),
+                     'renumber', 'unbind', 'destroy', "connect-vms", "disconnect-vms"]),
             vm_set_name=dict(required=False, type='str'),
             topo=dict(required=False, type='dict'),
             vm_names=dict(required=True, type='list'),
@@ -1820,8 +1799,6 @@ def main():
             net.create_bridges()
         elif cmd == 'destroy':
             net.destroy_bridges()
-        elif cmd == 'reinsert-8021q':
-            net.reinsert_8021q()
         elif cmd == 'bind':
             check_params(module, ['vm_set_name',
                                   'topo',

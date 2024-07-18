@@ -1231,11 +1231,15 @@ class TestQosSai(QosSaiBase):
         if not get_src_dst_asic_and_duts['single_asic_test']:
             pytest.skip("Lossy Queue Voq test is only supported on cisco-8000 single-asic")
         if "lossy_queue_voq_1" in LossyVoq:
-            if 'modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and\
-              get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True":
-                pytest.skip("LossyQueueVoq: This test is skipped since cisco-8000 T2 "
-                            "doesn't support split-voq.")
+            if ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
+                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True"):
+                if get_src_dst_asic_and_duts['src_dut'].facts['platform'] != 'x86_64-88_lc0_36fh-r0':
+                    pytest.skip("LossyQueueVoq: This test is skipped since cisco-8000 T2 "
+                                "doesn't support split-voq.")
         elif "lossy_queue_voq_2" in LossyVoq:
+            if get_src_dst_asic_and_duts['src_dut'].facts['platform'] == 'x86_64-88_lc0_36fh-r0':
+                pytest.skip("LossyQueueVoq: lossy_queue_voq_2 test is not applicable "
+                            "for x86_64-88_lc0_36fh-r0, with split-voq.")
             if not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
                     get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True"):
                 pytest.skip("LossyQueueVoq: lossy_queue_voq_2 test is not applicable "
