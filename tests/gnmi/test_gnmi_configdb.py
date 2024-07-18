@@ -1,7 +1,8 @@
 import json
 import logging
-import pytest
 import multiprocessing
+import pytest
+import re
 import time
 
 from .helper import gnmi_set, gnmi_get, gnoi_reboot
@@ -180,6 +181,41 @@ def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, pt
     run_flag.value = False
     client_task.join()
     assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
+
+
+def test_gnmi_configdb_streaming_onchange_02(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    Verify GNMI subscribe API, streaming onchange mode
+    Subscribe table, and verify gnmi output has table key
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    run_flag = multiprocessing.Value('I', True)
+
+    # Update DEVICE_METADATA table to trigger onchange event
+    def worker(duthost, run_flag):
+        for i in range(100):
+            if not run_flag.value:
+                break
+            time.sleep(0.5)
+            cmd = "sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" bgp_asn " + str(i+1000)
+            duthost.shell(cmd, module_ignore_errors=True)
+
+    client_task = multiprocessing.Process(target=worker, args=(duthost, run_flag,))
+    client_task.start()
+    exp_cnt = 3
+    path_list = ["/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA"]
+    msg = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, exp_cnt)
+    run_flag.value = False
+    client_task.join()
+
+    match_list = re.findall("json_ietf_val: \"({.*?})\"", msg)
+    assert len(match_list) >= exp_cnt, "Missing json_ietf_val in gnmi response: " + msg
+    for match in match_list:
+        result = json.loads(match)
+        # Verify table key
+        assert "localhost" in result, "Invalid result: " + match
+        # Verify table field
+        assert "bgp_asn" in result["localhost"], "Invalid result: " + match
 
 
 def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, ptfhost):
