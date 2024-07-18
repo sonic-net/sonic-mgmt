@@ -94,6 +94,32 @@ def test_acms_cert_converter(duthosts, rand_one_dut_hostname, localhost):
         wait_until(30, 1, 0, check_converted_cert, duthost, ''),
         "Failed to convert certs link")
 
+    # Verify symbolic link
+    dut_command = "docker exec %s supervisorctl stop cert_converter" % container_name
+    duthost.shell(dut_command, module_ignore_errors=True)
+    for i in range(MIN_TEST_CERT_POSTFIX, MAX_TEST_CERT_POSTFIX):
+        dut_command = "sudo rm /etc/sonic/credentials/restapiserver.key." + str(i)
+        duthost.shell(dut_command, module_ignore_errors=True)
+    i = 100
+    duthost.copy(src="acms.pfx", dest="%s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)))
+    # Update the notify file
+    with open("pfx.notify", "w+") as fp:
+        fp.write("%s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)))
+    duthost.copy(src="pfx.notify", dest="%s%s.pfx.notify" % (acms_certs_path, certs_name))
+    dut_command = "docker exec %s supervisorctl start cert_converter" % container_name
+    duthost.shell(dut_command, module_ignore_errors=True)
+    pytest_assert(
+        wait_until(30, 1, 0, check_converted_cert, duthost, '.'+str(i)),
+        "Failed to convert certs %d" % i)
+    pytest_assert(
+        wait_until(30, 1, 0, check_converted_cert, duthost, ''),
+        "Failed to convert certs link")
+    dut_command = "ls -l %s%s.key" % (certs_path, certs_name)
+    command_result = duthost.shell(dut_command, module_ignore_errors=True)
+    pytest_assert(
+        "%s%s.key.%d" % (certs_path, certs_name, i) in command_result['stdout'],
+        "symbolic is wrong: " + command_result['stdout'])
+
 
 def check_converted_cert_clean(duthost, postfix):
     ret1 = duthost.stat(path="%s%s.key%s" % (certs_path, certs_name, postfix)).get('stat', {}).get('exists', False)
