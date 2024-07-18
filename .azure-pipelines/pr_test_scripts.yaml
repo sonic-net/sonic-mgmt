@@ -321,7 +321,6 @@ onboarding_t0:
   - sub_port_interfaces/test_show_subinterface.py
   - sub_port_interfaces/test_sub_port_interfaces.py
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
-  - system_health/test_system_health.py
   - test_pktgen.py
   - acl/test_acl_outer_vlan.py
   - arp/test_unknown_mac.py
