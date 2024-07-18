@@ -91,6 +91,9 @@ all:
           ansible_hostv6: 2404:f801:10:2200::a96:1765
     pdu:
       hosts:
+        bjw2-pdu-127-166:
+          ansible_host: 10.150.127.166
+          protocol: snmp
         bjw2-pdu-126-81:
           ansible_host: 10.150.126.81
           protocol: snmp
@@ -422,10 +425,21 @@ sonic_nokia_7215:
       ansible_host: 10.150.22.175
       ansible_hostv6: 2404:f801:10:2200::a96:16af
       hwsku: Nokia-M0-7215
-      model:
-      serial:
-      base_mac:
+      model: 3HE16794AARE01
+      serial: NK234511206
+      base_mac: 8C:7A:00:F7:2A:B3
       syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARE01"
+        "0x23": "NK234511206"
+        "0x24": "8C:7A:00:F7:2A:B3"
+        "0x25": "11/11/2023 01:56:28"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.2"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
+        "0xFE": "0x59112678"
     bjw2-can-7215-6:
       ansible_host: 10.150.22.177
       ansible_hostv6: 2404:f801:10:2200::a96:166e
