@@ -64,11 +64,22 @@ def log_eth0_interface_info(duthosts):
 
 def log_tacacs(duthosts, ptfhost):
     for duthost in duthosts:
+        # Print debug info for ipv6 pingability
         ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
         if 'ansible_hostv6' in ptfhost_vars:
             tacacs_server_ip = ptfhost_vars['ansible_hostv6']
             ping_result = duthost.shell(f"ping {tacacs_server_ip} -c 1 -W 3", module_ignore_errors=True)["stdout"]
             logging.debug(f"Checking ping_result [{ping_result}]")
+
+        # Print debug info for mgmt interfaces and forced mgmt routes
+        mgmt_interface_keys = duthost.command("sonic-db-cli  CONFIG_DB keys 'MGMT_INTERFACE|eth0|*'")['stdout']
+        logging.debug("mgmt_interface_keys: {}".format(mgmt_interface_keys))
+        for interface_key in mgmt_interface_keys.split('\n'):
+            logging.debug("interface_key: {}".format(interface_key))
+            interface_address = interface_key.split('|')[2]
+            forced_mgmt_routes_cmd = "sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@".format(interface_key)
+            forced_mgmt_routes = duthost.command(forced_mgmt_routes_cmd)['stdout']
+            logging.debug("forced_mgmt_routes: {}, interface address: {}".format(forced_mgmt_routes, interface_address))
 
 
 def test_bgp_facts_ipv6_only(duthosts, enum_frontend_dut_hostname, enum_asic_index,
