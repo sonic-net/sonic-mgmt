@@ -15,7 +15,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.duthost_utils import is_support_mock_asic    # noqa F401
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)
