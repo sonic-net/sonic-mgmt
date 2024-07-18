@@ -7,6 +7,13 @@ import logging
 import re
 import sys
 
+
+# change history
+#           [major, minor, patch, date, author, description]
+versions = [[1, 1, 0, '7/18/2024', 'Xu Chen', 'add change history'],
+            [1, 0, 0, '7/2/2024', 'Xu Chen', 'first sharing revision']]
+
+
 #
 # extract section content from input text to support run this script in dev mode
 #
