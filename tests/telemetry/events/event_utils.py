@@ -87,8 +87,8 @@ def verify_received_output(received_file, N):
 
 
 def restart_eventd(duthost):
-    status = duthost.get_feature_status()
-    if 'eventd' not in status or status['eventd'] == 'disabled':
+    features_dict, succeeded = duthost.get_feature_status()
+    if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
         pytest.skip("eventd is disabled on the system")
 
     duthost.shell("systemctl reset-failed eventd")
