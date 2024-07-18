@@ -48,17 +48,8 @@ pytestmark = [
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
-    """
-        Ignore expected failures logs during test execution.
-
-        We disable LLDP during the test, so we expect to see "lldp not running"
-        messages in the logs. All other errors should be treated as errors.
-
-        Args:
-            duthost: DUT fixture
-            loganalyzer: Loganalyzer utility fixture
-    """
-    ignoreRegex = [
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
         ".*unknown decap tunnel table attribute 'dst_ip'.*",
         ".*Tunnel TEST_IPINIP_V4_TUNNEL cannot be removed since it doesn't exist.*",
         ".*Tunnel TEST_IPINIP_V6_TUNNEL cannot be removed since it doesn't exist.*",
@@ -67,7 +58,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
     if loganalyzer:  # Skip if loganalyzer is disabled
         for duthost in duthosts:
             if duthost.facts["asic_type"] == "vs":
-                loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+                loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
 
 
 def remove_default_decap_cfg(duthosts):
