@@ -44,6 +44,9 @@ t0:
   - snmp/test_snmp_phy_entity.py
   # Remove from PR test in https://github.com/sonic-net/sonic-mgmt/pull/6073
   - cacl/test_ebtables_application.py
+  # There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed
+  # The tests in this script are all related to the above table
+  - system_health/test_system_health.py
 
 t1:
   # KVM do not support bfd test
@@ -90,7 +93,9 @@ t1:
   - snmp/test_snmp_phy_entity.py
   # Remove from PR test in https://github.com/sonic-net/sonic-mgmt/pull/6073
   - cacl/test_ebtables_application.py
-
+  # There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed
+  # The tests in this script are all related to the above table
+  - system_health/test_system_health.py
 
 t2:
   # KVM do not support bfd test
@@ -134,6 +139,9 @@ t2:
   - snmp/test_snmp_phy_entity.py
   # Remove from PR test in https://github.com/sonic-net/sonic-mgmt/pull/6073
   - cacl/test_ebtables_application.py
+  # There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed
+  # The tests in this script are all related to the above table
+  - system_health/test_system_health.py
 
 dualtor:
   # This test is only for Nvidia platforms.
