@@ -8,11 +8,13 @@ from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
-from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import CableType, active_standby_ports                # noqa F401
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.dualtor.mux_simulator_control import _probe_mux_ports
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -28,6 +30,7 @@ CHECK_ITEMS = [
     'check_monit',
     'check_secureboot',
     'check_neighbor_macsec_empty',
+    'check_ipv6_mgmt',
     'check_mux_simulator']
 
 __all__ = CHECK_ITEMS
@@ -146,7 +149,7 @@ def check_interfaces(duthosts):
 
 
 @pytest.fixture(scope="module")
-def check_bgp(duthosts):
+def check_bgp(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "bgp"}
 
     def _check(*args, **kwargs):
@@ -209,6 +212,13 @@ def check_bgp(duthosts):
         logger.info("Checking bgp status on host %s ..." % dut.hostname)
         check_result = {"failed": False, "check_item": "bgp", "host": dut.hostname}
 
+        # If the topology doesn't have any VMs, it is not using BGP feature at all, hence skip checking
+        # the BGP status here.
+        if len(tbinfo['topo']['properties']['topology']['VMs']) == 0:
+            logger.info("No VMs in topology, skip checking bgp status on host %s ..." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
+
         networking_uptime = dut.get_networking_uptime().seconds
         if SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480 > 500:
             # If max_timeout is higher than 600, it will exceed parallel_run's timeout
@@ -229,6 +239,12 @@ def check_bgp(duthosts):
                             check_result[a_result]['down_neighbors'], a_result, dut.hostname))
         else:
             logger.info('No BGP neighbors are down on %s' % dut.hostname)
+
+        mgFacts = dut.get_extended_minigraph_facts(tbinfo)
+        if dut.num_asics() == 1 and tbinfo['topo']['type'] != 't2' and \
+           not wait_until(timeout, interval, 0, check_bgp_router_id, dut, mgFacts):
+            check_result['failed'] = True
+            logger.info("Failed to verify BGP router identifier is Loopback0 address on %s" % dut.hostname)
 
         logger.info("Done checking bgp status on %s" % dut.hostname)
         results[dut.hostname] = check_result
@@ -512,6 +528,12 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
                     err_msg_from_mux_status.append('Inconsistent mux status for active-standby ports on dualtors, \
                                                    please check output of "show mux status"')
                     dut_wrong_mux_status_ports.append(port_idx)
+            if cable_type == CableType.active_active:
+                logger.debug('Verify that active-active ports:{}'.format(duts_parsed_mux_status))
+                if (upper_tor_mux_status[port_idx]['status'] != 1 or lower_tor_mux_status[port_idx]['status'] != 1):
+                    err_msg_from_mux_status.append('Inconsistent mux status for active-active ports on dualtors, \
+                                                   please check output of "show mux status"')
+                    dut_wrong_mux_status_ports.append(port_idx)
 
         if len(dut_wrong_mux_status_ports) != 0:
             return False
@@ -519,6 +541,19 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
         logger.info('Check passed, return parsed mux status')
         err_msg_from_mux_status.append("")
         return True
+
+    def _check_mux_status_helper():
+        run_result.clear()
+        duts_parsed_mux_status.clear()
+        err_msg_from_mux_status[:] = []
+        dut_wrong_mux_status_ports[:] = []
+        run_result.update(
+            **parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+        )
+        duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
+        duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
+        return (all(result['failed'] is False for result in run_result.values()) and
+                _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor))
 
     dut_upper_tor = duthosts[0]
     dut_lower_tor = duthosts[1]
@@ -556,21 +591,25 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
     dut_wrong_mux_status_ports = []
 
     init_result = {"failed": False, "check_item": "check_mux_simulator"}
-    run_result = parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+    run_result = {}
+
+    check_success = _check_mux_status_helper()
 
     for result in run_result.values():
         if result['failed'] is True:
             err_msg = result["error_msg"][-1]
             return False, err_msg, {}
 
-    duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
-    duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
-
-    if not _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
+    if not check_success:
         if len(dut_wrong_mux_status_ports) != 0:
-            _probe_mux_ports(duthosts, dut_wrong_mux_status_ports)
-        if not wait_until(30, 5, 0, _verify_inconsistent_mux_status,
-                          duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
+            # NOTE: Let's probe here to see if those inconsistent mux ports could be
+            # restored before using the recovery method.
+            port_index_map = duts_minigraph_facts[duthosts[0].hostname][0][1]['minigraph_port_indices']
+            dut_wrong_mux_status_ports = set(dut_wrong_mux_status_ports)
+            inconsistent_mux_ports = [port for port, port_index in port_index_map.items()
+                                      if port_index in dut_wrong_mux_status_ports]
+            _probe_mux_ports(duthosts, inconsistent_mux_ports)
+        if not wait_until(60, 10, 0, _check_mux_status_helper):
             if err_msg_from_mux_status:
                 err_msg = err_msg_from_mux_status[-1]
             else:
@@ -589,11 +628,12 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
 
 @pytest.fixture(scope='module')
 def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status,     # noqa F811
-                        reset_simulator_port, restart_nic_simulator):               # noqa F811
-
+                        reset_simulator_port, restart_nic_simulator,                # noqa F811
+                        active_standby_ports):                                      # noqa F811
     def _recover():
-        duthosts.shell('config muxcable mode auto all')
-        reset_simulator_port()
+        duthosts.shell('config muxcable mode auto all; config save -y')
+        if active_standby_ports:
+            reset_simulator_port()
         restart_nic_simulator()
 
     def _check(*args, **kwargs):
@@ -753,10 +793,14 @@ def check_processes(duthosts):
             processes_status = dut.all_critical_process_status()
             check_result["processes_status"] = processes_status
             check_result["services_status"] = {}
-            for k, v in list(processes_status.items()):
-                if v['status'] is False or len(v['exited_critical_process']) > 0:
+            for container_name, processes in list(processes_status.items()):
+                if processes['status'] is False or len(processes['exited_critical_process']) > 0:
+                    logger.info("The status of checking process in container '{}' is: {}"
+                                .format(container_name, processes["status"]))
+                    logger.info("The processes not running in container '{}' are: '{}'"
+                                .format(container_name, processes["exited_critical_process"]))
                     check_result['failed'] = True
-                check_result["services_status"].update({k: v['status']})
+                check_result["services_status"].update({container_name: processes['status']})
         else:  # Retry checking processes status
             start = time.time()
             elapsed = 0
@@ -765,10 +809,14 @@ def check_processes(duthosts):
                 processes_status = dut.all_critical_process_status()
                 check_result["processes_status"] = processes_status
                 check_result["services_status"] = {}
-                for k, v in list(processes_status.items()):
-                    if v['status'] is False or len(v['exited_critical_process']) > 0:
+                for container_name, processes in list(processes_status.items()):
+                    if processes['status'] is False or len(processes['exited_critical_process']) > 0:
+                        logger.info("The status of checking process in container '{}' is: {}"
+                                    .format(container_name, processes["status"]))
+                        logger.info("The processes not running in container '{}' are: '{}'"
+                                    .format(container_name, processes["exited_critical_process"]))
                         check_result['failed'] = True
-                    check_result["services_status"].update({k: v['status']})
+                    check_result["services_status"].update({container_name: processes['status']})
 
                 if check_result["failed"]:
                     wait(interval,
@@ -935,4 +983,37 @@ def check_neighbor_macsec_empty(ctrl_links):
             init_check_result["hosts"] = list(unhealthy_dut)
         return init_check_result
 
+    return _check
+
+
+# check ipv6 neighbor reachability
+@pytest.fixture(scope="module")
+def check_ipv6_mgmt(duthosts, localhost):
+    # check ipv6 mgmt interface reachability for debugging purpose only.
+    # No failure will be trigger for this sanity check.
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "ipv6_mgmt"}
+        result = parallel_run(_check_ipv6_mgmt_to_dut, args, kwargs, duthosts, timeout=30, init_result=init_result)
+        return list(result.values())
+
+    def _check_ipv6_mgmt_to_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+
+        logger.info("Checking ipv6 mgmt interface reachability on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "ipv6_mgmt", "host": dut.hostname}
+
+        # most of the testbed should reply within 10 ms, Set the timeout to 2 seconds to reduce the impact of delay.
+        try:
+            shell_result = localhost.shell("ping6 -c 2 -W 2 " + dut.mgmt_ipv6)
+            logging.info("ping6 output: %s" % shell_result["stdout"])
+        except RunAnsibleModuleFail as e:
+            # set to False for now to avoid blocking the test
+            check_result["failed"] = False
+            logging.info("Failed to ping ipv6 mgmt interface on %s, exception: %s" % (dut.hostname, repr(e)))
+        except Exception as e:
+            logger.info("Exception while checking ipv6_mgmt reachability for %s: %s" % (dut.hostname, repr(e)))
+        finally:
+            logger.info("Done checking ipv6 management reachability on %s" % dut.hostname)
+            results[dut.hostname] = check_result
     return _check

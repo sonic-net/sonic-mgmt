@@ -9,6 +9,10 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 allure.logger = logger
 
+pytestmark = [
+    pytest.mark.topology("any")
+]
+
 test_update_route_pattern_para = [
     {
         'is_ipv6': False,
@@ -41,7 +45,7 @@ def skip_if_not_supported(is_route_flow_counter_supported):     # noqa F811
 
 
 @pytest.fixture(scope='function', autouse=True)
-def clear_route_flow_counter(rand_selected_dut):
+def clear_route_flow_counter(rand_selected_dut, skip_if_not_supported):
     """Clear route flow counter configuration
 
     Args:
@@ -210,4 +214,9 @@ class TestRouteCounter:
         else:
             cmd = 'show ip bgp summary'
         parse_result = duthost.show_and_parse(cmd)
-        return parse_result[0]['neighbhor']
+        if "neighbor" in parse_result[0]:
+            return parse_result[0]['neighbor']
+        elif "neighbhor" in parse_result[0]:
+            return parse_result[0]['neighbhor']
+        else:
+            raise ValueError("Unexpected neighbor key in bgp summary output")

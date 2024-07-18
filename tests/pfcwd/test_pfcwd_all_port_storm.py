@@ -6,11 +6,11 @@ import time
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.pfc_storm import PFCMultiStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from .files.pfcwd_helper import start_wd_on_ports
+from .files.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, fetch_vendor_specific_diagnosis_re
+from .files.pfcwd_helper import send_background_traffic
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
-EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
-EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -18,6 +18,12 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="class")
+def pfc_queue_idx():
+    # Needed for start_background_traffic
+    yield 3   # Hardcoded in the testcase as well.
 
 
 @pytest.fixture(scope='class', autouse=True)
@@ -114,7 +120,7 @@ def set_storm_params(duthost, fanout_graph, fanouthosts, peer_params):
     return storm_hndle
 
 
-@pytest.mark.usefixtures('stop_pfcwd', 'storm_test_setup_restore')
+@pytest.mark.usefixtures('stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic')
 class TestPfcwdAllPortStorm(object):
     """ PFC storm test class """
     def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action):
@@ -146,7 +152,7 @@ class TestPfcwdAllPortStorm(object):
             time.sleep(5)
 
     def test_all_port_storm_restore(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                    storm_test_setup_restore):
+                                    storm_test_setup_restore, setup_pfc_test, ptfhost):
         """
         Tests PFC storm/restore on all ports
 
@@ -157,9 +163,27 @@ class TestPfcwdAllPortStorm(object):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         storm_hndle = storm_test_setup_restore
         logger.info("--- Testing if PFC storm is detected on all ports ---")
-        self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_DETECT_RE], syslog_marker="all_port_storm",
-                      action="storm")
 
+        # get all the tested ports
+        queues = []
+        for peer in storm_hndle.peer_params.keys():
+            fanout_intfs = storm_hndle.peer_params[peer]['intfs'].split(',')
+            device_conn = storm_hndle.fanout_graph[peer]['device_conn']
+            queues.append(storm_hndle.storm_handle[peer].pfc_queue_idx)
+        queues = list(set(queues))
+        selected_test_ports = []
+
+        for intf in fanout_intfs:
+            test_port = device_conn[intf]['peerport']
+            if test_port in setup_pfc_test['test_ports']:
+                selected_test_ports.append(test_port)
+
+        with send_background_traffic(duthost, ptfhost, queues, selected_test_ports, setup_pfc_test['test_ports']):
+            self.run_test(duthost,
+                          storm_hndle,
+                          expect_regex=[EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)],
+                          syslog_marker="all_port_storm",
+                          action="storm")
         logger.info("--- Testing if PFC storm is restored on all ports ---")
         self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_RESTORE_RE],
                       syslog_marker="all_port_storm_restore", action="restore")

@@ -5,7 +5,7 @@ Tests for the `counterpoll queue/watermark/pg-drop ...` commands in SONiC
 import allure
 import logging
 import random
-
+import time
 import pytest
 
 from tests.common.config_reload import config_reload
@@ -13,7 +13,7 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import redis_get_keys
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, wait_until
 from tests.common.reboot import reboot
 from .counterpoll_constants import CounterpollConstants
 from .counterpoll_helper import ConterpollHelper
@@ -30,6 +30,7 @@ DISABLE = CounterpollConstants.COUNTERPOLL_DISABLE.split(' ')[-1]
 MAPS_LONG_PREFIX = 'COUNTERS_{}_*_MAP'
 
 MAPS = 'maps'
+DELAY = 'delay'
 QUEUE_MAPS = {'prefix': 'QUEUE', MAPS: ['COUNTERS_QUEUE_NAME_MAP', 'COUNTERS_QUEUE_INDEX_MAP',
                                         'COUNTERS_QUEUE_TYPE_MAP', 'COUNTERS_QUEUE_PORT_MAP']}
 
@@ -40,13 +41,14 @@ MAPS_PREFIX_FOR_ALL_COUNTERPOLLS = [QUEUE_MAPS['prefix'], PG_MAPS['prefix']]
 FLEX_COUNTER_PREFIX = 'FLEX_COUNTER_TABLE:'
 RELEVANT_COUNTERPOLLS = [CounterpollConstants.QUEUE, CounterpollConstants.WATERMARK, CounterpollConstants.PG_DROP]
 RELEVANT_MAPS = {CounterpollConstants.QUEUE: {MAPS: [QUEUE_MAPS], CounterpollConstants.TYPE:
-                                                    [CounterpollConstants.QUEUE_STAT_TYPE]},
+                                                    [CounterpollConstants.QUEUE_STAT_TYPE], DELAY: 15},
                  CounterpollConstants.WATERMARK: {MAPS: [QUEUE_MAPS, PG_MAPS],
                                                   CounterpollConstants.TYPE:
                                                       [CounterpollConstants.QUEUE_WATERMARK_STAT_TYPE,
-                                                       CounterpollConstants.PG_WATERMARK_STAT_TYPE]},
+                                                       CounterpollConstants.PG_WATERMARK_STAT_TYPE], DELAY: 65},
                  CounterpollConstants.PG_DROP: {MAPS: [PG_MAPS],
-                                                CounterpollConstants.TYPE: [CounterpollConstants.PG_DROP_STAT_TYPE]}
+                                                CounterpollConstants.TYPE: [CounterpollConstants.PG_DROP_STAT_TYPE],
+                                                DELAY: 15}
                  }
 
 WATERMARK_COUNTERS_DB_STATS_TYPE = ['USER_WATERMARKS', 'PERSISTENT_WATERMARKS', 'PERIODIC_WATERMARKS']
@@ -57,6 +59,10 @@ def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
     inv_files = get_inventory_files(request)
     dut_vars = get_host_visible_vars(inv_files, enum_rand_one_per_hwsku_hostname)
     yield dut_vars
+
+
+def check_counters_populated(duthost, key):
+    return bool(redis_get_keys(duthost, 'COUNTERS_DB', key))
 
 
 def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_hostname, dut_vars,
@@ -104,6 +110,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
             config_reload(duthost)
         elif 'reboot' in config_apply_method:
             reboot(duthost, localhost)
+    # Sleep for 60 seconds to wait for config DB to be ready or else the next step will cause testcase failure
+    time.sleep(60)
     # verify all counterpolls are disabled after reload or reboot
     with allure.step("Verifying output of {} on {} after {} ..."
                      .format(CounterpollConstants.COUNTERPOLL_SHOW, duthost.hostname, config_apply_method)):
@@ -113,7 +121,10 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
                      .format(duthost.hostname, [tested_counterpoll])):
         ConterpollHelper.enable_counterpoll(duthost, [tested_counterpoll])
         verify_counterpoll_status(duthost, [tested_counterpoll], ENABLE)
-
+    # Delay to allow the counterpoll to generate the maps in COUNTERS_DB
+    with allure.step("waiting {} seconds for counterpoll to generate maps in COUNTERS_DB"):
+        delay = RELEVANT_MAPS[tested_counterpoll][DELAY]
+        wait_until(120, 5, delay, check_counters_populated, duthost, MAPS_LONG_PREFIX.format('*'))
     # verify QUEUE or PG maps are generated into COUNTERS_DB after enabling relevant counterpoll
     with allure.step("Verifying MAPS in COUNTERS_DB on {}...".format(duthost.hostname)):
         maps_dict = RELEVANT_MAPS[tested_counterpoll]
@@ -196,8 +207,9 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     for counterpoll in RELEVANT_COUNTERPOLLS:
         pytest_assert(counted_dict[counterpoll] > 0)
     # for watermark only, also count stats with actual values in COUNTERS_DB
-    with allure.step("counting watermark STATS in FLEX_COUNTER_DB on {}...".format(duthost.hostname)):
-        count_watermark_stats_in_counters_db(duthost)
+    if CounterpollConstants.WATERMARK in tested_counterpoll:
+        with allure.step("counting watermark STATS in FLEX_COUNTER_DB on {}...".format(duthost.hostname)):
+            count_watermark_stats_in_counters_db(duthost)
 
 
 def verify_all_counterpoll_status(duthost, expected):

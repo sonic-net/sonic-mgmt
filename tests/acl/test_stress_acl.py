@@ -1,11 +1,13 @@
 import logging
 import random
 import pytest
+import json
 import ptf.testutils as testutils
 from ptf import mask, packet
 from collections import defaultdict
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
-from tests.common.utilities import wait
+from tests.common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test   # noqa F401
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "m0", "mx"),
@@ -33,6 +35,43 @@ LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 
 ACL_RULE_NUMS = 10
+
+
+@pytest.fixture(scope="module", autouse=True)
+def remove_dataacl_table(duthosts, rand_selected_dut):
+    """
+    Remove DATAACL to free TCAM resources.
+    The change is written to configdb as we don't want DATAACL recovered after reboot
+    """
+    TABLE_NAME_1 = "DATAACL"
+    for duthost in duthosts:
+        lines = duthost.shell(cmd="show acl table {}".format(TABLE_NAME_1))['stdout_lines']
+        data_acl_existing = False
+        for line in lines:
+            if TABLE_NAME_1 in line:
+                data_acl_existing = True
+                break
+
+        if data_acl_existing:
+            # Remove DATAACL
+            logger.info("Removing ACL table {}".format(TABLE_NAME_1))
+            rand_selected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME_1))
+
+    if not data_acl_existing:
+        yield
+        return
+
+    yield
+    # Recover DATAACL
+    config_db_json = "/etc/sonic/config_db.json"
+    output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
+    entry_json = json.loads(output)
+    if TABLE_NAME_1 in entry_json:
+        entry = entry_json[TABLE_NAME_1]
+        cmd_create_table = "config acl add table {} {} -p {} -s {}"\
+            .format(TABLE_NAME_1, entry['type'], ",".join(entry['ports']), entry['stage'])
+        logger.info("Restoring ACL table {}".format(TABLE_NAME_1))
+        rand_selected_dut.shell(cmd_create_table)
 
 
 @pytest.fixture(scope='module')
@@ -79,8 +118,8 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     return ptf_src_port, upstream_port_ids, dut_port
 
 
-def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
-                     ptf_dst_ports, acl_rule_list, del_rule_id, verity_status):
+def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
+                     acl_rule_list, del_rule_id, verity_status, skip_traffic_test):     # noqa F811
 
     for acl_id in acl_rule_list:
         ip_addr1 = acl_id % 256
@@ -107,17 +146,29 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
         exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
 
-        ptfadapter.dataplane.flush()
-        testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
-        if verity_status == "forward" or acl_id == del_rule_id:
-            testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
-        elif verity_status == "drop" and acl_id != del_rule_id:
-            testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+        if not skip_traffic_test:
+            ptfadapter.dataplane.flush()
+            testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
+            if verity_status == "forward" or acl_id == del_rule_id:
+                testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+            elif verity_status == "drop" and acl_id != del_rule_id:
+                testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+
+
+def acl_rule_loaded(rand_selected_dut, acl_rule_list):
+    acl_rule_infos = rand_selected_dut.show_and_parse("show acl rule")
+    acl_id_list = []
+    for acl_info in acl_rule_infos:
+        acl_id = int(acl_info['rule'][len('RULE_'):])
+        acl_id_list.append(acl_id)
+    if sorted(acl_id_list) != sorted(acl_rule_list):
+        return False
+    return True
 
 
 def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_file,
                             prepare_test_port, get_function_conpleteness_level,
-                            toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
+                            toggle_all_simulator_ports_to_rand_selected_tor, skip_traffic_test):   # noqa F811
 
     ptf_src_port, ptf_dst_ports, dut_port = prepare_test_port
 
@@ -130,37 +181,41 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
     if normalized_level is None:
         normalized_level = 'basic'
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-    wait_time = 2
+    wait_timeout = 15
 
     rand_selected_dut.shell(cmd_create_table)
     acl_rule_list = list(range(1, ACL_RULE_NUMS + 1))
-    verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "forward")
+    verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
+                     acl_rule_list, 0, "forward", skip_traffic_test)
+    try:
+        loops = 0
+        while loops <= loop_times:
+            logger.info("loops: {}".format(loops))
+            if loops == 0:
+                rand_selected_dut.shell(cmd_add_rules)
+            else:
+                readd_id = loops + ACL_RULE_NUMS
+                ip_addr1 = readd_id % 256
+                ip_addr2 = int(readd_id / 256)
+                rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "ACL_RULE|STRESS_ACL| RULE_{}" \
+                                        "SRC_IP" "20.0.{}.{}/32" "PACKET_ACTION" "DROP" "PRIORITY" "{}"'
+                                        .format(readd_id, ip_addr2, ip_addr1, readd_id))
+                acl_rule_list.append(readd_id)
 
-    loops = 0
-    while loops <= loop_times:
-        logger.info("loops: {}".format(loops))
-        if loops == 0:
-            rand_selected_dut.shell(cmd_add_rules)
-        else:
-            readd_id = loops + ACL_RULE_NUMS
-            ip_addr1 = readd_id % 256
-            ip_addr2 = int(readd_id / 256)
-            rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "ACL_RULE|STRESS_ACL| RULE_{}" \
-                                    "SRC_IP" "20.0.{}.{}/32" "PACKET_ACTION" "DROP" "PRIORITY" "{}"'
-                                    .format(readd_id, ip_addr2, ip_addr1, readd_id))
-            acl_rule_list.append(readd_id)
+            wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
+            verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
+                             acl_rule_list, 0, "drop", skip_traffic_test)
 
-        wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
-        verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "drop")
+            del_rule_id = random.choice(acl_rule_list)
+            rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
+            acl_rule_list.remove(del_rule_id)
 
-        del_rule_id = random.choice(acl_rule_list)
-        rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
-        wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
-        verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, del_rule_id, "drop")
-        acl_rule_list.remove(del_rule_id)
+            wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
+            verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
+                             acl_rule_list, del_rule_id, "drop", skip_traffic_test)
 
-        loops += 1
-
-    rand_selected_dut.shell(cmd_rm_all_rules)
-    rand_selected_dut.shell(cmd_remove_table)
-    logger.info("End")
+            loops += 1
+    finally:
+        rand_selected_dut.shell(cmd_rm_all_rules)
+        rand_selected_dut.shell(cmd_remove_table)
+        logger.info("End")

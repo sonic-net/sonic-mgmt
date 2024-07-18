@@ -2,12 +2,17 @@ import pytest
 import logging
 import time
 import ipaddress
+import json
+import re
 from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
-from tests.common.reboot import REBOOT_TYPE_WARM
+from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
+from tests.common.utilities import wait_until, setup_ferret
+from tests.platform_tests.verify_dut_health import check_neighbors
 
+SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
 
 TMP_VLAN_PORTCHANNEL_FILE = '/tmp/portchannel_interfaces.json'
@@ -26,7 +31,7 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture(scope="module")
 def restore_image(localhost, duthosts, rand_one_dut_hostname, upgrade_path_lists, tbinfo):
-    _, _, _, restore_to_image = upgrade_path_lists
+    _, _, _, restore_to_image, _ = upgrade_path_lists
     yield
     duthost = duthosts[rand_one_dut_hostname]
     if restore_to_image:
@@ -117,3 +122,100 @@ def check_reboot_cause(duthost, expected_cause):
     reboot_cause = get_reboot_cause(duthost)
     logging.info("Checking cause from dut {} to expected {}".format(reboot_cause, expected_cause))
     return reboot_cause == expected_cause
+
+
+def check_copp_config(duthost):
+    logging.info("Comparing CoPP configuration from copp_cfg.json to COPP_TABLE")
+    copp_tables = json.loads(duthost.shell("sonic-db-dump -n APPL_DB -k COPP_TABLE* -y")["stdout"])
+    copp_cfg = json.loads(duthost.shell("cat /etc/sonic/copp_cfg.json")["stdout"])
+    feature_status = duthost.shell("show feature status")["stdout"]
+    copp_tables_formatted = get_copp_table_formatted_dict(copp_tables)
+    copp_cfg_formatted = get_copp_cfg_formatted_dict(copp_cfg, feature_status)
+    pytest_assert(copp_tables_formatted == copp_cfg_formatted,
+                  "There is a difference between CoPP config and CoPP tables. CoPP config: {}\nCoPP tables:"
+                  " {}".format(copp_tables_formatted, copp_cfg_formatted))
+
+
+def get_copp_table_formatted_dict(copp_tables):
+    """
+    Format the copp tables output to "copp_group":{"values"} only
+    """
+    formatted_dict = {}
+    for queue_group, queue_group_value in copp_tables.items():
+        new_queue_group = queue_group.replace("COPP_TABLE:", "")
+        formatted_dict.update({new_queue_group: queue_group_value["value"]})
+    logging.debug("Formatted copp tables dictionary: {}".format(formatted_dict))
+    return formatted_dict
+
+
+def get_copp_cfg_formatted_dict(copp_cfg, feature_status):
+    """
+    Format the copp_cfg.json output to compare with copp tables
+    """
+    formatted_dict = {}
+    for trap_name, trap_value in copp_cfg["COPP_TRAP"].items():
+        pattern = r"{}\s+enabled".format(trap_name)
+        trap_enabled = re.search(pattern, feature_status)
+        if trap_value.get("always_enabled", "") or trap_enabled:
+            trap_group = trap_value["trap_group"]
+            if trap_group in formatted_dict:
+                exist_trap_ids = formatted_dict[trap_group]["trap_ids"].split(",")
+                additional_trap_ids = trap_value["trap_ids"].split(",")
+                trap_ids = exist_trap_ids + additional_trap_ids
+                trap_ids.sort()
+                formatted_dict[trap_group].update({"trap_ids": ",".join(trap_ids)})
+            else:
+                formatted_dict.update({trap_group: copp_cfg["COPP_GROUP"][trap_group]})
+                formatted_dict[trap_group].update({"trap_ids": trap_value["trap_ids"]})
+    formatted_dict.update({"default": copp_cfg["COPP_GROUP"]["default"]})
+    logging.debug("Formatted copp_cfg.json dictionary: {}".format(formatted_dict))
+    return formatted_dict
+
+
+def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
+                        tbinfo, upgrade_type, get_advanced_reboot,
+                        advanceboot_loganalyzer, modify_reboot_script=None, allow_fail=False,
+                        sad_preboot_list=None, sad_inboot_list=None, reboot_count=1,
+                        enable_cpa=False, preboot_setup=None, postboot_setup=None):
+
+    reboot_type = get_reboot_command(duthost, upgrade_type)
+    if enable_cpa and "warm-reboot" in reboot_type:
+        # always do warm-reboot with CPA enabled
+        setup_ferret(duthost, ptfhost, tbinfo)
+        ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+        reboot_type = reboot_type + " -c {}".format(ptf_ip)
+
+    advancedReboot = None
+
+    if upgrade_type == REBOOT_TYPE_COLD:
+        # advance-reboot test (on ptf) does not support cold reboot yet
+        if preboot_setup:
+            preboot_setup()
+    else:
+        advancedReboot = get_advanced_reboot(rebootType=reboot_type,
+                                             advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                             allow_fail=allow_fail)
+
+    for i in range(reboot_count):
+        if upgrade_type == REBOOT_TYPE_COLD:
+            reboot(duthost, localhost)
+            if postboot_setup:
+                postboot_setup()
+        else:
+            advancedReboot.runRebootTestcase(prebootList=sad_preboot_list, inbootList=sad_inboot_list,
+                                             preboot_setup=preboot_setup if i == 0 else None,
+                                             postboot_setup=postboot_setup)
+
+        if not allow_fail:
+            logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
+            networking_uptime = duthost.get_networking_uptime().seconds
+            timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
+            pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
+                          "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
+                                                                                  upgrade_type))
+            check_services(duthost)
+            check_neighbors(duthost, tbinfo)
+            check_copp_config(duthost)
+
+    if enable_cpa and "warm-reboot" in reboot_type:
+        ptfhost.shell('supervisorctl stop ferret')

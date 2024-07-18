@@ -1,8 +1,0 @@
-Value in_intf ((Ethernet|Eth)[0-9/]+|Vlan\d+)
-Value out_intf_list (^$|(Ethernet|Eth)[0-9/]+|(Ethernet|Eth)[0-9/]+,(Ethernet|Eth)[0-9/]+|Vlan\d+|Vlan\d+,Vlan\d+)
-
-Start
-  ^\s*\d+\S+\s+in_interface\s*$$ -> Continue
-  ^\s*2\)\s+"${in_intf}"\s*$$ -> Continue
-  ^\s*\d+\S+\s+out_interfaces\s*$$ -> Continue
-  ^\s*4\)\s+"${out_intf_list}"\s*$$ 

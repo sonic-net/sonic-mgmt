@@ -20,7 +20,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
                              port=SERVER_PORT,
                              state='started',
                              delay=1,
-                             timeout=5,
+                             timeout=10,
                              module_ignore_errors=True)
     if res['failed'] is True:
 
@@ -54,7 +54,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
         duthost.command('docker exec -i pmon supervisorctl reread')
         duthost.command('docker exec -i pmon supervisorctl update')
 
-        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=5)
+        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
         assert res['failed'] is False
 
 
@@ -107,7 +107,3 @@ def check_not_implemented_warnings(duthosts, enum_rand_one_per_hwsku_hostname):
     yield
     loganalyzer.match_regex.extend(['WARNING pmon#platform_api_server.py: API.+not implemented'])
     loganalyzer.analyze(marker)
-
-
-def pytest_addoption(parser):
-    parser.addoption("--unresettable_xcvr_types", action="append", default=[], help="unsupported resettable xcvr types")

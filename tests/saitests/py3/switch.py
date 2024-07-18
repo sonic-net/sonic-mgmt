@@ -64,16 +64,20 @@ from switch_sai_thrift.sai_headers import SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRES
     SAI_SCHEDULER_ATTR_SCHEDULING_TYPE, SAI_STP_ATTR_VLAN_LIST, SAI_SWITCH_ATTR_PORT_LIST,\
     SAI_SWITCH_ATTR_PORT_NUMBER, SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V4_STATE, SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V6_STATE,\
     SAI_VLAN_MEMBER_ATTR_VLAN_ID, SAI_PORT_STAT_IF_IN_UCAST_PKTS,\
-    SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_QLEN
+    SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_QLEN, \
+    SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES, SAI_SWITCH_ATTR_CREDIT_WD
 
+
+from switch_sai_thrift.sai_headers import SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, SAI_SYSTEM_PORT_ATTR_QOS_VOQ_LIST
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
 switch_inited = 0
+# All below are dictionary with key 'src' or 'dst' and val is value for that client
 port_list = {}
-sai_port_list = []
-front_port_list = []
-table_attr_list = []
+sai_port_list = {}
+front_port_list = {}
+table_attr_list = {}
 router_mac = '00:77:66:55:44:00'
 rewrite_mac1 = '00:77:66:55:45:01'
 rewrite_mac2 = '00:77:66:55:46:01'
@@ -85,37 +89,56 @@ STOP_PORT_MAX_RATE = 1
 RELEASE_PORT_MAX_RATE = 0
 
 
-def switch_init(client):
+def switch_init(clients):
     global switch_inited
     if switch_inited:
         return
 
-    switch_attr_list = client.sai_thrift_get_switch_attribute()
-    attr_list = switch_attr_list.attr_list
-    for attribute in attr_list:
-        if attribute.id == SAI_SWITCH_ATTR_PORT_NUMBER:
-            print("max ports: " + attribute.value.u32)
-        elif attribute.id == SAI_SWITCH_ATTR_PORT_LIST:
-            for port_id in attribute.value.objlist.object_id_list:
-                attr_value = sai_thrift_attribute_value_t(booldata=1)
-                attr = sai_thrift_attribute_t(
-                    id=SAI_PORT_ATTR_ADMIN_STATE, value=attr_value)
-                client.sai_thrift_set_port_attribute(port_id, attr)
-                sai_port_list.append(port_id)
-        else:
-            print("unknown switch attribute")
+    def _get_data_for_client(client, target):
+        _port_list = {}
+        _sai_port_list = []
+        _front_port_list = []
+        switch_attr_list = client.sai_thrift_get_switch_attribute()
+        attr_list = switch_attr_list.attr_list
+        for attribute in attr_list:
+            if attribute.id == SAI_SWITCH_ATTR_PORT_NUMBER:
+                print("max ports {}".format(attribute.value.u32), file=sys.stderr)
+            elif attribute.id == SAI_SWITCH_ATTR_PORT_LIST:
+                for port_id in attribute.value.objlist.object_id_list:
+                    attr_value = sai_thrift_attribute_value_t(booldata=1)
+                    attr = sai_thrift_attribute_t(id=SAI_PORT_ATTR_ADMIN_STATE, value=attr_value)
+                    client.sai_thrift_set_port_attribute(port_id, attr)
+                    _sai_port_list.append(port_id)
+            else:
+                print("unknown switch attribute", file=sys.stderr)
 
-    # wait till the port are up
-    time.sleep(10)
+        # TOFIX in brcm sai: This causes the following error on td2 (a7050-qx-32s)
+        # ERR syncd: brcm_sai_set_switch_attribute:842 updating switch mac addr failed with error -2.
+        attr_value = sai_thrift_attribute_value_t(mac='00:77:66:55:44:33')
+        attr = sai_thrift_attribute_t(id=SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, value=attr_value)
+        client.sai_thrift_set_switch_attribute(attr)
 
-    thrift_attr = client.sai_thrift_get_port_list_by_front_port()
-    if thrift_attr.id == SAI_SWITCH_ATTR_PORT_LIST:
-        for port_id in thrift_attr.value.objlist.object_id_list:
-            front_port_list.append(port_id)
+        # wait till the port are up
+        time.sleep(10)
 
-    for interface, front in interface_to_front_mapping.items():
-        sai_port_id = client.sai_thrift_get_port_id_by_front_port(front)
-        port_list[int(interface)] = sai_port_id
+        thrift_attr = client.sai_thrift_get_port_list_by_front_port()
+        if thrift_attr.id == SAI_SWITCH_ATTR_PORT_LIST:
+            for port_id in thrift_attr.value.objlist.object_id_list:
+                _front_port_list.append(port_id)
+
+        for interface, front in interface_to_front_mapping[target].items():
+            sai_port_id = client.sai_thrift_get_port_id_by_front_port(front)
+            _port_list[int(interface)] = sai_port_id
+        return _port_list, _sai_port_list, _front_port_list
+
+    port_list['src'], sai_port_list['src'], front_port_list['src'] = _get_data_for_client(clients['src'], 'src')
+    if 'dst' not in clients or clients['src'] == clients['dst']:
+        port_list['dst'] = port_list['src']
+        sai_port_list['dst'] = sai_port_list['src']
+        front_port_list['dst'] = front_port_list['src']
+    else:
+        port_list['dst'], sai_port_list['dst'], front_port_list['dst'] = \
+            _get_data_for_client(clients['dst'], 'dst')
 
     switch_inited = 1
 
@@ -697,8 +720,8 @@ def sai_thrift_create_pool_profile(client, pool_type, size, threshold_mode):
     return pool_id
 
 
-def sai_thrift_clear_all_counters(client):
-    for port in sai_port_list:
+def sai_thrift_clear_all_counters(client, target):
+    for port in sai_port_list[target]:
         queue_list = []
         client.sai_thrift_clear_port_all_stats(port)
         port_attr_list = client.sai_thrift_get_port_attribute(port)
@@ -714,7 +737,7 @@ def sai_thrift_clear_all_counters(client):
             client.sai_thrift_clear_queue_stats(queue, cnt_ids, len(cnt_ids))
 
 
-def sai_thrift_port_tx_disable(client, asic_type, port_ids):
+def sai_thrift_port_tx_disable(client, asic_type, port_ids, target='dst'):
     if asic_type == 'mellanox':
         # Close DST port
         sched_prof_id = sai_thrift_create_scheduler_profile(
@@ -729,10 +752,10 @@ def sai_thrift_port_tx_disable(client, asic_type, port_ids):
             id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
 
     for port_id in port_ids:
-        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
+        client.sai_thrift_set_port_attribute(port_list[target][port_id], attr)
 
 
-def sai_thrift_port_tx_enable(client, asic_type, port_ids):
+def sai_thrift_port_tx_enable(client, asic_type, port_ids, target='dst'):
     if asic_type == 'mellanox':
         # Release port
         sched_prof_id = sai_thrift_create_scheduler_profile(
@@ -747,7 +770,25 @@ def sai_thrift_port_tx_enable(client, asic_type, port_ids):
             id=SAI_PORT_ATTR_PKT_TX_ENABLE, value=attr_value)
 
     for port_id in port_ids:
-        client.sai_thrift_set_port_attribute(port_list[port_id], attr)
+        client.sai_thrift_set_port_attribute(port_list[target][port_id], attr)
+
+
+def sai_thrift_credit_wd_disable(client):
+    # Disable credit-watchdog on target asic index
+    attr_value = sai_thrift_attribute_value_t(booldata=0)
+    attr = sai_thrift_attribute_t(
+        id=SAI_SWITCH_ATTR_CREDIT_WD, value=attr_value)
+    status = client.sai_thrift_set_switch_attribute(attr)
+    return status
+
+
+def sai_thrift_credit_wd_enable(client):
+    # Enable credit-watchdog  on target asic-index
+    attr_value = sai_thrift_attribute_value_t(booldata=1)
+    attr = sai_thrift_attribute_t(
+        id=SAI_SWITCH_ATTR_CREDIT_WD, value=attr_value)
+    status = client.sai_thrift_set_switch_attribute(attr)
+    return status
 
 
 def sai_thrift_read_port_counters(client, asic_type, port):
@@ -799,6 +840,33 @@ def sai_thrift_read_port_counters(client, asic_type, port):
     return (counters_results, queue_counters_results)
 
 
+def sai_thrift_get_voq_port_id(client, system_port_id):
+    object_id = client.sai_thrift_get_sys_port_obj_id_by_port_id(system_port_id)
+    voq_list = []
+    port_attr_list = client.sai_thrift_get_system_port_attribute(object_id)
+    attr_list = port_attr_list.attr_list
+    for attribute in attr_list:
+        if attribute.id == SAI_SYSTEM_PORT_ATTR_QOS_VOQ_LIST:
+            for voq_id in attribute.value.objlist.object_id_list:
+                voq_list.append(voq_id)
+    return (voq_list)
+
+
+def sai_thrift_read_port_voq_counters(client, voq_list):
+    cnt_ids = []
+    thrift_results = []
+    voq_counters_results = []
+    cnt_ids.append(SAI_QUEUE_STAT_PACKETS)
+    counter = 0
+    for voq in voq_list:
+        if counter <= 7:
+            thrift_results = client.sai_thrift_get_queue_stats(
+                voq, cnt_ids, len(cnt_ids))
+            voq_counters_results.append(thrift_results[0])
+            counter += 1
+    return (voq_counters_results)
+
+
 def sai_thrift_read_port_watermarks(client, port):
     q_wm_ids = []
     q_wm_ids.append(SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES)
@@ -842,6 +910,30 @@ def sai_thrift_read_port_watermarks(client, port):
 def sai_thrift_read_pg_counters(client, port_id):
     pg_cntr_ids = [
         SAI_INGRESS_PRIORITY_GROUP_STAT_PACKETS
+    ]
+
+    # fetch pg ids under port id
+    pg_ids = []
+    port_attrs = client.sai_thrift_get_port_attribute(port_id)
+    attrs = port_attrs.attr_list
+    for attr in attrs:
+        if attr.id == SAI_PORT_ATTR_INGRESS_PRIORITY_GROUP_LIST:
+            for pg_id in attr.value.objlist.object_id_list:
+                pg_ids.append(pg_id)
+
+    # get counter values of counter ids of interest under each pg
+    pg_cntrs = []
+    for pg_id in pg_ids:
+        cntr_vals = client.sai_thrift_get_pg_stats(
+            pg_id, pg_cntr_ids, len(pg_cntr_ids))
+        pg_cntrs.append(cntr_vals[0])
+
+    return pg_cntrs
+
+
+def sai_thrift_read_pg_occupancy(client, port_id):
+    pg_cntr_ids = [
+        SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES
     ]
 
     # fetch pg ids under port id
@@ -937,9 +1029,9 @@ def sai_thrift_read_headroom_pool_watermark(client, buffer_pool_id):
     return wm_vals[0]
 
 
-def sai_thrift_read_queue_occupancy(client, port_id):
+def sai_thrift_read_queue_occupancy(client, target, port_id):
     queue_list = []
-    port_attr_list = client.sai_thrift_get_port_attribute(port_list[port_id])
+    port_attr_list = client.sai_thrift_get_port_attribute(port_list[target][port_id])
     attr_list = port_attr_list.attr_list
     for attribute in attr_list:
         if attribute.id == SAI_PORT_ATTR_QOS_QUEUE_LIST:

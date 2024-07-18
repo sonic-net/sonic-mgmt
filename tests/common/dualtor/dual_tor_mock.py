@@ -343,7 +343,7 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
         restart_swss = True
     cmd = 'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'subtype', 'DualToR')
     dut.shell(cmd=cmd)
-    if restart_swss:
+    if ((restart_swss) and (dut.get_asic_name() != 'gb')):
         # Restart swss on TH2 or TD3 platform to trigger syncd restart to regenerate config.bcm
         # We actually need to restart syncd only, but restarting syncd will also trigger swss
         # being restarted, and it costs more time than restarting swss
@@ -370,7 +370,6 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
     dut = rand_selected_dut
 
     dut_loopback = (mock_peer_switch_loopback_ip - 1).ip
-
     tunnel_params = {
         'TUNNEL': {
             'MuxTunnel0': {
@@ -383,6 +382,9 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
             }
         }
     }
+    if 'spc' in rand_selected_dut.get_asic_name():
+        tunnel_params['TUNNEL']['MuxTunnel0'].update(
+            {'src_ip': str(mock_peer_switch_loopback_ip.ip)})
 
     dut.copy(content=json.dumps(tunnel_params, indent=2), dest="/tmp/tunnel_params.json")
     dut.shell("sonic-cfggen -j /tmp/tunnel_params.json --write-to-db")

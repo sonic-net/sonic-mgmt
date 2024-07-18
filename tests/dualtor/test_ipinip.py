@@ -29,10 +29,11 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # no
 from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
-
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,7 @@ def test_decap_active_tor(
 
     if is_t0_mocked_dualtor(tbinfo):        # noqa F405
         request.getfixturevalue('apply_active_state_to_orchagent')
+        time.sleep(30)
     else:
         request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
 
@@ -126,7 +128,6 @@ def test_decap_active_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    time.sleep(10)
     with stop_garp(ptfhost):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
@@ -183,7 +184,24 @@ def _wait_portchannel_up(duthost, portchannel):
 
 
 @pytest.fixture
-def setup_uplink(rand_selected_dut, tbinfo):
+def enable_feature_autorestart(rand_selected_dut):
+    # Enable autorestart for all features before the test begins
+    duthost = rand_selected_dut
+    feature_list, _ = duthost.get_feature_status()
+    autorestart_states = duthost.get_container_autorestart_states()
+    changed_features = []
+    for feature, status in list(feature_list.items()):
+        if status == 'enabled' and autorestart_states.get(feature) == 'disabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+            changed_features.append(feature)
+    yield
+    # Restore the autorestart status after the test ends
+    for feature in changed_features:
+        duthost.shell("sudo config feature autorestart {} disabled".format(feature))
+
+
+@pytest.fixture
+def setup_uplink(rand_selected_dut, tbinfo, enable_feature_autorestart):
     """
     Function level fixture.
     1. Only keep 1 uplink up. Shutdown others to force the bounced back traffic is egressed
@@ -203,17 +221,18 @@ def setup_uplink(rand_selected_dut, tbinfo):
     # Update the LAG if it has more than one member
     pc_members = mg_facts['minigraph_portchannels'][up_portchannel]['members']
     if len(pc_members) > 1:
-        cmds = [
-            # Update min_links
-            "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel),
-            # Remove 1 portchannel member
-            "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1]),
-            # Unmask the service
-            "systemctl unmask teamd",
-            # Resart teamd
-            "systemctl restart teamd"
-        ]
+        # Update min_links
+        min_link_cmd = "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel)
+        rand_selected_dut.shell(min_link_cmd)
+        # Delete to min_links
+        cmds = "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1])
         rand_selected_dut.shell_cmds(cmds=cmds)
+        # Ensure delete to complete before restarting service
+        time.sleep(5)
+        # Unmask the service
+        rand_selected_dut.shell_cmds(cmds="systemctl unmask teamd")
+        # Restart teamd
+        rand_selected_dut.shell_cmds(cmds="systemctl restart teamd")
         _wait_portchannel_up(rand_selected_dut, up_portchannel)
     up_member = pc_members[0]
 
@@ -247,7 +266,9 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
     The mirror session is to trigger the issue. No packet is mirrored actually.
     """
     session_name = "dummy_session"
-    cmd = "config mirror_session add {} 25.192.243.243 20.2.214.125 8 100 1234 0".format(session_name)
+    # Nvidia platforms support only the gre_type 0x8949, which is 35145 in decimal.
+    gre_type = 35145 if "mellanox" == rand_selected_dut.facts['asic_type'] else 1234
+    cmd = "config mirror_session add {} 25.192.243.243 20.2.214.125 8 100 {} 0".format(session_name, gre_type)
     rand_selected_dut.shell(cmd=cmd)
     uplink_port_id = setup_uplink
     yield uplink_port_id
@@ -256,11 +277,26 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
     rand_selected_dut.shell(cmd=cmd)
 
 
+@pytest.fixture
+def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unselected_dut,
+                            config_active_active_dualtor_active_standby, tbinfo,              # noqa F811
+                            validate_active_active_dualtor_setup):                         # noqa F811
+    # As the test case test_encap_with_mirror_session is to verify the bounced back traffic, we need
+    # to make dualtor active-active work in active-standby mode.
+    if active_active_ports:
+        logger.info("Configuring {} as active".format(rand_unselected_dut.hostname))
+        logger.info("Configuring {} as standby".format(rand_selected_dut.hostname))
+        config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
+
+    return
+
+
 @pytest.mark.disable_loganalyzer
 def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface,              # noqa F811
                                    ptfadapter, tbinfo, setup_mirror_session,
                                    toggle_all_simulator_ports_to_rand_unselected_tor,       # noqa F811
-                                   tunnel_traffic_monitor):                                 # noqa F811
+                                   tunnel_traffic_monitor,                                  # noqa F811
+                                   setup_standby_ports_on_rand_selected_tor):               # noqa F811
     """
     A test case to verify the bounced back packet from Standby ToR to T1 doesn't have an unexpected vlan id (4095)
     The issue can happen if the bounced back packets egressed from the monitor port of mirror session

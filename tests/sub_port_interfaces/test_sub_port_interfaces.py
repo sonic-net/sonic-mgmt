@@ -467,10 +467,10 @@ class TestSubPortStress(object):
         """
         sub_ports_new = dict()
         sub_ports = apply_config_on_the_dut['sub_ports']
-        sub_ports_new[sub_ports.keys()[0]] = sub_ports[sub_ports.keys()[0]]
-        sub_ports_new[sub_ports.keys()[-1]] = sub_ports[sub_ports.keys()[-1]]
+        sub_ports_new[list(sub_ports.keys())[0]] = sub_ports[list(sub_ports.keys())[0]]
+        sub_ports_new[list(sub_ports.keys())[-1]] = sub_ports[list(sub_ports.keys())[-1]]
 
-        rand_sub_ports = sub_ports.keys()[random.randint(1, len(sub_ports)-1)]
+        rand_sub_ports = list(sub_ports.keys())[random.randint(1, len(sub_ports)-1)]
         sub_ports_new[rand_sub_ports] = sub_ports[rand_sub_ports]
 
         for sub_port, value in sub_ports_new.items():

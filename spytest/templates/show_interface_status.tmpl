@@ -1,11 +1,14 @@
 Value interface (\S+)
-Value description (\S+)
-Value admin (\w+)
+Value description (([\S\s]+\.{3})|(\-)|(\S+)(?:(?!\s{2}).)+)
+#Description can be '-' or a single word, multiple word separated with spaces. In case it longer than 29 chars, the it will contain '...' at the end
+Value admin (\S+)
 Value oper (\w+)
-Value speed (\d+)
+Value autoneg (\S+)
+Value speed (\S+)
 Value mtu (\d+)
 Value altname (\S+)
 
 Start
-  ^\s*${interface}\s*${description}\s*${admin}\s*${oper}\s*${speed}\s*${mtu}\s*$$ -> Record
-  ^\s*${interface}\s*${description}\s*${admin}\s*${oper}\s*${speed}\s*${mtu}\s*${altname}\s*$$ -> Record
+  ^\s*${interface}\s*${description}\s*${oper}\s*${admin}\s*${speed}\s*${mtu}\s*$$ -> Record
+  ^\s*${interface}\s*${description}\s*${oper}\s*${admin}\s*${speed}\s*${mtu}\s*${altname}\s*$$ -> Record
+  ^\s*${interface}\s*${description}\s*${oper}\s*${admin}\s*${autoneg}\s*${speed}\s*${mtu}\s*${altname}\s*$$ -> Record

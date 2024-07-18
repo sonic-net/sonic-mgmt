@@ -257,6 +257,36 @@ No json data required in POST. This API is to recover flows of all the mux bridg
 
 Response: `all_mux_status`
 
+### POST `/mux/<vm_set>/output`
+
+Set flow action of all mux bridges belong to `vm_set` to `output`.
+
+Format of json data required in POST:
+```
+{
+    "out_sides": ["nic", "upper_tor", "lower_tor"],
+}
+```
+
+* `out_sides` is a list. It can contain single or multiple items from: `nic`, `upper_tor`, `lower_tor`.
+
+Response: `all_mux_status`
+
+### POST `/mux/<vm_set>/drop`
+
+Set flow action of all mux bridges belong to `vm_set` to `drop`.
+
+Format of json data required in POST:
+```
+{
+    "out_sides": ["nic", "upper_tor", "lower_tor"],
+}
+```
+
+* `out_sides` is a list. It can contain single or multiple items from: `nic`, `upper_tor`, `lower_tor`.
+
+Response: `all_mux_status`
+
 ### GET `/mux/<vm_set>/port_index>/flap_counter`
 
 Get flap counter of bridge specified by `vm_set` and `port_index`.

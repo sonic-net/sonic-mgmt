@@ -39,7 +39,8 @@ community :
   current: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/community/LATEST_BUILD/sonic-broadcom.bin
   #restore: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/community/GA_BUILD/sonic-broadcom.bin
 
-upstream :
-  current: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/upstream_1.0/broadcom/LATEST_BUILD_NGCOV/sonic-broadcom.bin
-  #restore: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/upstream_1.0/broadcom/GA_BUILD/sonic-broadcom.bin
+campus:
+  current: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/4.1.0/broadcom/LATEST_BUILD_NDBG_NGCOV/sonic-broadcom-campus.bin
 
+ent:
+  current: http://10.59.132.240:9009/projects/csg_sonic/sonic_builds/daily/4.1.0/broadcom/LATEST_BUILD_NDBG_NGCOV/sonic-broadcom-enterprise-advanced.bin

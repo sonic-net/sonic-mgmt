@@ -72,6 +72,11 @@
         - net-tools
         - bridge-utils
         - util-linux
+
+    - name: Install necessary packages
+      apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
+      become: yes
+      with_items:
         - iproute2
         - vlan
         - apt-transport-https
@@ -119,6 +124,21 @@
 - include_tasks: docker.yml
   when: package_installation|bool
 
+- name: Update python3 packages
+  block:
+    # Workaround for '"Error connecting: Error while fetching server API version: Not supported URL scheme http+docker'
+    # See https://github.com/docker/docker-py/issues/3256
+  - name: Remove old requests package >=2.32.0
+    pip: name=requests state=absent executable={{ pip_executable }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+    ignore_errors: yes
+  - name: Install requests package <2.32.0
+    pip: name=requests version=2.31.0 state=present executable={{ pip_executable }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+  when: pip_executable=="pip3"
+
 - name: Ensure {{ ansible_user }} in docker,sudo group
   user:
     name: "{{ ansible_user }}"
@@ -160,6 +180,13 @@
   sysctl:
     name: "net.core.rmem_default"
     value: "31457280"
+    sysctl_set: yes
+  become: yes
+
+- name: Increase IPv6 route cache size
+  sysctl:
+    name: "net.ipv6.route.max_size"
+    value: "16384"
     sysctl_set: yes
   become: yes
 
@@ -224,16 +251,24 @@
   register: vm_list_running
   become: true
 
-- name: Retrieve a list of the paused VMs
+- name: Set vm_state_string according to ansible version
+  set_fact:
+    vm_state_string: "{{ 'paused' if ansible_version.full is version_compare('2.13', '>=') else 'pause' }}"
+
+- name: Print ansible version and vm_state_string
+  debug:
+    msg: "ansible version is {{ ansible_version.full }} and vm_state_string is {{ vm_state_string }}"
+
+- name: Retrieve a list of the paused VMs with status={{ vm_state_string }}
   virt: command=list_vms
         uri=qemu:///system
-        state=pause
+        state={{ vm_state_string }}
   register: vm_list_paused
   become: true
 
-- name: Require VMs as VEOS by default
+- name: Require VMs as CEOS by default
   set_fact:
-    vm_type: "veos"
+    vm_type: "ceos"
   when: vm_type is not defined
 
 - name: Check VM type

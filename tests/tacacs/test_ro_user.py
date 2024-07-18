@@ -1,7 +1,7 @@
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert
-from .utils import check_output
+from .utils import check_output, tacacs_running, start_tacacs_server
 
 import logging
 
@@ -44,7 +44,8 @@ def ssh_remote_allow_run(localhost, remote_ip, username, password, cmd):
     res = ssh_remote_run(localhost, remote_ip, username, password, cmd)
     # Verify that the command is allowed
     logger.info("check command \"{}\" rc={}".format(cmd, res['rc']))
-    expected = "Make sure your account has RW permission to current device" not in res['stderr']
+    expected = "Make sure your account has RW permission to current device" not in res['stderr'] \
+        and "Permission denied" not in res['stderr']
     if not expected:
         logger.error("error output=\"{}\"".format(res["stderr"]))
     return expected
@@ -77,6 +78,21 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
                 current_attempt += 1
 
 
+def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=3):
+    while retry_count > 0:
+        res = ssh_remote_run(localhost, dutip, user,
+                             password, command)
+
+        # TACACS server randomly crash after receive authorization request from IPV6
+        if not tacacs_running(ptfhost):
+            start_tacacs_server(ptfhost)
+            retry_count -= 1
+        else:
+            return res
+
+    pytest_assert(False, "cat command failed because TACACS server not running")
+
+
 def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
@@ -86,13 +102,16 @@ def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_c
     check_output(res, 'test', 'remote_user')
 
 
-def test_ro_user_ipv6(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6):
+def test_ro_user_ipv6(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    res = ssh_remote_run(localhost, dutip, tacacs_creds['tacacs_ro_user'],
-                         tacacs_creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
 
-    check_output(res, 'test', 'remote_user')
+    res = ssh_remote_run_retry(localhost, dutip, ptfhost,
+                               tacacs_creds['tacacs_ro_user'],
+                               tacacs_creds['tacacs_ro_user_passwd'],
+                               "cat /etc/passwd")
+
+    check_output(res, 'testadmin', 'remote_user_su')
 
 
 def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
@@ -173,7 +192,8 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
                                           " 'sudo sonic-installer list' is banned")
 
 
-def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                                           tacacs_creds, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 

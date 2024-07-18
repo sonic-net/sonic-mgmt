@@ -31,7 +31,7 @@ def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
         }
         lines = [
             'cipher {}'.format(eos_cipher_suite[cipher_suite]),
-            'key {} 0 {}'.format(primary_ckn, primary_cak),
+            'key {} 7 {}'.format(primary_ckn, primary_cak),
             'mka key-server priority {}'.format(priority)
             ]
         if send_sci == 'true':
@@ -93,14 +93,17 @@ def enable_macsec_port(host, port, profile_name):
         return
 
     pc = find_portchannel_from_member(port, get_portchannel(host))
-    if pc:
+
+    dnx_platform = host.facts.get("platform_asic") == 'broadcom-dnx'
+
+    if dnx_platform and pc:
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
         time.sleep(2)
 
     cmd = "sonic-db-cli {} CONFIG_DB HSET 'PORT|{}' 'macsec' '{}'".format(getns_prefix(host, port), port, profile_name)
     host.command(cmd)
 
-    if pc:
+    if dnx_platform and pc:
         time.sleep(2)
         host.command("sudo config portchannel {} member add {} {}".format(getns_prefix(host, port), pc["name"], port))
 
@@ -116,14 +119,16 @@ def disable_macsec_port(host, port):
         return
 
     pc = find_portchannel_from_member(port, get_portchannel(host))
-    if pc:
+    dnx_platform = host.facts.get("platform_asic") == 'broadcom-dnx'
+
+    if dnx_platform and pc:
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
         time.sleep(2)
 
     cmd = "sonic-db-cli {} CONFIG_DB HDEL 'PORT|{}' 'macsec'".format(getns_prefix(host, port), port)
     host.command(cmd)
 
-    if pc:
+    if dnx_platform and pc:
         time.sleep(2)
         host.command("sudo config portchannel {} member add {} {}".format(getns_prefix(host, port), pc["name"], port))
 
@@ -192,10 +197,10 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     logger.info("Setup macsec configuration step1: set macsec profile")
     # 1. Set macsec profile
     i = 0
-    for dut_port, nbr in list(ctrl_links.items()):
-        submit_async_task(set_macsec_profile,
-                          (duthost, dut_port, profile_name, default_priority,
-                           cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period))
+    for dut_port, nbr in ctrl_links.items():
+        submit_async_task(set_macsec_profile, (duthost, dut_port, profile_name, default_priority,
+                          cipher_suite, primary_cak, primary_ckn, policy,
+                          send_sci, rekey_period))
         if i % 2 == 0:
             priority = default_priority - 1
         else:

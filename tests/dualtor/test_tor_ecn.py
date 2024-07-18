@@ -30,6 +30,8 @@ from tests.common.fixtures.ptfhost_utils import run_garp_service                
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp, derive_out_dscp_from_inner_dscp
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby      # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup             # noqa F401
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
 
 pytestmark = [
@@ -103,8 +105,7 @@ def build_encapsulated_ip_packet(
 
     inner_ttl = random.choice(list(range(3, 65)))
     inner_ecn = random.choice(list(range(0, 3)))
-    if is_tunnel_qos_remap_enabled(tor):
-        outer_dscp = derive_out_dscp_from_inner_dscp(tor, inner_dscp)
+    outer_dscp = derive_out_dscp_from_inner_dscp(tor, inner_dscp)
     outer_ecn = inner_ecn
 
     logging.info("Inner DSCP: {0:06b}, Inner ECN: {1:02b}".format(inner_dscp, inner_ecn))
@@ -264,6 +265,11 @@ def verify_ecn_on_received_packet(
         logging.info("the expected ECN: {0:02b} matching with received ECN: {1:02b}".format(exp_ecn, rec_ecn))
 
 
+def skip_inner_dscp_2_6_on_nvidia(duthost, inner_dscp):
+    if inner_dscp in [2, 6] and 'mellanox' in duthost.facts['asic_type']:
+        pytest.skip("Skip the test for inner dscp 2 or 6 on Nvidia platforms.")
+
+
 @pytest.mark.parametrize("inner_dscp", [3, 4, 2, 6])        # lossless queue is 3 or 4 or 2 or 6.
 def test_dscp_to_queue_during_decap_on_active(
     inner_dscp, ptfhost, setup_dualtor_tor_active,
@@ -274,6 +280,8 @@ def test_dscp_to_queue_during_decap_on_active(
     """
     Test if DSCP to Q mapping for inner header is matching with outer header during decap on active
     """
+    if is_tunnel_qos_remap_enabled(rand_selected_dut):
+        skip_inner_dscp_2_6_on_nvidia(rand_selected_dut, inner_dscp)
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_ip_packet(inner_dscp, rand_selected_interface,
                                                        ptfadapter, rand_selected_dut)
@@ -337,11 +345,14 @@ def test_dscp_to_queue_during_encap_on_standby(
     tunnel_traffic_monitor,                         # noqa F811
     duthosts,
     rand_one_dut_hostname,
-    write_standby
+    write_standby,
+    setup_standby_ports_on_rand_selected_tor        # noqa F811
 ):
     """
     Test if DSCP to Q mapping for outer header is matching with inner header during encap on standby
     """
+    if is_tunnel_qos_remap_enabled(rand_selected_dut):
+        skip_inner_dscp_2_6_on_nvidia(rand_selected_dut, dscp)
     write_standby()
 
     tor = rand_selected_dut
@@ -369,6 +380,8 @@ def test_ecn_during_decap_on_active(
     """
     Test if the ECN stamping on inner header is matching with outer during decap on active
     """
+    if is_tunnel_qos_remap_enabled(rand_selected_dut):
+        skip_inner_dscp_2_6_on_nvidia(rand_selected_dut, inner_dscp)
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_ip_packet(inner_dscp, rand_selected_interface,
                                                        ptfadapter, rand_selected_dut)
@@ -397,11 +410,14 @@ def test_ecn_during_encap_on_standby(
     setup_dualtor_tor_standby,
     rand_selected_interface, ptfadapter,                    # noqa F811
     tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa F811
-    write_standby
+    write_standby,
+    setup_standby_ports_on_rand_selected_tor                # noqa F811
 ):
     """
     Test if the ECN stamping on outer header is matching with inner during encap on standby
     """
+    if is_tunnel_qos_remap_enabled(rand_selected_dut):
+        skip_inner_dscp_2_6_on_nvidia(rand_selected_dut, dscp)
     write_standby()
 
     tor = rand_selected_dut

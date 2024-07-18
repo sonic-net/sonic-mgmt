@@ -15,8 +15,14 @@ import sys
 import threading
 import time
 import traceback
+import copy
+import tempfile
+import uuid
+import paramiko
 from io import StringIO
 from ast import literal_eval
+from scapy.all import sniff as scapy_sniff
+from paramiko.ssh_exception import AuthenticationException
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -28,6 +34,7 @@ from tests.common.cache import cached
 from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
+from netaddr import valid_ipv6
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -86,7 +93,7 @@ def get_sup_node_or_random_node(duthosts):
             return dut
     # if not chassis, it's dualtor or single-dut, return random node or itself
     if len(duthosts) > 1:
-        duthosts = random.sample(duthosts, 1)
+        duthosts = random.sample(list(duthosts), 1)
     logger.info("Randomly select dut {} for testing".format(duthosts[0]))
     return duthosts[0]
 
@@ -163,7 +170,7 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           state='started',
                           timeout=timeout_s,
                           module_ignore_errors=True)
-    if 'exception' in res:
+    if 'exception' in res or res.get('failed') is True:
         logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
                     (str(server_hostname), listening_port, timeout_s))
         return False
@@ -469,6 +476,19 @@ def is_ipv4_address(ip_address):
         return True
     except ipaddress.AddressValueError:
         return False
+
+
+def get_mgmt_ipv6(duthost):
+    config_facts = duthost.get_running_config_facts()
+    mgmt_interfaces = config_facts.get("MGMT_INTERFACE", {})
+    mgmt_ipv6 = None
+
+    for mgmt_interface, ip_configs in mgmt_interfaces.items():
+        for ip_addr_with_prefix in ip_configs.keys():
+            ip_addr = ip_addr_with_prefix.split("/")[0]
+            if valid_ipv6(ip_addr):
+                mgmt_ipv6 = ip_addr
+    return mgmt_ipv6
 
 
 def compare_crm_facts(left, right):
@@ -927,3 +947,234 @@ def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
     duthost.shell(sed_command)
 
     return original_value
+
+
+def delete_running_config(config_entry, duthost, is_json=True):
+    if is_json:
+        duthost.copy(content=json.dumps(config_entry, indent=4), dest="/tmp/del_config_entry.json")
+    else:
+        duthost.copy(src=config_entry, dest="/tmp/del_config_entry.json")
+    duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
+    duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))
+
+
+def get_data_acl(duthost):
+    acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+    pre_acl_rules = acl_facts.get("DATAACL", {}).get("rules", None)
+    return pre_acl_rules
+
+
+def recover_acl_rule(duthost, data_acl):
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    template_dir = os.path.join(base_dir, "templates")
+    acl_rules_template = "default_acl_rules.json"
+    dut_tmp_dir = "/tmp"
+    dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
+
+    for key, value in data_acl.items():
+        if key != "DEFAULT_RULE":
+            seq_id = key.split('_')[1]
+            acl_config = json.loads(open(os.path.join(template_dir, acl_rules_template)).read())
+            acl_entry_template = \
+                acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]["1"]
+            acl_entry_config = acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]
+
+            acl_entry_config[seq_id] = copy.deepcopy(acl_entry_template)
+            acl_entry_config[seq_id]["config"]["sequence-id"] = seq_id
+            acl_entry_config[seq_id]["l2"]["config"]["ethertype"] = value["ETHER_TYPE"]
+            acl_entry_config[seq_id]["l2"]["config"]["vlan_id"] = value["VLAN_ID"]
+
+    with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
+        json.dump(acl_config, fp)
+        fp.flush()
+        logger.info("Generating config for ACL rule, ACL table - DATAACL")
+        duthost.template(src=fp.name, dest=dut_conf_file_path, force=True)
+
+    logger.info("Applying {}".format(dut_conf_file_path))
+    duthost.command("acl-loader update full {}".format(dut_conf_file_path))
+
+
+def get_ipv4_loopback_ip(duthost):
+    """
+    Get ipv4 loopback ip address
+    """
+    config_facts = duthost.get_running_config_facts()
+    los = config_facts.get("LOOPBACK_INTERFACE", {})
+    loopback_ip = None
+
+    for key, _ in los.items():
+        if "Loopback" in key:
+            loopback_ips = los[key]
+            for ip_str, _ in loopback_ips.items():
+                ip = ip_str.split("/")[0]
+                if is_ipv4_address(ip):
+                    loopback_ip = ip
+                    break
+
+    return loopback_ip
+
+
+def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
+    """
+    Given a DSCP value, and the DSCP to TC map and TC to queue map, return the
+    corresponding queue value.
+
+    Args:
+        dscp_value (int): DSCP value
+        dscp_to_tc_map (str dict): DSCP to TC map
+        tc_to_queue_map (str dict): TC to queue map
+    Returns:
+        int: queue value
+    """
+    if str(dscp_value) not in dscp_to_tc_map:
+        return None
+
+    tc_value = dscp_to_tc_map[str(dscp_value)]
+    if tc_value not in tc_to_queue_map:
+        return None
+
+    return int(tc_to_queue_map[tc_value])
+
+
+def find_egress_queue(all_queue_pkts, exp_queue_pkts, tolerance=0.05):
+    """
+    Given the number of packets egressing out of each queue and an expected number of packets to
+    egress out of ONE of the queues, this function returns which queue it is. If no such queue exists, it returns -1.
+
+    Args:
+        all_queue_pkts ([int]): egress queue counts for all queues where packets are expected to egress from
+                                in array form ex. [0, 0, 100, 0, 0, 0, 0]
+        exp_queue_pkts (int): expected number of packets to egress from port
+        tolerance (float): packet tolerance to expected queue packets - only followed if atleast 100 packets are
+                           expected this accounts for background traffic
+    Returns:
+        queue_val (int): egress queue if found, else -1
+    """
+    pytest_assert(exp_queue_pkts >= 1, "At least one packet is expected to egress from the queue")
+    for queue_pkt_index in range(len(all_queue_pkts)):
+        if all_queue_pkts[queue_pkt_index] == 0:
+            continue
+        elif all_queue_pkts[queue_pkt_index] == exp_queue_pkts and exp_queue_pkts < 100:
+            return queue_pkt_index
+        elif (abs(all_queue_pkts[queue_pkt_index] - exp_queue_pkts)/exp_queue_pkts < tolerance) and \
+             (exp_queue_pkts >= 100):
+            # tolerance only followed if atleast 100 packets are expected
+            return queue_pkt_index
+
+    return -1
+
+
+def get_egress_queue_pkt_count_all_prio(duthost, port):
+    """
+    Get the egress queue count in packets for a given port and all priorities from SONiC CLI.
+    This is the equivalent of the "queuestat -j" command.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+    Returns:
+        array [int]: total count of packets in the queue for all priorities
+    """
+    raw_out = duthost.shell("queuestat -jp {}".format(port))['stdout']
+    raw_json = json.loads(raw_out)
+    intf_queue_stats = raw_json.get(port)
+    queue_stats = []
+
+    for prio in range(8):
+        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
+            is not None else {"totalpacket": "0"}
+        total_pkts_str = total_pkts_prio_str.get("totalpacket")
+        if total_pkts_str == "N/A" or total_pkts_str is None:
+            total_pkts_str = "0"
+        queue_stats.append(int(total_pkts_str.replace(',', '')))
+
+    return queue_stats
+
+
+@contextlib.contextmanager
+def capture_and_check_packet_on_dut(
+    duthost,
+    interface='any',
+    pkts_filter='',
+    pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured"),
+    pkts_validator_args=[],
+    pkts_validator_kwargs={},
+    wait_time=1
+):
+    """
+    Capture packets on DUT and check if the packet is expected
+    Parameters:
+        duthost: the DUT to perform the packet capture
+        interface: the interface to capture packets on, default is 'any'
+        pkts_filter: the PCAP-FILTER to apply to the captured packets, default is '' means no filter
+        pkts_validator: the function to validate the captured packets, default is to check if any packet is captured
+        pkts_validator_args: ther args to pass to the pkts_validator function
+        pkts_validator_kwargs: the kwargs to pass to the pkts_validator function
+        wait_time: the time to wait before stopping the packet capture, default is 1 second
+    """
+    pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
+    cmd_capture_pkts = "sudo nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
+        % (interface, pcap_save_path, pkts_filter)
+    tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
+    cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
+    pytest_assert(duthost.shell(cmd_check_if_process_running)["stdout"] == "1",
+                  "Failed to start tcpdump on DUT")
+    logging.info("Start to capture packet on DUT, tcpdump pid: %s, pcap save path: %s, with command: %s"
+                 % (tcpdump_pid, pcap_save_path, cmd_capture_pkts))
+    try:
+        yield
+        time.sleep(wait_time)
+        duthost.shell("kill -s 2 %s" % tcpdump_pid)
+        with tempfile.NamedTemporaryFile() as temp_pcap:
+            duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
+            pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
+    finally:
+        duthost.file(path=pcap_save_path, state="absent")
+
+
+def _paramiko_ssh(ip_address, username, passwords):
+    """
+    Connect to the device via ssh using paramiko
+    Args:
+        ip_address (str): The ip address of device
+        username (str): The username of device
+        passwords (str or list): Potential passwords of device
+            this argument can be either a string or a list of string
+    Returns:
+        AuthResult: the ssh session of device
+    """
+    if isinstance(passwords, str):
+        candidate_passwords = [passwords]
+    elif isinstance(passwords, list):
+        candidate_passwords = passwords
+    else:
+        raise Exception("The passwords argument must be either a string or a list of string.")
+
+    for password in candidate_passwords:
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(ip_address, username=username, password=password,
+                        allow_agent=False, look_for_keys=False, timeout=10)
+            return ssh, password
+        except AuthenticationException:
+            continue
+        except Exception as e:
+            logging.info("Cannot access device {} via ssh, error: {}".format(ip_address, e))
+            raise e
+    logging.info("Cannot access device {} via ssh, error: Password incorrect".format(ip_address))
+    raise AuthenticationException
+
+
+def paramiko_ssh(ip_address, username, passwords):
+    ssh, pwd = _paramiko_ssh(ip_address, username, passwords)
+    return ssh
+
+
+def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
+    try:
+        _, passwd = _paramiko_ssh(ipv4_address, username, passwords)
+    except AuthenticationException:
+        raise
+    except Exception:
+        _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
+    return passwd

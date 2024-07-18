@@ -14,41 +14,51 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
+from .mellanox.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
 
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), "templates")
+
 FMT = "%b %d %H:%M:%S.%f"
+FMT_YEAR = "%Y %b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
-SMALL_DISK_SKUS = [
-    "Arista-7060CX-32S-C32",
-    "Arista-7060CX-32S-Q32",
-    "Arista-7060CX-32S-D48C8"
+
+LOGS_ON_TMPFS_PLATFORMS = [
+    "x86_64-arista_7050_qx32",
+    "x86_64-arista_7050_qx32s",
+    "x86_64-arista_7060_cx32s",
+    "x86_64-arista_7260cx3_64",
+    "x86_64-arista_7050cx3_32s",
+    "x86_64-mlnx_msn2700-r0",
+    "x86_64-dell_s6100_c2538-r0",
+    "armhf-nokia_ixs7215_52x-r0"
 ]
 
 
 def _parse_timestamp(timestamp):
-    try:
-        time = datetime.strptime(timestamp, FMT)
-    except ValueError:
+    for format in [FMT, FMT_YEAR, FMT_SHORT, FMT_ALT]:
         try:
-            time = datetime.strptime(timestamp, FMT_SHORT)
+            time = datetime.strptime(timestamp, format)
+            return time
         except ValueError:
-            time = datetime.strptime(timestamp, FMT_ALT)
-    return time
+            continue
+    raise ValueError("Unable to parse {} with any known format".format(timestamp))
 
 
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     platform = duthost.facts["platform"]
-    if "simx" in platform:
+    hwsku = duthost.facts['hwsku']
+    support_platform_simx_hwsku_list = ['ACS-MSN4700', 'ACS-SN4280']
+    if "simx" in platform and hwsku not in support_platform_simx_hwsku_list:
         pytest.skip('skipped on this platform: {}'.format(platform))
 
 
 @pytest.fixture(scope="module")
-def xcvr_skip_list(duthosts):
+def xcvr_skip_list(duthosts, dpu_npu_port_list):
     intf_skip_list = {}
     for dut in duthosts:
         platform = dut.facts['platform']
@@ -63,12 +73,21 @@ def xcvr_skip_list(duthosts):
             for int_n in hwsku_info['interfaces']:
                 if hwsku_info['interfaces'][int_n].get('port_type') == "RJ45":
                     intf_skip_list[dut.hostname].append(int_n)
+            for int_n in dpu_npu_port_list[dut.hostname]:
+                if int_n not in intf_skip_list[dut.hostname]:
+                    intf_skip_list[dut.hostname].append(int_n)
 
         except Exception:
             # hwsku.json does not exist will return empty skip list
             dut.has_sku = False
             logging.debug(
                 "hwsku.json absent or port_type for interfaces not included for hwsku {}".format(hwsku))
+
+        # No hwsku.json for Arista-7050-QX-32S/Arista-7050QX-32S-S4Q31
+        if hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX-32S-S4Q31']:
+            sfp_list = ['Ethernet0', 'Ethernet1', 'Ethernet2', 'Ethernet3']
+            logging.debug('Skipping sfp interfaces: {}'.format(sfp_list))
+            intf_skip_list[dut.hostname].extend(sfp_list)
 
     return intf_skip_list
 
@@ -90,7 +109,9 @@ def bring_up_dut_interfaces(request, duthosts, enum_rand_one_per_hwsku_frontend_
 
         # Enable outer interfaces
         for port in ports:
-            duthost.no_shutdown(ifname=port)
+            namespace = mg_facts["minigraph_neighbors"][port]['namespace']
+            namespace_arg = '-n {}'.format(namespace) if namespace else ''
+            duthost.command("sudo config interface {} startup {}".format(namespace_arg, port))
 
 
 def get_state_times(timestamp, state, state_times, first_after_offset=None):
@@ -158,7 +179,12 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
                             "arp_ping": "", "lacp_session_max_wait": ""}
     if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
         if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
-            max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
+            # Filter out None values and then fine the maximum
+            filtered_lacp_sessions_waittime = [value for value in lacp_sessions_waittime.values() if value is not None]
+            if filtered_lacp_sessions_waittime:
+                max_lacp_session_wait = max(filtered_lacp_sessions_waittime)
+            else:
+                max_lacp_session_wait = None
             analyze_result.get(
                 "controlplane", controlplane_summary).update(
                     {"lacp_session_max_wait": max_lacp_session_wait})
@@ -178,7 +204,7 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
 
 def get_kexec_time(duthost, messages, result):
     reboot_pattern = re.compile(
-        r'.* NOTICE admin: Rebooting with /sbin/kexec -e to.*...')
+        r'.* NOTICE (?:admin|root): Rebooting with /sbin/kexec -e to.*...')
     reboot_time = "N/A"
     logging.info("FINDING REBOOT PATTERN")
     for message in messages:
@@ -265,7 +291,10 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
                     state_times = get_state_times(
                         timestamp, state, service_restart_times)
                     service_restart_times.update(state_times)
-                break
+                if "PORT_READY" not in state_name:
+                    # If PORT_READY, don't break out of the for-loop here, because we want to
+                    # try to match the other regex as well
+                    break
     # Calculate time that services took to stop/start
     for _, timings in list(service_restart_times.items()):
         timestamps = timings["timestamp"]
@@ -385,13 +414,20 @@ def verify_mac_jumping(test_name, timing_data, verification_errors):
 def verify_required_events(duthost, event_counters, timing_data, verification_errors):
     for key in ["time_span", "offset_from_kexec"]:
         for pattern in REQUIRED_PATTERNS.get(key):
-            observed_start_count = timing_data.get(
-                key, {}).get(pattern, {}).get("Start count", 0)
+            if pattern == 'PORT_READY':
+                observed_start_count = timing_data.get(
+                    key, {}).get(pattern, {}).get("Start-changes-only count", 0)
+            else:
+                observed_start_count = timing_data.get(
+                    key, {}).get(pattern, {}).get("Start count", 0)
             observed_end_count = timing_data.get(
                 key, {}).get(pattern, {}).get("End count", 0)
             expected_count = event_counters.get(pattern)
-            if (observed_start_count != expected_count and pattern != 'PORT_READY') or\
-                    (observed_start_count > expected_count and pattern == 'PORT_READY'):
+            # If we're checking PORT_READY, allow any number of PORT_READY messages between 0 and the number of ports.
+            # Some platforms appear to have a random number of these messages, other platforms have however many ports
+            # are up.
+            if observed_start_count != expected_count and (
+                    pattern != 'PORT_READY' or observed_start_count > expected_count):
                 verification_errors.append("FAIL: Event {} was found {} times, when expected exactly {} times".
                                            format(pattern, observed_start_count, expected_count))
             if key == "time_span" and observed_start_count != observed_end_count:
@@ -437,9 +473,13 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_name = request.node.name
-    if "warm" in test_name:
+    if "upgrade_path" in test_name:
+        reboot_type_source = request.config.getoption("--upgrade_type")
+    else:
+        reboot_type_source = test_name
+    if "warm" in reboot_type_source:
         reboot_type = "warm"
-    elif "fast" in test_name:
+    elif "fast" in reboot_type_source:
         reboot_type = "fast"
     else:
         reboot_type = "unknown"
@@ -450,7 +490,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             name='device_type') for arg in mark.args]
         if 'vs' not in device_marks:
             pytest.skip('Testcase not supported for kvm')
-    hwsku = duthost.facts["hwsku"]
+    platform = duthost.facts["platform"]
     logs_in_tmpfs = list()
 
     loganalyzer = LogAnalyzer(
@@ -484,7 +524,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             True if (log_filesystem and "tmpfs" in log_filesystem) else False)
         base_os_version.append(get_current_sonic_version(duthost))
         bgpd_log = bgpd_log_handler(preboot=True)
-        if hwsku in SMALL_DISK_SKUS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+        if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
             # For small disk devices, /var/log in mounted in tmpfs.
             # Hence, after reboot the preboot logs are lost.
             # For log_analyzer to work, it needs logs from the shutdown path
@@ -506,7 +546,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
     def post_reboot_analysis(marker, event_counters=None, reboot_oper=None, log_dir=None):
         bgpd_log_handler()
-        if hwsku in SMALL_DISK_SKUS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+        if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
             restore_backup = "mv /host/syslog.99 /var/log/; " +\
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
                 "mv /host/swss.rec.99 /var/log/swss/; " +\
@@ -518,11 +558,27 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             # restore original script. If the ".orig" file does not exist (upgrade path case), ignore the error.
             duthost.shell("mv {} {}".format(reboot_script_path + ".orig", reboot_script_path),
                           module_ignore_errors=True)
-        result = loganalyzer.analyze(marker, fail=False)
+        # For mac jump test, the log message we care about is uaually combined with other messages in one line,
+        # which makes the length of the line longer than 1000 and get dropped by Logananlyzer. So we need to increase
+        # the max allowed length.
+        # The regex library in Python 2 takes very long time (over 10 minutes) to process long lines. In our test,
+        # most of the combined log message for mac jump test is around 5000 characters. So we set the max allowed
+        # length to 6000.
+        result = loganalyzer.analyze(marker, fail=False, maximum_log_length=6000)
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
 
-        for key, messages in list(result["expect_messages"].items()):
+        # Parsing sairedis shall happen after parsing syslog because FDB_AGING_DISABLE is required
+        # when analysing sairedis.rec log, so we need to sort the keys
+        key_list = ["syslog", "bgpd.log", "sairedis.rec"]
+        for i in range(0, len(key_list)):
+            for message_key in list(result["expect_messages"].keys()):
+                if key_list[i] in message_key:
+                    key_list[i] = message_key
+                    break
+
+        for key in key_list:
+            messages = result["expect_messages"][key]
             if "syslog" in key:
                 get_kexec_time(duthost, messages, analyze_result)
                 reboot_start_time = analyze_result.get(
@@ -689,3 +745,38 @@ def pytest_generate_tests(metafunc):
 
 def pytest_addoption(parser):
     add_counterpoll_cpu_usage_args(parser)
+
+
+@pytest.fixture(scope="function", autouse=False)
+def suspend_and_resume_hw_tc_on_mellanox_device(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    suspend and resume hw thermal control service on mellanox device
+    """
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if is_mellanox_device(duthost) and duthost.is_host_service_running("hw-management-tc"):
+        suspend_hw_tc_service(duthost)
+
+    yield
+
+    if is_mellanox_device(duthost) and duthost.is_host_service_running("hw-management-tc"):
+        resume_hw_tc_service(duthost)
+
+
+@pytest.fixture(scope="module")
+def dpu_npu_port_list(duthosts):
+    dpu_npu_port_list = {}
+    cmd_get_config_db_port_key_list = 'redis-cli --raw -n 4 keys "PORT|Ethernet*"'
+    cmd_dump_config_db = "sonic-db-dump -n CONFIG_DB -y"
+    dpu_npu_role = 'Dpc'
+    for dut in duthosts:
+        dpu_npu_port_list[dut.hostname] = []
+        port_key_list = dut.command(cmd_get_config_db_port_key_list)['stdout'].split('\n')
+        config_db_res = json.loads(dut.command(cmd_dump_config_db)["stdout"])
+
+        for port_key in port_key_list:
+            if port_key in config_db_res:
+                if dpu_npu_role == config_db_res[port_key].get('value').get('role'):
+                    dpu_npu_port_list[dut.hostname].append(port_key.split("|")[-1])
+    logging.info(f"dpu npu port list: {dpu_npu_port_list}")
+    return dpu_npu_port_list

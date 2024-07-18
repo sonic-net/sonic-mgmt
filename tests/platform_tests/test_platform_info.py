@@ -173,12 +173,16 @@ def get_healthy_psu_num(duthost):
     """
     PSUUTIL_CMD = "sudo psuutil status"
     healthy_psus = 0
-    psuutil_status_output = duthost.command(PSUUTIL_CMD)
+    psuutil_status_output = duthost.command(PSUUTIL_CMD, module_ignore_errors=True)
+    # For kvm testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+    if duthost.facts["asic_type"] == "vs" and psuutil_status_output['rc'] == 2:
+        return
+    assert psuutil_status_output["rc"] == 0, "Run command '{}' failed".format(PSUUTIL_CMD)
 
     psus_status = psuutil_status_output["stdout_lines"][2:]
     for iter in psus_status:
         fields = iter.split()
-        if 'OK' in fields:
+        if 'OK' in fields and 'NOT' not in fields:
             healthy_psus += 1
 
     return healthy_psus
@@ -206,6 +210,7 @@ def turn_all_outlets_on(pdu_ctrl):
         if not outlet["outlet_on"]:
             pdu_ctrl.turn_on_outlet(outlet)
             time.sleep(5)
+    time.sleep(5)
 
 
 def check_all_psu_on(dut, psu_test_results):
@@ -220,7 +225,8 @@ def check_all_psu_on(dut, psu_test_results):
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             fields = line.split()
-            psu_test_results[fields[1]] = line
+            if " ".join(fields[2:]) != 'NOT PRESENT':
+                psu_test_results[fields[1]] = line
             if " ".join(fields[2:]) == "NOT OK":
                 power_off_psu_list.append(fields[1])
     else:
@@ -228,7 +234,8 @@ def check_all_psu_on(dut, psu_test_results):
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS_JSON)
         psu_info_list = json.loads(cli_psu_status["stdout"])
         for psu_info in psu_info_list:
-            psu_test_results[psu_info['name']] = psu_info
+            if psu_info["status"] != 'NOT PRESENT':
+                psu_test_results[psu_info['name']] = psu_info
             if psu_info["status"] == "NOT OK":
                 power_off_psu_list.append(psu_info["index"])
 
@@ -241,7 +248,7 @@ def check_all_psu_on(dut, psu_test_results):
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
 def test_turn_on_off_psu_and_check_psustatus(duthosts,
-                                             pdu_controller, ignore_particular_error_log, tbinfo):
+                                             get_pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
@@ -250,11 +257,14 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
     psu_num = get_healthy_psu_num(duthost)
-    pytest_require(
-        psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
+    # For kvm testbed, psu_num will return None
+    # Only physical testbeds need to check the psu number
+    if psu_num:
+        pytest_require(
+            psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
-    pdu_ctrl = pdu_controller
+    pdu_ctrl = get_pdu_controller(duthost)
     pytest_require(
         pdu_ctrl, "No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
 
@@ -286,20 +296,21 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
         logging.info("Turn off outlet {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
-        time.sleep(5)
+        time.sleep(10)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             psu_match = psu_line_pattern.match(line)
             pytest_assert(psu_match, "Unexpected PSU status output")
-            if psu_match.group(2) != "OK":
+            # also make sure psustatus is not 'NOT PRESENT', which cannot be turned on/off
+            if psu_match.group(2) != "OK" and psu_match.group(2) != "NOT PRESENT":
                 psu_under_test = psu_match.group(1)
             check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
         pytest_assert(psu_under_test is not None, "No PSU is turned off")
 
         logging.info("Turn on outlet {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
-        time.sleep(5)
+        time.sleep(10)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
@@ -319,6 +330,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
 @pytest.mark.disable_loganalyzer
 def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
+                                        suspend_and_resume_hw_tc_on_mellanox_device,
                                         mocker_factory, disable_thermal_policy):  # noqa F811
     """
     @summary: Check output of 'show platform fan'.
@@ -340,6 +352,7 @@ def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostna
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP], indirect=True)
 def test_show_platform_temperature_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
+                                          suspend_and_resume_hw_tc_on_mellanox_device,
                                           mocker_factory, ignore_particular_error_log):  # noqa F811
     """
     @summary: Check output of 'show platform temperature'
@@ -392,6 +405,10 @@ def check_thermal_control_load_invalid_file(duthost, file_name):
     loganalyzer = LogAnalyzer(ansible_host=duthost,
                               marker_prefix='thermal_control')
     loganalyzer.expect_regex = [LOG_EXPECT_POLICY_FILE_INVALID]
+    # For kvm testbed, we will not restart the deamon `thermal`
+    # So we will not get the syslog as expected.
+    if duthost.facts["asic_type"] == "vs":
+        return
     with loganalyzer:
         with ThermalPolicyFileContext(duthost, file_name):
             restart_thermal_control_daemon(duthost)

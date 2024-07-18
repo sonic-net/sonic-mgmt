@@ -809,6 +809,46 @@ def reset_flow_handler(vm_set):
     return g_muxes.reset_flows()
 
 
+@app.route('/mux/<vm_set>/output', methods=['POST'])
+def output_flow_handler(vm_set):
+    """Handler for updating flow action to output
+
+    Args:
+        vm_set (string): The vm_set of test setup. Parsed by flask from request URL.
+
+    Posted json data should be like:
+        {"out_sides": [<side>, <side>, ...]}
+    where <side> could be "nic", "upper_tor" or "lower_tor".
+
+    Returns:
+        object: Return a flask response object.
+    """
+    _validate_vm_set(vm_set)
+    data = _validate_out_sides(request)
+    app.logger.info('===== {} POST {} with {} ====='.format(request.remote_addr, request.url, json.dumps(data)))
+    return g_muxes.update_flows('output', data['out_sides'])
+
+
+@app.route('/mux/<vm_set>/drop', methods=['POST'])
+def drop_flow_handler(vm_set):
+    """Handler for updating all flow to drop
+
+    Args:
+        vm_set (string): The vm_set of test setup. Parsed by flask from request URL.
+
+    Posted json data should be like:
+        {"out_sides": [<side>, <side>, ...]}
+    where <side> could be "nic", "upper_tor" or "lower_tor".
+
+    Returns:
+        object: Return a flask response object.
+    """
+    _validate_vm_set(vm_set)
+    data = _validate_out_sides(request)
+    app.logger.info('===== {} POST {} with {} ====='.format(request.remote_addr, request.url, json.dumps(data)))
+    return g_muxes.update_flows('drop', data['out_sides'])
+
+
 @app.route('/mux/<vm_set>/<int:port_index>/flap_counter', methods=['GET'])
 def flap_counter_port(vm_set, port_index):
     """

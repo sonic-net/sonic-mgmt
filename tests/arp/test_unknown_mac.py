@@ -14,10 +14,11 @@ import ptf.packet as packet
 from tests.common import constants
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.utilities import get_intf_by_sub_intf
+from tests.common.utilities import get_intf_by_sub_intf, wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -236,7 +237,7 @@ class TrafficSendVerify(object):
     """ Send traffic and check interface counters and ptf ports """
     @initClassVars
     def __init__(self, duthost, ptfadapter, dst_ip, ptf_dst_port, ptf_vlan_ports,
-                 intfs, ptf_ports, arp_entry, dscp):
+                 intfs, ptf_ports, arp_entry, dscp, skip_traffic_test):     # noqa F811
         """
         Args:
             duthost(AnsibleHost) : dut instance
@@ -254,6 +255,7 @@ class TrafficSendVerify(object):
         self.pkt_map = dict()
         self.pre_rx_drops = dict()
         self.dut_mac = duthost.facts['router_mac']
+        self.skip_traffic_test = skip_traffic_test
 
     def _constructPacket(self):
         """
@@ -320,10 +322,14 @@ class TrafficSendVerify(object):
             else:
                 actual_cnt = int(stats[intf]['RX_DRP'])
                 exp_cnt = self.pre_rx_drops[intf] + TEST_PKT_CNT
-                pytest_assert(actual_cnt >= exp_cnt,
-                              "Pkt dropped cnt incorrect for intf {}. Expected: {}, Obtained: {}".format(intf, exp_cnt,
-                                                                                                         actual_cnt))
                 logger.info("Pkt count dropped on interface {}: {}, Expected: {}".format(intf, actual_cnt, exp_cnt))
+                if actual_cnt < exp_cnt:
+                    return False
+        return True
+
+    def verifyIntfCounters(self):
+        pytest_assert(wait_until(10, 2, 0, self._verifyIntfCounters),
+                      "Drop counters failed to increment")
 
     def runTest(self):
         """
@@ -332,23 +338,24 @@ class TrafficSendVerify(object):
         self._constructPacket()
         logger.info("Clear all counters before test run")
         self.duthost.command("sonic-clear counters")
-        time.sleep(1)
-        logger.info("Collect drop counters before test run")
-        self._verifyIntfCounters(pretest=True)
-        for pkt, exp_pkt in zip(self.pkts, self.exp_pkts):
-            self.ptfadapter.dataplane.flush()
-            out_intf = self.pkt_map[str(pkt)][0]
-            src_port = self.ptf_ports[out_intf][0]
-            logger.info("Sending traffic on intf {}".format(out_intf))
-            testutils.send(self.ptfadapter, src_port, pkt, count=TEST_PKT_CNT)
-            testutils.verify_no_packet_any(self.ptfadapter, exp_pkt, ports=self.ptf_vlan_ports)
-        logger.info("Collect and verify drop counters after test run")
-        self._verifyIntfCounters()
+        if not self.skip_traffic_test:
+            time.sleep(1)
+            logger.info("Collect drop counters before test run")
+            self._verifyIntfCounters(pretest=True)
+            for pkt, exp_pkt in zip(self.pkts, self.exp_pkts):
+                self.ptfadapter.dataplane.flush()
+                out_intf = self.pkt_map[str(pkt)][0]
+                src_port = self.ptf_ports[out_intf][0]
+                logger.info("Sending traffic on intf {}".format(out_intf))
+                testutils.send(self.ptfadapter, src_port, pkt, count=TEST_PKT_CNT)
+                testutils.verify_no_packet_any(self.ptfadapter, exp_pkt, ports=self.ptf_vlan_ports)
+            logger.info("Collect and verify drop counters after test run")
+            self.verifyIntfCounters()
 
 
 class TestUnknownMac(object):
     @pytest.mark.parametrize("dscp", ["dscp-3", "dscp-4", "dscp-8"])
-    def test_unknown_mac(self, unknownMacSetup, dscp, duthosts, rand_one_dut_hostname, ptfadapter):
+    def test_unknown_mac(self, unknownMacSetup, dscp, duthosts, rand_one_dut_hostname, ptfadapter, skip_traffic_test):  # noqa F811
         """
         Verify unknown mac behavior for lossless and lossy priority
 
@@ -374,6 +381,7 @@ class TestUnknownMac(object):
         self.ptf_vlan_ports = setup['ptf_vlan_ports']
         self.intfs = setup['intfs']
         self.ptf_ports = setup['ptf_ports']
+        self.skip_traffic_test = skip_traffic_test
         self.validateEntries()
         self.run()
 
@@ -391,5 +399,5 @@ class TestUnknownMac(object):
         thandle = TrafficSendVerify(self.duthost, self.ptfadapter, self.dst_ip, self.ptf_dst_port,
                                     self.ptf_vlan_ports,
                                     self.intfs, self.ptf_ports,
-                                    self.arp_entry, self.dscp)
+                                    self.arp_entry, self.dscp, self.skip_traffic_test)
         thandle.runTest()

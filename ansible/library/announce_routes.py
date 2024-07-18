@@ -9,7 +9,9 @@ import ipaddress
 import json
 import sys
 import socket
-
+import random
+import time
+from multiprocessing.pool import ThreadPool
 from ansible.module_utils.basic import AnsibleModule
 
 if sys.version_info.major == 3:
@@ -113,7 +115,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|appliance)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|dpu)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -148,7 +150,21 @@ def change_routes(action, ptf_ip, port, routes):
     wait_for_http(ptf_ip, port, timeout=60)
     url = "http://%s:%d" % (ptf_ip, port)
     data = {"commands": ";".join(messages)}
-    r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
+
+    # nosemgrep-next-line
+    # Flaky error `ConnectionResetError(104, 'Connection reset by peer')` may happen while using `requests.post`
+    # To avoid this error, we add sleep time before sending request.
+    # We use a "backoff" algorithm here, the maximum retry times is five.
+    # If one retry fails, we increase the waiting time.
+    for i in range(0, 5):
+        try:
+            r = requests.post(url, data=data, timeout=360, proxies={"http": None, "https": None})
+            break
+        except ConnectionError as e:
+            time.sleep(0.01 * (i+1))
+            if i == 4:
+                raise e
+
     if r.status_code != 200:
         raise Exception(
             "Change routes failed: url={}, data={}, r.status_code={}, r.reason={}, r.headers={}, r.text={}".format(
@@ -160,6 +176,37 @@ def change_routes(action, ptf_ip, port, routes):
                 r.text
             )
         )
+
+
+def send_routes_for_each_set(args):
+    routes, port, action, ptf_ip = args
+    change_routes(action, ptf_ip, port, routes)
+
+
+def send_routes_in_parallel(route_set):
+    """
+    Sends the given set of routes in parallel using a thread pool.
+
+    Args:
+        route_set (list): A list of route sets to send.
+
+    Returns:
+        None
+    """
+    # Create a pool of worker processes
+    pool = ThreadPool(processes=len(route_set))
+
+    # Use the ThreadPool.map function to apply the function to each set of routes
+    results = pool.map(send_routes_for_each_set, route_set)
+
+    # Optionally, process the results
+    for result in results:
+        # Process individual results here
+        pass
+
+    # Close the pool and wait for all processes to complete
+    pool.close()
+    pool.join()
 
 
 # AS path from Leaf router for T0 topology
@@ -826,6 +873,7 @@ We would have the following distribution:
 
 
 def fib_t2_lag(topo, ptf_ip, action="announce"):
+    route_set = []
     vms = topo['topology']['VMs']
     # T1 VMs per linecard(asic) - key is the dut index, and value is a list of T1 VMs
     t1_vms = {}
@@ -844,14 +892,16 @@ def fib_t2_lag(topo, ptf_ip, action="announce"):
             if dut_index not in t3_vms:
                 t3_vms[dut_index] = list()
             t3_vms[dut_index].append(key)
-    generate_t2_routes(t1_vms, topo, ptf_ip, action="announce")
-    generate_t2_routes(t3_vms, topo, ptf_ip, action="announce")
+    route_set += generate_t2_routes(t1_vms, topo, ptf_ip, action)
+    route_set += generate_t2_routes(t3_vms, topo, ptf_ip, action)
+    send_routes_in_parallel(route_set)
 
 
 def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
     common_config = topo['configuration_properties'].get('common', {})
     vms = topo['topology']['VMs']
     vms_config = topo['configuration']
+    r_set = []
 
     podset_number = common_config.get("podset_number", PODSET_NUMBER)
     tor_number = common_config.get("tor_number", TOR_NUMBER)
@@ -904,8 +954,10 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
                                             nhipv4, nhipv6, tor_subnet_size, max_tor_subnet_number, "t2",
                                             router_type=router_type, tor_index=tor_index, set_num=set_num,
                                             core_ra_asn=core_ra_asn)
-                change_routes(action, ptf_ip, port, routes_v4)
-                change_routes(action, ptf_ip, port6, routes_v6)
+                random.shuffle(routes_v4)
+                random.shuffle(routes_v6)
+                r_set.append((routes_v4, port, action, ptf_ip))
+                r_set.append((routes_v6, port6, action, ptf_ip))
 
                 if 'vips' in vms_config[a_vm]:
                     routes_vips = []
@@ -913,6 +965,7 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
                         routes_vips.append(
                             (prefix, nhipv4, vms_config[a_vm]["vips"]["ipv4"]["asn"]))
                     change_routes(action, ptf_ip, port, routes_vips)
+    return r_set
 
 
 def fib_t0_mclag(topo, ptf_ip, action="announce"):
@@ -956,7 +1009,7 @@ def fib_t0_mclag(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port6, routes_v6)
 
 
-def fib_appliance(topo, ptf_ip, action="announce"):
+def fib_dpu(topo, ptf_ip, action="announce"):
     common_config = topo['configuration_properties'].get('common', {})
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
@@ -1021,8 +1074,8 @@ def main():
         elif topo_type == "mx":
             fib_mx(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
-        elif topo_type == "appliance":
-            fib_appliance(topo, ptf_ip, action=action)
+        elif topo_type == "dpu":
+            fib_dpu(topo, ptf_ip, action=action)
             module.exit_json(change=True)
         else:
             module.exit_json(

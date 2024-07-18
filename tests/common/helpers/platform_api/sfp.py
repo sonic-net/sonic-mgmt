@@ -66,6 +66,10 @@ def get_transceiver_info(conn, index):
     return sfp_api(conn, index, 'get_transceiver_info')
 
 
+def get_transceiver_info_firmware_versions(conn, index):
+    return sfp_api(conn, index, 'get_transceiver_info_firmware_versions')
+
+
 def get_transceiver_bulk_status(conn, index):
     return sfp_api(conn, index, 'get_transceiver_bulk_status')
 

@@ -38,7 +38,7 @@ def refData(duthosts):
         fileName = lc_sku + "_" + fabric_sku + "_" + "LC" + str(slot) + ".yaml"
         f = open("voq/fabric_data/{}".format(fileName))
         pytest_assert(f, "Need to update expected data for {}".format(fileName))
-        referenceData[slot] = yaml.load(f)
+        referenceData[slot] = yaml.safe_load(f)
     return referenceData
 
 
@@ -87,6 +87,16 @@ def test_voq_fabric_link_status(duthosts, refData, fabricSlots):
     for i in range(totalAsics):
         keys.append('asic' + str(i))
     supReferenceData = {key: {} for key in keys}
+    linecardModule = []
+    localModule = 0
+    asicPerSlot = 2
+
+    for duthost in duthosts.frontend_nodes:
+        num_asics = duthost.num_asics()
+        for asic in range(num_asics):
+            if localModule not in linecardModule:
+                linecardModule.append(localModule)
+            localModule += asicPerSlot
 
     # skip supervisors, on Linecards now:
     for duthost in duthosts.frontend_nodes:
@@ -117,7 +127,10 @@ def test_voq_fabric_link_status(duthosts, refData, fabricSlots):
                 if asic not in referenceData:
                     pytest_assert(False, "{} is not expected to be up.".format(asic))
                 if lk not in referenceData[asic]:
-                    pytest_assert(False, "link {} is not expected to be up.".format(lk))
+                    pytest_assert(status.lower() != 'up',
+                                  "link {} is not expected to be up.".format(lk))
+                    logger.info("Skip udpating the information as this is designed to be down")
+                    continue
 
                 # update link information on suppervisor
                 lkData = {'peer slot': slot, 'peer lk': lk, 'peer asic': asic}
@@ -134,8 +147,9 @@ def test_voq_fabric_link_status(duthosts, refData, fabricSlots):
 
                 if status.lower() != 'up':
                     if fabricSlot in fabricSlots:
+                        logger.info("link {}. is expected to be up.".format(linkKey))
                         pytest_assert(status.lower() == 'up',
-                                      "link {}. is expected to be up.".format(lk))
+                                      "link {}. is expected to be up.".format(linkKey))
             else:
                 logger.info("Header line {}".format(content))
 
@@ -169,6 +183,12 @@ def test_voq_fabric_link_status(duthosts, refData, fabricSlots):
                         continue
                     else:
                         # check link status
+                        cmd = "sonic-db-cli -n {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' REMOTE_MOD".format(asic, lk)
+                        cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
+                        logger.info(cmd_output)
+                        module = cmd_output[0]
+                        if module not in linecardModule:
+                            continue
                         pytest_assert(False, "link {} is not expected to be up.".format(lk))
                 pytest_assert(status.lower() == 'up',
-                              "link {}. is expected to be up.".format(lk))
+                              "link {}. is expected to be up.".format(linkKey))

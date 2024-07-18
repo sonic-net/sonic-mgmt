@@ -50,7 +50,7 @@ UP_STREAM = "upstream"
 DOWNSTREAM_SERVER_TOPO = ["t0", "m0_vlan"]
 
 
-def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scenario):
+def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, topo_scenario):
     """
     Generate setup information dictionary for T0 and T1/ T2 topologies.
     """
@@ -225,6 +225,13 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scena
     upstream_router_mac = upStreamDutHost.asic_instance(asic_id).get_router_mac()
     asic_id = downStreamDutHost.get_asic_id_from_namespace(downstream_namespace)
     downstream_router_mac = downStreamDutHost.asic_instance(asic_id).get_router_mac()
+    if 'dualtor' in topo:
+        # On dualtor setup, we need to use the MAC of the VLAN interface
+        # as the src MAC of downstream traffic
+        downstream_vlan_mac = dutHost.get_dut_iface_mac('Vlan1000')
+        upstream_vlan_mac = dutHost.asic_instance().get_router_mac()
+    else:
+        downstream_vlan_mac = upstream_vlan_mac = None
 
     setup_information = {
         "test_mirror_v4": test_mirror_v4,
@@ -260,6 +267,7 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scena
                 "everflow_dut": upStreamDutHost,
                 "ingress_router_mac": upstream_router_mac,
                 "egress_router_mac": downstream_router_mac,
+                "vlan_mac": downstream_vlan_mac,
                 "src_port": upstream_ports[0],
                 "src_port_lag_name": upstream_dest_lag_name[0],
                 "src_port_ptf_id": (str(mg_facts_list[1]["minigraph_ptf_indices"][upstream_ports[0]])
@@ -281,6 +289,7 @@ def gen_setup_information(downStreamDutHost, upStreamDutHost, tbinfo, topo_scena
                 "everflow_dut": downStreamDutHost,
                 "ingress_router_mac": downstream_router_mac,
                 "egress_router_mac": upstream_router_mac,
+                "vlan_mac": upstream_vlan_mac,
                 "src_port": downstream_ports[0],
                 # DUT whose downstream are servers doesn't have lag connect to server
                 "src_port_lag_name": "Not Applicable" \
@@ -333,6 +342,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
         dict: Required test information
 
     """
+    duthost = None
     topo = tbinfo['topo']['name']
     if 't1' in topo or 't0' in topo or 'm0' in topo or 'mx' in topo or 'dualtor' in topo:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
@@ -340,15 +350,15 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
         pytest_assert(len(duthosts) > 1, "Test must run on whole chassis")
         downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
 
-    setup_information = gen_setup_information(downstream_duthost, upstream_duthost, tbinfo, topo_scenario)
+    setup_information = gen_setup_information(duthost, downstream_duthost, upstream_duthost, tbinfo, topo_scenario)
 
     # Disable BGP so that we don't keep on bouncing back mirror packets
     # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
 
     if 't2' in topo:
-        for duthost in duthosts.frontend_nodes:
-            duthost.command("sudo config bgp shutdown all")
-            duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
+        for dut_host in duthosts.frontend_nodes:
+            dut_host.command("sudo config bgp shutdown all")
+            dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
     else:
         duthost.command("sudo config bgp shutdown all")
         duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
@@ -359,9 +369,9 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
 
     # Enable BGP again
     if 't2' in topo:
-        for duthost in duthosts.frontend_nodes:
-            duthost.command("sudo config bgp startup all")
-            duthost.command("rm -rf {}".format(DUT_RUN_DIR))
+        for dut_host in duthosts.frontend_nodes:
+            dut_host.command("sudo config bgp startup all")
+            dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
     else:
         duthost.command("sudo config bgp startup all")
         duthost.command("rm -rf {}".format(DUT_RUN_DIR))
@@ -743,7 +753,8 @@ class BaseEverflowTest(object):
                                       src_port=None,
                                       dest_ports=None,
                                       expect_recv=True,
-                                      valid_across_namespace=True):
+                                      valid_across_namespace=True,
+                                      skip_traffic_test=False):
 
         # In Below logic idea is to send traffic in such a way so that mirror traffic
         # will need to go across namespaces and within namespace. If source and mirror destination
@@ -778,6 +789,9 @@ class BaseEverflowTest(object):
                 src_port_set.add(dest_ports[0])
                 src_port_metadata_map[dest_ports[0]] = (None, 2)
 
+        if skip_traffic_test is True:
+            logging.info("Skipping traffic test")
+            return
         # Loop through Source Port Set and send traffic on each source port of the set
         for src_port in src_port_set:
             expected_mirror_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session,
@@ -786,14 +800,10 @@ class BaseEverflowTest(object):
                                                                                  direction,
                                                                                  mirror_packet,
                                                                                  src_port_metadata_map[src_port][1])
-
+            # Avoid changing the original packet
+            mirror_packet_sent = mirror_packet.copy()
             if src_port_metadata_map[src_port][0]:
-
-                mirror_packet_sent = mirror_packet.copy()
-
                 mirror_packet_sent[packet.Ether].dst = src_port_metadata_map[src_port][0]
-            else:
-                mirror_packet_sent = mirror_packet
 
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, src_port, mirror_packet_sent)
@@ -825,6 +835,9 @@ class BaseEverflowTest(object):
                     if 't2' in setup['topo']:
                         if duthost.facts['switch_type'] == "voq":
                             mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                    elif direction == 'downstream' and setup.get("dualtor", False):
+                        # On dualtor deployment, the SRC_MAC of the downstream mirror packet is the VLAN MAC
+                        mirror_packet_sent[packet.Ether].src = setup[direction]["vlan_mac"]
                     else:
                         mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
 
@@ -847,9 +860,12 @@ class BaseEverflowTest(object):
                 payload = binascii.unhexlify("0" * 44) + str(payload)
             else:
                 payload = binascii.unhexlify("0" * 44) + bytes(payload)
-
-        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"] or duthost.facts.get(
-                "platform_asic") in ["broadcom-dnx"]:
+        if (
+            duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"]
+            or duthost.facts.get("platform_asic") in ["broadcom-dnx"]
+            or duthost.facts["hwsku"]
+            in ["rd98DX35xx", "rd98DX35xx_cn9131", "Nokia-7215-A1"]
+        ):
             if six.PY2:
                 payload = binascii.unhexlify("0" * 24) + str(payload)
             else:
@@ -875,6 +891,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
         if duthost.facts["asic_type"] == 'marvell':
             expected_packet.set_do_not_care_scapy(packet.IP, "id")
+            expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
         if duthost.facts["asic_type"] in ["cisco-8000", "innovium"] or \
                 duthost.facts.get("platform_asic") in ["broadcom-dnx"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")

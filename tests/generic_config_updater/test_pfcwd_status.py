@@ -13,13 +13,37 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
 
 READ_FLEXDB_TIMEOUT = 20
 READ_FLEXDB_INTERVAL = 5
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
+    if not loganalyzer:
+        return
+
+    for duthost in duthosts:
+        asic_name = duthost.get_asic_name()
+        if asic_name in ['td2']:
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    '.*ERR syncd#syncd:.*SAI_API_QUEUE:_brcm_sai_cosq_stat_get:.* ',
+                    '.*ERR syncd#syncd:.*SAI_API_SWITCH:sai_bulk_object_get_stats.* ',
+                ]
+            )
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    '.*ERR syncd#syncd: :- queryStatsCapability: failed to find switch oid:.* in switch state map'
+                ]
+            )
+
+    return
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -213,10 +237,11 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
         expected_count = len(pfcwd_config) * 3
     json_patch = list()
     exp_str = 'Ethernet'
+    op = 'add'
     for interface, value in pfcwd_config.items():
         json_patch.extend([
                             {
-                              'op': 'add',
+                              'op': op,
                               'path': '/PFC_WD/{}'.format(interface),
                               'value': {'action': value['action'],
                                         'detection_time': value['detect_time'],
@@ -228,7 +253,7 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable"):
+        if is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable", op):
             expect_op_success(duthost, output)
             pfcwd_updated_config = duthost.shell("show pfcwd config")
             pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")

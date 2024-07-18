@@ -1,7 +1,7 @@
-import os
 import json
 import logging
 import pytest
+import os
 from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -13,6 +13,11 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
+
+BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+FILES_DIR = os.path.join(BASE_DIR, "files")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+TMP_DIR = '/tmp'
 
 
 def generate_tmpfile(duthost):
@@ -291,48 +296,225 @@ def check_vrf_route_for_intf(duthost, vrf_name, intf_name, is_ipv4=True):
     pytest_assert(not output['rc'], "Route not found for {} in vrf {}".format(intf_name, vrf_name))
 
 
-def get_gcu_field_operations_conf():
-    conf_path = os.path.join(os.path.dirname(__file__), GCU_FIELD_OPERATION_CONF_FILE)
-    with open(conf_path, 'r') as s:
-        gcu_conf = json.load(s)
-    return gcu_conf
+def get_gcu_field_operations_conf(duthost):
+    get_gcu_dir_path_cmd = 'python3 -c \"import generic_config_updater ; print(generic_config_updater.__path__)\"'
+    gcu_dir_path = duthost.shell("{}".format(get_gcu_dir_path_cmd))['stdout'].replace("[", "").replace("]", "")
+    gcu_conf = duthost.shell('cat {}/{}'.format(gcu_dir_path, GCU_FIELD_OPERATION_CONF_FILE))['stdout']
+    gcu_conf_json = json.loads(gcu_conf)
+    return gcu_conf_json
 
 
 def get_asic_name(duthost):
     asic_type = duthost.facts["asic_type"]
     asic = "unknown"
-    gcu_conf = get_gcu_field_operations_conf()
+    gcu_conf = get_gcu_field_operations_conf(duthost)
     asic_mapping = gcu_conf["helper_data"]["rdma_config_update_validator"]
+
+    def _get_asic_name(asic_type):
+        cur_hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
+        # The key name is like "mellanox_asics" or "broadcom_asics"
+        asic_key_name = asic_type + "_asics"
+        if asic_key_name not in asic_mapping:
+            return "unknown"
+        asic_hwskus = asic_mapping[asic_key_name]
+        for asic_name, hwskus in asic_hwskus.items():
+            if cur_hwsku.lower() in [hwsku.lower() for hwsku in hwskus]:
+                return asic_name
+        return "unknown"
+
     if asic_type == 'cisco-8000':
         asic = "cisco-8000"
-    elif asic_type == 'mellanox' or asic_type == 'vs' or asic_type == 'broadcom':
-        hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
-        if asic_type == 'mellanox' or asic_type == 'vs':
-            spc1_hwskus = asic_mapping["mellanox_asics"]["spc1"]
-            if hwsku.lower() in [spc1_hwsku.lower() for spc1_hwsku in spc1_hwskus]:
-                asic = "spc1"
-                return asic
-        if asic_type == 'broadcom' or asic_type == 'vs':
-            broadcom_asics = asic_mapping["broadcom_asics"]
-            for asic_shorthand, hwskus in broadcom_asics.items():
-                for hwsku_cur in hwskus:
-                    if hwsku_cur.lower() in hwsku.lower():
-                        asic = asic_shorthand
-                        break
-                else:
-                    continue
+    elif asic_type in ('mellanox', 'broadcom'):
+        asic = _get_asic_name(asic_type)
+    elif asic_type == 'vs':
+        # We need to check both mellanox and broadcom asics for vs platform
+        dummy_asic_list = ['broadcom', 'mellanox', 'cisco-8000']
+        for dummy_asic in dummy_asic_list:
+            tmp_asic = _get_asic_name(dummy_asic)
+            if tmp_asic != "unknown":
+                asic = tmp_asic
                 break
 
     return asic
 
 
-def is_valid_platform_and_version(duthost, table, scenario):
+def is_valid_platform_and_version(duthost, table, scenario, operation, field_value=None):
     asic = get_asic_name(duthost)
     os_version = duthost.os_version
     if asic == "unknown":
         return False
-    if "master" or "internal" in os_version:
+    gcu_conf = get_gcu_field_operations_conf(duthost)
+
+    if operation == "add":
+        if field_value:
+            operation = "replace"
+
+    # Ensure that the operation is supported by comparing with conf
+    try:
+        valid_ops = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["operations"]
+        if operation not in valid_ops:
+            return False
+    except KeyError:
+        return False
+    except IndexError:
+        return False
+
+    # Ensure that the version is suported by comparing with conf
+    if "master" in os_version or "internal" in os_version:
         return True
-    gcu_conf = get_gcu_field_operations_conf()
-    version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario][asic][0:6]
-    return os_version >= version_required
+    try:
+        version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic] # noqa E501
+        if version_required == "":
+            return False
+        # os_version is in format "20220531.04", version_required is in format "20220500"
+        return os_version[0:8] >= version_required[0:8]
+    except KeyError:
+        return False
+    except IndexError:
+        return False
+
+
+def format_and_apply_template(duthost, template_name, extra_vars, setup):
+    dest_path = os.path.join(TMP_DIR, template_name)
+
+    duts_to_apply = [duthost]
+    outputs = []
+    if setup["is_dualtor"]:
+        duts_to_apply.append(setup["rand_unselected_dut"])
+
+    for dut in duts_to_apply:
+        dut.host.options['variable_manager'].extra_vars.update(extra_vars)
+        dut.file(path=dest_path, state='absent')
+        dut.template(src=os.path.join(TEMPLATES_DIR, template_name), dest=dest_path)
+
+        try:
+            # duthost.template uses single quotes, which breaks apply-patch. this replaces them with double quotes
+            dut.shell("sed -i \"s/'/\\\"/g\" " + dest_path)
+            output = dut.shell("config apply-patch {}".format(dest_path))
+            outputs.append(output)
+        finally:
+            dut.file(path=dest_path, state='absent')
+
+    return outputs
+
+
+def load_and_apply_json_patch(duthost, file_name, setup):
+    with open(os.path.join(TEMPLATES_DIR, file_name)) as file:
+        json_patch = json.load(file)
+
+    duts_to_apply = [duthost]
+    outputs = []
+    if setup["is_dualtor"]:
+        duts_to_apply.append(setup["rand_unselected_dut"])
+
+    for dut in duts_to_apply:
+
+        tmpfile = generate_tmpfile(dut)
+        logger.info("tmpfile {}".format(tmpfile))
+
+        try:
+            output = apply_patch(dut, json_data=json_patch, dest_file=tmpfile)
+            outputs.append(output)
+        finally:
+            delete_tmpfile(dut, tmpfile)
+
+    return outputs
+
+
+def apply_formed_json_patch(duthost, json_patch, setup):
+
+    duts_to_apply = [duthost]
+    outputs = []
+    if setup["is_dualtor"]:
+        duts_to_apply.append(setup["rand_unselected_dut"])
+
+    for dut in duts_to_apply:
+        tmpfile = generate_tmpfile(dut)
+        logger.info("tmpfile {}".format(tmpfile))
+
+        try:
+            output = apply_patch(dut, json_data=json_patch, dest_file=tmpfile)
+            outputs.append(output)
+        finally:
+            delete_tmpfile(dut, tmpfile)
+
+    return outputs
+
+
+def expect_acl_table_match_multiple_bindings(duthost,
+                                             table_name,
+                                             expected_first_line_content,
+                                             expected_bindings,
+                                             setup):
+    """Check if acl table show as expected
+    Acl table with multiple bindings will show as such
+
+    Table_Name  Table_Type  Ethernet4   Table_Description   ingress
+                            Ethernet8
+                            Ethernet12
+                            Ethernet16
+
+    So we must have separate checks for first line and bindings
+    """
+
+    cmds = "show acl table {}".format(table_name)
+
+    duts_to_check = [duthost]
+    if setup["is_dualtor"]:
+        duts_to_check.append(setup["rand_unselected_dut"])
+
+    for dut in duts_to_check:
+
+        output = dut.show_and_parse(cmds)
+        pytest_assert(len(output) > 0, "'{}' is not a table on this device".format(table_name))
+
+        first_line = output[0]
+        pytest_assert(set(first_line.values()) == set(expected_first_line_content))
+        table_bindings = [first_line["binding"]]
+        for i in range(len(output)):
+            table_bindings.append(output[i]["binding"])
+        pytest_assert(set(table_bindings) == set(expected_bindings), "ACL Table bindings don't fully match")
+
+
+def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
+    """Check if acl rule shows as expected"""
+
+    cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
+
+    duts_to_check = [duthost]
+    if setup["is_dualtor"]:
+        duts_to_check.append(setup["rand_unselected_dut"])
+
+    for dut in duts_to_check:
+
+        output = dut.show_and_parse(cmds)
+
+        rule_lines = len(output)
+
+        pytest_assert(rule_lines >= 1, "'{}' is not a rule on this device".format(rulename))
+
+        first_line = output[0].values()
+
+        pytest_assert(set(first_line) <= set(expected_content_list), "ACL Rule details do not match!")
+
+        if rule_lines > 1:
+            for i in range(1, rule_lines):
+                pytest_assert(output[i]["match"] in expected_content_list,
+                              "Unexpected match condition found: " + str(output[i]["match"]))
+
+
+def expect_acl_rule_removed(duthost, rulename, setup):
+    """Check if ACL rule has been successfully removed"""
+
+    cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
+
+    duts_to_check = [duthost]
+    if setup["is_dualtor"]:
+        duts_to_check.append(setup["rand_unselected_dut"])
+
+    for dut in duts_to_check:
+        output = dut.show_and_parse(cmds)
+
+        removed = len(output) == 0
+
+        pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))

@@ -14,7 +14,10 @@ pytestmark = [
 ]
 
 
-def test_collect_techsupport(duthosts, enum_dut_hostname):
+def test_collect_techsupport(request, duthosts, enum_dut_hostname):
+    since = request.config.getoption("--posttest_show_tech_since")
+    if since == '':
+        since = 'yesterday'
     duthost = duthosts[enum_dut_hostname]
     """
     A util for collecting techsupport after tests.
@@ -22,12 +25,12 @@ def test_collect_techsupport(duthosts, enum_dut_hostname):
     Since nightly test on Jenkins will do a cleanup at the beginning of tests,
     we need a method to save history logs and dumps. This util does the job.
     """
-    logger.info("Collecting techsupport since yesterday")
+    logger.info("Collecting techsupport since {}".format(since))
     # Because Jenkins is configured to save artifacts from tests/logs,
     # and this util is mainly designed for running on Jenkins,
     # save path is fixed to logs for now.
     TECHSUPPORT_SAVE_PATH = 'logs/'
-    out = duthost.command("generate_dump -s yesterday", module_ignore_errors=True)
+    out = duthost.command("show techsupport --since {}".format(since), module_ignore_errors=True)
     if out['rc'] == 0:
         tar_file = out['stdout_lines'][-1]
         duthost.fetch(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
@@ -56,4 +59,32 @@ def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     for feature_name, state in list(features_dict.items()):
         if 'enabled' not in state:
             continue
+        if feature_name == "telemetry":
+            # Skip telemetry if there's no docker image
+            output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
+            if "sonic-telemetry" not in output:
+                continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='enable')
+
+
+def test_enable_startup_tsa_tsb_service(duthosts, localhost):
+    """enable startup-tsa-tsb.service.
+    Args:
+        duthosts: Fixture returns a list of Ansible object DuT.
+        enum_frontend_dut_hostname: Fixture returns name of frontend DuT.
+
+    Returns:
+        None.
+    """
+    for duthost in duthosts.frontend_nodes:
+        platform = duthost.facts['platform']
+        startup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/startup-tsa-tsb.conf".format(platform)
+        backup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/backup-startup-tsa-tsb.bck".format(platform)
+        file_check = duthost.shell("[ -f {} ]".format(backup_tsa_tsb_file_path), module_ignore_errors=True)
+        if file_check.get('rc') == 0:
+            out = duthost.shell("cat {}".format(backup_tsa_tsb_file_path), module_ignore_errors=True)['rc']
+            if not out:
+                duthost.shell("sudo mv {} {}".format(backup_tsa_tsb_file_path, startup_tsa_tsb_file_path))
+        else:
+            logger.info("{} file does not exist in the specified path on dut {}".
+                        format(backup_tsa_tsb_file_path, duthost.hostname))

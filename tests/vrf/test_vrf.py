@@ -546,7 +546,8 @@ def partial_ptf_runner(request, ptfhost, tbinfo):
                    testname=testname,
                    params=params,
                    socket_recv_size=16384,
-                   log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__))
+                   log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__),
+                   is_python3=True)
     return _partial_ptf_runner
 
 
@@ -1403,8 +1404,8 @@ class TestVrfCapacity():
         # -------- Teardown ----------
 
         # remove cfg on ptf
-        ptfhost.shell("ip address flush dev eth{}".format(ptf_port1))
-        ptfhost.shell("ip address flush dev eth{}".format(ptf_port2))
+        ptfhost.shell("ip address flush dev eth{} scope global".format(ptf_port1))
+        ptfhost.shell("ip address flush dev eth{} scope global".format(ptf_port2))
         ptfhost.template(src='vrf/vrf_capacity_del_ptf_cfg.j2',
                          dest='/tmp/vrf_capacity_del_ptf_cfg.sh', mode="0755")
         ptfhost.shell('/tmp/vrf_capacity_del_ptf_cfg.sh')
