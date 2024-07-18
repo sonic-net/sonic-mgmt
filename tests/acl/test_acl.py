@@ -18,8 +18,9 @@ from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.ptfhost_utils import \
-    copy_arp_responder_py, run_garp_service, change_mac_addresses, skip_traffic_test   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
