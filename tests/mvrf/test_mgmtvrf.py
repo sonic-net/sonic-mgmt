@@ -228,7 +228,15 @@ class TestServices():
         # Check if ntp was not in sync with ntp server before enabling mvrf, if yes then setup ntp server on ptf
         if check_ntp_sync:
             setup_ntp(ptfhost, duthost, ntp_servers)
-        ntp_uid = ":".join(duthost.command("getent passwd ntp")['stdout'].split(':')[2:4])
+
+        # There is no entry ntp in `/etc/passwd` on kvm testbed.
+        cmd = "getent passwd ntp"
+        ntp_uid_output = duthost.command(cmd, module_ignore_errors=True)
+        if duthost.facts["asic_type"] == "vs" and ntp_uid_output['rc'] == 2:
+            return
+        assert ntp_uid_output['rc'] == 0, "Run command '{}' failed".format(cmd)
+        ntp_uid = ":".join(ntp_uid_output['stdout'].split(':')[2:4])
+
         force_ntp = "timeout 20 ntpd -gq -u {}".format(ntp_uid)
         duthost.service(name="ntp", state="stopped")
         logger.info("Ntp restart in mgmt vrf")
