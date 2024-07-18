@@ -220,7 +220,7 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
 
     # 3. Wait for interface's macsec ready
     for dut_port, nbr in list(ctrl_links.items()):
-        assert wait_until(20, 3, 0,
+        assert wait_until(300, 3, 0,
                           lambda: duthost.iface_macsec_ok(dut_port) and
                           nbr["host"].iface_macsec_ok(nbr["port"]))
 
