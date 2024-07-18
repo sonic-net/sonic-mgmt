@@ -65,7 +65,7 @@ parameters:
 - name: FROM_IMAGE_URL
   displayName: "Base image location"
   type: string
-  default: $(IMAGE_MLNX_202305)
+  default: $(IMAGE_MLNX_201911)
   values:
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
@@ -84,7 +84,7 @@ parameters:
 - name: TO_IMAGE_URL
   displayName: "Target image location"
   type: string
-  default: $(IMAGE_MLNX_202305)
+  default: $(IMAGE_MLNX_202205)
   values:
   - $(IMAGE_MLNX_201811)
   - $(IMAGE_MLNX_201911)
