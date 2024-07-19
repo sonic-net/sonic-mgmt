@@ -105,17 +105,7 @@ def remove_dataacl_table(rand_selected_dut):
     logger.info("Removing ACL table {}".format(TABLE_NAME))
     rand_selected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME))
     yield
-    # Recover DATAACL
-    config_db_json = "/etc/sonic/config_db.json"
-    output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
-    try:
-        entry = json.loads(output)[TABLE_NAME]
-        cmd_create_table = "config acl add table {} {} -p {} -s {}"\
-            .format(TABLE_NAME, entry['type'], ",".join(entry['ports']), entry['stage'])
-        logger.info("Restoring ACL table {}".format(TABLE_NAME))
-        rand_selected_dut.shell(cmd_create_table)
-    except Exception as e:
-        pytest.fail(str(e))
+    # Recover DATAACL table by teardown()
 
 
 @pytest.fixture(scope="module")
