@@ -93,6 +93,7 @@ t0:
   - pc/test_lag_2.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
+  - pfcwd/test_pfc_config.py
   - platform_tests/broadcom/test_ser.py
   - platform_tests/counterpoll/test_counterpoll_watermark.py
   - platform_tests/fwutil/test_fwutil.py
@@ -229,6 +230,7 @@ t1-lag:
   - override_config_table/test_override_config_table.py
   - pc/test_lag_2.py
   - pc/test_po_update.py
+  - pfcwd/test_pfc_config.py
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
   - qos/test_buffer.py
