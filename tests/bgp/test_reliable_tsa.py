@@ -56,6 +56,37 @@ def nbrhosts_to_dut(duthost, nbrhosts):
     return dut_nbrhosts
 
 
+@pytest.fixture
+def enable_disable_bgp_autorestart_state(duthosts):
+    """
+    @summary: enable/disable bgp feature autorestart state during OC run.
+              After test_pretest, autorestart status of bgp feature is disabled. This fixture
+              enables autorestart state of bgp before test start and disables once the test is done.
+    Args:
+        duthosts: Fixture returns a list of Ansible object DuT.
+    Returns:
+        None.
+    """
+    # Enable autorestart status for bgp feature to overcome pretest changes
+    for duthost in duthosts.frontend_nodes:
+        feature_list, _ = duthost.get_feature_status()
+        bgp_autorestart_state = duthost.get_container_autorestart_states()['bgp']
+        for feature, status in list(feature_list.items()):
+            if feature == 'bgp' and status == 'enabled' and bgp_autorestart_state == 'disabled':
+                duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+                break
+    yield
+
+    # Disable autorestart status for bgp feature as in pretest
+    for duthost in duthosts.frontend_nodes:
+        feature_list, _ = duthost.get_feature_status()
+        bgp_autorestart_state = duthost.get_container_autorestart_states()['bgp']
+        for feature, status in list(feature_list.items()):
+            if feature == 'bgp' and status == 'enabled' and bgp_autorestart_state == 'enabled':
+                duthost.shell("sudo config feature autorestart {} disabled".format(feature))
+                break
+
+
 def set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname):
     """
     @summary: Common method to make sure the supervisor and line cards are in normal state before and after the test
@@ -1471,7 +1502,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
 @pytest.mark.disable_loganalyzer
 def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
         duthosts, localhost, enum_supervisor_dut_hostname, enable_disable_startup_tsa_tsb_service,     # noqa: F811
-        nbrhosts, traffic_shift_community, tbinfo):
+        enable_disable_bgp_autorestart_state, nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSB action when supervisor is on TSA and line cards are in TSB configuration initially but with
     BGP operational TSA states
@@ -1550,6 +1581,7 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
 @pytest.mark.disable_loganalyzer
 def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, localhost, enum_supervisor_dut_hostname,
                                                                       enable_disable_startup_tsa_tsb_service,    # noqa: F811, E501
+                                                                      enable_disable_bgp_autorestart_state,
                                                                       nbrhosts, traffic_shift_community, tbinfo):
     """
     Test supervisor TSB action when supervisor and line cards are in TSA configuration initially
@@ -1631,6 +1663,7 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
 def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthosts, localhost,
                                                                          enum_supervisor_dut_hostname,
                                                                          enable_disable_startup_tsa_tsb_service,     # noqa: F811, E501
+                                                                         enable_disable_bgp_autorestart_state,
                                                                          nbrhosts, traffic_shift_community, tbinfo):
     """
     Test line card TSB action when supervisor is on TSB and line cards are in TSA initially
@@ -1739,6 +1772,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
 def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, localhost,
                                                                       enum_supervisor_dut_hostname,
                                                                       enable_disable_startup_tsa_tsb_service,     # noqa: F811, E501
+                                                                      enable_disable_bgp_autorestart_state,
                                                                       nbrhosts, traffic_shift_community, tbinfo):
     """
     Test line card TSB action when supervisor and line cards are in TSA configuration initially
