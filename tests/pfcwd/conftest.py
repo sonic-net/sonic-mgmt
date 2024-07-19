@@ -107,7 +107,7 @@ def setup_pfc_test(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_list = list(mg_facts['minigraph_ports'].keys())
-    neighbors = conn_graph_facts['device_conn'][duthost.hostname]
+    neighbors = conn_graph_facts['device_conn'].get(duthost.hostname, {})
     dut_eth0_ip = duthost.mgmt_ip
     vlan_nw = None
 
