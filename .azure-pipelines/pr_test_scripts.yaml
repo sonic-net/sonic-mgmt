@@ -325,6 +325,7 @@ onboarding_t0:
   - acl/test_acl_outer_vlan.py
   - arp/test_unknown_mac.py
   - decap/test_decap.py
+  - hash/test_generic_hash.py
   - dualtor/test_orchagent_active_tor_downstream.py
   - dualtor/test_orchagent_mac_move.py
   - dualtor/test_orchagent_standby_tor_downstream.py
@@ -333,6 +334,7 @@ onboarding_t0:
 onboarding_t1:
   - decap/test_decap.py
   - generic_config_updater/test_cacl.py
+  - hash/test_generic_hash.py
 
 onboarding_dualtor:
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
