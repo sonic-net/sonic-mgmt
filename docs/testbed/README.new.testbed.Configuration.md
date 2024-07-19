@@ -181,11 +181,15 @@ For each topology you use in your testbed environment, define the following:
 
 #### Consistency Rule:
 1. `conf-name` must be unique.
-2. `topo` name must be valid and presented in [`/ansible/vars/topo_*.yml`](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/vars).
-3. `group-name` must be up to 8 characters long.
-4. `ptf_image_name` must be valid.
-5. `server` name must be valid and presented in [`veos`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/veos) file.
-6. `vm_base` must not overlap with testbed of different group names.
+2. `group-name` must be up to 8 characters long.
+3. All testbed with the same `group-name` must have the same:
+      - `ptf_ip`
+      - `server`
+      - `vm_base`
+4. `topo` name must be valid and presented in [`/ansible/vars/topo_*.yml`](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/vars).
+5. `ptf_image_name` must be valid.
+6. `server` name must be valid and presented in [`veos`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/veos) file.
+7. `vm_base` must not overlap with testbed of different group names.
 
 ### topology section:
 **USAGE**: files/sonic_lab_links.csv
