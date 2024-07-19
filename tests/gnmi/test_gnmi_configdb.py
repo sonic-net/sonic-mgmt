@@ -135,7 +135,7 @@ def test_gnmi_configdb_polling_01(duthosts, rand_one_dut_hostname, ptfhost, test
     duthost = duthosts[rand_one_dut_hostname]
     exp_cnt = 3
     path_list = [test_data["path"]]
-    msg = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
+    msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
 
 
@@ -148,7 +148,7 @@ def test_gnmi_configdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptfh
     duthost = duthosts[rand_one_dut_hostname]
     exp_cnt = 5
     path_list = [test_data["path"]]
-    msg = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
     assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
 
 
@@ -177,7 +177,7 @@ def test_gnmi_configdb_streaming_onchange_01(duthosts, rand_one_dut_hostname, pt
     client_task.start()
     exp_cnt = 5
     path_list = [test_data["path"]]
-    msg = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, exp_cnt*2)
+    msg, _ = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, exp_cnt*2)
     run_flag.value = False
     client_task.join()
     assert msg.count("bgp_asn") >= exp_cnt, test_data["name"] + ": " + msg
@@ -204,7 +204,7 @@ def test_gnmi_configdb_streaming_onchange_02(duthosts, rand_one_dut_hostname, pt
     client_task.start()
     exp_cnt = 3
     path_list = ["/sonic-db:CONFIG_DB/localhost/DEVICE_METADATA"]
-    msg = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, exp_cnt)
     run_flag.value = False
     client_task.join()
 

@@ -250,10 +250,13 @@ def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count):
     Returns:
         msg: gnmi client output
     """
+    if path_list is None:
+        logger.error("path_list is None")
+        return "", ""
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    interval = interval_ms / 1000
+    interval = interval_ms / 1000.0
     # Run gnmi_cli in gnmi container as workaround
     cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
     cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
@@ -263,12 +266,12 @@ def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count):
     # Use sonic-db as default origin
     cmd += '-origin=sonic-db '
     cmd += '-query_type=polling '
-    cmd += '-polling_interval %us -count %u ' % (interval, count)
+    cmd += '-polling_interval %us -count %u ' % (int(interval), count)
     for path in path_list:
         path = path.replace('sonic-db:', '')
         cmd += '-q %s ' % (path)
     output = duthost.shell(cmd, module_ignore_errors=True)
-    return output['stdout'] + " " + output['stderr']
+    return output['stdout'], output['stderr']
 
 
 def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, count):
@@ -285,6 +288,9 @@ def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, co
     Returns:
         msg: gnmi client output
     """
+    if path_list is None:
+        logger.error("path_list is None")
+        return "", ""
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
@@ -305,11 +311,7 @@ def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, co
         cmd += " " + path
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     msg = output['stdout'].replace('\\', '')
-    mark = 'response received:'
-    if mark in msg:
-        return msg
-    else:
-        return output['stderr'] + " " + msg
+    return msg, output['stderr']
 
 
 def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
@@ -325,6 +327,9 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
     Returns:
         msg: gnmi client output
     """
+    if path_list is None:
+        logger.error("path_list is None")
+        return "", ""
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
@@ -345,11 +350,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
         cmd += " " + path
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     msg = output['stdout'].replace('\\', '')
-    mark = 'response received:'
-    if mark in msg:
-        return msg
-    else:
-        return output['stderr'] + " " + msg
+    return msg, output['stderr']
 
 
 def gnoi_reboot(duthost, method, delay, message):

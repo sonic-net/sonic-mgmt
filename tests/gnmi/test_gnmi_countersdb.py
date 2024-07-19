@@ -89,7 +89,7 @@ def test_gnmi_counterdb_polling_01(duthosts, rand_one_dut_hostname, ptfhost, tes
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     exp_cnt = 3
     path_list = [test_data["path"]]
-    msg = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
+    msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("oid") >= exp_cnt, test_data["name"] + ": " + msg
 
 
@@ -109,15 +109,15 @@ def test_gnmi_counterdb_polling_02(duthosts, rand_one_dut_hostname, ptfhost):
     assert "oid" in counter_key, "Invalid oid: " + counter_key
     # Subscribe table
     path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/"]
-    msg = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
+    msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, msg
     # Subscribe table key
     path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key]
-    msg = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
+    msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, msg
     # Subscribe table field
     path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
-    msg = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
+    msg, _ = gnmi_subscribe_polling(duthost, ptfhost, path_list, 1000, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, msg
 
 
@@ -132,7 +132,7 @@ def test_gnmi_counterdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptf
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     exp_cnt = 3
     path_list = [test_data["path"]]
-    msg = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
     assert msg.count("oid") >= exp_cnt, test_data["name"] + ": " + msg
 
 
@@ -152,13 +152,13 @@ def test_gnmi_counterdb_streaming_sample_02(duthosts, rand_one_dut_hostname, ptf
     assert "oid" in counter_key, "Invalid oid: " + counter_key
     # Subscribe table
     path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/"]
-    msg = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, msg
     # Subscribe table key
     path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key]
-    msg = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, msg
     # Subscribe table field
     path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
-    msg = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, msg
