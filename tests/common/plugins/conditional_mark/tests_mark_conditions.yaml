@@ -312,6 +312,12 @@ drop_packets:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
+drop_packets/test_drop_counters.py::test_acl_drop:
+  skip:
+    reason: "Cisco 8111 platform has known issue with test_acl_drop"
+    conditions:
+      - "platform in ['x86_64-8111_32eh_o-r0']"
+
 #######################################
 #####           dualtor           #####
 #######################################
