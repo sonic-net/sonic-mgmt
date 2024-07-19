@@ -70,8 +70,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "drop_packets/test_drop_counters.py::test_acl_drop, \
-              qos/test_qos_sai.py, \
+    default: "qos/test_qos_sai.py, \
               iface_namingmode/test_iface_namingmode.py::TestConfigInterface"
     displayName: "Scripts to be excluded"
 
