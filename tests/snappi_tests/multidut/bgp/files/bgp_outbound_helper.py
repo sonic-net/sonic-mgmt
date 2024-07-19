@@ -122,7 +122,9 @@ def duthost_bgp_config(duthosts,
         duthosts (pytest fixture): duthosts fixture
         snappi_ports (pytest fixture): Ports mapping info of T0 testbed
     """
+    logger.info('\n')
     logger.info('--------------- T1 Snappi Section --------------------')
+    logger.info('\n')
     t1_config_db = json.loads(duthosts[0].shell("sonic-cfggen -d --print-data")['stdout'])
     interfaces = dict()
     loopback_interfaces = dict()
@@ -136,9 +138,9 @@ def duthost_bgp_config(duthosts,
         interfaces.update(interface_name)
         interfaces.update(v4_interface)
         interfaces.update(v6_interface)
-        logger.info('Configuring IPs {} / {} on {} in {}'.
-                    format(t1_t2_dut_ipv4_list[index],
-                           t1_t2_dut_ipv6_list[index], custom_port, duthosts[0].hostname))
+        logger.info('Configuring IPs {}/{} , {}/{} on {} in {}'.
+                    format(t1_t2_dut_ipv4_list[index], v4_prefix_length,
+                           t1_t2_dut_ipv6_list[index], v6_prefix_length, custom_port, duthosts[0].hostname))
 
     bgp_neighbors = dict()
     device_neighbors = dict()
@@ -201,9 +203,10 @@ def duthost_bgp_config(duthosts,
     interfaces.update(interface_name)
     interfaces.update(v4_interface)
     interfaces.update(v6_interface)
-    logger.info('Configuring IP {} / {} on {} in {} for the T1 interconnectivity'.
-                format(t1_t2_dut_ipv4_list[index],
-                       t1_t2_dut_ipv6_list[index], t1_side_interconnected_port, duthosts[0].hostname))
+    logger.info('Configuring IP {}/{} , {}/{} on {} in {} for the T1 interconnectivity'.
+                format(t1_t2_dut_ipv4_list[index], v4_prefix_length,
+                       t1_t2_dut_ipv6_list[index], v6_prefix_length, t1_side_interconnected_port,
+                       duthosts[0].hostname))
 
     logger.info('Configuring BGP in T1 by writing into config_db')
     bgp_neighbor = {
@@ -357,7 +360,10 @@ def duthost_bgp_config(duthosts,
         t2_config_db["INTERFACE"] = interfaces
     else:
         t2_config_db["INTERFACE"].update(interfaces)
-
+    logger.info('Configuring IP {}/{} , {}/{} on {} in {} for the T1 interconnectivity'.
+                format(t1_t2_dut_ipv4_list[index], v4_prefix_length,
+                       t1_t2_dut_ipv6_list[index], v6_prefix_length,
+                       t2_side_interconnected_port['port_name'], duthosts[2].hostname))
     if "LOOPBACK_INTERFACE" not in t2_config_db.keys():
         t2_config_db["LOOPBACK_INTERFACE"] = loopback_interfaces
     else:
@@ -387,8 +393,9 @@ def duthost_bgp_config(duthosts,
     pytest_assert('Error' not in duthosts[2].shell("sudo config reload -f -y \n")['stderr'],
                   'Error while reloading config in {} !!!!!'.format(duthosts[2].hostname))
     logger.info('Config Reload Successful in {} !!!'.format(duthosts[2].hostname))
-
+    logger.info('\n')
     logger.info('--------------- T2 Uplink - Tgen Section --------------------')
+    logger.info('\n')
     logger.info('T2 Dut AS Number: {}'.format(T2_DUT_AS_NUM))
     logger.info('T2 side Snappi AS Number: {}'.format(T2_SNAPPI_AS_NUM))
     loopback_interfaces = dict()
@@ -438,9 +445,10 @@ def duthost_bgp_config(duthosts,
             PORTCHANNEL_INTERFACES.update(interface_name)
             PORTCHANNEL_INTERFACES.update(v4_interface)
             PORTCHANNEL_INTERFACES.update(v6_interface)
-            logger.info('Configuring IPs {} / {} on {} in {}'.
-                        format(t2_dut_portchannel_ipv4_list[index],
-                               t2_dut_portchannel_ipv6_list[index], portchannel, duthosts[1].hostname))
+            logger.info('Configuring IPs {}/{} , {}/{} on {} in {}'.
+                        format(t2_dut_portchannel_ipv4_list[index], v4_prefix_length,
+                               t2_dut_portchannel_ipv6_list[index], v6_prefix_length,
+                               portchannel, duthosts[1].hostname))
         for portchannel in portchannel_info:
             device_neighbor_metadata = {
                                             "snappi_"+portchannel:

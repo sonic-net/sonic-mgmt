@@ -1,4 +1,5 @@
 import sys
+import ipaddress
 from ipaddress import ip_address, IPv4Address, IPv6Address
 '''
 In this file user can modify the line_card_choice and it chooses the corresponding hostname
@@ -97,36 +98,57 @@ def create_ip_list(value, count, mask=32, incr=0):
     return ip_list
 
 
+def get_host_addresses(subnet, count):
+    try:
+        # Create an IPv4Network object
+        network = ipaddress.ip_network(subnet, strict=False)
+
+        # Generate all possible host addresses
+        all_hosts = list(network.hosts())
+
+        # Check if the requested count is within the available host range
+        if count > len(all_hosts):
+            raise ValueError("Requested count exceeds the number of available hosts in the subnet.")
+
+        # Return the list of host addresses up to the specified count
+        return all_hosts[:count]
+
+    except ValueError as e:
+        return str(e)
+
+
+ip = []
+peer_ip = []
+ipv6 = []
+peer_ipv6 = []
 # START ---------------------   T2 BGP Case -------------------
 
-# *********** Common variables for Performance and Outbound Cases ****************
+# *********** Common variables for Performance and Outbound ****************
 T2_SNAPPI_AS_NUM = 65400
 T2_DUT_AS_NUM = 65100
 BGP_TYPE = 'ebgp'
-v4_prefix_length = 24
-v6_prefix_length = 64
+t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink"]
 TIMEOUT = 20
-AS_PATHS = [65002]
+
+ipv4_subnet = '20.0.1.1/31'
+ipv6_subnet = '2000:1:1:1::1/126'
+v4_prefix_length = int(ipv4_subnet.split('/')[1])
+v6_prefix_length = int(ipv6_subnet.split('/')[1])
 
 # *********** Performance case variables ****************
-
 # asic_value is None if it's non-chassis based or single line card
 t2_ports = [
-            {'port_name': 'Ethernet0', 'hostname': "sonic-t2-uplink", 'asic_value': 'asic0'},
-            {'port_name': 'Ethernet88', 'hostname': "sonic-t2-uplink", 'asic_value': 'asic0'},
-            {'port_name': 'Ethernet192', 'hostname': "sonic-t2-uplink", 'asic_value': 'asic1'},
-            {'port_name': 'Ethernet144', 'hostname': "sonic-t2-uplink", 'asic_value': 'asic1'},
+            {'port_name': 'Ethernet0', 'hostname': t1_t2_device_hostnames[1], 'asic_value':'asic0'},
+            {'port_name': 'Ethernet88', 'hostname': t1_t2_device_hostnames[1], 'asic_value':'asic0'},
+            {'port_name': 'Ethernet192', 'hostname': t1_t2_device_hostnames[1], 'asic_value':'asic1'},
+            {'port_name': 'Ethernet144', 'hostname': t1_t2_device_hostnames[1], 'asic_value':'asic1'},
 ]
-t2_dut_ipv4_list = create_ip_list('20.0.1.1', len(t2_ports), mask=v4_prefix_length)
-t2_dut_ipv6_list = create_ip_list('2000:1::1', len(t2_ports), mask=v6_prefix_length)
-t2_snappi_ipv4_list = create_ip_list('20.0.1.2', len(t2_ports), mask=v4_prefix_length)
-t2_snappi_ipv6_list = create_ip_list('2000:1::2', len(t2_ports), mask=v6_prefix_length)
-
 # *********** Outbound case variables ****************
-
-# Pre-requisite: The T1 and T2 ports to be routed ports and not part of any portchannel.
+# Expect the T1 and T2 ports to be routed ports and not part of any portchannel.
 T1_SNAPPI_AS_NUM = 65300
 T1_DUT_AS_NUM = 65200
+AS_PATHS = [65002]
+
 
 # The order of hostname is very important for the outbound test (T1, T2 Uplink and T2 Downlink)
 t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink"]
@@ -153,26 +175,45 @@ t2_uplink_portchannel_members = {
                                             }
                                     }
                                 }
-
+# TODO: Multiple interconnected ports scenario
 t1_side_interconnected_port = 'Ethernet120'
 t2_side_interconnected_port = {'port_name': 'Ethernet272', 'asic_value': 'asic1'}
 
 routed_port_count = 1+len(t1_ports[t1_t2_device_hostnames[0]])
-portchannel_count = sum([len(portchannel_info) for asic, portchannel_info in
+portchannel_count = sum([len(portchannel_info) for _, portchannel_info in
                         t2_uplink_portchannel_members[t1_t2_device_hostnames[1]].items()])
 
 
-t1_t2_dut_ipv4_list = create_ip_list('20.0.1.1', routed_port_count, mask=v4_prefix_length)
-t1_t2_dut_ipv6_list = create_ip_list('2000:1::1', routed_port_count, mask=v6_prefix_length)
+def generate_ips_for_bgp_case(ipv4_subnet, ipv6_subnet):
+    v4_start_ips = create_ip_list(ipv4_subnet.split('/')[0], routed_port_count+portchannel_count, mask=16)
+    v6_start_ips = create_ip_list(ipv6_subnet.split('/')[0], routed_port_count+portchannel_count, mask=64)
+    count = 2  # Note: count is always 2
 
-t1_t2_snappi_ipv4_list = create_ip_list('20.0.1.2', routed_port_count, mask=v4_prefix_length)
-t1_t2_snappi_ipv6_list = create_ip_list('2000:1::2', routed_port_count, mask=v6_prefix_length)
+    for index in range(0, routed_port_count+portchannel_count):
+        v4_host_addresses = get_host_addresses(str(v4_start_ips[index])+'/'+str(ipv4_subnet.split('/')[1]), count)
+        v6_host_addresses = get_host_addresses(str(v6_start_ips[index])+'/'+str(ipv6_subnet.split('/')[1]), count)
+        ip.append(str(v4_host_addresses[0]))
+        peer_ip.append(str(v4_host_addresses[1]))
+        ipv6.append(str(v6_host_addresses[0]))
+        peer_ipv6.append(str(v6_host_addresses[1]))
 
 
-t2_dut_portchannel_ipv4_list = create_ip_list('30.0.1.1', portchannel_count, mask=v4_prefix_length)
-t2_dut_portchannel_ipv6_list = create_ip_list('3000:1::1', portchannel_count, mask=v6_prefix_length)
+generate_ips_for_bgp_case(ipv4_subnet, ipv6_subnet)
+t1_t2_dut_ipv4_list = ip[:routed_port_count]
+t1_t2_snappi_ipv4_list = peer_ip[:routed_port_count]
 
-snappi_portchannel_ipv4_list = create_ip_list('30.0.1.2', portchannel_count, mask=v4_prefix_length)
-snappi_portchannel_ipv6_list = create_ip_list('3000:1::2', portchannel_count, mask=v6_prefix_length)
+t2_dut_portchannel_ipv4_list = ip[routed_port_count:]
+snappi_portchannel_ipv4_list = peer_ip[routed_port_count:]
+
+t1_t2_dut_ipv6_list = ipv6[:routed_port_count]
+t1_t2_snappi_ipv6_list = peer_ipv6[:routed_port_count]
+
+t2_dut_portchannel_ipv6_list = ipv6[routed_port_count:]
+snappi_portchannel_ipv6_list = peer_ipv6[routed_port_count:]
+
+t2_dut_ipv4_list = ip[:len(t2_ports)]
+t2_dut_ipv6_list = ipv6[:len(t2_ports)]
+t2_snappi_ipv4_list = peer_ip[:len(t2_ports)]
+t2_snappi_ipv6_list = peer_ipv6[:len(t2_ports)]
 
 # END ---------------------   T2 BGP Case -------------------
