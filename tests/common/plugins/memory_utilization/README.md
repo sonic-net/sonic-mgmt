@@ -17,9 +17,9 @@ Config files, including common file and platform dependence file.
 Memory utilization config files include memory items which need to check.
 Each memory item include "name", "cmd", "memory_params" and "memory_check".
 - **name**:          The name of the memory check item.
-- **cmd**:           The shell command used to collect memory information.
-- **memory_params**: The items and thresholds for memory usage.
-- **memory_check**:  The function used to parse the output of the shell command.
+- **cmd**:           The shell command is run on the DUT to collect memory information.
+- **memory_params**: The items and thresholds for memory usage, defined as a Dict type in the configuration JSON file.
+- **memory_check**:  The function used to parse the output of the shell command takes two input parameters: cmd's output string and memory_params. It returns the parsered memory inforamtion, which will be compared with "memory_params" to check for memory threshold.
 
 #### Workflow
 1. Collect memory information based on memory utilization config files before running a test case.
@@ -55,7 +55,7 @@ The main flow of the fixture is as follows:
 #### Example of memory items configuration in json file
 Example memory item's name is "monit", using the command "sudo monit status" to get the memory item's information.
 The threshold for high memory is 70%, and for an increase is 5%.
-The function "parse_monit_status_output" parses the output of the command "sudo monit status" and returns the memory value of "memory usage".
+The function "parse_monit_status_output" parses the output of the command "sudo monit status" and returns the memory information {"memory_usage" : 41.2}
 The Memory utilization fixture uses the function "parse_monit_status_output" to parse the output of "sudo monit status" before and after the test case. It then compares the value with the threshold. If the value exceeds the threshold, an 'error' will be raised.
 
 ```json

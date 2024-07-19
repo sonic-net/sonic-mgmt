@@ -47,22 +47,25 @@ class MemoryMonitor:
 
                 if previous_value > high_threshold:
                     self.handle_memory_threshold_exceeded(
-                        name, mem_item, previous_value, high_threshold, previous_values, current_values
+                        name, mem_item, previous_value, high_threshold,
+                        previous_values, current_values, is_current=False
                     )
 
                 if current_value > high_threshold:
                     self.handle_memory_threshold_exceeded(
-                        name, mem_item, current_value, high_threshold, previous_values, current_values
+                        name, mem_item, current_value, high_threshold,
+                        previous_values, current_values, is_current=True
                     )
 
                 increase = current_value - previous_value
                 if increase > increase_threshold:
                     self.handle_memory_threshold_exceeded(
-                        name, mem_item, increase, increase_threshold, previous_values, current_values, is_increase=True
+                        name, mem_item, increase, increase_threshold,
+                        previous_values, current_values, is_increase=True
                     )
 
     def handle_memory_threshold_exceeded(self, name, mem_item, value, threshold,
-                                         previous_values, current_values, is_increase=False):
+                                         previous_values, current_values, is_current=False, is_increase=False):
 
         """Handle memory threshold or increase exceeded."""
         logger.info("{}:{}, previous_values: {}".format(name, mem_item, previous_values))
@@ -77,9 +80,9 @@ class MemoryMonitor:
             )
         else:
             message = (
-                "[ALARM]: {}:{} memory usage {} exceeds "
+                "[ALARM]: {}:{}, {} memory usage {} exceeds "
                 "high threshold {}".format(
-                    name, mem_item, value, threshold
+                    name, mem_item, "Current" if is_current else "Previous", value, threshold
                 )
             )
 
