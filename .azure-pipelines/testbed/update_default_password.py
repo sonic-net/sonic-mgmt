@@ -34,31 +34,6 @@ GRAPH_PATH = os.path.join(ANSIBLE_PATH, "files")
 
 from devutil.devices.factory import init_hosts
 
-TOKEN = None
-
-
-def get_token():
-    token_url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(
-        os.environ.get('ELASTICTEST_MSAL_TENANT')
-    )
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-
-    payload = {
-        'grant_type': 'client_credentials',
-        'client_id': os.environ.get('ELASTICTEST_MSAL_CLIENT_ID'),
-        'client_secret': os.environ.get('ELASTICTEST_MSAL_SECRET_VALUE'),
-        'scope': os.environ.get('ELASTICTEST_MSAL_SCOPE')
-    }
-
-    try:
-        resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
-        return resp.get("access_token", None)
-    except Exception as e:
-        logger.debug('Get token failed with exception: {}'.format(repr(e)))
-    return None
-
 
 def get_dut_testbed_mapping(testbeds):
     dut_testbed_mapping = {}
@@ -71,13 +46,12 @@ def get_dut_testbed_mapping(testbeds):
 
 def get_testbeds():
     """
-    Get testbeds info
+    Get testbeds info from Elastictest management API
     """
     try:
         # Use the same API as testbed mgmt page
-        # url = os.environ.get("ELASTICTEST_MGMT_TESTBEDS_URL")
         url = "https://sonic-elastictest-prod-management-webapp.azurewebsites.net/api/v1/testbeds"
-        access_token = get_token()
+        access_token = os.environ.get("ACCESS_TOKEN", None)
         if not access_token:
             raise Exception("No valid access_token for getting testbeds from Elastictest")
 
