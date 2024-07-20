@@ -46,7 +46,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "1"
+    default: "2"
 
   - name: IMAGE_URL
     type: string
