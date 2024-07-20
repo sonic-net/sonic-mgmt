@@ -464,7 +464,7 @@ def test_update_buffer_template(duthosts, enum_dut_hostname, localhost):
             logging.info("Skip updating buffer template {}".format(item))
     if buf_temp_changed:
         logging.info("Executing load minigraph ...")
-        config_reload(duthost, config_source='minigraph')
+        config_reload(duthost, config_source='minigraph', override_config=True)
 
 
 def test_backend_acl_load(duthosts, enum_dut_hostname, tbinfo):
