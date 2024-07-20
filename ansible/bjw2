@@ -286,38 +286,113 @@ sonic_arista_720dt:
     bjw2-can-720dt-1:
       ansible_host: 10.150.22.183
       ansible_hostv6: 2404:f801:10:2200::a96:16b7
-      model:
-      serial:
-      base_mac:
+      model: CCS-720DT-48S-2F
+      serial: WTW23380751
+      base_mac: c0:69:11:c9:1e:0e
       syseeprom_info:
+        "0x21": "CCS-720DT-48S-2F"
+        "0x22": "ASY0624304A0"
+        "0x23": "WTW23380751"
+        "0x24": "c0:69:11:c9:1e:0e"
+        "0x25": "2023/10/03 12:12:42"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.5-32399154"
+        "0x2F": "WTW23380751"
+        "0xFE": "0xdeadbeef"
     bjw2-can-720dt-2:
       ansible_host: 10.150.22.185
       ansible_hostv6: 2404:f801:10:2200::a96:16b9
-      model:
-      serial:
-      base_mac:
+      model: CCS-720DT-48S-2
+      serial: WTW23380597
+      base_mac: c0:69:11:c8:fd:92
       syseeprom_info:
+        "0x21": "CCS-720DT-48S-2"
+        "0x22": "ASY0624304A0"
+        "0x23": "WTW23380597"
+        "0x24": "c0:69:11:c8:fd:92"
+        "0x25": "2023/10/03 15:43:42"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.5-32399154"
+        "0x2F": "WTW23380597"
+        "0xFE": "0xdeadbeef"
     bjw2-can-720dt-3:
       ansible_host: 10.150.22.187
       ansible_hostv6: 2404:f801:10:2200::a96:16bb
-      model:
-      serial:
-      base_mac:
+      model: CCS-720DT-48S-2
+      serial: WTW23380772
+      base_mac: c0:69:11:c9:22:7c
       syseeprom_info:
+        "0x21": "CCS-720DT-48S-2"
+        "0x22": "ASY0624304A0"
+        "0x23": "WTW23380772"
+        "0x24": "c0:69:11:c9:22:7c"
+        "0x25": "2023/10/03 12:11:43"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.5-32399154"
+        "0x2F": "WTW23380772"
+        "0xFE": "0xdeadbeef"
     bjw2-can-720dt-4:
       ansible_host: 10.150.22.189
       ansible_hostv6: 2404:f801:10:2200::a96:16bd
-      model:
-      serial:
-      base_mac:
+      model: CCS-720DT-48S-2
+      serial: WTW23380687
+      base_mac: c0:69:11:c9:10:8e
       syseeprom_info:
+        "0x21": "CCS-720DT-48S-2"
+        "0x22": "ASY0624304A0"
+        "0x23": "WTW23380687"
+        "0x24": "c0:69:11:c9:10:8e"
+        "0x25": "2023/10/03 15:00:10"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.5-32399154"
+        "0x2F": "WTW23380687"
+        "0xFE": "0xdeadbeef"
     bjw2-can-720dt-5:
       ansible_host: 10.150.22.191
       ansible_hostv6: 2404:f801:10:2200::a96:16bf
-      model:
-      serial:
-      base_mac:
+      model: CCS-720DT-48S-2F
+      serial: WTW23380766
+      base_mac: c0:69:11:c9:21:38
       syseeprom_info:
+        "0x21": "CCS-720DT-48S-2F"  # below values need to be updated.
+        "0x22": "ASY0624304A0"
+        "0x23": "WTW23380766"
+        "0x24": "c0:69:11:c9:21:38"
+        "0x25": "2023/10/03 15:00:10"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_720dt_48s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.5-32399154"
+        "0x2F": "WTW23380766"
+        "0xFE": "0xdeadbeef"
     bjw2-can-720dt-6:
       ansible_host: 10.150.22.193
       ansible_hostv6: 2404:f801:10:2200::a96:16c1
@@ -444,26 +519,59 @@ sonic_nokia_7215:
       ansible_host: 10.150.22.177
       ansible_hostv6: 2404:f801:10:2200::a96:166e
       hwsku: Nokia-M0-7215
-      model:
-      serial:
-      base_mac:
+      model: 3HE16794AARE01
+      serial: NK234511207
+      base_mac: 8C:7A:00:F7:2A:F3
       syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARE01"
+        "0x23": "NK234511207"
+        "0x24": "8C:7A:00:F7:2A:F3"
+        "0x25": "11/11/2023 01:56:31"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.2"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
+        "0xFE": "0xD0612646"
     bjw2-can-7215-7:
       ansible_host: 10.150.22.179
       ansible_hostv6: 2404:f801:10:2200::a96:16b1
       hwsku: Nokia-M0-7215
-      model:
-      serial:
-      base_mac:
+      model: 3HE16794AARE01
+      serial: NK234511154
+      base_mac: 8C:7A:00:F7:1D:B3
       syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARE01"
+        "0x23": "NK234511154"
+        "0x24": "8C:7A:00:F7:2A:F3"
+        "0x25": "11/11/2023 00:34:45"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.2"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
+        "0xFE": "0xB348679B"
     bjw2-can-7215-8:
       ansible_host: 10.150.22.181
       ansible_hostv6: 2404:f801:10:2200::a96:16b3
       hwsku: Nokia-M0-7215
-      model:
-      serial:
-      base_mac:
+      model: 3HE16794AARE01
+      serial: NK234511178
+      base_mac: 8C:7A:00:F7:23:B3
       syseeprom_info:
+        "0x21": "7215 IXS-T1"
+        "0x22": "3HE16794AARE01"
+        "0x23": "NK234511178"
+        "0x24": "8C:7A:00:F7:23:B3"
+        "0x25": "11/11/2023 01:13:14"
+        "0x28": "armhf-nokia_ixs7215_52x-r0"
+        "0x29": "2019.11-onie_version-nokia_ixs7215_52x-v1.5.2"
+        "0x2A": "64"
+        "0x2F": "CSM9W00FRA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
+        "0xFE": "0xD50814FD"
 
 
 sonic_cisco_8102:
