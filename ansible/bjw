@@ -135,11 +135,11 @@ all:
         bjw-pdu-126-139:
           ansible_host: 10.150.126.139
           protocol: snmp
-        bjw-pdu-126-142:
-          ansible_host: 10.150.126.142
+        bjw-pdu-127-166:
+          ansible_host: 10.150.127.166
           protocol: snmp
-        bjw-pdu-126-148:
-          ansible_host: 10.150.126.148
+        bjw-pdu-127-167:
+          ansible_host: 10.150.127.167
           protocol: snmp
 
 fanout:
