@@ -719,3 +719,10 @@ def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 @pytest.fixture(scope="module")
 def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
+
+
+@pytest.fixture(scope="module")
+def traffic_shift_community(duthost):
+    community = duthost.shell('sonic-cfggen -y /etc/sonic/constants.yml -v constants.bgp.traffic_shift_community')[
+        'stdout']
+    return community
