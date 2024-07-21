@@ -93,6 +93,7 @@ t0:
   - pc/test_lag_2.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
+  - pfcwd/test_pfc_config.py
   - platform_tests/broadcom/test_ser.py
   - platform_tests/counterpoll/test_counterpoll_watermark.py
   - platform_tests/fwutil/test_fwutil.py
@@ -229,6 +230,7 @@ t1-lag:
   - override_config_table/test_override_config_table.py
   - pc/test_lag_2.py
   - pc/test_po_update.py
+  - pfcwd/test_pfc_config.py
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
   - qos/test_buffer.py
@@ -296,7 +298,6 @@ dpu:
 onboarding_t0:
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - bgp/test_bgp_peer_shutdown.py
-  - cacl/test_ebtables_application.py
   - clock/test_clock.py
   - generic_config_updater/test_dynamic_acl.py
   - generic_config_updater/test_pfcwd_status.py
@@ -325,6 +326,7 @@ onboarding_t0:
   - acl/test_acl_outer_vlan.py
   - arp/test_unknown_mac.py
   - decap/test_decap.py
+  - hash/test_generic_hash.py
   - dualtor/test_orchagent_active_tor_downstream.py
   - dualtor/test_orchagent_mac_move.py
   - dualtor/test_orchagent_standby_tor_downstream.py
@@ -333,6 +335,7 @@ onboarding_t0:
 onboarding_t1:
   - decap/test_decap.py
   - generic_config_updater/test_cacl.py
+  - hash/test_generic_hash.py
 
 onboarding_dualtor:
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
