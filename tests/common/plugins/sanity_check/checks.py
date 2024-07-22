@@ -257,17 +257,20 @@ def _is_db_omem_over_threshold(command_output):
     total_omem = 0
     re_omem = re.compile(r"omem=(\d+)")
     result = False
+    non_zero_output = []
 
     for line in command_output:
         m = re_omem.search(line)
         if m:
             omem = int(m.group(1))
             total_omem += omem
+            if omem > 0:
+                non_zero_output.append(line)
     logger.debug('total_omen={}, OMEM_THRESHOLD_BYTES={}'.format(total_omem, OMEM_THRESHOLD_BYTES))
     if total_omem > OMEM_THRESHOLD_BYTES:
         result = True
 
-    return result, total_omem
+    return result, total_omem, non_zero_output
 
 
 @pytest.fixture(scope="module")
@@ -288,11 +291,13 @@ def check_dbmemory(duthosts):
         # check the db memory on the redis instance running on each instance
         for asic in dut.asics:
             res = asic.run_redis_cli_cmd(redis_cmd)['stdout_lines']
-            result, total_omem = _is_db_omem_over_threshold(res)
+            result, total_omem, non_zero_output = _is_db_omem_over_threshold(res)
             check_result["total_omem"] = total_omem
             if result:
                 check_result["failed"] = True
                 logging.info("{} db memory over the threshold ".format(str(asic.namespace or '')))
+                logging.info("{} db memory omem non-zero output: \n{}"
+                             .format(str(asic.namespace or ''), "\n".join(non_zero_output)))
                 break
         logger.info("Done checking database memory on %s" % dut.hostname)
         results[dut.hostname] = check_result
