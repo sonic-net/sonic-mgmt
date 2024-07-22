@@ -168,6 +168,7 @@ class TestPlanManager(object):
         if self.client_id:
             self.with_auth = True
             self.get_token()
+        self.init_time = datetime.now()
 
     def cmd(self, cmds):
         process = subprocess.Popen(
@@ -182,6 +183,29 @@ class TestPlanManager(object):
         return stdout, stderr, return_code
 
     def get_token(self):
+
+        # Success of "az account get-access-token" depends on "az login". However, the "az login" session may expire
+        # after 24 hours. So we re-login every 12 hours to ensure success of "az account get-access-token".
+        if datetime.now() - self.init_time > timedelta(hours=12):
+            cmd = "az login --service-principal -u {} --tenant {} --allow-no-subscriptions --federated-token {}"\
+                .format(
+                    os.environ.get("SONIC_AUTOMATION_SERVICE_PRINCIPAL"),
+                    os.environ.get("ELASTICTEST_MSAL_TENANT_ID"),
+                    os.environ.get("SYSTEM_ACCESS_TOKEN")
+                )
+            attempt = 0
+            while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
+                try:
+                    stdout, stderr, return_code = self.cmd(cmd.split())
+                    if return_code != 0:
+                        raise Exception("Failed to login: rc: {}, error: {}".format(return_code, stderr))
+                    self.init_time = datetime.now()
+                    break
+                except Exception as exception:
+                    attempt += 1
+                    print("Failed to login with exception: {}. Retry {} times to login."
+                          .format(repr(exception), MAX_GET_TOKEN_RETRY_TIMES - attempt))
+
         token_is_valid = \
             self._token_expires_on is not None and \
             (self._token_expires_on - datetime.now()) > timedelta(hours=TOKEN_EXPIRE_HOURS)
@@ -192,8 +216,8 @@ class TestPlanManager(object):
         cmd = 'az account get-access-token --resource {}'.format(self.client_id)
         attempt = 0
         while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
-            stdout, stderr, return_code = self.cmd(cmd.split())
             try:
+                stdout, stderr, return_code = self.cmd(cmd.split())
                 if return_code != 0:
                     raise Exception("Failed to get token: rc: {}, error: {}".format(return_code, stderr))
 
@@ -214,29 +238,6 @@ class TestPlanManager(object):
 
         raise Exception("Failed to get token after {} attempts".format(MAX_GET_TOKEN_RETRY_TIMES))
 
-        # token_url = "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(self.tenant_id)
-        # headers = {
-        #     "Content-Type": "application/x-www-form-urlencoded"
-        # }
-
-        # payload = {
-        #     "grant_type": "client_credentials",
-        #     "client_id": self.client_id,
-        #     "client_secret": self.client_secret,
-        #     "scope": get_scope(self.url)
-        # }
-        # attempt = 0
-        # while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
-        #     try:
-        #         resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
-        #         self._token = resp["access_token"]
-        #         self._token_generate_time = datetime.utcnow()
-        #         return self._token
-        #     except Exception as exception:
-        #         attempt += 1
-        #         print("Get token failed with exception: {}. Retry {} times to get token."
-        #               .format(repr(exception), MAX_GET_TOKEN_RETRY_TIMES - attempt))
-        # raise Exception("Failed to get token after {} attempts".format(MAX_GET_TOKEN_RETRY_TIMES))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
                min_worker=None, max_worker=None, pr_id="unknown", output=None,
