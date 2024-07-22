@@ -67,25 +67,37 @@ def run_pfcwd_multi_node_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    # initialize the (duthost, port) set.
+    # The final list will have all the asics which needs to be configured for PFC
+    pfcwd_to_be_configured = set()
+
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     rx_port_id_list = [rx_port["port_id"]]
-    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    egress_duthost = rx_port['duthost']
+    # Add the port to the set of ports to be configured for PFC
+    pfcwd_to_be_configured.add((egress_duthost, rx_port['asic_value']))
+
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+    # add ingress DUT into the set
+    pfcwd_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
+    pfcwd_to_be_configured.add((tx_port[1]['duthost'], tx_port[1]['asic_value']))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     num_ports = len(port_config_list)
     pytest_require(num_ports >= 3, "This test requires at least 3 ports")
 
-    start_pfcwd(duthost1, rx_port['asic_value'])
-    enable_packet_aging(duthost1)
-    start_pfcwd(duthost2, tx_port[0]['asic_value'])
-    enable_packet_aging(duthost2)
+    # Enable PFC watchdog on the rx side and tx side of the DUT without duplication.
+    for duthost, asic in pfcwd_to_be_configured:
+        start_pfcwd(duthost, asic)
+        enable_packet_aging(duthost)
 
-    poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,
+    poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=rx_port['peer_port'],
                                             asic_value=rx_port['asic_value']) / 1000.0
 
     if trigger_pfcwd:
