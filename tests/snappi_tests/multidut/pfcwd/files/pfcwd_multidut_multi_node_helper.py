@@ -11,6 +11,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports                                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -411,7 +412,10 @@ def __gen_data_flow(testbed_config,
     eth, ipv4 = flow.packet.ethernet().ipv4()
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
-    eth.pfc_queue.value = flow_prio
+    if pfcQueueGroupSize == 8:
+        eth.pfc_queue.value = flow_prio
+    else:
+        eth.pfc_queue.value = pfcQueueValueDict[flow_prio]
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = rx_port_config.ip
