@@ -72,14 +72,16 @@ def log_tacacs(duthosts, ptfhost):
             logging.debug(f"Checking ping_result [{ping_result}]")
 
         # Print debug info for mgmt interfaces and forced mgmt routes
-        mgmt_interface_keys = duthost.command("sonic-db-cli  CONFIG_DB keys 'MGMT_INTERFACE|eth0|*'")['stdout']
-        logging.debug("mgmt_interface_keys: {}".format(mgmt_interface_keys))
-        for interface_key in mgmt_interface_keys.split('\n'):
-            logging.debug("interface_key: {}".format(interface_key))
-            interface_address = interface_key.split('|')[2]
-            forced_mgmt_routes_cmd = "sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@".format(interface_key)
-            forced_mgmt_routes = duthost.command(forced_mgmt_routes_cmd)['stdout']
-            logging.debug("forced_mgmt_routes: {}, interface address: {}".format(forced_mgmt_routes, interface_address))
+        mgmt_interface_keys = duthost.command("sonic-db-cli CONFIG_DB keys 'MGMT_INTERFACE|*'")['stdout']
+        logging.debug(f"mgmt_interface_keys: {mgmt_interface_keys}")
+        for intf_key in mgmt_interface_keys.split('\n'):
+            logging.debug(f"interface key: {intf_key}")
+            intf_values = intf_key.split('|')
+            if len(intf_values) != 3:
+                logging.debug(f"Unexpected interface key: {intf_key}")
+                continue
+            forced_mgmt_rte = duthost.command(f"sonic-db-cli CONFIG_DB HGET '{intf_key}' forced_mgmt_routes@")['stdout']
+            logging.debug(f"forced_mgmt_routes: {forced_mgmt_rte}, interface address: {intf_values[2]}")
 
 
 def test_bgp_facts_ipv6_only(duthosts, enum_frontend_dut_hostname, enum_asic_index,
