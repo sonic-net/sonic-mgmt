@@ -58,7 +58,7 @@ def skip_on_simx(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def xcvr_skip_list(duthosts, dpu_npu_port_list):
+def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
     intf_skip_list = {}
     for dut in duthosts:
         platform = dut.facts['platform']
@@ -86,6 +86,12 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list):
         # No hwsku.json for Arista-7050-QX-32S/Arista-7050QX-32S-S4Q31
         if hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX-32S-S4Q31']:
             sfp_list = ['Ethernet0', 'Ethernet1', 'Ethernet2', 'Ethernet3']
+            logging.debug('Skipping sfp interfaces: {}'.format(sfp_list))
+            intf_skip_list[dut.hostname].extend(sfp_list)
+
+        # For Mx topo, skip the SFP interfaces because they are admin down
+        if tbinfo['topo']['name'] == "mx" and hwsku in ["Arista-720DT-G48S4", "Nokia-7215"]:
+            sfp_list = ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
             logging.debug('Skipping sfp interfaces: {}'.format(sfp_list))
             intf_skip_list[dut.hostname].extend(sfp_list)
 
