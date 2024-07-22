@@ -48,7 +48,7 @@ t0:
   # The tests in this script are all related to the above table
   - system_health/test_system_health.py
 
-t1:
+t1-lag:
   # KVM do not support bfd test
   - bfd/test_bfd.py
   # KVM do not support drop reason in testcase, and testcase would set drop reason in setup stage, can't do more test
