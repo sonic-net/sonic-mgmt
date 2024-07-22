@@ -42,8 +42,12 @@ stages:
                 cd .azure-pipelines/testbed
                 python testbed_utilization_checker.py --skip-testbeds=ptf2-6-b,spytest,vms-chassis-packet-dut,vms-example-ixia-1,ixanvl-vs-conf
 
+                set +x
+
                 accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
                 export ACCESS_TOKEN=$accessToken
+
+                set -x
 
                 cd ../../test_reporting
 
