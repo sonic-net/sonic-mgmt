@@ -198,6 +198,8 @@ all:
           - tgen-t0-35-3
           - mgmttor
           - t2
+          - t2-ixia-2lc-4
+          - t2-ixia-3lc-4
           - t1-64-itpac
           - dualtor-mixed
           - dualtor-mixed-56
