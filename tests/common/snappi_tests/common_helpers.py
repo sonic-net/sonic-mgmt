@@ -762,6 +762,26 @@ def start_pfcwd(duthost, asic_value=None):
         duthost.shell('sudo ip netns exec {} pfcwd start_default'.format(asic_value))
 
 
+def start_pfcwd_fwd(duthost, asic_value=None):
+    """
+    Start PFC watchdog in Forward mode.
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+        asic_value: asic value of the host
+
+    Returns:
+        N/A
+    """
+    # Stopping PFCWD cleanly.
+    stop_pfcwd(duthost, asic_value)
+
+    # Starting PFCWD in forward mode with detection and restoration duration of 200msec.
+    if asic_value is None:
+        duthost.shell('sudo pfcwd start --action forward 200 --restoration-time 200')
+    else:
+        duthost.shell('sudo ip netns exec {} pfcwd start --action forward 200 --restoration-time 200')
+
+
 def stop_pfcwd(duthost, asic_value=None):
     """
     Stop PFC watchdog
