@@ -2,6 +2,7 @@ t0:
   - acl/custom_acl_table/test_custom_acl_table.py
   - acl/null_route/test_null_route_helper.py
   - acl/test_acl.py
+  - acl/test_acl_outer_vlan.py
   - acl/test_stress_acl.py
   - arp/test_arp_extended.py
   - arp/test_neighbor_mac.py
@@ -29,6 +30,7 @@ t0:
   - container_hardening/test_container_hardening.py
   - database/test_db_config.py
   - database/test_db_scripts.py
+  - decap/test_decap.py
   - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
@@ -36,6 +38,10 @@ t0:
   - dns/static_dns/test_static_dns.py
   - dns/test_dns_resolv_conf.py
   - dualtor/test_orch_stress.py
+  - dualtor/test_orchagent_active_tor_downstream.py
+  - dualtor/test_orchagent_mac_move.py
+  - dualtor/test_orchagent_standby_tor_downstream.py
+  - dualtor/test_standby_tor_upstream_mux_toggle.py
   - dualtor_mgmt/test_server_failure.py
   - dualtor_mgmt/test_toggle_mux.py
   - dut_console/test_console_baud_rate.py
@@ -213,6 +219,7 @@ t1-lag:
   - bgp/test_traffic_shift.py
   - configlet/test_add_rack.py
   - container_checker/test_container_checker.py
+  - decap/test_decap.py
   - dhcp_relay/test_dhcp_pkt_fwd.py
   - everflow/test_everflow_ipv6.py
   - everflow/test_everflow_per_interface.py
@@ -324,17 +331,10 @@ onboarding_t0:
   - sub_port_interfaces/test_sub_port_interfaces.py
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - test_pktgen.py
-  - acl/test_acl_outer_vlan.py
   - arp/test_unknown_mac.py
-  - decap/test_decap.py
   - hash/test_generic_hash.py
-  - dualtor/test_orchagent_active_tor_downstream.py
-  - dualtor/test_orchagent_mac_move.py
-  - dualtor/test_orchagent_standby_tor_downstream.py
-  - dualtor/test_standby_tor_upstream_mux_toggle.py
 
 onboarding_t1:
-  - decap/test_decap.py
   - generic_config_updater/test_cacl.py
   - hash/test_generic_hash.py
 
