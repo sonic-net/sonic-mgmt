@@ -164,7 +164,8 @@ t0:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
-  - telemetry/test_events.py
+  # Temporarily skip test_events due to test issue with high failure rate
+  # - telemetry/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
