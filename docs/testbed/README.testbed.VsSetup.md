@@ -381,12 +381,12 @@ Peers 4, using 87264 KiB of memory
 Peer groups 4, using 256 bytes of memory
 
 
-Neighbor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down      State/PfxRcd  NeighborName
-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
-10.0.0.57     4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA01T1
-10.0.0.59     4  64600       3792       3795         0      0       0  00:29:24             6400  ARISTA02T1
-10.0.0.61     4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA03T1
-10.0.0.63     4  64600       3795       3796         0      0       0  00:29:24             6400  ARISTA04T1
+Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down      State/PfxRcd  NeighborName
+-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
+10.0.0.57      4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA01T1
+10.0.0.59      4  64600       3792       3795         0      0       0  00:29:24             6400  ARISTA02T1
+10.0.0.61      4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA03T1
+10.0.0.63      4  64600       3795       3796         0      0       0  00:29:24             6400  ARISTA04T1
 
 Total number of neighbors 4
 ```
@@ -404,12 +404,12 @@ Peers 4, using 83680 KiB of memory
 Peer groups 4, using 256 bytes of memory
 
 
-Neighbor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
-10.0.0.57     4  64600          8          8         0      0       0  00:00:10   3               ARISTA01T1
-10.0.0.59     4  64600          0          0         0      0       0  00:00:10   3               ARISTA02T1
-10.0.0.61     4  64600          0          0         0      0       0  00:00:11   3               ARISTA03T1
-10.0.0.63     4  64600          0          0         0      0       0  00:00:11   3               ARISTA04T1
+Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
+-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
+10.0.0.57      4  64600          8          8         0      0       0  00:00:10   3               ARISTA01T1
+10.0.0.59      4  64600          0          0         0      0       0  00:00:10   3               ARISTA02T1
+10.0.0.61      4  64600          0          0         0      0       0  00:00:11   3               ARISTA03T1
+10.0.0.63      4  64600          0          0         0      0       0  00:00:11   3               ARISTA04T1
 
 ```
 
