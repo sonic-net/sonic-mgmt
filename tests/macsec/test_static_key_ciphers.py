@@ -33,7 +33,7 @@ def macsec_check(host, cli_options, int, neighv4, neighv6, macsec=True, cipher=N
         logger.debug(output)
         assert "enable                 true" in output[3]
 
-    # Verify BGP Between Neighbors
+    # Verify BGP Between Neighbors is established
     output = host.shell("show ip bgp neighbor {}".format(neighv4))['stdout']
     logger.debug("BGP v4: {}".format(output))
     assert "BGP state = Established" in output
