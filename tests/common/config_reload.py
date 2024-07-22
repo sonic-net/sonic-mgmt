@@ -22,7 +22,7 @@ def config_system_checks_passed(duthost, delayed_services=[]):
         fail_reason = duthost.shell("systemctl list-units --state=failed", module_ignore_errors=True)
         logging.info(fail_reason['stdout_lines'])
         # For kvm testbed
-        # Service watchdog-control loads failed because of the expected Error `No module named 'sonic_platform'
+        # Service watchdog-control loads failed because of the expected Error `No module named 'sonic_platform'.
         # Service system-health loads failed because of the failure of the above service.
         # So in kvm testbed, if these two services load fail, we consider the system is healthy.
         if duthost.facts["asic_type"] == "vs":
