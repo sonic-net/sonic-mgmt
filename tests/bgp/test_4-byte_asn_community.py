@@ -19,6 +19,7 @@ dut_4byte_asn = 400003
 neighbor_4byte_asn = 400001
 bgp_sleep = 120
 bgp_id_textfsm = "./bgp/templates/bgp_id.template"
+bgp_id_multi_asic_textfsm = "./bgp/templates/bgp_id_multi-asic.template"
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -71,10 +72,31 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     dut_ip_bgp_sum = duthost.shell('show ip bgp summary')['stdout']
     neigh_ip_bgp_sum = nbrhosts[neigh]["host"].shell('show ip bgp summary')['stdout']
-    with open(bgp_id_textfsm) as template:
-        fsm = textfsm.TextFSM(template)
-        dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[0][0]
-        neigh_bgp_id = fsm.ParseText(neigh_ip_bgp_sum)[1][0]
+    if duthost.is_multi_asic:
+        with open(bgp_id_multi_asic_textfsm) as template:
+            fsm = textfsm.TextFSM(template)
+            for line in dut_ip_bgp_sum:
+                dut_bgp_ids = fsm.ParseText(line)
+        for pair in dut_bgp_ids:
+            if str(pair[0]) is asic_index:
+                 dut_bgp_id = pair[1]
+    else:
+        with open(bgp_id_textfsm) as template:
+            fsm = textfsm.TextFSM(template)
+            dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[0][0]
+
+    if neighbors[neigh].is_multi_asic:
+        with open(bgp_id_multi_asic_textfsm) as template:
+            fsm = textfsm.TextFSM(template)
+            for line in neigh_ip_bgp_sum:
+                neigh_bgp_ids = fsm.ParseText(line)
+        for pair in neigh_bgp_ids:
+            if str(pair[0]) is asic_index:
+                 neigh_bgp_id = pair[1]
+    else:
+        with open(bgp_id_textfsm) as template:
+            fsm = textfsm.TextFSM(template)
+            neigh_bgp_id = fsm.ParseText(neigh_ip_bgp_sum)[1][0]
 
     dut_ipv4_network = duthost.shell("show run bgp | grep 'ip prefix-list'")['stdout'].split()[6]
     dut_ipv6_network = duthost.shell("show run bgp | grep 'ipv6 prefix-list'")['stdout'].split()[6]

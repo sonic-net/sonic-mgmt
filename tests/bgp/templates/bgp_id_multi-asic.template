@@ -1,0 +1,5 @@
+Value asic_index (\d+)
+Value router_id (\d+.\d+.\d+.\d+)
+
+Start
+ ^asic${asic_index}: BGP router identifier\s+${router_id}
