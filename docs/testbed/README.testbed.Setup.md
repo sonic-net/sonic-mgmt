@@ -219,7 +219,7 @@ Once you are in the docker container, you need to modify the testbed configurati
         ```
         ansible -m ping -i veos vm_host_1
         ```
-    - (Optional) If your organization uses a proxy server (e.g Squid Proxy) to connect to the internet, you may need to configure the Docker daemon to use the proxy server. You can configure it in [`ansible /group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
+    - (Optional) The connectivity to the public internet is necessary during the setup, if the lab env of your organization requires http/https proxy server to reach out to the internet, you need to configure to use the proxy server. It will automatically be leveraged on required steps (e.g. Docker daemon config for image pulling, APT configuration for installing packages). You can configure it in [`ansible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
 
 - VMs
     - Update /ansible/group_vars/vm_host/main.yml with the location of the veos files or veos file name if you downloaded a different version

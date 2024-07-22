@@ -114,25 +114,7 @@ cd sonic-mgmt
 ```
 
 
-
-3. (Optional) Set up proxy: if you get the error `ERROR: unable to find a usable default docker image, please specify one manually` you might need to setup proxy to pull docker image.
-
-   Follows the steps in [Configure docker daemon proxy](https://docs.docker.com/config/daemon/proxy/#daemon-configuration) to setup proxies. You can add these configuration in `etc/docker/daemon.json` and then run `sudo systemctl restart docker` to take effect.
-
-   ```json
-   {
-        ...
-        "proxies": {
-                "http-proxy": "http://proxy.example.com:3128",
-                "https-proxy": "https://proxy.example.com:3129",
-                "no-proxy": "*.test.example.com,.example.org,127.0.0.0/8"
-        }
-   }
-   ```
-
-
-
-4. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
+3. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
 
 
 You can enter your sonic-mgmt container with the following command:
@@ -341,8 +323,7 @@ cd /data/sonic-mgmt/ansible
 ## Deploy minigraph on the DUT
 Once the topology has been created, we need to give the DUT an initial configuration.
 
-(Optional) If your organization uses a proxy server (e.g Squid Proxy) to connect to the internet, you may need to configure the Docker daemon to use the proxy server. You can configure it in [`ansible /group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
-
+(Optional) The connectivity to the public internet is necessary during the setup, if the lab env of your organization requires http/https proxy server to reach out to the internet, you need to configure to use the proxy server. It will automatically be leveraged on required steps (e.g. Docker daemon config for image pulling, APT configuration for installing packages). You can configure it in [`ansible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
 
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
 
