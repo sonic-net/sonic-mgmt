@@ -1,3 +1,4 @@
+import os
 import pytest
 import logging
 import time
@@ -88,3 +89,11 @@ def test_enable_startup_tsa_tsb_service(duthosts, localhost):
         else:
             logger.info("{} file does not exist in the specified path on dut {}".
                         format(backup_tsa_tsb_file_path, duthost.hostname))
+
+
+def test_collect_ptf_logs(ptfhost):
+    log_files = ptfhost.shell('ls /tmp/*.log')['stdout'].split()
+    if not os.path.exists('logs/ptf'):
+        os.makedirs('logs/ptf')
+    for log_file in log_files:
+        ptfhost.fetch(src=log_file, dest='logs/ptf', fail_on_missing=False)
