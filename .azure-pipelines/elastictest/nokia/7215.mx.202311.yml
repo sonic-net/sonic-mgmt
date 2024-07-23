@@ -94,9 +94,6 @@ parameters:
   - name: AFFINITY
     type: string
     default: '[
-      {"name": "dut_console/test_escape_character.py", "op": "NOT_ON", "value": ["testbed-bjw-can-7215-11"]},
-      {"name": "dut_console/test_console_baud_rate.py", "op": "NOT_ON", "value": ["testbed-bjw-can-7215-11"]},
-      {"name": "dut_console/test_idle_timeout.py", "op": "NOT_ON", "value": ["testbed-bjw-can-7215-11"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 
