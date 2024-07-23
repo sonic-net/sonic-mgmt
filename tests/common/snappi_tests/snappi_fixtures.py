@@ -963,11 +963,15 @@ def pre_configure_dut_interface(duthost, snappi_ports):
 
 
 @pytest.fixture(scope="module")
-def multidut_snappi_ports_for_bgp(duthosts, conn_graph_facts, fanout_graph_facts_multidut):            # noqa: F811
+def multidut_snappi_ports_for_bgp(duthosts,                                # noqa: F811
+                                  tbinfo,                                  # noqa: F811
+                                  conn_graph_facts,                        # noqa: F811
+                                  fanout_graph_facts_multidut):            # noqa: F811
     """
     Populate snappi ports and connected DUT ports info of T1 and T2 testbed and returns as a list
     Args:
         duthost (pytest fixture): duthost fixture
+        tbinfo (pytest fixture): fixture provides information about testbed
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
     Return:
@@ -1000,5 +1004,6 @@ def multidut_snappi_ports_for_bgp(duthosts, conn_graph_facts, fanout_graph_facts
         for port in snappi_ports:
             port['location'] = get_snappi_port_location(port)
             port['speed'] = speed_type[port['speed']]
+            port['api_server_ip'] = tbinfo['ptf_ip']
         multidut_snappi_ports = multidut_snappi_ports + snappi_ports
     return multidut_snappi_ports

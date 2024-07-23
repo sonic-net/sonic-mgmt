@@ -545,10 +545,10 @@ def __snappi_bgp_config(api,
 
     Args:
         api (pytest fixture): snappi API
-        duthosts: multipath + 1
-        snappi_ports :  Number of IPv4/IPv6 Routes
-        traffic_type: IPv4 or IPv6 routes
-        route_range: speed of the port used for test
+        duthosts(pytest fixture): duthosts fixture
+        snappi_ports : Snappi port list
+        traffic_type: IPv4 or IPv6 traffic
+        route_range: v4 and v6 route combination
     """
     ipv4_src, ipv6_src = [], []
     ipv4_dest, ipv6_dest = [], []
