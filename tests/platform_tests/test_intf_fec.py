@@ -18,14 +18,12 @@ SUPPORTED_SPEEDS = [
     "100G", "200G", "400G", "800G", "1600G"
 ]
 
-
+@pytest.fixture(autouse=True)
 def is_supported_platform(duthost):
     if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
         skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305"])
-        return True
     else:
         pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
-        return False
 
 
 def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -35,9 +33,6 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     SFP present, supported speeds and link is up using 'show interface status'
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-    if not is_supported_platform(duthost):
-        return
 
     logging.info("Get output of '{}'".format("show interface status"))
     intf_status = duthost.show_and_parse("show interface status")
@@ -66,9 +61,6 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     FEC operational mode is retored to default FEC mode
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-    if not is_supported_platform(duthost):
-        return
 
     logging.info("Get output of '{}'".format("show interface status"))
     intf_status = duthost.show_and_parse("show interface status")
@@ -121,9 +113,6 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    if not is_supported_platform(duthost):
-        return
-
     logging.info("Get output of 'show interfaces counters fec-stats'")
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
 
@@ -136,6 +125,11 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         fec_corr = intf.get('fec_corr', '').lower()
         fec_uncorr = intf.get('fec_uncorr', '').lower()
         fec_symbol_err = intf.get('fec_symbol_err', '').lower()
-        if fec_corr == "n/a" or fec_uncorr == "n/a" or fec_symbol_err == "n/a":
-            # Verify the FEC stat counters are valid
-            pytest.fail("FEC stat counters are not valid for interface {}".format(intf_name))
+        # Check if fec_corr, fec_uncorr, and fec_symbol_err are valid integers
+        try:
+            fec_corr_value = int(fec_corr)
+            fec_uncorr_value = int(fec_uncorr)
+            fec_symbol_err_value = int(fec_symbol_err)
+        except ValueError:
+            pytest.fail("FEC stat counters are not valid integers for interface {}, fec_corr {} fec_uncorr {} fec_symbol_err {}"
+                        .format(intf_name, fec_corr, fec_uncorr, fec_symbol_err))
