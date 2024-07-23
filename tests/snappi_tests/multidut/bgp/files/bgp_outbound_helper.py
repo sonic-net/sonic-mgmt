@@ -15,7 +15,7 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
      t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, \
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
-     BGP_TYPE, TIMEOUT, t1_side_interconnected_port, t2_side_interconnected_port  # noqa: F401
+     BGP_TYPE, TIMEOUT, t1_side_interconnected_port, t2_side_interconnected_port, router_ids  # noqa: F401
 
 logger = logging.getLogger(__name__)
 total_routes = 0
@@ -789,6 +789,14 @@ def get_convergence_for_link_flap(duthosts,
     session = SessionAssistant(IpAddress=api._address, UserName=api._username,
                                SessionId=test_platform.Sessions.find()[-1].Id, Password=api._password)
     ixnetwork = session.Ixnetwork
+    for index, topology in enumerate(ixnetwork.Topology.find()):
+        try:
+            topology.DeviceGroup.find()[0].RouterData.find().RouterId.Single(router_ids[index])
+            logger.info('Setting Router id {} for {}'.format(router_ids[index], topology.DeviceGroup.find()[0].Name))
+        except Exception:
+            logger.info('Skipping Router id for {}, Since bgp is not configured'.
+                        format(topology.DeviceGroup.find()[0].Name))
+            continue
     logger.info('\n')
     logger.info('Testing with Route Range: {}'.format(route_range))
     logger.info('\n')
@@ -982,6 +990,19 @@ def get_convergence_for_service_flap(duthosts,
         host_name : Dut hostname
     """
     api.set_config(bgp_config)
+    test_platform = TestPlatform(api._address)
+    test_platform.Authenticate(api._username, api._password)
+    session = SessionAssistant(IpAddress=api._address, UserName=api._username,
+                               SessionId=test_platform.Sessions.find()[-1].Id, Password=api._password)
+    ixnetwork = session.Ixnetwork
+    for index, topology in enumerate(ixnetwork.Topology.find()):
+        try:
+            topology.DeviceGroup.find()[0].RouterData.find().RouterId.Single(router_ids[index])
+            logger.info('Setting Router id {} for {}'.format(router_ids[index], topology.DeviceGroup.find()[0].Name))
+        except Exception:
+            logger.info('Skipping Router id for {}, Since bgp is not configured'.
+                        format(topology.DeviceGroup.find()[0].Name))
+            continue
     t2_port_index_start = len(t1_ports[duthosts[0].hostname])
     table = []
     logger.info('\n')

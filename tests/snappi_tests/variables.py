@@ -199,6 +199,7 @@ def generate_ips_for_bgp_case(ipv4_subnet, ipv6_subnet):
 
 
 generate_ips_for_bgp_case(ipv4_subnet, ipv6_subnet)
+router_ids = create_ip_list('100.0.0.1', routed_port_count+portchannel_count, mask=32)
 t1_t2_dut_ipv4_list = ip[:routed_port_count]
 t1_t2_snappi_ipv4_list = peer_ip[:routed_port_count]
 
