@@ -151,13 +151,13 @@ class PortConfigGenerator(object):
         with open(filepath) as fd:
             lines = fd.readlines()
             data_index = 0
-            while lines[data_index].startswith("#"):
+            while not lines[data_index].strip() or lines[data_index].startswith("#"):
                 data_index = data_index + 1
             header = lines[data_index-1].strip("#\n ")
             keys = header.split()
             alias_index = keys.index("alias")
             for line in lines[data_index:]:
-                if not line:
+                if not line.strip() or line.startswith("#"):
                     continue
                 values = line.split()
                 # port alias as the key
