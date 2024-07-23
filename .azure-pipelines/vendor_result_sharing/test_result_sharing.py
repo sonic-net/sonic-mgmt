@@ -3,7 +3,9 @@
 import os
 import sys
 import logging
+import time
 import shutil
+import jwt
 import argparse
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 from azure.storage.blob import BlobServiceClient, BlobClient
@@ -21,12 +23,10 @@ except ImportError:
 import tempfile
 import json
 from datetime import datetime
-from msrest.authentication import (
-    BasicAuthentication,
-    BasicTokenAuthentication,
-    OAuthTokenAuthentication)
+from msrest.authentication import BasicAuthentication
 from azure.devops.connection import Connection
 import requests
+from azure.core.credentials import AccessToken
 # Install the following package before running this program
 # pip install azure-storage-blob azure-identity azure-devops
 
@@ -248,6 +248,20 @@ class AzureDevOpsConnecter(object):
                 logger.error("Failed to download file {}. Response status code: {}".format(file_name, response.status_code))
 
 
+class AccessTokenCredential:
+    def __init__(self, token):
+        self.token = token
+        self.expiry = self.extract_expiry(token)
+
+    def extract_expiry(self, token):
+        decoded_token = jwt.decode(token, options={"verify_signature": False})
+        expiry = decoded_token.get('exp', time.time())
+        return expiry
+
+    def get_token(self, *scopes, **kwargs):
+        return AccessToken(self.token, self.expiry)
+
+
 class AzureBlobConnecter(object):
 
     def __init__(self, account_url, token=None):
@@ -385,11 +399,19 @@ def main(args):
     vendor = args.vendor if args.vendor != "All" else None
     pipeline_type = "PipelineTest" if args.topology == "dualtor" else "ElasticTest"
 
+    # Connect to kusto
     kustochecker = create_kusto_checker()
-    vendor_sharing_storage_token = os.getenv("VENDOR_SHARING_SAS_TOKEN")
+
+    # Connect to sonicvendorresult storage
+    vendor_sharing_storage_token = os.getenv("VENDOR_SHARING_TOKEN")
+    vendor_sharing_token_credentials = AccessTokenCredential(vendor_sharing_storage_token)
+    vendor_sharing_storage_connecter = AzureBlobConnecter(VENDOR_ACCOUNT_URL, vendor_sharing_token_credentials)
+
+    # Connect to nightly test storage
     nightly_test_storage_token = os.getenv("NIGHTLY_TEST_SAS_TOKEN")
     nightly_test_storage_connecter = AzureBlobConnecter(NIGHTLY_TEST_ACCOUNT_URL, nightly_test_storage_token)
-    vendor_sharing_storage_connecter = AzureBlobConnecter(VENDOR_ACCOUNT_URL, vendor_sharing_storage_token)
+
+    # Connect to azure devops
     pat_for_dualtor_result = os.getenv("AZURE_DEVOPS_PAT_FOR_DUALTOR_RESULT")
     azure_devops_connecter = AzureDevOpsConnecter(ORGANIZATION_URL, PROJECT_NAME, pat_for_dualtor_result)
 
