@@ -330,6 +330,7 @@ onboarding_t0:
   - dualtor/test_orchagent_mac_move.py
   - dualtor/test_orchagent_standby_tor_downstream.py
   - dualtor/test_standby_tor_upstream_mux_toggle.py
+  - generic_config_updater/test_pg_headroom_update.py
 
 onboarding_t1:
   - decap/test_decap.py
