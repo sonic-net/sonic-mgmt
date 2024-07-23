@@ -131,18 +131,6 @@ class FinishStatus(AbstractStatus):
         super(FinishStatus, self).__init__(TestPlanStatus.FINISHED)
 
 
-# def get_scope(elastictest_url):
-#     scope = "api://sonic-testbed-tools-dev/.default"
-#     if elastictest_url in [
-#         "http://sonic-testbed2-scheduler-backend.azurewebsites.net",
-#         "https://sonic-testbed2-scheduler-backend.azurewebsites.net",
-#         "http://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net",
-#         "https://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net"
-#     ]:
-#         scope = "api://sonic-testbed-tools-prod/.default"
-#     return scope
-
-
 def parse_list_from_str(s):
     # Since Azure Pipeline doesn't support to receive an empty parameter,
     # We use ' ' as a magic code for empty parameter.
@@ -159,6 +147,7 @@ def parse_list_from_str(s):
 class TestPlanManager(object):
 
     def __init__(self, url, frontend_url, client_id=None):
+        self.last_login_time = datetime.now()
         self.url = url
         self.frontend_url = frontend_url
         self.client_id = client_id
@@ -168,7 +157,6 @@ class TestPlanManager(object):
         if self.client_id:
             self.with_auth = True
             self.get_token()
-        self.init_time = datetime.now()
 
     def cmd(self, cmds):
         process = subprocess.Popen(
@@ -182,11 +170,17 @@ class TestPlanManager(object):
 
         return stdout, stderr, return_code
 
+    def az_run(self, cmd):
+        stdout, stderr, retcode = self.cmd(cmd.split())
+        if retcode != 0:
+            raise Exception(f'Command {cmd} execution failed, rc={retcode}, error={stderr}')
+        return stdout, stderr, retcode
+
     def get_token(self):
 
         # Success of "az account get-access-token" depends on "az login". However, the "az login" session may expire
         # after 24 hours. So we re-login every 12 hours to ensure success of "az account get-access-token".
-        if datetime.now() - self.init_time > timedelta(hours=12):
+        if datetime.now() - self.last_login_time > timedelta(hours=12):
             cmd = "az login --service-principal -u {} --tenant {} --allow-no-subscriptions --federated-token {}"\
                 .format(
                     os.environ.get("SONIC_AUTOMATION_SERVICE_PRINCIPAL"),
@@ -196,10 +190,8 @@ class TestPlanManager(object):
             attempt = 0
             while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
                 try:
-                    stdout, stderr, return_code = self.cmd(cmd.split())
-                    if return_code != 0:
-                        raise Exception("Failed to login: rc: {}, error: {}".format(return_code, stderr))
-                    self.init_time = datetime.now()
+                    stdout, _, _ = self.az_run(cmd)
+                    self.last_login_time = datetime.now()
                     break
                 except Exception as exception:
                     attempt += 1
@@ -217,9 +209,7 @@ class TestPlanManager(object):
         attempt = 0
         while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
             try:
-                stdout, stderr, return_code = self.cmd(cmd.split())
-                if return_code != 0:
-                    raise Exception("Failed to get token: rc: {}, error: {}".format(return_code, stderr))
+                stdout, _, _ = self.az_run(cmd)
 
                 token = json.loads(stdout.decode("utf-8"))
                 self._token = token.get("accessToken", None)
