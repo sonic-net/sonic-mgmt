@@ -1,0 +1,100 @@
+<LabConnectionGraph>
+  <PhysicalNetworkGraphDeclaration>
+    <Devices>
+      <Device Hostname="cmono-t0-dut" HwSku="32x400Gb" Type="DevSonic"/>
+      <Device Hostname="chu-fanout" HwSku="32x400Gb" Type="FanoutLeaf"/>
+      <Device Hostname="sonic-ucs-m6-13" HwSku="TestServ" Type="Server"/>
+    </Devices>
+    <DeviceInterfaceLinks>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet0" StartDevice="cmono-t0-dut" StartPort="Ethernet0"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet8" StartDevice="cmono-t0-dut" StartPort="Ethernet8"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet16" StartDevice="cmono-t0-dut" StartPort="Ethernet16"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet24" StartDevice="cmono-t0-dut" StartPort="Ethernet24"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet32" StartDevice="cmono-t0-dut" StartPort="Ethernet32"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet40" StartDevice="cmono-t0-dut" StartPort="Ethernet40"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet48" StartDevice="cmono-t0-dut" StartPort="Ethernet48"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet56" StartDevice="cmono-t0-dut" StartPort="Ethernet56"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet64" StartDevice="cmono-t0-dut" StartPort="Ethernet64"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet72" StartDevice="cmono-t0-dut" StartPort="Ethernet72"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet80" StartDevice="cmono-t0-dut" StartPort="Ethernet80"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet88" StartDevice="cmono-t0-dut" StartPort="Ethernet88"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet96" StartDevice="cmono-t0-dut" StartPort="Ethernet96"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet104" StartDevice="cmono-t0-dut" StartPort="Ethernet104"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet112" StartDevice="cmono-t0-dut" StartPort="Ethernet112"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet120" StartDevice="cmono-t0-dut" StartPort="Ethernet120"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet128" StartDevice="cmono-t0-dut" StartPort="Ethernet128"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet136" StartDevice="cmono-t0-dut" StartPort="Ethernet136"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet144" StartDevice="cmono-t0-dut" StartPort="Ethernet144"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet152" StartDevice="cmono-t0-dut" StartPort="Ethernet152"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet160" StartDevice="cmono-t0-dut" StartPort="Ethernet160"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet168" StartDevice="cmono-t0-dut" StartPort="Ethernet168"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet176" StartDevice="cmono-t0-dut" StartPort="Ethernet176"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet184" StartDevice="cmono-t0-dut" StartPort="Ethernet184"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet192" StartDevice="cmono-t0-dut" StartPort="Ethernet192"/>
+	    <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet208" StartDevice="cmono-t0-dut" StartPort="Ethernet208"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet216" StartDevice="cmono-t0-dut" StartPort="Ethernet216"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet224" StartDevice="cmono-t0-dut" StartPort="Ethernet224"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet232" StartDevice="cmono-t0-dut" StartPort="Ethernet232"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet240" StartDevice="cmono-t0-dut" StartPort="Ethernet240"/>
+            <DeviceInterfaceLink BandWidth="400000" EndDevice="chu-fanout" EndPort="Ethernet248" StartDevice="cmono-t0-dut" StartPort="Ethernet248"/>
+            <DeviceInterfaceLink BandWidth="40000" EndDevice="sonic-ucs-m6-13" EndPort="ens11f0" StartDevice="chu-fanout" StartPort="Ethernet200"/>
+    </DeviceInterfaceLinks>
+  </PhysicalNetworkGraphDeclaration>
+      <DataPlaneGraph>
+    <DevicesL3Info Hostname="chu-fanout">
+            <ManagementIPInterface Name="ManagementIp" Prefix="1.71.53.194/16"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="chu-fanout">
+      <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="1681"/>
+      <InterfaceVlan mode="Access" portname="Ethernet8" vlanids="1682"/>
+      <InterfaceVlan mode="Access" portname="Ethernet16" vlanids="1683"/>
+      <InterfaceVlan mode="Access" portname="Ethernet24" vlanids="1684"/>
+      <InterfaceVlan mode="Access" portname="Ethernet32" vlanids="1685"/>
+      <InterfaceVlan mode="Access" portname="Ethernet40" vlanids="1686"/>
+      <InterfaceVlan mode="Access" portname="Ethernet48" vlanids="1687"/>
+      <InterfaceVlan mode="Access" portname="Ethernet56" vlanids="1688"/>
+      <InterfaceVlan mode="Access" portname="Ethernet64" vlanids="1689"/>
+      <InterfaceVlan mode="Access" portname="Ethernet72" vlanids="1690"/>
+      <InterfaceVlan mode="Access" portname="Ethernet80" vlanids="1691"/>
+      <InterfaceVlan mode="Access" portname="Ethernet88" vlanids="1692"/>
+      <InterfaceVlan mode="Access" portname="Ethernet96" vlanids="1693"/>
+      <InterfaceVlan mode="Access" portname="Ethernet104" vlanids="1694"/>
+      <InterfaceVlan mode="Access" portname="Ethernet112" vlanids="1695"/>
+      <InterfaceVlan mode="Access" portname="Ethernet120" vlanids="1696"/>
+      <InterfaceVlan mode="Access" portname="Ethernet128" vlanids="1697"/>
+      <InterfaceVlan mode="Access" portname="Ethernet136" vlanids="1698"/>
+      <InterfaceVlan mode="Access" portname="Ethernet144" vlanids="1699"/>
+      <InterfaceVlan mode="Access" portname="Ethernet152" vlanids="1700"/>
+      <InterfaceVlan mode="Access" portname="Ethernet160" vlanids="1701"/>
+      <InterfaceVlan mode="Access" portname="Ethernet168" vlanids="1702"/>
+      <InterfaceVlan mode="Access" portname="Ethernet176" vlanids="1703"/>
+      <InterfaceVlan mode="Access" portname="Ethernet184" vlanids="1704"/>
+      <InterfaceVlan mode="Access" portname="Ethernet192" vlanids="1705"/>
+      <InterfaceVlan mode="Access" portname="Ethernet208" vlanids="1706"/>
+      <InterfaceVlan mode="Access" portname="Ethernet216" vlanids="1707"/>
+      <InterfaceVlan mode="Access" portname="Ethernet224" vlanids="1708"/>
+      <InterfaceVlan mode="Access" portname="Ethernet232" vlanids="1709"/>
+      <InterfaceVlan mode="Access" portname="Ethernet240" vlanids="1710"/>
+      <InterfaceVlan mode="Access" portname="Ethernet248" vlanids="1711"/>
+      <InterfaceVlan mode="Access" portname="Ethernet256" vlanids="1712"/>	      
+      <InterfaceVlan mode="Trunk" portname="Ethernet200" vlanids="1681-1711"/>
+    </DevicesL2Info>
+  </DataPlaneGraph>
+  <ConsoleGraphDeclaration>
+    <DevicesConsoleInfo>
+      <DeviceConsoleInfo Hostname="sj20-136-XX35-1.5.352Blue" HwSku="Cisco" ManagementIp="172.27.145.53" Protocol="telnet" Type="ConsoleServer"/>
+    </DevicesConsoleInfo>
+    <ConsoleLinksInfo>
+      <ConsoleLinkInfo Console_type="telnet" EndDevice="cmono-t0-dut" Proxy="admin" StartDevice="sj20-136-XX35-1.5.352Blue" StartPort="2006"/>
+      <ConsoleLinkInfo Console_type="telnet" EndDevice="chu-fanout" Proxy="admin" StartDevice="sj20-136-XX35-1.5.352Blue" StartPort="2007"/>
+    </ConsoleLinksInfo>
+  </ConsoleGraphDeclaration>
+  <PowerControlGraphDeclaration>
+    <DevicesPowerControlInfo>
+      <DevicePowerControlInfo Hostname="sj20-136-aaa-12-pdu2" HwSku="Raritan" ManagementIp="172.27.145.119" Protocol="snmp" Type="Pdu"/>
+    </DevicesPowerControlInfo>
+    <PowerControlLinksInfo>
+      <PowerControlLinkInfo EndDevice="cmono-t0-dut" EndPort="PSU2" StartDevice="sj20-136-aaa-12-pdu2" StartPort="12"/>
+    </PowerControlLinksInfo>
+  </PowerControlGraphDeclaration>
+</LabConnectionGraph>

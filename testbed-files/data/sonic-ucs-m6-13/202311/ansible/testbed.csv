@@ -1,0 +1,3 @@
+# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_name,auto_recover,comment
+#cmono_t0,cmono_t0,t0,docker-ptf,ptf_ptf1,1.71.53.196/16,fc00::94/64,server_1,VM0100,cmono-t0-dut,lab,True,Churchill_Mono(8101-32FH-O)_T0_topology
+cmono_t0,cmono_t0,t0,docker-ptf,ptf_ptf1,1.71.53.196/16,fddd::1:71:53:196/64,server_1,VM0100,cmono-t0-dut,lab,True,Churchill_Mono(8101-32FH-O)_T0_topology

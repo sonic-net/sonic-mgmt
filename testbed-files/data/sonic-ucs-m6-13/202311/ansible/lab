@@ -1,0 +1,67 @@
+all:
+  children:
+    lab:
+      vars:
+        mgmt_subnet_mask_length: 16
+      children:
+        sonic:
+          children:
+            cmono_t0:
+        fanout:
+          hosts:
+            chu-fanout:
+              ansible_host: 1.71.53.194
+              ansible_ssh_user: cisco
+              ansible_ssh_pass: cisco123
+              hwsku: 32x400Gb
+              os: sonic
+        mgmt:
+          hosts:
+            console-1:
+              ansible_host: 172.27.145.53
+    ptf:
+      hosts:
+        ptf_ptf1:
+          ansible_host: 1.71.53.196
+          ansible_hostv6: fddd::1:71:53:196
+          ansible_ssh_user: root
+          ansible_ssh_pass: root
+
+    pdu_hosts:
+      hosts:
+        sj20-136-aaa-12-pdu2:
+          ansible_host: 172.27.145.119
+          ansible_ssh_user: admin
+          ansible_ssh_pass: roZes@123
+          protocol: snmp
+          snmp_rocommunity: public
+          snmp_rwcommunity: private
+
+cmono_t0:
+  vars:
+    hwsku: 32x400Gb
+    iface_speed: 400000
+    plt_reboot_dict:
+        platform_tests/sfp/test_sfputil.py:
+          timeout: 420
+          wait: 480
+  hosts:
+    cmono-t0-dut:
+      ansible_host: 1.71.53.195
+      ansible_hostv6: fddd::1:71:53:195
+      model: 8101-32FH-O
+      serial: FLM270607S5
+      base_mac: F4:EE:31:FB:A6:00
+      syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "477691"
+        "0x23": "FLM270607S5"
+        "0x24": "F4:EE:31:FB:A6:00"
+        "0x26": "2"
+        "0x28": "x86_64-8101_32fh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0xFE": "0xECF7628E"
+      skip_modules:
+          'psus':
+            - PSU0

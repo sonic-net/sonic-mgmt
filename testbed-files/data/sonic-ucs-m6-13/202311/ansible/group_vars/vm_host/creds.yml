@@ -1,0 +1,4 @@
+---
+ansible_user: sonic
+ansible_password: roZes@123
+ansible_become_password: roZes@123

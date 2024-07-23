@@ -1,0 +1,16 @@
+---
+
+- conf-name: cmono_t0
+  group-name: cmono_t0
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf_ptf1
+  ptf_ip: 1.71.53.196/16
+  ptf_ipv6: fddd::1:71:53:196/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - cmono-t0-dut
+  inv_name: lab
+  auto_recover: 'True'
+  comment: Churchill_Mono(8101-32FH-O)_T0_topology

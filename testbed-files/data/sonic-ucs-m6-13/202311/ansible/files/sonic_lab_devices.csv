@@ -1,0 +1,7 @@
+Hostname,ManagementIp,HwSku,Type,Protocol,Os
+sonic-ucs-m6-13,1.71.53.193,,blank,ssh,ubuntu
+chu-fanout,1.71.53.194,32x400Gb,fanout,ssh,sonic
+cmono-t0-dut,1.71.53.194,32x400Gb,DevSonic,ssh,sonic
+sj20-136-aaa-12-pdu2,172.27.145.119,Raritan,Pdu,snmp,ubuntu
+sj20-136-XX35-1.5.352Blue,172.27.145.53,Cisco,ConsoleServer,telnet,sonic
+
