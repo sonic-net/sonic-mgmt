@@ -47,6 +47,8 @@ def config_long_jump(duthost, enable=False):
 
 @pytest.fixture(scope="module")
 def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
+    if ptf_use_ipv6 and not ptfhost.mgmt_ipv6:
+        pytest.skip("No IPv6 address on PTF host")
     with _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6) as result:
         yield result
 
