@@ -241,7 +241,9 @@ steps:
 
     displayName: "Trigger test"
     env:
-      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
+      SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
+      ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
+      SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
 
   - task: AzureCLI@2
     inputs:
@@ -276,7 +278,9 @@ steps:
 
     displayName: "Lock testbed"
     env:
-      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
+      SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
+      ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
+      SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
 
   - task: AzureCLI@2
     inputs:
@@ -312,7 +316,9 @@ steps:
 
     displayName: "Prepare testbed"
     env:
-      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
+      SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
+      ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
+      SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
 
   - task: AzureCLI@2
     inputs:
@@ -348,7 +354,9 @@ steps:
     displayName: "Run test"
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     env:
-      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
+      SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
+      ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
+      SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
 
   - ${{ if eq(parameters.DUMP_KVM_IF_FAIL, 'True') }}:
       - task: AzureCLI@2
@@ -375,7 +383,9 @@ steps:
         condition: succeededOrFailed()
         displayName: "KVM dump"
         env:
-          ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
+          SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
+          ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
+          SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
 
   - task: AzureCLI@2
     inputs:
@@ -393,4 +403,6 @@ steps:
     condition: always()
     displayName: "Finalize running test plan"
     env:
-      ELASTICTEST_MSAL_CLIENT_SECRET: $(ELASTICTEST_MSAL_CLIENT_SECRET)
+      SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
+      ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
+      SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
