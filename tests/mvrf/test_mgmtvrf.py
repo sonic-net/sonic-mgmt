@@ -284,8 +284,21 @@ class TestReboot():
         reboot(duthost, localhost, reboot_type="warm")
         pytest_assert(wait_until(120, 20, 0, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
+
         # Change default critical services to check services that starts with bootOn timer
-        duthost.reset_critical_services_tracking_list(['snmp', 'telemetry', 'mgmt-framework'])
+        # In some images, we have gnmi container only
+        # In some images, we have telemetry container only
+        # And in some images, we have both gnmi and telemetry container
+        critical_services = ['snmp', 'mgmt-framework']
+        cmd = "docker ps | grep -w gnmi"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] != 0:
+            critical_services.append('gnmi')
+
+        cmd = "docker ps | grep -w telemetry"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] != 0:
+            critical_services.append('telemetry')
+        duthost.reset_critical_services_tracking_list(critical_services)
+
         pytest_assert(wait_until(180, 20, 0, duthost.critical_services_fully_started),
                       "Not all services which start with bootOn timer are fully started")
         self.basic_check_after_reboot(duthost, localhost, ptfhost, creds)
