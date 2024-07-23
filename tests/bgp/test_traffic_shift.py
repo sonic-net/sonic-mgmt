@@ -26,13 +26,6 @@ TS_INCONSISTENT = "System Mode: Not consistent"
 TS_NO_NEIGHBORS = "System Mode: No external neighbors"
 
 
-@pytest.fixture
-def traffic_shift_community(duthost):
-    community = duthost.shell('sonic-cfggen -y /etc/sonic/constants.yml -v constants.bgp.traffic_shift_community')[
-        'stdout']
-    return community
-
-
 @pytest.fixture(scope="module")
 def nbrhosts_to_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
