@@ -435,6 +435,7 @@ def rand_one_dut_front_end_hostname(request):
     logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
 
+
 @pytest.fixture(scope="module")
 def rand_one_tgen_dut_hostname(request, tbinfo, rand_one_dut_front_end_hostname, rand_one_dut_hostname):
     """
@@ -444,6 +445,7 @@ def rand_one_tgen_dut_hostname(request, tbinfo, rand_one_dut_front_end_hostname,
     if 't2' in tbinfo['topo']['name']:
         return rand_one_dut_front_end_hostname
     return rand_one_dut_hostname
+
 
 @pytest.fixture(scope="module")
 def rand_selected_front_end_dut(duthosts, rand_one_dut_front_end_hostname):
