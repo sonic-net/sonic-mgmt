@@ -291,11 +291,11 @@ class TestReboot():
         # And in some images, we have both gnmi and telemetry container
         critical_services = ['snmp', 'mgmt-framework']
         cmd = "docker ps | grep -w gnmi"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] != 0:
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
             critical_services.append('gnmi')
 
         cmd = "docker ps | grep -w telemetry"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] != 0:
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
             critical_services.append('telemetry')
         duthost.reset_critical_services_tracking_list(critical_services)
 
