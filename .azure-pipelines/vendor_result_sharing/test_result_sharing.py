@@ -408,8 +408,9 @@ def main(args):
     vendor_sharing_storage_connecter = AzureBlobConnecter(VENDOR_ACCOUNT_URL, vendor_sharing_token_credentials)
 
     # Connect to nightly test storage
-    nightly_test_storage_token = os.getenv("NIGHTLY_TEST_SAS_TOKEN")
-    nightly_test_storage_connecter = AzureBlobConnecter(NIGHTLY_TEST_ACCOUNT_URL, nightly_test_storage_token)
+    nightly_test_storage_token = os.getenv("NIGHTLY_TEST_TOKEN")
+    nightly_test_storage_credentials = AccessTokenCredential(nightly_test_storage_token)
+    nightly_test_storage_connecter = AzureBlobConnecter(NIGHTLY_TEST_ACCOUNT_URL, nightly_test_storage_credentials)
 
     # Connect to azure devops
     pat_for_dualtor_result = os.getenv("AZURE_DEVOPS_PAT_FOR_DUALTOR_RESULT")

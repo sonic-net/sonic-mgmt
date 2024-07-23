@@ -65,6 +65,12 @@ stages:
                   accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
                   export ACCESS_TOKEN=$accessToken
 
+                  accessTokenForVendor=$(az account get-access-token --resource https://sonicvendorresult.blob.core.windows.net/ --query accessToken -o tsv)
+                  export VENDOR_SHARING_TOKEN=$accessTokenForVendor
+
+                  accessTokenForNightly=$(az account get-access-token --resource https://sonicelastictestprodsa.blob.core.windows.net/ --query accessToken -o tsv)
+                  export NIGHTLY_TEST_TOKEN=$accessTokenForNightly
+
                   set -x
 
                   cd .azure-pipelines/vendor_result_sharing
@@ -74,6 +80,6 @@ stages:
 
               env:
                 TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-                VENDOR_SHARING_SAS_TOKEN: $(VENDOR_SHARING_SAS_TOKEN)
-                NIGHTLY_TEST_SAS_TOKEN: $(NIGHTLY_TEST_SAS_TOKEN)
+                VENDOR_SHARING_TOKEN: $(VENDOR_SHARING_TOKEN)
+                NIGHTLY_TEST_TOKEN: $(NIGHTLY_TEST_TOKEN)
                 AZURE_DEVOPS_PAT_FOR_DUALTOR_RESULT: $(MSSONIC-TOKEN)
