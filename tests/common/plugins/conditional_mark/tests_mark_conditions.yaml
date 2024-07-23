@@ -1140,6 +1140,12 @@ platform_tests/test_secure_upgrade.py:
     conditions:
       - "'sn2' in platform or 'sn3' in platform or 'sn4' in platform"
 
+platform_tests/test_service_warm_restart.py:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
+
 #######################################
 #####           qos               #####
 #######################################
