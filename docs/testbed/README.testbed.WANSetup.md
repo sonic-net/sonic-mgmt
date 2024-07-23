@@ -147,6 +147,7 @@ In order to configure the testbed on your host automatically, Ansible needs to b
 ## Deploy multiple devices topology
 Now we're finally ready to deploy the topology for our testbed! Run the following command:
 
+(Optional) The connectivity to the public internet is necessary during the setup, if the lab env of your organization requires http/https proxy server to reach out to the internet, you need to configure to use the proxy server. It will automatically be leveraged on required steps (e.g. Docker daemon config for image pulling, APT configuration for installing packages). You can configure it in [`ansible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
 
 ### cEOS
    ```
