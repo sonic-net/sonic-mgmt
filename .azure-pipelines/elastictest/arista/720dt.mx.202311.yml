@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 12 * * 0,2,4"
+  - cron: "0 12 * * 0-5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -94,7 +94,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 2160  # 36 hours
+    default: 1380  # 23 hours
 
 stages:
 - stage: Test
@@ -121,3 +121,5 @@ stages:
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}

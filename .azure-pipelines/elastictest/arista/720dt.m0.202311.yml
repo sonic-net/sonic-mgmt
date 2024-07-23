@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-720dt-1, testbed-bjw-can-720dt-3, testbed-str2-pikez-acs-1"
+    default: "testbed-bjw-can-720dt-1, testbed-bjw-can-720dt-3, testbed-bjw2-can-720dt-3"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -69,14 +69,9 @@ parameters:
     displayName: "Features to be executed"
 
   # Custom skip scripts
-  # For platform_tests/test_power_off_reboot.py
-  #  - Skip on testbed-bjw-can-720dt-1 due to the battery on DUT motherboard is dead. System time no longer sync with NTP server after power off.
-  #    This will impact the latter testcases.
-  #  - Skip on testbed-bjw-can-720dt-3 due to one of PSUs is broken.
-  #  - Skip on testbed-str2-pikez-acs-1 due to prototype hardware.
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "platform_tests/test_power_off_reboot.py"
+    default: " "
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -99,9 +94,6 @@ parameters:
   - name: AFFINITY
     type: string
     default: '[
-      {"name": "platform_tests/api/test_psu.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
-      {"name": "snmp/test_snmp_psu.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
-      {"name": "snmp/test_snmp_phy_entity.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]}
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 

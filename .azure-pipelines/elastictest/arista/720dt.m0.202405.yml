@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 12 * * 0,2,4"
+  - cron: "0 12 * * 0-5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw2-can-720dt-3, testbed-bjw2-can-720dt-4"
+    default: "testbed-bjw2-can-720dt-4, testbed-bjw2-can-720dt-5, testbed-bjw2-can-720dt-6"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -46,11 +46,11 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "2"
+    default: "3"
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_BRCM_ABOOT_202405)
+    default: $(IMAGE_BRCM_ABOOT_202405)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
