@@ -1087,6 +1087,12 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     conditions:
       - "asic_type in ['cisco-8000']"
 
+platform_tests/test_service_warm_restart.py:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
+
 #######################################
 #####           qos               #####
 #######################################
