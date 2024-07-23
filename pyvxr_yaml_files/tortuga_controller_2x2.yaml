@@ -69,10 +69,6 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
-        ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -111,10 +107,6 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
-        ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -153,10 +145,6 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
-        ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -195,10 +183,6 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
-        ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin

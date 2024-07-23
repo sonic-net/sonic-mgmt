@@ -140,8 +140,6 @@ devices:
     linecard_types: [churchill]
     vxr_sim_config:
         shelf:
-           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.13/npl
-           ConfigS1NpsuiteVer: 1.137.1
            ConfigCardPidOverride: 'HF6100-32D'
     linux_password: cisco123
     linux_username: cisco
@@ -182,8 +180,6 @@ devices:
     linecard_types: [churchill]
     vxr_sim_config:
         shelf:
-           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.13/npl
-           ConfigS1NpsuiteVer: 1.137.1
            ConfigCardPidOverride: 'HF6100-32D'
     linux_password: cisco123
     linux_username: cisco
@@ -224,8 +220,6 @@ devices:
     linecard_types: [churchill]
     vxr_sim_config:
         shelf:
-           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.13/npl
-           ConfigS1NpsuiteVer: 1.137.1
            ConfigCardPidOverride: 'HF6100-32D'
     linux_password: cisco123
     linux_username: cisco
@@ -266,8 +260,6 @@ devices:
     linecard_types: [churchill]
     vxr_sim_config:
         shelf:
-           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.13/npl
-           ConfigS1NpsuiteVer: 1.137.1
            ConfigCardPidOverride: 'HF6100-32D'
     linux_password: cisco123
     linux_username: cisco
