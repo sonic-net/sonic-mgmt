@@ -206,7 +206,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'mx'] and 't2' not in topo_type)"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
 
 copp/test_copp.py::TestCOPP::test_add_new_trap:
   skip:
@@ -1140,6 +1140,12 @@ platform_tests/test_secure_upgrade.py:
     conditions:
       - "'sn2' in platform or 'sn3' in platform or 'sn4' in platform"
 
+platform_tests/test_service_warm_restart.py:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
+
 #######################################
 #####           qos               #####
 #######################################
@@ -1561,12 +1567,6 @@ syslog/test_syslog_source_ip.py:
 #######################################
 #####         system_health       #####
 #######################################
-system_health/test_system_health.py::test_device_checker:
-  skip:
-    reason: "Temporary skip for Mellanox platforms"
-    conditions:
-      - "asic_type in ['mellanox']"
-
 system_health/test_system_health.py::test_service_checker_with_process_exit:
   xfail:
     strict: True
