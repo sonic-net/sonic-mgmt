@@ -3,7 +3,6 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-test_log_dir = "/home/admin/testlogs/"
 
 #
 # Helper func for print a set of lines
@@ -12,19 +11,22 @@ def print_lines(outlines):
     for line in outlines:
         logger.debug(line)
 
+
 #
 # Util functions for announce / withdraw routes from ptf docker.
 #
 def announce_route(ptfip, neighbor, route, nexthop, port):
     change_route("announce", ptfip, neighbor, route, nexthop, port)
 
+
 def withdraw_route(ptfip, neighbor, route, nexthop, port):
     change_route("withdraw", ptfip, neighbor, route, nexthop, port)
+
 
 def change_route(operation, ptfip, neighbor, route, nexthop, port):
     url = "http://%s:%d" % (ptfip, port)
     data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
-    r = requests.post(url, data = data)
+    r = requests.post(url, data=data)
     assert r.status_code == 200
 
 
@@ -61,7 +63,7 @@ def check_bgp_neighbors_func(nbrhost, neighbors, vrf=""):
                 pfxrcd = arr[9]
                 try: 
                     int(pfxrcd)
-                    found = found +1
+                    found = found + 1
                     logger.debug("{} ==> BGP neighbor is up and gets pfxrcd {}".format(line, pfxrcd))
                 except ValueError:
                     logger.debug("{} ==> BGP neighbor state {}, not up".format(line, pfxrcd))
@@ -71,7 +73,7 @@ def check_bgp_neighbors_func(nbrhost, neighbors, vrf=""):
 #
 # Checke BGP neighbors
 #
-def check_bgp_neighbors(nbrhost, neighbors, vrf = ""):
+def check_bgp_neighbors(nbrhost, neighbors, vrf=""):
     pytest_assert(check_bgp_neighbors_func(nbrhost, neighbors, vrf))
 
 
