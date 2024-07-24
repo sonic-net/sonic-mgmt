@@ -171,7 +171,12 @@ class ParseTestbedTopoinfo():
                             vmconfig[vm]['peer_ipv6'][dut_index] = ipv6_addr.upper()
                             vmconfig[vm]['ipv6mask'][dut_index] = ipv6_mask
                             vmconfig[vm]['ip_intf'][dut_index] = intf
-                # bgp
+
+                # Configuration is provided via cfg_file_loc, no need to go through the topo file
+                if "cfg_file_loc" in topo_definition['configuration'][vm]:
+                    continue
+
+                # bgp 
                 vmconfig[vm]['bgp_asn'] = topo_definition['configuration'][vm]['bgp']['asn']
                 dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
                 for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][dut_asn]:

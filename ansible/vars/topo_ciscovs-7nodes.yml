@@ -1,0 +1,218 @@
+topology:
+  host_interfaces:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+  disabled_host_interfaces:
+    - 0
+    - 25
+    - 26
+    - 27
+  VMs:
+    PE1:
+      vlans:
+        - 28
+      vm_offset: 0
+    PE2:
+      vlans:
+        - 29
+      vm_offset: 1
+    PE3:
+      vlans:
+        - 30
+      vm_offset: 2
+    P3:
+      vlans:
+        - 31
+      vm_offset: 3
+    P2:
+      vlans:
+        - 16
+      vm_offset: 4
+    P4:
+      vlans:
+        - 17
+      vm_offset: 5
+  VM_LINKs:
+    LINK1:
+      start_vm_offset: 0
+      start_vm_port_idx: 1
+      end_vm_offset: 3
+      end_vm_port_idx: 1
+    LINK2:
+      start_vm_offset: 1
+      start_vm_port_idx: 2
+      end_vm_offset: 3
+      end_vm_port_idx: 2
+    LINK3:
+      start_vm_offset: 3
+      start_vm_port_idx: 3
+      end_vm_offset: 4
+      end_vm_port_idx: 1
+    LINK4:
+      start_vm_offset: 3
+      start_vm_port_idx: 4
+      end_vm_offset: 5
+      end_vm_port_idx: 1 
+    LINK5:
+      start_vm_offset: 4
+      start_vm_port_idx: 2
+      end_vm_offset: 5
+      end_vm_port_idx: 2
+  OVS_LINKs:
+    OVS6:
+      vlans:
+        - 39
+      start_vm_offset: 4
+      start_vm_port_idx: 3
+      end_vm_offset: 2
+      end_vm_port_idx: 1
+    OVS7:
+      vlans:
+        - 40
+      start_vm_offset: 5
+      start_vm_port_idx: 3
+      end_vm_offset: 2
+      end_vm_port_idx: 3
+  DUT:
+    vlan_configs:
+      default_vlan_config: one_vlan_a
+      one_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 21, 22, 23, 24]
+          prefix: 192.168.0.1/21
+          prefix_v6: fc02:1000::1/64
+          tag: 1000
+      two_vlan_a:
+        Vlan100:
+          id: 100
+          intfs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+          prefix: 192.168.0.1/22
+          prefix_v6: fc02:100::1/64
+          tag: 100
+        Vlan200: 
+          id: 200
+          intfs: [13, 14, 15, 21, 22, 23, 24]
+          prefix: 192.168.4.1/22
+          prefix_v6: fc02:200::1/64
+          tag: 200
+      four_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: [1, 2, 3, 4, 5, 6]
+          prefix: 192.168.0.1/23
+          prefix_v6: fc02:400::1/64
+          tag: 1000
+        Vlan2000:
+          id: 2000
+          intfs: [7, 8, 9, 10, 11, 12]
+          prefix: 192.168.2.1/23
+          prefix_v6: fc02:401::1/64
+          tag: 2000
+        Vlan3000:
+          id: 3000
+          intfs: [13, 14, 15]
+          prefix: 192.168.4.1/23
+          prefix_v6: fc02:402::1/64
+          tag: 3000
+        Vlan4000:
+          id: 4000
+          intfs: [21, 22, 23, 24]
+          prefix: 192.168.6.1/23
+          prefix_v6: fc02:403::1/64
+          tag: 4000
+
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: ToRRouter
+    swrole: leaf
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 16
+    tor_subnet_size: 128
+    spine_asn: 65534
+    leaf_asn_start: 64600
+    tor_asn_start: 65500
+    failure_rate: 0
+
+dut_cfg_file_loc : ../tests/srv6/7nodes_cisco/P1.json
+
+configuration:
+  PE1:
+    cfg_file_loc : ../tests/srv6/7nodes_cisco/PE1.json
+    hwsku: cisco-8101-p4-32x100-vs
+    bgp:
+      asn: 64600
+    bp_interface:
+      ipv4: 10.10.246.29/24
+      ipv6: fc0a::29/64
+
+  PE2:
+    cfg_file_loc : ../tests/srv6/7nodes_cisco/PE2.json  
+    hwsku: cisco-8101-p4-32x100-vs
+    bgp:
+      asn: 64601
+    bp_interface:
+      ipv4: 10.10.246.30/24
+      ipv6: fc0a::30/64
+
+  PE3:
+    cfg_file_loc : ../tests/srv6/7nodes_cisco/PE3.json
+    hwsku: cisco-8101-p4-32x100-vs
+    bgp:
+      asn: 64602
+    bp_interface:
+      ipv4: 10.10.246.31/24
+      ipv6: fc0a::31/64
+
+  P3:
+    cfg_file_loc : ../tests/srv6/7nodes_cisco/P3.json
+    hwsku: cisco-8101-p4-32x100-vs
+    bgp:
+      asn: 65101
+    bp_interface:
+      ipv4: 10.10.246.32/24
+      ipv6: fc0a::20/64
+
+  P2:
+    cfg_file_loc : ../tests/srv6/7nodes_cisco/P2.json
+    hwsku: cisco-8101-p4-32x100-vs
+    bgp:
+      asn: 65102
+    bp_interface:
+      ipv4: 10.10.246.33/24
+      ipv6: fc0a::21/64
+
+  P4:
+    cfg_file_loc : ../tests/srv6/7nodes_cisco/P4.json
+    hwsku: cisco-8101-p4-32x100-vs
+    bgp:
+      asn: 65103
+    bp_interface:
+      ipv4: 10.10.246.34/24
+      ipv6: fc0a::22/64
