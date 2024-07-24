@@ -91,6 +91,8 @@ pdu-89,17,str3-acs-serv-62,PSU1
 pdu-88,17,str3-acs-serv-62,PSU2
 pdu-100,5,str3-8101-fanout-05,PSU1
 pdu-100,6,str3-8101-fanout-06,PSU1
+pdu-89,6,str3-8101-fanout-07,PSU1
+pdu-89,5,str3-8101-fanout-08,PSU1
 pdu-100,2,str3-8111-01,PSU1
 pdu-101,2,str3-8111-01,PSU2
 pdu-100,3,str3-8111-02,PSU1
@@ -163,3 +165,5 @@ pdu-98,20,str3-sn5600-1,PSU1
 pdu-99,20,str3-sn5600-1,PSU2
 pdu-98,22,str3-sn5600-fan-1,PSU1
 pdu-99,22,str3-sn5600-fan-1,PSU2
+pdu-92,8,str3-8102-07,PSU1
+pdu-93,8,str3-8102-07,PSU2

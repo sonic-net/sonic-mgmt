@@ -31,6 +31,8 @@ str3-8101-fanout-03,10.3.146.192/24,Cisco-8101-O8C48,FanoutLeaf,,
 str3-8101-fanout-04,10.3.146.219/24,Cisco-8101-C32,FanoutLeaf,,
 str3-8101-fanout-05,10.3.146.177/24,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-06,10.3.146.178/24,Cisco-8101-C64,FanoutLeaf,,
+str3-8101-fanout-07,10.3.146.186/23,32x400Gb,FanoutLeaf,,
+str3-8101-fanout-08,10.3.146.208/24,32x400Gb,FanoutLeaf,,
 str3-8101-fanout-10,10.64.247.59/23,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-11,10.64.247.60/23,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-12,10.64.247.61/23,Cisco-8101-C64,FanoutLeaf,,
@@ -123,3 +125,4 @@ str3-7060x6-64pe-2,10.64.246.4/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
 str3-7060x6-64pe-fan-2,10.64.246.8/23,Arista-7060X6-64PE-256x200G,FanoutLeafSonic,,sonic
 str3-sn5600-1,10.64.246.9/23,ACS-SN5600,DevSonic,,sonic
 str3-sn5600-fan-1,10.64.246.12/23,ACS-SN5600,FanoutLeafSonic,,sonic
+str3-8102-07,10.3.146.173/23,32x400Gb,DevSonic,,sonic
