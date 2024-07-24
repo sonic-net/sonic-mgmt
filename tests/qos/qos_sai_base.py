@@ -1091,7 +1091,7 @@ class QosSaiBase(QosBase):
                     # Map port IDs to system port for dnx chassis
                     if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                             get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
-                        sys_key = src_asic.namespace + '|' + iface
+                        sys_key = src_asic.namespace + '|' + iface if src_asic.namespace else iface
                         if sys_key in src_system_port:
                             system_port = src_system_port[sys_key]['system_port_id']
                             sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
@@ -1108,7 +1108,7 @@ class QosSaiBase(QosBase):
                     if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                             get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                         for portName in src_mgFacts["minigraph_portchannels"][iface]["members"]:
-                            sys_key = src_asic.namespace + '|' + portName
+                            sys_key = src_asic.namespace + '|' + portName if src_asic.namespace else portName
                             port_Index = src_mgFacts["minigraph_ptf_indices"][portName]
                             if sys_key in src_system_port:
                                 system_port = src_system_port[sys_key]['system_port_id']
@@ -1144,7 +1144,7 @@ class QosSaiBase(QosBase):
                         # Map port IDs to system port IDs
                         if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                                 get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
-                            sys_key = dst_asic.namespace + '|' + iface
+                            sys_key = dst_asic.namespace + '|' + iface if dst_asic.namespace else iface
                             if sys_key in dst_system_port:
                                 system_port = dst_system_port[sys_key]['system_port_id']
                                 sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
@@ -1161,7 +1161,7 @@ class QosSaiBase(QosBase):
                         if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                                 get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                             for portName in dst_mgFacts["minigraph_portchannels"][iface]["members"]:
-                                sys_key = dst_asic.namespace + '|' + portName
+                                sys_key = dst_asic.namespace + '|' + portName if dst_asic.namespace else portName
                                 port_Index = dst_mgFacts["minigraph_ptf_indices"][portName]
                                 if sys_key in dst_system_port:
                                     system_port = dst_system_port[sys_key]['system_port_id']
