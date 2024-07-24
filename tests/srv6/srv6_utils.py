@@ -1,26 +1,5 @@
-import os
-import ast
-import time
-import random
 import logging
-import pprint
-import pytest
 import requests
-import json
-import ipaddress
-
-import ptf
-import ptf.packet as packet
-import ptf.packet as scapy
-import ptf.testutils as testutils
-
-from ptf.testutils import simple_tcp_packet
-from ptf.testutils import send_packet
-from ptf.mask import Mask
-from collections import defaultdict
-
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -45,19 +24,21 @@ def withdraw_route(ptfip, neighbor, route, nexthop, port):
 def change_route(operation, ptfip, neighbor, route, nexthop, port):
     url = "http://%s:%d" % (ptfip, port)
     data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
-    r = requests.post(url, data=data)
+    r = requests.post(url, data = data)
     assert r.status_code == 200
+
 
 #
 # Skip some BGP neighbor check
 #
 def skip_bgp_neighbor_check(neighbor):
-    skip_addresses = ['2064:100::1d', '2064:200::1e','2064:300::1f']
+    skip_addresses = ['2064:100::1d', '2064:200::1e', '2064:300::1f']
     for addr in skip_addresses:
         if neighbor == addr:
             return True
     
     return False
+
 
 #
 # Helper func to check if a list of BGP neighbors are up
@@ -86,11 +67,13 @@ def check_bgp_neighbors_func(nbrhost, neighbors, vrf=""):
                     logger.debug("{} ==> BGP neighbor state {}, not up".format(line, pfxrcd))
     return len(neighbors) == found
 
+
 #
 # Checke BGP neighbors
 #
-def check_bgp_neighbors(nbrhost, neighbors, vrf=""):
+def check_bgp_neighbors(nbrhost, neighbors, vrf = ""):
     pytest_assert(check_bgp_neighbors_func(nbrhost, neighbors, vrf))
+
 
 #
 # Helper function to count number of Ethernet interfaces

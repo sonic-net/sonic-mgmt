@@ -210,6 +210,7 @@ def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
             (ptf_name + interface_name).encode("utf-8")).hexdigest()[0:HASH_LEN] + t_suffix
     return t_int_if
 
+
 class VMTopology(object):
 
     def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo):
@@ -484,7 +485,6 @@ class VMTopology(object):
 
     def add_injected_VM_ports_to_docker(self):
         for k, attr in self.OVS_LINKs.items():
-            br_name = "br_{}".format(k.lower())
             vlans = attr['vlans'][:]
             for vlan in vlans:
                 (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
@@ -885,16 +885,20 @@ class VMTopology(object):
         for k, attr in self.VM_LINKs.items():
             logging.info("Create VM links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
-            port1 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['start_vm_offset']], attr['start_vm_port_idx'])
-            port2 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['end_vm_offset']], attr['end_vm_port_idx'])
+            port1 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['start_vm_offset']], \
+                    attr['start_vm_port_idx'])
+            port2 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['end_vm_offset']], \
+                    attr['end_vm_port_idx'])
 
             self.bind_vm_link(br_name, port1, port2)
 
         for k, attr in self.OVS_LINKs.items():
             logging.info("Create OVS links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
-            port1 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['start_vm_offset']], attr['start_vm_port_idx'])
-            port2 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['end_vm_offset']], attr['end_vm_port_idx'])
+            port1 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['start_vm_offset']], \
+                    attr['start_vm_port_idx'])
+            port2 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['end_vm_offset']], \
+                    attr['end_vm_port_idx'])
             self.create_ovs_bridge(br_name, 9000)
             vlans = attr['vlans']
             for vlan in vlans:
@@ -927,8 +931,10 @@ class VMTopology(object):
         for k, attr in self.VM_LINKs.items():
             logging.info("Remove VM links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
-            port1 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['start_vm_offset']], attr['start_vm_port_idx'])
-            port2 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['end_vm_offset']], attr['end_vm_port_idx'])
+            port1 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['start_vm_offset']], \
+                    attr['start_vm_port_idx'])
+            port2 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['end_vm_offset']], \
+                    attr['end_vm_port_idx'])
             if "use_ovs" in attr and attr["use_ovs"] == 1:
                 self.unbind_ovs_port(br_name, port1)
                 self.unbind_ovs_port(br_name, port2)
@@ -939,8 +945,10 @@ class VMTopology(object):
         for k, attr in self.OVS_LINKs.items():
             logging.info("Remove OVS links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
-            port1 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['start_vm_offset']], attr['start_vm_port_idx'])
-            port2 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['end_vm_offset']], attr['end_vm_port_idx'])
+            port1 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['start_vm_offset']], \
+                    attr['start_vm_port_idx'])
+            port2 = OVS_FP_TAP_TEMPLATE % (self.vm_names[self.vm_base_index + attr['end_vm_offset']], \
+                    attr['end_vm_port_idx'])
             self.create_ovs_bridge(br_name, 9000)
             vlans = attr['vlans']
             for vlan in vlans:

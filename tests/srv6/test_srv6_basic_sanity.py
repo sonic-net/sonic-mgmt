@@ -1,26 +1,13 @@
-import os
-import ast
 import time
-import random
 import logging
-import pprint
 import pytest
-import requests
-import json
-import ipaddress
 
-import ptf
-import ptf.packet as packet
-import ptf.packet as scapy
-import ptf.testutils as testutils
-
-from ptf.testutils import simple_tcp_packet
-from ptf.testutils import send_packet
-from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
-from srv6_utils import *
+from srv6_utils import announce_route
+from srv6_utils import find_node_interfaces
+from srv6_utils import check_bgp_neighbors
 
 logger = logging.getLogger(__name__)
 
@@ -31,19 +18,17 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
-test_vm_names = [ "PE1", "PE2", "PE3", "P2", "P3", "P4"]
+test_vm_names = ["PE1", "PE2", "PE3", "P2", "P3", "P4"]
 
 # The number of routes published by each CE
 num_ce_routes = 10
+
+
 #
 # Initialize the testbed
 #
 def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
     logger.info("Announce routes from CEs")
-    """
-    Use exabgp to publish routes. ARISTA01T1 and ARISTA02T1 will get the same CE routes for dual homing.
-    ARISTA03T1 will get separated CE routes
-    """
     ptfip = ptfhost.mgmt_ip
     nexthop = "10.10.246.254"
     port_num = [5000, 5001, 5002]
@@ -60,7 +45,7 @@ def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
 
     # Publish to PE3
     neighbor = "10.10.246.31"
-    route_prefix_for_pe3="192.200.0"
+    route_prefix_for_pe3 = "192.200.0"
     for x in range(1, num_ce_routes+1):
         route = "{}.{}/32".format(route_prefix_for_pe3, x)
         announce_route(ptfip, neighbor, route, nexthop, port_num[2])
@@ -68,14 +53,17 @@ def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
     # sleep make sure all forwarding structures are settled down.
     sleep_duration_after_annournce = 60
     time.sleep(sleep_duration_after_annournce)
-    logger.info("Sleep {} seconds to make sure all forwarding structures are settled down".format(sleep_duration_after_annournce))
+    logger.info("Sleep {} seconds to make sure all forwarding structures are settled down"\
+            .format(sleep_duration_after_annournce))
+
 
 #
 # Testbed set up and tear down
 #
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope = "module", autouse = True)
 def srv6_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost):
     setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost)
+
 
 #
 # Test case: check number of Ethnernet interfaces
@@ -94,6 +82,7 @@ def test_interface_on_each_node(duthosts, rand_one_dut_hostname, nbrhosts):
     if hwsku == "cisco-8101-p4-32x100-vs":
         pytest_assert(num == 32)
 
+
 #
 # Test Case: Check BGP neighbors
 #
@@ -101,7 +90,8 @@ def test_check_bgp_neighbors(duthosts, rand_one_dut_hostname, nbrhosts):
     logger.info("Check BGP Neighbors")
     # From PE3
     nbrhost = nbrhosts["PE3"]['host']
-    pytest_assert(wait_until(60, 10, 0, check_bgp_neighbors_func, nbrhost, ['2064:100::1d', '2064:200::1e', 'fc06::2', 'fc08::2']), "wait for PE3 BGP neighbors up")
+    pytest_assert(wait_until(60, 10, 0, check_bgp_neighbors_func, nbrhost, \
+         ['2064:100::1d', '2064:200::1e', 'fc06::2', 'fc08::2']), "wait for PE3 BGP neighbors up")
     check_bgp_neighbors(nbrhost, ['10.10.246.254'], "Vrf1")
     # From PE1
     nbrhost = nbrhosts["PE1"]['host']
