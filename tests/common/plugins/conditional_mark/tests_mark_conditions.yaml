@@ -891,6 +891,21 @@ mvrf:
       - "topo_type in ['m0', 'mx']"
 
 #######################################
+#####            mx               #####
+#######################################
+mx/test_dhcp_server_internal_only.py:
+  skip:
+    reason: "Not support to run in release >= 202311"
+    conditions:
+      - "release not in ['202205', '202305']"
+
+mx/test_dhcp_server_init_internal_only.py:
+  skip:
+    reason: "Not support to run in release >= 202311"
+    conditions:
+      - "release not in ['202205', '202305']"
+
+#######################################
 #####           nat               #####
 #######################################
 nat:
