@@ -41,6 +41,8 @@ t0:
   - platform_tests/mellanox/test_reboot_cause.py
   # This script only supported on Mellanox
   - restapi/test_restapi.py
+  # Route flow counter is not supported on vs platform
+  - route/test_route_flow_counter.py
   - snmp/test_snmp_phy_entity.py
   # Remove from PR test in https://github.com/sonic-net/sonic-mgmt/pull/6073
   - cacl/test_ebtables_application.py
@@ -90,6 +92,8 @@ t1-lag:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  # Route flow counter is not supported on vs platform
+  - route/test_route_flow_counter.py
   - snmp/test_snmp_phy_entity.py
   # Remove from PR test in https://github.com/sonic-net/sonic-mgmt/pull/6073
   - cacl/test_ebtables_application.py
