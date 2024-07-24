@@ -1,4 +1,5 @@
 import ast
+import ipaddress
 import logging
 import json
 import six
@@ -359,31 +360,45 @@ class AsicDbCli(SonicDbCli):
             'tcp_flags': 'SAI_ACL_ENTRY_ATTR_FIELD_TCP_FLAGS',
             'packet_action': 'SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION',
             'src_ip': 'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP',
+            'src_ipv6': 'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IPV6',
             'dst_ip': 'SAI_ACL_ENTRY_ATTR_FIELD_DST_IP',
+            'dst_ipv6': 'SAI_ACL_ENTRY_ATTR_FIELD_DST_IPV6',
             'l4_src_port': 'SAI_ACL_ENTRY_ATTR_FIELD_L4_SRC_PORT',
             'l4_dst_port': 'SAI_ACL_ENTRY_ATTR_FIELD_L4_DST_PORT',
             'range_type': 'SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE'
         }
+
         # ACL_RANGE keys
         l4_src_port_range_key = 'SAI_ACL_RANGE_TYPE_L4_SRC_PORT_RANGE'
         l4_dst_port_range_key = 'SAI_ACL_RANGE_TYPE_L4_DST_PORT_RANGE'
         acl_range_attr_type_key = 'SAI_ACL_RANGE_ATTR_TYPE'
         acl_range_limit_key = 'SAI_ACL_RANGE_ATTR_LIMIT'
 
-        if self.acl_entries == []:
-            self.get_acl_entries()
-            if self.acl_entries == []:
-                return []
-
         q = {}
         for k, v in kwargs.items():
             if v is not None:
+                # reset key from src_ip -> src_ipv6, dst_ip -> dst_ipv6
+                # based on IP version
+                if k == 'src_ip' or k == 'dst_ip':
+                    ip_ver = ipaddress.ip_address(v).version
+                    logger.debug(f'k is {k} and ip_ver = {ip_ver}')
+                    if ip_ver == 6:
+                        if k == 'src_ip':
+                            q[key_to_field_name['src_ipv6']] = v
+                        if k == 'dst_ip':
+                            q[key_to_field_name['dst_ipv6']] = v
+                    else:
+                        q[key_to_field_name[k]] = v
+                    continue
                 q[key_to_field_name[k]] = v
 
         if not q:
             return []
 
-        logger.debug(f'ACL entries {self.acl_entries}')
+        self.get_acl_entries(refresh=True)
+        if self.acl_entries == []:
+            return []
+
         l4_port, l4_port_key = '', ''
         if key_to_field_name['range_type'] in q:
             if key_to_field_name['l4_src_port'] not in q and key_to_field_name['l4_dst_port'] not in q:
