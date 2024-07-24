@@ -1440,6 +1440,9 @@ class GeneralAnalyzer(BasicAnalyzer):
         fmt = '%Y-%m-%d %H:%M:%S'
         failed_df = case_branch_df[case_branch_df['Result'].isin(options)]
         latest_failure_timestamp_ori = None
+        oldest_failure_timestamp_ori = None
+        latest_failure_timestamp = None
+        oldest_failure_timestamp = None
         if failed_df.shape[0] != 0:
             latest_row = failed_df.iloc[0]
             logger.debug("{} latest failure row: {}".format(test_case_branch, latest_row))
@@ -1461,6 +1464,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                 latest_failure_timestr = latest_failure_timestamp.strftime(fmt)
                 # Get the oldest failure row
                 oldest_row = failed_df.iloc[-1]
+                logger.info("{} oldest_row: {}".format(test_case_branch, oldest_row))
                 oldest_failure_timestamp_ori = oldest_row['UploadTimestamp']
                 oldest_failure_timestamp = oldest_failure_timestamp_ori.to_pydatetime()
                 oldest_failure_timestr = oldest_failure_timestamp.strftime(fmt)
@@ -1470,6 +1474,8 @@ class GeneralAnalyzer(BasicAnalyzer):
                 logger.error("{} Failed to convert the timestamp to datetime: {} ".format(test_case_branch, e))
                 logger.error("{} latest_failure_timestamp_ori: {} latest_failure_timestamp: {}".format(
                     test_case_branch, latest_failure_timestamp_ori, latest_failure_timestamp))
+                logger.error("{} oldest_failure_timestamp_ori: {} oldest_failure_timestamp: {}".format(
+                    test_case_branch, oldest_failure_timestamp_ori, oldest_failure_timestamp))
 
         else:
             logger.error("Attention!!! There is no failure found case for {}.".format(test_case_branch))
@@ -1711,7 +1717,11 @@ class GeneralAnalyzer(BasicAnalyzer):
 
             fmt = '%Y-%m-%d %H:%M:%S'
             end_time = kusto_row_data['failure_level_info']['oldest_failure_timestamp']
-            end_time = datetime.strptime(end_time, fmt)
+            try:
+                end_time = datetime.strptime(end_time, fmt)
+            except ValueError as e:
+                logger.error("{} {} Failed to convert the timestamp: {} ".format(case_name, branch, e))
+                continue
             end_time_str = end_time.strftime(fmt)
             start_time = end_time - timedelta(days=7)
             start_time_str = start_time.strftime(fmt)
