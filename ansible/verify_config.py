@@ -11,6 +11,7 @@ from functools import lru_cache
 
 import yaml
 
+
 class Formatting(Enum):
     BOLD = "\033[1m"
     YELLOW = "\033[33m"
@@ -226,45 +227,116 @@ class TestbedValidator(Validator):
         for testbed in Utility.parse_yml(self.file):
             conf_name = testbed['conf-name']
 
-            self.assertion.assert_true(lambda: self._required_attributes_must_be_in_testbed(testbed),
-                                       reason=f"Required attributes must be in testbed '{Formatting.red(conf_name)}'")
-            self.assertion.assert_true(lambda: conf_name not in conf_name_check_unique,
-                                       reason=f"Config name conf_name='{Formatting.red(conf_name)}' must be unique")
-            self.assertion.assert_true(lambda: len(testbed['group-name']) <= 8,
-                                       reason=f"Group name '{Formatting.red(testbed['group-name'])}' must be up to 8 "
-                                              f"characters long. Actual length: {len(testbed['group-name'])}")
-            self.assertion.assert_true(lambda: self._group_name_must_have_same_attributes(group_name_check, testbed),
-                                       reason=f"Group name '{Formatting.red(testbed['group-name'])}' of "
-                                              f"'{Formatting.red(conf_name)}' does not have unique attributes", )
-            self.assertion.assert_true(lambda: testbed['topo'] in Utility.get_topo_from_var_files(),
-                                       reason=f"Topology name '{Formatting.red(testbed['topo'])}' is not "
-                                              f"declared in '{Config.TOPO_FILE_PATTERN}'")
-            self.assertion.assert_true(lambda: self._topo_name_must_be_in_veos_file(testbed),
-                                       reason=f"Topology name '{Formatting.red(testbed['topo'])}' is not "
-                                              f"declared in '{Config.VM_FILE}'")
-            self.assertion.assert_true(lambda: self._server_name_must_be_in_vm_file(testbed),
-                                       reason=f"Server name '{Formatting.red(testbed['server'])}' is not "
-                                              f"declared in '{Config.VM_FILE}'")
+            self.assertion.assert_true(
+                lambda: self._required_attributes_must_be_in_testbed(testbed),
+                reason=f"({Formatting.red(conf_name)}) Required attributes must be in testbed "
+            )
+
+            self.assertion.assert_true(
+                lambda: conf_name not in conf_name_check_unique,
+                reason=f"({Formatting.red(conf_name)}) Config name '{Formatting.red(conf_name)}' is not unique"
+            )
+
+            self.assertion.assert_true(
+                lambda: len(testbed['group-name']) <= 8,
+                reason=f"({Formatting.red(conf_name)}) Group name '{Formatting.red(testbed['group-name'])}' "
+                       "must be up to 8 "
+                       f"characters long. Actual length: {len(testbed['group-name'])}",
+            )
+
+            self.assertion.assert_true(
+                lambda: self._group_name_must_have_same_attributes(group_name_check, testbed),
+                reason=f"({Formatting.red(conf_name)}) Group name '{Formatting.red(testbed['group-name'])}' of "
+                       "does not have same attributes with other test bed of the same group",
+            )
+            self.assertion.assert_true(
+                lambda: testbed['topo'] in Utility.get_topo_from_var_files(),
+                reason=f"({Formatting.red(conf_name)}) Topology name '{Formatting.red(testbed['topo'])}' is "
+                       f"not declared in '{Config.TOPO_FILE_PATTERN}'",
+            )
+
+            self.assertion.assert_true(
+                lambda: self._topo_name_must_be_in_veos_file(testbed),
+                reason=f"({Formatting.red(conf_name)}) Topology name '{Formatting.red(testbed['topo'])}' "
+                       f"is not declared in '{Config.VM_FILE}'",
+            )
+
+            self.assertion.assert_true(
+                lambda: self._server_name_must_be_in_vm_file(testbed),
+                reason=f"({Formatting.red(conf_name)}) Server name '{Formatting.red(testbed['server'])}' is not "
+                       f"declared in '{Config.VM_FILE}'",
+            )
+
+            if 'inv_name' in testbed and testbed['inv_name']:
+                self.assertion.assert_true(
+                    lambda: self._ptf_information_must_aligns_with_inventory_file(testbed),
+                    reason=f"({Formatting.red(conf_name)}) Ptf '{Formatting.red(testbed['ptf'])}' information does not "
+                           f"align with its inventory file '{testbed['inv_name']}'",
+                )
+
             if testbed['vm_base']:
-                self.assertion.assert_true(lambda: Utility.get_num_vm(testbed['topo']) != 0,
-                                           reason=f"Topology '{Formatting.red(testbed['topo'])}' is not declared to "
-                                                  f"have VM in '{Config.TOPO_FILE_PATTERN}' but its VM base "
-                                                  f"specified as '{testbed['vm_base']}' in '"
-                                                  f"{Formatting.red(conf_name)}'")
+                self.assertion.assert_true(
+                    lambda: Utility.get_num_vm(testbed['topo']) != 0,
+                    reason=f"({Formatting.red(conf_name)}) Topology '{Formatting.red(testbed['topo'])}' "
+                           f"is not declared to have VM in '{Config.TOPO_FILE_PATTERN}' but its VM base "
+                           f"specified as '{testbed['vm_base']}'",
+                )
 
                 vm_range = VMRange(testbed['vm_base'], testbed['topo'])
                 self.assertion.assert_true(
                     lambda: self._vm_base_must_not_overlap(testbed, vm_range, conf_name_to_vm_range),
-                    reason=f"VM base of '{Formatting.red(conf_name)}' must not overlap with other testbed")
+                    reason=f"({Formatting.red(conf_name)}) VM base of '{Formatting.red(conf_name)}' "
+                           "must not overlap with other testbed"
+                )
                 conf_name_to_vm_range[conf_name] = vm_range
 
                 self.assertion.assert_true(
                     lambda: self._vm_base_must_be_in_the_correct_server(testbed),
-                    reason=f"VM base of '{Formatting.red(conf_name)}' must be in the correct server")
+                    reason=f"({Formatting.red(conf_name)}) VM base of '{Formatting.red(conf_name)}' "
+                           "must be in the correct server")
 
             conf_name_check_unique.add(conf_name)
             group_name_check[testbed['group-name']] = {"conf-name": conf_name, "ptf_ip": testbed["ptf_ip"],
                                                        "server": testbed["server"], "vm_base": testbed["vm_base"]}
+
+    def _ptf_information_must_aligns_with_inventory_file(self, testbed):
+        try:
+            ptfs_information_from_inv_file = Utility.parse_yml(testbed['inv_name'])['all']['children']['ptf']['hosts']
+
+            if testbed['ptf'] not in ptfs_information_from_inv_file:
+                self.assertion.add_error_details(
+                    f"Ptf '{Formatting.red(testbed['ptf'])}' is not declared in "
+                    f"inventory file 'ansible/{testbed['inv_name']}'",
+                )
+                return False
+
+            ip, _ = testbed['ptf_ip'].split("/")
+            ipv6, _ = testbed['ptf_ipv6'].split("/")
+
+            ptf_testbed_information = ptfs_information_from_inv_file[testbed['ptf']]
+            if ip != ptf_testbed_information['ansible_host']:
+                self.assertion.add_error_details(
+                    f"ptf_ip is not the same as its inventory file 'ansible/{testbed['inv_name']}' "
+                    f"{Formatting.red(ip)} != {ptf_testbed_information['ansible_host']}",
+                )
+                return False
+
+            if 'ansible_hostv6' in ptf_testbed_information and ipv6 != ptf_testbed_information['ansible_hostv6']:
+                self.assertion.add_error_details(
+                    f"ptf_ipv6 is not the same as its inventory file 'ansible/{testbed['inv_name']}' "
+                    f"{Formatting.red(ipv6)} != {ptf_testbed_information['ansible_hostv6']}",
+                )
+                return False
+
+            return True
+        except FileNotFoundError:
+            self.assertion.log_error(
+                f"('{Formatting.red(testbed['conf-name'])}') does not have a corresponding inventory file "
+                f"for '{Formatting.red(testbed['inv_name'])}' consider creating it in "
+                f"'{Formatting.bold('ansible/' + testbed['inv_name'])}'",
+                error_file=self.file,
+                error_type="error",
+            )
 
     def _vm_base_must_be_in_the_correct_server(self, testbed):
         vm_base = testbed['vm_base']
@@ -420,9 +492,9 @@ class FanoutLinkValidator(Validator):
     def validate(self):
         params = [
             {"name": "Link file", "file": Config.FANOUT_LINKS_FILE},
-            {"name": "Pdu link file", "file": Config.FANOUT_PDU_LINKS_FILE},
-            {"name": "Bmc link file", "file": Config.FANOUT_BMC_LINKS_FILE},
-            {"name": "Console link file", "file": Config.FANOUT_CONSOLE_LINKS_FILE}
+            {"name": "PDU link file", "file": Config.FANOUT_PDU_LINKS_FILE},
+            {"name": "BMC link file", "file": Config.FANOUT_BMC_LINKS_FILE},
+            {"name": "CONSOLE link file", "file": Config.FANOUT_CONSOLE_LINKS_FILE}
         ]
 
         for param in params:
