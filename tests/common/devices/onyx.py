@@ -309,3 +309,10 @@ class OnyxHost(AnsibleHostBase):
             is not supported or failed.
         """
         return self.fanout_helper.restore_drop_counter_config()
+
+    def is_lldp_disabled(self):
+        """
+        TODO: Add support
+        Return False always
+        """
+        return False

@@ -168,6 +168,13 @@ class AosHost(AnsibleHostBase):
                 parents='interface %s' % interface_name)
         return not self._has_cli_cmd_failed(out)
 
+    def is_lldp_disabled(self):
+        """
+        TODO: Add support
+        Return False always
+        """
+        return False
+
 
 def speed_gb_to_mb(speed):
     res = re.search(r'(\d+)(\w)', speed)

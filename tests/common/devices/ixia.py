@@ -57,3 +57,10 @@ class IxiaHost (AnsibleHostBase):
         """
         if (self.os == 'ixia'):
             eval(cmd)
+
+    def is_lldp_disabled(self):
+        """
+        TODO: Add support
+        Return False always
+        """
+        return False
