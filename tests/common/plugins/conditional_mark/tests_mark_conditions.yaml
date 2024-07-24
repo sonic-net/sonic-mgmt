@@ -1154,6 +1154,12 @@ platform_tests/test_service_warm_restart.py:
     conditions:
       - "asic_type not in ['mellanox'] or release in ['202205', '202305', 'internal']"
 
+platform_tests/test_service_warm_restart.py:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
+
 #######################################
 #####           qos               #####
 #######################################
