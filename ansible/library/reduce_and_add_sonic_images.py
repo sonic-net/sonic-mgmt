@@ -172,6 +172,11 @@ def install_new_sonic_image(module, new_image_url, save_as=None):
         avail = get_disk_free_size(module, "/host")
         save_as = "/host/downloaded-sonic-image" if avail >= 2000 else "/tmp/tmpfs/downloaded-sonic-image"
 
+    skip_package_migrate_param = ""
+    _, output, _ = exec_command(module, cmd="sonic_installer install --help", ignore_error=True)
+    if "skip-package-migration" in output:
+        skip_package_migrate_param = "--skip-package-migration"
+
     if save_as.startswith("/tmp/tmpfs"):
         log("Create a tmpfs partition to download image to install")
         exec_command(module, cmd="mkdir -p /tmp/tmpfs", ignore_error=True)
@@ -186,7 +191,7 @@ def install_new_sonic_image(module, new_image_url, save_as=None):
         log("Running sonic_installer to install image at {}".format(save_as))
         rc, out, err = exec_command(
             module,
-            cmd="sonic_installer install {} -y".format(save_as),
+            cmd="sonic_installer install {} {} -y".format(save_as, skip_package_migrate_param),
             msg="installing new image", ignore_error=True
         )
         log("Done running sonic_installer to install image")
@@ -205,8 +210,8 @@ def install_new_sonic_image(module, new_image_url, save_as=None):
         log("Running sonic_installer to install image at {}".format(save_as))
         rc, out, err = exec_command(
             module,
-            cmd="sonic_installer install {} -y".format(
-                save_as),
+            cmd="sonic_installer install {} {} -y".format(
+                save_as, skip_package_migrate_param),
             msg="installing new image", ignore_error=True
         )
         log("Always remove the downloaded temp image inside /host/ before proceeding")
