@@ -18,6 +18,7 @@ SUPPORTED_SPEEDS = [
     "100G", "200G", "400G", "800G", "1600G"
 ]
 
+
 @pytest.fixture(autouse=True)
 def is_supported_platform(duthost):
     if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
@@ -127,9 +128,10 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         fec_symbol_err = intf.get('fec_symbol_err', '').lower()
         # Check if fec_corr, fec_uncorr, and fec_symbol_err are valid integers
         try:
-            fec_corr_value = int(fec_corr)
-            fec_uncorr_value = int(fec_uncorr)
-            fec_symbol_err_value = int(fec_symbol_err)
+            int(fec_corr)
+            int(fec_uncorr)
+            int(fec_symbol_err)
         except ValueError:
-            pytest.fail("FEC stat counters are not valid integers for interface {}, fec_corr {} fec_uncorr {} fec_symbol_err {}"
+            pytest.fail("FEC stat counters are not valid integers for interface {}, \
+                        fec_corr {} fec_uncorr {} fec_symbol_err {}"
                         .format(intf_name, fec_corr, fec_uncorr, fec_symbol_err))
