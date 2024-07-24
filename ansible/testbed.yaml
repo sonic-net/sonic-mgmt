@@ -3007,3 +3007,17 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
+
+- conf-name: vms66-t1-8102-7
+  group-name: vms66-8
+  topo: t1-28-lag
+  ptf_image_name: docker-ptf
+  ptf: vms66-8
+  ptf_ip: 10.64.247.87/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f754/64
+  server: server_66
+  vm_base: VM66124
+  dut:
+  - str3-8102-07
+  inv_name: str3
+  auto_recover: 'True'

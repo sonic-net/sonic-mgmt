@@ -99,6 +99,9 @@ all:
         vms66-7:
           ansible_host: 10.64.247.85
           ansible_hostv6: 2a01:111:e210:b000::a40:f750
+        vms66-8:
+          ansible_host: 10.64.247.87
+          ansible_hostv6: 2a01:111:e210:b000::a40:f754
         vms68-1:
           ansible_host: 10.64.247.51
           ansible_hostv6: 2a01:111:e210:b000::a40:f733
@@ -275,6 +278,14 @@ fanout:
       ansible_host: 10.3.146.178
       ansible_hostv6: 2a01:111:e210:3000::a03:92b2
       os: sonic
+    str3-8101-fanout-07:
+      ansible_host: 10.3.146.186
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ba
+      os: sonic
+    str3-8101-fanout-08:
+      ansible_host: 10.3.146.208
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d0
+      os: sonic
     str3-8101-fanout-10:
       ansible_host: 10.64.247.59
       ansible_hostv6: 2a01:111:e210:b000::a40:f73b
@@ -329,6 +340,7 @@ sonic:
     mgmt_subnet_v6_mask_length: 64
   children:
     sonic_cisco_8102:
+    sonic_cisco_8102_smartswitch:
     sonic_cisco_8101:
     sonic_cisco_8101_C64:
     sonic_cisco_8101_O8C48:
@@ -497,6 +509,42 @@ sonic_cisco_8102:
         "0x2D": "Cisco"
         "0x2C": "US"
         "0xFE": "0xF77CC5D7"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+sonic_cisco_8102_smartswitch:
+  vars:
+    hwsku: 32x400Gb
+    iface_speed: 400000
+  hosts:
+    str3-8102-07:
+      ansible_host: 10.3.146.173
+      mgmt_subnet_mask_length: 24
+      model: 8102-28FH-DPU-O
+      serial: FLM274802ER
+      base_mac: 24:D5:E4:32:49:F0
+      syseeprom_info:
+        "0x21": "8102-28FH-DPU-O"
+        "0x22": "NO_ECI"
+        "0x23": "FLM274802ER"
+        "0x24": "24:D5:E4:32:49:F0"
+        "0x26": "0"
+        "0x28": "x86_64-8102_28fh_dpu_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2D": "Cisco"
+        "0x2C": "US"
+        "0xFE": "0x89C9B9EA"
       plt_reboot_dict:
         cold:
           timeout: 300
