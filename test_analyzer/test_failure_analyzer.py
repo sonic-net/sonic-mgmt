@@ -1445,7 +1445,6 @@ class GeneralAnalyzer(BasicAnalyzer):
         oldest_failure_timestamp = None
         if failed_df.shape[0] != 0:
             latest_row = failed_df.iloc[0]
-            logger.debug("{} latest failure row: {}".format(test_case_branch, latest_row))
             tb_results["latest_failure_testbed"] = latest_row['TestbedName']
             asic_results["latest_failure_asic"] = latest_row['AsicType']
             hwsku_results["latest_failure_hwsku"] = latest_row['HardwareSku']
@@ -1459,12 +1458,10 @@ class GeneralAnalyzer(BasicAnalyzer):
             oldest_failure_timestr = ''
             try:
                 latest_failure_timestamp_ori = latest_row['UploadTimestamp']
-                logger.info("{} latest_row: {}".format(test_case_branch, latest_row))
                 latest_failure_timestamp = latest_failure_timestamp_ori.to_pydatetime()
                 latest_failure_timestr = latest_failure_timestamp.strftime(fmt)
                 # Get the oldest failure row
                 oldest_row = failed_df.iloc[-1]
-                logger.info("{} oldest_row: {}".format(test_case_branch, oldest_row))
                 oldest_failure_timestamp_ori = oldest_row['UploadTimestamp']
                 oldest_failure_timestamp = oldest_failure_timestamp_ori.to_pydatetime()
                 oldest_failure_timestr = oldest_failure_timestamp.strftime(fmt)
@@ -1868,8 +1865,6 @@ class GeneralAnalyzer(BasicAnalyzer):
                                                                                          new_kusto_row_data_asic['failure_level_info']['asic'],
                                                                                          new_kusto_row_data_asic['subject']))
                 else:
-                    logger.debug("{} asic_case_df for asic {} is :{}".format(
-                        case_name_branch, asic, asic_case_df))
                     filter_success_rate_results = self.calculate_success_rate(
                         asic_case_df, 'HardwareSku', 'hwsku')
                     logger.debug("{} success rate after filtering by asic {}: {}".format(
