@@ -3,11 +3,11 @@ import csv
 import glob
 import logging
 import os
+import subprocess
 from abc import ABC, abstractmethod
 from collections import deque
 from enum import Enum
 from functools import lru_cache
-from typing import Callable, Deque, Dict, List, Set
 
 import yaml
 
@@ -20,19 +20,19 @@ class Formatting(Enum):
     RED = "\033[91m"
 
     @staticmethod
-    def bold(word: str):
+    def bold(word):
         return f"{Formatting.BOLD.value}{word}{Formatting.END.value}"
 
     @staticmethod
-    def yellow(word: str):
+    def yellow(word):
         return f"{Formatting.YELLOW.value}{word}{Formatting.END.value}"
 
     @staticmethod
-    def red(word: str):
+    def red(word):
         return f"{Formatting.RED.value}{word}{Formatting.END.value}"
 
     @staticmethod
-    def underline(word: str):
+    def underline(word):
         return f"{Formatting.UNDERLINE.value}{word}{Formatting.END.value}"
 
 
@@ -55,7 +55,7 @@ log.addHandler(handler)
 
 
 class VMRange:
-    def __init__(self, vm_base: str, topo_name: str):
+    def __init__(self, vm_base, topo_name):
         self.topo_name = topo_name
         self.start = self._parse_start(vm_base)
         self.end = self._parse_end(vm_base)
@@ -78,17 +78,20 @@ class Assertion:
         self.pass_validation = True
         self.error_details = deque()
 
-    def assert_true(self, fn: Callable[[], bool], reason: str):
+    def assert_true(self, fn, reason):
         if not fn():
             self.pass_validation = False
             self.log_error(reason, error_file=self.file, error_details=self.error_details)
 
-    def add_error_details(self, detail: str):
+    def add_error_details(self, detail):
         self.error_details.append(detail)
 
-    def log_error(self, reason: str, error_file: str, error_type='warning', error_details: Deque[str] = None):
-        getattr(log, error_type)(
-            f"{reason}. Error file: '{Formatting.yellow(error_file)}'." + (" Details:" if len(error_details) else ""))
+    def log_error(self, reason, error_file, error_type='warning', error_details=None):
+        getattr(log, error_type)("{}.{}{}".format(
+            reason,
+            "Error file: " + error_file if error_file else "",
+            "Details: " if error_details else "",
+        ))
         while error_details:
             log.info("\t- " + error_details.popleft())
 
@@ -109,43 +112,42 @@ class Config(Enum):
 class Utility:
     @staticmethod
     @lru_cache
-    def parse_yml(file: str):
+    def parse_yml(file):
         with open(file, "r") as stream:
             return yaml.safe_load(stream)
 
     @staticmethod
     @lru_cache
-    def parse_csv(file: str) -> List[Dict[str, str]]:
+    def get_devices_from_links_file(file):
+        devices = set()
+
         try:
             with open(file, "r") as stream:
-                return list(csv.DictReader(stream))
+                for row in csv.DictReader(stream):
+                    devices.add(row['StartDevice'])
+                    devices.add(row['EndDevice'])
         except FileNotFoundError:
-            return []
-
-    @staticmethod
-    @lru_cache
-    def get_devices_from_links_file(file: str) -> Set[str]:
-        devices = set()
-
-        for row in Utility.parse_csv(file):
-            devices.add(row['StartDevice'])
-            devices.add(row['EndDevice'])
+            log.error(f"Cannot find file {file} while getting devices information")
 
         return devices
 
     @staticmethod
     @lru_cache
-    def get_devices_from_devices_file(file: str) -> Set[str]:
+    def get_devices_from_devices_file(file):
         devices = set()
 
-        for row in Utility.parse_csv(file):
-            devices.add(row['Hostname'])
+        try:
+            with open(file, "r") as stream:
+                for row in csv.DictReader(stream):
+                    devices.add(row['Hostname'])
+        except FileNotFoundError:
+            log.error(f"Cannot find file {file} while getting devices information")
 
         return devices
 
     @staticmethod
     @lru_cache
-    def get_topo_from_var_files() -> Set[str]:
+    def get_topo_from_var_files():
         topo_name_set = set()
 
         for topo_file_path in glob.glob(os.path.abspath(Config.TOPO_FILE_PATTERN.value)):
@@ -157,7 +159,7 @@ class Utility:
 
     @staticmethod
     @lru_cache
-    def get_inv_name_from_file(link_file: str):
+    def get_inv_name_from_file(link_file):
         inv_name_set = set()
 
         for inv_file_path in glob.glob(os.path.abspath(link_file)):
@@ -170,7 +172,7 @@ class Utility:
 
     @staticmethod
     @lru_cache
-    def get_num_vm(topo_name: str) -> int:
+    def get_num_vm(topo_name) -> int:
         topology = Utility.parse_yml(Config.TOPO_FILE_PATTERN.value.replace("*", f"_{topo_name}"))
         if 'topology' not in topology or 'VMs' not in topology['topology']:
             return 0
@@ -179,7 +181,7 @@ class Utility:
 
 
 class Validator(ABC):
-    def __init__(self, validate_file):
+    def __init__(self, validate_file=None):
         self._file = validate_file
         self.assertion = Assertion(self.file)
 
@@ -188,13 +190,11 @@ class Validator(ABC):
         return self._file
 
     @file.setter
-    def file(self, file_name: str):
-        if not file_name:
-            return None
-
-        file_name = os.path.abspath(file_name)
-        self.assertion.file = file_name
-        return file_name
+    def file(self, file_name):
+        if file_name:
+            file_name = os.path.abspath(file_name)
+            self.assertion.file = file_name
+            self._file = file_name
 
     @abstractmethod
     def validate(self):
@@ -206,11 +206,11 @@ class DockerRegistryValidator(Validator):
         super().__init__(Config.DOCKER_REGISTRY_FILE.value)
 
     def validate(self):
-        var: Dict[str, str] = Utility.parse_yml(self.file)
-        self.assertion.assert_true(lambda: self._assertion_fn(var),
+        var = Utility.parse_yml(self.file)
+        self.assertion.assert_true(lambda: self._is_docker_registry_host_defined(var),
                                    reason=f"Key '{Formatting.red('docker_registry_host')}' must be defined")
 
-    def _assertion_fn(self, var: Dict[str, str]):
+    def _is_docker_registry_host_defined(self, var):
         required_key = 'docker_registry_host'
         return required_key in var and var[required_key] is not None
 
@@ -222,7 +222,7 @@ class TestbedValidator(Validator):
     def validate(self):
         conf_name_check_unique = set()
         group_name_check = {}
-        conf_name_to_vm_range: Dict[str, VMRange] = {}
+        conf_name_to_vm_range = {}
 
         for testbed in Utility.parse_yml(self.file):
             conf_name = testbed['conf-name']
@@ -234,9 +234,9 @@ class TestbedValidator(Validator):
             self.assertion.assert_true(lambda: len(testbed['group-name']) <= 8,
                                        reason=f"Group name '{Formatting.red(testbed['group-name'])}' must be up to 8 "
                                               f"characters long. Actual length: {len(testbed['group-name'])}")
-            self.assertion.assert_true(lambda: self._group_name_must_have_unique_attributes(group_name_check, testbed),
+            self.assertion.assert_true(lambda: self._group_name_must_have_same_attributes(group_name_check, testbed),
                                        reason=f"Group name '{Formatting.red(testbed['group-name'])}' of "
-                                              f"'{Formatting.red(conf_name)}' does not have unique attributes")
+                                              f"'{Formatting.red(conf_name)}' does not have unique attributes",)
             self.assertion.assert_true(lambda: testbed['topo'] in Utility.get_topo_from_var_files(),
                                        reason=f"Topology name '{Formatting.red(testbed['topo'])}' is not "
                                               f"declared in '{Config.TOPO_FILE_PATTERN.value}'")
@@ -249,7 +249,7 @@ class TestbedValidator(Validator):
 
             if testbed['vm_base']:
                 self.assertion.assert_true(lambda: Utility.get_num_vm(testbed['topo']) != 0,
-                                           reason=f"Topology '{Formatting.red(testbed['topo'])}' does not declared to "
+                                           reason=f"Topology '{Formatting.red(testbed['topo'])}' is not declared to "
                                                   f"have VM in '{Config.TOPO_FILE_PATTERN.value}' but its VM base "
                                                   f"specified as '{testbed['vm_base']}' in '"
                                                   f"{Formatting.red(conf_name)}'")
@@ -264,7 +264,7 @@ class TestbedValidator(Validator):
             group_name_check[testbed['group-name']] = {"conf-name": conf_name, "ptf_ip": testbed["ptf_ip"],
                                                        "server": testbed["server"], "vm_base": testbed["vm_base"]}
 
-    def _vm_base_must_not_overlap(self, testbed, vm_range: VMRange, conf_name_to_vm_range):
+    def _vm_base_must_not_overlap(self, testbed, vm_range, conf_name_to_vm_range):
         is_valid = True
 
         for conf_name in conf_name_to_vm_range:
@@ -278,7 +278,7 @@ class TestbedValidator(Validator):
 
         return is_valid
 
-    def _group_name_must_have_unique_attributes(self, group_name_check, testbed) -> bool:
+    def _group_name_must_have_same_attributes(self, group_name_check, testbed):
         unique_attributes = ["ptf_ip", "server", "vm_base"]
         is_valid = True
 
@@ -298,7 +298,7 @@ class TestbedValidator(Validator):
 
         return is_valid
 
-    def _server_name_must_be_in_veos_file(self, testbed) -> bool:
+    def _server_name_must_be_in_veos_file(self, testbed):
         try:
             return (testbed['server'] in
                     Utility.parse_yml(Config.VEOS_FILE.value)['all']['children']['servers']['children'])
@@ -307,10 +307,10 @@ class TestbedValidator(Validator):
             self.assertion.log_error(
                 "veos file is not in the correct format. Update the file or update this script",
                 error_file=Config.VEOS_FILE.value,
-                error_type="error"
+                error_type="error",
             )
 
-    def _topo_name_must_be_in_veos_file(self, testbed) -> bool:
+    def _topo_name_must_be_in_veos_file(self, testbed):
         try:
             return testbed['topo'] in Utility.parse_yml(Config.VEOS_FILE.value)['all']['children']['servers']['vars'][
                 'topologies']
@@ -319,10 +319,10 @@ class TestbedValidator(Validator):
             self.assertion.log_error(
                 "veos file is not in the correct format. Update the file or update this script",
                 error_file=Config.VEOS_FILE.value,
-                error_type="error"
+                error_type="error",
             )
 
-    def _required_attributes_must_be_in_testbed(self, testbed: Dict['str', 'str']) -> bool:
+    def _required_attributes_must_be_in_testbed(self, testbed) -> bool:
         is_valid = True
         required_attributes = {
             "conf-name",
@@ -353,19 +353,19 @@ class InventoryNameValidator(Validator):
 
     def validate(self):
         self.assertion.assert_true(lambda: self._inv_name_from_devices_files_must_be_the_same_as_graph_group_yml_file(),
-                                   reason="Inventory name must be consistence between "
+                                   reason="Inventory name must be consistent between "
                                           f"{Formatting.bold(Config.FANOUT_GRAPH_GROUP_FILE.value)} and "
                                           f"{Formatting.bold(Config.FANOUT_DEVICES_FILE.value)}")
         self.assertion.assert_true(lambda: self._check_if_inv_name_has_inv_file(),
                                    reason="Inventory should have an inventory file")
 
     def _inv_name_from_devices_files_must_be_the_same_as_graph_group_yml_file(self):
-        inv_name_from_devices_files: Set[str] = Utility.get_inv_name_from_file(Config.FANOUT_DEVICES_FILE.value)
-        inv_name_from_graph_group_yml_file: Set[str] = set(Utility.parse_yml(self.file))
+        inv_name_from_devices_files = Utility.get_inv_name_from_file(Config.FANOUT_DEVICES_FILE.value)
+        inv_name_from_graph_group_yml_file = set(Utility.parse_yml(self.file))
 
         differences = inv_name_from_devices_files ^ inv_name_from_graph_group_yml_file
 
-        if len(differences) != 0:
+        if differences:
             self.assertion.add_error_details(
                 "These are the group names that are not consistent between the 2 files: "
                 f"{Formatting.red(', '.join(differences))}")
@@ -375,7 +375,7 @@ class InventoryNameValidator(Validator):
 
     def _check_if_inv_name_has_inv_file(self):
         is_valid = True
-        inv_name_from_graph_group_yml_file: Set[str] = set(Utility.parse_yml(Config.FANOUT_GRAPH_GROUP_FILE.value))
+        inv_name_from_graph_group_yml_file = set(Utility.parse_yml(Config.FANOUT_GRAPH_GROUP_FILE.value))
         inv_files = set([f for f in os.listdir('.') if os.path.isfile(f)])
 
         for inv_name in inv_name_from_graph_group_yml_file:
@@ -390,7 +390,7 @@ class InventoryNameValidator(Validator):
 
 class FanoutLinkValidator(Validator):
     def __init__(self):
-        super().__init__(None)
+        super().__init__()
 
     def validate(self):
         params = [
@@ -407,15 +407,15 @@ class FanoutLinkValidator(Validator):
             self.assertion.assert_true(lambda: self._devices_in_links_file_should_be_in_devices_file(param),
                                        reason=f"{param['name']} devices does not exist in its devices file")
 
-    def _links_file_should_have_equivalent_devices_file(self, param: Dict[str, str]):
-        inv_name_from_links_files: Set[str] = Utility.get_inv_name_from_file(param["file"])
-        inv_name_from_devices_files: Set[str] = Utility.get_inv_name_from_file(Config.FANOUT_DEVICES_FILE.value)
+    def _links_file_should_have_equivalent_devices_file(self, param):
+        inv_name_from_links_files = Utility.get_inv_name_from_file(param["file"])
+        inv_name_from_devices_files = Utility.get_inv_name_from_file(Config.FANOUT_DEVICES_FILE.value)
 
-        differences = inv_name_from_links_files - inv_name_from_devices_files
+        differences = inv_name_from_links_files ^ inv_name_from_devices_files
 
-        if len(differences) != 0:
+        if differences:
             self.assertion.add_error_details(
-                f"These are the group names that does not have devices file: {Formatting.red(', '.join(differences))}. "
+                f"These are the group names that do not have devices file: {Formatting.red(', '.join(differences))}. "
                 "Consider creating "
                 f"[{', '.join(Formatting.bold(f'files/sonic_{group_name}_devices.csv') for group_name in differences)}]"
             )
@@ -423,9 +423,9 @@ class FanoutLinkValidator(Validator):
 
         return True
 
-    def _devices_in_links_file_should_be_in_devices_file(self, param: Dict[str, str]):
+    def _devices_in_links_file_should_be_in_devices_file(self, param):
         is_valid = True
-        inv_name_from_links_files: Set[str] = Utility.get_inv_name_from_file(param["file"])
+        inv_name_from_links_files = Utility.get_inv_name_from_file(param["file"])
 
         for group_name in inv_name_from_links_files:
             device_file = Config.FANOUT_DEVICES_FILE.value.replace("*", group_name)
@@ -435,7 +435,7 @@ class FanoutLinkValidator(Validator):
 
             differences = devices_from_links_file - devices_from_devices_file
 
-            if len(differences) != 0:
+            if differences:
                 self.assertion.add_error_details(
                     "These are the devices that are in "
                     f"{Formatting.yellow(param['file'].replace('*', group_name))} "
@@ -446,12 +446,26 @@ class FanoutLinkValidator(Validator):
         return is_valid
 
 
+class NetworkValidation(Validator):
+    def __init__(self):
+        super().__init__()
+
+    def validate(self):
+        self.assertion.assert_true(lambda: self._check_if_bridge_is_up(),
+                                   reason=f"Interface 'br1' is not up. Consider running "
+                                          f"'{Formatting.yellow('./setup-management-network.sh')}'")
+
+    def _check_if_bridge_is_up(self):
+        return subprocess.run(["ifconfig", "br1"], stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode == 0
+
+
 def main(args):
-    validators: List[Validator] = [
+    validators = [
         DockerRegistryValidator(),
         TestbedValidator(),
         InventoryNameValidator(),
-        FanoutLinkValidator()
+        FanoutLinkValidator(),
+        NetworkValidation()
     ]
 
     for validator in validators:
