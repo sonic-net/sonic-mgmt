@@ -1,4 +1,5 @@
 import logging
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
@@ -9,14 +10,14 @@ from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.common_helpers import config_wred, \
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging, \
     config_capture_pkt, traffic_flow_mode, calc_pfc_pause_flow_rate
-from tests.common.snappi_tests.read_pcap import get_ip_pkts
+from tests.common.snappi_tests.read_pcap import get_ipv4_pkts
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows, \
     generate_pause_flows, run_traffic
 
 logger = logging.getLogger(__name__)
 
-EXP_DURATION_SEC = 1
-DATA_START_DELAY_SEC = 0.1
+EXP_DURATION_SEC = 2.1
+DATA_START_DELAY_SEC = 1
 PAUSE_FLOW_NAME = 'Pause Storm'
 DATA_FLOW_NAME = 'Data Flow'
 
@@ -76,6 +77,9 @@ def run_ecn_test(api,
                                                          alpha_log2=3)
 
     pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
+
+    logger.info("Waiting on ECN and dynamic buffer configuration to take effect. Sleeping for 10 seconds.")
+    time.sleep(10)
 
     # Get the ID of the port to test
     port_id = get_dut_port_id(dut_hostname=duthost.hostname,
@@ -158,6 +162,6 @@ def run_ecn_test(api,
                     exp_dur_sec=EXP_DURATION_SEC,
                     snappi_extra_params=snappi_extra_params)
 
-        result.append(get_ip_pkts(snappi_extra_params.packet_capture_file + ".pcapng"))
+        result.append(get_ipv4_pkts(snappi_extra_params.packet_capture_file + ".pcapng"))
 
     return result

@@ -54,6 +54,12 @@ def pytest_addoption(parser):
         help="The vxlan udp dst port used in the test"
     )
 
+    parser.addoption(
+        "--skip_cert_cleanup",
+        action="store_true",
+        help="Skip certificates cleanup after test"
+    )
+
 
 @pytest.fixture(scope="module")
 def config_only(request):
@@ -73,6 +79,11 @@ def skip_cleanup(request):
 @pytest.fixture(scope="module")
 def skip_dataplane_checking(request):
     return request.config.getoption("--skip_dataplane_checking")
+
+
+@pytest.fixture(scope="module")
+def skip_cert_cleanup(request):
+    return request.config.getoption("--skip_cert_cleanup")
 
 
 @pytest.fixture(scope="module")
@@ -255,7 +266,7 @@ def apply_direct_configs(dash_outbound_configs, apply_config):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, skip_cert_cleanup):
     if not ENABLE_GNMI_API:
         yield
         return
@@ -264,7 +275,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     generate_gnmi_cert(localhost, duthost)
     apply_gnmi_cert(duthost, ptfhost)
     yield
-    recover_gnmi_cert(localhost, duthost)
+    recover_gnmi_cert(localhost, duthost, skip_cert_cleanup)
 
 
 @pytest.fixture(scope="function")
