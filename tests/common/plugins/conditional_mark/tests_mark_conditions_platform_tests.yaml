@@ -849,7 +849,7 @@ platform_tests/test_reboot.py::test_cold_reboot:
 
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
-    reason: "Skip test_fast_reboot for m0/mx"
+    reason: "Skip test_fast_reboot for m0/mx/t1/t2"
     conditions:
       - "topo_type in ['m0', 'mx', 't1', 't2']"
   xfail:
@@ -871,7 +871,7 @@ platform_tests/test_reboot.py::test_soft_reboot:
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip test_warm_reboot for m0/mx"
+    reason: "Skip test_warm_reboot for m0/mx/t1/t2"
     conditions:
       - "topo_type in ['m0', 'mx', 't1', 't2']"
   xfail:
@@ -923,15 +923,6 @@ platform_tests/test_sensors.py::test_sensors:
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
-
-#######################################
-##### test_service_warm_restart.py ####
-#######################################
-platform_tests/test_service_warm_restart.py:
-  skip:
-    reason: "Skip test_service_warm_restart on mellanox platform"
-    conditions:
-      - "asic_type in ['mellanox']"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####
