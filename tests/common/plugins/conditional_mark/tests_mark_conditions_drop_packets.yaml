@@ -8,6 +8,7 @@ drop_packets/test_configurable_drop_counters.py::test_dip_link_local:
     reason: "Some mlx platforms does not drop DIP link local packets"
     conditions:
       - "'Mellanox' in hwsku"
+      - asic_type=="cisco-8000"
 
 drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
   skip:
