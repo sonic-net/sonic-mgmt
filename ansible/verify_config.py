@@ -11,7 +11,6 @@ from functools import lru_cache
 
 import yaml
 
-
 class Formatting(Enum):
     BOLD = "\033[1m"
     YELLOW = "\033[33m"
@@ -87,20 +86,20 @@ class Assertion:
         self.error_details.append(detail)
 
     def log_error(self, reason, error_file, error_type='warning', error_details=None):
-        getattr(log, error_type)("{}.{}{}".format(
+        getattr(log, error_type)("{}{}{}".format(
             reason,
-            "Error file: " + error_file if error_file else "",
-            "Details: " if error_details else "",
+            ". Error file: " + error_file if error_file else "",
+            ". Details: " if error_details else "",
         ))
         while error_details:
             log.info("\t- " + error_details.popleft())
 
 
-class Config(Enum):
+class Config:
     DOCKER_REGISTRY_FILE = "vars/docker_registry.yml"
     TESTBED_FILE = "testbed.yaml"
     TOPO_FILE_PATTERN = "vars/topo*.yml"
-    VEOS_FILE = "veos"
+    VM_FILE = "veos"
     FANOUT_LINKS_FILE = "files/sonic_*_links.csv"
     FANOUT_DEVICES_FILE = "files/sonic_*_devices.csv"
     FANOUT_BMC_LINKS_FILE = "files/sonic_*_bmc_links.csv"
@@ -150,7 +149,7 @@ class Utility:
     def get_topo_from_var_files():
         topo_name_set = set()
 
-        for topo_file_path in glob.glob(os.path.abspath(Config.TOPO_FILE_PATTERN.value)):
+        for topo_file_path in glob.glob(os.path.abspath(Config.TOPO_FILE_PATTERN)):
             file_name, _ = os.path.basename(topo_file_path).split(".")
             topo_name = file_name[len("topo_"):]
             topo_name_set.add(topo_name)
@@ -172,8 +171,8 @@ class Utility:
 
     @staticmethod
     @lru_cache
-    def get_num_vm(topo_name) -> int:
-        topology = Utility.parse_yml(Config.TOPO_FILE_PATTERN.value.replace("*", f"_{topo_name}"))
+    def get_num_vm(topo_name):
+        topology = Utility.parse_yml(Config.TOPO_FILE_PATTERN.replace("*", f"_{topo_name}"))
         if 'topology' not in topology or 'VMs' not in topology['topology']:
             return 0
 
@@ -203,7 +202,7 @@ class Validator(ABC):
 
 class DockerRegistryValidator(Validator):
     def __init__(self):
-        super().__init__(Config.DOCKER_REGISTRY_FILE.value)
+        super().__init__(Config.DOCKER_REGISTRY_FILE)
 
     def validate(self):
         var = Utility.parse_yml(self.file)
@@ -217,7 +216,7 @@ class DockerRegistryValidator(Validator):
 
 class TestbedValidator(Validator):
     def __init__(self):
-        super().__init__(Config.TESTBED_FILE.value)
+        super().__init__(Config.TESTBED_FILE)
 
     def validate(self):
         conf_name_check_unique = set()
@@ -236,33 +235,60 @@ class TestbedValidator(Validator):
                                               f"characters long. Actual length: {len(testbed['group-name'])}")
             self.assertion.assert_true(lambda: self._group_name_must_have_same_attributes(group_name_check, testbed),
                                        reason=f"Group name '{Formatting.red(testbed['group-name'])}' of "
-                                              f"'{Formatting.red(conf_name)}' does not have unique attributes",)
+                                              f"'{Formatting.red(conf_name)}' does not have unique attributes", )
             self.assertion.assert_true(lambda: testbed['topo'] in Utility.get_topo_from_var_files(),
                                        reason=f"Topology name '{Formatting.red(testbed['topo'])}' is not "
-                                              f"declared in '{Config.TOPO_FILE_PATTERN.value}'")
+                                              f"declared in '{Config.TOPO_FILE_PATTERN}'")
             self.assertion.assert_true(lambda: self._topo_name_must_be_in_veos_file(testbed),
                                        reason=f"Topology name '{Formatting.red(testbed['topo'])}' is not "
-                                              f"declared in '{Config.VEOS_FILE.value}'")
-            self.assertion.assert_true(lambda: self._server_name_must_be_in_veos_file(testbed),
+                                              f"declared in '{Config.VM_FILE}'")
+            self.assertion.assert_true(lambda: self._server_name_must_be_in_vm_file(testbed),
                                        reason=f"Server name '{Formatting.red(testbed['server'])}' is not "
-                                              f"declared in '{Config.VEOS_FILE.value}'")
-
+                                              f"declared in '{Config.VM_FILE}'")
             if testbed['vm_base']:
                 self.assertion.assert_true(lambda: Utility.get_num_vm(testbed['topo']) != 0,
                                            reason=f"Topology '{Formatting.red(testbed['topo'])}' is not declared to "
-                                                  f"have VM in '{Config.TOPO_FILE_PATTERN.value}' but its VM base "
+                                                  f"have VM in '{Config.TOPO_FILE_PATTERN}' but its VM base "
                                                   f"specified as '{testbed['vm_base']}' in '"
                                                   f"{Formatting.red(conf_name)}'")
 
                 vm_range = VMRange(testbed['vm_base'], testbed['topo'])
                 self.assertion.assert_true(
                     lambda: self._vm_base_must_not_overlap(testbed, vm_range, conf_name_to_vm_range),
-                    reason=f"VM base '{Formatting.red(conf_name)}' must not overlap with other testbed")
+                    reason=f"VM base of '{Formatting.red(conf_name)}' must not overlap with other testbed")
                 conf_name_to_vm_range[conf_name] = vm_range
+
+                self.assertion.assert_true(
+                    lambda: self._vm_base_must_be_in_the_correct_server(testbed),
+                    reason=f"VM base of '{Formatting.red(conf_name)}' must be in the correct server")
 
             conf_name_check_unique.add(conf_name)
             group_name_check[testbed['group-name']] = {"conf-name": conf_name, "ptf_ip": testbed["ptf_ip"],
                                                        "server": testbed["server"], "vm_base": testbed["vm_base"]}
+
+    def _vm_base_must_be_in_the_correct_server(self, testbed):
+        vm_base = testbed['vm_base']
+        server = testbed['server']
+
+        veos_configuration = Utility.parse_yml(Config.VM_FILE)
+
+        if server not in veos_configuration:
+            self.assertion.add_error_details(
+                f"Server '{Formatting.red(server)}' is not in file '{Config.VM_FILE}'",
+            )
+            return False
+
+        vms_server = next(filter(
+            lambda config: config.startswith("vms"), veos_configuration[server]['children']),
+        )
+
+        if vm_base not in veos_configuration[vms_server]['hosts']:
+            self.assertion.add_error_details(
+                f"VM base '{Formatting.red(vm_base)}' is not in server '{server}' from file '{Config.VM_FILE}'",
+            )
+            return False
+
+        return True
 
     def _vm_base_must_not_overlap(self, testbed, vm_range, conf_name_to_vm_range):
         is_valid = True
@@ -298,31 +324,30 @@ class TestbedValidator(Validator):
 
         return is_valid
 
-    def _server_name_must_be_in_veos_file(self, testbed):
+    def _server_name_must_be_in_vm_file(self, testbed):
         try:
-            return (testbed['server'] in
-                    Utility.parse_yml(Config.VEOS_FILE.value)['all']['children']['servers']['children'])
+            return testbed['server'] in Utility.parse_yml(Config.VM_FILE)['all']['children']['servers']['children']
         except KeyError as unknown_key:
             self.assertion.add_error_details(f"Key not found: {unknown_key}")
             self.assertion.log_error(
                 "veos file is not in the correct format. Update the file or update this script",
-                error_file=Config.VEOS_FILE.value,
+                error_file=Config.VM_FILE,
                 error_type="error",
             )
 
     def _topo_name_must_be_in_veos_file(self, testbed):
         try:
-            return testbed['topo'] in Utility.parse_yml(Config.VEOS_FILE.value)['all']['children']['servers']['vars'][
-                'topologies']
+            topologies_from_file = Utility.parse_yml(Config.VM_FILE)['all']['children']['servers']['vars']['topologies']
+            return testbed['topo'] in topologies_from_file
         except KeyError as unknown_key:
             self.assertion.add_error_details(f"Key not found: {unknown_key}")
             self.assertion.log_error(
-                "veos file is not in the correct format. Update the file or update this script",
-                error_file=Config.VEOS_FILE.value,
+                "vm file is not in the correct format. Update the file or update this script",
+                error_file=Config.VM_FILE,
                 error_type="error",
             )
 
-    def _required_attributes_must_be_in_testbed(self, testbed) -> bool:
+    def _required_attributes_must_be_in_testbed(self, testbed):
         is_valid = True
         required_attributes = {
             "conf-name",
@@ -349,18 +374,18 @@ class TestbedValidator(Validator):
 
 class InventoryNameValidator(Validator):
     def __init__(self):
-        super().__init__(Config.FANOUT_GRAPH_GROUP_FILE.value)
+        super().__init__(Config.FANOUT_GRAPH_GROUP_FILE)
 
     def validate(self):
         self.assertion.assert_true(lambda: self._inv_name_from_devices_files_must_be_the_same_as_graph_group_yml_file(),
                                    reason="Inventory name must be consistent between "
-                                          f"{Formatting.bold(Config.FANOUT_GRAPH_GROUP_FILE.value)} and "
-                                          f"{Formatting.bold(Config.FANOUT_DEVICES_FILE.value)}")
+                                          f"{Formatting.bold(Config.FANOUT_GRAPH_GROUP_FILE)} and "
+                                          f"{Formatting.bold(Config.FANOUT_DEVICES_FILE)}")
         self.assertion.assert_true(lambda: self._check_if_inv_name_has_inv_file(),
                                    reason="Inventory should have an inventory file")
 
     def _inv_name_from_devices_files_must_be_the_same_as_graph_group_yml_file(self):
-        inv_name_from_devices_files = Utility.get_inv_name_from_file(Config.FANOUT_DEVICES_FILE.value)
+        inv_name_from_devices_files = Utility.get_inv_name_from_file(Config.FANOUT_DEVICES_FILE)
         inv_name_from_graph_group_yml_file = set(Utility.parse_yml(self.file))
 
         differences = inv_name_from_devices_files ^ inv_name_from_graph_group_yml_file
@@ -375,7 +400,7 @@ class InventoryNameValidator(Validator):
 
     def _check_if_inv_name_has_inv_file(self):
         is_valid = True
-        inv_name_from_graph_group_yml_file = set(Utility.parse_yml(Config.FANOUT_GRAPH_GROUP_FILE.value))
+        inv_name_from_graph_group_yml_file = set(Utility.parse_yml(Config.FANOUT_GRAPH_GROUP_FILE))
         inv_files = set([f for f in os.listdir('.') if os.path.isfile(f)])
 
         for inv_name in inv_name_from_graph_group_yml_file:
@@ -383,7 +408,7 @@ class InventoryNameValidator(Validator):
                 is_valid = False
                 self.assertion.add_error_details(
                     f"'{Formatting.red(inv_name)}' is declared in "
-                    f"{Formatting.bold(Config.FANOUT_GRAPH_GROUP_FILE.value)}"
+                    f"{Formatting.bold(Config.FANOUT_GRAPH_GROUP_FILE)}"
                     f"but does not have inventory file. Consider creating '{Formatting.bold('ansible/' + inv_name)}'")
         return is_valid
 
@@ -394,10 +419,10 @@ class FanoutLinkValidator(Validator):
 
     def validate(self):
         params = [
-            {"name": "Link file", "file": Config.FANOUT_LINKS_FILE.value},
-            {"name": "Pdu link file", "file": Config.FANOUT_PDU_LINKS_FILE.value},
-            {"name": "Bmc link file", "file": Config.FANOUT_BMC_LINKS_FILE.value},
-            {"name": "Console link file", "file": Config.FANOUT_CONSOLE_LINKS_FILE.value}
+            {"name": "Link file", "file": Config.FANOUT_LINKS_FILE},
+            {"name": "Pdu link file", "file": Config.FANOUT_PDU_LINKS_FILE},
+            {"name": "Bmc link file", "file": Config.FANOUT_BMC_LINKS_FILE},
+            {"name": "Console link file", "file": Config.FANOUT_CONSOLE_LINKS_FILE}
         ]
 
         for param in params:
@@ -409,13 +434,13 @@ class FanoutLinkValidator(Validator):
 
     def _links_file_should_have_equivalent_devices_file(self, param):
         inv_name_from_links_files = Utility.get_inv_name_from_file(param["file"])
-        inv_name_from_devices_files = Utility.get_inv_name_from_file(Config.FANOUT_DEVICES_FILE.value)
+        inv_name_from_devices_files = Utility.get_inv_name_from_file(Config.FANOUT_DEVICES_FILE)
 
         differences = inv_name_from_links_files ^ inv_name_from_devices_files
 
         if differences:
             self.assertion.add_error_details(
-                f"These are the group names that do not have devices file: {Formatting.red(', '.join(differences))}. "
+                f"These are the group names that do not have devices file: [{Formatting.red(', '.join(differences))}]. "
                 "Consider creating "
                 f"[{', '.join(Formatting.bold(f'files/sonic_{group_name}_devices.csv') for group_name in differences)}]"
             )
@@ -428,7 +453,7 @@ class FanoutLinkValidator(Validator):
         inv_name_from_links_files = Utility.get_inv_name_from_file(param["file"])
 
         for group_name in inv_name_from_links_files:
-            device_file = Config.FANOUT_DEVICES_FILE.value.replace("*", group_name)
+            device_file = Config.FANOUT_DEVICES_FILE.replace("*", group_name)
             link_file = param['file'].replace("*", group_name)
             devices_from_links_file = Utility.get_devices_from_links_file(link_file)
             devices_from_devices_file = Utility.get_devices_from_devices_file(device_file)
@@ -439,7 +464,7 @@ class FanoutLinkValidator(Validator):
                 self.assertion.add_error_details(
                     "These are the devices that are in "
                     f"{Formatting.yellow(param['file'].replace('*', group_name))} "
-                    f"but not in devices file: {Formatting.red(', '.join(differences))}. "
+                    f"but not in devices file: [{Formatting.red(', '.join(differences))}]. "
                     f"Consider adding in {Formatting.bold(device_file)}")
                 is_valid = False
 
@@ -460,6 +485,12 @@ class NetworkValidation(Validator):
 
 
 def main(args):
+    if args.testbed_file:
+        Config.TESTBED_FILE = args.testbed_file
+
+    if args.vm_file:
+        Config.VM_FILE = args.vm_file
+
     validators = [
         DockerRegistryValidator(),
         TestbedValidator(),
@@ -477,4 +508,17 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Verify if configuration files are valid")
+
+    parser.add_argument('-t', '--testbed-file',
+                        type=str,
+                        dest='testbed_file',
+                        required=False,
+                        help='Testbed file. Only yaml format testbed file is supported.')
+
+    parser.add_argument('-m', '--vm-file',
+                        type=str,
+                        dest='vm_file',
+                        required=False,
+                        help='VM files, typically it is the `veos` file')
+
     main(parser.parse_args())
