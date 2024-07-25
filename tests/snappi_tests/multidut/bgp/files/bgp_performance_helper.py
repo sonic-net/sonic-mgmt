@@ -1,14 +1,16 @@
 import logging
 import json
-
+from ixnetwork_restpy import SessionAssistant
+from ixnetwork_restpy.testplatform.testplatform import TestPlatform
+from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
 from tabulate import tabulate
 from statistics import mean
 from tests.common.utilities import (wait, wait_until)  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert  # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import create_ip_list  # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import create_ip_list, snappi_api_serv_ip  # noqa: F401
 from tests.snappi_tests.variables import T2_SNAPPI_AS_NUM, T2_DUT_AS_NUM, t2_ports, \
      v4_prefix_length, v6_prefix_length, AS_PATHS, t2_dut_ipv4_list, t2_dut_ipv6_list, \
-     t2_snappi_ipv4_list, t2_snappi_ipv6_list, BGP_TYPE, TIMEOUT  # noqa: F401
+     t2_snappi_ipv4_list, t2_snappi_ipv6_list, BGP_TYPE, TIMEOUT, router_ids  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -21,20 +23,22 @@ def run_bgp_route_install_test(api,
                                traffic_type,
                                snappi_extra_params):
     """
-    Run Local link failover test
+    Run BGP route install test test
 
     Args:
         api (pytest fixture): snappi API
+        duthosts: Duthosts fixture
         traffic_type : IPv4 or IPv6 traffic choice
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
 
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
     iteration = snappi_extra_params.iteration
+    rx_port_count = snappi_extra_params.rx_port_count
 
     """ Create bgp config on dut """
     duthost_bgp_config(duthosts,
@@ -45,51 +49,17 @@ def run_bgp_route_install_test(api,
         snappi_bgp_config = __snappi_bgp_config(api,
                                                 snappi_ports,
                                                 traffic_type,
-                                                route_range)
+                                                route_range,
+                                                rx_port_count)
 
         get_route_install_time(api,
+                               duthosts,
+                               snappi_ports,
                                snappi_bgp_config,
                                iteration,
                                traffic_type,
-                               route_range)
-
-
-def run_bgp_route_delete_test(api,
-                              duthosts,
-                              traffic_type,
-                              snappi_extra_params):
-    """
-    Run Local link failover test
-
-    Args:
-        api (pytest fixture): snappi API
-        traffic_type : IPv4 or IPv6 traffic choice
-        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
-    """
-
-    if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
-
-    route_ranges = snappi_extra_params.ROUTE_RANGES
-    snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
-    iteration = snappi_extra_params.iteration
-
-    """ Create bgp config on dut """
-    duthost_bgp_config(duthosts,
-                       snappi_ports)
-
-    """ Create snappi config """
-    for route_range in route_ranges:
-        snappi_bgp_config = __snappi_bgp_config(api,
-                                                snappi_ports,
-                                                traffic_type,
-                                                route_range)
-
-        get_route_delete_time(api,
-                              snappi_bgp_config,
-                              iteration,
-                              traffic_type,
-                              route_range)
+                               route_range,
+                               rx_port_count)
 
 
 def duthost_bgp_config(duthosts,
@@ -102,30 +72,11 @@ def duthost_bgp_config(duthosts,
         snappi_ports (pytest fixture): Ports mapping info of T0 testbed
     """
 
-    for index, port in enumerate(t2_ports):
-        for duthost in duthosts:
-            if duthost.hostname == port['hostname']:
-                duthost.shell('sudo config interface ip add Loopback0 1::1/124')
-                if port['asic_value'] is None:
-                    intf_config = (
-                        "sudo config interface ip add %s %s/%s\n"
-                        "sudo config interface ip add %s %s/%s\n"
-                    )
-                    intf_config %= (port['port_name'], t2_dut_ipv4_list[index], v4_prefix_length,
-                                    port['port_name'], t2_dut_ipv6_list[index], v6_prefix_length)
-                else:
-                    intf_config = (
-                        "sudo config interface -n %s ip add %s %s/%s\n"
-                        "sudo config interface -n %s ip add %s %s/%s\n"
-                    )
-                    intf_config %= (port['asic_value'], port['port_name'], t2_dut_ipv4_list[index], v4_prefix_length,
-                                    port['asic_value'], port['port_name'], t2_dut_ipv6_list[index], v6_prefix_length)
-                duthost.shell(intf_config)
-
-                logger.info('Configuring IPs {} / {} on {} in {}'.
-                            format(t2_dut_ipv4_list[index],
-                                   t2_dut_ipv4_list[index], port['port_name'], port['hostname']))
-                duthost.shell('sudo config save -y \n')
+    interfaces = dict()
+    loopback_interfaces = dict()
+    loopback_interfaces.update({"Loopback0": {}})
+    loopback_interfaces.update({"Loopback0|1.1.1.1/32": {}})
+    loopback_interfaces.update({"Loopback0|1::1/128": {}})
 
     logger.info('Dut AS Number: {}'.format(T2_DUT_AS_NUM))
     logger.info('Snappi AS Number: {}'.format(T2_SNAPPI_AS_NUM))
@@ -136,24 +87,31 @@ def duthost_bgp_config(duthosts,
             device_neighbors = {}
             device_neighbor_metadatas = {}
             if duthost.hostname == port['hostname']:
-                device_neighbor = \
-                                {
+                interface_name = {port['port_name']: {}}
+                v4_interface = {f"{port['port_name']}|{t2_dut_ipv4_list[index]}/{v4_prefix_length}": {}}
+                v6_interface = {f"{port['port_name']}|{t2_dut_ipv6_list[index]}/{v6_prefix_length}": {}}
+                interfaces.update(interface_name)
+                interfaces.update(v4_interface)
+                interfaces.update(v6_interface)
+                logger.info('Configuring IPs {}/{} , {}/{} on {} in {}'.
+                            format(t2_dut_ipv4_list[index], v4_prefix_length,
+                                   t2_dut_ipv6_list[index], v6_prefix_length, port['port_name'], duthost.hostname))
+                device_neighbor = {
                                     port['port_name']:
-                                        {
-                                            "name": "snappi_port"+str(index),
-                                            "port": port['port_name'],
-                                        },
+                                    {
+                                        "name": "snappi_port"+str(index),
+                                        "port": port['port_name'],
+                                    },
                                 }
                 device_neighbors.update(device_neighbor)
-                device_neighbor_metadata = \
-                    {
-                        "snappi_port"+str(index):
-                            {
-                                "hwsku": "Ixia",
-                                "mgmt_addr": t2_snappi_ipv4_list[index],
-                                "type": "AZNGHub"
-                            },
-                    }
+                device_neighbor_metadata = {
+                                                "snappi_port"+str(index):
+                                                {
+                                                    "hwsku": "Ixia",
+                                                    "mgmt_addr": t2_snappi_ipv4_list[index],
+                                                    "type": "AZNGHub"
+                                                },
+                                            }
                 bgp_neighbor = {
                                     t2_snappi_ipv4_list[index]:
                                     {
@@ -188,6 +146,20 @@ def duthost_bgp_config(duthosts,
                     config_db_data = json.loads(duthost.shell("sonic-cfggen -d -n {} --print-data".
                                                 format(port['asic_value']))['stdout'])
 
+                    if "INTERFACE" not in config_db_data.keys():
+                        config_db_data["INTERFACE"] = interfaces
+                        sup_config_db_data["INTERFACE"] = interfaces
+                    else:
+                        config_db_data["INTERFACE"].update(interfaces)
+                        sup_config_db_data["INTERFACE"].update(interfaces)
+
+                    if "LOOPBACK_INTERFACE" not in config_db_data.keys():
+                        config_db_data["LOOPBACK_INTERFACE"] = loopback_interfaces
+                        sup_config_db_data["LOOPBACK_INTERFACE"] = loopback_interfaces
+                    else:
+                        config_db_data["LOOPBACK_INTERFACE"].update(loopback_interfaces)
+                        sup_config_db_data["LOOPBACK_INTERFACE"].update(loopback_interfaces)
+
                     if "DEVICE_NEIGHBOR" not in config_db_data.keys():
                         config_db_data["DEVICE_NEIGHBOR"] = device_neighbors
                         sup_config_db_data["DEVICE_NEIGHBOR"] = device_neighbors
@@ -216,6 +188,16 @@ def duthost_bgp_config(duthosts,
                 else:
                     config_db_name = 'config_db.json'
                     config_db_data = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+                    if "INTERFACE" not in config_db_data.keys():
+                        config_db_data["INTERFACE"] = interfaces
+                    else:
+                        config_db_data["INTERFACE"].update(interfaces)
+
+                    if "LOOPBACK_INTERFACE" not in config_db_data.keys():
+                        config_db_data["LOOPBACK_INTERFACE"] = loopback_interfaces
+                    else:
+                        config_db_data["LOOPBACK_INTERFACE"].update(loopback_interfaces)
+
                     if "DEVICE_NEIGHBOR" not in config_db_data.keys():
                         config_db_data["DEVICE_NEIGHBOR"] = device_neighbors
                     else:
@@ -234,49 +216,18 @@ def duthost_bgp_config(duthosts,
                 with open("/tmp/temp_config.json", 'w') as fp:
                     json.dump(config_db_data, fp, indent=4)
                 duthost.copy(src="/tmp/temp_config.json", dest="/etc/sonic/%s" % config_db_name)
-                duthost.shell("sudo config reload -f -y \n")
-
-    for duthost in duthosts:
-        for index, port in enumerate(t2_ports):
-            if duthost.hostname == port['hostname']:
-                if port['asic_value'] is not None:
-                    route_map_config = (
-                        "vtysh -n %s"
-                        "-c 'configure terminal' "
-                        "-c 'route-map RM_SET_SRC6 permit 10' "
-                        "-c 'on-match next' "
-                        "-c 'set ipv6 next-hop prefer-global' "
-                        "-c 'exit' "
-                        "-c 'ip nht resolve-via-default' "
-                        "-c 'ipv6 nht resolve-via-default' "
-                        "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
-                        "-c 'exit' "
-                    )
-                    route_map_config %= (
-                                            port['asic_value'][-1]
-                                        )
-                    duthost.shell(route_map_config)
-                else:
-                    route_map_config = (
-                        "vtysh -n"
-                        "-c 'configure terminal' "
-                        "-c 'route-map RM_SET_SRC6 permit 10' "
-                        "-c 'on-match next' "
-                        "-c 'set ipv6 next-hop prefer-global' "
-                        "-c 'exit' "
-                        "-c 'ip nht resolve-via-default' "
-                        "-c 'ipv6 nht resolve-via-default' "
-                        "-c 'ipv6 protocol bgp route-map RM_SET_SRC6' "
-                        "-c 'exit' "
-                    )
-                duthost.shell(route_map_config)
-                logger.info('Applying RM_SET_SRC6 route map in {}'.format(duthost.hostname))
+                # duthost.shell("sudo config reload -f -y \n")
+                pytest_assert('Error' not in duthost.shell("sudo config reload -f -y \n")['stderr'],
+                              'Error while reloading config in {} !!!!!'.format(duthost.hostname))
+        duthost.shell("sudo config reload -f -y \n")
+    wait(120, "For configs to be loaded on the duts")
 
 
 def __snappi_bgp_config(api,
                         snappi_ports,
                         traffic_type,
-                        route_range):
+                        route_range,
+                        rx_port_count):
     """
     Creating  BGP config on TGEN
 
@@ -292,7 +243,6 @@ def __snappi_bgp_config(api,
     total_routes = 0
     ipv4_src, ipv6_src = [], []
     ipv4_dest, ipv6_dest = [], []
-
     snappi_test_ports = []
     conv_config = api.convergence_config()
     config = conv_config.config
@@ -306,9 +256,12 @@ def __snappi_bgp_config(api,
     for index, snappi_test_port in enumerate(snappi_test_ports):
         snappi_test_port['name'] = 'Test_Port_%d' % index
         config.ports.port(name='Test_Port_%d' % index, location=snappi_test_port['location'])
-
-    line_rate = int(100 * int(int(snappi_test_ports[0]['speed'].split('_')[1]) /
-                    (len(t2_ports)-1)) / int(snappi_test_ports[0]['speed'].split('_')[1]))
+    sum_of_rx_speed = rx_port_count * int(snappi_test_ports[0]['speed'].split('_')[1])
+    port_speed = int(snappi_test_ports[0]['speed'].split('_')[1])
+    tx_ports = len(t2_ports) - rx_port_count
+    line_rate = int(100 * ((sum_of_rx_speed/tx_ports) / port_speed))
+    if line_rate > 100:
+        line_rate = 100
     config.options.port_options.location_preemption = True
     layer1 = config.layer1.layer1()[-1]
     layer1.name = 'port settings'
@@ -326,7 +279,7 @@ def __snappi_bgp_config(api,
             m = hex(index+1).split('0x')[1]
 
         device = config.devices.device(name="Device {}".format(index))[-1]
-        if index == 0:
+        if index in range(0, rx_port_count):
             eth = device.ethernets.add()
             eth.port_name = port['name']
             eth.name = 'Ethernet_%d' % index
@@ -343,7 +296,7 @@ def __snappi_bgp_config(api,
             ipv6.prefix = v6_prefix_length
 
             bgpv4 = device.bgp
-            bgpv4.router_id = t2_snappi_ipv4_list[index]
+            bgpv4.router_id = router_ids[index]
             bgpv4_int = bgpv4.ipv4_interfaces.add()
             bgpv4_int.ipv4_name = ipv4.name
             bgpv4_peer = bgpv4_int.peers.add()
@@ -400,7 +353,6 @@ def __snappi_bgp_config(api,
             ipv6_src.append(ipv6.name)
 
     def createTrafficItem(traffic_name, source, destination):
-
         logger.info('{} Source : {}'.format(traffic_name, source))
         logger.info('{} Destination : {}'.format(traffic_name, destination))
         flow1 = config.flows.flow(name=str(traffic_name))[-1]
@@ -435,20 +387,45 @@ def get_flow_stats(cvg_api):
 
 
 def get_route_install_time(api,
+                           duthosts,
+                           snappi_ports,
                            snappi_bgp_config,
                            iteration,
                            traffic_type,
-                           route_range):
+                           route_range,
+                           rx_port_count):
     """
     Args:
         api (pytest fixture): snappi API
-        bgp_config: __tgen_bgp_config
+        duthosts (pytest fixture): duthosts fixture
+        snappi_bgp_config: __tgen_bgp_config
         iteration: number of iterations for running convergence test on a port
         traffic_type: IPv4 or IPv6 traffic
+        route_range: V4 and V6 route combination
+        rx_port_count: number of rx sessions
     """
     global route_names
-    snappi_bgp_config.rx_rate_threshold = 90
+    snappi_bgp_config.rx_rate_threshold = 90/rx_port_count
     api.set_config(snappi_bgp_config)
+
+    test_platform = TestPlatform(snappi_ports[0]['api_server_ip'])
+    username = duthosts[0].host.options['variable_manager']\
+               ._hostvars[duthosts[0].hostname]['secret_group_vars']['snappi_api_server']['user']    # noqa: E127
+    password = duthosts[0].host.options['variable_manager']\
+               ._hostvars[duthosts[0].hostname]['secret_group_vars']['snappi_api_server']['password']   # noqa: E127
+    test_platform.Authenticate(username, password)
+    session = SessionAssistant(IpAddress=snappi_ports[0]['api_server_ip'],
+                               UserName=username, SessionId=test_platform.Sessions.find()[-1].Id, Password=password)
+    ixnetwork = session.Ixnetwork
+    for index, topology in enumerate(ixnetwork.Topology.find()):
+        try:
+            topology.DeviceGroup.find()[0].RouterData.find().RouterId.Single(router_ids[index])
+            logger.info('Setting Router id {} for {}'.format(router_ids[index], topology.DeviceGroup.find()[0].Name))
+        except Exception:
+            logger.info('Skipping Router id for {}, Since bgp is not configured'.
+                        format(topology.DeviceGroup.find()[0].Name))
+            continue
+
     logger.info('\n')
     logger.info('Testing with Route Range: {}'.format(route_range))
     logger.info('\n')
@@ -469,6 +446,10 @@ def get_route_install_time(api,
         cs.protocol.state = cs.protocol.START
         api.set_state(cs)
         wait(TIMEOUT, "For Protocols To start")
+        logger.info('Verifying protocol sessions state')
+        protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
+        protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+
         """ Start Traffic """
         logger.info('Starting Traffic')
         cs = api.convergence_state()
@@ -504,6 +485,7 @@ def get_route_install_time(api,
             logger.info('Route Install Time (ms): {}'.format(
                 metrics.control_plane_data_plane_convergence_us/1000))
         logger.info('|--------------------------------------|')
+
         avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
         avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
         """ Stop traffic at the end of iteration """
@@ -525,97 +507,4 @@ def get_route_install_time(api,
     table.append(mean(avg))
     columns = ['Route Type', 'No. of Routes',
                'Iterations', 'Frames Delta', 'BGP Route Install Time(ms)']
-    logger.info("\n%s" % tabulate([table], headers=columns, tablefmt="psql"))
-
-
-def get_route_delete_time(api,
-                          snappi_bgp_config,
-                          iteration,
-                          traffic_type,
-                          route_range):
-    """
-    Args:
-        api (pytest fixture): snappi API
-        bgp_config: __tgen_bgp_config
-        iteration: number of iterations for running convergence test on a port
-        traffic_type: IPv4 or IPv6 traffic
-    """
-    global route_names
-    snappi_bgp_config.rx_rate_threshold = 90
-    api.set_config(snappi_bgp_config)
-    logger.info('\n')
-    logger.info('Testing with Route Range: {}'.format(route_range))
-    logger.info('\n')
-    table, avg, avg_delta = [], [], []
-    for i in range(0, iteration):
-        logger.info(
-            '|---- Route Delete test, Iteration : {} ----|'.format(i+1))
-        """ Starting Protocols """
-        logger.info("Starting all protocols ...")
-        cs = api.convergence_state()
-        cs.protocol.state = cs.protocol.START
-        api.set_state(cs)
-        wait(TIMEOUT, "For Protocols To start")
-        """ Start Traffic """
-        logger.info('Starting Traffic')
-        cs = api.convergence_state()
-        cs.transmit.state = cs.transmit.START
-        api.set_state(cs)
-        wait(TIMEOUT, "For Traffic To start")
-        flow_stats = get_flow_stats(api)
-        tx_frame_rate = flow_stats[0].frames_tx_rate
-        rx_frame_rate = flow_stats[0].frames_rx_rate
-        pytest_assert(tx_frame_rate != 0, "Tx Rate is 0, Traffic has not started !!!")
-        pytest_assert(flow_stats[0].loss == 0, "There is traffic loss")
-
-        """ withdraw all routes before starting traffic """
-        logger.info('Withdraw All Routes before starting traffic')
-        cs = api.convergence_state()
-        cs.route.names = route_names
-        cs.route.state = cs.route.WITHDRAW
-        api.set_state(cs)
-        wait(TIMEOUT, "For Routes to be withdrawn")
-
-        flows = get_flow_stats(api)
-        tx_frame_rate = flow_stats[0].frames_tx_rate
-        rx_frame_rate = flow_stats[0].frames_rx_rate
-        pytest_assert(tx_frame_rate != 0, "Tx Rate is 0, Traffic has not started !!!")
-        pytest_assert(rx_frame_rate == 0, "Rx Rate is not zero after withdrawing routes")
-
-        request = api.convergence_request()
-        request.convergence.flow_names = []
-        convergence_metrics = api.get_results(request).flow_convergence
-        logger.info('|--------------------------------------|')
-        for metrics in convergence_metrics:
-            logger.info('Route Delete Time (ms): {}'.format(
-                metrics.control_plane_data_plane_convergence_us/1000))
-        logger.info('|--------------------------------------|')
-        avg.append(int(metrics.control_plane_data_plane_convergence_us/1000))
-        avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
-        """ Advertise All Routes at the end of iteration """
-        logger.info('Advertising all Routes from {}'.format(route_names))
-        cs = api.convergence_state()
-        cs.route.names = route_names
-        cs.route.state = cs.route.ADVERTISE
-        api.set_state(cs)
-        wait(5, "For all routes to be ADVERTISED")
-        """ Stop traffic at the end of iteration """
-        logger.info('Stopping Traffic at the end of iteration{}'.format(i+1))
-        cs = api.convergence_state()
-        cs.transmit.state = cs.transmit.STOP
-        api.set_state(cs)
-        wait(5, "For Traffic To stop")
-        """ Stopping Protocols """
-        logger.info("Stopping all protocols ...")
-        cs = api.convergence_state()
-        cs.protocol.state = cs.protocol.STOP
-        api.set_state(cs)
-        wait(5, "For Protocols To STOP")
-    table.append(traffic_type)
-    table.append(total_routes)
-    table.append(iteration)
-    table.append(mean(avg_delta))
-    table.append(mean(avg))
-    columns = ['Route Type', 'No. of Routes',
-               'Iterations', 'Frames Delta', 'BGP Route Delete Time(ms)']
     logger.info("\n%s" % tabulate([table], headers=columns, tablefmt="psql"))

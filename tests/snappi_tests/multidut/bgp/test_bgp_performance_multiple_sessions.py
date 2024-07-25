@@ -36,7 +36,7 @@ ROUTE_RANGES = [{
                     ['4000::1', 64, 2500]
                 ],
                 }]
-rx_port_count = 1   # always 1 for this testcase
+rx_port_count = 2
 
 
 @pytest.mark.parametrize('traffic_type', ['IPv4'])
