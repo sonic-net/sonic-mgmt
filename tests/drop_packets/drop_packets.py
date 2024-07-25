@@ -335,6 +335,8 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
     with loganalyzer as _:
         fanout_neighbor.shutdown(fanout_intf)
+        # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+        # chance it might miss the matching log.
         time.sleep(PORT_STATE_UPDATE_INTERNAL)
 
     time.sleep(1)
@@ -344,6 +346,8 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
     with loganalyzer as _:
         fanout_neighbor.no_shutdown(fanout_intf)
+        # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+        # chance it might miss the matching log.
         time.sleep(PORT_STATE_UPDATE_INTERNAL)
 
 
@@ -420,6 +424,8 @@ def acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path):
             duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
             logger.info("Removing {}".format(dut_tmp_dir))
             duthost.command("rm -rf {}".format(dut_tmp_dir))
+            # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+            # chance it might miss the matching log.
             time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
 
 
@@ -481,6 +487,8 @@ def create_or_remove_acl_egress_table(duthost, op):
                         )
                     )
 
+                    # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+                    # chance it might miss the matching log.
                     time.sleep(ACL_TABLE_CREATE_INTERVAL)
             elif op == "remove":
                 logger.info("Removing ACL table \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
