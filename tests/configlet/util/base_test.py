@@ -85,7 +85,8 @@ def init(duthost):
 
     for i in [data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir,
               patch_add_t0_dir, patch_rm_t0_dir, files_dir]:
-        os.mkdir(i)
+        if not os.path.exists(i):
+            os.mkdir(i)
 
     init_data["files_dir"] = files_dir
     init_data["data_dir"] = data_dir
