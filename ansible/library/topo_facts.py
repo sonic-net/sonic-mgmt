@@ -176,7 +176,7 @@ class ParseTestbedTopoinfo():
                 if "cfg_file_loc" in topo_definition['configuration'][vm]:
                     continue
 
-                # bgp 
+                # bgp
                 vmconfig[vm]['bgp_asn'] = topo_definition['configuration'][vm]['bgp']['asn']
                 dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
                 for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][dut_asn]:

@@ -27,7 +27,7 @@
         "Cisco": {
             "user": "admin",
             "passwd": ["admin"],
-            "enable": ["admin"] 
+            "enable": ["admin"]
         },
         "Force10": {
             "user": "admin",

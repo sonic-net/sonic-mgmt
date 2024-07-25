@@ -72,7 +72,7 @@
         "Ethernet0|fc00::76/126 ": {
             "family": "IPv6",
             "scope": "global"
-        },  
+        },
         "Ethernet8|fc03::1/120 ": {
             "family": "IPv6",
             "scope": "global"
@@ -353,7 +353,7 @@
     "MGMT_PORT": {
         "eth0": {
             "admin_status": "up",
-            "alias": "eth0"                                    
+            "alias": "eth0"
         }
     },
     "FLEX_COUNTER_TABLE": {

@@ -40,7 +40,7 @@
             "ebgp_multihop": "255",
             "name": "P2"
         }
-    },  
+    },
     "DEVICE_METADATA": {
         "localhost": {
             "asic": "cisco-ngdp-vs",
@@ -356,7 +356,7 @@
     "MGMT_PORT": {
         "eth0": {
             "admin_status": "up",
-            "alias": "eth0"                                    
+            "alias": "eth0"
         }
     },
     "FLEX_COUNTER_TABLE": {

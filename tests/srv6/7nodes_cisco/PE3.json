@@ -1,4 +1,4 @@
-{  
+{
     "BGP_NEIGHBOR": {
         "Vrf1|10.10.246.254": {
             "admin_status": "up",
@@ -8,21 +8,21 @@
             "name": "exabgp_v4"
         },
         "default|2064:200::1e": {
-            "admin_status": "up",                              
+            "admin_status": "up",
             "advertisement_interval": "0",
-            "local_addr" :"2064:300::1f",                     
-            "asn": "64601",                                    
-            "ebgp_multihop": "255",                            
+            "local_addr" :"2064:300::1f",
+            "asn": "64601",
+            "ebgp_multihop": "255",
             "extnh": "true",
             "update_source": "2064:300::1f",
             "name": "PE2"
         },
         "default|2064:100::1d": {
-            "admin_status": "up",                              
+            "admin_status": "up",
             "advertisement_interval": "0",
-            "local_addr" :"2064:300::1f",                     
-            "asn": "64600",                                    
-            "ebgp_multihop": "255",                            
+            "local_addr" :"2064:300::1f",
+            "asn": "64600",
+            "ebgp_multihop": "255",
             "extnh": "true",
             "update_source": "2064:300::1f",
             "name": "PE1"
@@ -43,7 +43,7 @@
             "ebgp_multihop": "255",
             "name": "P4"
         }
-    },    
+    },
     "DEVICE_METADATA": {
         "localhost": {
             "asic": "cisco-ngdp-vs",
@@ -65,7 +65,7 @@
         "Ethernet24|fc0a::31/120 ": {
             "family": "IPv6",
             "scope": "global"
-        },        
+        },
         "Ethernet4": {},
         "Ethernet4|fc08::1/120 ": {
             "family": "IPv6",
@@ -352,9 +352,9 @@
     "MGMT_PORT": {
         "eth0": {
             "admin_status": "up",
-            "alias": "eth0"                                    
+            "alias": "eth0"
         }
-    },   
+    },
     "FLEX_COUNTER_TABLE": {
         "ACL": {
             "FLEX_COUNTER_STATUS": "disable",

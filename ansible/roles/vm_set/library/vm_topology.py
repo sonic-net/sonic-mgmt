@@ -262,7 +262,7 @@ class VMTopology(object):
         if 'OVS_LINKs' in self.topo:
             for k, v in self.topo['OVS_LINKs'].items():
                 self.OVS_LINKs[k] = v
-    
+
         self._is_multi_duts = True if len(self.duts_name) > 1 else False
         # For now distinguish a cable topology since it does not contain any vms and there are two ToR's
         self._is_cable = True if len(
@@ -886,11 +886,11 @@ class VMTopology(object):
             logging.info("Create VM links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
             port1 = OVS_FP_TAP_TEMPLATE % (
-                self.vm_names[self.vm_base_index + attr['start_vm_offset']], 
+                self.vm_names[self.vm_base_index + attr['start_vm_offset']],
                 attr['start_vm_port_idx']
             )
             port2 = OVS_FP_TAP_TEMPLATE % (
-                self.vm_names[self.vm_base_index + attr['end_vm_offset']], 
+                self.vm_names[self.vm_base_index + attr['end_vm_offset']],
                 attr['end_vm_port_idx']
             )
 
@@ -900,11 +900,11 @@ class VMTopology(object):
             logging.info("Create OVS links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
             port1 = OVS_FP_TAP_TEMPLATE % (
-                self.vm_names[self.vm_base_index + attr['start_vm_offset']], 
+                self.vm_names[self.vm_base_index + attr['start_vm_offset']],
                 attr['start_vm_port_idx']
             )
             port2 = OVS_FP_TAP_TEMPLATE % (
-                self.vm_names[self.vm_base_index + attr['end_vm_offset']], 
+                self.vm_names[self.vm_base_index + attr['end_vm_offset']],
                 attr['end_vm_port_idx']
             )
             self.create_ovs_bridge(br_name, 9000)
@@ -944,7 +944,7 @@ class VMTopology(object):
                 attr['start_vm_port_idx']
             )
             port2 = OVS_FP_TAP_TEMPLATE % (
-                self.vm_names[self.vm_base_index + attr['end_vm_offset']], 
+                self.vm_names[self.vm_base_index + attr['end_vm_offset']],
                 attr['end_vm_port_idx']
             )
             if "use_ovs" in attr and attr["use_ovs"] == 1:
@@ -958,11 +958,11 @@ class VMTopology(object):
             logging.info("Remove OVS links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
             port1 = OVS_FP_TAP_TEMPLATE % (
-                self.vm_names[self.vm_base_index + attr['start_vm_offset']], 
+                self.vm_names[self.vm_base_index + attr['start_vm_offset']],
                 attr['start_vm_port_idx']
             )
             port2 = OVS_FP_TAP_TEMPLATE % (
-                self.vm_names[self.vm_base_index + attr['end_vm_offset']], 
+                self.vm_names[self.vm_base_index + attr['end_vm_offset']],
                 attr['end_vm_port_idx']
             )
             self.create_ovs_bridge(br_name, 9000)

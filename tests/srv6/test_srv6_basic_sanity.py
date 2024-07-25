@@ -95,9 +95,9 @@ def test_check_bgp_neighbors(duthosts, rand_one_dut_hostname, nbrhosts):
     nbrhost = nbrhosts["PE3"]['host']
     pytest_assert(
         wait_until(
-            60, 10, 0, check_bgp_neighbors_func, nbrhost, 
+            60, 10, 0, check_bgp_neighbors_func, nbrhost,
             ['2064:100::1d', '2064:200::1e', 'fc06::2', 'fc08::2']
-        ), 
+        ),
         "wait for PE3 BGP neighbors up"
     )
     check_bgp_neighbors(nbrhost, ['10.10.246.254'], "Vrf1")

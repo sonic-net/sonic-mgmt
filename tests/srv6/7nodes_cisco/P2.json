@@ -31,7 +31,7 @@
             "asn": "65103",
             "ebgp_multihop": "255",
             "name": "P4"
-        }    
+        }
     },
     "DEVICE_METADATA": {
         "localhost": {
@@ -55,7 +55,7 @@
         "Ethernet4|fc09::1/120 ": {
             "family": "IPv6",
             "scope": "global"
-        }, 
+        },
         "Ethernet8": {},
         "Ethernet8|fc07::2/120 ": {
             "family": "IPv6",
@@ -66,7 +66,7 @@
             "family": "IPv6",
             "scope": "global"
         },
-        "Ethernet124": {                 
+        "Ethernet124": {
         },
         "Ethernet124|fc0a::33/120 ": {
             "family": "IPv6",
@@ -344,7 +344,7 @@
     "MGMT_PORT": {
         "eth0": {
             "admin_status": "up",
-            "alias": "eth0"                                    
+            "alias": "eth0"
         }
     },
     "FLEX_COUNTER_TABLE": {

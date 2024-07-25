@@ -8,29 +8,29 @@
             "name": "exabgp_v4"
         },
         "default|2064:200::1e": {
-            "admin_status": "up",                              
+            "admin_status": "up",
             "advertisement_interval": "0",
-            "local_addr" :"2064:100::1d",                     
-            "asn": "64601",                                    
-            "ebgp_multihop": "255",                            
+            "local_addr" :"2064:100::1d",
+            "asn": "64601",
+            "ebgp_multihop": "255",
             "extnh": "true",
             "update_source": "2064:100::1d",
             "name": "PE2"
         },
         "default|2064:300::1f": {
-            "admin_status": "up",                              
+            "admin_status": "up",
             "advertisement_interval": "0",
-            "local_addr" :"2064:100::1d",                     
-            "asn": "64602",                                    
-            "ebgp_multihop": "255",                            
+            "local_addr" :"2064:100::1d",
+            "asn": "64602",
+            "ebgp_multihop": "255",
             "extnh": "true",
             "update_source": "2064:100::1d",
             "name": "PE3"
-        },       
+        },
         "default|FC00::71": {
             "admin_status": "up",
             "advertisement_interval": "0",
-            "local_addr" :"FC00::72", 
+            "local_addr" :"FC00::72",
             "asn": "65100",
             "ebgp_multihop": "255",
             "name": "P1"
@@ -349,7 +349,7 @@
     "MGMT_PORT": {
         "eth0": {
             "admin_status": "up",
-            "alias": "eth0"                                    
+            "alias": "eth0"
         }
     },
     "VRF": {

@@ -39,7 +39,7 @@ def skip_bgp_neighbor_check(neighbor):
     for addr in skip_addresses:
         if neighbor == addr:
             return True
-    
+
     return False
 
 
@@ -57,12 +57,12 @@ def check_bgp_neighbors_func(nbrhost, neighbors, vrf=""):
             logger.debug("Skip {} check".format(neighbor))
             found = found + 1
             continue
-            
+
         for line in res:
             if neighbor in line:
                 arr = line.split()
                 pfxrcd = arr[9]
-                try: 
+                try:
                     int(pfxrcd)
                     found = found + 1
                     logger.debug("{} ==> BGP neighbor is up and gets pfxrcd {}".format(line, pfxrcd))

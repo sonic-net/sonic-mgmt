@@ -25,7 +25,7 @@
     template: src="configdb-mgmt.j2"
               dest=config-mgmt.json
 
-  - name: create device metadata config for {{ configuration[hostname]['hwsku'] }} 
+  - name: create device metadata config for {{ configuration[hostname]['hwsku'] }}
     shell: >
             sonic-cfggen -H -k  {{ configuration[hostname]['hwsku'] }} --preset empty
             | jq '.DEVICE_METADATA.localhost.hostname="{{ hostname }}"'

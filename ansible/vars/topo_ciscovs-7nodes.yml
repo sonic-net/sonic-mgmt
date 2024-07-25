@@ -73,7 +73,7 @@ topology:
       start_vm_offset: 3
       start_vm_port_idx: 4
       end_vm_offset: 5
-      end_vm_port_idx: 1 
+      end_vm_port_idx: 1
     LINK5:
       start_vm_offset: 4
       start_vm_port_idx: 2
@@ -111,7 +111,7 @@ topology:
           prefix: 192.168.0.1/22
           prefix_v6: fc02:100::1/64
           tag: 100
-        Vlan200: 
+        Vlan200:
           id: 200
           intfs: [13, 14, 15, 21, 22, 23, 24]
           prefix: 192.168.4.1/22
@@ -173,7 +173,7 @@ configuration:
       ipv6: fc0a::29/64
 
   PE2:
-    cfg_file_loc : ../tests/srv6/7nodes_cisco/PE2.json  
+    cfg_file_loc : ../tests/srv6/7nodes_cisco/PE2.json
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 64601
