@@ -104,8 +104,9 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
             status_expected = "enabled"
             pytest_assert(str(v) == status_expected,
                           "Telemetry feature is not enabled")
-
-def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
+            
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
+def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -125,8 +126,8 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gn
     pytest_assert(inerrors_match is not None,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
-
-def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
+def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
     """
     Run pyclient from ptfdocker and check number of queue counters to check
     correctness of the feature of polling only configured port buffer queues.
@@ -178,6 +179,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     pytest_assert(pre_del_cnt > post_del_cnt,
                   "Number of queue counters count differs from expected")
 
+
 def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """ Test osbuild/version query.
     """
@@ -192,6 +194,7 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gn
                  1, "build_version value at {0}".format(result))
     assert_equal(len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)),
                  0, "invalid build_version value at {0}".format(result))
+
 
 def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """
@@ -240,6 +243,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
 
     if system_uptime_2nd - system_uptime_1st < 10:
         pytest.fail("The value of system uptime was not updated correctly.")
+
 
 def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
