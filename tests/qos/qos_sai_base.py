@@ -114,7 +114,7 @@ class QosBase:
 
         yield dut_test_params_qos
 
-    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False):
+    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False, pdb=False):
         """
             Runs QoS SAI test case on PTF host
 
@@ -144,7 +144,8 @@ class QosBase:
             relax=relax,
             timeout=1200,
             socket_recv_size=16384,
-            custom_options=custom_options
+            custom_options=custom_options,
+            pdb=pdb
         )
 
 
