@@ -6,7 +6,7 @@ from tests.common.reboot import wait_for_startup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.utilities import wait_until
-from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.platform.processes_utils import wait_critical_processes, _all_critical_processes_healthy
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.bgp.test_traffic_shift import get_traffic_shift_state, parse_routes_on_neighbors, \
     verify_current_routes_announced_to_neighs, check_and_log_routes_diff, \
@@ -841,8 +841,11 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
     tsa_tsb_timer = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
+    int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        int_status_result[linecard] = True
+        crit_process_check[linecard] = True
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
@@ -901,9 +904,8 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
                           "{} tsa_enabled config is not enabled".format(linecard.hostname))
 
             logging.info("Wait until all critical processes are fully started")
-            wait_critical_processes(linecard)
-            pytest_assert(wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard),
-                          "Not all ports that are admin up on are operationally up")
+            crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
+            int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
 
         # Once all line cards are in maintenance state, proceed further
         for linecard in duthosts.frontend_nodes:
@@ -930,6 +932,13 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
+        for linecard in duthosts.frontend_nodes:
+            # Make sure linecards are in Normal state, if not do config-reload on the dut
+            if not (int_status_result[linecard] and crit_process_check[linecard] and
+                    TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats')):
+                logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
+                config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
+
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
 
@@ -948,7 +957,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
     suphost = duthosts[enum_supervisor_dut_hostname]
     if get_tsa_chassisdb_config(suphost) not in supported_tsa_configs:
         pytest.skip("Reliable TSA feature is not supported in this image on dut {}".format(suphost.hostname))
-    dut_nbrhosts = dict()
+    dut_nbrhosts, up_bgp_neighbors = dict(), dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
@@ -981,6 +990,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
                           "DUT is not in maintenance state with supervisor TSA action")
             pytest_assert('true' == get_tsa_chassisdb_config(linecard),
                           "{} tsa_enabled config is not enabled".format(linecard.hostname))
+            up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
 
         # Do config_reload on the supervisor and verify configs are same as before
         config_reload(suphost, wait=300, safe_reload=True)
@@ -994,6 +1004,9 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
                           "DUT is not in maintenance state after supervisor config reload")
             pytest_assert('true' == get_tsa_chassisdb_config(linecard),
                           "{} tsa_enabled chassisdb config is not enabled".format(linecard.hostname))
+            # Before verifying loopback address, make sure IBGP neighbors are in established state
+            pytest_assert(wait_until(300, 20, 0, linecard.check_bgp_session_state_all_asics,
+                                     up_bgp_neighbors[linecard], "established"))
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
@@ -1025,9 +1038,12 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
     orig_v4_routes, orig_v6_routes = dict(), dict()
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
+    int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+        int_status_result[linecard] = True
+        crit_process_check[linecard] = True
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1082,9 +1098,8 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
         # Make sure the ports, interfaces are UP and running after reboot
         for linecard in duthosts.frontend_nodes:
             logging.info("Wait until all critical processes are fully started")
-            wait_critical_processes(linecard)
-            pytest_assert(wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard),
-                          "Not all ports that are admin up on are operationally up")
+            crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
+            int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced to neighbors when the linecards are in TSA
@@ -1099,6 +1114,13 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+
+        for linecard in duthosts.frontend_nodes:
+            # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
+            if not (int_status_result[linecard] and crit_process_check[linecard] and
+                    TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats')):
+                logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
+                config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
@@ -1336,9 +1358,12 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     tsa_tsb_timer = dict()
+    int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+        int_status_result[linecard] = True
+        crit_process_check[linecard] = True
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
     try:
@@ -1383,9 +1408,8 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
 
         for linecard in duthosts.frontend_nodes:
             logging.info("Wait until all critical processes are fully started")
-            wait_critical_processes(linecard)
-            pytest_assert(wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard),
-                          "Not all ports that are admin up on are operationally up")
+            crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
+            int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
 
             # Verify startup_tsa_tsb service stopped after expected time
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
@@ -1410,6 +1434,13 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
 
+        for linecard in duthosts.frontend_nodes:
+            # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
+            if not (int_status_result[linecard] and crit_process_check[linecard] and
+                    TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats')):
+                logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
+                config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
+
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
 
@@ -1430,6 +1461,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     tsa_tsb_timer = dict()
+    int_status_result, crit_process_check = True, True
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
@@ -1471,9 +1503,8 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
             logging.info("Wait until all critical processes are fully started")
-            wait_critical_processes(linecard)
-            pytest_assert(wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard),
-                          "Not all ports that are admin up on are operationally up")
+            crit_process_check = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
+            int_status_result = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
 
             # Verify startup_tsa_tsb service stopped after expected time
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
@@ -1494,6 +1525,13 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     finally:
         # Bring back the supervisor and line cards to the normal state
         set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_hostname)
+
+        for linecard in duthosts.frontend_nodes:
+            # Make sure linecards are in Normal state, if not do config-reload on the dut to recover
+            if not (int_status_result and crit_process_check and
+                    TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats')):
+                logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
+                config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
 
         # Verify all routes are advertised back to neighbors when duts are in TSB
         verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
