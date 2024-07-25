@@ -211,7 +211,8 @@ def turn_all_outlets_on(pdu_ctrl):
     for outlet in all_outlet_status:
         if not outlet["outlet_on"]:
             pdu_ctrl.turn_on_outlet(outlet)
-    time.sleep(PDU_WAIT_TIME)
+            time.sleep(5)
+    time.sleep(5)
 
 
 def check_all_psu_on(dut, psu_test_results):
