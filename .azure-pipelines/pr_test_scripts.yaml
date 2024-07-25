@@ -183,6 +183,14 @@ t0:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
+  - bgp/test_bgp_peer_shutdown.py
+  - clock/test_clock.py
+  - generic_config_updater/test_pfcwd_status.py
+  - pfcwd/test_pfc_config.py
+  - platform_tests/link_flap/test_link_flap.py
+  - platform_tests/test_memory_exhaustion.py
+  - generic_config_updater/test_pg_headroom_update.py
+
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -309,22 +317,15 @@ dpu:
 
 onboarding_t0:
   # We will add a batch of T0 control plane cases and fix the failed cases later
-  - bgp/test_bgp_peer_shutdown.py
-  - clock/test_clock.py
   - generic_config_updater/test_dynamic_acl.py
-  - generic_config_updater/test_pfcwd_status.py
-  - generic_config_updater/test_pg_headroom_update.py
   - pc/test_lag_member.py
-  - pfcwd/test_pfc_config.py
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
   - platform_tests/cli/test_show_platform.py
-  - platform_tests/link_flap/test_link_flap.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
-  - platform_tests/test_memory_exhaustion.py
   - platform_tests/test_reboot.py
   - platform_tests/test_reload_config.py
   - snmp/test_snmp_link_local.py
@@ -336,7 +337,6 @@ onboarding_t0:
   - test_pktgen.py
   - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
-  - generic_config_updater/test_pg_headroom_update.py
 
 
 onboarding_t1:
