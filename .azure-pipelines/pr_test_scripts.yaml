@@ -318,7 +318,6 @@ dpu:
 onboarding_t0:
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - generic_config_updater/test_dynamic_acl.py
-  - mvrf/test_mgmtvrf.py
   - pc/test_lag_member.py
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
@@ -338,10 +337,6 @@ onboarding_t0:
   - test_pktgen.py
   - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
-  - dualtor/test_orchagent_active_tor_downstream.py
-  - dualtor/test_orchagent_mac_move.py
-  - dualtor/test_orchagent_standby_tor_downstream.py
-  - dualtor/test_standby_tor_upstream_mux_toggle.py
 
 
 onboarding_t1:
