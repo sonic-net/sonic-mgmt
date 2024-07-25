@@ -22,6 +22,8 @@ def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_al
         localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     res = duthost.shell("psuutil numpsus", module_ignore_errors=True)
+
+    # For kvm testbed, we will get the expected return code 2 because of no chassis
     if duthost.facts["asic_type"] == "vs" and res['rc'] == 2:
         return
 
@@ -43,6 +45,7 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, localhost, cred
     psus_on = 0
     msg = "Unexpected operstatus results {} != {} for PSU {}"
 
+    # For kvm testbed, there is no snmp psu info
     if duthost.facts["asic_type"] == "vs":
         return
 
