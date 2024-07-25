@@ -96,10 +96,11 @@ All testbed configuration steps and tests are run from a `sonic-mgmt` docker con
 
 1. Run the `setup-container.sh` in the root directory of the sonic-mgmt repository:
 
-```
+```bash
 cd sonic-mgmt
 ./setup-container.sh -n <container name> -d /data
 ```
+
 
 2. (Required for IPv6 test cases): Follow the steps [IPv6 for docker default bridge](https://docs.docker.com/config/daemon/ipv6/#use-ipv6-for-the-default-bridge-network) to enable IPv6 for container. For example, edit the Docker daemon configuration file located at `/etc/docker/daemon.json` with the following parameters to use ULA address if no special requirement. Then restart docker daemon by running `sudo systemctl restart docker` to take effect.
 
@@ -111,6 +112,7 @@ cd sonic-mgmt
     "ip6tables": true
 }
 ```
+
 
 3. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
 
@@ -321,6 +323,8 @@ cd /data/sonic-mgmt/ansible
 ## Deploy minigraph on the DUT
 Once the topology has been created, we need to give the DUT an initial configuration.
 
+(Optional) The connectivity to the public internet is necessary during the setup, if the lab env of your organization requires http/https proxy server to reach out to the internet, you need to configure to use the proxy server. It will automatically be leveraged on required steps (e.g. Docker daemon config for image pulling, APT configuration for installing packages). You can configure it in [`ansible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
+
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
 
 ```
@@ -381,12 +385,12 @@ Peers 4, using 87264 KiB of memory
 Peer groups 4, using 256 bytes of memory
 
 
-Neighbor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down      State/PfxRcd  NeighborName
-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
-10.0.0.57     4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA01T1
-10.0.0.59     4  64600       3792       3795         0      0       0  00:29:24             6400  ARISTA02T1
-10.0.0.61     4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA03T1
-10.0.0.63     4  64600       3795       3796         0      0       0  00:29:24             6400  ARISTA04T1
+Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down      State/PfxRcd  NeighborName
+-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
+10.0.0.57      4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA01T1
+10.0.0.59      4  64600       3792       3795         0      0       0  00:29:24             6400  ARISTA02T1
+10.0.0.61      4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA03T1
+10.0.0.63      4  64600       3795       3796         0      0       0  00:29:24             6400  ARISTA04T1
 
 Total number of neighbors 4
 ```
@@ -404,12 +408,12 @@ Peers 4, using 83680 KiB of memory
 Peer groups 4, using 256 bytes of memory
 
 
-Neighbor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
-10.0.0.57     4  64600          8          8         0      0       0  00:00:10   3               ARISTA01T1
-10.0.0.59     4  64600          0          0         0      0       0  00:00:10   3               ARISTA02T1
-10.0.0.61     4  64600          0          0         0      0       0  00:00:11   3               ARISTA03T1
-10.0.0.63     4  64600          0          0         0      0       0  00:00:11   3               ARISTA04T1
+Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
+-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
+10.0.0.57      4  64600          8          8         0      0       0  00:00:10   3               ARISTA01T1
+10.0.0.59      4  64600          0          0         0      0       0  00:00:10   3               ARISTA02T1
+10.0.0.61      4  64600          0          0         0      0       0  00:00:11   3               ARISTA03T1
+10.0.0.63      4  64600          0          0         0      0       0  00:00:11   3               ARISTA04T1
 
 ```
 

@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 allure.logger = logger
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology("any"),
+    pytest.mark.device_type('physical')
 ]
 
 test_update_route_pattern_para = [
@@ -214,9 +215,4 @@ class TestRouteCounter:
         else:
             cmd = 'show ip bgp summary'
         parse_result = duthost.show_and_parse(cmd)
-        if "neighbor" in parse_result[0]:
-            return parse_result[0]['neighbor']
-        elif "neighbhor" in parse_result[0]:
-            return parse_result[0]['neighbhor']
-        else:
-            raise ValueError("Unexpected neighbor key in bgp summary output")
+        return parse_result[0]['neighbhor']

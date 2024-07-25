@@ -580,7 +580,26 @@ def snappi_dut_base_config(duthost_list,
 
     pfc = l1_config.flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0
-    [setattr(pfc, 'pfc_class_{}'.format(i), i) for i in range(8)]
+    if pfcQueueGroupSize == 8:
+        pfc.pfc_class_0 = 0
+        pfc.pfc_class_1 = 1
+        pfc.pfc_class_2 = 2
+        pfc.pfc_class_3 = 3
+        pfc.pfc_class_4 = 4
+        pfc.pfc_class_5 = 5
+        pfc.pfc_class_6 = 6
+        pfc.pfc_class_7 = 7
+    elif pfcQueueGroupSize == 4:
+        pfc.pfc_class_0 = pfcQueueValueDict[0]
+        pfc.pfc_class_1 = pfcQueueValueDict[1]
+        pfc.pfc_class_2 = pfcQueueValueDict[2]
+        pfc.pfc_class_3 = pfcQueueValueDict[3]
+        pfc.pfc_class_4 = pfcQueueValueDict[4]
+        pfc.pfc_class_5 = pfcQueueValueDict[5]
+        pfc.pfc_class_6 = pfcQueueValueDict[6]
+        pfc.pfc_class_7 = pfcQueueValueDict[7]
+    else:
+        pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
 
     port_config_list = []
 
@@ -630,6 +649,7 @@ def get_multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):  
                         if port["peer_port"] in asic_port_map[asic] and hostname in port['peer_device']:
                             port['asic_value'] = asic
                             port['asic_type'] = host.facts["asic_type"]
+                            port['duthost'] = host
                             ports.append(port)
         return ports
     return _get_multidut_snappi_ports
