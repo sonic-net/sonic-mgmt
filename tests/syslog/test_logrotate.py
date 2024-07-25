@@ -5,7 +5,6 @@ import allure
 from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.conftest import tbinfo
 
 logger = logging.getLogger(__name__)
 
@@ -256,7 +255,7 @@ def clear_pending_entries(duthost):
 
 
 @pytest.fixture
-def orch_logrotate_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+def orch_logrotate_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, enum_rand_one_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.sonichost.is_multi_asic:
         asic_id = enum_rand_one_frontend_asic_index
