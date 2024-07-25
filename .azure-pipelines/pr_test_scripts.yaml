@@ -183,6 +183,7 @@ t0:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
+  - test_pktgen.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -259,6 +260,7 @@ t1-lag:
   - snmp/test_snmp_queue.py
   - snmp/test_snmp_v2mib.py
   - test_interfaces.py
+  - test_pktgen.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -333,7 +335,6 @@ onboarding_t0:
   - sub_port_interfaces/test_show_subinterface.py
   - sub_port_interfaces/test_sub_port_interfaces.py
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
-  - test_pktgen.py
   - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
   - generic_config_updater/test_pg_headroom_update.py
