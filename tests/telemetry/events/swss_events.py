@@ -61,7 +61,7 @@ def shutdown_interface(duthost):
     if duthost.is_multi_asic:
         ret = duthost.shell("config interface -n {} shutdown {}".format(ns, if_state_test_port))
     else:
-        ret = duthost.shell("config interface shutdown {}".format(if_state_test_port))    
+        ret = duthost.shell("config interface shutdown {}".format(if_state_test_port))
     assert ret["rc"] == 0, "Failing to shutdown interface {}".format(if_state_test_port)
 
     # Wait until port goes down

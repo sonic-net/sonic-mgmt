@@ -303,7 +303,7 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
         try:
             assert result != "", "Did not get output from PTF client"
         finally:
-            ccmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, 
+            ccmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
                                                                                              original_state)
             ccmd = duthost.get_cli_cmd_for_namespace(ccmd, ns)
             duthost.shell(ccmd)
