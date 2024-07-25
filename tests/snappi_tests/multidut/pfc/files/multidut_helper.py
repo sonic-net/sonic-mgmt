@@ -78,18 +78,22 @@ def run_pfc_test(api,
     # Traffic flow:
     # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
 
+    # initialize the (duthost, port) set.
+    dut_asics_to_be_configured = set()
+
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     egress_duthost = rx_port['duthost']
+    dut_asics_to_be_configured.add((egress_duthost, rx_port['asic_value']))
 
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
     ingress_duthost = tx_port['duthost']
+    dut_asics_to_be_configured.add((ingress_duthost, tx_port['asic_value']))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    stop_pfcwd(egress_duthost, rx_port['asic_value'])
-    disable_packet_aging(egress_duthost)
-    stop_pfcwd(ingress_duthost, tx_port['asic_value'])
-    disable_packet_aging(ingress_duthost)
+    for duthost, asic in dut_asics_to_be_configured:
+        stop_pfcwd(duthost, asic)
+        disable_packet_aging(duthost)
 
     global DATA_FLOW_DURATION_SEC
     global data_flow_delay_sec
