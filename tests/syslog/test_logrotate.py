@@ -258,7 +258,8 @@ def no_pending_entries(duthost, ignore_list=None):
 
 
 @pytest.fixture
-def orch_logrotate_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, enum_rand_one_frontend_asic_index):
+def orch_logrotate_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
+                         enum_rand_one_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.sonichost.is_multi_asic:
         asic_id = enum_rand_one_frontend_asic_index
