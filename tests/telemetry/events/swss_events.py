@@ -7,7 +7,7 @@ import re
 
 from run_events_test import run_test
 from tests.common.utilities import wait_until
-from tests.common.helpers.constants import NAMESPACE_PREFIX
+
 random.seed(10)
 logger = logging.getLogger(__name__)
 tag = "sonic-events-swss"
