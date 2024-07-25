@@ -11,7 +11,6 @@ from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
 from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running
 from tests.common import config_reload
-from tests.common.helpers.constants import NAMESPACE_PREFIX
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -159,7 +158,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     if ns is None:
         cmd = "sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB)
     else:
-        cmd  = "sonic-cfggen -n {} -d --print-data > {}".format(ns, ORIG_CFG_DB)
+        cmd = "sonic-cfggen -n {} -d --print-data > {}".format(ns, ORIG_CFG_DB)
     duthost.shell(cmd)
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                     verbose=False)['stdout'])
@@ -277,6 +276,7 @@ def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
     assert ret["rc"] == 0, "PTF docker did not get a response"
     callback(ret["stdout"])
 
+
 def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     logger.info("Testing on change update notifications")
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -303,8 +303,8 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
         try:
             assert result != "", "Did not get output from PTF client"
         finally:
-            ccmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                                original_state)
+            ccmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor, 
+                                                                                             original_state)
             ccmd = duthost.get_cli_cmd_for_namespace(ccmd, ns)
             duthost.shell(ccmd)
         ret = parse_gnmi_output(result, 1, bgp_neighbor)
@@ -315,10 +315,11 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
 
     wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
     cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                            new_state)
+                                                                                    new_state)
     cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
     duthost.shell(cmd)
     client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
+
 
 @pytest.mark.disable_loganalyzer
 def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):

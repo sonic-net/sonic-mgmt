@@ -40,7 +40,8 @@ def drop_tcp_packets(duthost):
         ret = duthost.shell("sudo ip netns exec {} iptables -L".format(ns))
         assert ret["rc"] == 0, "Unable to list iptables rules"
 
-        time.sleep(holdtime_timer_ms / 1000)  # Give time for hold timer expiry event, val from configured bgp neighbor info
+        # Give time for hold timer expiry event, val from configured bgp neighbor info
+        time.sleep(holdtime_timer_ms / 1000)
 
         ret = duthost.shell("sudo ip netns exec {} iptables -D INPUT -p tcp --dport 179 -j DROP".format(ns))
         assert ret["rc"] == 0, "Unable to remove DROP rule from iptables"
@@ -62,7 +63,8 @@ def drop_tcp_packets(duthost):
         ret = duthost.shell("iptables -L")
         assert ret["rc"] == 0, "Unable to list iptables rules"
 
-        time.sleep(holdtime_timer_ms / 1000)  # Give time for hold timer expiry event, val from configured bgp neighbor info
+        # Give time for hold timer expiry event, val from configured bgp neighbor info
+        time.sleep(holdtime_timer_ms / 1000)
 
         ret = duthost.shell("iptables -D INPUT -p tcp --dport 179 -j DROP")
         assert ret["rc"] == 0, "Unable to remove DROP rule from iptables"

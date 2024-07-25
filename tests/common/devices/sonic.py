@@ -1859,8 +1859,8 @@ Totals               6450                 6449
         if namespace is None:
             return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
         else:
-            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status -n {}'.format(namespace))}
-
+            return {x.get('interface'): x for x in 
+                    self.show_and_parse('show interfaces status -n {}'.format(namespace))}
 
     def get_crm_facts(self):
         """Run various 'crm show' commands and parse their output to gather CRM facts
