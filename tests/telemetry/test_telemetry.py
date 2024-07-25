@@ -104,9 +104,10 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
             status_expected = "enabled"
             pytest_assert(str(v) == status_expected,
                           "Telemetry feature is not enabled")
-            
+
+
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
+def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, gnxi_path):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -126,8 +127,9 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gn
     pytest_assert(inerrors_match is not None,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
+
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, setup_streaming_telemetry):
+def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, gnxi_path):
     """
     Run pyclient from ptfdocker and check number of queue counters to check
     correctness of the feature of polling only configured port buffer queues.
