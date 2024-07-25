@@ -336,10 +336,6 @@ onboarding_t0:
   - test_pktgen.py
   - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
-  - dualtor/test_orchagent_active_tor_downstream.py
-  - dualtor/test_orchagent_mac_move.py
-  - dualtor/test_orchagent_standby_tor_downstream.py
-  - dualtor/test_standby_tor_upstream_mux_toggle.py
   - generic_config_updater/test_pg_headroom_update.py
 
 
