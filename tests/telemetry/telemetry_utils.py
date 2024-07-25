@@ -143,7 +143,7 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
     """ Generate the py_gnmicli command line based on the given params.
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5} -n'
+    cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
     cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, "ndastreamingservertest")
 
     if method == METHOD_SUBSCRIBE:
