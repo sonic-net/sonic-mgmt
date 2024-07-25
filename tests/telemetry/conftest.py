@@ -171,6 +171,10 @@ def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, set
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    features_dict, succeeded = duthost.get_feature_status()
+    if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
+        pytest.skip("eventd is disabled on the system")
+
     do_init(duthost)
 
     module = __import__("eventd_events")
