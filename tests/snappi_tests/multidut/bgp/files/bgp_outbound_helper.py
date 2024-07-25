@@ -5,6 +5,7 @@ import json
 import time
 from ixnetwork_restpy import SessionAssistant
 from ixnetwork_restpy.testplatform.testplatform import TestPlatform
+from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
 from tabulate import tabulate
 from statistics import mean
 from tests.common.utilities import (wait, wait_until)  # noqa: F401
@@ -15,7 +16,8 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
      t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, \
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
-     BGP_TYPE, TIMEOUT, t1_side_interconnected_port, t2_side_interconnected_port, router_ids  # noqa: F401
+     BGP_TYPE, TIMEOUT, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
+     snappi_community_for_t1, snappi_community_for_t2  # noqa: F401
 
 logger = logging.getLogger(__name__)
 total_routes = 0
@@ -639,7 +641,11 @@ def __snappi_bgp_config(api,
         for route_index, routes in enumerate(route_range['IPv4']):
             route_range1.addresses.add(
                 address=routes[0], prefix=routes[1], count=routes[2])
-
+        for community in snappi_community_for_t2:
+            manual_as_community = route_range1.communities.add()
+            manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
+            manual_as_community.as_number = int(community.split(":")[0])
+            manual_as_community.as_custom = int(community.split(":")[1])
         ipv4_dest.append(route_range1.name)
 
         bgpv6 = device.bgp
@@ -656,7 +662,11 @@ def __snappi_bgp_config(api,
         for route_index, routes in enumerate(route_range['IPv6']):
             route_range2.addresses.add(
                 address=routes[0], prefix=routes[1], count=routes[2])
-
+        for community in snappi_community_for_t2:
+            manual_as_community = route_range2.communities.add()
+            manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
+            manual_as_community.as_number = int(community.split(":")[0])
+            manual_as_community.as_custom = int(community.split(":")[1])
         ipv6_dest.append(route_range2.name)
 
     for index, port in enumerate(snappi_t1_ports):
@@ -703,7 +713,11 @@ def __snappi_bgp_config(api,
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
             as_path_segment.as_numbers = AS_PATHS
-
+            for community in snappi_community_for_t1:
+                manual_as_community = route_range1.communities.add()
+                manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
+                manual_as_community.as_number = int(community.split(":")[0])
+                manual_as_community.as_custom = int(community.split(":")[1])
             bgpv6 = device.bgp
             bgpv6.router_id = t1_t2_snappi_ipv4_list[index]
             bgpv6_int = bgpv6.ipv6_interfaces.add()
@@ -723,6 +737,11 @@ def __snappi_bgp_config(api,
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
             as_path_segment.as_numbers = AS_PATHS
+            for community in snappi_community_for_t1:
+                manual_as_community = route_range2.communities.add()
+                manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
+                manual_as_community.as_number = int(community.split(":")[0])
+                manual_as_community.as_custom = int(community.split(":")[1])
 
     def createTrafficItem(traffic_name, source, destination):
         logger.info('{} Source : {}'.format(traffic_name, source))
@@ -808,7 +827,9 @@ def get_convergence_for_link_flap(duthosts,
         ps.state = ps.START
         api.set_protocol_state(ps)
         wait(TIMEOUT, "For Protocols To start")
-
+        logger.info('Verifying protocol sessions state')
+        protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
+        protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
         logger.info('Starting Traffic')
         ts = api.transmit_state()
         ts.state = ts.START
@@ -1024,7 +1045,9 @@ def get_convergence_for_service_flap(duthosts,
                         ps.state = ps.START
                         api.set_protocol_state(ps)
                         wait(TIMEOUT, "For Protocols To start")
-
+                        logger.info('Verifying protocol sessions state')
+                        protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
+                        protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
                         logger.info('Starting Traffic')
                         ts = api.transmit_state()
                         ts.state = ts.START

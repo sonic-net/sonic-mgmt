@@ -149,7 +149,8 @@ T1_SNAPPI_AS_NUM = 65300
 T1_DUT_AS_NUM = 65200
 AS_PATHS = [65002]
 
-
+snappi_community_for_t1 = ["8075:54000"]
+snappi_community_for_t2 = ["8075:316", "8075:10400"]
 # The order of hostname is very important for the outbound test (T1, T2 Uplink and T2 Downlink)
 t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink"]
 
