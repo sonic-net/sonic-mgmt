@@ -7,10 +7,10 @@
     - [1.1 Check platform inventory](#11-check-platform-inventory)
     - [1.2 Check platform voltage](#12-check-platform-voltage)
     - [1.3 Check platform temperature](#13-check-platform-temperature)
-    - [1.4 Check dpu console](#14-check-dpu-console)
+    - [1.4 Check DPU console](#14-check-DPU-console)
     - [1.5 Check midplane ip address between NPU and DPU](#15-check-midplane-ip-address-between-npu-and-dpu)
     - [1.6 Check DPU shutdown and power up individually](#16-check-DPU-shutdown-and-power-up-individually)
-    - [1.7 Check removal of pcie link between npu and dpu](#17-check-removal-of-pcie-link-between-npu-and-dpu)
+    - [1.7 Check removal of pcie link between NPU and DPU](#17-check-removal-of-pcie-link-between-npu-and-dpu)
     - [1.8 Check the NTP date and timezone between DPU and NPU](#18-check-the-ntp-date-and-timezone-between-dpu-and-npu)
     - [1.9 Check the State of DPUs](#19-check-the-state-of-dpus)
     - [1.10 Check the Health of DPUs](#110-check-the-health-of-dpus)
@@ -20,12 +20,12 @@
 ## Introduction
 
 The purpose is to test the functionality of Smartswitch.
-Smartswitch is connected to dpus via pcie links.
+Smartswitch is connected to DPUs via pcie links.
 
 ## Scope
 
-The test is targeting a running SONIC on Switch and SONIC-DASH system on each dpus. 
-Purpose of the test is to verify smartswich platform related functionalities/features for each dpus. 
+The test is targeting a running SONIC on Switch and SONIC-DASH system on each DPUs. 
+Purpose of the test is to verify smartswich platform related functionalities/features for each DPUs. 
 For every test cases, all DPUs need to be powered on unless specified in any of the case.
 
 ## Definitions and Abbreviations
@@ -34,18 +34,20 @@ For every test cases, all DPUs need to be powered on unless specified in any of 
 | ---------- | ---------------------------------------- |
 | DPU       | Data Processing Unit       |
 | NPU       | Network Processing Unit       |
+| NTP       | Network Time Protocol       |
+
 
 
 ## Objectives of Test Cases
 
 |    | **Test Case**   | **Intention**                              |
 | ---------- | ---------- | ---------------------------------------- |
-| 1.1 | Check platform inventory       | To verify the DPU inventories shown in the cli |
+| 1.1 | Check DPU Status       | To verify the DPU Status shown in the cli |
 | 1.2 | Check platform voltage       |  To verify the Voltage sensor values and and functionality of alarm by changing the threshold values |
 | 1.3 | Check platform temperature       |  To Verify the Temperature sensor values and functionality of alarm by changing the threshold values |
-| 1.4 | Check dpu console       | To Verify console access for all DPUs       |
-| 1.5 | Check DPU shutdown and power up individually      |  To Verify one DPU shutdown  and other dpus in same as well in other sleds are up |
-| 1.6 | Check removal of pcie link between npu and dpu       | To Verify the PCie hot plug functinality        |
+| 1.4 | Check DPU console       | To Verify console access for all DPUs       |
+| 1.5 | Check DPU shutdown and power up individually      |  To Verify one DPU shutdown  and other DPUs in same as well in other sleds are up |
+| 1.6 | Check removal of pcie link between NPU and DPU       | To Verify the PCie hot plug functinality        |
 | 1.7 | Check the NTP date and timezone between DPU and NPU       | To Verify NPU and DPU are in sync with respect to timezone and logs timestamp |
 | 1.8 | Check the State of DPUs      | To Verify DPU state details during online and offline      |
 | 1.9 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU |
@@ -59,8 +61,8 @@ For every test cases, all DPUs need to be powered on unless specified in any of 
 ### 1.1 Check DPU Status
 
 #### Steps
- * Use command `show chassis modules status` to get dpu status 
- * Get the number of dpu modules from PMON APIs - get_num_modules()
+ * Use command `show chassis modules status` to get DPU status 
+ * Get the number of DPU modules from PMON APIs - get_num_modules()
 
 #### Verify in
  * Switch
@@ -82,7 +84,7 @@ root@sonic:/home/cisco# show chassis modules status
 
 ```
 #### Pass/Fail Criteria
- *  Verify number of dpus from api and number of dpus shown in the cli output.
+ *  Verify number of DPUs from api and number of DPUs shown in the cli output.
 
 
 ### 1.2 Check platform voltage
@@ -353,9 +355,9 @@ MB_TMP421_Local          26.25      135.0      -5.0           140.0          -10
 ### 1.4 Check DPU Console
 
 #### Steps
- * Use serial port utility to access console for given dpu.
+ * Use serial port utility to access console for given DPU.
  * Get the mapping of serial port to DPU number from platform.json file. 
- * Get the number of dpu modules from PMON APIs - get_num_modules(). Test is to check for console access for all DPUs.
+ * Get the number of DPU modules from PMON APIs - get_num_modules(). Test is to check for console access for all DPUs.
 
 #### Verify in
  * Switch
@@ -438,14 +440,14 @@ root@sonic:/home/cisco#
 ```
 #### Pass/Fail Criteria
  * Verify Login access is displayed.
- * cntrl+a and then cntrl+x to come out of the dpu console.
+ * cntrl+a and then cntrl+x to come out of the DPU console.
 
 
 ### 1.5 Check midplane ip address between NPU and DPU 
 
 #### Steps 
- * Get the number of dpu modules from PMON APIs - get_num_modules()
- * Get mid plane ip address for each dpu module from PMON APIs - get_midplane_ip()
+ * Get the number of DPU modules from PMON APIs - get_num_modules()
+ * Get mid plane ip address for each DPU module from PMON APIs - get_midplane_ip()
 
 #### Verify in
  * Switch
@@ -476,11 +478,11 @@ root@sonic:/home/cisco#
 ### 1.6 Check DPU shutdown and power up individually
 
 #### Steps
- * Get the number of dpu modules from PMON APIs - get_num_modules()
- * Use command `config chassis modules shutdown <DPU_Number>` to shut down individual dpu
- * Use command `show chassis modules status` to show dpu status
- * Use command `config chassis modules startup <DPU_Number>` to power up individual dpu
- * Use command `show chassis modules status` to show dpu status
+ * Get the number of DPU modules from PMON APIs - get_num_modules()
+ * Use command `config chassis modules shutdown <DPU_Number>` to shut down individual DPU
+ * Use command `show chassis modules status` to show DPU status
+ * Use command `config chassis modules startup <DPU_Number>` to power up individual DPU
+ * Use command `show chassis modules status` to show DPU status
 
 #### Verify in
  * Switch
@@ -519,16 +521,16 @@ root@sonic:/home/cisco# show chassis modules status
 
 ```
 #### Pass/Fail Criteria
- * Verify dpu offline in show chassis modules status after dpu shut down
- * Verify dpu is shown in show chassis modules status after dpu powered on
+ * Verify DPU offline in show chassis modules status after DPU shut down
+ * Verify DPU is shown in show chassis modules status after DPU powered on
 
 
-### 1.7 Check removal of pcie link between npu and dpu
+### 1.7 Check removal of pcie link between NPU and DPU
 
 #### Steps
  * Use command `pcieutil generate` to generate pcie yaml
  * Use `show platform pcieinfo -c` to run the pcie info test to check everything is passing
- * Use command `echo 1 > /sys/bus/pci/devices/BUS_ID/remove` to remove pcie link between npu and one dpu
+ * Use command `echo 1 > /sys/bus/pci/devices/BUS_ID/remove` to remove pcie link between NPU and one DPU
  * Use `show platform pcieinfo -c` to run the pcie info test to check pcie link has been removed
  * Use command `echo 1 > /sys/bus/pci/rescan` to rescan pcie links
  * Use `show platform pcieinfo -c` to run the pcie info test to check everything is passing
@@ -539,7 +541,7 @@ root@sonic:/home/cisco# show chassis modules status
    
 #### Sample Output
 ```
-On Switch: Showing example of one dpu pcie link
+On Switch: Showing example of one DPU pcie link
 
 root@sonic:/home/cisco# pcieutil generate
 Are you sure to overwrite config file pcie.yaml with current pcie device info? [y/N]: y
@@ -566,7 +568,7 @@ root@sonic:/home/cisco# show platform pcieinfo -c
  * Use command `date` to get date and time zone on DPU
    
 #### Verify in
- * Switch and dpu
+ * Switch and DPU
    
 #### Sample Output
 ```
@@ -587,8 +589,8 @@ root@sonic:/home/cisco#
 ```
 #### Pass/Fail Criteria
  * Verify both the date and time zone are same
- * Verify the syslogs on both switch and dpu to be same
- * Verify by changing time intentionally in dpu and restart the dpu. Verify again for time sync
+ * Verify the syslogs on both switch and DPU to be same
+ * Verify by changing time intentionally in DPU and restart the DPU. Verify again for time sync
 
 
 ### 1.9 Check the State of DPUs
@@ -597,7 +599,7 @@ root@sonic:/home/cisco#
  * Use command `show system-health DPU all` to get DPU health status. 
    
 #### Verify in
- * Switch and dpu
+ * Switch and DPU
    
 #### Sample Output
 ```
@@ -640,13 +642,13 @@ DPU0       1     Partial Online       dpu_midplane_link_state        up         
  * Online : All states are up
  * Offline: dpu_midplane_link_state or dpu_booted_state is down
  * Partial Online: dpu_midplane_link_state is up and dpu_booted_state is up and dpu_control_plane_state is up and dpu_data_plane_state is down
- * Verify powering down dpu and check for status and powering up again to check the status to show online. 
+ * Verify powering down DPU and check for status and powering up again to check the status to show online. 
 
 
 ### 1.10 Check the Health of DPUs
 
 #### Steps
- *  Use command `show system-health detail <DPU_SLOT_NUMBER>` to check the health of the dpu.
+ *  Use command `show system-health detail <DPU_SLOT_NUMBER>` to check the health of the DPU.
  
 #### Verify in
  * Switch
@@ -690,7 +692,7 @@ rsyslog                    OK        Process
  *  The "show reboot-cause history module-name" CLI on the switch shows the history of the specified module
  *  Use `config chassis modules shutdown <DPU_Number>` 
  *  Use `config chassis modules startup <DPU_Number>`
- *  Wait for 5 minutes for Pmon to update the dpu states
+ *  Wait for 5 minutes for Pmon to update the DPU states
  *  Use `show reboot-cause <DPU_Number>` to check the latest reboot is displayed 
    
 #### Verify in
@@ -752,10 +754,10 @@ Existing Test case:
    * Reboot is successful
    
 Reboot Test Case for DPU:
- * After the exisiting case, Power on all the dpus using `config chassis modules startup <DPU_Number>`
+ * After the exisiting case, Power on all the DPUs using `config chassis modules startup <DPU_Number>`
  * Wait for DPUs to be up
- * Use command `show chassis modules status` to get dpu status
- * Get the number of dpu modules from PMON APIs - get_num_modules()
+ * Use command `show chassis modules status` to get DPU status
+ * Get the number of DPU modules from PMON APIs - get_num_modules()
    
 #### Verify in
  * Switch
@@ -783,5 +785,5 @@ root@sonic:/home/cisco# show chassis modules status
 ```
 
 #### Pass/Fail Criteria 
- *  Verify number of dpus from api and number of dpus shown in the cli output.
+ *  Verify number of DPUs from api and number of DPUs shown in the cli output.
  
