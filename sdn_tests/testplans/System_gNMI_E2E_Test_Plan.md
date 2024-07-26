@@ -147,7 +147,7 @@ Config paths can be read or written.  Writing a config path indicates a desired 
   </tbody>
 </table>
 
-OpenConfig Definition here: [openconfig-system.yang](https://source.corp.google.com/gpins/third_party/buzznik/sonic-mgmt-common/models/yang/openconfig-system.yang). This can be a domain name, ipv4 or ipv6 address.
+
 
 ## Tests
 
@@ -236,7 +236,6 @@ OpenConfig Definition here: [openconfig-system.yang](https://source.corp.google.
   </tbody>
 </table>
 
-OpenConfig Definition here: [openconfig-system.yang](https://source.corp.google.com/gpins/third_party/buzznik/sonic-mgmt-common/models/yang/openconfig-system.yang). physical is the only currently defined path with a type of uint64 and units of bytes. Presumably the remaining paths will be defined as uint64 bytes.
 
 ## Tests
 
@@ -422,7 +421,7 @@ Perform a gNMI get on the following 6 openconfig paths:
   </tbody>
 </table>
 
-OpenConfig Definition (with helpful explanatory comments) here: [openconfig-system.yang](https://source.corp.google.com/gpins/third_party/buzznik/sonic-mgmt-common/models/yang/openconfig-system.yang).   
+ 
 enabled 	boolean  
 stratum 	uint8  
 root_delay 	uint32		milliseconds  
@@ -593,9 +592,8 @@ Telemetry</td>
   </tbody>
 </table>
 
-OpenConfig Definition for boot-time and hostname is here: [openconfig-system.yang](https://source.corp.google.com/gpins/third_party/buzznik/sonic-mgmt-common/models/yang/openconfig-system.yang)  
 boot-time is of type uint64 in units of seconds since Unix Epoch.  
-hostname (cardData.hostname in cmal) is of type string with max length of 253 bytes conforming to a regex pattern defined in [openconfig-inet-types.yang](https://source.corp.google.com/gpins/third_party/buzznik/sonic-mgmt-common/models/yang/common/openconfig-inet-types.yang). 
+hostname (cardData.hostname in cmal) is of type string with max length of 253 bytes conforming to a regex pattern defined in [openconfig-inet-types.yang]
 
 config-meta-data is defined as a string in [google-pins-system.yang](https://source.corp.google.com/gpins/third_party/sonic-buildimage/src/sonic-mgmt-common/models/yang/google-pins-system.yang):
 
@@ -665,7 +663,7 @@ config-meta-data is defined as a string in [google-pins-system.yang](https://sou
     <tr>
       <td><strong>Validations</strong></td>
       <td><ul>
-<li>Confirm no errors and return type is a string between 1 and 253 characters conforming to regex pattern for domain-name defined in <a href="https://source.corp.google.com/gpins/third_party/buzznik/sonic-mgmt-common/models/yang/common/openconfig-inet-types.yang">openconfig-inet-types.yang</a>.</li>
+<li>Confirm no errors and return type is a string between 1 and 253 characters conforming to regex pattern for domain-name defined in openconfig-inet-types.yang.</li>
 </ul>
 <ul>
 <li>Confirm value matches dhcp assigned hostname.</li>
@@ -730,7 +728,6 @@ config-meta-data is defined as a string in [google-pins-system.yang](https://sou
   </tbody>
 </table>
 
-OpenConfig Definition here: [openconfig-system.yang](https://source.corp.google.com/gpins/third_party/buzznik/sonic-mgmt-common/models/yang/openconfig-system.yang).  
 avg is a uint8 between 0 <= avg <= 100.  
 interval is a uint64 in units of nanoseconds.
 ## Tests
