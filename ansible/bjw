@@ -381,24 +381,24 @@ sonic_arista_720dt:
     bjw-can-720dt-1:
       ansible_host: 10.150.22.112
       ansible_hostv6: 2404:f801:10:2200::a96:1670
-      model: CCS-720DT-48S
-      serial: WTW22180040
-      base_mac: 2c:dd:e9:fc:df:08
+      model: CCS-720DT-48S-2
+      serial: WTW23380684
+      base_mac: c0:69:11:c9:0f:ec
       syseeprom_info:
-        "0x21": "CCS-720DT-48S"
-        "0x22": "ASY062430103"
-        "0x23": "WTW22180040"
-        "0x24": "2c:dd:e9:fc:df:08"
-        "0x25": "2022/06/10 11:50:55"
+        "0x21": "CCS-720DT-48S-2"
+        "0x22": "ASY0624304A0"
+        "0x23": "WTW23380684"
+        "0x24": "c0:69:11:c9:0f:ec"
+        "0x25": "2023/10/03 15:59:42"
         "0x26": "01"
-        "0x27": "02.00"
+        "0x27": "03.00"
         "0x28": "x86_64-arista_720dt_48s"
         "0x2A": "0xffff"
         "0x2B": "Arista Networks"
         "0x2C": "US"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal11-11.0.0-27729549-ENG"
-        "0x2F": "WTW22180040"
+        "0x2E": "Aboot-norcal11-11.0.5-32399154"
+        "0x2F": "WTW23380684"
         "0xFE": "0xdeadbeef"
     bjw-can-720dt-2:
       ansible_host: 10.150.22.113
@@ -425,15 +425,15 @@ sonic_arista_720dt:
     bjw-can-720dt-3:
       ansible_host: 10.150.22.129
       ansible_hostv6: 2404:f801:10:2200::a96:1681
-      model: CCS-720DT-48S-2F
-      serial: WTW22420909
-      base_mac: c0:69:11:b3:07:ec
+      model: CCS-720DT-48S-2
+      serial: WTW23380612
+      base_mac: c0:69:11:c9:00:bc
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2F"
-        "0x22": "ASY0624302A0"
-        "0x23": "WTW22420909"
-        "0x24": "c0:69:11:b3:07:ec"
-        "0x25": "2022/11/02 22:20:18"
+        "0x21": "CCS-720DT-48S-2"
+        "0x22": "ASY0624304A0"
+        "0x23": "WTW23380612"
+        "0x24": "c0:69:11:c9:00:bc"
+        "0x25": "2023/10/03 12:37:50"
         "0x26": "01"
         "0x27": "03.00"
         "0x28": "x86_64-arista_720dt_48s"
@@ -441,8 +441,8 @@ sonic_arista_720dt:
         "0x2B": "Arista Networks"
         "0x2C": "US"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal11-11.0.1-28325063"
-        "0x2F": "WTW22420909"
+        "0x2E": "Aboot-norcal11-11.0.5-32399154"
+        "0x2F": "WTW23380612"
         "0xFE": "0xdeadbeef"
     bjw-can-720dt-4:
       ansible_host: 10.150.22.131
