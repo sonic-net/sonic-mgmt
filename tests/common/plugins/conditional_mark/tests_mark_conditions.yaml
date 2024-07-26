@@ -1305,12 +1305,6 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueue:
-  skip:
-    reason: "LossyQueue test is not supported"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/13503 and platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
-
 qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
   skip:
     reason: "Lossy Queue Voq test is not supported"
