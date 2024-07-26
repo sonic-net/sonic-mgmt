@@ -64,6 +64,12 @@ decap/test_decap.py:
 #######################################
 #####           dualtor           #####
 #######################################
+dualtor/test_ipinip.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
 dualtor/test_orchagent_active_tor_downstream.py:
   skip_traffic_test:
     reason: "Skip traffic test for KVM testbed"
@@ -76,6 +82,12 @@ dualtor/test_orchagent_mac_move.py:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor/test_orchagent_slb.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
 dualtor/test_orchagent_standby_tor_downstream.py:
   skip_traffic_test:
     reason: "Skip traffic test for KVM testbed"
@@ -83,6 +95,18 @@ dualtor/test_orchagent_standby_tor_downstream.py:
       - "asic_type in ['vs']"
 
 dualtor/test_standby_tor_upstream_mux_toggle.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor/test_tor_ecn.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor/test_tunnel_memory_leak.py:
   skip_traffic_test:
     reason: "Skip traffic test for KVM testbed"
     conditions:
