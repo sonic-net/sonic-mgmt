@@ -35,12 +35,18 @@ parameters:
 - name: FROM_IMAGE_URL
   displayName: "Base image location"
   type: string
+  default: ""
 - name: TO_IMAGE_LIST
   type: string
   displayName: "All target image numbers (space separated)"
 - name: TO_IMAGE_URL
   displayName: "Target image location"
   type: string
+  default: ""
+- name: MULTI_HOP_UPGRADE_PATH
+  type: string
+  displayName: "The name of the upgrade path for the multi-hop upgrade test"
+  default: ""
 - name: VSONIC_NEIGHBOR_IMAGE_URL
   displayName: "SONiC neighbor image URL (used only for vsonic neighbors)"
   type: string
@@ -202,12 +208,14 @@ stages:
         FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
         TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
         TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
+        MULTI_HOP_UPGRADE_PATH: ${{ parameters.MULTI_HOP_UPGRADE_PATH }}
         SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
         METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
         SKIP_REBOOT_CASES: ${{ parameters.SKIP_REBOOT_CASES }}
         SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
         TEST_TCAM_HOLE: ${{ parameters.TEST_TCAM_HOLE }}
         SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+        POOL: ${{ parameters.POOL }}
         # AZP doesn't support defining runtime variables. Moreoever yaml does not support for loops.
         # Since there is only for-each loop, the list needs to be hardcoded. This is ugly, but does the job.
         # This hardcoded list isn't visible to user. User provide how many iterations are needed.

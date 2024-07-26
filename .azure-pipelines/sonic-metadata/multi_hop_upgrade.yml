@@ -1,0 +1,78 @@
+trigger: none
+pr: none
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+- name: TESTBED_NAME
+  type: string
+  displayName: "Testbed Name"
+
+- name: POOL
+  type: string
+  default: nightly
+  displayName: "Agent pool name"
+  values:
+    - nightly
+    - nightly-svc
+    - nightly-bjw
+    - nightly-tk5
+
+- name: VM_TYPE
+  type: string
+  displayName: "VM type of neighbor devices"
+  default: ceos
+  values:
+    - vsonic
+    - ceos
+
+- name: SKIP_POSTUPGRADE_ACTIONS
+  default: false
+  type: boolean
+  displayName: "Skip post upgrade actions"
+
+- name: SKIP_LOCKING_TESTBED
+  displayName: "Skip locking testbed (Please reserve the testbed manually)"
+  type: boolean
+  default: false
+
+- name: MULTI_HOP_UPGRADE_PATH
+  type: string
+  displayName: "The name of the firmware profile that corresponds to the upgrade path to test"
+  default: SONiC-Arista-7260CX364-ToRRouter
+
+- name: VSONIC_NEIGHBOR_IMAGE_URL
+  displayName: "SONiC image URL (used only for vsonic neighbors)"
+  type: string
+  default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fsonic-vs.img.gz
+
+- name: SKIP_TEST_RESULTS_UPLOADING
+  displayName: "Upload timing data report to Kusto"
+  type: boolean
+  default: false
+
+stages:
+- template: metadata_upgrade_template.yml
+  parameters:
+    TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+    POOL: ${{ parameters.POOL }}
+    UPGRADE_TYPE: warm
+    VM_TYPE: ${{ parameters.VM_TYPE }}
+    SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
+    # TODO: Make FROM_IMAGE_LIST and TO_IMAGE_LIST optional
+    FROM_IMAGE_LIST: ""
+    TO_IMAGE_LIST: ""
+    MULTI_HOP_UPGRADE_PATH: ${{ parameters.MULTI_HOP_UPGRADE_PATH }}
+    VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
+    # Skip all cases except the multi-hop upgrades
+    SKIP_REBOOT_CASES: test_cancelled_upgrade_path test_upgrade_path test_double_upgrade_path test_warm_upgrade_sad_path
+    SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+    SKIP_LOCKING_TESTBED: ${{ parameters.SKIP_LOCKING_TESTBED }}

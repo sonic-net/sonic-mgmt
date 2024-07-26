@@ -12,10 +12,16 @@ parameters:
   type: string
 - name: FROM_IMAGE_URL
   type: string
+  default: ""
 - name: TO_IMAGE_LIST
   type: string
 - name: TO_IMAGE_URL
   type: string
+  default: ""
+- name: MULTI_HOP_UPGRADE_PATH
+  type: string
+  displayName: "The name of the upgrade path for the multi-hop upgrade test"
+  default: ""
 - name: SKIP_POSTUPGRADE_ACTIONS
   default: true
   type: boolean
@@ -39,6 +45,15 @@ parameters:
   displayName: "Upload timing data report to Kusto"
   type: boolean
   default: true
+- name: POOL
+  type: string
+  default: nightly
+  displayName: "Agent pool name"
+  values:
+    - nightly
+    - nightly-svc
+    - nightly-bjw
+    - nightly-tk5
 
 steps:
 - ${{ each iter in parameters.ITERATIONS }}:
@@ -107,33 +122,79 @@ steps:
         FROM_IMAGE_LIST="${{ parameters.FROM_IMAGE_LIST }}"
         TO_IMAGE_LIST="${{ parameters.TO_IMAGE_LIST }}"
         UPGRADE_TYPE="${{ parameters.UPGRADE_TYPE }}"
+        MULTI_HOP_UPGRADE_PATH="${{ parameters.MULTI_HOP_UPGRADE_PATH }}"
         TEST_PASS="PASS"
-        for from_image in $FROM_IMAGE_LIST; do
-          echo =================== Upgrading from $from_image =====================
-          for to_image in $TO_IMAGE_LIST; do
-            echo ======== Upgrading to $to_image ========
-            from_url=$FROM_IMAGE_URL.$from_image.$IMAGE_TYPE
-            to_url=$TO_IMAGE_URL.$to_image.$IMAGE_TYPE
-            if [[ $FROM_IMAGE_URL == "custom" ]]; then
-              from_url=$from_image
-            else
-              if [[ $from_image == *"latest"* ]]; then
-                from_url=${{ parameters.FROM_IMAGE_URL }}
-              elif [[ $from_image == *"prev"* ]]; then
-                from_url=${{ parameters.FROM_IMAGE_URL }}.PREV.1
-              fi
-            fi
-            if [[ $TO_IMAGE_URL == "custom" ]]; then
-              to_url=$to_image
-            else
-              if [[ $to_image == *"latest"* ]]; then
-                to_url=${{ parameters.TO_IMAGE_URL }}
-              fi
-            fi
-            echo From URL is $from_url
-            echo To URL is $to_url
+        if [[ x"$FROM_IMAGE_LIST" != x"" ]]; then
+            echo "******************* A->B Upgrade Test *******************"
+            for from_image in $FROM_IMAGE_LIST; do
+              echo =================== Upgrading from $from_image =====================
+              for to_image in $TO_IMAGE_LIST; do
+                echo ======== Upgrading to $to_image ========
+                from_url=$FROM_IMAGE_URL.$from_image.$IMAGE_TYPE
+                to_url=$TO_IMAGE_URL.$to_image.$IMAGE_TYPE
+                if [[ $FROM_IMAGE_URL == "custom" ]]; then
+                  from_url=$from_image
+                else
+                  if [[ $from_image == *"latest"* ]]; then
+                    from_url=${{ parameters.FROM_IMAGE_URL }}
+                  elif [[ $from_image == *"prev"* ]]; then
+                    from_url=${{ parameters.FROM_IMAGE_URL }}.PREV.1
+                  fi
+                fi
+                if [[ $TO_IMAGE_URL == "custom" ]]; then
+                  to_url=$to_image
+                else
+                  if [[ $to_image == *"latest"* ]]; then
+                    to_url=${{ parameters.TO_IMAGE_URL }}
+                  fi
+                fi
+                echo From URL is $from_url
+                echo To URL is $to_url
 
-            EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
+                EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
+
+                if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
+                    EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
+                fi
+
+                ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+                  -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
+                  -m individual \
+                  -l INFO \
+                  -e "$EXTRA_PARAMS" \
+                  -u \
+                  -s "$final_skip_list" \
+                  -c "metadata-scripts/test_metadata_upgrade_path.py"
+
+                if [ $? -ne 0 ]; then
+                    TEST_PASS="FAIL"
+                    # fail and stop all the remaining batches if pytest fails
+                    echo "##vso[task.setvariable variable=CONTINUE]false"
+                    echo "##vso[task.setvariable variable=SKIP_COLLECT_SHOW_TECHSUPPORT]false"
+                fi
+              done
+            done
+        elif [[ x"$MULTI_HOP_UPGRADE_PATH" != x"" ]]; then
+            echo "******************* Multi-hop Upgrade Test *******************"
+            
+            # Resolve multi-hop upgrade paths
+            pushd ../../sonic-metadata/upgradepathdefinition
+            if [[ x"${{ parameters.POOL }}" == x"nightly-bjw" ]]; then
+                parse_upgrade_path_extra_params="--bjw-lab"
+            fi
+            ./parse-upgradepathdefinition.py --firmware-profile "$MULTI_HOP_UPGRADE_PATH" $parse_upgrade_path_extra_params
+            if [ $? -ne 0 ]; then
+                TEST_PASS="FAIL"
+                # fail and stop all the remaining batches if resolving the upgrade path fails
+                echo "Failed to resolve upgrade path"
+                echo "##vso[task.setvariable variable=CONTINUE]false"
+                echo "##vso[task.setvariable variable=SKIP_COLLECT_SHOW_TECHSUPPORT]false"
+                exit 1
+            fi
+            hop_upgrade_image_urls=$(cat /tmp/upgrade-path-image-urls.csv)
+            popd
+
+            EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
 
             if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                 EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
@@ -145,8 +206,7 @@ steps:
               -l INFO \
               -e "$EXTRA_PARAMS" \
               -u \
-              -s "$final_skip_list" \
-              -c "metadata-scripts/test_metadata_upgrade_path.py"
+              -c "metadata-scripts/test_multi_hop_upgrade_path.py"
 
             if [ $? -ne 0 ]; then
                 TEST_PASS="FAIL"
@@ -154,8 +214,11 @@ steps:
                 echo "##vso[task.setvariable variable=CONTINUE]false"
                 echo "##vso[task.setvariable variable=SKIP_COLLECT_SHOW_TECHSUPPORT]false"
             fi
-          done
-        done
+        else
+            echo "No upgrade path type specified"
+            exit 3
+        fi
+
         mkdir -p logs/continuous_warm_reboot/ || true
         cp -r logs $(Build.ArtifactStagingDirectory)/
         rm -rf logs
