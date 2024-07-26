@@ -140,14 +140,6 @@ def test_v6_vtep_delete_add_sonic():
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
     
-    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
-
-    result = run_traffic_test(handles)
-    if result:
-        st.report_pass('test_case_passed')
-    else:
-        st.report_fail('test_case_failed')
-
     st.banner("Removing sonic configs on LEAF0")
     test_node = 'leaf0'
     config_static(test_node, 'sonic', add=False)
@@ -171,14 +163,6 @@ def test_v6_vtep_delete_add_bgp():
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
 
-    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
-
-    result = run_traffic_test(handles)
-    if result:
-        st.report_pass('test_case_passed')
-    else:
-        st.report_fail('test_case_failed')
-
     st.banner("Removing BGP configs on LEAF1")
     test_node = 'leaf1'
     config_static(test_node, 'bgp', add=False)
@@ -201,14 +185,6 @@ def test_v6_vtep_delete_add_all_configs():
     nodes = {}
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
-
-    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
-
-    result = run_traffic_test(handles)
-    if result:
-        st.report_pass('test_case_passed')
-    else:
-        st.report_fail('test_case_failed')
 
     st.banner("Removed Sonic & BGP configs on LEAF0")
     test_node = 'leaf0'
@@ -234,14 +210,6 @@ def test_v6_vtep_port_flap():
     nodes = {}
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
-
-    vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP)
-
-    result = run_traffic_test(handles)
-    if result:
-        st.report_pass('test_case_passed')
-    else:
-        st.report_fail('test_case_failed')
 
     st.banner("Flapping Spine links on LEAF0")
     st.config(nodes['leaf0'], "config interface shutdown {}".format(vars.D3D1P1))

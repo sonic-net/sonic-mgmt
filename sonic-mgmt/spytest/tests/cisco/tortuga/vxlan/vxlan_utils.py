@@ -6,6 +6,8 @@ import time
 
 NO_OF_RETRIES = 6 
 REMOTE_VTEP_COUNT = '1'
+EXPECTED_L3VNI = '1000'
+NO_OF_BGP_RETRIES = 20
 
 def config_vlan(node, vlan, members = [], vrf = None, add = True, tagged = False):
     config = ''
@@ -163,7 +165,6 @@ def traffic_test_burst(_mode,handles):
         flag = False
     return flag
 
-
 def config_tgen_interface(int_dict, addr_family='ipv4'):
     '''
     Author:Ramsiddarth Ragurajan (rraguraj@cisco.com)
@@ -220,9 +221,9 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True):
             ###PING TEST###
             ping_result = tgapi.verify_ping(src_obj=handles[item[0]]["tg_handle"], port_handle=handles[item[0]]["port_handle"], dev_handle=handles[item[0]]["int_handle"], dst_ip=int_dict[item[1]]['host_ip'],ping_count='5', exp_count='5')
             if ping_result:
-                st.banner("Ping succeeded between endpoints for stream {} ".format(item[0]+"<-->"+item[0]))
+                st.banner("Ping succeeded between endpoints for stream {} ".format(item[0]+"<-->"+item[1]))
             else:
-                st.banner("Ping failed between endpoints for stream {} ".format(item[0]+"<-->"+item[0]))
+                st.banner("Ping failed between endpoints for stream {} ".format(item[0]+"<-->"+item[1]))
                 st.report_fail("Ping failed between endpoints")
         ### Clear Statistics ###
         handles[item[0]]["tg_handle"].tg_traffic_control(action="clear_stats", port_handle=[handles[item[0]]["port_handle"], handles[item[1]]["port_handle"]]) 
@@ -457,3 +458,191 @@ def verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP):
             else:
                 report_fail(dut, msg='Remote Vteps discovered count not as expected. Found {} Expected {}'.format(vtep['total_count'], REMOTE_VTEP_COUNT))
 
+#Explicit ping from gw to host is needed in the L3VNI case
+#TODO: we can make this into a fixture once the above known issue is resolved.
+def traffic_setup(data, addr_family='ipv4'):
+    ### Config tgen interface and get tg handle, port handle and interface handles ###
+    if addr_family == 'ipv4':
+        int_dict = {"T1D3P1": {"host_ip": data.t1d3_ip_addr, "gateway": data.d3t1_ip_addr, "mac" : data.t1d3_mac_addr },
+                "T1D4P1": {"host_ip": data.t1d4_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4_mac_addr}}
+
+    else:
+        int_dict = {"T1D3P1": {"host_ip": data.t1d3_ip6_addr, "gateway": data.d3t1_ip6_addr, "mac" : data.t1d3_mac_addr },
+                "T1D4P1": {"host_ip": data.t1d4_ip6_addr, "gateway": data.d4t1_ip6_addr, "mac" : data.t1d4_mac_addr}}
+
+    handles = config_tgen_interface(int_dict, addr_family)
+    stream_list = [("T1D3P1","T1D4P1")]
+    streams = config_traffic_item(stream_list, handles, int_dict, data, ping=True)
+    return streams
+
+def configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars):
+    '''
+    a. add vrf
+    '''
+    config_vrf(nodes['leaf0'], vrf)
+    config_vrf(nodes['leaf1'], vrf)
+
+    '''
+    b. add vlan
+    '''
+    config_vlan(nodes['leaf0'], leaf0_vlan, members=[vars.D3T1P1], vrf=vrf)
+    config_vlan(nodes['leaf1'], leaf1_vlan, members=[vars.D4T1P1], vrf=vrf)
+
+    '''
+    c. add dummy vlan
+    '''
+    config_vlan(nodes['leaf0'], dummy_vlan, vrf=vrf)
+    config_vlan(nodes['leaf1'], dummy_vlan, vrf=vrf)
+
+    '''
+    d. add vlan to vni map
+
+    e. add vrf to vni map
+    '''
+    config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
+    config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
+
+    '''
+    f. add IP address on vlan
+    '''
+    st.config(nodes['leaf0'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf0_vlan, leaf0_vlan_ip))
+    st.config(nodes['leaf1'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf1_vlan, leaf1_vlan_ip))
+
+def verify_bgp(nodes, prefix, src_vtep):
+    st.log("Start BGP verification check on {}" .format(src_vtep))
+    start_time = time.time()
+    iter = 0
+    parsed = []
+    while len(parsed) == 0 and iter < NO_OF_BGP_RETRIES:
+        st.wait(10)
+        output = st.show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
+
+        parsed = st.parse_show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix),
+                             output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
+        if len(parsed) == 0:
+            iter += 1
+            st.error(msg='Found no prefixes advertised to {}'.format(src_vtep))
+            continue
+        for path in parsed:
+            if path['valid'] != 'valid':
+                report_fail(nodes[src_vtep], msg='Invalid path found in {}'.format(src_vtep))
+            if path['pathevpntype'] != '5':
+                report_fail(nodes[src_vtep], msg='Invalid evpn type {0} found in {1}'.format(path['evpntype'], src_vtep))
+            if path['vni'] != EXPECTED_L3VNI:
+                report_fail(nodes[src_vtep], msg='Invalid vni found in {}'.format(src_vtep))
+    if iter == NO_OF_BGP_RETRIES:
+        end_time = time.time()
+        st.log("BGP did not convergence , time waited {} secs" .format(end_time-start_time))
+        report_fail(nodes[src_vtep], msg='Found no prefixes advertised to {}'.format(src_vtep))
+    end_time = time.time()
+    st.log("Time taken for BGP convergence:{} secs" .format(end_time-start_time))
+
+
+def config_multiple_vni(nodes, svi_ips, vrfs):
+    '''
+    a. add vrf
+    '''
+    for vrf, value in vrfs.items():
+        config_vrf(nodes['leaf0'], vrf)
+        config_vrf(nodes['leaf1'], vrf)
+
+    '''
+    b. add vlan
+    '''
+    for vrf, value in vrfs.items():
+        config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf)
+        config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf)
+
+    '''
+    c. add dummy vlan
+    '''
+    for vrf, value in vrfs.items():
+        config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf)
+        config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf)
+
+    '''
+    d. add vlan to vni map
+
+    e. add vrf to vni map
+    '''
+    for vrf, value in vrfs.items():
+        config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
+        config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
+
+    '''
+    f. add IP address on vlan
+    '''
+    for leaf, value in svi_ips.items():
+        for v in value:
+            st.config(nodes[leaf], 'sudo config interface ip add {} {}'.format('Vlan' + v['vlan'], v['ip']))
+
+def unconfig_multiple_vni(nodes, svi_ips, vrfs, data):
+        '''
+        f. remove IP address on vlan
+        '''
+        for leaf, value in svi_ips.items():
+            for v in value:
+                st.config(nodes[leaf], 'sudo config interface ip rem {} {}'.format('Vlan' + v['vlan'], v['ip']))
+
+        '''
+        e. delete vrf to vni map
+
+        d. delete vlan to vni map
+
+        '''
+        for vrf, value in vrfs.items():
+            config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+            config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+
+        '''
+        c. del dummy vlan
+        '''
+        for vrf, value in vrfs.items():
+            config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf, add=False)
+            config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf, add=False)
+
+        '''
+        b. del vlan
+        '''
+        for vrf, value in vrfs.items():
+            config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf, add=False)
+            config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf, add=False)
+
+        '''
+        a. del vrf
+        '''
+        for vrf, value in vrfs.items():
+            data.config_vrfs.append(vrf)
+
+def verify_bgp_convergence(nodes, svi_ips, src_vtep, remote_vtep, addr_family='ipv4'):
+    st.log("Start BGP convergence check on {}" .format(src_vtep))
+    start_time = time.time()
+    iter = 0
+    for value in svi_ips[remote_vtep]:
+        if addr_family == 'ipv4':
+            prefix = value['ip'].strip('254/24') + '0'
+        else:
+            prefix = value['ip'].strip('1/64') + '0' 
+        parsed = []
+        while len(parsed) == 0 and iter < NO_OF_BGP_RETRIES:
+            st.wait(10)
+            output = st.show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
+            parsed = st.parse_show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix),
+                        output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
+            if len(parsed) == 0:
+                 iter += 1
+                 st.error(msg='Found no prefixes advertised to {}'.format(src_vtep))
+                 continue
+            for path in parsed:
+                if path['valid'] != 'valid':
+                    report_fail(nodes[src_vtep], msg='Invalid path found on {}'.format(src_vtep))
+                if path['pathevpntype'] != '5':
+                    report_fail(nodes[src_vtep], msg='Invalid evpn type {0} found on {1}'.format(path['evpntype'], src_vtep))
+                if path['vni'] != value['vni']:
+                    report_fail(nodes[src_vtep], msg='Invalid vni found on {}'.format(src_vtep))
+        if iter == NO_OF_BGP_RETRIES:
+            end_time = time.time()
+            st.log("BGP did not convergence , time waited {} secs" .format(end_time-start_time))
+            report_fail(nodes[src_vtep], msg='Found no prefixes advertised to {}'.format(src_vtep))
+    end_time = time.time()
+    st.log("Time taken for BGP convergence:{} secs" .format(end_time-start_time))

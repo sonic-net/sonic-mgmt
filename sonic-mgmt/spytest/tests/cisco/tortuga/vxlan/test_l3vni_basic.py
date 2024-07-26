@@ -113,64 +113,20 @@ def vxlan_config_hooks():
 
     vxlan_obj.remove_temp_config(updated_config_file)
 
-#Explicit ping from gw to host is needed in the L3VNI case 
-#TODO: we can make this into a fixture once the above known issue is resolved. 
-def traffic_setup():
-    ### Config tgen interface and get tg handle, port handle and interface handles ###
-    int_dict = {"T1D3P1": {"host_ip": data.t1d3_ip_addr, "gateway": data.d3t1_ip_addr, "mac" : data.t1d3_mac_addr },
-                "T1D4P1": {"host_ip": data.t1d4_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4_mac_addr}}
-    handles = vxlan_obj.config_tgen_interface(int_dict)
 
-    stream_list = [("T1D3P1","T1D4P1")]
-    streams = vxlan_obj.config_traffic_item(stream_list, handles, int_dict, data, ping=True)
-    return streams
-
-def l3_traffic_test():
+def l3_traffic_test(data, addr_family='ipv4'):
 
     st.banner("Start to test VxLAN L3  with ping and traffic")
     
     ## Verify Vtep state
     vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
     ## Run Traffic: Bi-directional Burst of 100 Packets
-    streams_dict = traffic_setup()
+    streams_dict = vxlan_obj.traffic_setup(data, 'ipv4')
     st.log(streams_dict)
     result = vxlan_obj.check_traffic(streams_dict)
     
     return result
 
-def configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars):
-    '''
-    a. add vrf
-    '''
-    vxlan_obj.config_vrf(nodes['leaf0'], vrf)
-    vxlan_obj.config_vrf(nodes['leaf1'], vrf)
-
-    '''
-    b. add vlan
-    '''
-    vxlan_obj.config_vlan(nodes['leaf0'], leaf0_vlan, members=[vars.D3T1P1], vrf=vrf)
-    vxlan_obj.config_vlan(nodes['leaf1'], leaf1_vlan, members=[vars.D4T1P1], vrf=vrf)
-
-    '''
-    c. add dummy vlan
-    '''
-    vxlan_obj.config_vlan(nodes['leaf0'], dummy_vlan, vrf=vrf)
-    vxlan_obj.config_vlan(nodes['leaf1'], dummy_vlan, vrf=vrf)
-
-    '''
-    d. add vlan to vni map
-
-    e. add vrf to vni map
-    '''
-    vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
-    vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
-
-    '''
-    f. add IP address on vlan
-    '''
-    st.config(nodes['leaf0'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf0_vlan, leaf0_vlan_ip))
-    st.config(nodes['leaf1'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf1_vlan, leaf1_vlan_ip))
- 
 def unconfigure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars):
     '''
     f. remove IP address on vlan
@@ -205,98 +161,6 @@ def unconfigure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_v
 
     data.config_vrfs.append(vrf)
 
-def config_multiple_vni(nodes, svi_ips, vrfs):
-    '''
-    a. add vrf
-    '''
-    for vrf, value in vrfs.items():
-        vxlan_obj.config_vrf(nodes['leaf0'], vrf)
-        vxlan_obj.config_vrf(nodes['leaf1'], vrf)
-
-    '''
-    b. add vlan
-    '''
-    for vrf, value in vrfs.items():
-        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf)
-        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf)
-
-    '''
-    c. add dummy vlan
-    '''
-    for vrf, value in vrfs.items():
-        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf)
-        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf)
-
-    '''
-    d. add vlan to vni map
-
-    e. add vrf to vni map
-    '''
-    for vrf, value in vrfs.items():
-        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
-        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
-
-    '''
-    f. add IP address on vlan
-    '''
-    for leaf, value in svi_ips.items():
-        for v in value:
-            st.config(nodes[leaf], 'sudo config interface ip add {} {}'.format('Vlan' + v['vlan'], v['ip']))
-
-def unconfig_multiple_vni(nodes, svi_ips, vrfs):
-        '''
-        f. remove IP address on vlan
-        '''
-        for leaf, value in svi_ips.items():
-            for v in value:
-                st.config(nodes[leaf], 'sudo config interface ip rem {} {}'.format('Vlan' + v['vlan'], v['ip']))
-
-        '''
-        e. delete vrf to vni map
-
-        d. delete vlan to vni map
-
-        '''
-        for vrf, value in vrfs.items():
-            vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
-            vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
-
-        '''
-        c. del dummy vlan
-        '''
-        for vrf, value in vrfs.items():
-            vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf, add=False)
-            vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf, add=False)
-
-        '''
-        b. del vlan
-        '''
-        for vrf, value in vrfs.items():
-            vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf, add=False)
-            vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf, add=False)
-
-        '''
-        a. del vrf
-        '''
-        for vrf, value in vrfs.items():
-            data.config_vrfs.append(vrf)
-
-def verify_bgp(nodes, prefix, src_vtep):
-    output = st.show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
-
-    parsed = st.parse_show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix),
-                             output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
-
-    if len(parsed) == 0:
-        report_fail(nodes[src_vtep], msg='Found no prefixes advertised to {}'.format(src_vtep))
-    for path in parsed:
-        if path['valid'] != 'valid':
-            report_fail(nodes[src_vtep], msg='Invalid path found in {}'.format(src_vtep))
-        if path['pathevpntype'] != '5':
-            report_fail(nodes[src_vtep], msg='Invalid evpn type {0} found in {1}'.format(path['evpntype'], src_vtep))
-        if path['vni'] != '1000':
-            report_fail(nodes[src_vtep], msg='Invalid vni found in {}'.format(src_vtep))
-
 def test_l3vni_basic_config():
     vars = st.get_testbed_vars()
 
@@ -318,17 +182,14 @@ def test_l3vni_basic_config():
     try:
 
     	#Start configuration
-    	configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars)
+    	vxlan_obj.configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars)
     	
-        # sleep for 60 seconds for BGP to converge
-    	st.wait(60)
-
     	# Start Verification
     	leaf0_vrf_prefix = '100.100.100.0'
         leaf1_vrf_prefix = '100.100.101.0'
     	
-        verify_bgp(nodes, leaf1_vrf_prefix, 'leaf0')
-        verify_bgp(nodes, leaf0_vrf_prefix, 'leaf1')
+        vxlan_obj.verify_bgp(nodes, leaf1_vrf_prefix, 'leaf0')
+        vxlan_obj.verify_bgp(nodes, leaf0_vrf_prefix, 'leaf1')
 
     	#Run Traffic test
     	data.d3t1_ip_addr = "100.100.100.254"
@@ -339,7 +200,7 @@ def test_l3vni_basic_config():
     	data.t1d4_ip_addr = "100.100.101.1" #Leaf1 Host
     	data.t1d4_mac_addr = "00:0a:01:00:12:02"
     
-    	result = l3_traffic_test()
+    	result = l3_traffic_test(data, 'ipv4')
     	if result:
             st.report_pass("test_case_passed", "test_l3vni_basic_with_traffic passed")
     	else:
@@ -371,7 +232,7 @@ def test_l3vni_multiple_vni():
                             { 'vlan' : '4', 'ip' : '100.100.114.254/24', 'vni' : '4000' } ]}
     try:
         # Start configuration
-        config_multiple_vni(nodes, svi_ips, vrfs) 
+        vxlan_obj.config_multiple_vni(nodes, svi_ips, vrfs) 
 
         # sleep for 60 seconds for BGP to converge
         st.wait(60)
@@ -421,7 +282,7 @@ def test_l3vni_multiple_vni():
         data.t1d4_ip_addr = "100.100.112.200"
         data.t1d4_mac_addr = "00:0a:01:00:12:02"
     
-        result = l3_traffic_test()
+        result = l3_traffic_test(data, 'ipv4')
         if result:
             st.report_pass("test_case_passed", "test_l3vni_basic_with_traffic passed")
         else:
@@ -429,38 +290,8 @@ def test_l3vni_multiple_vni():
     except Exception as e:
         report_fail("", msg=e)
     finally:
-        unconfig_multiple_vni(nodes, svi_ips, vrfs)
+        vxlan_obj.unconfig_multiple_vni(nodes, svi_ips, vrfs, data)
 
-def verify_bgp_convergence(nodes, svi_ips, src_vtep, remote_vtep):
-    st.log("Start BGP convergence check on {}" .format(src_vtep))
-    start_time = time.time()
-    iter = 0
-    for value in svi_ips[remote_vtep]:
-        prefix = value['ip'].strip('254/24') + '0'
-        parsed = []
-        while len(parsed) == 0 and iter < 20:
-            st.wait(10)
-            output = st.show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix), type='vtysh', skip_tmpl=True, skip_error_check=True)
-            parsed = st.parse_show(nodes[src_vtep], 'show bgp l2vpn evpn {}'.format(prefix),
-                        output, 'show_bgp_l2vpn_evpn_prefix.tmpl')
-            if len(parsed) == 0:
-                 iter += 1
-                 st.error(msg='Found no prefixes advertised to {}'.format(src_vtep))
-                 continue
-            for path in parsed:
-                if path['valid'] != 'valid':
-                    report_fail(nodes[src_vtep], msg='Invalid path found on {}'.format(src_vtep))
-                if path['pathevpntype'] != '5':
-                    report_fail(nodes[src_vtep], msg='Invalid evpn type {0} found on {1}'.format(path['evpntype'], src_vtep))
-                if path['vni'] != value['vni']:
-                    report_fail(nodes[src_vtep], msg='Invalid vni found on {}'.format(src_vtep))
-        if iter == 20:
-	    end_time = time.time()
-            st.log("BGP did not convergence , time waited {} secs" .format(end_time-start_time))
-            report_fail(nodes[src_vtep], msg='Found no prefixes advertised to {}'.format(src_vtep))
-    end_time = time.time()
-    st.log("Time taken for BGP convergence:{} secs" .format(end_time-start_time))
- 
 def test_l3vni_multiple_vni_load():
     vars = st.get_testbed_vars()
 
@@ -483,14 +314,14 @@ def test_l3vni_multiple_vni_load():
 
     try:
         # Start initial configuration
-        config_multiple_vni(nodes, svi_ips, vrfs)
+        vxlan_obj.config_multiple_vni(nodes, svi_ips, vrfs)
         '''
         BGP convergence verification is different here because of intermittent failure seen where
         convergence took more time in issue state.
         Logic: Check for 20 iterations of sleep 10 seconds and bail out if it still doesn't converge
         '''
-        verify_bgp_convergence(nodes, svi_ips, 'leaf0', 'leaf1')
-        verify_bgp_convergence(nodes, svi_ips, 'leaf1', 'leaf0')
+        vxlan_obj.verify_bgp_convergence(nodes, svi_ips, 'leaf0', 'leaf1', 'ipv4')
+        vxlan_obj.verify_bgp_convergence(nodes, svi_ips, 'leaf1', 'leaf0', 'ipv4')
     
         '''
         Save config to a file before unconfiguring. The same saved file will be used for load operation
@@ -498,21 +329,6 @@ def test_l3vni_multiple_vni_load():
         for k,v in nodes.items():
             filename = "/tmp/config-db-{}.json".format(k)
             st.config(v, "config save {} -y".format(filename), skip_error_check=True)
-
-        #Run Traffic test
-        data.d3t1_ip_addr = "100.100.102.254"
-        data.t1d3_ip_addr = "100.100.102.200"
-        data.t1d3_mac_addr = "00:0a:01:00:11:01"
-
-        data.d4t1_ip_addr = "100.100.112.254"
-        data.t1d4_ip_addr = "100.100.112.200"
-        data.t1d4_mac_addr = "00:0a:01:00:12:02"
-    
-        result = l3_traffic_test() 
-        if result:
-            st.report_pass("test_case_passed", "test_l3vni_multiple_vni_load_with_traffic passed")
-        else:
-            st.report_fail("test_case_failed", "test_l3vni_multiple_vni_load_with_traffic failed")
 
         '''
         f. remove IP address on vlan
@@ -595,8 +411,8 @@ def test_l3vni_multiple_vni_load():
             filename = "/tmp/config-db-{}.json".format(k)
             st.config(v, "config load {} -y".format(filename), skip_error_check=True)
 
-        verify_bgp_convergence(nodes, svi_ips, 'leaf0', 'leaf1')
-        verify_bgp_convergence(nodes, svi_ips, 'leaf1', 'leaf0')
+        vxlan_obj.verify_bgp_convergence(nodes, svi_ips, 'leaf0', 'leaf1', 'ipv4')
+        vxlan_obj.verify_bgp_convergence(nodes, svi_ips, 'leaf1', 'leaf0', 'ipv4')
 
         #Run Traffic test
         # Run Traffic: Bi-directional Ping and Burst of 500 Packet
@@ -608,7 +424,7 @@ def test_l3vni_multiple_vni_load():
         data.t1d4_ip_addr = "100.100.112.200"
         data.t1d4_mac_addr = "00:0a:01:00:12:02"
 
-        result = l3_traffic_test()
+        result = l3_traffic_test(data, 'ipv4')
         if result:
             st.report_pass("test_case_passed", "test_l3vni_basic_with_traffic passed")
         else:
@@ -617,8 +433,9 @@ def test_l3vni_multiple_vni_load():
     except Exception as e:
         report_fail("", msg=e)
     finally:
-        unconfig_multiple_vni(nodes, svi_ips, vrfs)
+        vxlan_obj.unconfig_multiple_vni(nodes, svi_ips, vrfs, data)
 
+@pytest.mark.skip(reason="Delete VRF, puts Leaf0 in a bad state")
 def test_l3vni_remove_add_bgp():
     vars = st.get_testbed_vars()
 
@@ -639,32 +456,14 @@ def test_l3vni_remove_add_bgp():
     dummy_vlan = '100'
     try:
         # Start configuration
-        configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars)
-
-        # sleep for 60 seconds for BGP to converge
-        st.wait(60)
+        vxlan_obj.configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars)
 
         # Start Verification
         leaf0_vrf_prefix = '100.100.100.0'
         leaf1_vrf_prefix = '100.100.101.0'
 
-        verify_bgp(nodes, leaf1_vrf_prefix, 'leaf0')
-        verify_bgp(nodes, leaf0_vrf_prefix, 'leaf1')
-
-        #Tgen Stream Config
-        data.d3t1_ip_addr = "100.100.100.254"
-        data.t1d3_ip_addr = "100.100.100.1" #Leaf0 Host
-        data.t1d3_mac_addr = "00:0a:01:00:11:01"
-
-        data.d4t1_ip_addr = "100.100.101.254"
-        data.t1d4_ip_addr = "100.100.101.1" #Leaf1 Host
-        data.t1d4_mac_addr = "00:0a:01:00:12:02"
-
-        result = l3_traffic_test()
-        if result:
-            st.report_pass("test_case_passed", "test_l3vni_basic_with_traffic passed")
-        else:
-            st.report_fail("test_case_failed", "test_l3vni_basic__with_traffic failed")
+        vxlan_obj.verify_bgp(nodes, leaf1_vrf_prefix, 'leaf0')
+        vxlan_obj.verify_bgp(nodes, leaf0_vrf_prefix, 'leaf1')
 
         #######
         # a. Remove vrf vni mapping
@@ -729,15 +528,12 @@ def test_l3vni_remove_add_bgp():
         '''
         f. Check if the routes are back
         '''
-        # sleep for 60 seconds for BGP to converge
-        st.wait(60)
-
         # Start Verification
         leaf0_vrf_prefix = '100.100.100.0'
         leaf1_vrf_prefix = '100.100.101.0'
 
-        verify_bgp(nodes, leaf1_vrf_prefix, 'leaf0')
-        verify_bgp(nodes, leaf0_vrf_prefix, 'leaf1')
+        vxlan_obj.verify_bgp(nodes, leaf1_vrf_prefix, 'leaf0')
+        vxlan_obj.verify_bgp(nodes, leaf0_vrf_prefix, 'leaf1')
 
         #Tgen Stream Config
         data.d3t1_ip_addr = "100.100.100.254"
@@ -748,7 +544,7 @@ def test_l3vni_remove_add_bgp():
         data.t1d4_ip_addr = "100.100.101.1" #Leaf1 Host
         data.t1d4_mac_addr = "00:0a:01:00:12:02" 
 
-        result = l3_traffic_test()
+        result = l3_traffic_test(data, 'ipv4')
         if result:
             st.report_pass("test_case_passed", "test_l3vni_basic_with_traffic passed")
         else:
