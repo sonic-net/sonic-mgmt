@@ -337,11 +337,13 @@ onboarding_t0:
   - test_pktgen.py
   - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
+  - gnmi/test_gnmi_countersdb.py
 
 
 onboarding_t1:
   - generic_config_updater/test_cacl.py
   - hash/test_generic_hash.py
+  - gnmi/test_gnmi_countersdb.py
 
 onboarding_dualtor:
   - dualtor_mgmt/test_ingress_drop.py
