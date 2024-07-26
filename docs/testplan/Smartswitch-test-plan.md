@@ -4,7 +4,7 @@
 - [Scope](#scope)
 - [Definitions and Abbreviations](#definitions-and-abbreviations)
 - [Test Cases](#test-cases)
-    - [1.1 Check platform inventory](#11-check-platform-inventory)
+    - [1.1 Check DPU Status](#11-check-dpu-status)
     - [1.2 Check platform voltage](#12-check-platform-voltage)
     - [1.3 Check platform temperature](#13-check-platform-temperature)
     - [1.4 Check DPU console](#14-check-DPU-console)
