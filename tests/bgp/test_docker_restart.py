@@ -9,10 +9,11 @@ Step 3: Verify BGP facts are same as before restart
 '''
 import logging
 import pytest
+import time
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
-bgp_sleep = 60
+bgp_sleep = 30
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -21,7 +22,6 @@ pytestmark = [
 
 def docker_check(duthost, cli_option):
     output = duthost.shell("docker ps")['stdout']
-    logger.info(output)
     return f"bgp{cli_option}" in output
 
 
@@ -34,19 +34,21 @@ def test_docker_restart(duthosts, enum_frontend_dut_hostname, enum_rand_one_fron
         if bgp_facts['bgp_neighbors'][neigh]['state'] == 'established':
             baseline_neighs.append(neigh)
 
+    # perform the container restart
+    cli_option = ''
+    if asic_index:
+        cli_option = asic_index
+    duthost.shell("docker restart bgp{}".format(cli_option))
+    time.sleep(bgp_sleep)
+    wait_until(bgp_sleep, 5, 0, lambda: docker_check(duthost, cli_option))
+    time.sleep(bgp_sleep)
+
     # get list of established neighbors after restart
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
     test_neighs = []
     for neigh in bgp_facts['bgp_neighbors']:
         if bgp_facts['bgp_neighbors'][neigh]['state'] == 'established':
             test_neighs.append(neigh)
-
-    # perform the container restart
-    cli_option = ''
-    if asic_index:
-        cli_option = asic_index
-    duthost.shell("docker restart bgp{}".format(cli_option))
-    wait_until(bgp_sleep, 5, 0, lambda: docker_check(duthost, cli_option))
 
     # verify both pre and post test neighbor lists are the same
     lacks = set(baseline_neighs) - set(test_neighs)
