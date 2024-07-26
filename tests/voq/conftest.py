@@ -3,11 +3,26 @@ import logging
 
 from .voq_helpers import get_eos_mac
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
-
+from tests.qos.args.qos_sai_args import add_qos_sai_args
+from tests.qos.args.buffer_args import add_dynamic_buffer_calculation_args
 from tests.common.helpers.dut_utils import get_host_visible_vars
 from tests.common.utilities import get_inventory_files
 
 logger = logging.getLogger(__name__)
+
+
+def pytest_addoption(parser):
+    '''
+        Adds option to QoS pytest
+
+        Args:
+            parser: pytest parser object
+
+        Returns:
+            None
+    '''
+    add_qos_sai_args(parser)
+    add_dynamic_buffer_calculation_args(parser)
 
 
 @pytest.fixture(scope="module", autouse=True)

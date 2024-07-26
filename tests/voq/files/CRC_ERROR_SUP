@@ -1,0 +1,4 @@
+"log off; rm /tmp/esmode; log file=/tmp/esmode quiet=yes"
+"echo 'cint_reset();int unit=0;int port;bcm_port_resource_t port_resource;bcm_port_config_t config;bcm_port_config_get(unit, &config);BCM_PBMP_ITER(config.sfi, port){ if (port&5) continue;bcm_port_resource_get(unit, port, &port_resource);BCM_PORT_RESOURCE_PHY_LANE_CONFIG_FORCE_ES_SET(port_resource.phy_lane_config);BCM_PORT_RESOURCE_PHY_LANE_CONFIG_FORCE_NS_CLEAR(port_resource.phy_lane_config);bcm_port_resource_set(unit, port, &port_resource); }'"
+"log off"
+"cint /tmp/esmode"
