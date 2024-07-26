@@ -355,8 +355,11 @@ class AsicDbCli(SonicDbCli):
         key_to_field_name = {
             'ether_type': 'SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE',
             'ip_protocol': 'SAI_ACL_ENTRY_ATTR_FIELD_IP_PROTOCOL',
+            'ipv6_next_header': 'SAI_ACL_ENTRY_ATTR_FIELD_IPV6_NEXT_HEADER',
             'icmp_type': 'SAI_ACL_ENTRY_ATTR_FIELD_ICMP_TYPE',
             'icmp_code': 'SAI_ACL_ENTRY_ATTR_FIELD_ICMP_CODE',
+            'icmpv6_type': 'SAI_ACL_ENTRY_ATTR_FIELD_ICMPV6_TYPE',
+            'icmpv6_code': 'SAI_ACL_ENTRY_ATTR_FIELD_ICMPV6_CODE',
             'tcp_flags': 'SAI_ACL_ENTRY_ATTR_FIELD_TCP_FLAGS',
             'packet_action': 'SAI_ACL_ENTRY_ATTR_ACTION_PACKET_ACTION',
             'src_ip': 'SAI_ACL_ENTRY_ATTR_FIELD_SRC_IP',
@@ -395,8 +398,8 @@ class AsicDbCli(SonicDbCli):
         if not q:
             return []
 
-        self.get_acl_entries(refresh=True)
         if self.acl_entries == []:
+            logger.debug('Cannot find acl entry; empty acl_entries')
             return []
 
         l4_port, l4_port_key = '', ''
@@ -411,7 +414,6 @@ class AsicDbCli(SonicDbCli):
                 del q[key_to_field_name['l4_dst_port']]
             else:
                 raise ValueError('unknown range type')
-            self.get_acl_range_entries()
             logger.debug(f'ACL Range table {self.acl_range_key_to_value}')
 
         def range_matched(range_oid):
