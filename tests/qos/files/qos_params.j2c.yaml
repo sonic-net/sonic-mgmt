@@ -267,7 +267,7 @@ qos_params:
                     dscp: 8
                     ecn: 1
                     pg: 0
-                    pkts_num_trig_egr_drp: 2396745
+                    pkts_num_trig_egr_drp: 2396560
                     pkts_num_margin: 200
                 wm_pg_shared_lossless:
                     dscp: 3
@@ -374,7 +374,7 @@ qos_params:
                     dscp: 8
                     ecn: 1
                     pg: 0
-                    pkts_num_trig_egr_drp: 2396745
+                    pkts_num_trig_egr_drp: 2396560
                     pkts_num_margin: 200
                 wm_pg_shared_lossless:
                     dscp: 3
@@ -481,7 +481,7 @@ qos_params:
                     dscp: 8
                     ecn: 1
                     pg: 0
-                    pkts_num_trig_egr_drp: 2396745
+                    pkts_num_trig_egr_drp: 2396560
                     pkts_num_margin: 100
                 wm_pg_shared_lossless:
                     dscp: 3
