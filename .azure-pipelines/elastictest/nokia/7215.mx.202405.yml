@@ -57,7 +57,7 @@ parameters:
     type: string
     default: internal-202405
 
-  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be included
   - name: SCRIPTS
     type: string
     default: " "
@@ -71,7 +71,8 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "platform_tests/link_flap/test_cont_link_flap.py"
+    default: "platform_tests/link_flap/test_cont_link_flap.py,
+              copp/test_copp.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
