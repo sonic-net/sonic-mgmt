@@ -241,6 +241,7 @@ t1-lag:
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
   - ip/test_ip_packet.py
+  - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dip_sip.py
   - ipfwd/test_mtu.py
   - lldp/test_lldp.py
@@ -252,6 +253,7 @@ t1-lag:
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
   - qos/test_buffer.py
+  - radv/test_radv_restart.py
   - route/test_default_route.py
   - route/test_route_consistency.py
   - route/test_route_flap.py
