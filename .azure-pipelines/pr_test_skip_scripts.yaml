@@ -9,7 +9,7 @@ t0:
   - k8s/test_join_available_master.py
   # Mclag test only support on t0-mclag platform which is not in PR test
   - mclag/test_mclag_l3.py
-  # Nat feature is not enabled in current image
+  # Nat feature is default disabled on both KVM and physical platforms
   - nat/test_dynamic_nat.py
   - nat/test_static_nat.py
   # Neighbor type must be sonic
@@ -48,7 +48,7 @@ t0:
   - restapi/test_restapi.py
   # Route flow counter is not supported on vs platform
   - route/test_route_flow_counter.py
-  # Sflow feature is not supported on vs platform
+  # Sflow feature is default disabled on vs platform
   - sflow/test_sflow.py
   - snmp/test_snmp_phy_entity.py
   # Remove from PR test in https://github.com/sonic-net/sonic-mgmt/pull/6073
