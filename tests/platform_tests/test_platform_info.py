@@ -27,6 +27,8 @@ CMD_PLATFORM_PSUSTATUS_JSON = "{} --json".format(CMD_PLATFORM_PSUSTATUS)
 CMD_PLATFORM_FANSTATUS = "show platform fan"
 CMD_PLATFORM_TEMPER = "show platform temperature"
 
+PDU_WAIT_TIME = 20
+
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 
@@ -289,7 +291,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
         logging.info("Turn off outlet {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
-        time.sleep(10)
+        time.sleep(PDU_WAIT_TIME)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
@@ -303,7 +305,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
         logging.info("Turn on outlet {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
-        time.sleep(10)
+        time.sleep(PDU_WAIT_TIME)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
