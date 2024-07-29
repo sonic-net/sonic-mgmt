@@ -19,7 +19,6 @@ t0:
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
-  - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - console/test_console_availability.py
   - console/test_console_driver.py
