@@ -10,6 +10,34 @@ from enum import Enum
 from functools import lru_cache
 
 import yaml
+from yaml.parser import ParserError
+
+"""
+Script Usage Guide
+
+This script is designed to validate our configurations as part of our documentation process.
+
+NOTE: For now this script only supports yaml format
+
+General Usage:
+
+To verify the entire project’s configuration:
+- python3 verify_config.py
+
+To check the configuration using a specific testbed and VM file:
+- python3 verify_config.py -t <testbed-file> -m <vm-file>
+
+Testbed-Specific Usage:
+
+To confirm connectivity with all Devices Under Test (DUTs) within a single testbed
+(Note: This command must be executed within the management container):
+- python3 verify_config.py -tb <testbed-name>
+
+To verify a single testbed’s connectivity using specific testbed and VM files:
+- python3 verify_config.py -t <testbed-file> -m <vm-file> -tb <testbed-name>
+
+Replace <testbed-file>, <vm-file>, and <testbed-name> with the actual file names and testbed identifier as required.
+"""
 
 
 class Formatting(Enum):
@@ -79,14 +107,17 @@ class Assertion:
         self.error_details = deque()
 
     def assert_true(self, fn, reason):
-        if not fn():
-            self.pass_validation = False
-            self.log_error(reason, error_file=self.file, error_details=self.error_details)
+        try:
+            if not fn():
+                self.pass_validation = False
+                self.log_error(reason, error_file=self.file, error_details=self.error_details)
+        except ParserError as err:
+            self.log_error(f"Error parsing yaml file: {err}", error_type="error")
 
     def add_error_details(self, detail):
         self.error_details.append(detail)
 
-    def log_error(self, reason, error_file, error_type='warning', error_details=None):
+    def log_error(self, reason, error_file=None, error_type='warning', error_details=None):
         getattr(log, error_type)("{}{}{}".format(
             reason,
             ". Error file: " + error_file if error_file else "",
@@ -184,7 +215,15 @@ class Utility:
 
     @staticmethod
     def execute_shell(cmd, is_shell=False):
-        return subprocess.run(cmd.split(" "), shell=is_shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode
+        try:
+            return subprocess.run(
+                cmd.split(" "),
+                shell=is_shell,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            ).returncode
+        except FileNotFoundError:
+            return 1
 
 
 class Validator(ABC):
@@ -318,7 +357,6 @@ class TestbedValidator(Validator):
                 return False
 
             ip, _ = testbed['ptf_ip'].split("/")
-            ipv6, _ = testbed['ptf_ipv6'].split("/")
 
             ptf_testbed_information = ptfs_information_from_inv_file[testbed['ptf']]
             if ip != ptf_testbed_information['ansible_host']:
@@ -328,14 +366,17 @@ class TestbedValidator(Validator):
                 )
                 return False
 
-            if 'ansible_hostv6' in ptf_testbed_information and ipv6 != ptf_testbed_information['ansible_hostv6']:
-                self.assertion.add_error_details(
-                    f"ptf_ipv6 is not the same as its inventory file 'ansible/{testbed['inv_name']}' "
-                    f"{Formatting.red(ipv6)} != {ptf_testbed_information['ansible_hostv6']}",
-                )
-                return False
+            if 'ptf_ipv6' in testbed and testbed['ptf_ipv6']:
+                ipv6, _ = testbed['ptf_ipv6'].split("/")
+                if 'ansible_hostv6' in ptf_testbed_information and ipv6 != ptf_testbed_information['ansible_hostv6']:
+                    self.assertion.add_error_details(
+                        f"ptf_ipv6 is not the same as its inventory file 'ansible/{testbed['inv_name']}' "
+                        f"{Formatting.red(ipv6)} != {ptf_testbed_information['ansible_hostv6']}",
+                    )
+                    return False
 
             return True
+
         except FileNotFoundError:
             self.assertion.log_error(
                 f"('{Formatting.red(testbed['conf-name'])}') does not have a corresponding inventory file "
@@ -573,9 +614,8 @@ class HostNetworkValidation(Validator):
 
         self.assertion.assert_true(
             lambda: self._check_if_can_connect_to_apt_repository(),
-            reason="Cannot establish a connection to apt repository. Check your proxy setting."
+            reason="Cannot establish a connection to apt repository. Please check your network connection."
         )
-
 
     def _check_if_can_connect_to_apt_repository(self):
         return_code = Utility.execute_shell("apt-get --simulate upgrade")
@@ -599,7 +639,8 @@ class HostNetworkValidation(Validator):
         can_pull_image = Utility.execute_shell(f"timeout 1s docker pull {docker_image_url}") == 124
 
         if not can_pull_image:
-            self.assertion.add_error_details("Not able to connect to docker-registry. Please configure your proxy")
+            self.assertion.add_error_details("Not able to pull image from docker-registry. Please confirm your network "
+                                             "connectivity and configure proxy if needed")
             return False
 
         return True
@@ -631,6 +672,45 @@ class HostNetworkValidation(Validator):
         return True
 
 
+class TestBedValidator(Validator):
+
+    def __init__(self, testbed_name):
+        super().__init__()
+        self.testbed_name = testbed_name
+
+    def validate(self):
+        from devutil.devices.factory import init_testbed_sonichosts
+
+        if not self.testbed_name:
+            return True
+
+        yml_config = next(
+            filter(lambda tb: tb['conf-name'] == self.testbed_name, Utility.parse_yml(Config.TESTBED_FILE))
+        )
+
+        sonic_hosts = init_testbed_sonichosts(yml_config['inv_name'], self.testbed_name)
+
+        self.assertion.assert_true(
+            lambda: self._check_if_duts_are_reachable(sonic_hosts),
+            reason=f"Devices are not reachable for testbed '{Formatting.red(self.testbed_name)}'. "
+                   "Please check your proxy configs",
+        )
+
+    def _check_if_duts_are_reachable(self, sonic_hosts):
+        _, result = sonic_hosts.reachable()
+        is_valid = True
+
+        for dut_result in result.values():
+            if not dut_result["reachable"] or dut_result["failed"]:
+                is_valid = False
+                self.assertion.add_error_details(
+                    f"The following device is unreachable '{Formatting.red(dut_result['hostname'])}'. "
+                    f"Message: '{Formatting.yellow(dut_result['msg'])}'",
+                )
+
+        return is_valid
+
+
 def main(args):
     if args.testbed_file:
         Config.TESTBED_FILE = args.testbed_file
@@ -638,13 +718,18 @@ def main(args):
     if args.vm_file:
         Config.VM_FILE = args.vm_file
 
-    validators = [
-        DockerRegistryValidator(),
-        TestbedValidator(),
-        InventoryNameValidator(),
-        FanoutLinkValidator(),
-        HostNetworkValidation()
-    ]
+    validators = []
+
+    if args.target:
+        validators.extend([TestBedValidator(args.target)])
+    else:
+        validators.extend([
+            DockerRegistryValidator(),
+            TestbedValidator(),
+            InventoryNameValidator(),
+            FanoutLinkValidator(),
+            HostNetworkValidation()
+        ])
 
     for validator in validators:
         validator.validate()
@@ -656,16 +741,29 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Verify if configuration files are valid")
 
-    parser.add_argument('-t', '--testbed-file',
-                        type=str,
-                        dest='testbed_file',
-                        required=False,
-                        help='Testbed file. Only yaml format testbed file is supported.')
+    parser.add_argument(
+        '-t', '--testbed-file',
+        type=str,
+        dest='testbed_file',
+        required=False,
+        help='Testbed file. Only yaml format testbed file is supported.',
+    )
 
-    parser.add_argument('-m', '--vm-file',
-                        type=str,
-                        dest='vm_file',
-                        required=False,
-                        help='VM files, typically it is the `veos` file')
+    parser.add_argument(
+        '-m', '--vm-file',
+        type=str,
+        dest='vm_file',
+        required=False,
+        help='VM files, typically it is the `veos` file',
+    )
+
+    parser.add_argument(
+        '-tb', '--testbed',
+        type=str,
+        dest='target',
+        required=False,
+        help='Only run check for this testbed. Note that running this options will use ansible '
+             'to check connectivity to all the DUTs for that testbed',
+    )
 
     main(parser.parse_args())
