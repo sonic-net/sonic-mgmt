@@ -13,12 +13,6 @@ schedules:
         - internal
     always: true
 
-parameters:
-  - name: NEW_ICM_NUMBER_LIMIT
-    type: number
-    default: 30
-    displayName: "The maximum number of new IcM for this run."
-
 stages:
   - stage: TestFailureAnalyzing
     jobs:
@@ -54,7 +48,7 @@ stages:
                 cd test_analyzer
                 pip3 install -r requirements.txt
 
-                python3 test_failure_analyzer.py -n ${{ parameters.NEW_ICM_NUMBER_LIMIT }} -extb $(EXCLUDED_TESTBED_KEYWORDS) -exerr $(EXCLUDED_TESTBED_KEYWORDS_SETUP_ERROR)
+                python3 main.py -extb $(EXCLUDED_TESTBED_KEYWORDS) -exerr $(EXCLUDED_TESTBED_KEYWORDS_SETUP_ERROR)
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
               AZURE_DEVOPS_MSAZURE_TOKEN: $(MSAZURE-TOKEN)
