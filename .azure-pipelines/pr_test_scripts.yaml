@@ -340,12 +340,13 @@ onboarding_t0:
   - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
   - gnmi/test_gnmi_countersdb.py
-
+  - platform_tests/test_link_down.py
 
 onboarding_t1:
   - generic_config_updater/test_cacl.py
   - hash/test_generic_hash.py
   - gnmi/test_gnmi_countersdb.py
+  - platform_tests/test_link_down.py
 
 onboarding_dualtor:
   - dualtor/test_ipinip.py
