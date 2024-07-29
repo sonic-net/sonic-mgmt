@@ -180,6 +180,55 @@ tgen:
   - ixia/pfcwd/test_pfcwd_runtime_traffic.py
   - ixia/test_ixia_traffic.py
   - ixia/test_tgen.py
+  # Snappi test only support on physical tgen testbed
+  - snappi_tests/bgp/test_bgp_convergence_performance.py
+  - snappi_tests/bgp/test_bgp_local_link_failover.py
+  - snappi_tests/bgp/test_bgp_remote_link_failover.py
+  - snappi_tests/bgp/test_bgp_rib_in_capacity.py
+  - snappi_tests/bgp/test_bgp_rib_in_convergence.py
+  - snappi_tests/bgp/test_bgp_scalability.py
+  - snappi_tests/ecn/test_dequeue_ecn_with_snappi.py
+  - snappi_tests/ecn/test_red_accuracy_with_snappi.py
+  - snappi_tests/multidut/ecn/test_multidut_dequeue_ecn_with_snappi.py
+  - snappi_tests/multidut/ecn/test_multidut_red_accuracy_with_snappi.py
+  - snappi_tests/multidut/pfc/test_lossless_response_to_external_pause_storms.py
+  - snappi_tests/multidut/pfc/test_lossless_response_to_throttling_pause_storms.py
+  - snappi_tests/multidut/pfc/test_m2o_fluctuating_lossless.py
+  - snappi_tests/multidut/pfc/test_m2o_oversubscribe_lossless.py
+  - snappi_tests/multidut/pfc/test_m2o_oversubscribe_lossless_lossy.py
+  - snappi_tests/multidut/pfc/test_m2o_oversubscribe_lossy.py
+  - snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py
+  - snappi_tests/multidut/pfc/test_multidut_pfc_pause_lossless_with_snappi.py
+  - snappi_tests/multidut/pfc/test_multidut_pfc_pause_lossy_with_snappi.py
+  - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_a2a_with_snappi.py
+  - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_basic_with_snappi.py
+  - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_burst_storm_with_snappi.py
+  - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_m2o_with_snappi.py
+  - snappi_tests/lacp/test_add_remove_link_from_dut.py
+  - snappi_tests/lacp/test_add_remove_link_physically.py
+  - snappi_tests/lacp/test_lacp_timers_effect.py
+  - snappi_tests/pfc/test_global_pause_with_snappi.py
+  - snappi_tests/pfc/test_pfc_pause_lossless_with_snappi.py
+  - snappi_tests/pfc/test_pfc_pause_lossy_with_snappi.py
+  - snappi_tests/pfc/test_pfc_pause_response_with_snappi.py
+  - snappi_tests/pfc/test_pfc_pause_unset_bit_enable_vector.py
+  - snappi_tests/pfc/test_pfc_pause_zero_mac.py
+  - snappi_tests/pfc/test_valid_pfc_frame_with_snappi.py
+  - snappi_tests/pfcwd/test_pfcwd_a2a_with_snappi.py
+  - snappi_tests/pfcwd/test_pfcwd_basic_with_snappi.py
+  - snappi_tests/pfcwd/test_pfcwd_burst_storm_with_snappi.py
+  - snappi_tests/pfcwd/test_pfcwd_m2o_with_snappi.py
+  - snappi_tests/pfcwd/test_pfcwd_runtime_traffic_with_snappi.py
+  - snappi_tests/qos/test_ipip_packet_reorder_with_snappi.py
+
+snappi:
+  # Snappi test only support on physical snappi testbed
+  - snappi_tests/reboot/test_cold_reboot.py
+  - snappi_tests/reboot/test_fast_reboot.py
+  - snappi_tests/reboot/test_soft_reboot.py
+  - snappi_tests/reboot/test_warm_reboot.py
+  - snappi_tests/test_multidut_snappi.py
+  - snappi_tests/test_snappi.py
 
 wan-pub:
   # Currently PR test will not test wan topo
@@ -209,3 +258,11 @@ wan-pub:
   - wan/lacp/test_wan_lag_min_link.py
   - wan/lldp/test_wan_lldp.py
   - wan/traffic_test/test_traffic.py
+
+ptf:
+  # PTF test do not support on physical testbed
+  - sai_qualify/test_brcm_t0.py
+  - sai_qualify/test_community.py
+  - sai_qualify/test_sai_ptf.py
+  - sai_qualify/test_sai_ptf_warm_reboot.py
+  - sai_qualify/test_sai_t0_warm_reboot.py
