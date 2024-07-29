@@ -16,7 +16,7 @@ Config files, including both common file and platform dependence file.
   - It includes "COMMON" key which holds all publicly defined common memory items.
 - **memory_utilization_dependence.json**: Dependency configruations for memory utilization, currently supporting special configurations for specific HwSku devices.
   - The dependency file is also in JSON format and is used in internal branch.
-  - It alos includes a 'COMMON' key which holds all internal common memory items. If an internal memory item has the same name as an item in the public common configuration file, it will overwrite the public common item.
+  - It also includes a 'COMMON' key which holds all internal common memory items. If an internal memory item has the same name as an item in the public common configuration file, it will overwrite the public common item.
   - The dependency file also could includes a "HWSKU" key for all hwsku related memory items. If the hwsku memory item is same as a common one, it will overwrite it.
   - This dependency file should be left empty in the public branch, with special configurations added in internal branch.
 
@@ -54,8 +54,8 @@ The main flow of the fixture is as follows:
 - if memory_utilization finds any exceeded thresholds for high memory usage or memory increase, it will display the result and pytest will generate an 'error'.
 
 #### To skip memory_utilization for:
-- all test cases - use pytest command line option ```--memory_utilization```
-- specific test case: mark test case with ```@pytest.mark.memory_utilization``` decorator. Example is shown below.
+- all test cases - use pytest command line option ```--disable_memory_utilization```
+- specific test case: mark test case with ```@pytest.mark.disable_memory_utilization``` decorator. Example is shown below.
     ```python
     pytestmark = [
         pytest.mark.disable_memory_utilization
