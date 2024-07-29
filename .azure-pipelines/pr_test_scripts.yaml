@@ -184,6 +184,13 @@ t0:
   - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
   - test_pktgen.py
+  - bgp/test_bgp_peer_shutdown.py
+  - clock/test_clock.py
+  - generic_config_updater/test_pfcwd_status.py
+  - pfcwd/test_pfc_config.py
+  - platform_tests/link_flap/test_link_flap.py
+  - platform_tests/test_memory_exhaustion.py
+  - generic_config_updater/test_pg_headroom_update.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -234,6 +241,7 @@ t1-lag:
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
   - ip/test_ip_packet.py
+  - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dip_sip.py
   - ipfwd/test_mtu.py
   - lldp/test_lldp.py
@@ -245,6 +253,7 @@ t1-lag:
   - platform_tests/test_cpu_memory_usage.py
   - process_monitoring/test_critical_process_monitoring.py
   - qos/test_buffer.py
+  - radv/test_radv_restart.py
   - route/test_default_route.py
   - route/test_route_consistency.py
   - route/test_route_flap.py
@@ -311,22 +320,15 @@ dpu:
 
 onboarding_t0:
   # We will add a batch of T0 control plane cases and fix the failed cases later
-  - bgp/test_bgp_peer_shutdown.py
-  - clock/test_clock.py
   - generic_config_updater/test_dynamic_acl.py
-  - generic_config_updater/test_pfcwd_status.py
-  - generic_config_updater/test_pg_headroom_update.py
   - pc/test_lag_member.py
-  - pfcwd/test_pfc_config.py
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
   - platform_tests/cli/test_show_platform.py
-  - platform_tests/link_flap/test_link_flap.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
-  - platform_tests/test_memory_exhaustion.py
   - platform_tests/test_reboot.py
   - platform_tests/test_reload_config.py
   - snmp/test_snmp_link_local.py
@@ -337,14 +339,20 @@ onboarding_t0:
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
-  - generic_config_updater/test_pg_headroom_update.py
+  - gnmi/test_gnmi_countersdb.py
 
 
 onboarding_t1:
   - generic_config_updater/test_cacl.py
   - hash/test_generic_hash.py
+  - gnmi/test_gnmi_countersdb.py
 
 onboarding_dualtor:
+  - dualtor/test_ipinip.py
+  - dualtor/test_orchagent_slb.py
+  - dualtor/test_switchover_failure.py
+  - dualtor/test_tor_ecn.py
+  - dualtor/test_tunnel_memory_leak.py
   - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
 
