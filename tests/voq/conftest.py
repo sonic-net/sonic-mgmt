@@ -21,8 +21,10 @@ def pytest_addoption(parser):
         Returns:
             None
     '''
-    add_qos_sai_args(parser)
-    add_dynamic_buffer_calculation_args(parser)
+    qos_group = parser.getgroup("QoS test suite options")
+    if not any(opt.dest == "disable_test" for opt in qos_group.options):
+        add_qos_sai_args(parser)
+        add_dynamic_buffer_calculation_args(parser)
 
 
 @pytest.fixture(scope="module", autouse=True)
