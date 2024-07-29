@@ -1,7 +1,7 @@
 # SmartSwitch PMON Test Plan
 
 - [Introduction](#introduction)
-- [Scope](#scope)C
+- [Scope](#scope)
 - [Definitions and Abbreviations](#definitions-and-abbreviations)
 - [Test Cases](#test-cases)
     - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-chassis-apis)
@@ -90,7 +90,9 @@ On Switch:
     Output: True
 
     get_module_dpu_data_port(self, DPU0):
-    Output: "Ethernet224: Ethernet0"
+    Output: {
+                "interface": {"Ethernet224": "Ethernet0"}
+            }
 
 ```
 #### Pass/Fail Criteria
@@ -151,6 +153,7 @@ On Switch:
     * Stop one of the DPU containers on this DPU
     * Execute the CLI and check the dpu-control-plane value should be down
     * Check the complete list of containers without which the control plane can be up.
+    * This test case can be extended to verify the DPU transition through all states.
  * get_health_info(self):
     * This should return an object
     * Stop one of the DPU containers on this DPU
@@ -187,7 +190,7 @@ On Switch:
  * get_system_eeprom_info(self):
     * Verify the returned dictionary key:value
  * get_name(self):
-    * Verify if this API returns “DPU0” to “DPU7” on each of them
+    * Verify if this API returns “DPUx" on each of them
  * get_description(self):
     * Should return a string
  * get_type(self):
@@ -240,7 +243,7 @@ On Switch:
  
  
 ### 1.6 Check the show reboot-cause CLI on the DPU
-
+This test case should be optional based on the platform capabilities listed on the platform.json file on the switch side
 #### Steps
  * reboot the DPU
  * issue the CLI “show reboot-cause” on the DPU
@@ -258,7 +261,7 @@ Unknown
  *  A proper output should be delayed without any error
 
 ### 1.7 Check the show reboot-cause history CLI on the DPU
-
+This test case should be optional based on the platform capabilities listed on the platform.json file on the switch side
 #### Steps
  * reboot the DPU a few times
  * issue the CLI “show reboot-cause history” on the DPU
@@ -273,19 +276,10 @@ On DPU: “show reboot-cause history”
 
 Output:
 
-Name                 Cause    Time    User    Comment
--------------------  -------  ------  ------  ---------
-2024_06_04_23_27_28  Unknown  N/A     N/A     N/A
-2024_05_29_21_28_22  Unknown  N/A     N/A     N/A
-2024_05_23_17_15_19  Unknown  N/A     N/A     N/A
-2024_05_23_17_15_15  Unknown  N/A     N/A     N/A
-2024_05_23_17_15_14  Unknown  N/A     N/A     N/A
-2024_05_23_17_15_00  Unknown  N/A     N/A     N/A
-2024_05_21_19_43_58  Unknown  N/A     N/A     N/A
-2024_05_21_19_42_07  Unknown  N/A     N/A     N/A
-2024_05_21_19_42_06  Unknown  N/A     N/A     N/A
-2024_05_21_19_42_05  Unknown  N/A     N/A     N/A
-
+Name                 Cause       Time                                User    Comment
+-------------------  -------     ------                              ------  ---------
+2024_06_26_21_08_27  Unknown     Wed Jun 26 09:04:43 PM UTC 2024     cisco    N/A
+2024_06_25_21_08_27  Unknown     Wed Jun 25 09:04:43 PM UTC 2024     cisco    N/A
 ```
 #### Pass/Fail Criteria
  *  A proper output should be delayed without any error as shown
@@ -309,10 +303,10 @@ Output: User issued 'reboot' command [User: cisco, Time: Fri 31 May 2024 12:29:3
 
 On Switch: “show reboot-cause all”
 
-Device    Name                 Cause       Time    User
---------  -------------------  ----------  ------  ------
-SWITCH    2024_06_04_23_27_25  Power Loss  N/A     N/A
-DPU0      2024_06_04_23_27_28  Unknown     N/A     N/A
+Device    Name                 Cause       Time                               User
+--------  -------------------  ----------  ------                             ------
+SWITCH    2024_06_26_21_08_27  reboot      Wed Jun 26 09:04:43 PM UTC 2024    cisco
+DPU0      2024_06_26_21_08_27  Unknown     Wed Jun 26 09:04:43 PM UTC 2024    cisco
 
 ```
 #### Pass/Fail Criteria
@@ -754,6 +748,8 @@ DPU0    0     Online         dpu_midplane_link_state  UP             20240605 02
  * Set the config_db.json such that some DPUs are powered down
  * Cold start the system with the config
  * Verify if the expected DPUs  are ON and the remaining are OFF and the  admin_status is set properly
+ * Tests don't need to check for version info.
+ * The test should check the fields only for the DPUs that are powered.
  
 #### Verify in
  * Switch
@@ -768,15 +764,6 @@ On Switch: “show platform inventory"
 Chassis
     CHASSIS             8102-28FH-DPU-O 0.10                 FLM274802F6     Cisco 28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
 
-Route Processors
-    RP0                 8102-28FH-DPU-O 0.10                 FLM274802F6     Cisco 28x400G QSFPDD DPU-Enabled 2RU Smart Switch,Open SW
-
-Sled Cards
-    SLED0               8K-DPU400-2A    0.10                 FLM2750036R     Cisco 800 2xDPU Sled AMD Elba
-    SLED1               8K-DPU400-2A    0.10                 FLM2750037Z     Cisco 800 2xDPU Sled AMD Elba
-    SLED2               8K-DPU400-2A    0.10                 FLM2750036Q     Cisco 800 2xDPU Sled AMD Elba
-    SLED3               8K-DPU400-2A    0.10                 FLM2750037L     Cisco 800 2xDPU Sled AMD Elba
-
 Dpu Modules
     DPU0                DSS-MTFUJI      6.1.0-11-2-arm64     225207731731968 Pensando DSC
     DPU1                DSS-MTFUJI      6.1.0-11-2-arm64     225207731731984 Pensando DSC
@@ -786,11 +773,11 @@ Dpu Modules
 
 On Switch: "show chassis modules status"
 
-  Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
-------  -------------  ---------------  -------------  --------------  --------
-  DPU0   Pensando DSC               -1         Online              up       225207731731968
-  DPU1   Pensando DSC               -1         Online              up       225207731731984
-  DPU2            N/A               -1        Offline            down       N/A
+  Name    Description    Physical-Slot    Oper-Status    Admin-Status            Serial
+------  -------------  ---------------  -------------  --------------          --------
+  DPU0   Pensando DSC              N/A         Online              up    225207731731968
+  DPU1   Pensando DSC              N/A         Online              up    225207731731984
+  DPU2            N/A              N/A        Offline            down                N/A
 
 ```
 #### Pass/Fail Criteria
