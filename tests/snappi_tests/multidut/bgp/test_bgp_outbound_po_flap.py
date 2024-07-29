@@ -2,69 +2,70 @@ import pytest
 import logging
 from tests.common.helpers.assertions import pytest_require, pytest_assert                            # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
-     fanout_graph_facts_multidut                                                                    # noqa: F401
+     fanout_graph_facts_multidut                                                                     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api, multidut_snappi_ports_for_bgp                                                      # noqa: F401
-from tests.snappi_tests.variables import t1_t2_device_hostnames                                     # noqa: F401
+from tests.snappi_tests.variables import t1_t2_device_hostnames, t1_ports                          # noqa: F401
 from tests.snappi_tests.multidut.bgp.files.bgp_outbound_helper import (
-     run_bgp_outbound_service_restart_test)                                                         # noqa: F401
+     run_bgp_outbound_link_flap_test)                                                               # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
+FLAP_DETAILS = {
+        'device_name': 'Ixia',
+        'port_name': 'Test_Port_{}'.format(len(t1_ports[t1_t2_device_hostnames[0]]))
+    }
+
 ITERATION = 1
 ROUTE_RANGES = [{
-                'IPv4': [
-                    ['100.1.1.1', 24, 500],
-                    ['200.1.1.1', 24, 500]
-                ],
-                'IPv6': [
-                    ['5000::1', 64, 500],
-                    ['4000::1', 64, 500]
-                ],
+                    'IPv4': [
+                        ['100.1.1.1', 24, 500],
+                        ['200.1.1.1', 24, 500]
+                    ],
+                    'IPv6': [
+                        ['5000::1', 64, 500],
+                        ['4000::1', 64, 500]
+                    ],
                 },
                 {
-                'IPv4': [
-                    ['100.1.1.1', 24, 5000],
-                    ['200.1.1.1', 24, 5000]
-                ],
-                'IPv6': [
-                    ['5000::1', 64, 500],
-                    ['4000::1', 64, 500]
-                ],
-                }]
+                    'IPv4': [
+                        ['100.1.1.1', 24, 2500],
+                        ['200.1.1.1', 24, 2500]
+                    ],
+                    'IPv6': [
+                        ['5000::1', 64, 2500],
+                        ['4000::1', 64, 2500]
+                    ],
+            }]
 
 
-@pytest.mark.parametrize('traffic_type', ['IPv6'])
-def test_bgp_outbound_flap_uplink_swss(snappi_api,                                     # noqa: F811
-                                       multidut_snappi_ports_for_bgp,                       # noqa: F811
-                                       conn_graph_facts,                             # noqa: F811
-                                       fanout_graph_facts,                           # noqa: F811
-                                       duthosts,
-                                       traffic_type):                                # noqa: F811
+def test_bgp_outbound_po_flap(snappi_api,                                     # noqa: F811
+                              multidut_snappi_ports_for_bgp,                       # noqa: F811
+                              conn_graph_facts,                             # noqa: F811
+                              fanout_graph_facts_multidut,                           # noqa: F811
+                              duthosts,
+                              ):
     """
-    Gets the packet loss duration on flapping services in uplink
+    Gets the packet loss duration on flapping portchannel in uplink side
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
         multidut_snappi_ports_for_bgp (pytest fixture):  Port mapping info on multidut testbed
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
-        traffic_type: IPv4 or IPv6 traffic type to be tested
     Returns:
         N/A
     """
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.ROUTE_RANGES = ROUTE_RANGES
     snappi_extra_params.iteration = ITERATION
-    snappi_extra_params.multi_dut_params.service_names = {
-                                                            'swss': "/usr/bin/orchagent",
-                                                            'syncd': "/usr/bin/syncd",
-                                                        }
-    snappi_extra_params.multi_dut_params.host_name = t1_t2_device_hostnames[2]
+    snappi_extra_params.test_name = "T2 Uplink Portchannel Flap"
+    snappi_extra_params.multi_dut_params.flap_details = FLAP_DETAILS
+
     if (len(t1_t2_device_hostnames) < 3) or (len(duthosts) < 3):
         pytest_assert(False, "Need minimum of 3 devices : One T1 and Two T2 line cards")
 
@@ -89,6 +90,5 @@ def test_bgp_outbound_flap_uplink_swss(snappi_api,                              
             pytest_assert(False, "Hostnames in variables.py doesn't match the dut hostname")
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
-    run_bgp_outbound_service_restart_test(api=snappi_api,
-                                          traffic_type=traffic_type,
-                                          snappi_extra_params=snappi_extra_params)
+    run_bgp_outbound_link_flap_test(api=snappi_api,
+                                    snappi_extra_params=snappi_extra_params)
