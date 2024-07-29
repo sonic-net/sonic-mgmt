@@ -97,6 +97,8 @@ class Assertion:
 
 
 class Config:
+    DOCKER_REGISTRY_URL = "sonicdev-microsoft.azurecr.io:443"
+    DOCKER_IMAGE_NAME = "docker-sonic-mgmt"
     DOCKER_REGISTRY_FILE = "vars/docker_registry.yml"
     TESTBED_FILE = "testbed.yaml"
     TOPO_FILE_PATTERN = "vars/topo*.yml"
@@ -107,6 +109,7 @@ class Config:
     FANOUT_PDU_LINKS_FILE = "files/sonic_*_pdu_links.csv"
     FANOUT_CONSOLE_LINKS_FILE = "files/sonic_*_console_links.csv"
     FANOUT_GRAPH_GROUP_FILE = "files/graph_groups.yml"
+    GROUP_VARS_ENV_FILE = "group_vars/all/env.yml"
 
 
 class Utility:
@@ -178,6 +181,10 @@ class Utility:
             return 0
 
         return len(topology['topology']['VMs'])
+
+    @staticmethod
+    def execute_shell(cmd, is_shell=False):
+        return subprocess.run(cmd.split(" "), shell=is_shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode
 
 
 class Validator(ABC):
@@ -256,7 +263,7 @@ class TestbedValidator(Validator):
             )
 
             self.assertion.assert_true(
-                lambda: self._topo_name_must_be_in_veos_file(testbed),
+                lambda: self._topo_name_must_be_in_vm_file(testbed),
                 reason=f"({Formatting.red(conf_name)}) Topology name '{Formatting.red(testbed['topo'])}' "
                        f"is not declared in '{Config.VM_FILE}'",
             )
@@ -342,19 +349,19 @@ class TestbedValidator(Validator):
         vm_base = testbed['vm_base']
         server = testbed['server']
 
-        veos_configuration = Utility.parse_yml(Config.VM_FILE)
+        vm_configuration = Utility.parse_yml(Config.VM_FILE)
 
-        if server not in veos_configuration:
+        if server not in vm_configuration:
             self.assertion.add_error_details(
                 f"Server '{Formatting.red(server)}' is not in file '{Config.VM_FILE}'",
             )
             return False
 
         vms_server = next(filter(
-            lambda config: config.startswith("vms"), veos_configuration[server]['children']),
+            lambda config: config.startswith("vms"), vm_configuration[server]['children']),
         )
 
-        if vm_base not in veos_configuration[vms_server]['hosts']:
+        if vm_base not in vm_configuration[vms_server]['hosts']:
             self.assertion.add_error_details(
                 f"VM base '{Formatting.red(vm_base)}' is not in server '{server}' from file '{Config.VM_FILE}'",
             )
@@ -402,12 +409,12 @@ class TestbedValidator(Validator):
         except KeyError as unknown_key:
             self.assertion.add_error_details(f"Key not found: {unknown_key}")
             self.assertion.log_error(
-                "veos file is not in the correct format. Update the file or update this script",
+                "vm file is not in the correct format. Update the file or update this script",
                 error_file=Config.VM_FILE,
                 error_type="error",
             )
 
-    def _topo_name_must_be_in_veos_file(self, testbed):
+    def _topo_name_must_be_in_vm_file(self, testbed):
         try:
             topologies_from_file = Utility.parse_yml(Config.VM_FILE)['all']['children']['servers']['vars']['topologies']
             return testbed['topo'] in topologies_from_file
@@ -543,17 +550,85 @@ class FanoutLinkValidator(Validator):
         return is_valid
 
 
-class NetworkValidation(Validator):
+class HostNetworkValidation(Validator):
     def __init__(self):
         super().__init__()
 
     def validate(self):
-        self.assertion.assert_true(lambda: self._check_if_bridge_is_up(),
-                                   reason=f"Interface 'br1' is not up. Consider running "
-                                          f"'{Formatting.yellow('./setup-management-network.sh')}'")
+        self.assertion.assert_true(
+            lambda: self._check_if_bridge_is_up(),
+            reason=f"Interface 'br1' is not up. Consider running "
+                   f"'{Formatting.yellow('./setup-management-network.sh')}'",
+        )
+
+        self.assertion.assert_true(
+            lambda: self._check_if_proxy_is_using(),
+            reason="Proxy setting is not correct ",
+        )
+
+        self.assertion.assert_true(
+            lambda: self._check_if_can_connect_to_docker_registry(),
+            reason="Cannot establish a connection to docker registry. Check your proxy setting, docker proxy setting"
+        )
+
+        self.assertion.assert_true(
+            lambda: self._check_if_can_connect_to_apt_repository(),
+            reason="Cannot establish a connection to apt repository. Check your proxy setting."
+        )
+
+
+    def _check_if_can_connect_to_apt_repository(self):
+        return_code = Utility.execute_shell("apt-get --simulate upgrade")
+        return return_code == 0
 
     def _check_if_bridge_is_up(self):
-        return subprocess.run(["ifconfig", "br1"], stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode == 0
+        return_code = Utility.execute_shell("ifconfig br1")
+        return return_code == 0
+
+    def _check_if_can_connect_to_docker_registry(self):
+        is_docker_installed = Utility.execute_shell("command docker -v", is_shell=True) == 0
+
+        if not is_docker_installed:
+            self.assertion.add_error_details("Docker is not installed on the system. Please install docker")
+            return False
+
+        docker_image_url = f"{Config.DOCKER_REGISTRY_URL}/{Config.DOCKER_IMAGE_NAME}:latest"
+
+        # We need to check for pull here since only pull use the setting from docker-proxy. Unless in the future
+        # there are other alternatives. If fail exit code will be `1` otherwise will be `124` exit code for `timeout`
+        can_pull_image = Utility.execute_shell(f"timeout 1s docker pull {docker_image_url}") == 124
+
+        if not can_pull_image:
+            self.assertion.add_error_details("Not able to connect to docker-registry. Please configure your proxy")
+            return False
+
+        return True
+
+    def _check_if_proxy_is_using(self):
+        group_vars_env = Utility.parse_yml(Config.GROUP_VARS_ENV_FILE)
+
+        env_vars = ["http_proxy", "https_proxy"]
+
+        for var in env_vars:
+            if var not in os.environ:
+                continue
+
+            if var not in group_vars_env or var not in group_vars_env['proxy_env']:
+                self.assertion.add_error_details(
+                    f"'{Formatting.red(var)}' is detected in environment variables "
+                    f"but not in '{Config.GROUP_VARS_ENV_FILE}'",
+                )
+                return False
+
+            if group_vars_env[var] != os.environ[var]:
+                self.assertion.add_error_details(
+                    f"environment '{Formatting.red(var)}' is not the same "
+                    f"as declared in '{Config.GROUP_VARS_ENV_FILE}': "
+                    f"{os.environ[var]} != {group_vars_env[var]}",
+                )
+                return False
+
+        return True
 
 
 def main(args):
@@ -568,7 +643,7 @@ def main(args):
         TestbedValidator(),
         InventoryNameValidator(),
         FanoutLinkValidator(),
-        NetworkValidation()
+        HostNetworkValidation()
     ]
 
     for validator in validators:
