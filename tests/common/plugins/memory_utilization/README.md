@@ -11,7 +11,7 @@ Newly introduced a plugin "memory_utilization" and config files.
 
 #### Config files
 Config files, including both common file and platform dependence file.
-- **memory_utilization_common.json**: Common configurations for memory utilization. 
+- **memory_utilization_common.json**: Common configurations for memory utilization.
   - The file is in JSON format and is defined in the public branch.
   - It includes "COMMON" key which holds all publicly defined common memory items.
 - **memory_utilization_dependence.json**: Dependency configruations for memory utilization, currently supporting special configurations for specific HwSku devices.
@@ -275,7 +275,7 @@ e5b96437643b   radv       0.42%     39.84MiB / 3.807GiB   1.02%     0B / 0B   71
 
 
 ##### "top"
-"top" uses the command "top -b -n 1" to get the memory item's information. 
+"top" uses the command "top -b -n 1" to get the memory item's information.
 The memory_params could have several sub memory items, the example below is "bgpd" and "zebra".
 The "bgpd" threshold for high memory is 200000, and for an increase is 10000.
 The "zebra" threshold for high memory is 200000, and for an increase is 10000.
@@ -307,7 +307,7 @@ top - 03:01:19 up 4 days, 11 min,  0 users,  load average: 1.56, 1.38, 1.16
 Tasks: 252 total,   2 running, 246 sleeping,   0 stopped,   4 zombie
 %Cpu(s): 23.5 us,  8.6 sy,  0.0 ni, 66.7 id,  0.0 wa,  0.0 hi,  1.2 si,  0.0 st
 MiB Mem :   3897.9 total,    254.8 free,   2534.7 used,   1108.4 buff/cache
-MiB Swap:      0.0 total,      0.0 free,      0.0 used.    954.9 avail Mem 
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.    954.9 avail Mem
 
     PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
    1063 message+  20   0  125476  73676   8184 R  35.3   1.8   2254:29 redis-s+
