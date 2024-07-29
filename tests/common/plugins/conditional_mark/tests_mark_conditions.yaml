@@ -1625,6 +1625,7 @@ test_nbr_health.py:
 test_pktgen.py:
   skip:
     reason: "have known issue, skip for now"
+    conditions: https://github.com/sonic-net/sonic-mgmt/issues/13804
 
 #######################################
 #####            vlan             #####
