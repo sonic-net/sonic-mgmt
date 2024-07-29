@@ -37,8 +37,8 @@ class PfcWdBackgroundTrafficTest(BaseTest):
             src_mac = self.dataplane.get_mac(0, src_port)
             dst_mac = self.dataplane.get_mac(0, dst_port)
             for queue in self.queues:
-                print(f"traffic from {src_port} to {dst_port}: {queue} ")
-                logging.info(f"traffic from {src_port} to {dst_port}: {queue} ")
+                print("traffic from {} to {}: {}".format(src_port, dst_port, queue))
+                logging.info("traffic from {} to {}: {}".format(src_port, dst_port, queue))
                 pkt = simple_ip_packet(
                     eth_src=src_mac,
                     eth_dst=self.router_mac,
@@ -50,8 +50,8 @@ class PfcWdBackgroundTrafficTest(BaseTest):
                 )
                 pkts_dict[src_port].append(pkt)
                 if self.bidirection:
-                    print(f"traffic from {dst_port} to {src_port}: {queue} ")
-                    logging.info(f"traffic from {dst_port} to {src_port}: {queue} ")
+                    print("traffic from {} to {}: {}".format(dst_port, src_port, queue))
+                    logging.info("traffic from {} to {}: {}".format(dst_port, src_port, queue))
                     pkt = simple_ip_packet(
                         eth_src=dst_mac,
                         eth_dst=self.router_mac,
