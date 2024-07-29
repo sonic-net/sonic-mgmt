@@ -44,6 +44,8 @@ def reporthook(count, block_size, total_size):
 
 
 def validate_url_or_abort(url):
+    print("Validating URL: {}".format(url))
+
     # Attempt to retrieve HTTP response code
     try:
         urlfile = urlopen(url)
