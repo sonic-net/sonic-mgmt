@@ -1,509 +1,55 @@
-from __future__ import print_function, division
-import concurrent.futures
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import json
-import logging
-import os
-import sys
-from logging.handlers import RotatingFileHandler
-import tempfile
-from datetime import datetime, timezone, timedelta
+
+from config import configuration
+from data_deduplicator import DataDeduplicator, get_deduplicator
+from kusto_connector import KustoConnector
 import traceback
 import requests
 import uuid
-import argparse
+import os
+from datetime import timedelta, datetime, timezone
+from azure.kusto.data.helpers import dataframe_from_result_table
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import prettytable
 import pytz
 import math
 import copy
-
-from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
-from azure.kusto.data.helpers import dataframe_from_result_table
-try:
-    from azure.kusto.ingest import KustoIngestClient
-except ImportError:
-    from azure.kusto.ingest import QueuedIngestClient as KustoIngestClient
-
-from azure.kusto.ingest import IngestionProperties
-
-# Resolve azure.kusto.ingest compatibility issue
-try:
-    from azure.kusto.ingest import DataFormat
-except ImportError:
-    from azure.kusto.data.data_format import DataFormat
-
-logging.basicConfig(
-    stream=sys.stdout,
-    level=logging.DEBUG,
-    format='%(asctime)s :%(name)s:%(lineno)d %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-CONFI_FILE = 'test_failure_config.json'
-DATABASE = 'SonicTestData'
-ICM_DATABASE = 'IcMDataWarehouse'
-ADO_DATABASE = 'AzureDevOps'
-PARENT_ID1 = "13410203"
-PARENT_ID2 = "16726166"
-ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'
-ICM_NUMBER_THRESHOLD = 9
-
-RELEASE_BRANCH = ['20201231', '20220531', '20230531', '20231110']
+import json
+import logging
+import sys
+import pandas as pd
 
 TOKEN = os.environ.get('AZURE_DEVOPS_MSAZURE_TOKEN')
+
 if not TOKEN:
     raise Exception(
         'Must export environment variable AZURE_DEVOPS_MSSONIC_TOKEN')
 AUTH = ('', TOKEN)
 
+ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'
 
-def config_logging():
-    """Configure log to rotating file
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.DEBUG,
+    format='%(asctime)s :%(name)s:%(lineno)d %(levelname)s - %(message)s')
 
-    * Remove the default handler from app.logger.
-    * Add RotatingFileHandler to the app.logger.
-        File size: 10MB
-        File number: 3
-    * The Werkzeug handler is untouched.
-    """
-    rfh = RotatingFileHandler(
-        '/tmp/test_failure_analyzer.log',
-        maxBytes=10*1024*1024,  # 10MB
-        backupCount=3)
-    fmt = logging.Formatter(
-        '%(asctime)s %(levelname)s:%(funcName)s %(lineno)d:%(message)s')
-    rfh.setFormatter(fmt)
-    logger.addHandler(rfh)
+logger = logging.getLogger(__name__)
 
-
-class KustoConnector(object):
-    """connect the Kusto and run query"""
-    TEST_CASE_ANALYSIS_TABLE = "TestcaseAnalysis"
-    AUTO_BLAME_REPORT_TABLE = "AutoBlameReport"
-
-    TABLE_FORMAT_LOOKUP = {
-        TEST_CASE_ANALYSIS_TABLE: DataFormat.JSON,
-        AUTO_BLAME_REPORT_TABLE: DataFormat.JSON
-    }
-
-    TABLE_MAPPING_LOOKUP = {
-        TEST_CASE_ANALYSIS_TABLE: "FlatTestCaseAnalysisMappingV1",
-        AUTO_BLAME_REPORT_TABLE: "AutoBlameReportMapping"
-    }
-
-    def __init__(self, config_info, current_time):
-        self.logger = logging.getLogger('KustoChecker')
-
-        self.config_info = config_info
-        self.db_name = DATABASE
-        self.icm_db_name = ICM_DATABASE
-        self.ado_db_name = ADO_DATABASE
-        self.search_end_time = current_time
-        self.search_start_time = self.search_end_time - \
-            timedelta(days=int(self.config_info['threshold']['duration_days']))
-        self.history_start_time = self.search_end_time - \
-            timedelta(days=int(self.config_info['threshold']['history_days']))
-
-        logger.info("Select 7 days' start time: {}, 30 days' start time: {}, current time: {}".format(self.search_start_time, self.history_start_time, self.search_end_time))
-
-        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
-        access_token = os.environ.get('ACCESS_TOKEN', None)
-
-        icm_cluster = os.getenv("ICM_KUSTO_CLUSTER")
-        ado_cluster = os.getenv("ADO_KUSTO_CLUSTER")
-
-        if not ingest_cluster or not access_token:
-            logger.error(
-                "Could not load backup Kusto Credentials from environment, please check your environment setting.")
-            self._ingestion_client_backup = None
-        else:
-            cluster = ingest_cluster.replace('ingest-', '')
-            kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(cluster,
-                                                                                        access_token)
-            kcsb_ingest = KustoConnectionStringBuilder.with_aad_application_token_authentication(ingest_cluster,
-                                                                                               access_token)
-            self.client_backup = KustoClient(kcsb)
-            self._ingestion_client_backup = KustoIngestClient(kcsb_ingest)
-
-        if not icm_cluster:
-            logger.error(
-                "Could not load IcM cluster url from environment, please check your environment setting.")
-            self._icm_client = None
-        else:
-            icm_kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(icm_cluster,
-                                                                                            access_token)
-
-            self.icm_client = KustoClient(icm_kcsb)
-        if not ado_cluster:
-            logger.error(
-                "Could not load ADO cluster url from environment, please check your environment setting.")
-            self._ado_client = None
-        else:
-            ado_kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(ado_cluster,
-                                                                                            access_token)
-
-            self.ado_client = KustoClient(ado_kcsb)
-
-    def icm_query(self, query):
-        self.logger.debug('Query String: {}'.format(query))
-        return self.icm_client.execute(self.icm_db_name, query)
-
-    def ado_query(self, query):
-        self.logger.debug('Query String: {}'.format(query))
-        return self.ado_client.execute(self.ado_db_name, query)
-
-    def query(self, query):
-        self.logger.debug('Query String: {}'.format(query))
-        return self.client_backup.execute(self.db_name, query)
-
-    def query_active_icm(self):
-        """
-        Query active IcMs for SONiC Nightly Test queue.
-        """
-        query_str = '''
-            IncidentsSnapshotV2()
-            | where OwningTeamName == "CLOUDNET\\\\SONiCNightlyTest"
-            | where Title contains "[SONiC_Nightly][Failed_Case]"
-            | where Status == "ACTIVE"
-            | where IsPurged == false or isempty(IsPurged)
-            | project IncidentId, Title, SourceCreateDate, ModifiedDate, Status
-            | sort by SourceCreateDate
-            '''
-        logger.info("Query active icm:{}".format(query_str))
-        return self.icm_query(query_str)
-
-    def query_ado(self):
-        """
-        Query active IcMs for SONiC Nightly Test queue.
-        """
-        query_str = '''
-            WorkItem
-            | where TeamProject == "One" and Tags contains "sonic-nightly" and WorkItemType == "Product Backlog Item"
-            | where IsDeleted != true
-            | summarize arg_max(CreatedDate,*) by WorkItemId
-            | extend URL =strcat("https://msazure.visualstudio.com/One/_workitems/edit/", WorkItemId)
-            | extend Owner=AssignedToDisplayName
-            | project WorkItemId,Title, Tags, Owner, CreatedDate, ChangedDate, State,URL
-            | sort by CreatedDate desc
-            '''
-        logger.info("Query ado:{}".format(query_str))
-        return self.ado_query(query_str)
-
-    def query_summary_results(self):
-        """
-        Query failed test cases for the past one day, which total case number should be more than 100
-        in case of collecting test cases from unhealthy testbed.
-        """
-        query_str = '''
-            let ProdQualOSList = dynamic({});
-            let ResultFilterList = dynamic(["failure", "error"]);
-            let ExcludeTestbedList = dynamic({});
-            let ExcludeBranchList = dynamic({});
-            let ExcludeHwSkuList = dynamic({});
-            let ExcludeTopoList = dynamic({});
-            let ExcludeAsicList = dynamic({});
-            let SummaryWhileList = dynamic({});
-            TestReportUnionData
-            | where PipeStatus == 'FINISHED'
-            | where TestbedName != ''
-            | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-            | where OSVersion has_any(ProdQualOSList)
-            | where Result in (ResultFilterList)
-            | where not(TestbedName has_any(ExcludeTestbedList))
-            | where not (HardwareSku has_any(ExcludeHwSkuList))
-            | where not(TopologyType has_any(ExcludeTopoList))
-            | where not(AsicType has_any(ExcludeAsicList))
-            | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-            | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({}) and OSVersion has_any(ProdQualOSList)
-            | where Result in (ResultFilterList)
-            | where Summary !in (SummaryWhileList)
-            | where not(BranchName has_any(ExcludeBranchList))
-            | summarize arg_max(RunDate, *) by opTestCase, BranchName, ModulePath, TestbedName, Result
-            | summarize ReproCount = count() by BranchName, ModulePath, Summary, Result
-            | project ReproCount, Result, BranchName,ModulePath,Summary)
-                                                            on $left.BranchName == $right.BranchName,
-                                                                $left.ModulePath == $right.ModulePath,
-                                                                $left.Summary == $right.Summary,
-                                                                $left.Result == $right.Result
-                                                                | sort by ReproCount desc
-            | where not(BranchName has_any(ExcludeBranchList))
-            | where BranchName in(ProdQualOSList)
-            | where OSVersion !contains "cisco"
-            | where OSVersion !contains "nokia"
-            | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
-            | distinct ModulePath,BranchName,ReproCount, Result,Summary
-            | where ReproCount >= {}
-            | sort by ReproCount, ModulePath
-            '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"],
-                   self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
-                   self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'], self.config_info['summary_while_list'],
-                   self.search_start_time, self.search_end_time, self.search_start_time, self.search_end_time,
-                   self.config_info['threshold']['repro_count_limit_summary'])
-        logger.info("Query common summary cases:{}".format(query_str))
-        return self.query(query_str)
-
-    def query_test_setup_failure(self):
-        """
-        Query failed test cases for the past one day, which total case number should be more than 100
-        in case of collecting test cases from unhealthy testbed.
-        """
-        query_str = '''
-        let ProdQualOSList = dynamic({});
-        let ResultFilterList = dynamic(["failure", "error"]);
-        let ExcludeTestbedList = dynamic({});
-        let ExcludeBranchList = dynamic({});
-        let ExcludeHwSkuList = dynamic({});
-        let ExcludeTopoList = dynamic({});
-        let ExcludeAsicList = dynamic({});
-        TestReportUnionData
-        | where PipeStatus == 'FINISHED'
-        | where TestbedName != ''
-        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-        | where OSVersion has_any(ProdQualOSList)
-        | where Result in (ResultFilterList)
-        | where not(TestbedName has_any(ExcludeTestbedList))
-        | where not (HardwareSku has_any(ExcludeHwSkuList))
-        | where not(TopologyType has_any(ExcludeTopoList))
-        | where not(AsicType has_any(ExcludeAsicList))
-        | where Summary contains "test setup failure"
-        | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-        | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({}) and OSVersion has_any(ProdQualOSList)
-            | where Result in (ResultFilterList)
-            | where Summary contains "test setup failure"
-            | where not(BranchName has_any(ExcludeBranchList))
-            | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-            | summarize ReproCount = count() by OSVersion, ModulePath, opTestCase, Result)
-                                                           on $left.OSVersion == $right.OSVersion,
-                                                            $left.ModulePath == $right.ModulePath,
-                                                            $left.opTestCase == $right.opTestCase,
-                                                            $left.Result == $right.Result
-        | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(ProdQualOSList)
-        | where OSVersion !contains "cisco"
-        | where OSVersion !contains "nokia"
-        | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
-        | distinct UploadTimestamp, Feature, ModulePath, OSVersion, BranchName, Summary, BuildId, TestbedName, ReproCount
-        | where ReproCount >= {}
-        | sort by ReproCount, ModulePath
-        '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"],
-                   self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
-                   self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
-                   self.search_start_time, self.search_end_time, self.search_start_time, self.search_end_time,
-                   self.config_info['threshold']['repro_count_limit_setup_error'])
-        logger.info("Query test setup failure cases:{}".format(query_str))
-        return self.query(query_str)
-
-    def query_failed_testcase(self):
-        """
-        Query failed test cases for the past 7 days, which total case number should be more than 100
-        in case of collecting test cases from unhealthy testbed.
-        """
-        query_str = '''
-        let ProdQualOSList = dynamic({});
-        let ResultFilterList = dynamic(["failure", "error"]);
-        let ExcludeTestbedList = dynamic({});
-        let ExcludeBranchList = dynamic({});
-        let ExcludeHwSkuList = dynamic({});
-        let ExcludeTopoList = dynamic({});
-        let ExcludeAsicList = dynamic({});
-        TestReportUnionData
-        | where PipeStatus == 'FINISHED'
-        | where TestbedName != ''
-        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-        | where OSVersion has_any(ProdQualOSList)
-        | where Result in (ResultFilterList)
-        | where not(TestbedName has_any(ExcludeTestbedList))
-        | where not (HardwareSku has_any(ExcludeHwSkuList))
-        | where not(TopologyType has_any(ExcludeTopoList))
-        | where not(AsicType has_any(ExcludeAsicList))
-        | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
-        | extend FullCaseName = strcat(ModulePath,".",opTestCase)
-        | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-        | join kind = inner (TestReportUnionData
-            | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({}) and OSVersion has_any(ProdQualOSList)
-            | where Result in (ResultFilterList)
-            | where Summary !contains "test setup failure"
-            | where not(BranchName has_any(ExcludeBranchList))
-            | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-            | summarize ReproCount = count() by OSVersion, ModulePath, opTestCase, Result)
-                                                        on $left.OSVersion == $right.OSVersion,
-                                                            $left.ModulePath == $right.ModulePath,
-                                                            $left.opTestCase == $right.opTestCase,
-                                                            $left.Result == $right.Result
-        | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(ProdQualOSList)
-        | where OSVersion !contains "cisco"
-        | where OSVersion !contains "nokia"
-        | where ReproCount >= {}
-        | where ModulePath != ""
-        | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
-        | sort by ReproCount, ModulePath, opTestCase, Result
-        '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"],
-                   self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
-                   self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
-                   self.search_start_time, self.search_end_time, self.search_start_time, self.search_end_time,
-                   self.config_info['threshold']['repro_count_limit'])
-        logger.info("Query failed cases:{}".format(query_str))
-        return self.query(query_str)
-
-    def query_failed_testcase_release(self, release_branch):
-
-        query_str = '''
-        let ProdQualOSList = dynamic(["{}"]);
-        let ResultFilterList = dynamic(["failure", "error"]);
-        let ExcludeTestbedList = dynamic({});
-        let ExcludeBranchList = dynamic({});
-        let ExcludeHwSkuList = dynamic({});
-        let ExcludeTopoList = dynamic({});
-        let ExcludeAsicList = dynamic({});
-        TestReportUnionData
-        | where PipeStatus == 'FINISHED'
-        | where TestbedName != ''
-        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-        | where OSVersion has_any(ProdQualOSList)
-        | where Result in (ResultFilterList)
-        | where not(TestbedName has_any(ExcludeTestbedList))
-        | where not (HardwareSku has_any(ExcludeHwSkuList))
-        | where not(TopologyType has_any(ExcludeTopoList))
-        | where not(AsicType has_any(ExcludeAsicList))
-        | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName in(ProdQualOSList)
-        | where OSVersion !contains "cisco"
-        | where OSVersion !contains "nokia"
-        | where Summary !contains "test setup failure"
-        | where ModulePath != ""
-        | project UploadTimestamp, Feature, ModulePath, FullTestPath, TestCase, opTestCase, FullCaseName, Summary, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, BuildId, PipeStatus
-        | sort by ModulePath, opTestCase, Result
-        '''.format(release_branch, self.config_info["testbeds"]["excluded_testbed_keywords"],
-                   self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
-                   self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
-                   self.search_start_time, self.search_end_time)
-        logger.info(
-            "Query 7 days's failed cases for branch {}:{}".format(release_branch, query_str))
-        return self.query(query_str)
-
-    def query_history_results(self, testcase_name, module_path, is_module_path=False):
-        """
-        Query failed test cases for the past one day, which total case number should be more than 100
-        in case of collecting test cases from unhealthy testbed.
-        project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result
-        """
-        if is_module_path:
-            query_str = '''
-                let ProdQualOSList = dynamic({});
-                let ResultFilterList = dynamic(["failure", "error"]);
-                let ExcludeTestbedList = dynamic({});
-                let ExcludeBranchList = dynamic({});
-                let ExcludeHwSkuList = dynamic({});
-                let ExcludeTopoList = dynamic({});
-                let ExcludeAsicList = dynamic({});
-                TestReportUnionData
-                | where PipeStatus == 'FINISHED'
-                | where TestbedName != ''
-                | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-                | where OSVersion has_any(ProdQualOSList)
-                | where Result !in ("skipped", "xfail_forgive", "xfail_expected", "xfail_unexpected")
-                | where not(TestbedName has_any(ExcludeTestbedList))
-                | where not (HardwareSku has_any(ExcludeHwSkuList))
-                | where not(TopologyType has_any(ExcludeTopoList))
-                | where not(AsicType has_any(ExcludeAsicList))
-                | where not(BranchName has_any(ExcludeBranchList))
-                | where BranchName in(ProdQualOSList)
-                | where OSVersion !contains "cisco"
-                | where OSVersion !contains "nokia"
-                | where ModulePath == "{}"
-                | order by UploadTimestamp desc
-                | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus
-                '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords_setup_error"],
-                           self.config_info["branch"]["excluded_branch_setup_error"], self.config_info["hwsku"]["excluded_hwsku"],
-                           self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
-                           self.history_start_time, self.search_end_time,  module_path)
-        else:
-            query_str = '''
-                let ProdQualOSList = dynamic({});
-                let ResultFilterList = dynamic(["failure", "error"]);
-                let ExcludeTestbedList = dynamic({});
-                let ExcludeBranchList = dynamic({});
-                let ExcludeHwSkuList = dynamic({});
-                let ExcludeTopoList = dynamic({});
-                let ExcludeAsicList = dynamic({});
-                TestReportUnionData
-                | where PipeStatus == 'FINISHED'
-                | where TestbedName != ''
-                | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-                | where OSVersion has_any(ProdQualOSList)
-                | where Result !in ("skipped", "xfail_forgive", "xfail_expected", "xfail_unexpected")
-                | where not(TestbedName has_any(ExcludeTestbedList))
-                | where not (HardwareSku has_any(ExcludeHwSkuList))
-                | where not(TopologyType has_any(ExcludeTopoList))
-                | where not(AsicType has_any(ExcludeAsicList))
-                | where not(BranchName has_any(ExcludeBranchList))
-                | where BranchName in(ProdQualOSList)
-                | where OSVersion !contains "cisco"
-                | where OSVersion !contains "nokia"
-                | where opTestCase == "{}" and ModulePath == "{}"
-                | order by UploadTimestamp desc
-                | project UploadTimestamp, OSVersion, BranchName, HardwareSku, TestbedName, AsicType, Platform, Topology, Asic, TopologyType, Feature, TestCase, opTestCase, ModulePath, FullCaseName, Result, BuildId, PipeStatus
-                '''.format(self.config_info["branch"]["included_branch"], self.config_info["testbeds"]["excluded_testbed_keywords"],
-                           self.config_info["branch"]["excluded_branch"], self.config_info["hwsku"]["excluded_hwsku"],
-                           self.config_info['topo']['excluded_topo'], self.config_info['asic']['excluded_asic'],
-                           self.history_start_time, self.search_end_time, testcase_name, module_path)
-        logger.info("Query hisotry results:{}".format(query_str))
-        return self.query(query_str)
-
-    def query_previsou_upload_record(self):
-        """
-        Query failed test cases for the past one day, which total case number should be more than 100
-        in case of collecting test cases from unhealthy testbed.
-        """
-        query_str = '''
-            TestcaseAnalysis
-            | where UploadTimestamp > ago({})
-            | project UploadTimestamp, ModulePath, TestCase, Branch, Subject
-            '''.format(str(self.config_info['threshold']['previous_days']) + "d")
-        return self.query(query_str)
-
-    def upload_analyzed_data(self, report_data):
-        self._ingest_data(self.TEST_CASE_ANALYSIS_TABLE, report_data)
-        return
-
-    def upload_autoblame_data(self, upload_datas):
-        # self.logger.info('Upload {} autoblame records:{}'.format(len(upload_datas), upload_datas))
-        self._ingest_data(self.AUTO_BLAME_REPORT_TABLE, upload_datas)
-
-    def _ingest_data(self, table, data):
-        props = IngestionProperties(
-            database=self.db_name,
-            table=table,
-            data_format=self.TABLE_FORMAT_LOOKUP[table],
-            ingestion_mapping_reference=self.TABLE_MAPPING_LOOKUP[table]
-        )
-
-        with tempfile.NamedTemporaryFile(mode="w+") as temp:
-            if isinstance(data, list):
-                temp.writelines(
-                    '\n'.join([json.dumps(entry) for entry in data]))
-            else:
-                temp.write(json.dumps(data))
-            temp.seek(0)
-
-            if self._ingestion_client_backup:
-                logger.info("Ingest to backup cluster...")
-                self._ingestion_client_backup.ingest_from_file(temp.name, ingestion_properties=props)
-        return
-
+deduper: DataDeduplicator = get_deduplicator()
 
 class BasicAnalyzer(object):
-    def __init__(self, kusto_connector, config_info) -> None:
+    def __init__(self, kusto_connector: KustoConnector, config_info, current_time) -> None:
         self.kusto_connector = kusto_connector
-        self.config_info = config_info
+        configuration = config_info
+
+        self.search_start_time = current_time - \
+            timedelta(days=int(configuration['threshold']['duration_days']))
 
         self.child_standby_list = []
 
         logger.info("worker number: {}".format(
-            self.config_info['worker_number']))
+            configuration['worker_number']))
         logger.info(
             "====== initiate target parent relationships into memory list ======")
         # self.init_parent_relations2list([PARENT_ID1, PARENT_ID2])
@@ -582,30 +128,13 @@ class BasicAnalyzer(object):
         return child_core_attribute
 
 
-class GeneralAnalyzer(BasicAnalyzer):
+class DataAnalyzer(BasicAnalyzer):
     """analyze failed test cases"""
 
-    def __init__(self, kusto_connector, config_info, current_time, limitation=None) -> None:
-        super().__init__(kusto_connector, config_info)
+    def __init__(self, kusto_connector, config_info, current_time) -> None:
+        super().__init__(kusto_connector, config_info, current_time)
 
-        self.icm_limit = limitation
-        self.current_time = current_time
-        self.search_start_time = self.current_time - \
-            timedelta(days=int(self.config_info['threshold']['duration_days']))
-        if self.icm_limit is None:
-            self.icm_limit = int(self.new_icm_number_limit)
-        self.new_icm_number_limit = self.config_info['icm_limitation']['new_icm_number_limit']
-        self.setup_error_limit = self.config_info['icm_limitation']['setup_error_limit']
-        self.failure_limit = self.config_info['icm_limitation']['failure_limit']
-        self.platform_limit = self.config_info['icm_limitation']['platform_limit']
-        self.icm_20201231_limit = self.config_info['icm_limitation']['icm_20201231_limit']
-        self.icm_20220531_limit = self.config_info['icm_limitation']['icm_20220531_limit']
-        self.icm_20230531_limit = self.config_info['icm_limitation']['icm_20230531_limit']
-        self.icm_202311_limit = self.config_info['icm_limitation']['icm_202311_limit']
-        self.icm_master_limit = self.config_info['icm_limitation']['icm_master_limit']
-        self.icm_internal_limit = self.config_info['icm_limitation']['icm_internal_limit']
-        self.max_icm_count_per_module = self.config_info['icm_limitation']['max_icm_count_per_module']
-        self.active_icm_list, self.icm_count_dict = self.analyze_active_icm()
+        self.icm_count_dict, self.active_icm_df = self.analyze_active_icm()
 
     def run_setup_error(self):
         logger.info(
@@ -642,6 +171,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                 "case_branch": item,
                 "is_module_path": True,
                 "is_common_summary": True,
+                "summary": summary_failures[item]['Summary']
             }
             waiting_list.append(item_dict)
             logger.info("{}: {} : {} : {}".format(index + 1, summary_failures[item]['ReproCount'], item, summary_failures[item]['Summary'][:80]))
@@ -680,17 +210,40 @@ class GeneralAnalyzer(BasicAnalyzer):
             waiting_list)
         return failure_new_icm_table, failure_duplicated_icm_table, failed_testcases
 
+    def run_failure_cross_branch(self):
+        waiting_list = []
+        failed_testcases = self.collect_failed_testcase_cross_branch()
+        failed_testcases_list = list(failed_testcases.keys())
+        logger.info("Total failure cases cross branches in waiting: {}".format(
+            len(failed_testcases_list)))
+        for index, failed_testcase in enumerate(failed_testcases_list):
+            item_dict = {
+                "case_branch": failed_testcase,
+                "is_module_path": False,
+                "is_common_summary": False,
+                "is_aggregated": True,
+                "summary": failed_testcases[failed_testcase]['Summary']
+            }
+            waiting_list.append(item_dict)
+            logger.info("{}: {}".format(index + 1, failed_testcase))
+            logger.info("Summary: {}".format(failed_testcases[failed_testcase]['Summary']))
+
+        failure_new_icm_table, failure_duplicated_icm_table = self.multiple_process(
+            waiting_list)
+        return failure_new_icm_table, failure_duplicated_icm_table, failed_testcases
+        
     def multiple_process(self, waiting_list):
         """Multiple process to analyze test cases"""
-        new_icm_count = 0
+        
         # break_flag = False
         new_icm_table = []
         duplicated_icm_table = []
-
+        new_icm_list = []
+        duplicated_icm_list = []
         logger.info(
             "============== Start searching history result ================")
         # We can use a with statement to ensure threads are cleaned up promptly
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.config_info['worker_number']) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=configuration['worker_number']) as executor:
             tasks = []
             for item_dict in waiting_list:
                 # Start the load operations and mark each future with test case name
@@ -706,286 +259,12 @@ class GeneralAnalyzer(BasicAnalyzer):
                     logger.error("Task {} generated an exception: {}".format(
                         task, exc))
                     logger.error(traceback.format_exc())
-                new_icm_list = []
-                duplicated_icm_list = []
-                for idx, icm in enumerate(kusto_data):
-                    logger.info("Check if there is existing active IcM for {} is_module_path={}"
-                                .format(icm['subject'], item_dict["is_module_path"]))
-                    duplicated_flag = False
-                    # For loop every active IcM title, avoid generating smaller level IcM for same failure
-                    for icm_title in self.active_icm_list:
-                        # For platform_test, we aggregate branches, don't trigger same IcM for different branches
-                        if 'platform_tests' in icm['module_path']:
-                            icm_branch = icm['branch']
-                            for branch_name in self.config_info["branch"]["included_branch"]:
-                                replaced_title = icm['subject'].replace(
-                                    icm_branch, branch_name)
-                                if icm_title in ICM_PREFIX + replaced_title:
-                                    logger.info("For platform_tests, found same case for branch {}, not trigger IcM:\n active IcM {}, duplicated one {}".format(
-                                        icm_branch, icm_title, ICM_PREFIX + icm['subject']))
-                                    icm['trigger_icm'] = False
-                                    duplicated_icm_list.append(icm)
-                                    duplicated_flag = True
-                                    break
-                            if duplicated_flag:
-                                break
-                        elif icm_title in ICM_PREFIX + icm['subject']:
-                            # Don't trigger IcM for duplicated cases, avoid IcM throttling
-                            logger.info("Found duplicated item in active IcM list, not trigger IcM:\n active IcM {}, duplicated one {}".format(
-                                icm_title, ICM_PREFIX + icm['subject']))
-                            icm['trigger_icm'] = False
-                            duplicated_icm_list.append(icm)
-                            duplicated_flag = True
-                            break
-
-                    if not duplicated_flag:
-                        module_path = icm['module_path']
-                        items = module_path.split('.')
-                        if 'everflow' in items[0]:
-                            if self.icm_count_dict['everflow_count'] >= self.max_icm_count_per_module:
-                                logger.info(
-                                    "There are already 10 IcMs for everflow, inhibit this one avoid generating so many similar cases.")
-                                kusto_data = kusto_data[:idx]
-                                logger.info("kusto_data={}".format(kusto_data))
-                                break
-                            else:
-                                self.icm_count_dict['everflow_count'] += 1
-                        if len(items) > 1 and 'test_qos_sai' in items[1]:
-                            if self.icm_count_dict['qos_sai_count'] >= self.max_icm_count_per_module:
-                                logger.info(
-                                    "There are already 10 IcMs for qos_sai, inhibit this one avoid generating so many similar cases.")
-                                kusto_data = kusto_data[:idx]
-                                logger.info("kusto_data={}".format(kusto_data))
-                                break
-                            else:
-                                self.icm_count_dict['qos_sai_count'] += 1
-                        if 'acl' in items[0]:
-                            if self.icm_count_dict['acl_count'] >= self.max_icm_count_per_module:
-                                logger.info(
-                                    "There are already 10 IcMs for acl, inhibit this one avoid generating so many similar cases.")
-                                kusto_data = kusto_data[:idx]
-                                break
-                            else:
-                                self.icm_count_dict['acl_count'] += 1
-                        logger.info("Got new IcM for this run: {} idx = {} is_module_path={}".format(
-                            icm['subject'], idx, item_dict["is_module_path"]))
-                        new_icm_list.append(icm)
-                        new_icm_count += 1
-
+                new_icm_list, duplicated_icm_list, self.icm_count_dict = deduper.deduplicate_limit_with_active_icm(kusto_data, item_dict, self.icm_count_dict, self.active_icm_df)
                 if len(new_icm_list) != 0:
                     new_icm_table.extend(new_icm_list)
                 if len(duplicated_icm_list) != 0:
                     duplicated_icm_table.extend(duplicated_icm_list)
-                # if break_flag:
-                #     logger.info(
-                #         "Stop handling as_complete more case... Last task {}...".format(testcase_task))
-                #     break
-                # if break_flag:
-                #     logger.info(
-                #         "Stop handling more case... Last case {}.".format(test_case_branch))
-                #     break
         return new_icm_table, duplicated_icm_table
-
-    def deduplication(self, setup_error_new_icm_table, common_summary_new_icm_table, original_failure_dict):
-        """
-        Deduplicate the IcM list, remove the duplicated IcM
-        """
-        duplicated_icm_list = []
-        unique_title = set()
-        final_icm_list = []
-        error_final_icm_list = []
-        count_platform_test = 0
-        count_202012 = 0
-        count_202205 = 0
-        count_202305 = 0
-        count_202311 = 0
-        count_master = 0
-        count_internal = 0
-
-        logger.info("limit the number of setup error cases to {}".format(
-            self.setup_error_limit))
-        logger.info("limit the number of general failure cases to {}".format(
-            self.failure_limit))
-        logger.info("limit the number of platform_tests cases to {}".format(
-            self.platform_limit))
-        logger.info("limit the number of 20201231 cases to {}".format(
-            self.icm_20201231_limit))
-        logger.info("limit the number of 20220531 cases to {}".format(
-            self.icm_20220531_limit))
-        logger.info("limit the number of 20230531 cases to {}".format(
-            self.icm_20230531_limit))
-        logger.info("limit the number of 202311 cases to {}".format(
-            self.icm_202311_limit))
-        logger.info("limit the number of master cases to {}".format(
-            self.icm_master_limit))
-        logger.info("limit the number of internal cases to {}".format(
-            self.icm_internal_limit))
-
-        if len(setup_error_new_icm_table) > self.setup_error_limit:
-            error_final_icm_list = setup_error_new_icm_table[:self.setup_error_limit]
-        else:
-            error_final_icm_list = setup_error_new_icm_table
-        setup_set = set()
-        common_summary_new_icm_list = []
-        for icm in error_final_icm_list:
-            setup_set.add(icm['subject'])
-        for icm in common_summary_new_icm_table:
-            if icm['subject'] not in setup_set:
-                common_summary_new_icm_list.append(icm)
-        failure_new_icm_table = []
-        for data in original_failure_dict:
-            if data['type'] == 'general':
-                failure_new_icm_table = common_summary_new_icm_list + data['table']
-                data['table'] = failure_new_icm_table
-                logger.info("There are {} general failure cases".format(len(failure_new_icm_table)))
-                break
-        for data in original_failure_dict:
-            icm_table = data['table']
-            failure_type = data['type']
-            for candidator in icm_table:
-                if candidator['subject'] in unique_title:
-                    candidator['trigger_icm'] = False
-                    duplicated_icm_list.append(candidator)
-                    logger.info("Found duplicated item in generated IcM list, not trigger IcM for:{}".format(
-                        candidator['subject']))
-                    continue
-                # If the title is not in unique_title set, check if it is duplicated with the uploading IcM
-                unique_title.add(candidator['subject'])
-                duplicated_flag = False
-
-                # For loop every uploading IcM title, avoid generating lower level IcM for same failure
-                for uploading_new_icm in final_icm_list:
-                    # For platform_test, we aggregate branches, don't trigger same IcM for different branches
-                    if 'platform_tests' in candidator['module_path']:
-                        icm_branch = candidator['branch']
-                        for branch_name in self.config_info["branch"]["included_branch"]:
-                            replaced_title = candidator['subject'].replace(
-                                icm_branch, branch_name)
-                            # If the uploading IcM title is the lower than the one in final_icm_list, don't trigger IcM
-                            if uploading_new_icm['subject'] in replaced_title:
-                                logger.info("For platform_tests, found lower case for branch {}, not trigger IcM: \
-                                    the IcM in final_icm_list {}, duplicated one {}".format(icm_branch, uploading_new_icm['subject'], candidator['subject']))
-                                candidator['trigger_icm'] = False
-                                duplicated_icm_list.append(candidator)
-                                duplicated_flag = True
-                                break
-                            # if the uploading IcM title is the higher than the one in final_icm_list, replace the one in final_icm_list
-                            elif replaced_title in uploading_new_icm['subject']:
-                                logger.info("For platform_tests, found lower case for branch {}, replace {} in final_icm_list with \
-                                    {}".format(icm_branch, uploading_new_icm['subject'], candidator['subject']))
-                                final_icm_list.remove(uploading_new_icm)
-                                final_icm_list.append(candidator)
-                                duplicated_flag = True
-                                break
-                        if duplicated_flag:
-                            break
-                    # If the uploading IcM title is the lower than the one in final_icm_list, don't trigger IcM
-                    elif uploading_new_icm['subject'] in candidator['subject']:
-                        logger.info("Found lower case, not trigger IcM: \
-                            the IcM in final_icm_list {}, duplicated one {}".format(uploading_new_icm['subject'], candidator['subject']))
-                        candidator['trigger_icm'] = False
-                        duplicated_icm_list.append(candidator)
-                        duplicated_flag = True
-                        break
-                    # if the uploading IcM title is the higher than the one in final_icm_list, replace the one in final_icm_list
-                    elif candidator['subject'] in uploading_new_icm['subject']:
-                        # Don't trigger IcM for duplicated cases, avoid IcM throttling
-                        logger.info("Found lower case, replace {} in final_icm_list with \
-                                    {}".format(uploading_new_icm['subject'], candidator['subject']))
-                        final_icm_list.remove(uploading_new_icm)
-                        final_icm_list.append(candidator)
-                        duplicated_flag = True
-                        break
-                if not duplicated_flag:
-                    candidator_branch = candidator['branch']
-                    if 'platform_tests' in candidator['module_path']:
-                        count_platform_test += 1
-                        if count_platform_test > self.platform_limit:
-                            logger.info("Reach the limit of platform_test case, ignore this IcM {}".format(
-                                candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                    if candidator_branch == "20201231":
-                        if count_202012 >= self.icm_20201231_limit:
-                            logger.info("Reach the limit of 202012 case: {}, ignore this IcM {}".format(
-                                self.icm_20201231_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_202012 += 1
-                    elif candidator_branch == "20220531":
-                        if count_202205 >= self.icm_20220531_limit:
-                            logger.info("Reach the limit of 202205 case: {}, ignore this IcM {}".format(
-                                self.icm_20220531_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_202205 += 1
-                    elif candidator_branch == "20230531":
-                        if count_202305 >= self.icm_20230531_limit:
-                            logger.info("Reach the limit of 202305 case: {}, ignore this IcM {}".format(
-                                self.icm_20230531_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_202305 += 1
-                    elif candidator_branch == "master":
-                        if count_master >= self.icm_master_limit:
-                            logger.info("Reach the limit of master case: {}, ignore this IcM {}".format(
-                                self.icm_master_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_master += 1
-                    elif candidator_branch == "internal":
-                        if count_internal >= self.icm_internal_limit:
-                            logger.info("Reach the limit of internal case: {}, ignore this IcM {}".format(
-                                self.icm_internal_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_internal += 1
-                    elif "202311" in candidator_branch:
-                        if count_202311 >= self.icm_202311_limit:
-                            logger.info("Reach the limit of 202311 case: {}, ignore this IcM {}".format(
-                                self.icm_202311_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_202311 += 1
-                    logger.info("Add branch {} type {} : {} to final_icm_list".format(
-                        candidator_branch, failure_type, candidator['subject']))
-                    final_icm_list.append(candidator)
-        logger.info("Count summary: platform_test {}, 202012 {}, 202205 {}, 202305 {}, 202311 {}, master {}, internal {}".format(
-            count_platform_test, count_202012, count_202205, count_202305, count_202311, count_master, count_internal))
-        logger.info("Check if subject mismatch for setup error IcM")
-        for kusto_row_item in error_final_icm_list:
-            self.check_subject_match(kusto_row_item)
-        logger.info("Check if subject mismatch for failure IcM")
-        for kusto_row_item in final_icm_list:
-            self.check_subject_match(kusto_row_item)
-        logger.info("Check if subject mismatch for duplicated IcM")
-        for kusto_row_item in duplicated_icm_list:
-            self.check_subject_match(kusto_row_item)
-        logger.debug("final_icm_list={}".format(json.dumps(final_icm_list, indent=4)))
-        return error_final_icm_list, final_icm_list, duplicated_icm_list
-
-    def check_subject_match(self, kusto_row):
-        """
-        Check if the subject match with asic/hwsku/osversion
-        """
-        asic_name = kusto_row['failure_level_info']['asic'] if 'asic' in kusto_row['failure_level_info'] else None
-        hwsku_name = kusto_row['failure_level_info']['hwsku'] if 'hwsku' in kusto_row['failure_level_info'] else None
-        osversion_name = kusto_row['failure_level_info']['osversion'] if 'osversion' in kusto_row['failure_level_info'] else None
-        subject_name = kusto_row['subject']
-        if asic_name and asic_name not in subject_name:
-            logger.error("In check_subject_match: asic {} not in subject {}".format(asic_name, subject_name))
-        if hwsku_name and hwsku_name not in subject_name:
-            logger.error("In check_subject_match: hwsku {} not in subject {}".format(hwsku_name, subject_name))
-        if osversion_name and osversion_name not in subject_name:
-            logger.error("In check_subject_match: osversion {} not in subject {}".format(osversion_name, subject_name))
-
-        return
 
     def rearrange_icm_list(self, icm_list):
         """
@@ -1022,12 +301,12 @@ class GeneralAnalyzer(BasicAnalyzer):
         logger.info("There are {} IcMs in internal branch".format(len(icm_internal)))
 
         # Get upload times
-        upload_times = math.ceil(max(len(icm_202012), len(icm_202205), len(icm_202305), len(icm_202311), len(icm_master), len(icm_internal)) / ICM_NUMBER_THRESHOLD)
+        upload_times = math.ceil(max(len(icm_202012), len(icm_202205), len(icm_202305), len(icm_202311), len(icm_master), len(icm_internal)) / configuration['threshold']['icm_number_threshold'])
 
-        # Every branch can upload up to ICM_NUMBER_THRESHOLD IcMs
+        # Every branch can upload up to configuration['threshold']['icm_number_threshold'] IcMs
         for i in range(upload_times):
             temp_icm_list = []
-            for j in range(ICM_NUMBER_THRESHOLD):
+            for j in range(configuration['threshold']['icm_number_threshold']):
                 if len(icm_202012) > 0:
                     temp_icm_list.append(icm_202012.pop(0))
                 if len(icm_202205) > 0:
@@ -1099,11 +378,11 @@ class GeneralAnalyzer(BasicAnalyzer):
         self.kusto_connector.upload_analyzed_data(duplicated_icm_table)
         return
 
-    def collect_previous_upload_record(self):
+    def collect_previous_upload_record(self, title):
         """ The table header looks like this, save all of these information
         project project UploadTimestamp, ModulePath, TestCase, Branch, Subject
         """
-        previous_upload_results_response = self.kusto_connector.query_previsou_upload_record()
+        previous_upload_results_response = self.kusto_connector.query_previsou_upload_record(title)
         previous_upload_results_df = dataframe_from_result_table(
             previous_upload_results_response.primary_results[0])
         logger.info(previous_upload_results_df)
@@ -1119,23 +398,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             active_icm_response.primary_results[0])
         return active_icm_df
 
-    def analyze_active_icm(self):
-        """
-        Collect and analyse the active IcM, print the active IcM information
-        """
-        logger.info(
-            "=============== Analyze active IcM ================")
-        active_icm_df = self.collect_active_icm()
-        active_icm_list = active_icm_df['Title'].tolist()
-        active_icm_df["IcMPrintInfo"] = "Created at " + \
-            active_icm_df["SourceCreateDate"].astype(
-                str) + ": " + active_icm_df['Title'].astype(str)
-        print_list = active_icm_df['IcMPrintInfo'].tolist()
-        logger.info("There are {} active IcMs so far.".format(
-            len(active_icm_list)))
-
-        for icm_title in print_list:
-            logger.info("{}".format(icm_title))
+    def count_icm(self, active_icm_list):
         everflow_count = 0
         qos_sai_count = 0
         acl_count = 0
@@ -1158,13 +421,65 @@ class GeneralAnalyzer(BasicAnalyzer):
             'acl_count': acl_count
         }
         logger.info("count for active IcM:{}".format(icm_count_dict))
-        return active_icm_list, icm_count_dict
+        return icm_count_dict
+
+    def analyze_active_icm(self):
+        """
+        Collect and analyse the active IcM, print the active IcM information
+        """
+        logger.info(
+            "=============== Analyze active IcM ================")
+        active_icm_df = self.collect_active_icm()
+        active_icm_list = active_icm_df['Title'].tolist()
+        active_icm_df["FailureSummary"] = ""
+        for icm_title in active_icm_list:
+            case_analysis_df = self.collect_previous_upload_record(icm_title[len(ICM_PREFIX):])
+            if len(case_analysis_df) > 0:
+                failure_summary = case_analysis_df.iloc[0]['FailureSummary']
+                active_icm_df.loc[active_icm_df['Title'] == icm_title, 'FailureSummary'] = failure_summary
+        #
+        #  TODO: remove test code
+        # Read the aggregated_df.csv file
+        # aggregated_df = pd.read_csv('aggregated_df.csv')
+
+        # # Get the Summary column from aggregated_df
+        # summary_data = aggregated_df['Summary'].tolist()
+
+        # # Check if the number of rows in aggregated_df is less than active_icm_df
+        # if len(aggregated_df) < len(active_icm_df):
+        #     # Reuse some rows from aggregated_df to match the length of active_icm_df
+        #     summary_data = summary_data * (len(active_icm_df) // len(aggregated_df) + 1)
+
+        # # Update the FailureSummary column in active_icm_df with the summary_data
+        # active_icm_df['FailureSummary'] = summary_data[:len(active_icm_df)]
+        for index, row in active_icm_df.iterrows():
+            source_create_date = row['SourceCreateDate']
+            title = row['Title']
+            summary = row['FailureSummary']
+            logger.info("{} Created at:{} {}".format(index + 1, source_create_date, title))
+            logger.info("   Summary: {}".format(summary))
+        # 
+
+        # active_icm_df["IcMPrintInfo"] = "Created at " + \
+        #     active_icm_df["SourceCreateDate"].astype(
+        #         str) + ": " + active_icm_df['Title'].astype(str) \
+        #             + "\n" + "  summary:" + active_icm_df['FailureSummary'].astype(str)[:80]
+        # print_list = active_icm_df['IcMPrintInfo'].tolist()
+        # logger.info("There are {} active IcMs so far.".format(
+        #     len(active_icm_list)))
+
+        # for index, icm_title in enumerate(print_list):
+        #     logger.info("{}:{}".format(index + 1, icm_title))
+
+        icm_count_dict = self.count_icm(active_icm_list)
+
+        return icm_count_dict, active_icm_df
 
     def collect_common_summary_failure(self):
         """ The table header looks like this, save all of these information
         ModulePath,BranchName,ReproCount, Result,Summary
         """
-        summary_response = self.kusto_connector.query_summary_results()
+        summary_response = self.kusto_connector.query_common_summary_results()
         summary_cases = {}
         for row in summary_response.primary_results[0].rows:
             module_path = row['ModulePath']
@@ -1381,6 +696,35 @@ class GeneralAnalyzer(BasicAnalyzer):
             len(search_cases), search_branch))
         return search_cases
 
+    def collect_failed_testcase_cross_branch(self):
+        failedcases_response = self.kusto_connector.query_failed_testcase_cross_branch()
+        failures_df = dataframe_from_result_table(failedcases_response.primary_results[0])
+        failures_df.to_csv('failures_df.csv', index=False)
+        logger.debug("Found {} failed test cases in total on all branches.".format(len(failures_df)))
+        # aggregated_df = deduper.find_similar_summaries_and_count(failures_df)
+        # aggregated_df.to_csv('aggregated_df.csv', index=False)
+        # logger.debug("The count of failures before aggregation: {} after:{}".format(len(failures_df), len(aggregated_df)))
+
+        search_cases = {}
+        for index, row in failures_df.iterrows():
+            module_path = row['ModulePath']
+            testcase = row['opTestCase']
+            branch = row['BranchName']
+            key = module_path + '.' + testcase + "#" + branch
+            if testcase in search_cases:
+                continue
+            else:
+                if key not in search_cases:
+                    search_cases[key] = {}
+                    search_cases[key]['OSVersion'] = row['OSVersion']
+                    search_cases[key]['BranchName'] = row['BranchName']
+                    search_cases[key]['FullCaseName'] = row['FullCaseName']
+                    search_cases[key]['Summary'] = row['Summary']
+
+        logger.info("Found {} kinds of failed test cases.".format(
+            len(search_cases)))
+        return search_cases
+
     def analysis_process(self, case_info_dict):
         history_testcases, history_case_df = self.search_and_parse_history_results(
             case_info_dict)
@@ -1428,7 +772,7 @@ class GeneralAnalyzer(BasicAnalyzer):
 
         # hwsku_topo_results = self.calculate_combined_success_rate(case_branch_df, 'hwsku_topo')
 
-        if branch in self.config_info["branch"]["released_branch"]:
+        if branch in configuration["branch"]["released_branch"]:
             # branch_df = case_branch_df[case_branch_df['BranchName'] == branch]
             # latest_osversion = branch_df['OSVersion'].max()
             # branch_df = branch_df[branch_df['OSVersion'] == latest_osversion]
@@ -1451,7 +795,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             # hwsku_topo_results["latest_failure_hwsku_topo"] = latest_row['HardwareSku'] + \
             # "_" + latest_row['TopologyType']
             os_results["latest_failure_os_version"] = latest_row['OSVersion']
-            if branch in self.config_info["branch"]["released_branch"]:
+            if branch in configuration["branch"]["released_branch"]:
                 hwsku_osversion_results["latest_failure_hwsku_osversion"] = latest_row['HardwareSku'] + \
                     "_" + latest_row['OSVersion']
             latest_failure_timestr = ''
@@ -1488,7 +832,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         history_testcases[test_case_branch]['per_asic_info'] = asic_results
         history_testcases[test_case_branch]['per_hwsku_info'] = hwsku_results
         # history_testcases[test_case_branch]['per_hwsku_topo_info'] = hwsku_topo_results
-        if branch in self.config_info["branch"]["released_branch"]:
+        if branch in configuration["branch"]["released_branch"]:
             history_testcases[test_case_branch]['per_hwsku_osversion_info'] = hwsku_osversion_results
         history_testcases[test_case_branch]['per_os_version_info'] = os_results
 
@@ -1512,9 +856,9 @@ class GeneralAnalyzer(BasicAnalyzer):
                 current_time = datetime.now(timezone.utc)
                 td = current_time - oldest_failure_timestamp
                 td_hours = int(round(td.total_seconds() / 3600))
-                if round(td_hours / 24) > self.config_info['threshold']['recent_failure_tolerance_day']:
+                if round(td_hours / 24) > configuration['threshold']['recent_failure_tolerance_day']:
                     logger.info("{} All recent test cases  failed for more than {} days".format(
-                        test_case_branch, self.config_info['threshold']['recent_failure_tolerance_day']))
+                        test_case_branch, configuration['threshold']['recent_failure_tolerance_day']))
                     history_testcases[test_case_branch]['is_recent_failure'] = True
         logger.info(
             "{} After success rate calculation".format(test_case_branch))
@@ -1639,10 +983,12 @@ class GeneralAnalyzer(BasicAnalyzer):
         kusto_row_data['branch'] = history_testcases[case_name_branch]['branch']
         kusto_row_data['module_path'] = history_testcases[case_name_branch]['module_path']
         kusto_row_data['full_casename'] = history_testcases[case_name_branch]['full_casename']
+        if 'summary' in case_info_dict:
+            kusto_row_data['failure_summary'] = case_info_dict['summary']
         kusto_row_data['per_testbed_info'] = history_testcases[case_name_branch]['per_testbed_info']
         kusto_row_data['per_asic_info'] = history_testcases[case_name_branch]['per_asic_info']
         kusto_row_data['per_hwsku_info'] = history_testcases[case_name_branch]['per_hwsku_info']
-        if branch in self.config_info["branch"]["released_branch"]:
+        if branch in configuration["branch"]["released_branch"]:
             kusto_row_data['per_hwsku_osversion_info'] = history_testcases[case_name_branch]['per_hwsku_osversion_info']
         kusto_row_data['per_os_version_info'] = history_testcases[case_name_branch]['per_os_version_info']
         kusto_row_data['failure_level_info']['latest_failure_timestamp'] = history_testcases[case_name_branch]['latest_failure_timestamp'] if 'latest_failure_timestamp' in history_testcases[case_name_branch] else 'NO_FAILURE_TIMESTAMP'
@@ -1650,7 +996,7 @@ class GeneralAnalyzer(BasicAnalyzer):
 
         kusto_row_data['failure_level_info']['total_success_rate_' +
                                              branch] = history_testcases[case_name_branch]['total_success_rate']
-        for branch_name in self.config_info["branch"]["included_branch"]:
+        for branch_name in configuration["branch"]["included_branch"]:
             if branch_name != branch:
                 case_branch_df = history_case_df[history_case_df['BranchName']
                                                  == branch_name]
@@ -1672,10 +1018,12 @@ class GeneralAnalyzer(BasicAnalyzer):
             kusto_row_data['failure_level_info']['is_test_case'] = True
         if is_common_summary:
             kusto_row_data['failure_level_info']['is_common_summary'] = True
+        if 'is_aggregated' in case_info_dict:
+            kusto_row_data['failure_level_info']['is_aggregated'] = True
         # Check and set trigger icm flag
         history_case_branch_df = history_case_df[history_case_df['BranchName'] == branch]
         kusto_table = self.trigger_icm(
-            case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, is_module_path)
+            case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, case_info_dict)
         return kusto_table
 
     def generate_autoblame_ado_data(self, uploading_data_list):
@@ -1704,7 +1052,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             keywords = [case_name]
             keywords.extend(kusto_row_data['module_path'].split("."))
             tag = ''
-            if branch in self.config_info["branch"]["released_branch"]:
+            if branch in configuration["branch"]["released_branch"]:
                 consistent_failure_os_version = kusto_row_data[
                     'per_os_version_info']["consistent_failure_os_version"]
                 if consistent_failure_os_version and len(consistent_failure_os_version) > 0:
@@ -1734,13 +1082,13 @@ class GeneralAnalyzer(BasicAnalyzer):
                     case_name, branch, commit_results['commits']))
                 autoblame_table.extend(commit_results['commits'])
             kusto_row_data["autoblame_id"] = report_uuid
-        return uploading_data_list, autoblame_table
+        return autoblame_table
 
-    def trigger_icm(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, is_module_path=False):
+    def trigger_icm(self, case_name_branch, history_testcases, history_case_branch_df, kusto_row_data, case_info_dict):
         kusto_table = []
-        regression_success_rate_threshold = self.config_info[
+        regression_success_rate_threshold = configuration[
             "threshold"]["regression_success_rate_percent"]
-        if is_module_path:
+        if case_info_dict["is_module_path"]:
             items = case_name_branch.split("#")
             module_path = items[0]
             case_name = module_path
@@ -1764,7 +1112,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                 case_name, branch))
             kusto_row_data['failure_level_info']['is_full_failure'] = True
             kusto_row_data['trigger_icm'] = True
-            if is_module_path:
+            if case_info_dict["is_module_path"]:
                 kusto_row_data['subject'] = "[" + \
                     module_path + "][" + branch + "]"
             else:
@@ -1776,7 +1124,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                 case_name, branch, regression_success_rate_threshold))
             # kusto_row_data['failure_level_info']['is_regression'] = True
             kusto_row_data['trigger_icm'] = True
-            if is_module_path:
+            if case_info_dict["is_module_path"]:
                 kusto_row_data['subject'] = "[" + \
                     module_path + "][" + branch + "]"
             else:
@@ -1789,9 +1137,9 @@ class GeneralAnalyzer(BasicAnalyzer):
             # for internal and master, only check its success rate when total case is higher than 2,
             # otherwise ignore this os version.
             per_os_version_info = history_testcases[case_name_branch]["per_os_version_info"]
-            total_case_minimum_release_version = self.config_info[
+            total_case_minimum_release_version = configuration[
                 'threshold']['total_case_minimum_release_version']
-            total_case_minimum_internal_version = self.config_info[
+            total_case_minimum_internal_version = configuration[
                 'threshold']['total_case_minimum_internal_version']
 
             for os_version_pass_rate in per_os_version_info["success_rate"]:
@@ -1803,7 +1151,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                     if (internal_version and total_number >= total_case_minimum_internal_version) or (not internal_version and total_number > total_case_minimum_release_version):
                         # kusto_row_data['failure_level_info']['is_regression'] = True
                         kusto_row_data['trigger_icm'] = True
-                        if is_module_path:
+                        if case_info_dict["is_module_path"]:
                             kusto_row_data['subject'] = "[" + \
                                 module_path + "][" + branch + "]"
                         else:
@@ -1849,14 +1197,14 @@ class GeneralAnalyzer(BasicAnalyzer):
                     # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
                     new_kusto_row_data_asic['trigger_icm'] = True
                     new_kusto_row_data_asic['failure_level_info']['asic'] = asic
-                    if is_module_path:
+                    if case_info_dict["is_module_path"]:
                         new_kusto_row_data_asic['subject'] = "[" + \
                             module_path + "][" + branch + "][" + asic + "]"
                     else:
                         new_kusto_row_data_asic['subject'] = "[" + module_path + \
                             "][" + case_name + "][" + \
                             branch + "][" + asic + "]"
-                    logger.debug("{} asic level: new_kusto_row_data_asic={} title={}".format(case_name_branch,
+                    logger.debug("{} asic level - {}: new_kusto_row_data_asic={} title={}".format(case_name_branch, asic,
                                                                                              json.dumps(new_kusto_row_data_asic['failure_level_info'], indent=4),
                                                                                              new_kusto_row_data_asic['subject']))
                     kusto_table.append(new_kusto_row_data_asic)
@@ -1864,7 +1212,12 @@ class GeneralAnalyzer(BasicAnalyzer):
                         logger.error("{} asic level: asic {} mismatches title {}".format(case_name_branch,
                                                                                          new_kusto_row_data_asic['failure_level_info']['asic'],
                                                                                          new_kusto_row_data_asic['subject']))
+                    # if case_info_dict["is_aggregated"]:
+                    #     logger.info("{}: This is an aggregated case, skip further analysis, one IcM is enough.".format(case_name_branch))
+                    #     return kusto_table
                 else:
+                    logger.debug("{} asic_case_df for asic {} is :{}".format(
+                        case_name_branch, asic, asic_case_df))
                     filter_success_rate_results = self.calculate_success_rate(
                         asic_case_df, 'HardwareSku', 'hwsku')
                     logger.debug("{} success rate after filtering by asic {}: {}".format(
@@ -1897,7 +1250,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                         new_kusto_row_data_hwsku['trigger_icm'] = True
                         new_kusto_row_data_hwsku['failure_level_info']['asic'] = asic
                         new_kusto_row_data_hwsku['failure_level_info']['hwsku'] = hwsku
-                        if is_module_path:
+                        if case_info_dict["is_module_path"]:
                             new_kusto_row_data_hwsku['subject'] = "[" + module_path + \
                                 "][" + branch + "][" + \
                                 asic + "][" + hwsku + "]"
@@ -1914,13 +1267,16 @@ class GeneralAnalyzer(BasicAnalyzer):
                             logger.error("{} hwsku level: hwsku {} mismatches title {}".format(case_name_branch,
                                                                                                new_kusto_row_data_hwsku['failure_level_info']['hwsku'],
                                                                                                new_kusto_row_data_hwsku['subject']))
+                        # if case_info_dict["is_aggregated"]:
+                        #     logger.info("{}: This is an aggregated case, skip further analysis, one IcM is enough.".format(case_name_branch))
+                        #     return kusto_table
             if kusto_table:
                 logger.debug("{} Found {} IcMs. Not check hwsku_osversion anymore.".format(
                     case_name_branch, len(kusto_table)))
                 logger.debug("{} found IcM: kusto_table={}".format(case_name_branch, json.dumps(kusto_table, indent=4)))
                 return kusto_table
             # Step 5. Check hwsku_osversion level for release branches
-            if branch in self.config_info["branch"]["released_branch"]:
+            if branch in configuration["branch"]["released_branch"]:
                 # per_hwsku_osversion_info = history_testcases[case_name_branch]["per_hwsku_osversion_info"]
                 branch_df = history_case_branch_df[history_case_branch_df['BranchName'] == branch]
                 latest_osversion = branch_df['OSVersion'].max()
@@ -1955,7 +1311,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                         new_kusto_row_data_hwsku_osversion['trigger_icm'] = True
                         new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'] = hwsku
                         new_kusto_row_data_hwsku_osversion['failure_level_info']['osversion'] = osversion
-                        if is_module_path:
+                        if case_info_dict["is_module_path"]:
                             new_kusto_row_data_hwsku_osversion['subject'] = "[" + \
                                 module_path + "][" + branch + \
                                 "][" + hwsku_osversion + "]"
@@ -1982,7 +1338,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                 logger.debug("{} found IcM: kusto_table={}".format(case_name_branch, json.dumps(kusto_table, indent=4)))
                 return kusto_table
             # # Step 6. Check hwsku_topo level for release branches
-            # if branch in self.config_info["branch"]["released_branch"]:
+            # if branch in configuration["branch"]["released_branch"]:
             #     per_hwsku_topo_info = history_testcases[case_name_branch]["per_hwsku_topo_info"]
 
             #     for hwsku_topo_pass_rate in per_hwsku_topo_info["success_rate"]:
@@ -2017,13 +1373,13 @@ class GeneralAnalyzer(BasicAnalyzer):
         Search keywords in Autoblame II with specific repo and branch
         Call Auboblame's API to get results
         """
-        valid_branches = self.config_info['auto_blame_branch']['branches']
+        valid_branches = configuration['auto_blame_branch']['branches']
         if branch not in valid_branches:
             logger.error(
                 "Get autoblame response failed with invalid branch: {}".format(branch))
             return None, None
-        branch_list = self.config_info['auto_blame_branch'][branch]
-        repo_list = self.config_info['auto_blame_repo'][branch]
+        branch_list = configuration['auto_blame_branch'][branch]
+        repo_list = configuration['auto_blame_repo'][branch]
         return self.search_autoblame_upload(keywords, repo_list, branch_list, starttime, endtime, tag)
 
     def search_autoblame_upload(self, keywords, repo_list, branch_list, starttime, endtime, tag):
@@ -2164,203 +1520,3 @@ class GeneralAnalyzer(BasicAnalyzer):
             logger.info("case: {}".format(json.dumps(case, indent=4)))
 
         return
-
-
-def parse_config_file():
-    configuration = {}
-    with open(CONFI_FILE) as f:
-        configuration = json.load(f)
-
-    if not configuration:
-        logger.error("Config config doesn't exist, please check.")
-        sys.exit(1)
-    return configuration
-
-
-def main(icm_limit, excluded_testbed_keywords, excluded_testbed_keywords_setup_error):
-    current_time = datetime.now(tz=pytz.UTC)
-    configuration = parse_config_file()
-    configuration["testbeds"] = {}
-    configuration["testbeds"]["excluded_testbed_keywords"] = excluded_testbed_keywords
-    configuration["testbeds"]["excluded_testbed_keywords_setup_error"] = excluded_testbed_keywords_setup_error
-    kusto_connector = KustoConnector(configuration, current_time)
-
-    general = GeneralAnalyzer(kusto_connector, configuration, current_time, icm_limit)
-    setup_error_new_icm_table, setup_error_duplicated_icm_table, setup_error_info = general.run_setup_error()
-    logger.info("=================Exclude the following setup error cases=================")
-    excluse_setup_error_dict = {}
-    for case in setup_error_new_icm_table + setup_error_duplicated_icm_table:
-        key = case["testcase"] + "#" + case["branch"]
-        if key in setup_error_info:
-            excluse_setup_error_dict[key] = setup_error_info[key]
-    logger.info(json.dumps(excluse_setup_error_dict, indent=4))
-
-    common_summary_new_icm_table, common_summary_duplicated_icm_table, common_summary_failures_info = general.run_common_summary_failure()
-    logger.info("=================Exclude the following common summary cases=================")
-    excluse_common_summary_dict = {}
-    for case in common_summary_new_icm_table + common_summary_duplicated_icm_table:
-        key = case["testcase"] + "#" + case["branch"]
-        if key in common_summary_failures_info:
-            excluse_common_summary_dict[key] = common_summary_failures_info[key]
-    logger.info(json.dumps(excluse_common_summary_dict, indent=4))
-
-    module_failures = {}
-    module_failures.update(excluse_setup_error_dict)
-    module_failures.update(excluse_common_summary_dict)
-    logger.info("=================Exclude the following module failures=================")
-    logger.info(json.dumps(module_failures, indent=4))
-
-    failure_new_icm_table, failure_duplicated_icm_table, failure_info = general.run_failure(
-        exclude_error_module_failures=excluse_setup_error_dict, exclude_common_summary_failures=excluse_common_summary_dict)
-
-    logger.info("=================Exclude the following cases for release branches=================")
-    excluse_failure_dict = {}
-    for case in failure_new_icm_table + failure_duplicated_icm_table:
-        key = case["full_casename"] + "#" + case["branch"]
-        if key in failure_info:
-            excluse_failure_dict[key] = failure_info[key]
-    logger.info(json.dumps(excluse_failure_dict, indent=4))
-
-    # Since master pipelines run less, add master into release branch for surfacing more failures
-    branches_wanted = RELEASE_BRANCH
-    branches_wanted_dict = {}
-    for branch in branches_wanted:
-        branches_wanted_dict['branch'] = branch
-        new_icm_table, duplicated_icm_table, failure_info = general.run_failure(
-            branch, exclude_error_module_failures=excluse_setup_error_dict, exclude_common_summary_failures=excluse_common_summary_dict, exclude_case_failures=excluse_failure_dict)
-        branches_wanted_dict[branch] = {}
-        branches_wanted_dict[branch]["new_icm_table"] = new_icm_table
-        branches_wanted_dict[branch]["duplicated_icm_table"] = duplicated_icm_table
-        branches_wanted_dict[branch]["failure_info"] = failure_info
-
-    for branch in branches_wanted:
-        logger.info("=================Exclude the following cases for {} branch=================".format(
-            branch))
-        logger.info(json.dumps(branches_wanted_dict[branch]["failure_info"], indent=4))
-
-    logger.info("=================Setup error cases=================")
-    logger.info("Found {} IcM for setup error cases".format(
-        len(setup_error_new_icm_table)))
-    for index, case in enumerate(setup_error_new_icm_table):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-    logger.info("Found {} duplicated IcM for setup error cases".format(
-        len(setup_error_duplicated_icm_table)))
-    for index, case in enumerate(setup_error_duplicated_icm_table):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-
-    logger.info("=================Common summary failed cases=================")
-    logger.info("Found {} IcM for common summary cases".format(
-        len(common_summary_new_icm_table)))
-    for index, case in enumerate(common_summary_new_icm_table):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-    logger.info("Found {} duplicated IcM for commom summary failed cases".format(
-        len(common_summary_duplicated_icm_table)))
-    for index, case in enumerate(common_summary_duplicated_icm_table):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-
-    logger.info("=================General failure cases=================")
-    logger.info("Found {} IcM for general failure cases".format(
-        len(failure_new_icm_table)))
-    for index, case in enumerate(failure_new_icm_table):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-    logger.info("Found {} duplicated IcM for general failure cases".format(
-        len(failure_duplicated_icm_table)))
-    for index, case in enumerate(failure_duplicated_icm_table):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-
-    for branch in branches_wanted:
-        logger.info("================={} failure cases=================".format(
-            branch))
-        logger.info("Found {} IcM for {} failure cases".format(
-            len(branches_wanted_dict[branch]["new_icm_table"]), branch))
-        for index, case in enumerate(branches_wanted_dict[branch]["new_icm_table"]):
-            logger.info("{}: {}".format(index + 1, case['subject']))
-        logger.info("Found {} duplicated IcM for {} failure cases".format(
-            len(branches_wanted_dict[branch]["duplicated_icm_table"]), branch))
-        for index, case in enumerate(branches_wanted_dict[branch]["duplicated_icm_table"]):
-            logger.info("{}: {}".format(index + 1, case['subject']))
-
-    origin_data = [
-        {"table": failure_new_icm_table, "type": "general"}
-    ]
-    for branch in branches_wanted:
-        origin_data.append(
-            {"table": branches_wanted_dict[branch]["new_icm_table"], "type": branch})
-    final_error_list, final_failure_list, uploading_dupplicated_list = general.deduplication(
-        setup_error_new_icm_table, common_summary_new_icm_table, origin_data)
-    logger.info(
-        "=================After deduplication, final result=================")
-    logger.info("Will report {} new error cases".format(len(final_error_list)))
-    for index, case in enumerate(final_error_list):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-    logger.info("Will report {} new failure cases".format(
-        len(final_failure_list)))
-    for index, case in enumerate(final_failure_list):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-    logger.info("Will report {} duplicated cases".format(
-        len(uploading_dupplicated_list)))
-    for index, case in enumerate(uploading_dupplicated_list):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-
-    duplicated_icm_table_wanted = []
-    for branch in branches_wanted:
-        duplicated_icm_table_wanted += branches_wanted_dict[branch]["duplicated_icm_table"]
-    duplicated_icm_table = setup_error_duplicated_icm_table + common_summary_duplicated_icm_table + failure_duplicated_icm_table + \
-        duplicated_icm_table_wanted + uploading_dupplicated_list
-    logger.info(
-        "=================After deduplication, total duplicated IcMs=================")
-    logger.info("Total duplicated cases {}".format(len(duplicated_icm_table)))
-    for index, case in enumerate(duplicated_icm_table):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-
-    final_list, autoblame_table = general.generate_autoblame_ado_data(
-        final_error_list + final_failure_list)
-    logger.info("=================AutoBlame items=================")
-    if autoblame_table:
-        logger.info("Total number of Autoblame items {}".format(len(autoblame_table)))
-    else:
-        logger.error("There is something wrong with Autoblame search.")
-    # for index, case in enumerate(autoblame_table):
-    #     logger.info("{}: {} {}".format(
-    #         index + 1, case['autoblame_id']))
-
-    general.upload_to_kusto(final_list, duplicated_icm_table, autoblame_table)
-
-    end_time = datetime.now(tz=pytz.UTC)
-    logger.info("Cost {} for this run.".format(end_time - current_time))
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Analyze test result")
-
-    parser.add_argument(
-        "--new_icm_limit", "-n",
-        type=int,
-        required=False,
-        help="The maximum number of new IcM for this run.",
-    )
-
-    parser.add_argument(
-        "--exclude_testbed", "-extb",
-        type=str,
-        required=False,
-        help="The list of testbeds to be excluded.",
-    )
-
-    parser.add_argument(
-        "--exclude_testbed_setup_error", "-exerr",
-        type=str,
-        required=False,
-        help="The list of testbed setup error to be excluded.",
-    )
-
-    args = parser.parse_args()
-    new_icm_limit = args.new_icm_limit
-    excluded_testbed_keywords = args.exclude_testbed.split(",")
-    excluded_testbed_keywords_setup_error = args.exclude_testbed_setup_error.split(",")
-    logger.info("new_icm_limit={}, excluded_testbed_keywords={}, excluded_testbed_keywords_setup_error={}"
-        .format(new_icm_limit, excluded_testbed_keywords, excluded_testbed_keywords_setup_error))
-
-    main(new_icm_limit, excluded_testbed_keywords, excluded_testbed_keywords_setup_error)

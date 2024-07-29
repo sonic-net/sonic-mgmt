@@ -12,19 +12,26 @@
                                   PerHwskuTopoTestInfo: dynamic, PerOSVersionTestInfo: dynamic,
                                   AutoBlameId: string)
 
-.create table TestcaseAnalysis ingestion json mapping 'FlatTestCaseAnalysisMappingV1' @'[{"column":"UploadTimestamp","Properties":{"path":"$.upload_timestamp"}},'
-                                                                                  '{"column":"ModulePath","Properties":{"path":"$.module_path"}},'
-                                                                                  '{"column":"TestCase","Properties":{"path":"$.testcase"}},'
-                                                                                  '{"column":"Branch","Properties":{"path":"$.branch"}},'
-                                                                                  '{"column":"Subject","Properties":{"path":"$.subject"}},'
-                                                                                  '{"column":"TriggerIcM","Properties":{"path":"$.trigger_icm"}},'
-                                                                                  '{"column":"FailureLevelInfo","Properties":{"path":"$.failure_level_info"}},'
-                                                                                  '{"column":"PerTestbedTestInfo","Properties":{"path":"$.per_testbed_info"}},'
-                                                                                  '{"column":"PerAsicTestInfo","Properties":{"path":"$.per_asic_info"}},'
-                                                                                  '{"column":"PerHwskuTestInfo","Properties":{"path":"$.per_hwsku_info"}},'
-                                                                                  '{"column":"PerHwskuTopoTestInfo","Properties":{"path":"$.per_hwsku_topo_info"}},'
-                                                                                  '{"column":"PerOSVersionTestInfo","Properties":{"path":"$.per_os_version_info"}},'
-                                                                                  '{"column":"AutoBlameId","Properties":{"path":"$.autoblame_id"}}]'
+
+.alter table TestcaseAnalysis ingestion json mapping 'FlatTestCaseAnalysisMappingV1'
+```
+[
+	{"column":"UploadTimestamp","Properties":{"path":"$.upload_timestamp"}},
+	{"column":"ModulePath","Properties":{"path":"$.module_path"}},
+	{"column":"TestCase","Properties":{"path":"$.testcase"}},
+	{"column":"Branch","Properties":{"path":"$.branch"}},
+	{"column":"Subject","Properties":{"path":"$.subject"}},
+	{"column":"TriggerIcM","Properties":{"path":"$.trigger_icm"}},
+	{"column":"FailureLevelInfo","Properties":{"path":"$.failure_level_info"}},
+	{"column":"PerTestbedTestInfo","Properties":{"path":"$.per_testbed_info"}},
+	{"column":"PerAsicTestInfo","Properties":{"path":"$.per_asic_info"}},
+	{"column":"PerHwskuTestInfo","Properties":{"path":"$.per_hwsku_info"}},
+	{"column":"PerHwskuTopoTestInfo","Properties":{"path":"$.per_hwsku_topo_info"}},
+	{"column":"PerOSVersionTestInfo","Properties":{"path":"$.per_os_version_info"}},
+	{"column":"AutoBlameId","Properties":{"path":"$.autoblame_id"}},
+	{"column":"FailureSummary","Properties":{"path":"$.failure_summary"}}
+]
+```
 
 ###############################################################################
 # AUTOBLAME REPORT TABLE SETUP                                                #
