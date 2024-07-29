@@ -74,7 +74,7 @@ The primary goal is to cover SmartSwitch specific PMON APIs. The corresponding C
  * is_smartswitch(self):
     * This API should return True
  * get_module_dpu_data_port(self, index):
-    * For index: 1 will return the dpu0 port association which is "Ethernet224: Ethernet0" where the string left of ":" (Ethernet224) is the NPU port and the string right of ":" (Ethernet0) is the DPU port.
+    * It will return a dict as shown below.
  
 
 #### Verify in
