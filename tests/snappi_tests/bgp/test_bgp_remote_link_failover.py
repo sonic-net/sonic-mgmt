@@ -5,6 +5,8 @@ from tests.common.fixtures.conn_graph_facts import (                        # no
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
+pytestmark = [pytest.mark.topology('tgen')]
+
 
 @pytest.mark.parametrize('multipath', [2])
 @pytest.mark.parametrize('convergence_test_iterations', [1])
