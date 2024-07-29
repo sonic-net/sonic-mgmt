@@ -1547,7 +1547,6 @@ class TGIxia(TGBase):
         logger.info("TG CLEAN ALL FINISHED")
 
     def ixia_eval(self, func, **kwargs):
-
         msg = "{} {}".format(func, kwargs)
         logger.info('Executing: {}'.format(msg))
         (pid, ret_ds) = (0, dict())
@@ -2770,7 +2769,7 @@ class TGIxia(TGBase):
             file_location = ''
             if self.tg_version in ["7.4", "7.40"]:
                 return
-            if self.tg_version in ["8.4", "8.40", "8.42", "8.42", "9.20"]:
+            if self.tg_version in ["8.4", "8.40", "8.42", "8.42", "9.20", "10.0"]:
                 file_location = get_ixnet().getAttribute('::ixNet::OBJ-/globals', '-persistencePath') + '\\'
             file_path, _ = self._ixnet_config_file_location()
             datetime = utils.get_current_datetime(fmt='%Y_%m_%d_%H_%M_%S')
@@ -3439,9 +3438,16 @@ def load_tgen_int(tgen_dict):
 
                 # nosemgrep-next-line
                 import sys
-                sys.path.append("/opt/ixia/ixnetwork/9.20.2201.70/lib/PythonApi")
-                sys.path.append("/opt/ixia/hlapi/9.20.2201.38/library/common/ixiangpf/python")
-                os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/9.20.2201.38/library/common/ixia_hl_lib-9.20 /opt/ixia/ixnetwork/9.20.2201.70/lib/TclApi /opt/ixia/hlapi/9.20.2201.38/"
+                if tg_version == 10.0:
+                    sys.path.append("/opt/ixia/ixnetwork/10.00.2403.42/lib/PythonApi")
+                    sys.path.append("/opt/ixia/hlapi/10.00.2403.15/library/common/ixiangpf/python")
+                    os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/10.00.2403.15/library/common/ixia_hl_lib-10.00 /opt/ixia/ixnetwork/10.00.2403.42/lib/TclApi /opt/ixia/hlapi/10.00.2403.15/"
+                else:
+                    sys.path.append("/opt/ixia/ixnetwork/9.20.2201.70/lib/PythonApi")
+                    sys.path.append("/opt/ixia/hlapi/9.20.2201.38/library/common/ixiangpf/python")
+                    os.environ[
+                        'TCLLIBPATH'] = "/opt/ixia/hlapi/9.20.2201.38/library/common/ixia_hl_lib-9.20 /opt/ixia/ixnetwork/9.20.2201.70/lib/TclApi /opt/ixia/hlapi/9.20.2201.38/"
+
                 exec(code, globals(), globals())
                 if tgen_log_lvl_is_debug():
                     logger.info("Setting Ixia Debugs...")
