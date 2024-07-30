@@ -16,7 +16,7 @@ device under test (DUT). Then we check the SONiC PFC Rx counters.
 """
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
