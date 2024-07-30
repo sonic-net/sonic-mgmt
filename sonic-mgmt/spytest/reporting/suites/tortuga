@@ -1,7 +1,6 @@
 # Modules
 +file:cisco/tortuga/test_neighbor_ping.py
 +file:cisco/tortuga/vxlan/test_subint_basic.py
-+file:cisco/tortuga/vxlan/test_dhcp_relay_basic.py
 +file:cisco/tortuga/vxlan/test_l2vni.py
 +file:cisco/tortuga/vxlan/test_l2vni_sag_irb.py
 +file:cisco/tortuga/vxlan/test_l2vni_ipv6_sag_irb.py
@@ -14,6 +13,7 @@
 +file:cisco/tortuga/l2_switching/test_bdbvi.py
 +file:cisco/tortuga/portchannel/test_portchannel.py
 +file:cisco/tortuga/bgp/bgp_routemap/test_bgp_routemap_basic.py
++file:cisco/tortuga/vxlan/test_dhcp_relay_basic.py
 
 #Runtime Arguments
 +args:--skip-init-config
