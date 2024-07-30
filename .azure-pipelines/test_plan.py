@@ -5,10 +5,8 @@ import ast
 import json
 import os
 import sys
-import subprocess
 import copy
 import time
-from datetime import datetime, timedelta
 
 import requests
 import yaml
@@ -147,7 +145,6 @@ def parse_list_from_str(s):
 class TestPlanManager(object):
 
     def __init__(self, url, frontend_url, client_id):
-        self.last_login_time = datetime.now()
         self.url = url
         self.frontend_url = frontend_url
         self.client_id = client_id
