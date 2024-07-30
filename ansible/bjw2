@@ -685,51 +685,117 @@ sonic_cisco_8102:
 
 sonic_mlnx_sn4600c:
   vars:
-    hwsku: ACS-MSN4600C
+    hwsku: Mellanox-SN4600C-C64
     iface_speed: 100000
   hosts:
     bjw2-can-4600c-1:
       ansible_host: 10.150.22.199
       ansible_hostv6: 2404:f801:10:2200::a96:16c7
       model: MSN4600-CS2ROS
-      serial:
-      base_mac:
+      serial: MT2349J00XZ9
+      base_mac: 9C:05:91:CF:D9:00
       syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2ROS"
+        "0x23": "MT2349J00XZ9"
+        "0x24": "9C:05:91:CF:D9:00"
+        "0x25": "12/13/2023 20:27:34"
+        "0x26": "19"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2021.05-5.3.0008-9600"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0xF87E9011"
     bjw2-can-4600c-2:
       ansible_host: 10.150.22.201
       ansible_hostv6: 2404:f801:10:2200::a96:16c9
       model: MSN4600-CS2ROS
-      serial:
-      base_mac:
+      serial: MT2350J013Q9
+      base_mac: 9C:05:91:D8:40:00
       syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2ROS"
+        "0x23": "MT2350J013Q9"
+        "0x24": "9C:05:91:D8:40:00"
+        "0x25": "12/15/2023 17:59:07"
+        "0x26": "19"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2021.05-5.3.0008-9600"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0x886ADCBF"
     bjw2-can-4600c-3:
       ansible_host: 10.150.22.203
       ansible_hostv6: 2404:f801:10:2200::a96:16cb
       model: MSN4600-CS2ROS
-      serial:
-      base_mac:
+      serial: MT2349J00XYG
+      base_mac: 9C:05:91:CF:BF:00
       syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2ROS"
+        "0x23": "MT2349J00XYG"
+        "0x24": "9C:05:91:CF:BF:00"
+        "0x25": "12/12/2023 20:09:58"
+        "0x26": "19"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2021.05-5.3.0008-9600"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0x2BF94BB9"
     bjw2-can-4600c-4:
       ansible_host: 10.150.22.205
       ansible_hostv6: 2404:f801:10:2200::a96:16cd
       model: MSN4600-CS2ROS
-      serial:
-      base_mac:
+      serial: MT2350J013QB
+      base_mac: 9C:05:91:D8:42:00
       syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2ROS"
+        "0x23": "MT2350J013QB"
+        "0x24": "9C:05:91:D8:42:00"
+        "0x25": "12/15/2023 17:41:48"
+        "0x26": "19"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2021.05-5.3.0008-9600"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0x46FDC3BF"
     bjw2-can-4600c-5:
       ansible_host: 10.150.22.207
       ansible_hostv6: 2404:f801:10:2200::a96:16cf
       model: MSN4600-CS2ROS
-      serial:
-      base_mac:
+      serial: MT2349J00XZC
+      base_mac: 9C:05:91:CF:DC:00
       syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2ROS"
+        "0x23": "MT2349J00XZC"
+        "0x24": "9C:05:91:CF:DC:00"
+        "0x25": "12/13/2023 22:41:04"
+        "0x26": "19"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2021.05-5.3.0008-9600"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0x0AD290EB"
     bjw2-can-4600c-6:
       ansible_host: 10.150.22.209
       ansible_hostv6: 2404:f801:10:2200::a96:16d1
       model: MSN4600-CS2ROS
-      serial:
-      base_mac:
+      serial: MT2349J00XZB
+      base_mac: 9C:05:91:CF:DB:00
       syseeprom_info:
+        "0x21": "MSN4600C"
+        "0x22": "MSN4600-CS2ROS"
+        "0x23": "MT2349J00XZB"
+        "0x24": "9C:05:91:CF:DB:00"
+        "0x25": "12/13/2023 22:40:12"
+        "0x26": "19"
+        "0x28": "x86_64-mlnx_msn4600C-r0"
+        "0x29": "2021.05-5.3.0008-9600"
+        "0x2A": "254"
+        "0x2B": "Mellanox"
+        "0xFE": "0x23F30B87"
 
 
 sonic_arista_7260cx3:

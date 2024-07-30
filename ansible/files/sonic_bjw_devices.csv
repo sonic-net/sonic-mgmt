@@ -66,8 +66,8 @@ bjw-can-e1031-1,10.150.22.125/23,Celestica-E1031-T48S4,DevSonic,,sonic
 bjw-can-8102-1,10.150.22.128/23,Cisco-8102-C64,DevSonic,,sonic
 bjw-can-3800-1,10.150.22.135/23,ACS-MSN3800,DevSonic,,sonic
 bjw-can-3800-2,10.150.22.136/23,ACS-MSN3800,DevSonic,,sonic
-bjw-can-4600c-1,10.150.22.137/23,ACS-MSN4600C,DevSonic,,sonic
-bjw-can-4600c-2,10.150.22.138/23,ACS-MSN4600C,DevSonic,,sonic
+bjw-can-4600c-1,10.150.22.137/23,Mellanox-SN4600C-C64,DevSonic,,sonic
+bjw-can-4600c-2,10.150.22.138/23,Mellanox-SN4600C-C64,DevSonic,,sonic
 bjw-can-2700-3,10.150.22.139/23,Mellanox-SN2700,DevSonic,,sonic
 bjw-can-2700-4,10.150.22.140/23,Mellanox-SN2700,DevSonic,,sonic
 bjw-can-7250-sup-1,10.150.22.144/23,Nokia-IXR7250E-SUP-10,DevSonic,,sonic
