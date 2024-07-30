@@ -1,0 +1,14 @@
+- name: Probe if the URL works
+  uri:
+    url: "{{ item }}"
+    method: HEAD
+    status_code: 200
+    return_content: no
+    timeout: 3
+  register: ceos_image_url_probe_result
+  failed_when: false
+
+- name: Append working URL to working_ceos_image_urls list
+  set_fact:
+    working_ceos_image_urls: "{{ working_ceos_image_urls + [ item ] }}"
+  when: ceos_image_url_probe_result.status == 200
