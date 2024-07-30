@@ -168,7 +168,10 @@ def check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts):
     for test_script in expanded_test_scripts:
         topology_type = topo_name_to_type(test_script["topology"])
 
-        test_script["covered"] = test_script["testscript"] in topology_type_pr_test_scripts.get(topology_type, "")
+        if test_script == "test_posttest.py" or test_script == "test_pretest.py":
+            test_script["covered"] = True
+        else:
+            test_script["covered"] = test_script["testscript"] in topology_type_pr_test_scripts.get(topology_type, "")
     return expanded_test_scripts
 
 
