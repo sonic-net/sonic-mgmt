@@ -435,21 +435,6 @@ root-disperson uint64		milliseconds
 
 > peertype is not defined in openconfig-system.yang. ntpq lists peer type as one of (local, unicast, multicast or broadcast) and display the type as a single char (lumb). I presume this will be defined as a string.
 >
-> ## Google Time Servers
-
-> The four google time servers used by ntp are:  
-# time1.google.com  
-server 216.239.35.0 iburst minpoll 4  
-server 2001:4860:4806:: iburst minpoll 4  
-# time2.google.com  
-server 216.239.35.4 iburst minpoll 4  
-server 2001:4860:4806:4:: iburst minpoll 4  
-# time3.google.com  
-server 216.239.35.8 iburst minpoll 4  
-server 2001:4860:4806:8:: iburst minpoll 4  
-# time4.google.com  
-server 216.239.35.12 iburst minpoll 4  
-server 2001:4860:4806:c:: iburst minpoll 4
 
 > 	These are not configurable on the switch.
 ## Tests
