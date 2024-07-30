@@ -25,7 +25,7 @@
         "totalcase": 100,
         "history_days": 30,
         "previous_days": 7,
-        "regression_success_rate_percent": 60,
+        "regression_success_rate_percent": 40,
         "total_case_minimum_release_version": 3,
         "total_case_minimum_internal_version": 2,
         "recent_failure_tolerance_day": 3,
