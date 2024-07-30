@@ -1,12 +1,11 @@
-# upgrade cEOS to 4.25.5.1M from 4.23.2F at 2021/09/24
-
-#ceos_image_filename: cEOS64-lab-4.23.2F.tar.xz
-#ceos_image_orig: ceosimage:4.23.2F
-#ceos_image: ceosimage:4.23.2F-1
-#ceos_image_filename: cEOS64-lab-4.25.5.1M.tar
-#ceos_image_orig: ceosimage:4.25.5.1M
-#ceos_image: ceosimage:4.25.5.1M-1
 ceos_image_filename: cEOS64-lab-4.29.3M.tar
 ceos_image_orig: ceosimage:4.29.3M
 ceos_image: ceosimage:4.29.3M-1
+# Please update ceos_image_url to the actual URL of the cEOS image file in your environment. If the cEOS image file
+# is not available on test server, the cEOS image file will be downloaded from this URL.
+# The ceos_image_url can be a string as single URL or a list of strings as multiple URLs. If it is a list, the code
+# logic will automatically try each URL in the list
+ceos_image_url:
+  - "http://example1.com/cEOS64-lab-4.29.3M.tar"
+  - "http://example2.com/cEOS64-lab-4.29.3M.tar"
 skip_ceos_image_downloading: false
