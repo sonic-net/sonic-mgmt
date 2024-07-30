@@ -1153,6 +1153,15 @@ platform_tests/test_service_warm_restart.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
 
 #######################################
+#####     process_monitoring      #####
+#######################################
+process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
+  skip:
+    reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices.
+    conditions:
+      - "'t1' in topo_name"
+
+#######################################
 #####           qos               #####
 #######################################
 qos:
