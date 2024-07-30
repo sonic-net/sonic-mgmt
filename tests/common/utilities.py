@@ -38,6 +38,8 @@ from netaddr import valid_ipv6
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+LA_START_MARKER_SCRIPT = "scripts/find_la_start_marker.sh"
+FIND_SYSLOG_MSG_SCRIPT = "scripts/find_log_msg.sh"
 
 
 def check_skip_release(duthost, release_list):
@@ -1178,3 +1180,31 @@ def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     except Exception:
         _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
     return passwd
+
+
+def check_msg_in_syslog(duthost, log_msg):
+    """
+    Checks for a given log message after the last start-LogAnalyzer message in syslog
+
+    Args:
+        duthost: Device under test.
+        log_msg: Log message to be searched
+
+    Yields:
+        True if log message is present or returns False
+    """
+    la_output = duthost.script(LA_START_MARKER_SCRIPT)["stdout"]
+    if not la_output:
+        return False
+    else:
+        output = la_output.replace('\r', '').replace('\n', '')
+
+    try:
+        log_msg = f"\"{log_msg}\""
+        log_output = duthost.script("%s %s %s" % (FIND_SYSLOG_MSG_SCRIPT, output, log_msg))
+        if log_output:
+            return True
+        else:
+            return False
+    except Exception:
+        return False

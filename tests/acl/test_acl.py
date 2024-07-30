@@ -21,10 +21,9 @@ from tests.common.config_reload import config_reload
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
 # Temporary work around to add skip_traffic_test fixture from duthost_utils
 from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
-from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
+from tests.common.utilities import wait_until, get_upstream_neigh_type, get_downstream_neigh_type, check_msg_in_syslog
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
@@ -579,6 +578,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo)
             loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
                 create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
+                wait_until(300, 20, 0, check_msg_in_syslog,
+                           duthost, LOG_EXPECT_ACL_TABLE_CREATE_RE)
         except LogAnalyzerError as err:
             # Cleanup Config DB if table creation failed
             logger.error("ACL table creation failed, attempting to clean-up...")
@@ -673,7 +674,8 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 with loganalyzer:
                     self.setup_rules(duthost, acl_table, ip_version)
                     # Give the dut some time for the ACL rules to be applied and LOG message generated
-                    time.sleep(30)
+                    wait_until(300, 20, 0, check_msg_in_syslog,
+                               duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
 
                 self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
 
