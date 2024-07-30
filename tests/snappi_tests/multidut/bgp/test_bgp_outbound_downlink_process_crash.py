@@ -41,7 +41,8 @@ def test_bgp_outbound_downlink_process_crash(snappi_api,                        
                                              multidut_snappi_ports_for_bgp,                       # noqa: F811
                                              conn_graph_facts,                             # noqa: F811
                                              fanout_graph_facts_multidut,                           # noqa: F811
-                                             duthosts):                                # noqa: F811
+                                             duthosts,                                  # noqa: F811
+                                             creds):                                # noqa: F811
     """
     Gets the packet loss duration on killing certain processes in downlink
 
@@ -51,6 +52,7 @@ def test_bgp_outbound_downlink_process_crash(snappi_api,                        
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        creds (dict): DUT credentials
     Returns:
         N/A
     """
@@ -88,4 +90,5 @@ def test_bgp_outbound_downlink_process_crash(snappi_api,                        
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
     run_bgp_outbound_process_restart_test(api=snappi_api,
+                                          creds=creds,
                                           snappi_extra_params=snappi_extra_params)

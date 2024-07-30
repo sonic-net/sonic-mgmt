@@ -24,12 +24,14 @@ total_routes = 0
 
 
 def run_bgp_outbound_process_restart_test(api,
+                                          creds,
                                           snappi_extra_params):
     """
     Run Local link failover test
 
     Args:
         api (pytest fixture): snappi API
+        creds (dict): DUT credentials
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
 
@@ -71,7 +73,8 @@ def run_bgp_outbound_process_restart_test(api,
                                          process_names,
                                          host_name,
                                          route_range,
-                                         test_name)
+                                         test_name,
+                                         creds)
 
 
 def run_bgp_outbound_link_flap_test(api,
@@ -937,15 +940,16 @@ def get_convergence_for_link_flap(duthosts,
                                   mean(avg_pld)]], headers=columns, tablefmt="psql"))
 
 
-def kill_process_inside_container(duthost, container_name, process_id):
+def kill_process_inside_container(duthost, container_name, process_id, creds):
     """
     Args:
         duthost (pytest fixture): duthost fixture
         container_name (str): Container name running in dut
         process_id: process id that needs to be killed inside container
+        creds (dict): DUT credentials
     """
-    username = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['sonicadmin_user']
-    password = duthost.host.options['variable_manager']._hostvars[duthost.hostname]['sonicadmin_password']
+    username = creds.get('sonicadmin_user')
+    password = creds.get('sonicadmin_password')
     ip = duthost.mgmt_ip
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -980,7 +984,7 @@ def check_container_status_up(duthost, container_name, timeout):
         elapsed_time = time.time() - start_time
         pytest_assert(elapsed_time < timeout, "Container did not come up in {} \
                       seconds after process kill".format(timeout))
-        time.sleep(1)
+        time.sleep(5)
 
 
 def check_container_status_down(duthost, container_name, timeout):
@@ -1000,7 +1004,7 @@ def check_container_status_down(duthost, container_name, timeout):
         elapsed_time = time.time() - start_time
         pytest_assert(elapsed_time < timeout, "Container is still running for {} \
                       seconds after process kill".format(timeout))
-        time.sleep(1)
+        time.sleep(5)
 
 
 def get_container_names_from_asic_count(duthost, container_name):
@@ -1027,7 +1031,8 @@ def get_convergence_for_process_flap(duthosts,
                                      process_names,
                                      host_name,
                                      route_range,
-                                     test_name):
+                                     test_name,
+                                     creds):
     """
     Args:
         duthost (pytest fixture): duthost fixture
@@ -1038,6 +1043,7 @@ def get_convergence_for_process_flap(duthosts,
         process_names : Name of the container in which specific process needs to be killed
         host_name : Dut hostname
         test_name: Name of the test
+        creds (dict): DUT credentials
     """
     api.set_config(bgp_config)
     test_platform = TestPlatform(api._address)
@@ -1107,7 +1113,7 @@ def get_convergence_for_process_flap(duthosts,
                                             format(container, process_name))['stdout'].split(' ')[10]
                         all_containers = get_container_names(duthost)
                         logger.info('Runnnig containers before process kill: {}'.format(all_containers))
-                        kill_process_inside_container(duthost, container, PID)
+                        kill_process_inside_container(duthost, container, PID, creds)
                         check_container_status_down(duthost, container, timeout=20)
                         check_container_status_up(duthost, container, timeout=180)
                         wait(180, "For Flows to be evenly distributed")
