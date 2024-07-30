@@ -1146,6 +1146,13 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
       - "asic_type in ['mellanox', 'broadcom', 'cisco-8000']"
       - https://github.com/sonic-net/sonic-mgmt/issues/12906
 
+qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_uniform_mode:
+  xfail:
+    reason: "Xfail test_dscp_to_queue_mapping_uniform_mode due to known issue"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13883
+      - "release in ['202311']"
+
 qos/test_qos_masic.py:
   skip:
     reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-56-lag, t1-backend."
