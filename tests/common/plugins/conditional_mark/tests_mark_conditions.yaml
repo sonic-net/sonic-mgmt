@@ -166,6 +166,12 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
 #######################################
 #####            cacl             #####
 #######################################
+cacl/test_cacl_application.py:
+  skip:
+    reason: "Skip test_cacl_application temporarily due to known issue"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13805
+
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
@@ -1147,6 +1153,15 @@ platform_tests/test_service_warm_restart.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
 
 #######################################
+#####     process_monitoring      #####
+#######################################
+process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
+  skip:
+    reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices.
+    conditions:
+      - "'t1' in topo_name"
+
+#######################################
 #####           qos               #####
 #######################################
 qos:
@@ -1619,6 +1634,7 @@ test_nbr_health.py:
 test_pktgen.py:
   skip:
     reason: "have known issue, skip for now"
+    conditions: https://github.com/sonic-net/sonic-mgmt/issues/13804
 
 #######################################
 #####            vlan             #####
@@ -1717,6 +1733,42 @@ vxlan/test_vxlan_crm.py:
     reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v4_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v6_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v4_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v6_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v4_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
 
 vxlan/test_vxlan_ecmp.py:
   skip:
