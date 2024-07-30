@@ -101,9 +101,9 @@ def run_bgp_outbound_link_flap_test(api,
     test_name = snappi_extra_params.test_name
 
     """ Create bgp config on dut """
-    # duthost_bgp_config(duthosts,
-    #                    snappi_ports,
-    #                    test_name)
+    duthost_bgp_config(duthosts,
+                       snappi_ports,
+                       test_name)
 
     """ Create snappi config """
     for route_range in route_ranges:
