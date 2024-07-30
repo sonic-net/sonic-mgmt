@@ -14,6 +14,8 @@ import requests
 import yaml
 from enum import Enum
 
+from azure.identity import DefaultAzureCredential
+
 __metaclass__ = type
 BUILDIMAGE_REPO_FLAG = "buildimage"
 MGMT_REPO_FLAG = "sonic-mgmt"
@@ -23,8 +25,6 @@ INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mg
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
-TOKEN_EXPIRE_HOURS = 1
-MAX_GET_TOKEN_RETRY_TIMES = 3
 
 
 class TestPlanStatus(Enum):
@@ -146,88 +146,15 @@ def parse_list_from_str(s):
 
 class TestPlanManager(object):
 
-    def __init__(self, url, frontend_url, client_id=None):
+    def __init__(self, url, frontend_url, client_id):
         self.last_login_time = datetime.now()
         self.url = url
         self.frontend_url = frontend_url
         self.client_id = client_id
-        self.with_auth = False
-        self._token = None
-        self._token_expires_on = None
-        if self.client_id:
-            self.with_auth = True
-            self.get_token()
-
-    def cmd(self, cmds):
-        process = subprocess.Popen(
-            cmds,
-            shell=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        stdout, stderr = process.communicate()
-        return_code = process.returncode
-
-        return stdout, stderr, return_code
-
-    def az_run(self, cmd):
-        stdout, stderr, retcode = self.cmd(cmd.split())
-        if retcode != 0:
-            raise Exception(f'Command {cmd} execution failed, rc={retcode}, error={stderr}')
-        return stdout, stderr, retcode
+        self._credential = DefaultAzureCredential()
 
     def get_token(self):
-
-        # Success of "az account get-access-token" depends on "az login". However, the "az login" session may expire
-        # after 24 hours. So we re-login every 12 hours to ensure success of "az account get-access-token".
-        if datetime.now() - self.last_login_time > timedelta(hours=12):
-            cmd = "az login --service-principal -u {} --tenant {} --allow-no-subscriptions --federated-token {}"\
-                .format(
-                    os.environ.get("SONIC_AUTOMATION_SERVICE_PRINCIPAL"),
-                    os.environ.get("ELASTICTEST_MSAL_TENANT_ID"),
-                    os.environ.get("SYSTEM_ACCESS_TOKEN")
-                )
-            attempt = 0
-            while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
-                try:
-                    stdout, _, _ = self.az_run(cmd)
-                    self.last_login_time = datetime.now()
-                    print("Login successfully.")
-                    break
-                except Exception as exception:
-                    attempt += 1
-                    print("Failed to login with exception: {}. Retry {} times to login."
-                          .format(repr(exception), MAX_GET_TOKEN_RETRY_TIMES - attempt))
-
-        token_is_valid = \
-            self._token_expires_on is not None and \
-            (self._token_expires_on - datetime.now()) > timedelta(hours=TOKEN_EXPIRE_HOURS)
-
-        if self._token is not None and token_is_valid:
-            return self._token
-
-        cmd = 'az account get-access-token --resource {}'.format(self.client_id)
-        attempt = 0
-        while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
-            try:
-                stdout, _, _ = self.az_run(cmd)
-
-                token = json.loads(stdout.decode("utf-8"))
-                self._token = token.get("accessToken", None)
-                if not self._token:
-                    raise Exception("Parse token from stdout failed")
-
-                # Parse token expires time from string
-                token_expires_on = token.get("expiresOn", "")
-                self._token_expires_on = datetime.strptime(token_expires_on, "%Y-%m-%d %H:%M:%S.%f")
-                print("Get token successfully.")
-                return self._token
-
-            except Exception as exception:
-                attempt += 1
-                print("Failed to get token with exception: {}".format(repr(exception)))
-
-        raise Exception("Failed to get token after {} attempts".format(MAX_GET_TOKEN_RETRY_TIMES))
+        return self._credential.get_token(self.client_id).token
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
                min_worker=None, max_worker=None, pr_id="unknown", output=None,
@@ -400,8 +327,7 @@ class TestPlanManager(object):
         http_exception_times = 0
         while (timeout < 0 or (time.time() - start_time) < timeout):
             try:
-                if self.with_auth:
-                    headers["Authorization"] = "Bearer {}".format(self.get_token())
+                headers["Authorization"] = "Bearer {}".format(self.get_token())
                 resp = requests.get(poll_url, headers=headers, timeout=10).json()
             except Exception as exception:
                 print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
