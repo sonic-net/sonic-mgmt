@@ -29,7 +29,7 @@ from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa F401
 from tests.common.dualtor.dual_tor_mock import *                    # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)

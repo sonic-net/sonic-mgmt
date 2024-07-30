@@ -20,7 +20,7 @@ from tests.common.utilities import dump_scapy_packet_show_output
 
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('dualtor'),
     pytest.mark.usefixtures('apply_mock_dual_tor_tables',
                             'apply_mock_dual_tor_kernel_configs',
                             'run_garp_service',
