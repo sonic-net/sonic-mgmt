@@ -1475,6 +1475,9 @@ snmp/test_snmp_loopback.py::test_snmp_loopback:
     reason: "Not supported topology backend."
     conditions:
       - "'backend' in topo_name"
+    reason: "Not supported in standalone topologies."
+    conditions:
+      - "'standalone' in topo_name"
 
 snmp/test_snmp_pfc_counters.py:
   skip:
