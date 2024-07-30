@@ -101,9 +101,9 @@ def run_bgp_outbound_link_flap_test(api,
     test_name = snappi_extra_params.test_name
 
     """ Create bgp config on dut """
-    duthost_bgp_config(duthosts,
-                       snappi_ports,
-                       test_name)
+    # duthost_bgp_config(duthosts,
+    #                    snappi_ports,
+    #                    test_name)
 
     """ Create snappi config """
     for route_range in route_ranges:
@@ -597,11 +597,24 @@ def __snappi_bgp_config(api,
                 snappi_t2_ports.append(snappi_port)
     # Adding Ports
     for index, snappi_test_port in enumerate(snappi_t1_ports):
-        snappi_test_port['name'] = 'Test_Port_%d' % index
-        config.ports.port(name='Test_Port_%d' % index, location=snappi_test_port['location'])
-    for index, snappi_test_port in enumerate(snappi_t2_ports, len(snappi_t1_ports)):
-        snappi_test_port['name'] = 'Test_Port_%d' % index
-        config.ports.port(name='Test_Port_%d' % index, location=snappi_test_port['location'])
+        if index == 0:
+            snappi_test_port['name'] = 'Snappi_Tx_Port'
+        else:
+            snappi_test_port['name'] = 'Snappi_Backup_T2_%d' % index
+        config.ports.port(name=snappi_test_port['name'], location=snappi_test_port['location'])
+
+    for _, snappi_test_port in enumerate(snappi_t2_ports):
+        po = 1
+        for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
+            for portchannel, portchannel_members in portchannel_info.items():
+                for index, mem_port in enumerate(portchannel_members, 1):
+                    if snappi_test_port['peer_port'] == mem_port and \
+                       snappi_test_port['peer_device'] == duthosts[1].hostname:
+                        snappi_test_port['name'] = 'Snappi_Uplink_PO_{}_Link_{}'.format(po, index)
+                        config.ports.port(name=snappi_test_port['name'], location=snappi_test_port['location'])
+                    else:
+                        continue
+                po = po + 1
 
     config.options.port_options.location_preemption = True
     layer1 = config.layer1.layer1()[-1]
@@ -829,8 +842,8 @@ def get_convergence_for_link_flap(duthosts,
         test_name: Name of the test
     """
     api.set_config(bgp_config)
-    t2_port_index_start = len(t1_ports[duthosts[0].hostname])
     avg_pld = []
+    avg_pld2 = []
     test_platform = TestPlatform(api._address)
     test_platform.Authenticate(api._username, api._password)
     session = SessionAssistant(IpAddress=api._address, UserName=api._username,
@@ -870,7 +883,7 @@ def get_convergence_for_link_flap(duthosts,
         logger.info('\n')
         logger.info('Rx Snappi Port Name : Rx Frame Rate')
         for port_stat in port_stats:
-            if int(port_stat.name.split('_')[-1]) >= t2_port_index_start-1:
+            if 'Snappi_Tx_Port' not in port_stat.name:
                 logger.info('{} : {}'.format(port_stat.name, port_stat.frames_rx_rate))
                 pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving any packet'.format(port_stat.name))
         logger.info('\n')
@@ -880,7 +893,7 @@ def get_convergence_for_link_flap(duthosts,
 
         sum_t2_rx_frame_rate = 0
         for port_stat in port_stats:
-            if int(port_stat.name.split('_')[-1]) >= t2_port_index_start:
+            if 'Snappi_Uplink' in port_stat.name:
                 sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + int(port_stat.frames_rx_rate)
         # Flap the required test port
         if duthosts[0].hostname == flap_details['device_name']:
@@ -893,20 +906,23 @@ def get_convergence_for_link_flap(duthosts,
             ixn_port.LinkUpDn("down")
             logger.info('Shutting down snappi port : {}'.format(flap_details['port_name']))
         wait(TIMEOUT, "For link to shutdown")
-        flow_stats = get_flow_stats(api)
-        delta_frames = 0
-        for i in range(0, len(traffic_type)):
-            delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
-        pkt_loss_duration = 1000 * (delta_frames / sum_t2_rx_frame_rate)
-        logger.info('Delta Frames : {}'.format(delta_frames))
-        logger.info('PACKET LOSS DURATION (ms): {}'.format(pkt_loss_duration))
-        avg_pld.append(pkt_loss_duration)
 
         for i in range(0, len(traffic_type)):
             pytest_assert(float((int(flow_stats[i].frames_tx_rate) - int(flow_stats[i].frames_tx_rate)) /
                           int(flow_stats[i].frames_tx_rate)) < 0.005,
                           'Traffic has not converged after link flap')
 
+        flow_stats = get_flow_stats(api)
+        delta_frames = 0
+        for i in range(0, len(traffic_type)):
+            delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
+        pkt_loss_duration = 1000 * (delta_frames / sum_t2_rx_frame_rate)
+        logger.info('Delta Frames : {}'.format(delta_frames))
+        logger.info('PACKET LOSS DURATION  After Link Down (ms): {}'.format(pkt_loss_duration))
+        avg_pld.append(pkt_loss_duration)
+
+        logger.info('Performing Clear Stats')
+        ixnetwork.ClearStats()
         if duthosts[0].hostname == flap_details['device_name']:
             logger.info(' Starting up {} port of {} dut !!'.
                         format(flap_details['port_name'], flap_details['device_name']))
@@ -916,14 +932,23 @@ def get_convergence_for_link_flap(duthosts,
             ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
             ixn_port.LinkUpDn("up")
             logger.info('Starting up snappi ports : {}'.format(flap_details['port_name']))
-        wait(TIMEOUT, "For link to startup")
+        wait(30, "For link to startup")
         logger.info('\n')
         port_stats = get_port_stats(api)
         logger.info('Rx Snappi Port Name : Rx Frame Rate')
         for port_stat in port_stats:
-            if int(port_stat.name.split('_')[-1]) >= t2_port_index_start-1:
+            if 'Snappi_Tx_Port' not in port_stat.name:
                 logger.info('{} : {}'.format(port_stat.name, port_stat.frames_rx_rate))
                 pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving any packet'.format(port_stat.name))
+
+        flow_stats = get_flow_stats(api)
+        delta_frames = 0
+        for i in range(0, len(traffic_type)):
+            delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
+        pkt_loss_duration = 1000 * (delta_frames / sum_t2_rx_frame_rate)
+        logger.info('Delta Frames : {}'.format(delta_frames))
+        logger.info('PACKET LOSS DURATION After Link Up (ms): {}'.format(pkt_loss_duration))
+        avg_pld2.append(pkt_loss_duration)
         logger.info('Stopping Traffic')
         ts = api.transmit_state()
         ts.state = ts.STOP
@@ -936,8 +961,9 @@ def get_convergence_for_link_flap(duthosts,
         logger.info('\n')
 
     columns = ['Test Name', 'Iterations', 'Traffic Type', 'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
-    logger.info("\n%s" % tabulate([[test_name, iteration, traffic_type, total_routes,
-                                  mean(avg_pld)]], headers=columns, tablefmt="psql"))
+    logger.info("\n%s" % tabulate([[test_name+' (Link Down)', iteration, traffic_type, total_routes,
+                                  mean(avg_pld)], [test_name+' (Link Up)', iteration, traffic_type, total_routes,
+                                  mean(avg_pld2)]], headers=columns, tablefmt="psql"))
 
 
 def kill_process_inside_container(duthost, container_name, process_id, creds):
@@ -1059,7 +1085,7 @@ def get_convergence_for_process_flap(duthosts,
             logger.info('Skipping Router id for {}, Since bgp is not configured'.
                         format(topology.DeviceGroup.find()[0].Name))
             continue
-    t2_port_index_start = len(t1_ports[duthosts[0].hostname])
+
     table = []
     logger.info('\n')
     logger.info('Testing with Route Range: {}'.format(route_range))
@@ -1097,7 +1123,7 @@ def get_convergence_for_process_flap(duthosts,
                         port_stats = get_port_stats(api)
                         logger.info('Rx Snappi Port Name : Rx Frame Rate')
                         for port_stat in port_stats:
-                            if int(port_stat.name.split('_')[-1]) >= t2_port_index_start-1:
+                            if 'Snappi_Tx_Port' not in port_stat.name:
                                 logger.info('{} : {}'.format(port_stat.name, port_stat.frames_rx_rate))
                                 pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving \
                                               any packet'.format(port_stat.name))
@@ -1106,7 +1132,7 @@ def get_convergence_for_process_flap(duthosts,
                         logger.info('\n')
                         sum_t2_rx_frame_rate = 0
                         for port_stat in port_stats:
-                            if int(port_stat.name.split('_')[-1]) >= t2_port_index_start:
+                            if 'Snappi_Uplink' in port_stat.name:
                                 sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + int(port_stat.frames_rx_rate)
                         logger.info('Killing {}:{} service in {}'.format(container, process_name, host_name))
                         PID = duthost.shell('docker exec {}  ps aux | grep {} \n'.
@@ -1119,7 +1145,7 @@ def get_convergence_for_process_flap(duthosts,
                         wait(180, "For Flows to be evenly distributed")
                         port_stats = get_port_stats(api)
                         for port_stat in port_stats:
-                            if int(port_stat.name.split('_')[-1]) > t2_port_index_start-1:
+                            if 'Snappi_Tx_Port' not in port_stat.name:
                                 logger.info('{}: {}'.format(port_stat.name, port_stat.frames_rx_rate))
                                 pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving any packet \
                                               after container is up'.format(port_stat.name))

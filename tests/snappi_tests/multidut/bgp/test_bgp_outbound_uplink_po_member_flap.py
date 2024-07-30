@@ -2,10 +2,10 @@ import pytest
 import logging
 from tests.common.helpers.assertions import pytest_require, pytest_assert                            # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
-     fanout_graph_facts_multidut                                                                   # noqa: F401
+     fanout_graph_facts_multidut                                                                     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-     snappi_api, multidut_snappi_ports_for_bgp                                                     # noqa: F401
-from tests.snappi_tests.variables import t1_t2_device_hostnames                                     # noqa: F401
+     snappi_api, multidut_snappi_ports_for_bgp                                                       # noqa: F401
+from tests.snappi_tests.variables import t1_t2_device_hostnames, t1_ports                             # noqa: F401
 from tests.snappi_tests.multidut.bgp.files.bgp_outbound_helper import (
      run_bgp_outbound_link_flap_test)                                                               # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 FLAP_DETAILS = {
-        'device_name': t1_t2_device_hostnames[0],
-        'port_name': 'Ethernet120'
+        'device_name': 'Ixia',
+        'port_name': 'Snappi_Uplink_PO_1_Link_1'
     }
 
 ITERATION = 1
@@ -42,14 +42,14 @@ ROUTE_RANGES = [{
             }]
 
 
-def test_bgp_outbound_interconnectivity_flap(snappi_api,                                     # noqa: F811
-                                             multidut_snappi_ports_for_bgp,                       # noqa: F811
-                                             conn_graph_facts,                             # noqa: F811
-                                             fanout_graph_facts_multidut,                           # noqa: F811
-                                             duthosts,
-                                             ):
+def test_bgp_outbound_uplink_po_member_flap(snappi_api,                                     # noqa: F811
+                                            multidut_snappi_ports_for_bgp,                # noqa: F811
+                                            conn_graph_facts,                             # noqa: F811
+                                            fanout_graph_facts_multidut,                   # noqa: F811
+                                            duthosts,
+                                            ):
     """
-    Gets the packet loss duration on flapping the interconnected port between T1 and downlink in T1 side
+    Gets the packet loss duration on flapping portchannel member in uplink side
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
@@ -60,12 +60,12 @@ def test_bgp_outbound_interconnectivity_flap(snappi_api,                        
     Returns:
         N/A
     """
-
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.ROUTE_RANGES = ROUTE_RANGES
     snappi_extra_params.iteration = ITERATION
+    snappi_extra_params.test_name = "T2 Uplink Portchannel Member Flap"
     snappi_extra_params.multi_dut_params.flap_details = FLAP_DETAILS
-    snappi_extra_params.test_name = "T1 Interconnectivity flap"
+
     if (len(t1_t2_device_hostnames) < 3) or (len(duthosts) < 3):
         pytest_assert(False, "Need minimum of 3 devices : One T1 and Two T2 line cards")
 

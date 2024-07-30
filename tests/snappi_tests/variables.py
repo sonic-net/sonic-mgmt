@@ -122,7 +122,9 @@ peer_ip = []
 ipv6 = []
 peer_ipv6 = []
 # START ---------------------   T2 BGP Case -------------------
-
+'''
+    PRE-REQUISITE : The DUT ports must be Administratively Up and configured as Routed ports before starting the test
+'''
 # *********** Common variables for Performance and Outbound ****************
 T2_SNAPPI_AS_NUM = 65400
 T2_DUT_AS_NUM = 65100
