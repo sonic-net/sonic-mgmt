@@ -376,8 +376,8 @@ def duthost_bgp_config(duthosts,
     else:
         t2_config_db["INTERFACE"].update(interfaces)
     logger.info('Configuring IP {}/{} , {}/{} on {} in {} for the T1 interconnectivity'.
-                format(t1_t2_dut_ipv4_list[index], v4_prefix_length,
-                       t1_t2_dut_ipv6_list[index], v6_prefix_length,
+                format(t1_t2_snappi_ipv4_list[index], v4_prefix_length,
+                       t1_t2_snappi_ipv6_list[index], v6_prefix_length,
                        t2_side_interconnected_port['port_name'], duthosts[2].hostname))
     if "LOOPBACK_INTERFACE" not in t2_config_db.keys():
         t2_config_db["LOOPBACK_INTERFACE"] = loopback_interfaces
