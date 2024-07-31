@@ -3,7 +3,7 @@
 - [Introduction](#introduction)
 - [Scope](#scope)
 - [Definitions and Abbreviations](#definitions-and-abbreviations)
-- [Test Cases](#test-cases)
+- [Test Cases - CLI](#test-cases-cli)
     - [1.1 Check DPU Status](#11-check-dpu-status)
     - [1.2 Check platform voltage](#12-check-platform-voltage)
     - [1.3 Check platform temperature](#13-check-platform-temperature)
@@ -16,6 +16,12 @@
     - [1.10 Check the Health of DPUs](#110-check-the-health-of-dpus)
     - [1.11 Check reboot cause history](#111-check-reboot-cause-history)
     - [1.12 Check the DPU state after OS reboot](#112-check-the-dpu-state-after-os-reboot)
+- [Test Cases - API](#test-cases-api)
+    - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-chassis-apis)
+    - [1.2 Check modified ChassisClass APIs](#12-check-modified-chassis-apis)
+    - [1.3 Check DpuModule APIs for SmartSwitch](#13-check-dpu-module-apis)
+    - [1.4 Check modified ModuleClass APIs](#14-check-modified-module-apis)
+    - [1.5 Check SwitchModule APIs for SmartSwitch](#15-check-switch-module-apis)
 
 ## Introduction
 
@@ -25,7 +31,7 @@ Smartswitch is connected to DPUs via pcie links.
 ## Scope
 
 The test is targeting a running SONIC on Switch and SONIC-DASH system on each DPUs. 
-Purpose of the test is to verify smartswich platform related functionalities/features for each DPUs. 
+Purpose of the test is to verify smartswich platform related functionalities/features for each DPUs and PMON APIs. 
 For every test cases, all DPUs need to be powered on unless specified in any of the case.
 
 ## Definitions and Abbreviations
@@ -35,10 +41,10 @@ For every test cases, all DPUs need to be powered on unless specified in any of 
 | DPU       | Data Processing Unit       |
 | NPU       | Network Processing Unit       |
 | NTP       | Network Time Protocol       |
+| SWITCH    | Refers to NPU and the anything other than DPUs    |
+| SS        | SmartSwitch       |
 
-
-
-## Objectives of Test Cases
+## Objectives of Test Cases - CLI
 
 |    | **Test Case**   | **Intention**                              |
 | ---------- | ---------- | ---------------------------------------- |
@@ -55,8 +61,18 @@ For every test cases, all DPUs need to be powered on unless specified in any of 
 | 1.11 | Check reboot cause history       | To Verify reboot cause history cli |
 | 1.12 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot |
 
+## Objectives of Test Cases - API
 
-## Test Cases
+|    | **Test Case**   | **Intention**                              | **Comments** |
+| ---------- | ---------- | ---------------------------------------- | ---------- |
+| 1.1 | Check SmartSwitch specific ChassisClass APIs      | To verify the newly implemented SmartSwitch specific ChassisClass APIs | |
+| 1.2 | Check modified ChassisClass APIs for SmartSwitch       |  To verify the existing ChassisClass APIs that undergo minor changes with the addition of SmartSwitch| |
+| 1.3 | Check DpuModule APIs for SmartSwitch       |  To verify the newly implemented  DpuModule APIs for SmartSwitch| |
+| 1.4 | Check modified ModuleClass APIs for SmartSwitch       |  To verify the existing ModuleClass APIs that undergo minor changes with the addition of SmartSwitch| 
+| 1.5 | Check SwitchModule APIs for SmartSwitch      |  To verify the newly implemented SwitchModule APIs for SmartSwitch |
+
+
+## Test Cases - CLI
 
 
 ### 1.1 Check DPU Status
@@ -787,4 +803,165 @@ root@sonic:/home/cisco# show chassis modules status
 
 #### Pass/Fail Criteria 
  *  Verify number of DPUs from api and number of DPUs shown in the cli output.
- 
+
+
+## Test Cases - API
+
+### 1.1 Check SmartSwitch specific ChassisClass APIs
+
+#### Steps
+ * Execute the following APIs on SmartSwitch
+ * get_dpu_id(self, name):
+    * Provide name (Example: DPU0 - Get it from platform.json file)
+    * This API should return an integer from 1-8 (check it against platform.json)
+ * is_smartswitch(self):
+    * This API should return True
+ * get_module_dpu_data_port(self, index):
+    * It will return a dict as shown below.
+
+
+#### Verify in
+ * Switch
+
+#### Sample Output
+```
+On Switch:
+    get_dpu_id(self, DPU3)
+    Output: 4
+    is_smartswitch(self):
+    Output: True
+    get_module_dpu_data_port(self, DPU0):
+    Output: {
+                "interface": {"Ethernet224": "Ethernet0"}
+            }
+```
+#### Pass/Fail Criteria
+ *  The test result is a pass if the return value matches the expected value as shown in the "steps" and "Sample Output".
+
+
+### 1.2 Check modified ChassisClass APIs for SmartSwitch
+
+#### Steps
+ * is_modular_chassis(self):
+    * Should return False
+ * get_num_modules(self):
+    * Should return number of DPUs
+ * get_module(self, index):
+    * Make sure for each index this API returns an object and has some content and not None
+    * Check that the object's class is inherited from the ModuleBase class
+ * get_all_modules(self):
+    * This should return a list of items
+ * get_module_index(self, module_name):
+    * Given the module name say “DPU0” should return the index of it “1”
+
+
+#### Verify in
+ * Switch
+
+#### Sample Output
+```
+On Switch:
+    is_modular_chassis(self):
+    Output: False
+    get_num_modules(self):
+    Output: number of DPUs
+    get_module(self, DPU0):
+    Output: DPU0 object
+    get_all_modules(self):
+    Output: list of objects (one per DPU + 1 switch object)
+    get_module_index(self, DPU0):
+    Output: could be any value from 0 to modules count -1
+```
+#### Pass/Fail Criteria
+ * The test result is a pass if the return value matches the expected value as shown in the "steps" and "Sample Output"
+
+
+### 1.3 Check DpuModule APIs for SmartSwitch
+
+#### Steps
+ * get_dpu_id(self):
+    * Should return ID of the DpuModule Ex: 1 on DPU0
+* get_reboot_cause(self):
+    * Reboot the module and then execute the "show reboot-cause ..." CLIs
+    * Verify the output string shows the correct Time and Cause
+    * Limit the testing to software reboot
+ * get_state_info(self):
+    * This should return an object
+    * Stop one of the DPU containers on this DPU
+    * Execute the CLI and check the dpu-control-plane value should be down
+    * Check the complete list of containers without which the control plane can be up.
+    * This test case can be extended to verify the DPU transition through all states.
+ * get_health_info(self):
+    * This should return an object
+    * Stop one of the DPU containers on this DPU
+    * Execute the CLI and check if the health shows the stopped container
+
+#### Verify in
+ * Switch
+
+#### Sample Output
+```
+On Switch:
+    get_dpu_id(self):
+    Output: When on module DPUx should return x+1
+    get_reboot_cause(self):
+    Output: {"Device": "DPU0", "Name": 2024_05_31_00_33_30, "Cause":  "reboot", "Time": "Fri 31 May 2024 12:29:34 AM UTC", "User": "NA", "Comment": "NA"}
+    get_state_info(self):
+    Output: dpu state info object
+    get_health_info(self):
+    Output: dpu health info object
+```
+#### Pass/Fail Criteria
+ * Verify that all the APIs mentioned return the expected output
+
+ ### 1.4 Check modified ModuleClass APIs
+
+#### Steps
+ * get_base_mac(self):
+    * Should return the base mac address of this DPU
+    * Read all DPUs mac and verify if they are unique and not None
+ * get_system_eeprom_info(self):
+    * Verify the returned dictionary key:value
+ * get_name(self):
+    * Verify if this API returns “DPUx" on each of them
+ * get_description(self):
+    * Should return a string
+ * get_type(self):
+    * Should return “DPU” which is “MODULE_TYPE_DPU”
+ * get_oper_status(self):
+    * Should return the operational status of the DPU
+    * Stop one ore more containers
+    * Execute the CLI and see if it is down
+    * Power down the dpu and check if the operational status is down.
+ * reboot(self, reboot_type):
+    * Issue this CLI with input “
+    * verify if the module reboots
+    * The reboot type should be updated based on SmartSwitch reboot HLD sonic-net/SONiC#1699
+ * get_midplane_ip(self):
+    * should return the midplane IP
+
+#### Verify in
+ * Switch
+
+#### Sample Output
+```
+On Switch:
+    get_base_mac(self):
+    Output: BA:CE:AD:D0:D0:01
+    get_system_eeprom_info(self):
+    Output: eeprom info object
+    get_name(self):
+    Output: DPU2
+    get_description(self):
+    Output "Pensando DSC"
+    get_type(self):
+    Output: DPU
+    get_oper_status(self):
+    Output: Online
+    reboot(self, reboot_type):
+    Result: the DPU should reboot
+    get_midplane_ip(self):
+    Output: 169.254.200.1
+```
+#### Pass/Fail Criteria
+ *  The test result is a pass if the return value matches the expected value as shown in the "steps" and "Sample Output".
