@@ -17,7 +17,7 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
      BGP_TYPE, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
-     snappi_community_for_t1, snappi_community_for_t2, snappi_trigger, dut_trigger  # noqa: F401
+     snappi_community_for_t1, snappi_community_for_t2, SNAPPI_TRIGGER, DUT_TRIGGER  # noqa: F401
 
 logger = logging.getLogger(__name__)
 total_routes = 0
@@ -550,7 +550,7 @@ def duthost_bgp_config(duthosts,
     pytest_assert('Error' not in duthosts[1].shell("sudo config reload -f -y \n")['stderr'],
                   'Error while reloading config in {} !!!!!'.format(duthosts[1].hostname))
     logger.info('Config Reload Successful in {} !!!'.format(duthosts[1].hostname))
-    wait(dut_trigger, "For configs to be loaded on the duts")
+    wait(DUT_TRIGGER, "For configs to be loaded on the duts")
 
 
 def generate_mac_address():
@@ -885,7 +885,7 @@ def get_convergence_for_link_flap(duthosts,
         ps = api.protocol_state()
         ps.state = ps.START
         api.set_protocol_state(ps)
-        wait(snappi_trigger, "For Protocols To start")
+        wait(SNAPPI_TRIGGER, "For Protocols To start")
         logger.info('Verifying protocol sessions state')
         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
         protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
@@ -893,7 +893,7 @@ def get_convergence_for_link_flap(duthosts,
         ts = api.transmit_state()
         ts.state = ts.START
         api.set_transmit_state(ts)
-        wait(snappi_trigger, "For Traffic To start")
+        wait(SNAPPI_TRIGGER, "For Traffic To start")
 
         flow_stats = get_flow_stats(api)
         port_stats = get_port_stats(api)
@@ -923,7 +923,7 @@ def get_convergence_for_link_flap(duthosts,
             ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
             ixn_port.LinkUpDn("down")
             logger.info('Shutting down snappi port : {}'.format(flap_details['port_name']))
-        wait(snappi_trigger, "For link to shutdown")
+        wait(SNAPPI_TRIGGER, "For link to shutdown")
 
         for i in range(0, len(traffic_type)):
             pytest_assert(float((int(flow_stats[i].frames_tx_rate) - int(flow_stats[i].frames_tx_rate)) /
@@ -950,7 +950,7 @@ def get_convergence_for_link_flap(duthosts,
             ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
             ixn_port.LinkUpDn("up")
             logger.info('Starting up snappi ports : {}'.format(flap_details['port_name']))
-        wait(snappi_trigger, "For link to startup")
+        wait(SNAPPI_TRIGGER, "For link to startup")
         logger.info('\n')
         port_stats = get_port_stats(api)
         logger.info('Rx Snappi Port Name : Rx Frame Rate')
@@ -1123,7 +1123,7 @@ def get_convergence_for_process_flap(duthosts,
                         ps = api.protocol_state()
                         ps.state = ps.START
                         api.set_protocol_state(ps)
-                        wait(snappi_trigger, "For Protocols To start")
+                        wait(SNAPPI_TRIGGER, "For Protocols To start")
                         logger.info('Verifying protocol sessions state')
                         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
                         protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
@@ -1131,7 +1131,7 @@ def get_convergence_for_process_flap(duthosts,
                         ts = api.transmit_state()
                         ts.state = ts.START
                         api.set_transmit_state(ts)
-                        wait(snappi_trigger, "For Traffic To start")
+                        wait(SNAPPI_TRIGGER, "For Traffic To start")
 
                         flow_stats = get_flow_stats(api)
                         for i in range(0, len(traffic_type)):
@@ -1159,8 +1159,8 @@ def get_convergence_for_process_flap(duthosts,
                         logger.info('Runnnig containers before process kill: {}'.format(all_containers))
                         kill_process_inside_container(duthost, container, PID, creds)
                         check_container_status_down(duthost, container, timeout=60)
-                        check_container_status_up(duthost, container, timeout=dut_trigger)
-                        wait(dut_trigger, "For Flows to be evenly distributed")
+                        check_container_status_up(duthost, container, timeout=DUT_TRIGGER)
+                        wait(DUT_TRIGGER, "For Flows to be evenly distributed")
                         port_stats = get_port_stats(api)
                         for port_stat in port_stats:
                             if 'Snappi_Tx_Port' not in port_stat.name:
@@ -1180,13 +1180,13 @@ def get_convergence_for_process_flap(duthosts,
                         ts = api.transmit_state()
                         ts.state = ts.STOP
                         api.set_transmit_state(ts)
-                        wait(snappi_trigger, "For Traffic To stop")
+                        wait(SNAPPI_TRIGGER, "For Traffic To stop")
 
                         logger.info("Stopping all protocols ...")
                         ps = api.protocol_state()
                         ps.state = ps.STOP
                         api.set_protocol_state(ps)
-                        wait(snappi_trigger, "For Protocols To stop")
+                        wait(SNAPPI_TRIGGER, "For Protocols To stop")
                         logger.info('\n')
                     row.append(test_name)
                     row.append(f'{container}')
