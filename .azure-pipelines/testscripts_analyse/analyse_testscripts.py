@@ -130,8 +130,16 @@ def get_PRChecker_scripts():
         logging.error('Failed to load file {}, error {}'.format(f, e))
 
     topology_type_pr_test_scripts = {}
+    topology_type_pr_test_skip_scripts = {}
 
     for key, value in pr_test_skip_scripts.items():
+        topology_type = PR_TOPOLOGY_MAPPING.get(key, "")
+        if topology_type:
+            if topology_type_pr_test_skip_scripts.get(topology_type, ""):
+                topology_type_pr_test_skip_scripts[topology_type].update(value)
+            else:
+                topology_type_pr_test_skip_scripts[topology_type] = set(value)
+
         if key in pr_test_scripts:
             pr_test_scripts[key].extend(value)
         else:
@@ -145,10 +153,10 @@ def get_PRChecker_scripts():
             else:
                 topology_type_pr_test_scripts[topology_type] = set(value)
 
-    return topology_type_pr_test_scripts
+    return topology_type_pr_test_scripts, topology_type_pr_test_skip_scripts
 
 
-def check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts):
+def check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts, topology_type_pr_test_skip_scripts):
     # Expand the test scripts list here.
     # If the topology mark is "any", we will add all topology types in PR checker on this script.
     expanded_test_scripts = []
@@ -165,8 +173,11 @@ def check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts):
             expanded_test_scripts.append(test_script)
 
     # Check if a script is included in the PR checker for the corresponding topology type
+    # And if this script is skipped in PR checker
     for test_script in expanded_test_scripts:
         topology_type = topo_name_to_type(test_script["topology"])
+
+        test_script["skipped"] = test_script["testscript"] in topology_type_pr_test_skip_scripts.get(topology_type, "")
 
         if test_script == "test_posttest.py" or test_script == "test_pretest.py":
             test_script["covered"] = True
@@ -183,8 +194,9 @@ def upload_results(test_scripts):
 
 def main():
     test_scripts = collect_all_scripts()
-    topology_type_pr_test_scripts = get_PRChecker_scripts()
-    expanded_test_scripts = check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts)
+    topology_type_pr_test_scripts, topology_type_pr_test_skip_scripts = get_PRChecker_scripts()
+    expanded_test_scripts = check_PRChecker_coverd(test_scripts,
+                                                   topology_type_pr_test_scripts, topology_type_pr_test_skip_scripts)
 
     # Add additionally field to mark one running
     trackid = str(uuid.uuid4())
