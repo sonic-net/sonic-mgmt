@@ -583,8 +583,8 @@ MiB Swap:      0.0 total,      0.0 free,      0.0 used.    954.9 avail Mem
 
 
 
-  ```json
-  <!-- // define in "memory_utilization_common.json" -->
+  ```python
+  # define in "memory_utilization_common.json"
     "COMMON": [
       {
         "name": "monit",
@@ -600,9 +600,9 @@ MiB Swap:      0.0 total,      0.0 free,      0.0 used.    954.9 avail Mem
     ]
   ```
 
-  ```json
-  <!-- // define in memory_utilization_dependence.json -->
-  <!-- // "memory_high_threshold" overwrited to 60 -->
+  ```python
+  # define in memory_utilization_dependence.json
+  # "memory_high_threshold" overwrited to 60
     "COMMON": [
       {
         "name": "monit",
@@ -625,8 +625,8 @@ We can define a memory item per HwSku in "memory_utilization_dependence.json".
 - Second, specify each HwSku collections. use the collection name as the key and a list of HwSku names included in that HwSku collection as the value.
 - Finally, define the memory items for each HwSku collection, the configuration will take priority.
 
-  ```json
-  <!-- // memory_utilization_dependence.json -->
+  ```python
+  # memory_utilization_dependence.json
     "HWSKU" : {
       "Arista-7050QX": ["Arista-7050-QX-32S", "Arista-7050QX32S-Q32"]
     },
@@ -643,7 +643,7 @@ We can define a memory item per HwSku in "memory_utilization_dependence.json".
         "memory_check": "parse_monit_status_output"
       }
     ],
-    <!-- // the "memory_high_threshold" value would be overwrite to "80" for HwSku "Arista-7050-QX-32S", "Arista-7050QX32S-Q32" -->
+    # the "memory_high_threshold" value would be overwrite to "80" for HwSku "Arista-7050-QX-32S", "Arista-7050QX32S-Q32"
     "Arista-7050QX": [
       {
         "name": "monit",
