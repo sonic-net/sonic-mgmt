@@ -418,6 +418,7 @@ def duthost_bgp_config(duthosts,
     loopback_interfaces.update({"Loopback0|3.3.3.3/32": {}})
     loopback_interfaces.update({"Loopback0|3::3/128": {}})
     index = 0
+    index_2 = 0
     for asic_value, portchannel_info in t2_uplink_portchannel_members[duthosts[1].hostname].items():
         bgp_neighbors = dict()
         device_neighbors = dict()
@@ -461,15 +462,16 @@ def duthost_bgp_config(duthosts,
             logger.info('Creating {} in {}'.format(portchannel, duthosts[1].hostname))
             logger.info('Setting min_links to {} for {}'.format(min_link, portchannel))
             interface_name = {portchannel: {}}
-            v4_interface = {f"{portchannel}|{t2_dut_portchannel_ipv4_list[index]}/{v4_prefix_length}": {}}
-            v6_interface = {f"{portchannel}|{t2_dut_portchannel_ipv6_list[index]}/{v6_prefix_length}": {}}
+            v4_interface = {f"{portchannel}|{t2_dut_portchannel_ipv4_list[index_2]}/{v4_prefix_length}": {}}
+            v6_interface = {f"{portchannel}|{t2_dut_portchannel_ipv6_list[index_2]}/{v6_prefix_length}": {}}
             PORTCHANNEL_INTERFACES.update(interface_name)
             PORTCHANNEL_INTERFACES.update(v4_interface)
             PORTCHANNEL_INTERFACES.update(v6_interface)
             logger.info('Configuring IPs {}/{} , {}/{} on {} in {}'.
-                        format(t2_dut_portchannel_ipv4_list[index], v4_prefix_length,
-                               t2_dut_portchannel_ipv6_list[index], v6_prefix_length,
+                        format(t2_dut_portchannel_ipv4_list[index_2], v4_prefix_length,
+                               t2_dut_portchannel_ipv6_list[index_2], v6_prefix_length,
                                portchannel, duthosts[1].hostname))
+            index_2 = index_2 + 1
         for portchannel in portchannel_info:
             device_neighbor_metadata = {
                                             "snappi_"+portchannel:
