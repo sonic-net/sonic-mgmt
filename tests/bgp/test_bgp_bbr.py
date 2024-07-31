@@ -21,7 +21,7 @@ from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until, delete_running_config
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-
+from tests.common.config_reload import config_reload
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -163,13 +163,6 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
 
     constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
     bbr_default_state = 'disabled'
-    try:
-        bbr_enabled = constants['constants']['bgp']['bbr']['enabled']
-        if not bbr_enabled:
-            pytest.skip('BGP BBR is not enabled')
-        bbr_default_state = constants['constants']['bgp']['bbr']['default_state']
-    except KeyError:
-        pytest.skip('No BBR configuration in {}, BBR is not supported.'.format(CONSTANTS_FILE))
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -416,3 +409,16 @@ def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhost
     prepare_routes([bbr_route, bbr_route_v6])
     for route in (bbr_route, bbr_route_v6):
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=False)
+
+
+def test_bbr_disabled_constants_yml_default(duthosts, rand_one_dut_hostname, setup):
+    duthost = duthosts[rand_one_dut_hostname]
+    bbr_config = duthost.shell("redis-cli -n 4 hgetall 'BGP_BBR|all'")['stdout']
+    if bbr_config != '(empty array)':
+        # remove the BBR config. we want to see the default behavior.
+        duthost.shell("redis-cli -n 4 hset 'BGP_BBR|all' 'status' 'disabled'")
+        duthost.shell("sudo config save -y")   
+    config_reload(duthost)
+    is_bbr_enabled = duthost.shell("show runningconfiguration bgp | grep allowas",module_ignore_errors=True)['stdout']
+    pytest_assert(is_bbr_enabled == "", "BBR is not disabled by default.")
+
