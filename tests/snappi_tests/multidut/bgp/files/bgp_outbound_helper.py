@@ -978,7 +978,7 @@ def get_convergence_for_link_flap(duthosts,
         api.set_protocol_state(ps)
         logger.info('\n')
 
-    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths' 'Route Count',
+    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
                'Avg Calculated Packet Loss Duration (ms)']
     logger.info("\n%s" % tabulate([[test_name+' (Link Down)', iteration, traffic_type, portchannel_count,
                                   total_routes, mean(avg_pld)], [test_name+' (Link Up)', iteration,
