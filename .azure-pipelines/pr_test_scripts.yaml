@@ -191,6 +191,7 @@ t0:
   - platform_tests/link_flap/test_link_flap.py
   - platform_tests/test_memory_exhaustion.py
   - generic_config_updater/test_pg_headroom_update.py
+  - sub_port_interfaces/test_show_subinterface.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -268,6 +269,7 @@ t1-lag:
   - snmp/test_snmp_pfc_counters.py
   - snmp/test_snmp_queue.py
   - snmp/test_snmp_v2mib.py
+  - sub_port_interfaces/test_show_subinterface.py
   - test_interfaces.py
   - test_pktgen.py
 
@@ -334,7 +336,6 @@ onboarding_t0:
   - snmp/test_snmp_link_local.py
   - snmp/test_snmp_psu.py
   - snmp/test_snmp_queue_counters.py
-  - sub_port_interfaces/test_show_subinterface.py
   - sub_port_interfaces/test_sub_port_interfaces.py
   - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - arp/test_unknown_mac.py

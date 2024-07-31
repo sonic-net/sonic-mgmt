@@ -1524,6 +1524,13 @@ sub_port_interfaces:
     conditions:
       - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','innovium']"
 
+sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port]:
+  skip:
+    reason: "There is an image issue on kvm testbed"
+    conditions:
+      - asic_type in ['vs']
+      - https://github.com/sonic-net/sonic-buildimage/issues/19735
+
 sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port_in_lag]:
   skip:
     reason: "Not supported port type"
