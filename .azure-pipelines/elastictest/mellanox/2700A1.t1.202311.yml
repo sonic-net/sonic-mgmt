@@ -80,7 +80,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_MLNX_202305)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_MLNX_202311)"
     displayName: "Common test parameters"
 
   # Test timeout
