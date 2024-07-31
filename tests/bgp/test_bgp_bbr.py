@@ -9,7 +9,6 @@ from collections import namedtuple
 
 import pytest
 import requests
-import yaml
 import ipaddr as ipaddress
 
 from jinja2 import Template
@@ -161,9 +160,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     if not constants_stat['stat']['exists']:
         pytest.skip('No file {} on DUT, BBR is not supported')
 
-    constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
     bbr_default_state = 'disabled'
-
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     tor_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith('T0')])
@@ -417,8 +414,7 @@ def test_bbr_disabled_constants_yml_default(duthosts, rand_one_dut_hostname, set
     if bbr_config != '(empty array)':
         # remove the BBR config. we want to see the default behavior.
         duthost.shell("redis-cli -n 4 hset 'BGP_BBR|all' 'status' 'disabled'")
-        duthost.shell("sudo config save -y")   
+        duthost.shell("sudo config save -y")
     config_reload(duthost)
-    is_bbr_enabled = duthost.shell("show runningconfiguration bgp | grep allowas",module_ignore_errors=True)['stdout']
+    is_bbr_enabled = duthost.shell("show runningconfiguration bgp | grep allowas", module_ignore_errors=True)['stdout']
     pytest_assert(is_bbr_enabled == "", "BBR is not disabled by default.")
-
