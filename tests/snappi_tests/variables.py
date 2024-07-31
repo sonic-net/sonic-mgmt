@@ -130,7 +130,7 @@ T2_SNAPPI_AS_NUM = 65400
 T2_DUT_AS_NUM = 65100
 BGP_TYPE = 'ebgp'
 t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink"]
-TIMEOUT = 20
+TIMEOUT = 60
 
 ipv4_subnet = '20.0.1.1/31'
 ipv6_subnet = '2000:1:1:1::1/126'

@@ -934,7 +934,7 @@ def get_convergence_for_link_flap(duthosts,
             ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
             ixn_port.LinkUpDn("up")
             logger.info('Starting up snappi ports : {}'.format(flap_details['port_name']))
-        wait(30, "For link to startup")
+        wait(TIMEOUT, "For link to startup")
         logger.info('\n')
         port_stats = get_port_stats(api)
         logger.info('Rx Snappi Port Name : Rx Frame Rate')
