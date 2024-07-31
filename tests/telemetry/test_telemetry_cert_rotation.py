@@ -61,7 +61,7 @@ def test_telemetry_not_exit(duthosts, rand_one_dut_hostname, setup_streaming_tel
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_post_cert_del(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path, localhost, 
+def test_telemetry_post_cert_del(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path, localhost,
                                  setup_streaming_telemetry):
     """ Test that telemetry server with certificates will accept requests.
     When certs are deleted, subsequent requests will not work.
@@ -129,7 +129,7 @@ def test_telemetry_post_cert_add(duthosts, rand_one_dut_hostname, ptfhost, gnxi_
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_cert_rotate(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path, localhost, 
+def test_telemetry_cert_rotate(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path, localhost,
                                setup_streaming_telemetry):
     """ Test that telemetry server with certs will serve requests.
     When certs are rotated, subsequent requests will work.
