@@ -54,8 +54,10 @@ The main flow of the fixture is as follows:
 - if memory_utilization finds any exceeded thresholds for high memory usage or memory increase, it will display the result and pytest will generate an 'error'.
 
 #### To skip memory_utilization for:
-- all test cases - use pytest command line option ```--disable_memory_utilization```
-- specific test case: mark test case with ```@pytest.mark.disable_memory_utilization``` decorator. Example is shown below.
+
+memory_utilization is enabled by default, if you want to skip the memory_utilization, please follow below steps
+- For all test cases - use pytest command line option ```--disable_memory_utilization```
+- Per test case: mark test case with ```@pytest.mark.disable_memory_utilization``` decorator. Example is shown below.
     ```python
     pytestmark = [
         pytest.mark.disable_memory_utilization
@@ -571,3 +573,150 @@ MiB Swap:      0.0 total,      0.0 free,      0.0 used.    954.9 avail Mem
     'bgpd': 197416
   }
 ```
+
+#### Example Use Cases for memory items
+
+##### Define a memory item globally
+- We can define a global memory item in "memory_utilization_common.json" which is usually used in public branch. This memory item will apply to all test cases.
+- If we prefer not to define it in the public branch, we can alternatively define it in "memory_utilization_dependence.json" which is usually used in the internal branch. This memory item will also apply to all test cases.
+- If a memory item is defined with the same name in both "memory_utilization_common.json" and "memory_utilization_dependence.json" under their "COMMON" sections, the definition in the "memory_utilization_dependence.json" will take priority.
+
+
+
+  ```json
+  // define in "memory_utilization_common.json"
+    "COMMON": [
+      {
+        "name": "monit",
+        "cmd": "sudo monit status",
+        "memory_params": {
+          "memory_usage": {
+            "memory_increase_threshold": 5,
+            "memory_high_threshold": 70
+          }
+        },
+        "memory_check": "parse_monit_status_output"
+      }
+    ]
+  ```
+
+  ```json
+  // define in memory_utilization_dependence.json
+  // "memory_high_threshold" overwrited to 60
+    "COMMON": [
+      {
+        "name": "monit",
+        "cmd": "sudo monit status",
+        "memory_params": {
+          "memory_usage": {
+            "memory_increase_threshold": 5,
+            "memory_high_threshold": 60
+          }
+        },
+        "memory_check": "parse_monit_status_output"
+      }
+    ]
+  ```
+
+
+##### Define a memory item per HWSKU
+We can define a memory item per HwSku in "memory_utilization_dependence.json".
+- First, define a dict named "HWSKU" to manage all HwSku collections.
+- Second, specify each HwSku collections. use the collection name as the key and a list of HwSku names included in that HwSku collection as the value.
+- Finally, define the memory items for each HwSku collection, the configuration will take priority.
+
+  ```json
+  // memory_utilization_dependence.json
+    "HWSKU" : {
+      "Arista-7050QX": ["Arista-7050-QX-32S", "Arista-7050QX32S-Q32"]
+    },
+    "COMMON": [
+      {
+        "name": "monit",
+        "cmd": "sudo monit status",
+        "memory_params": {
+          "memory_usage": {
+            "memory_increase_threshold": 5,
+            "memory_high_threshold": 60
+          }
+        },
+        "memory_check": "parse_monit_status_output"
+      }
+    ],
+    // the "memory_high_threshold" value would be overwrite to "80" for HwSku "Arista-7050-QX-32S", "Arista-7050QX32S-Q32"
+    "Arista-7050QX": [
+      {
+        "name": "monit",
+        "cmd": "sudo monit status",
+        "memory_params": {
+          "memory_usage": {
+            "memory_increase_threshold": 5,
+            "memory_high_threshold": 80
+          }
+        },
+        "memory_check": "parse_monit_status_output"
+      }
+    ]
+  ```
+
+
+##### Define a memory item per test case
+We can modify the threshold of existing memory items within the test case, but we cannot change the cmd and function of the memory items.
+However, we can add new memory items within the test case by using memory_utilization fixture and then registering them.
+
+This functionality has not been verified yet, the following examples are provided for reference only.
+Updates will be made once the verification process is complete.
+
+  ```python
+  # memory item config per test case
+  per_test_case_config = [
+    # exist memory item
+    {
+        "name": "monit",
+        "cmd": "sudo monit status",
+        "memory_params": {
+            "memory_usage": {
+            "memory_increase_threshold": 10,
+            "memory_high_threshold": 90
+            }
+        },
+        "memory_check": "parse_monit_status_output"
+    },
+    # new memory item per test case
+    {
+        "name": "memory_item_per_test_case",
+        "cmd": "cmd per test case",
+        "memory_params": {
+            "used": {
+            "memory_increase_threshold": 100,
+            "memory_high_threshold": 1500
+            }
+        },
+        "memory_check": "parse_output_per_test_case"
+    }
+  ]
+
+  # use the fixture memory_utilization
+  def test_case_example(duthosts, enum_frontend_dut_hostname, memory_utilization):
+    ...
+    for memory_item in per_test_case_config:
+      is_exist = False
+      # for exist memory item
+      for i, exist_commands in enumerate(memory_monitor.commands):
+          exist_name, exist_cmd, exist_memory_params, exist_memory_check = exist_commands
+          if memory_item["name"] == exist_name:
+              memory_monitor.commands[i] = (
+                  exist_name,
+                  exist_cmd,
+                  memory_item["memory_params"],
+                  exist_memory_check
+              )
+              is_exist = True
+              break
+      # if memory item not exist, register a new memory item
+      if not is_exist:
+          memory_monitor.register_command(memory_item["name"], memory_item["cmd"], memory_item["memory_params"], memory_item["memory_check"])
+          output = memory_monitor.execute_command(memory_item["cmd"])
+
+          initial_memory_value[memory_item["name"]] = memory_monitor.run_command_parser_function(memory_item["name"], output)
+  ```
