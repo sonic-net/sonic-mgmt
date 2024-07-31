@@ -182,8 +182,6 @@ t0:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
-  - vxlan/test_vnet_vxlan.py
-  - vxlan/test_vxlan_decap.py
   - test_pktgen.py
   - bgp/test_bgp_peer_shutdown.py
   - clock/test_clock.py
@@ -342,12 +340,18 @@ onboarding_t0:
   - hash/test_generic_hash.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
+  - vxlan/test_vnet_vxlan.py
+  - vxlan/test_vxlan_decap.py
 
 onboarding_t1:
   - generic_config_updater/test_cacl.py
   - hash/test_generic_hash.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
+  - vxlan/test_vxlan_bfd_tsa.py
+  - vxlan/test_vxlan_crm.py
+  - vxlan/test_vxlan_ecmp.py
+  - vxlan/test_vxlan_ecmp_switchover.py
 
 onboarding_dualtor:
   - dualtor/test_ipinip.py
