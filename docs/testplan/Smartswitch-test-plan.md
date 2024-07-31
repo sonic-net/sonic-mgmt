@@ -3,6 +3,7 @@
 - [Introduction](#introduction)
 - [Scope](#scope)
 - [Definitions and Abbreviations](#definitions-and-abbreviations)
+- [Objectives of Test Cases - CLI](#objectives-of-test-cases-cli)
 - [Test Cases - CLI](#test-cases-cli)
     - [1.1 Check DPU Status](#11-check-dpu-status)
     - [1.2 Check platform voltage](#12-check-platform-voltage)
@@ -16,12 +17,13 @@
     - [1.10 Check the Health of DPUs](#110-check-the-health-of-dpus)
     - [1.11 Check reboot cause history](#111-check-reboot-cause-history)
     - [1.12 Check the DPU state after OS reboot](#112-check-the-dpu-state-after-os-reboot)
+- [Objectives of Test Cases - API](#objectives-of-test-cases-api)
 - [Test Cases - API](#test-cases-api)
-    - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-chassis-apis)
-    - [1.2 Check modified ChassisClass APIs](#12-check-modified-chassis-apis)
-    - [1.3 Check DpuModule APIs for SmartSwitch](#13-check-dpu-module-apis)
-    - [1.4 Check modified ModuleClass APIs](#14-check-modified-module-apis)
-    - [1.5 Check SwitchModule APIs for SmartSwitch](#15-check-switch-module-apis)
+    - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-chassisclass-apis)
+    - [1.2 Check modified ChassisClass APIs](#12-check-modified-chassisclass-apis)
+    - [1.3 Check DpuModule APIs for SmartSwitch](#13-check-dpumodule-apis-for-smartswitch)
+    - [1.4 Check modified ModuleClass APIs](#14-check-modified-moduleclass-apis)
+    - [1.5 Check SwitchModule APIs for SmartSwitch](#15-check-switchmodule-apis-for-smartswitch)
 
 ## Introduction
 
@@ -61,19 +63,8 @@ For every test cases, all DPUs need to be powered on unless specified in any of 
 | 1.11 | Check reboot cause history       | To Verify reboot cause history cli |
 | 1.12 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot |
 
-## Objectives of Test Cases - API
-
-|    | **Test Case**   | **Intention**                              | **Comments** |
-| ---------- | ---------- | ---------------------------------------- | ---------- |
-| 1.1 | Check SmartSwitch specific ChassisClass APIs      | To verify the newly implemented SmartSwitch specific ChassisClass APIs | |
-| 1.2 | Check modified ChassisClass APIs for SmartSwitch       |  To verify the existing ChassisClass APIs that undergo minor changes with the addition of SmartSwitch| |
-| 1.3 | Check DpuModule APIs for SmartSwitch       |  To verify the newly implemented  DpuModule APIs for SmartSwitch| |
-| 1.4 | Check modified ModuleClass APIs for SmartSwitch       |  To verify the existing ModuleClass APIs that undergo minor changes with the addition of SmartSwitch| 
-| 1.5 | Check SwitchModule APIs for SmartSwitch      |  To verify the newly implemented SwitchModule APIs for SmartSwitch |
-
 
 ## Test Cases - CLI
-
 
 ### 1.1 Check DPU Status
 
@@ -804,6 +795,16 @@ root@sonic:/home/cisco# show chassis modules status
 #### Pass/Fail Criteria 
  *  Verify number of DPUs from api and number of DPUs shown in the cli output.
 
+
+## Objectives of Test Cases - API
+
+|    | **Test Case**   | **Intention**                              | **Comments** |
+| ---------- | ---------- | ---------------------------------------- | ---------- |
+| 1.1 | Check SmartSwitch specific ChassisClass APIs      | To verify the newly implemented SmartSwitch specific ChassisClass APIs | |
+| 1.2 | Check modified ChassisClass APIs for SmartSwitch       |  To verify the existing ChassisClass APIs that undergo minor changes with the addition of SmartSwitch| |
+| 1.3 | Check DpuModule APIs for SmartSwitch       |  To verify the newly implemented  DpuModule APIs for SmartSwitch| |
+| 1.4 | Check modified ModuleClass APIs for SmartSwitch       |  To verify the existing ModuleClass APIs that undergo minor changes with the addition of SmartSwitch| 
+| 1.5 | Check SwitchModule APIs for SmartSwitch      |  To verify the newly implemented SwitchModule APIs for SmartSwitch |
 
 ## Test Cases - API
 
