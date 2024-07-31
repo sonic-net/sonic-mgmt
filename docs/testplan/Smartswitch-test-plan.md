@@ -19,11 +19,10 @@
     - [1.12 Check the DPU state after OS reboot](#112-check-the-dpu-state-after-os-reboot)
 - [Objectives of Test Cases - API](#objectives-of-test-cases-api)
 - [Test Cases - API](#test-cases-api)
-    - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-chassisclass-apis)
-    - [1.2 Check modified ChassisClass APIs](#12-check-modified-chassisclass-apis)
+    - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-specific-chassisclass-apis)
+    - [1.2 Check modified ChassisClass APIs for smartswitch](#12-check-modified-chassisclass-apis-for-smartswitch)
     - [1.3 Check DpuModule APIs for SmartSwitch](#13-check-dpumodule-apis-for-smartswitch)
     - [1.4 Check modified ModuleClass APIs](#14-check-modified-moduleclass-apis)
-    - [1.5 Check SwitchModule APIs for SmartSwitch](#15-check-switchmodule-apis-for-smartswitch)
 
 ## Introduction
 
@@ -800,15 +799,14 @@ root@sonic:/home/cisco# show chassis modules status
 
 |    | **Test Case**   | **Intention**                              | **Comments** |
 | ---------- | ---------- | ---------------------------------------- | ---------- |
-| 1.1 | Check SmartSwitch specific ChassisClass APIs      | To verify the newly implemented SmartSwitch specific ChassisClass APIs | |
+| 1.1 |       | To verify the newly implemented SmartSwitch specific ChassisClass APIs | |
 | 1.2 | Check modified ChassisClass APIs for SmartSwitch       |  To verify the existing ChassisClass APIs that undergo minor changes with the addition of SmartSwitch| |
 | 1.3 | Check DpuModule APIs for SmartSwitch       |  To verify the newly implemented  DpuModule APIs for SmartSwitch| |
 | 1.4 | Check modified ModuleClass APIs for SmartSwitch       |  To verify the existing ModuleClass APIs that undergo minor changes with the addition of SmartSwitch| 
-| 1.5 | Check SwitchModule APIs for SmartSwitch      |  To verify the newly implemented SwitchModule APIs for SmartSwitch |
 
 ## Test Cases - API
 
-### 1.1 Check SmartSwitch specific ChassisClass APIs
+### 1.1 
 
 #### Steps
  * Execute the following APIs on SmartSwitch
