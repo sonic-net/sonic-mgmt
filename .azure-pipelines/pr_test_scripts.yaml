@@ -176,6 +176,7 @@ t0:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
+  - bgp/test_4-byte_asn_community.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -268,6 +269,7 @@ multi-asic-t1-lag:
   - process_monitoring/test_critical_process_monitoring.py
   - container_checker/test_container_checker.py
   - http/test_http_copy.py
+  - bgp/test_4-byte_asn_community.py
 
 t2:
   - test_vs_chassis_setup.py
