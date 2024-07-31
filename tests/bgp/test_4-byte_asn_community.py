@@ -326,7 +326,10 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     neigh_ip_bgp_sum = nbrhosts[neigh]["host"].shell('show ip bgp summary')['stdout']
     with open(bgp_id_textfsm) as template:
         fsm = textfsm.TextFSM(template)
-        dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[asic_index][0]
+        if duthost.is_multi_asic:
+            dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[asic_index][0]
+        else:
+            dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[0][0]
         neigh_bgp_id = fsm.ParseText(neigh_ip_bgp_sum)[1][0]
 
     dut_ipv4_network = duthost.shell("show run bgp | grep 'ip prefix-list'")['stdout'].split()[6]
