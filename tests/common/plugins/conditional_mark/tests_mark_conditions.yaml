@@ -166,12 +166,6 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
 #######################################
 #####            cacl             #####
 #######################################
-cacl/test_cacl_application.py:
-  skip:
-    reason: "Skip test_cacl_application temporarily due to known issue"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/13805
-
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
