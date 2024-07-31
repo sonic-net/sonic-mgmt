@@ -18,6 +18,8 @@ from tests.common.dualtor.nic_simulator_control import TrafficDirection
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service            # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                         # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test                               # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_common import active_active_ports                            # noqa F401
@@ -96,7 +98,7 @@ def drop_flow_upper_tor_active_active(active_active_ports, set_drop_active_activ
 def test_active_link_drop_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
     toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor_all,   # noqa F811
-    drop_flow_upper_tor_active_active, cable_type                       # noqa F811
+    drop_flow_upper_tor_active_active, cable_type, skip_traffic_test    # noqa F811
 ):
     """
     Send traffic from servers to T1 and remove the flow between the servers and the active ToR.
@@ -108,7 +110,8 @@ def test_active_link_drop_upstream(
             verify=True,
             delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=3,
-            action=drop_flow_upper_tor_all
+            action=drop_flow_upper_tor_all,
+            skip_traffic_test=skip_traffic_test
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -123,7 +126,8 @@ def test_active_link_drop_upstream(
             verify=True,
             delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=1,
-            action=drop_flow_upper_tor_active_active
+            action=drop_flow_upper_tor_active_active,
+            skip_traffic_test=skip_traffic_test
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -138,7 +142,7 @@ def test_active_link_drop_upstream(
 def test_active_link_drop_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
     toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor_all,   # noqa F811
-    drop_flow_upper_tor_active_active, cable_type                       # noqa F811
+    drop_flow_upper_tor_active_active, cable_type, skip_traffic_test    # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the active Tor and remove the flow between the
@@ -151,7 +155,8 @@ def test_active_link_drop_downstream_active(
             verify=True,
             delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=3,
-            action=drop_flow_upper_tor_all
+            action=drop_flow_upper_tor_all,
+            skip_traffic_test=skip_traffic_test
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -166,7 +171,8 @@ def test_active_link_drop_downstream_active(
             verify=True,
             delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
             allowed_disruption=1,
-            action=drop_flow_upper_tor_active_active
+            action=drop_flow_upper_tor_active_active,
+            skip_traffic_test=skip_traffic_test
         )
         verify_tor_states(
             expected_active_host=lower_tor_host,
@@ -179,7 +185,8 @@ def test_active_link_drop_downstream_active(
 
 def test_active_link_drop_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor_all    # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, drop_flow_upper_tor_all,   # noqa F811
+    skip_traffic_test                                                   # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the standby Tor and remove the flow between the
@@ -191,7 +198,8 @@ def test_active_link_drop_downstream_standby(
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         allowed_disruption=3,
-        action=drop_flow_upper_tor_all
+        action=drop_flow_upper_tor_all,
+        skip_traffic_test=skip_traffic_test
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -203,7 +211,7 @@ def test_active_link_drop_downstream_standby(
 def test_standby_link_drop_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
     check_simulator_flap_counter, drop_flow_lower_tor_all,              # noqa F811
-    toggle_all_simulator_ports_to_upper_tor                             # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, skip_traffic_test          # noqa F811
 ):
     """
     Send traffic from servers to T1 and remove the flow between the servers and the standby ToR.
@@ -214,7 +222,8 @@ def test_standby_link_drop_upstream(
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         allowed_disruption=2,
-        action=drop_flow_lower_tor_all
+        action=drop_flow_lower_tor_all,
+        skip_traffic_test=skip_traffic_test
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
@@ -227,7 +236,7 @@ def test_standby_link_drop_upstream(
 def test_standby_link_drop_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
     check_simulator_flap_counter, drop_flow_lower_tor_all,              # noqa F811
-    toggle_all_simulator_ports_to_upper_tor                             # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, skip_traffic_test          # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the active Tor and remove the flow between the
@@ -239,7 +248,8 @@ def test_standby_link_drop_downstream_active(
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         allowed_disruption=2,
-        action=drop_flow_lower_tor_all
+        action=drop_flow_lower_tor_all,
+        skip_traffic_test=skip_traffic_test
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
@@ -252,7 +262,7 @@ def test_standby_link_drop_downstream_active(
 def test_standby_link_drop_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
     check_simulator_flap_counter, drop_flow_lower_tor_all,              # noqa F811
-    toggle_all_simulator_ports_to_upper_tor                             # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, skip_traffic_test          # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the standby Tor and remove the flow between the
@@ -264,7 +274,8 @@ def test_standby_link_drop_downstream_standby(
         verify=True,
         delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
         allowed_disruption=2,
-        action=drop_flow_lower_tor_all
+        action=drop_flow_lower_tor_all,
+        skip_traffic_test=skip_traffic_test
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
