@@ -13,7 +13,7 @@ from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import create_ip_list  # noqa: F401
 from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_DUT_AS_NUM, T2_DUT_AS_NUM, t1_ports, \
      t2_uplink_portchannel_members, t1_t2_dut_ipv4_list, v4_prefix_length, v6_prefix_length, \
-     t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, \
+     t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, portchannel_count, \
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
      BGP_TYPE, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
@@ -978,10 +978,12 @@ def get_convergence_for_link_flap(duthosts,
         api.set_protocol_state(ps)
         logger.info('\n')
 
-    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
-    logger.info("\n%s" % tabulate([[test_name+' (Link Down)', iteration, traffic_type, total_routes,
-                                  mean(avg_pld)], [test_name+' (Link Up)', iteration, traffic_type, total_routes,
-                                  mean(avg_pld2)]], headers=columns, tablefmt="psql"))
+    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths' 'Route Count',
+               'Avg Calculated Packet Loss Duration (ms)']
+    logger.info("\n%s" % tabulate([[test_name+' (Link Down)', iteration, traffic_type, portchannel_count,
+                                  total_routes, mean(avg_pld)], [test_name+' (Link Up)', iteration,
+                                  traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
+                                  tablefmt="psql"))
 
 
 def kill_process_inside_container(duthost, container_name, process_id, creds):
@@ -1193,9 +1195,10 @@ def get_convergence_for_process_flap(duthosts,
                     row.append(f'{process_name}')
                     row.append(iteration)
                     row.append(traffic_type)
+                    row.append(portchannel_count)
                     row.append(total_routes)
                     row.append(mean(avg_pld))
                     table.append(row)
     columns = ['Test Name', 'Container Name', 'Process Name', 'Iterations', 'Traffic Type',
-               'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
+               'Uplink ECMP Paths', 'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
