@@ -178,7 +178,15 @@ steps:
       else
         echo "Azure CLI is already installed"
       fi
-    displayName: "Install azure-cli"
+
+      # Check if azure-identity is installed. If not, try to install it
+      if ! python -c "import azure.identity" 2>/dev/null; then
+        echo "azure-identity is not installed. Trying to install it..."
+        pip install azure-identity
+      else
+        echo "azure-identity is already installed"
+      fi
+    displayName: "Install packages"
 
   - task: AzureCLI@2
     inputs:
