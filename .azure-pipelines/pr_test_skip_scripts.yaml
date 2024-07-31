@@ -161,6 +161,8 @@ t2:
   - mvrf/test_mgmtvrf.py
 
 dualtor:
+  # This test only support on dualtor-aa testbed
+  - dualtor_io/test_grpc_server_failure.py
   # This test is only for Nvidia platforms.
   - dualtor_mgmt/test_egress_drop_nvidia.py
 
