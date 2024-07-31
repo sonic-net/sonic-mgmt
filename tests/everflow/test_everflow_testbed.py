@@ -2,10 +2,10 @@
 import logging
 import time
 import pytest
-
+import threading
 import ptf.testutils as testutils
 from . import everflow_test_utilities as everflow_utils
-
+import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
 from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_STREAM, UP_STREAM, DEFAULT_SERVER_IP
 # Module-level fixtures
@@ -645,6 +645,134 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                         setup_info[dest_port_type]["remote_namespace"])
             everflow_utils.remove_route(everflow_dut, self.DEFAULT_DST_IP + "/32", default_traffic_peer_ip,
                                         setup_info[default_tarffic_port_type]["remote_namespace"])
+
+    def test_everflow_frwd_with_bkg_trf(self, setup_info, setup_mirror_session,
+                                        dest_port_type, ptfadapter, tbinfo,
+                                        skip_traffic_test):
+        """
+        Verify basic forwarding scenarios for the Everflow feature with background traffic.
+        Background Traffic PKT1 IP in IP with same ports & macs but with dummy ips
+        Background Traffic PKT2 Packer with same ports & macs but with dummy ips
+        """
+        everflow_dut = setup_info[dest_port_type]['everflow_dut']
+        remote_dut = setup_info[dest_port_type]['remote_dut']
+        remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
+            "vtysh -c \"configure terminal\" -c \"no ip nht resolve-via-default\"",
+            setup_info[dest_port_type]["remote_namespace"]))
+
+        # Add a route to the mirror session destination IP
+        tx_port = setup_info[dest_port_type]["dest_port"][0]
+        peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo)
+        everflow_utils.add_route(remote_dut, setup_mirror_session["session_prefixes"][0], peer_ip,
+                                 setup_info[dest_port_type]["remote_namespace"])
+
+        time.sleep(15)
+
+        # Verify that mirrored traffic is sent along the route we installed
+        rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
+        tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+
+        stop_thread = threading.Event()
+
+        def background_traffic():
+
+            router_mac = setup_info[dest_port_type]["ingress_router_mac"]
+            inner_pkt2 = self._base_tcp_packet(ptfadapter, setup_info, router_mac, src_ip="1.0.0.10", dst_ip="4.4.4.4")
+            bkg_trf1 = testutils.simple_ipv4ip_packet(ip_src="30.0.0.10",
+                                                      eth_dst=router_mac,
+                                                      ip_dst="50.0.2.2",
+                                                      eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                                                      inner_frame=inner_pkt2[scapy.IP])
+            bkg_trf2 = self._base_tcp_packet(ptfadapter, setup_info, router_mac, src_ip="30.0.0.10", dst_ip="50.0.2.2")
+            logger.debug("Background Traffic Started")
+            while not stop_thread.is_set():
+                testutils.send(ptfadapter, rx_port_ptf_id, bkg_trf1)
+                testutils.send(ptfadapter, rx_port_ptf_id, bkg_trf2)
+
+        background_thread = threading.Thread(target=background_traffic)
+        background_thread.daemon = True
+        background_thread.start()
+        try:
+            self._run_everflow_test_scenarios(
+                ptfadapter,
+                setup_info,
+                setup_mirror_session,
+                everflow_dut,
+                rx_port_ptf_id,
+                [tx_port_ptf_id],
+                dest_port_type,
+                skip_traffic_test=skip_traffic_test
+            )
+
+            # Add a (better) unresolved route to the mirror session destination IP
+            peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, resolved=False)
+            everflow_utils.add_route(remote_dut, setup_mirror_session["session_prefixes"][1], peer_ip,
+                                     setup_info[dest_port_type]["remote_namespace"])
+            time.sleep(15)
+
+            # Verify that mirrored traffic is still sent along the original route
+            self._run_everflow_test_scenarios(
+                ptfadapter,
+                setup_info,
+                setup_mirror_session,
+                everflow_dut,
+                rx_port_ptf_id,
+                [tx_port_ptf_id],
+                dest_port_type,
+                skip_traffic_test=skip_traffic_test
+            )
+
+            # Remove the unresolved route
+            everflow_utils.remove_route(remote_dut, setup_mirror_session["session_prefixes"][1],
+                                        peer_ip, setup_info[dest_port_type]["remote_namespace"])
+
+            # Add a better route to the mirror session destination IP
+            tx_port = setup_info[dest_port_type]["dest_port"][1]
+            peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo)
+            everflow_utils.add_route(remote_dut, setup_mirror_session['session_prefixes'][1], peer_ip,
+                                     setup_info[dest_port_type]["remote_namespace"])
+            time.sleep(15)
+
+            # Verify that mirrored traffic uses the new route
+            tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][1]
+            self._run_everflow_test_scenarios(
+                ptfadapter,
+                setup_info,
+                setup_mirror_session,
+                everflow_dut,
+                rx_port_ptf_id,
+                [tx_port_ptf_id],
+                dest_port_type,
+                skip_traffic_test=skip_traffic_test
+            )
+
+            # Remove the better route.
+            everflow_utils.remove_route(remote_dut, setup_mirror_session["session_prefixes"][1], peer_ip,
+                                        setup_info[dest_port_type]["remote_namespace"])
+            time.sleep(15)
+
+            # Verify that mirrored traffic switches back to the original route
+            tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+            self._run_everflow_test_scenarios(
+                ptfadapter,
+                setup_info,
+                setup_mirror_session,
+                everflow_dut,
+                rx_port_ptf_id,
+                [tx_port_ptf_id],
+                dest_port_type,
+                skip_traffic_test=skip_traffic_test
+            )
+
+            remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
+                "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
+                setup_info[dest_port_type]["remote_namespace"]))
+        finally:
+            # Signal the background thread to stop
+            logger.debug("Thread_stop")
+            stop_thread.set()
+            # Wait for the background thread to finish
+            background_thread.join()
 
     def _run_everflow_test_scenarios(self, ptfadapter, setup, mirror_session, duthost, rx_port,
                                      tx_ports, direction, expect_recv=True, valid_across_namespace=True,
