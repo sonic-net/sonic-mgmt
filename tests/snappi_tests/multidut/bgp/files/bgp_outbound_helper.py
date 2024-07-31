@@ -16,8 +16,8 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
      t1_t2_dut_ipv6_list, t1_t2_snappi_ipv4_list, \
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
-     BGP_TYPE, TIMEOUT, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
-     snappi_community_for_t1, snappi_community_for_t2  # noqa: F401
+     BGP_TYPE, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
+     snappi_community_for_t1, snappi_community_for_t2, snappi_trigger, dut_trigger  # noqa: F401
 
 logger = logging.getLogger(__name__)
 total_routes = 0
@@ -550,7 +550,7 @@ def duthost_bgp_config(duthosts,
     pytest_assert('Error' not in duthosts[1].shell("sudo config reload -f -y \n")['stderr'],
                   'Error while reloading config in {} !!!!!'.format(duthosts[1].hostname))
     logger.info('Config Reload Successful in {} !!!'.format(duthosts[1].hostname))
-    wait(120, "For configs to be loaded on the duts")
+    wait(dut_trigger, "For configs to be loaded on the duts")
 
 
 def generate_mac_address():
@@ -644,19 +644,19 @@ def __snappi_bgp_config(api,
                     logger.info('\n')
                     temp += 1
 
-        device = config.devices.device(name="T2 Device {}".format(lag_count))[-1]
+        device = config.devices.device(name="T3 Device {}".format(lag_count))[-1]
         eth = device.ethernets.add()
         eth.port_name = lag.name
-        eth.name = 'T2_Ethernet_%d' % lag_count
+        eth.name = 'T3_Ethernet_%d' % lag_count
         eth.mac = "00:00:00:00:00:%s" % m
 
         ipv4 = eth.ipv4_addresses.add()
-        ipv4.name = 'T2_IPv4_%d' % lag_count
+        ipv4.name = 'T3_IPv4_%d' % lag_count
         ipv4.address = snappi_portchannel_ipv4_list[lag_count]
         ipv4.gateway = t2_dut_portchannel_ipv4_list[lag_count]
         ipv4.prefix = v4_prefix_length
         ipv6 = eth.ipv6_addresses.add()
-        ipv6.name = 'T2_IPv6_%d' % lag_count
+        ipv6.name = 'T3_IPv6_%d' % lag_count
         ipv6.address = snappi_portchannel_ipv6_list[lag_count]
         ipv6.gateway = t2_dut_portchannel_ipv6_list[lag_count]
         ipv6.prefix = v6_prefix_length
@@ -666,12 +666,12 @@ def __snappi_bgp_config(api,
         bgpv4_int = bgpv4.ipv4_interfaces.add()
         bgpv4_int.ipv4_name = ipv4.name
         bgpv4_peer = bgpv4_int.peers.add()
-        bgpv4_peer.name = 'T2_BGP_%d' % lag_count
+        bgpv4_peer.name = 'T3_BGP_%d' % lag_count
         bgpv4_peer.as_type = BGP_TYPE
         bgpv4_peer.peer_address = t2_dut_portchannel_ipv4_list[lag_count]
         bgpv4_peer.as_number = int(T2_SNAPPI_AS_NUM)
 
-        route_range1 = bgpv4_peer.v4_routes.add(name="T2_IPv4_Routes_%d" % (lag_count))
+        route_range1 = bgpv4_peer.v4_routes.add(name="T3_IPv4_Routes_%d" % (lag_count))
         for route_index, routes in enumerate(route_range['IPv4']):
             route_range1.addresses.add(
                 address=routes[0], prefix=routes[1], count=routes[2])
@@ -687,12 +687,12 @@ def __snappi_bgp_config(api,
         bgpv6_int = bgpv6.ipv6_interfaces.add()
         bgpv6_int.ipv6_name = ipv6.name
         bgpv6_peer = bgpv6_int.peers.add()
-        bgpv6_peer.name = 'T2_BGP+_%d' % lag_count
+        bgpv6_peer.name = 'T3_BGP+_%d' % lag_count
         bgpv6_peer.as_type = BGP_TYPE
         bgpv6_peer.peer_address = t2_dut_portchannel_ipv6_list[lag_count]
         bgpv6_peer.as_number = int(T2_SNAPPI_AS_NUM)
 
-        route_range2 = bgpv6_peer.v6_routes.add(name="T2_IPv6_Routes_%d" % (lag_count))
+        route_range2 = bgpv6_peer.v6_routes.add(name="T3_IPv6_Routes_%d" % (lag_count))
         for route_index, routes in enumerate(route_range['IPv6']):
             route_range2.addresses.add(
                 address=routes[0], prefix=routes[1], count=routes[2])
@@ -709,36 +709,52 @@ def __snappi_bgp_config(api,
         else:
             m = hex(index+1).split('0x')[1]
 
-        device = config.devices.device(name="T1 Device {}".format(index))[-1]
-        eth = device.ethernets.add()
-        eth.port_name = port['name']
-        eth.name = 'T1_Ethernet_%d' % index
-        eth.mac = "00:10:00:00:00:%s" % m
-        ipv4 = eth.ipv4_addresses.add()
-        ipv4.name = 'T1_IPv4_%d' % index
-        ipv4.address = t1_t2_snappi_ipv4_list[index]
-        ipv4.gateway = t1_t2_dut_ipv4_list[index]
-        ipv4.prefix = v4_prefix_length
-        ipv6 = eth.ipv6_addresses.add()
-        ipv6.name = 'T1_IPv6_%d' % index
-        ipv6.address = t1_t2_snappi_ipv6_list[index]
-        ipv6.gateway = t1_t2_dut_ipv6_list[index]
-        ipv6.prefix = v6_prefix_length
-        ipv4_src.append(ipv4.name)
-        ipv6_src.append(ipv6.name)
+        if index == 0:
+            device = config.devices.device(name="T0 Device {}".format(index))[-1]
+            eth = device.ethernets.add()
+            eth.port_name = port['name']
+            eth.name = 'T0_Ethernet_%d' % index
+            eth.mac = "00:10:00:00:00:%s" % m
+            ipv4 = eth.ipv4_addresses.add()
+            ipv4.name = 'T0_IPv4_%d' % index
+            ipv4.address = t1_t2_snappi_ipv4_list[index]
+            ipv4.gateway = t1_t2_dut_ipv4_list[index]
+            ipv4.prefix = v4_prefix_length
+            ipv6 = eth.ipv6_addresses.add()
+            ipv6.name = 'T0_IPv6_%d' % index
+            ipv6.address = t1_t2_snappi_ipv6_list[index]
+            ipv6.gateway = t1_t2_dut_ipv6_list[index]
+            ipv6.prefix = v6_prefix_length
+            ipv4_src.append(ipv4.name)
+            ipv6_src.append(ipv6.name)
+        else:
+            device = config.devices.device(name="Backup T2 Device {}".format(index))[-1]
+            eth = device.ethernets.add()
+            eth.port_name = port['name']
+            eth.name = 'Backup_T2_Ethernet_%d' % index
+            eth.mac = "00:10:00:00:00:%s" % m
+            ipv4 = eth.ipv4_addresses.add()
+            ipv4.name = 'Backup_T2_IPv4_%d' % index
+            ipv4.address = t1_t2_snappi_ipv4_list[index]
+            ipv4.gateway = t1_t2_dut_ipv4_list[index]
+            ipv4.prefix = v4_prefix_length
+            ipv6 = eth.ipv6_addresses.add()
+            ipv6.name = 'Backup_T2_IPv6_%d' % index
+            ipv6.address = t1_t2_snappi_ipv6_list[index]
+            ipv6.gateway = t1_t2_dut_ipv6_list[index]
+            ipv6.prefix = v6_prefix_length
 
-        if index != 0:
             bgpv4 = device.bgp
             bgpv4.router_id = t1_t2_snappi_ipv4_list[index]
             bgpv4_int = bgpv4.ipv4_interfaces.add()
             bgpv4_int.ipv4_name = ipv4.name
             bgpv4_peer = bgpv4_int.peers.add()
-            bgpv4_peer.name = 'T1_BGP_%d' % index
+            bgpv4_peer.name = 'Backup_T2_BGP_%d' % index
             bgpv4_peer.as_type = BGP_TYPE
             bgpv4_peer.peer_address = t1_t2_dut_ipv4_list[index]
             bgpv4_peer.as_number = int(T1_SNAPPI_AS_NUM)
 
-            route_range1 = bgpv4_peer.v4_routes.add(name="T1_IPv4_Routes_%d" % (index))
+            route_range1 = bgpv4_peer.v4_routes.add(name="Backup_T2_IPv4_Routes_%d" % (index))
             for route_index, routes in enumerate(route_range['IPv4']):
                 route_range1.addresses.add(
                     address=routes[0], prefix=routes[1], count=routes[2])
@@ -757,12 +773,12 @@ def __snappi_bgp_config(api,
             bgpv6_int = bgpv6.ipv6_interfaces.add()
             bgpv6_int.ipv6_name = ipv6.name
             bgpv6_peer = bgpv6_int.peers.add()
-            bgpv6_peer.name = 'T1_BGP+_%d' % index
+            bgpv6_peer.name = 'Backup_T2_BGP+_%d' % index
             bgpv6_peer.as_type = BGP_TYPE
             bgpv6_peer.peer_address = t1_t2_dut_ipv6_list[index]
             bgpv6_peer.as_number = int(T1_SNAPPI_AS_NUM)
 
-            route_range2 = bgpv6_peer.v6_routes.add(name="T1_IPv6_Routes_%d" % (index))
+            route_range2 = bgpv6_peer.v6_routes.add(name="Backup_T2_IPv6_Routes_%d" % (index))
             for route_index, routes in enumerate(route_range['IPv6']):
                 route_range2.addresses.add(
                     address=routes[0], prefix=routes[1], count=routes[2])
@@ -869,7 +885,7 @@ def get_convergence_for_link_flap(duthosts,
         ps = api.protocol_state()
         ps.state = ps.START
         api.set_protocol_state(ps)
-        wait(TIMEOUT, "For Protocols To start")
+        wait(snappi_trigger, "For Protocols To start")
         logger.info('Verifying protocol sessions state')
         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
         protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
@@ -877,7 +893,7 @@ def get_convergence_for_link_flap(duthosts,
         ts = api.transmit_state()
         ts.state = ts.START
         api.set_transmit_state(ts)
-        wait(TIMEOUT, "For Traffic To start")
+        wait(snappi_trigger, "For Traffic To start")
 
         flow_stats = get_flow_stats(api)
         port_stats = get_port_stats(api)
@@ -907,7 +923,7 @@ def get_convergence_for_link_flap(duthosts,
             ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
             ixn_port.LinkUpDn("down")
             logger.info('Shutting down snappi port : {}'.format(flap_details['port_name']))
-        wait(TIMEOUT, "For link to shutdown")
+        wait(snappi_trigger, "For link to shutdown")
 
         for i in range(0, len(traffic_type)):
             pytest_assert(float((int(flow_stats[i].frames_tx_rate) - int(flow_stats[i].frames_tx_rate)) /
@@ -934,7 +950,7 @@ def get_convergence_for_link_flap(duthosts,
             ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
             ixn_port.LinkUpDn("up")
             logger.info('Starting up snappi ports : {}'.format(flap_details['port_name']))
-        wait(TIMEOUT, "For link to startup")
+        wait(snappi_trigger, "For link to startup")
         logger.info('\n')
         port_stats = get_port_stats(api)
         logger.info('Rx Snappi Port Name : Rx Frame Rate')
@@ -1107,7 +1123,7 @@ def get_convergence_for_process_flap(duthosts,
                         ps = api.protocol_state()
                         ps.state = ps.START
                         api.set_protocol_state(ps)
-                        wait(TIMEOUT, "For Protocols To start")
+                        wait(snappi_trigger, "For Protocols To start")
                         logger.info('Verifying protocol sessions state')
                         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
                         protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
@@ -1115,7 +1131,7 @@ def get_convergence_for_process_flap(duthosts,
                         ts = api.transmit_state()
                         ts.state = ts.START
                         api.set_transmit_state(ts)
-                        wait(TIMEOUT, "For Traffic To start")
+                        wait(snappi_trigger, "For Traffic To start")
 
                         flow_stats = get_flow_stats(api)
                         for i in range(0, len(traffic_type)):
@@ -1142,9 +1158,9 @@ def get_convergence_for_process_flap(duthosts,
                         all_containers = get_container_names(duthost)
                         logger.info('Runnnig containers before process kill: {}'.format(all_containers))
                         kill_process_inside_container(duthost, container, PID, creds)
-                        check_container_status_down(duthost, container, timeout=20)
-                        check_container_status_up(duthost, container, timeout=180)
-                        wait(180, "For Flows to be evenly distributed")
+                        check_container_status_down(duthost, container, timeout=60)
+                        check_container_status_up(duthost, container, timeout=dut_trigger)
+                        wait(dut_trigger, "For Flows to be evenly distributed")
                         port_stats = get_port_stats(api)
                         for port_stat in port_stats:
                             if 'Snappi_Tx_Port' not in port_stat.name:
@@ -1164,13 +1180,13 @@ def get_convergence_for_process_flap(duthosts,
                         ts = api.transmit_state()
                         ts.state = ts.STOP
                         api.set_transmit_state(ts)
-                        wait(TIMEOUT, "For Traffic To stop")
+                        wait(snappi_trigger, "For Traffic To stop")
 
                         logger.info("Stopping all protocols ...")
                         ps = api.protocol_state()
                         ps.state = ps.STOP
                         api.set_protocol_state(ps)
-                        wait(TIMEOUT, "For Protocols To stop")
+                        wait(snappi_trigger, "For Protocols To stop")
                         logger.info('\n')
                     row.append(test_name)
                     row.append(f'{container}')
