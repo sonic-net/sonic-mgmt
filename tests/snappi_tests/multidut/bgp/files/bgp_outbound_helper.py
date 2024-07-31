@@ -929,7 +929,7 @@ def get_convergence_for_link_flap(duthosts,
             pytest_assert(float((int(flow_stats[i].frames_tx_rate) - int(flow_stats[i].frames_tx_rate)) /
                           int(flow_stats[i].frames_tx_rate)) < 0.005,
                           'Traffic has not converged after link flap')
-
+        logger.info('Traffic has converged after link flap')
         flow_stats = get_flow_stats(api)
         delta_frames = 0
         for i in range(0, len(traffic_type)):
