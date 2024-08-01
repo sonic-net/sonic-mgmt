@@ -78,6 +78,10 @@ def shutdown_interface(duthost):
 
 def generate_pfc_storm(duthost):
     logger.info("Generating pfc storm")
+    nslist = duthost.get_asic_namespace_list()
+    ns = random.choice(nslist)
+    if ns is not None:
+        ns = "asic0"
     interfaces = duthost.get_interfaces_status()
     pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
     interface_list = []
@@ -88,14 +92,22 @@ def generate_pfc_storm(duthost):
     assert PFC_STORM_TEST_PORT is not None, "Unable to find valid interface for test"
 
     queue_oid = duthost.get_queue_oid(PFC_STORM_TEST_PORT, PFC_STORM_TEST_QUEUE)
-    duthost.shell("sonic-db-cli COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
-                  format(queue_oid))
+    if ns is None:
+        duthost.shell("sonic-db-cli COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
+                      format(queue_oid))
+    else:
+        duthost.shell("sonic-db-cli -n {} COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
+                      format(ns, queue_oid))
     duthost.shell("pfcwd start --action drop {} {} --restoration-time {}".
                   format(PFC_STORM_TEST_PORT, PFC_STORM_DETECTION_TIME, PFC_STORM_RESTORATION_TIME))
     time.sleep(WAIT_TIME)  # give time for pfcwd to detect pfc storm
     duthost.shell("pfcwd stop")
-    duthost.shell("sonic-db-cli COUNTERS_DB HDEL \"COUNTERS:{}\" \"DEBUG_STORM\"".
-                  format(queue_oid))
+    if ns is None:
+        duthost.shell("sonic-db-cli COUNTERS_DB HDEL \"COUNTERS:{}\" \"DEBUG_STORM\"".
+                      format(queue_oid))
+    else:
+        duthost.shell("sonic-db-cli -n {} COUNTERS_DB HDEL \"COUNTERS:{}\" \"DEBUG_STORM\"".
+                      format(ns, queue_oid))
 
 
 def trigger_crm_threshold_exceeded(duthost):
