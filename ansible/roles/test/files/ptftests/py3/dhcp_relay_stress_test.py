@@ -3,7 +3,6 @@ import struct
 import ipaddress
 import binascii
 import os
-import logging
 import time
 import datetime
 
@@ -78,7 +77,7 @@ class DataplaneBaseTest(BaseTest):
 
  To run: place the following in a shell script (this will test against str-s6000-acs-12 (ec:f4:bb:fe:88:0a)):
    (ptf --test-dir ptftests dhcp_relay_stress_test.DHCPTest --platform remote -t "hostname=\"str-s6000-acs-12\";
-    client_ports_indices=\"[1, 2, 3, 4, ...]\"; client_iface_alias=\"fortyGigE0/4\"; leaf_port_indices=\"[29, 31, 28, 30]\";
+    client_port_index=\"1\"; client_iface_alias=\"fortyGigE0/4\"; leaf_port_indices=\"[29, 31, 28, 30]\";
     num_dhcp_servers=\"48\"; server_ip=\"192.0.0.1\"; relay_iface_ip=\"192.168.0.1\";
     relay_iface_mac=\"ec:f4:bb:fe:88:0a\"; relay_iface_netmask=\"255.255.255.224\""
     --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre)
@@ -528,14 +527,14 @@ class DHCPTest(DataplaneBaseTest):
     """
     # Simulate client coming on VLAN and broadcasting a DHCPDISCOVER message
     def client_send_discover(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT,
-                             pkts_count = CLIENT_PACKETS_PER_SEC):
+                             pkts_count=CLIENT_PACKETS_PER_SEC):
 
         # Form and send DHCPDISCOVER packet
         dhcp_discover = self.create_dhcp_discover_packet(dst_mac, src_port)
         end_time = time.time() + self.PACKETS_SEND_DURATION
         send_cnt = 0
         while time.time() < end_time:
-            testutils.send_packet(self, self.client_port_index, dhcp_discover, count = pkts_count)
+            testutils.send_packet(self, self.client_port_index, dhcp_discover, count=pkts_count)
             send_cnt += pkts_count
             time.sleep(1)
         self.log(f"DHCP Discover send {send_cnt} packets in {self.PACKETS_SEND_DURATION} sec via broadcast")
@@ -548,10 +547,8 @@ class DHCPTest(DataplaneBaseTest):
         if pkt.haslayer(scapy2.IP) and pkt.haslayer(scapy2.DHCP):
             if pkt.getlayer(scapy2.IP).dst in self.server_ip and pkt.getlayer(scapy2.DHCP) is not None:
                 self.verified_option82 = False
-                pkt_options = ''
                 for option in pkt.getlayer(scapy2.DHCP).options:
                     if option[0] == 'relay_agent_information':
-                        pkt_options = option[1]
                         break
                 # if self.option82 in pkt_options:
                 #     self.verified_option82 = True
@@ -594,9 +591,9 @@ class DHCPTest(DataplaneBaseTest):
 
         discover_count = testutils.count_matched_packets_all_ports(
             self, masked_discover, self.server_port_indices)
-        self.log(f"DHCP Discover received {discover_count} pkts, rate {discover_count/self.PACKETS_SEND_DURATION} pkts/sec")
+        self.log(f"DHCP Discover received {discover_count} pkts,"
+                 f"rate {discover_count/self.PACKETS_SEND_DURATION} pkts/sec")
         return discover_count
-
 
     # Simulate a DHCP server sending a DHCPOFFER message to client.
     # We do this by injecting a DHCPOFFER message on the link connected to one
@@ -606,11 +603,10 @@ class DHCPTest(DataplaneBaseTest):
         end_time = time.time() + self.PACKETS_SEND_DURATION
         send_cnt = 0
         while time.time() < end_time:
-            testutils.send_packet(self, self.server_port_indices[0], dhcp_offer, count = dhcp_pps)
+            testutils.send_packet(self, self.server_port_indices[0], dhcp_offer, count=dhcp_pps)
             send_cnt += dhcp_pps
             time.sleep(1)
         self.log(f"DHCP Offer send {send_cnt} packets in {self.PACKETS_SEND_DURATION} sec via broadcast")
-        
 
     # Verify that the DHCPOFFER would be received by our simulated client
     def verify_offer_received(self):
@@ -650,7 +646,7 @@ class DHCPTest(DataplaneBaseTest):
         end_time = time.time() + self.PACKETS_SEND_DURATION
         send_cnt = 0
         while time.time() < end_time:
-            testutils.send_packet(self, self.client_port_index, dhcp_request, count = dhcp_pps)
+            testutils.send_packet(self, self.client_port_index, dhcp_request, count=dhcp_pps)
             send_cnt += dhcp_pps
             time.sleep(1)
         self.log(f"DHCP Request send {send_cnt} packets in {self.PACKETS_SEND_DURATION} sec via broadcast")
@@ -689,7 +685,8 @@ class DHCPTest(DataplaneBaseTest):
         # Count the number of these packets received on the ports connected to our leaves
         request_count = testutils.count_matched_packets_all_ports(
             self, masked_request, self.server_port_indices)
-        self.log(f"DHCP Request received {request_count} pkts, rate {request_count/self.PACKETS_SEND_DURATION} pkts/sec")
+        self.log(f"DHCP Request received {request_count} pkts,"
+                 f"rate {request_count/self.PACKETS_SEND_DURATION} pkts/sec")
         return request_count
 
     # Simulate a DHCP server sending a DHCPOFFER message to client from one of our leaves
@@ -698,7 +695,7 @@ class DHCPTest(DataplaneBaseTest):
         end_time = time.time() + self.PACKETS_SEND_DURATION
         send_cnt = 0
         while time.time() < end_time:
-            testutils.send_packet(self, self.server_port_indices[0], dhcp_ack, count = dhcp_pps)
+            testutils.send_packet(self, self.server_port_indices[0], dhcp_ack, count=dhcp_pps)
             send_cnt += dhcp_pps
             time.sleep(1)
         self.log(f"DHCP Ack send {send_cnt} packets in {self.PACKETS_SEND_DURATION} sec via broadcast")

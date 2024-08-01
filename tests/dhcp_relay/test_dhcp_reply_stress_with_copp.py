@@ -12,18 +12,13 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
-from tests.common.helpers.dut_utils import check_link_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common import config_reload
-from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 from tests.copp import copp_utils
-from tests.common import config_reload, constants
+from tests.common import config_reload
 from tests.common.system_utils import docker
-from tests.common.utilities import find_duthost_on_role
-from tests.common.utilities import get_upstream_neigh_type
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -50,6 +45,7 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
 
 _TEST_RATE_LIMIT_DEFAULT = 600
 _TEST_RATE_LIMIT_MARVELL = 625
+
 
 @pytest.fixture(scope="module", autouse=True)
 def check_dhcp_server_enabled(duthost):
@@ -168,7 +164,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         dhcp_relay_data['uplink_port_indices'] = uplink_port_indices
         dhcp_relay_data['switch_loopback_ip'] = str(switch_loopback_ip)
         dhcp_relay_data['client_ports_indices'] = client_ports_indices
-        dhcp_relay_data['client_ports_alias']= client_ports_alias
+        dhcp_relay_data['client_ports_alias'] = client_ports_alias
 
         # Obtain MAC address of an uplink interface because vlan mac may be different than that of physical interfaces
         res = duthost.shell('cat /sys/class/net/{}/address'.format(uplink_interfaces[0]))
@@ -289,6 +285,7 @@ def check_interface_status(duthost):
 
     return False
 
+
 def start_dhcp_monitor_debug_counter(duthost):
     program_name = "dhcpmon"
     program_pid_list = []
@@ -391,7 +388,7 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                 nn_target_namespace = mg_facts["minigraph_neighbors"][nn_target_interface]['namespace']
 
     logger.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}"
-                 .format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
+                .format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
 
     return _COPPTestParameters(nn_target_port=nn_target_port,
                                swap_syncd=swap_syncd,
@@ -402,6 +399,7 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                                nn_target_namespace=nn_target_namespace,
                                send_rate_limit=send_rate_limit,
                                nn_target_vlanid=nn_target_vlanid)
+
 
 def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     """
@@ -463,6 +461,7 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
 
     # Testbed is not a T1 backend device, so bring up bgp session to upstream device
     # upStreamDuthost.command("sudo config bgp startup all")
+
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """
@@ -546,6 +545,7 @@ def test_dhcp_relay_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exi
                    log_file="/tmp/dhcp_relay_stress_test_yw.DHCPTest.log",
                    qlen=100000,
                    is_python3=True)
+
 
 def get_dhcp_relay_counter(duthost, ifname, type, dir):
     # counter table
