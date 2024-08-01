@@ -140,12 +140,16 @@ v6_prefix_length = int(ipv6_subnet.split('/')[1])
 
 # *********** Performance case variables ****************
 # asic_value is None if it's non-chassis based or single line card
-t2_ports = [
-            {'port_name': 'Ethernet0', 'hostname': t1_t2_device_hostnames[1], 'asic_value':'asic0'},
-            {'port_name': 'Ethernet88', 'hostname': t1_t2_device_hostnames[1], 'asic_value':'asic0'},
-            {'port_name': 'Ethernet192', 'hostname': t1_t2_device_hostnames[1], 'asic_value':'asic1'},
-            {'port_name': 'Ethernet144', 'hostname': t1_t2_device_hostnames[1], 'asic_value':'asic1'},
-]
+PERFORMANCE_PORTS = {
+                        'Traffic_Tx_Ports': [
+                            {'port_name': 'Ethernet0', 'hostname': t1_t2_device_hostnames[1], 'asic_value': 'asic0'},
+                            {'port_name': 'Ethernet88', 'hostname': t1_t2_device_hostnames[1], 'asic_value': 'asic0'},
+                        ],
+                        'Uplink BGP Session': [
+                            {'port_name': 'Ethernet192', 'hostname': t1_t2_device_hostnames[1], 'asic_value': 'asic1'},
+                            {'port_name': 'Ethernet144', 'hostname': t1_t2_device_hostnames[1], 'asic_value': 'asic1'},
+                        ]
+                    }
 # *********** Outbound case variables ****************
 # Expect the T1 and T2 ports to be routed ports and not part of any portchannel.
 T1_SNAPPI_AS_NUM = 65300
@@ -216,9 +220,9 @@ t1_t2_snappi_ipv6_list = peer_ipv6[:routed_port_count]
 t2_dut_portchannel_ipv6_list = ipv6[routed_port_count:]
 snappi_portchannel_ipv6_list = peer_ipv6[routed_port_count:]
 
-t2_dut_ipv4_list = ip[:len(t2_ports)]
-t2_dut_ipv6_list = ipv6[:len(t2_ports)]
-t2_snappi_ipv4_list = peer_ip[:len(t2_ports)]
-t2_snappi_ipv6_list = peer_ipv6[:len(t2_ports)]
+t2_dut_ipv4_list = ip[:len(PERFORMANCE_PORTS['Traffic_Tx_Ports'] + PERFORMANCE_PORTS['Uplink BGP Session'])]
+t2_dut_ipv6_list = ipv6[:len(PERFORMANCE_PORTS['Traffic_Tx_Ports'] + PERFORMANCE_PORTS['Uplink BGP Session'])]
+t2_snappi_ipv4_list = peer_ip[:len(PERFORMANCE_PORTS['Traffic_Tx_Ports'] + PERFORMANCE_PORTS['Uplink BGP Session'])]
+t2_snappi_ipv6_list = peer_ipv6[:len(PERFORMANCE_PORTS['Traffic_Tx_Ports'] + PERFORMANCE_PORTS['Uplink BGP Session'])]
 
 # END ---------------------   T2 BGP Case -------------------
