@@ -192,6 +192,7 @@ t0:
   - platform_tests/test_memory_exhaustion.py
   - generic_config_updater/test_pg_headroom_update.py
   - sub_port_interfaces/test_show_subinterface.py
+  - pc/test_lag_member.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -323,7 +324,6 @@ dpu:
 onboarding_t0:
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - generic_config_updater/test_dynamic_acl.py
-  - pc/test_lag_member.py
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
