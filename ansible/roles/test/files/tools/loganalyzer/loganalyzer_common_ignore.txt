@@ -282,3 +282,7 @@ r, ".* INFO .*[duty_cycle_map]: illegal pwm value .*"
 r, ".* INFO .*command '/usr/sbin/smartctl' failed: [116] Stale file handle.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'high_threshold' unavailable in database 'STATE_DB'.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'temperature' unavailable in database 'STATE_DB'.*"
+
+# Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
+r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
+r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"
