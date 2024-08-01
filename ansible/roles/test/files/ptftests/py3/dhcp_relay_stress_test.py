@@ -239,7 +239,7 @@ class DHCPTest(DataplaneBaseTest):
         # TODO: In IP layer, DHCP relay also replaces source IP with IP of interface on
         #       which it received the broadcast DHCPDISCOVER from client. This appears to
         #       be loopback. We could pull from minigraph and check here.
-        ether = scapy.Ether(dst=self.BROADCAST_MAC, 
+        ether = scapy.Ether(dst=self.BROADCAST_MAC,
                             src=self.uplink_mac, type=0x0800)
         ip = scapy.IP(src=self.DEFAULT_ROUTE_IP,
                       dst=self.BROADCAST_IP, len=328, ttl=64)
@@ -748,8 +748,7 @@ class DHCPTest(DataplaneBaseTest):
         dhcp_pps = offer_cnt // self.PACKETS_SEND_DURATION
         self.client_send_request(dhcp_pps, self.dest_mac_address, self.client_udp_src_port)
         request_cnt = self.verify_relayed_request()
-        
+
         dhcp_pps = request_cnt // self.PACKETS_SEND_DURATION
         self.server_send_ack(dhcp_pps)
         self.verify_ack_received()
-
