@@ -713,7 +713,7 @@ Updates will be made once the verification process is complete.
               )
               is_exist = True
               break
-      # if memory item not exist, register a new memory item
+      # if memory item not exist, register a new memory item.
       if not is_exist:
           memory_monitor.register_command(memory_item["name"], memory_item["cmd"], memory_item["memory_params"], memory_item["memory_check"])
           output = memory_monitor.execute_command(memory_item["cmd"])
