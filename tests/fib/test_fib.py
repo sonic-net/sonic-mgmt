@@ -406,7 +406,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
-               socket_recv_size=16384)
+               socket_recv_size=16384,
+               is_python3=True)
 
 # The test is to verify the hashing logic is not using unexpected field as keys
 # Only inner frame length is tested at this moment
