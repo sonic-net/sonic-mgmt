@@ -27,6 +27,8 @@ MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mel
 LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../ansible/files")))
 
 ACL_COUNTERS_UPDATE_INTERVAL = 10
+ACL_TABLE_CREATE_INTERVAL = 30
+PORT_STATE_UPDATE_INTERNAL = 30
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_CREATE_RE = ".*Successfully created ACL rule.*"
 LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
@@ -313,7 +315,6 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     """Shut RIF interface and return neighbor IP address attached to this interface."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_rif_port_down")
-    wait_after_ports_up = 30
 
     if not setup["rif_members"]:
         pytest.skip("RIF interface is absent")
@@ -334,6 +335,9 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
     with loganalyzer as _:
         fanout_neighbor.shutdown(fanout_intf)
+        # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+        # chance it might miss the matching log.
+        time.sleep(PORT_STATE_UPDATE_INTERNAL)
 
     time.sleep(1)
 
@@ -342,7 +346,9 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
     with loganalyzer as _:
         fanout_neighbor.no_shutdown(fanout_intf)
-        time.sleep(wait_after_ports_up)
+        # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+        # chance it might miss the matching log.
+        time.sleep(PORT_STATE_UPDATE_INTERNAL)
 
 
 @pytest.fixture(params=["port_channel_members", "vlan_members", "rif_members"])
@@ -418,6 +424,8 @@ def acl_teardown(duthosts, dut_tmp_dir, dut_clear_conf_file_path):
             duthost.command("config acl update full {}".format(dut_clear_conf_file_path))
             logger.info("Removing {}".format(dut_tmp_dir))
             duthost.command("rm -rf {}".format(dut_tmp_dir))
+            # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+            # chance it might miss the matching log.
             time.sleep(ACL_COUNTERS_UPDATE_INTERVAL)
 
 
@@ -478,6 +486,10 @@ def create_or_remove_acl_egress_table(duthost, op):
                             ','.join(table_port_list)
                         )
                     )
+
+                    # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+                    # chance it might miss the matching log.
+                    time.sleep(ACL_TABLE_CREATE_INTERVAL)
             elif op == "remove":
                 logger.info("Removing ACL table \"{}\" on device {}".format(acl_table_config["table_name"], duthost))
                 sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))

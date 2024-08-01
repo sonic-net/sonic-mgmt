@@ -16,7 +16,7 @@ device under test (DUT). Then we check the SONiC PFC Rx counters.
 """
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 PFC_GEN_FILE_RELATIVE_PATH = r'../../ansible/roles/test/files/helpers/pfc_gen.py'
 """ Expected PFC generator path at the leaf fanout switch """
 PFC_GEN_FILE_DEST = r'~/pfc_gen.py'
-PFC_GEN_FILE_ABSULOTE_PATH = r'/root/pfc_gen.py'
+PFC_GEN_FILE_ABSULOTE_PATH = r'/root/pfc_gen_cpu.py'
+
 """ Number of generated packets for each test case """
 PKT_COUNT = 10
 """ Number of switch priorities """
@@ -62,6 +63,7 @@ def setup_testbed(fanouthosts, duthost, leaf_fanouts):           # noqa F811
         file_src = os.path.join(os.path.dirname(
             __file__), PFC_GEN_FILE_RELATIVE_PATH)
         peerdev_ans.host.copy(src=file_src, dest=PFC_GEN_FILE_DEST, force=True)
+
 
 
 def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fanouts,       # noqa F811

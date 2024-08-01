@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from utilities import backup_config, restore_config, get_running_config,\
+from tests.override_config_table.utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut, NON_USER_CONFIG_TABLES
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
