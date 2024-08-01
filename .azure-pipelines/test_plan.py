@@ -192,6 +192,7 @@ class TestPlanManager(object):
                 try:
                     stdout, _, _ = self.az_run(cmd)
                     self.last_login_time = datetime.now()
+                    print("Login successfully.")
                     break
                 except Exception as exception:
                     attempt += 1
@@ -219,7 +220,7 @@ class TestPlanManager(object):
                 # Parse token expires time from string
                 token_expires_on = token.get("expiresOn", "")
                 self._token_expires_on = datetime.strptime(token_expires_on, "%Y-%m-%d %H:%M:%S.%f")
-
+                print("Get token successfully.")
                 return self._token
 
             except Exception as exception:

@@ -53,7 +53,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                socket_recv_size=None, log_file=None,
                ptf_collect_dir="./logs/ptf_collect/",
                device_sockets=[], timeout=0, custom_options="",
-               module_ignore_errors=False, is_python3=False, async_mode=False):
+               module_ignore_errors=False, is_python3=False, async_mode=False, pdb=False):
     # Call virtual env ptf for migrated py3 scripts.
     # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
     # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
@@ -102,7 +102,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if device_sockets:
         cmd += " ".join(map(" --device-socket {}".format, device_sockets))
 
-    if timeout:
+    if timeout and not pdb:
         cmd += " --test-case-timeout {}".format(int(timeout))
 
     if custom_options:
@@ -115,6 +115,15 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         host.create_macsec_info()
 
     try:
+        if pdb:
+            # Write command to file. Use short test name for simpler launch in ptf container.
+            script_name = "/tmp/" + testname.split(".")[-1] + ".sh"
+            with open(script_name, 'w') as f:
+                f.write(cmd)
+            host.copy(src=script_name, dest="/root/")
+            print("Run command from ptf: sh {}".format(script_name))
+            import pdb
+            pdb.set_trace()
         result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors, module_async=async_mode)
         if not async_mode:
             if log_file:
