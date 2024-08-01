@@ -163,6 +163,9 @@ def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardow
     ).format(namespace.split("asic")[1] if namespace else "", peer_ip)
 
     bgp_down_msg_list = duthost.shell(cmd)['stdout'].split()
+    if not bgp_down_msg_list:
+        pytest.fail("Could not find the BGP session down message in syslog")
+
     try:
         timestamp = " ".join(bgp_down_msg_list[1:4])
         timestamp_in_sec = float(duthost.shell("date -d \"{}\" +%s.%6N".format(timestamp))['stdout'])
