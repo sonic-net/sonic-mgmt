@@ -22,6 +22,30 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer):
+    """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_
+       attribute:1920 updating switch mac addr failed with error -2"""
+    ignore_regex = [
+        ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*",
+        # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
+        ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
+        ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
+        ".*configure.*command was failed.*times, disabling retry.*"
+        # Error related to syncd socket-timeout intermittenly
+        ".*ERR syncd[0-9]*#dsserve: _ds2tty broken pipe.*"
+    ]
+
+    if loganalyzer:
+        for a_dut in get_src_dst_asic_and_duts['all_duts']:
+            hwsku = a_dut.facts["hwsku"]
+            if "7050" in hwsku and "QX" in hwsku.upper():
+                logger.info("ignore memory threshold check for 7050qx")
+                # ERR memory_threshold_check: Free memory 381608 is less then free memory threshold 400382.4
+                ignore_regex.append(".*ERR memory_threshold_check: Free memory .* is less then free memory threshold.*")
+            loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex)
+
+
 @pytest.fixture(scope="module", autouse="True")
 def files_generation(combine_qos_parameter):
     logger.debug("For creation of qos.yml file")
