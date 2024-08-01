@@ -754,20 +754,22 @@ def __snappi_bgp_config(api,
             bgpv4_peer.peer_address = t1_t2_dut_ipv4_list[index]
             bgpv4_peer.as_number = int(T1_SNAPPI_AS_NUM)
 
-            route_range1 = bgpv4_peer.v4_routes.add(name="Backup_T2_IPv4_Routes_%d" % (index))
-            for route_index, routes in enumerate(route_range['IPv4']):
-                route_range1.addresses.add(
-                    address=routes[0], prefix=routes[1], count=routes[2])
-            ipv4_dest.append(route_range1.name)
-            as_path = route_range1.as_path
-            as_path_segment = as_path.segments.add()
-            as_path_segment.type = as_path_segment.AS_SEQ
-            as_path_segment.as_numbers = AS_PATHS
-            for community in snappi_community_for_t1:
-                manual_as_community = route_range1.communities.add()
-                manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
-                manual_as_community.as_number = int(community.split(":")[0])
-                manual_as_community.as_custom = int(community.split(":")[1])
+            if 'IPv4' in route_range.keys():
+                route_range1 = bgpv4_peer.v4_routes.add(name="Backup_T2_IPv4_Routes_%d" % (index))
+                for route_index, routes in enumerate(route_range['IPv4']):
+                    route_range1.addresses.add(
+                        address=routes[0], prefix=routes[1], count=routes[2])
+                ipv4_dest.append(route_range1.name)
+                as_path = route_range1.as_path
+                as_path_segment = as_path.segments.add()
+                as_path_segment.type = as_path_segment.AS_SEQ
+                as_path_segment.as_numbers = AS_PATHS
+                for community in snappi_community_for_t1:
+                    manual_as_community = route_range1.communities.add()
+                    manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
+                    manual_as_community.as_number = int(community.split(":")[0])
+                    manual_as_community.as_custom = int(community.split(":")[1])
+
             bgpv6 = device.bgp
             bgpv6.router_id = t1_t2_snappi_ipv4_list[index]
             bgpv6_int = bgpv6.ipv6_interfaces.add()
@@ -778,20 +780,21 @@ def __snappi_bgp_config(api,
             bgpv6_peer.peer_address = t1_t2_dut_ipv6_list[index]
             bgpv6_peer.as_number = int(T1_SNAPPI_AS_NUM)
 
-            route_range2 = bgpv6_peer.v6_routes.add(name="Backup_T2_IPv6_Routes_%d" % (index))
-            for route_index, routes in enumerate(route_range['IPv6']):
-                route_range2.addresses.add(
-                    address=routes[0], prefix=routes[1], count=routes[2])
-            ipv6_dest.append(route_range2.name)
-            as_path = route_range2.as_path
-            as_path_segment = as_path.segments.add()
-            as_path_segment.type = as_path_segment.AS_SEQ
-            as_path_segment.as_numbers = AS_PATHS
-            for community in snappi_community_for_t1:
-                manual_as_community = route_range2.communities.add()
-                manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
-                manual_as_community.as_number = int(community.split(":")[0])
-                manual_as_community.as_custom = int(community.split(":")[1])
+            if 'IPv6' in route_range.keys():
+                route_range2 = bgpv6_peer.v6_routes.add(name="Backup_T2_IPv6_Routes_%d" % (index))
+                for route_index, routes in enumerate(route_range['IPv6']):
+                    route_range2.addresses.add(
+                        address=routes[0], prefix=routes[1], count=routes[2])
+                ipv6_dest.append(route_range2.name)
+                as_path = route_range2.as_path
+                as_path_segment = as_path.segments.add()
+                as_path_segment.type = as_path_segment.AS_SEQ
+                as_path_segment.as_numbers = AS_PATHS
+                for community in snappi_community_for_t1:
+                    manual_as_community = route_range2.communities.add()
+                    manual_as_community.type = manual_as_community.MANUAL_AS_NUMBER
+                    manual_as_community.as_number = int(community.split(":")[0])
+                    manual_as_community.as_custom = int(community.split(":")[1])
 
     def createTrafficItem(traffic_name, source, destination):
         logger.info('{} Source : {}'.format(traffic_name, source))
