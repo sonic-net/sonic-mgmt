@@ -24,6 +24,8 @@ General Usage:
 To verify the entire project’s configuration:
 - python3 verify_config.py
 
+This will use the default testbed file (`testbed.yaml`) and the default vm file (`veos`)
+
 To check the configuration using a specific testbed and VM file:
 - python3 verify_config.py -t <testbed-file> -m <vm-file>
 
@@ -32,6 +34,8 @@ Testbed-Specific Usage:
 To confirm connectivity with all Devices Under Test (DUTs) within a single testbed
 (Note: This command must be executed within the management container):
 - python3 verify_config.py -tb <testbed-name>
+
+This will use the default testbed file (`testbed.yaml`) and the default vm file (`veos`)
 
 To verify a single testbed’s connectivity using specific testbed and VM files:
 - python3 verify_config.py -t <testbed-file> -m <vm-file> -tb <testbed-name>
@@ -193,10 +197,10 @@ class Utility:
 
     @staticmethod
     @lru_cache
-    def get_inv_name_from_file(link_file):
+    def get_inv_name_from_file(link_file_pattern):
         inv_name_set = set()
 
-        for inv_file_path in glob.glob(os.path.abspath(link_file)):
+        for inv_file_path in glob.glob(os.path.abspath(link_file_pattern)):
             file_name, _ = os.path.basename(inv_file_path).split(".")
 
             inv_name = file_name[len("sonic_"): file_name.index("_", len("sonic_"))]
@@ -292,8 +296,9 @@ class TestbedValidator(Validator):
 
             self.assertion.assert_true(
                 lambda: self._group_name_must_have_same_attributes(group_name_check, testbed),
-                reason=f"({Formatting.red(conf_name)}) Group name '{Formatting.red(testbed['group-name'])}' of "
-                       "does not have same attributes with other test bed of the same group",
+                reason=f"({Formatting.red(conf_name)}) The attributes of group name "
+                       f"'{Formatting.red(testbed['group-name'])}'"
+                       "are not consistent with those of other testbeds sharing the same group name.",
             )
             self.assertion.assert_true(
                 lambda: testbed['topo'] in Utility.get_topo_from_var_files(),
@@ -648,6 +653,9 @@ class HostNetworkValidation(Validator):
     def _check_if_proxy_is_using(self):
         group_vars_env = Utility.parse_yml(Config.GROUP_VARS_ENV_FILE)
 
+        if "proxy_env" not in group_vars_env:
+            return True
+
         env_vars = ["http_proxy", "https_proxy"]
 
         for var in env_vars:
@@ -661,18 +669,18 @@ class HostNetworkValidation(Validator):
                 )
                 return False
 
-            if group_vars_env[var] != os.environ[var]:
+            if group_vars_env['proxy_env'][var] != os.environ[var]:
                 self.assertion.add_error_details(
-                    f"environment '{Formatting.red(var)}' is not the same "
+                    f"Environment '{Formatting.red(var)}' is not the same "
                     f"as declared in '{Config.GROUP_VARS_ENV_FILE}': "
-                    f"{os.environ[var]} != {group_vars_env[var]}",
+                    f"{os.environ[var]} != {group_vars_env['proxy_env'][var]}",
                 )
                 return False
 
         return True
 
 
-class TestBedValidator(Validator):
+class DUTValidator(Validator):
 
     def __init__(self, testbed_name):
         super().__init__()
@@ -721,7 +729,9 @@ def main(args):
     validators = []
 
     if args.target:
-        validators.extend([TestBedValidator(args.target)])
+        validators.extend([
+            DUTValidator(args.target),
+        ])
     else:
         validators.extend([
             DockerRegistryValidator(),
