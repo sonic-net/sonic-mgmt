@@ -76,9 +76,9 @@ def clean_dhcp_server_config(duthost):
 def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
     pytest_assert(
         wait_until(
-            30,
-            3,
+            11,
             1,
+            3,
             lambda _dh, _di, _cm: len(_dh.shell(
                     "sonic-db-cli STATE_DB KEYS 'DHCP_SERVER_IPV4_LEASE|{}|{}'".format(_di, _cm)
                 )['stdout']) > 0,
