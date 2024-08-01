@@ -82,7 +82,7 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
                 reboot_data_regex = re.compile(
                     '.*test.*_(reboot|sad.*|upgrade_path)_(summary|report).json')
                 if reboot_data_regex.match(path_name):
-                    kusto_db.upload_reboot_report(path_name, report_guid)
+                    kusto_db.upload_reboot_report(path_name, tracking_id, report_guid)
                 else:
                     if args.json:
                         test_result_json = validate_junit_json_file(path_name)

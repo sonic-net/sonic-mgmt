@@ -198,6 +198,7 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
     result_summary = {
         "reboot_type": "{}-{}".format(reboot_type, reboot_oper) if reboot_oper else reboot_type,
         "hwsku": duthost.facts["hwsku"],
+        "hostname": duthost.hostname,
         "base_ver": base_os_version[0] if base_os_version and len(base_os_version) else "",
         "target_ver": get_current_sonic_version(duthost),
         "dataplane": analyze_result.get("dataplane", {"downtime": "", "lost_packets": ""}),
