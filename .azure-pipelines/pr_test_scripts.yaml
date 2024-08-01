@@ -413,6 +413,7 @@ multi-asic-t1-lag:
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_pfc_counters.py
   - snmp/test_snmp_queue.py
+  - snmp/test_snmp_queue_counters.py
   - tacacs/test_accounting.py
   - tacacs/test_authorization.py
   - tacacs/test_jit_user.py
