@@ -23,7 +23,7 @@ pytestmark = [
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer):
+def ignore_expected_loganalyzer_exception(duthosts, loganalyzer):
     """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_
        attribute:1920 updating switch mac addr failed with error -2"""
     ignore_regex = [
@@ -37,7 +37,7 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
     ]
 
     if loganalyzer:
-        for a_dut in get_src_dst_asic_and_duts['all_duts']:
+        for a_dut in duthosts:
             hwsku = a_dut.facts["hwsku"]
             if "7050" in hwsku and "QX" in hwsku.upper():
                 logger.info("ignore memory threshold check for 7050qx")
