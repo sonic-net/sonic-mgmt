@@ -1,6 +1,6 @@
 """
-To ensure that a test script is included in the PR checker for the corresponding topology type,
-this script will perform a validation check.
+To ensure that a test script is included in the PR checker for the corresponding topology type
+and if the script is skipped in PR checker, this script will perform a validation check.
 Additionally, the return value will be enhanced to include more detailed information, such as the category of the test.
 Post-execution, the script will also append the scan time and track ID to the results.
 
@@ -12,7 +12,8 @@ The return value is formatted as below:
         'trackid': '3aa57f0f-8f18-4cf7-ae1e-0a18973a0b86',
         'scantime': '2024-05-31 06:53:40.826349',
         'category': 'data',
-        'covered': False
+        'covered': False,
+        'skipped': False
     },
     {
         'testscript': 'bgp/test_bgp_allow_list.py',
@@ -20,7 +21,8 @@ The return value is formatted as below:
         'trackid': '3aa57f0f-8f18-4cf7-ae1e-0a18973a0b86',
         'scantime': '2024-05-31 06:53:40.826349',
         'category': 'control',
-        'covered': False
+        'covered': False,
+        'skipped': False
     }
 ]
 And finally, we will upload the results to Kusto table `TestScripts`
@@ -40,7 +42,7 @@ from report_data_storage import KustoConnector
 
 
 def topo_name_to_type(topo_name):
-    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0|mc0|mx|dpu|any)')
+    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|mgmttor|m0|mc0|mx|dpu|any|snappi)')
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
@@ -52,6 +54,8 @@ def topo_name_to_type(topo_name):
         topo_type = 't0'
     if topo_type in ['mc0']:
         topo_type = 'm0'
+    if topo_type in ['multidut-tgen']:
+        topo_type = 'tgen'
     return topo_type
 
 
@@ -103,7 +107,7 @@ def collect_all_scripts():
     return test_scripts
 
 
-def get_PRChecker_scripts():
+def get_pr_checker_scripts():
     '''
     Check if a script is included in the PR checker for the corresponding topology type
     '''
@@ -127,23 +131,34 @@ def get_PRChecker_scripts():
     except Exception as e:
         logging.error('Failed to load file {}, error {}'.format(f, e))
 
-    topology_type_pr_test_scripts = {}
+    test_scripts_per_topology_type = {}
+    skipped_scripts_per_topology_type = {}
 
-    for key, value in pr_test_scripts.items():
-        if pr_test_skip_scripts.get(key, ""):
-            pr_test_scripts[key].extend(pr_test_skip_scripts[key])
-
+    for key, value in pr_test_skip_scripts.items():
         topology_type = PR_TOPOLOGY_MAPPING.get(key, "")
         if topology_type:
-            if topology_type_pr_test_scripts.get(topology_type, ""):
-                topology_type_pr_test_scripts[topology_type].update(value)
+            if skipped_scripts_per_topology_type.get(topology_type, ""):
+                skipped_scripts_per_topology_type[topology_type].update(value)
             else:
-                topology_type_pr_test_scripts[topology_type] = set(value)
+                skipped_scripts_per_topology_type[topology_type] = set(value)
 
-    return topology_type_pr_test_scripts
+        if key in pr_test_scripts:
+            pr_test_scripts[key].extend(value)
+        else:
+            pr_test_scripts[key] = value
+
+    for key, value in pr_test_scripts.items():
+        topology_type = PR_TOPOLOGY_MAPPING.get(key, "")
+        if topology_type:
+            if test_scripts_per_topology_type.get(topology_type, ""):
+                test_scripts_per_topology_type[topology_type].update(value)
+            else:
+                test_scripts_per_topology_type[topology_type] = set(value)
+
+    return test_scripts_per_topology_type, skipped_scripts_per_topology_type
 
 
-def check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts):
+def expand_test_scripts(test_scripts, test_scripts_per_topology_type, skipped_scripts_per_topology_type):
     # Expand the test scripts list here.
     # If the topology mark is "any", we will add all topology types in PR checker on this script.
     expanded_test_scripts = []
@@ -160,10 +175,16 @@ def check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts):
             expanded_test_scripts.append(test_script)
 
     # Check if a script is included in the PR checker for the corresponding topology type
+    # And if this script is skipped in PR checker
     for test_script in expanded_test_scripts:
         topology_type = topo_name_to_type(test_script["topology"])
 
-        test_script["covered"] = test_script["testscript"] in topology_type_pr_test_scripts.get(topology_type, "")
+        test_script["skipped"] = test_script["testscript"] in skipped_scripts_per_topology_type.get(topology_type, "")
+
+        if test_script["testscript"] == "test_posttest.py" or test_script["testscript"] == "test_pretest.py":
+            test_script["covered"] = True
+        else:
+            test_script["covered"] = test_script["testscript"] in test_scripts_per_topology_type.get(topology_type, "")
     return expanded_test_scripts
 
 
@@ -175,8 +196,9 @@ def upload_results(test_scripts):
 
 def main():
     test_scripts = collect_all_scripts()
-    topology_type_pr_test_scripts = get_PRChecker_scripts()
-    expanded_test_scripts = check_PRChecker_coverd(test_scripts, topology_type_pr_test_scripts)
+    test_scripts_per_topology_type, skipped_scripts_per_topology_type = get_pr_checker_scripts()
+    expanded_test_scripts = expand_test_scripts(test_scripts, test_scripts_per_topology_type,
+                                                skipped_scripts_per_topology_type)
 
     # Add additionally field to mark one running
     trackid = str(uuid.uuid4())

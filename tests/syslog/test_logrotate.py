@@ -5,6 +5,7 @@ import allure
 from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.conftest import tbinfo
 
 logger = logging.getLogger(__name__)
@@ -40,9 +41,6 @@ def backup_syslog(rand_selected_dut):
 
     logger.info('Recover syslog file to syslog')
     duthost.shell('sudo mv /var/log/syslog_bk /var/log/syslog')
-
-    logger.info('Remove temp file /var/log/syslog.1')
-    duthost.shell('sudo rm -f /var/log/syslog.1')
 
     logger.info('Restart rsyslog service')
     duthost.shell('sudo service rsyslog restart')
@@ -141,7 +139,7 @@ def multiply_with_unit(logrotate_threshold, num):
     return str(int(logrotate_threshold[:-1]) * num) + logrotate_threshold[-1]
 
 
-def validate_logrotate_function(duthost, logrotate_threshold):
+def validate_logrotate_function(duthost, logrotate_threshold, small_size):
     """
     Validate logrotate function
     :param duthost: DUT host object
@@ -154,7 +152,10 @@ def validate_logrotate_function(duthost, logrotate_threshold):
             logrotate_threshold)):
         syslog_number_origin = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files'.format(syslog_number_origin))
-        create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.9))
+        if small_size:
+            create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.5))
+        else:
+            create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.9))
         run_logrotate(duthost)
         syslog_number_no_rotate = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_no_rotate))
@@ -208,7 +209,7 @@ def test_logrotate_normal_size(rand_selected_dut):
         if get_var_log_size(duthost) < 200 * 1024:
             pytest.skip('{} size is lower than 200MB, skip this test'.format(LOG_FOLDER))
     rotate_large_threshold = get_threshold_based_on_memory(duthost)
-    validate_logrotate_function(duthost, rotate_large_threshold)
+    validate_logrotate_function(duthost, rotate_large_threshold, False)
 
 
 @pytest.mark.disable_loganalyzer
@@ -220,7 +221,7 @@ def test_logrotate_small_size(rand_selected_dut, simulate_small_var_log_partitio
     Execute config reload to active the mount
     Stop logrotate cron job, make sure no logrotate executes during this test
     Check current syslog.x file number and save it
-    Create a temp file with size of rotate_size * 90%, and rename it as 'syslog', run logrotate command
+    Create a temp file with size of rotate_size * 50%, and rename it as 'syslog', run logrotate command
     There would be no logrotate happens - by checking the 'syslog.x' file number not increased
     Create a temp file with size of rotate_size * 110%, and rename it as 'syslog', run logrotate command
     There would be logrotate happens - by checking the 'syslog.x' file number increased by 1
@@ -231,11 +232,10 @@ def test_logrotate_small_size(rand_selected_dut, simulate_small_var_log_partitio
     """
     duthost = rand_selected_dut
     rotate_small_threshold = get_threshold_based_on_memory(duthost)
-    validate_logrotate_function(duthost, rotate_small_threshold)
+    validate_logrotate_function(duthost, rotate_small_threshold, True)
 
 
 def get_pending_entries(duthost, ignore_list=None):
-    # grep returns error code when there is no match, add 'true' so the ansible module doesn't fail
     pending_entries = set(duthost.shell('sonic-db-cli APPL_DB keys "_*"')['stdout'].split())
 
     if ignore_list:
@@ -244,7 +244,9 @@ def get_pending_entries(duthost, ignore_list=None):
                 pending_entries.remove(entry)
             except ValueError:
                 continue
-    return list(pending_entries)
+    pending_entries = list(pending_entries)
+    logger.info('Pending entries in APPL_DB: {}'.format(pending_entries))
+    return pending_entries
 
 
 def clear_pending_entries(duthost):
@@ -253,6 +255,10 @@ def clear_pending_entries(duthost):
         # Publishing to any table channel should publish all pending entries in all tables
         logger.info('Clearing pending entries in APPL_DB: {}'.format(pending_entries))
         duthost.shell('sonic-db-cli APPL_DB publish "NEIGH_TABLE_CHANNEL" ""')
+
+
+def no_pending_entries(duthost, ignore_list=None):
+    return not bool(get_pending_entries(duthost, ignore_list=ignore_list))
 
 
 @pytest.fixture
@@ -306,5 +312,7 @@ def test_orchagent_logrotate(orch_logrotate_setup, duthosts, enum_rand_one_per_h
     else:
         duthost.shell('sudo ip neigh add {} lladdr {} dev {}'.format(FAKE_IP, FAKE_MAC, target_port))
     duthost.control_process('orchagent', pause=False, namespace=asic_id)
-    pending_entries = get_pending_entries(duthost, ignore_list=ignore_entries)
-    pytest_assert(not pending_entries, "Found pending entries in APPL_DB: {}".format(pending_entries))
+    pytest_assert(
+        wait_until(30, 1, 0, no_pending_entries, duthost, ignore_list=ignore_entries),
+        "Found pending entries in APPL_DB"
+    )
