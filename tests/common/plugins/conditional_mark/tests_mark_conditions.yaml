@@ -1561,6 +1561,12 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
 #######################################
 #####            snmp             #####
 #######################################
+snmp/test_snmp_default_route.py:
+  skip:
+    reason: "Does not apply to standalone topologies."
+    conditions:
+      - "'standalone' in topo_name"
+
 snmp/test_snmp_link_local.py:
   skip:
     reason: "SNMP over IPv6 support not present in release branches."
