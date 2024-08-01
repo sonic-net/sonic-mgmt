@@ -306,13 +306,13 @@ dhcp_relay/test_dhcp_relay.py:
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
-dhcp_relay/test_dhcpv6_relay.py:
+dhcp_relay/test_dhcp_reply_stress_with_copp.py:
   skip:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
-dhcp_relay/test_dhcp_reply_stress_with_copp.py:
+dhcp_relay/test_dhcpv6_relay.py:
   skip:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
     conditions:
