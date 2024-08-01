@@ -47,20 +47,20 @@ For every test cases, all DPUs need to be powered on unless specified in any of 
 
 ## Objectives of CLI Test Cases
 
-|    | **Test Case**   | **Intention**                              |
-| ---------- | ---------- | ---------------------------------------- |
-| 1.1 | Check DPU Status       | To verify the DPU Status shown in the cli |
-| 1.2 | Check platform voltage       |  To verify the Voltage sensor values and and functionality of alarm by changing the threshold values |
-| 1.3 | Check platform temperature       |  To Verify the Temperature sensor values and functionality of alarm by changing the threshold values |
-| 1.4 | Check DPU console       | To Verify console access for all DPUs       |
-| 1.5 | Check midplane ip address between NPU and DPU      | To Verify PCIe interface created between NPU and DPU according to bus number |
-| 1.6 | Check DPU shutdown and power up individually      |  To Verify one DPU shutdown  and other DPUs in same as well in other sleds are up |
-| 1.7 | Check removal of pcie link between NPU and DPU       | To Verify the PCie hot plug functinality        |
-| 1.8 | Check the NTP date and timezone between DPU and NPU       | To Verify NPU and DPU are in sync with respect to timezone and logs timestamp |
-| 1.9 | Check the State of DPUs      | To Verify DPU state details during online and offline      |
-| 1.10 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU |
-| 1.11 | Check reboot cause history       | To Verify reboot cause history cli |
-| 1.12 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot |
+|    | **Test Case**   | **Intention**                              | **Comments** |
+| ---------- | ---------- | ---------------------------------------- | ---------- |
+| 1.1 | Check DPU Status       | To verify the DPU Status shown in the cli | |
+| 1.2 | Check platform voltage       |  To verify the Voltage sensor values and and functionality of alarm by changing the threshold values | |
+| 1.3 | Check platform temperature       |  To Verify the Temperature sensor values and functionality of alarm by changing the threshold values | |
+| 1.4 | Check DPU console       | To Verify console access for all DPUs       | |
+| 1.5 | Check midplane ip address between NPU and DPU      | To Verify PCIe interface created between NPU and DPU according to bus number | |
+| 1.6 | Check DPU shutdown and power up individually      |  To Verify one DPU shutdown  and other DPUs in same as well in other sleds are up | |
+| 1.7 | Check removal of pcie link between NPU and DPU       | To Verify the PCie hot plug functinality        | |
+| 1.8 | Check the NTP date and timezone between DPU and NPU       | To Verify NPU and DPU are in sync with respect to timezone and logs timestamp | |
+| 1.9 | Check the State of DPUs      | To Verify DPU state details during online and offline      | |
+| 1.10 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU | Phase:2 |
+| 1.11 | Check reboot cause history       | To Verify reboot cause history cli | |
+| 1.12 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot | |
 
 
 ## CLI Test Cases
