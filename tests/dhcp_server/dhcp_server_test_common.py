@@ -76,7 +76,7 @@ def clean_dhcp_server_config(duthost):
 def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
     pytest_assert(
         wait_until(
-            11,
+            11, # it's by design that there is a latency around 0~11 seconds for updating state db
             1,
             3,
             lambda _dh, _di, _cm: len(_dh.shell(
