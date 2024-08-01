@@ -680,7 +680,7 @@ class HostNetworkValidation(Validator):
         return True
 
 
-class DUTValidator(Validator):
+class TestbedConnectionValidator(Validator):
 
     def __init__(self, testbed_name):
         super().__init__()
@@ -730,7 +730,7 @@ def main(args):
 
     if args.target:
         validators.extend([
-            DUTValidator(args.target),
+            TestbedConnectionValidator(args.target),
         ])
     else:
         validators.extend([
