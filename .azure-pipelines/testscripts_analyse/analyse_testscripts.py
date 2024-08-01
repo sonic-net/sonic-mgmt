@@ -107,7 +107,7 @@ def collect_all_scripts():
     return test_scripts
 
 
-def get_included_skipped_ts_by_topology_type():
+def get_pr_checker_scripts():
     '''
     Check if a script is included in the PR checker for the corresponding topology type
     '''
@@ -196,7 +196,7 @@ def upload_results(test_scripts):
 
 def main():
     test_scripts = collect_all_scripts()
-    test_scripts_per_topology_type, skipped_scripts_per_topology_type = get_included_skipped_ts_by_topology_type()
+    test_scripts_per_topology_type, skipped_scripts_per_topology_type = get_pr_checker_scripts()
     expanded_test_scripts = expand_test_scripts(test_scripts, test_scripts_per_topology_type,
                                                 skipped_scripts_per_topology_type)
 
