@@ -5,8 +5,8 @@
       "cmd": "sudo monit status",
       "memory_params": {
         "memory_usage": {
-          "memory_increase_threshold": 5,
-          "memory_high_threshold": 70
+          "memory_increase_threshold": 10,
+          "memory_high_threshold": 85
         }
       },
       "memory_check": "parse_monit_status_output"
