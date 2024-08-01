@@ -8,19 +8,20 @@ from statistics import mean
 from tests.common.utilities import (wait, wait_until)  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import create_ip_list, snappi_api_serv_ip  # noqa: F401
-from tests.snappi_tests.variables import T2_SNAPPI_AS_NUM, T2_DUT_AS_NUM, t2_ports, \
+from tests.snappi_tests.variables import T2_SNAPPI_AS_NUM, T2_DUT_AS_NUM, PERFORMANCE_PORTS, \
      v4_prefix_length, v6_prefix_length, AS_PATHS, t2_dut_ipv4_list, t2_dut_ipv6_list, \
-     t2_snappi_ipv4_list, t2_snappi_ipv6_list, BGP_TYPE, TIMEOUT, router_ids  # noqa: F401
+     t2_snappi_ipv4_list, t2_snappi_ipv6_list, BGP_TYPE, DUT_TRIGGER, SNAPPI_TRIGGER, router_ids, \
+     t1_t2_device_hostnames        # noqa: F401
 
 logger = logging.getLogger(__name__)
 
+rx_port_count = 0
 route_names = []
 total_routes = 0
 
 
 def run_bgp_route_install_test(api,
                                duthosts,
-                               traffic_type,
                                snappi_extra_params):
     """
     Run BGP route install test test
@@ -28,7 +29,6 @@ def run_bgp_route_install_test(api,
     Args:
         api (pytest fixture): snappi API
         duthosts: Duthosts fixture
-        traffic_type : IPv4 or IPv6 traffic choice
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
 
@@ -38,7 +38,7 @@ def run_bgp_route_install_test(api,
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
     iteration = snappi_extra_params.iteration
-    rx_port_count = snappi_extra_params.rx_port_count
+    test_name = snappi_extra_params.test_name
 
     """ Create bgp config on dut """
     duthost_bgp_config(duthosts,
@@ -46,11 +46,15 @@ def run_bgp_route_install_test(api,
 
     """ Create snappi config """
     for route_range in route_ranges:
+        traffic_type = []
+        for key, _ in route_range.items():
+            traffic_type.append(key)
         snappi_bgp_config = __snappi_bgp_config(api,
                                                 snappi_ports,
                                                 traffic_type,
                                                 route_range,
-                                                rx_port_count)
+                                                test_name,
+                                                )
 
         get_route_install_time(api,
                                duthosts,
@@ -59,7 +63,8 @@ def run_bgp_route_install_test(api,
                                iteration,
                                traffic_type,
                                route_range,
-                               rx_port_count)
+                               test_name
+                               )
 
 
 def duthost_bgp_config(duthosts,
@@ -82,7 +87,7 @@ def duthost_bgp_config(duthosts,
     logger.info('Snappi AS Number: {}'.format(T2_SNAPPI_AS_NUM))
 
     for duthost in duthosts:
-        for index, port in enumerate(t2_ports):
+        for index, port in enumerate(PERFORMANCE_PORTS['Traffic_Tx_Ports'] + PERFORMANCE_PORTS['Uplink BGP Session']):
             bgp_neighbors = {}
             device_neighbors = {}
             device_neighbor_metadatas = {}
@@ -220,14 +225,15 @@ def duthost_bgp_config(duthosts,
                 pytest_assert('Error' not in duthost.shell("sudo config reload -f -y \n")['stderr'],
                               'Error while reloading config in {} !!!!!'.format(duthost.hostname))
         duthost.shell("sudo config reload -f -y \n")
-    wait(120, "For configs to be loaded on the duts")
+    wait(DUT_TRIGGER, "For configs to be loaded on the duts")
 
 
 def __snappi_bgp_config(api,
                         snappi_ports,
                         traffic_type,
                         route_range,
-                        rx_port_count):
+                        test_name,
+                        ):
     """
     Creating  BGP config on TGEN
 
@@ -240,26 +246,52 @@ def __snappi_bgp_config(api,
     """
     global route_names
     global total_routes
+    global rx_port_count
     total_routes = 0
     ipv4_src, ipv6_src = [], []
     ipv4_dest, ipv6_dest = [], []
-    snappi_test_ports = []
+    snappi_tx_ports = []
+    snappi_rx_ports = []
     conv_config = api.convergence_config()
     config = conv_config.config
+    if 'Single BGP Session' in test_name:
+        rx_port_count = 1
+    else:
+        rx_port_count = len(PERFORMANCE_PORTS['Uplink BGP Session'])
 
-    for var_ports in t2_ports:
+    for var_ports in PERFORMANCE_PORTS['Traffic_Tx_Ports']:
         for port in snappi_ports:
             if port['peer_port'] == var_ports['port_name'] and port['peer_device'] == var_ports['hostname']:
-                snappi_test_ports.append(port)
+                port['asic_value'] = var_ports['asic_value']
+                snappi_tx_ports.append(port)
+
+    for var_ports in PERFORMANCE_PORTS['Uplink BGP Session'][:rx_port_count]:
+        for port in snappi_ports:
+            if port['peer_port'] == var_ports['port_name'] and port['peer_device'] == var_ports['hostname']:
+                port['asic_value'] = var_ports['asic_value']
+                snappi_rx_ports.append(port)
 
     # Adding Ports
-    for index, snappi_test_port in enumerate(snappi_test_ports):
-        snappi_test_port['name'] = 'Test_Port_%d' % index
-        config.ports.port(name='Test_Port_%d' % index, location=snappi_test_port['location'])
-    sum_of_rx_speed = rx_port_count * int(snappi_test_ports[0]['speed'].split('_')[1])
-    port_speed = int(snappi_test_ports[0]['speed'].split('_')[1])
-    tx_ports = len(t2_ports) - rx_port_count
-    line_rate = int(100 * ((sum_of_rx_speed/tx_ports) / port_speed))
+    for index, snappi_tx_port in enumerate(snappi_tx_ports):
+        if snappi_tx_port['peer_device'] == t1_t2_device_hostnames[1]:
+            lc = 'Uplink'
+        elif snappi_tx_port['peer_device'] == t1_t2_device_hostnames[2]:
+            lc = 'Downlink'
+        snappi_tx_port['name'] = 'Snappi_Tx_Port_{}_{}_{}'.format(index, lc, snappi_tx_port['asic_value'])
+        config.ports.port(name=snappi_tx_port['name'], location=snappi_tx_port['location'])
+
+    for index, snappi_rx_port in enumerate(snappi_rx_ports):
+        if snappi_rx_port['peer_device'] == t1_t2_device_hostnames[1]:
+            lc = 'Uplink'
+        elif snappi_rx_port['peer_device'] == t1_t2_device_hostnames[2]:
+            lc = 'Downlink'
+        snappi_rx_port['name'] = 'Snappi_Rx_Port_{}_{}_{}'.format(index, lc, snappi_rx_port['asic_value'])
+        config.ports.port(name=snappi_rx_port['name'], location=snappi_rx_port['location'])
+
+    sum_of_rx_speed = rx_port_count * int(snappi_tx_ports[0]['speed'].split('_')[1])
+    port_speed = int(snappi_tx_ports[0]['speed'].split('_')[1])
+    tx_port_count = len(PERFORMANCE_PORTS['Uplink BGP Session'])
+    line_rate = int(100 * ((sum_of_rx_speed/tx_port_count) / port_speed))
     if line_rate > 100:
         line_rate = 100
     config.options.port_options.location_preemption = True
@@ -269,43 +301,67 @@ def __snappi_bgp_config(api,
     layer1.ieee_media_defaults = False
     layer1.auto_negotiation.rs_fec = True
     layer1.auto_negotiation.link_training = False
-    layer1.speed = snappi_test_ports[0]['speed']
+    layer1.speed = snappi_tx_ports[0]['speed']
     layer1.auto_negotiate = False
 
-    for index, port in enumerate(snappi_test_ports):
+    for index, port in enumerate(snappi_tx_ports):
         if len(str(hex(index+1).split('0x')[1])) == 1:
             m = '0'+hex(index+1).split('0x')[1]
         else:
             m = hex(index+1).split('0x')[1]
 
-        device = config.devices.device(name="Device {}".format(index))[-1]
-        if index in range(0, rx_port_count):
-            eth = device.ethernets.add()
-            eth.port_name = port['name']
-            eth.name = 'Ethernet_%d' % index
-            eth.mac = "00:10:00:00:00:%s" % m
-            ipv4 = eth.ipv4_addresses.add()
-            ipv4.name = 'IPv4_%d' % index
-            ipv4.address = t2_snappi_ipv4_list[index]
-            ipv4.gateway = t2_dut_ipv4_list[index]
-            ipv4.prefix = v4_prefix_length
-            ipv6 = eth.ipv6_addresses.add()
-            ipv6.name = 'IPv6_%d' % index
-            ipv6.address = t2_snappi_ipv6_list[index]
-            ipv6.gateway = t2_dut_ipv6_list[index]
-            ipv6.prefix = v6_prefix_length
+        device = config.devices.device(name="T3_Device_{}".format(index))[-1]
+        eth = device.ethernets.add()
+        eth.port_name = port['name']
+        eth.name = 'T3_Ethernet_%d' % index
+        eth.mac = "00:11:00:00:00:%s" % m
+        ipv4 = eth.ipv4_addresses.add()
+        ipv4.name = 'T3_IPv4_%d' % index
+        ipv4.address = t2_snappi_ipv4_list[index]
+        ipv4.gateway = t2_dut_ipv4_list[index]
+        ipv4.prefix = v4_prefix_length
+        ipv6 = eth.ipv6_addresses.add()
+        ipv6.name = 'T3_IPv6_%d' % index
+        ipv6.address = t2_snappi_ipv6_list[index]
+        ipv6.gateway = t2_dut_ipv6_list[index]
+        ipv6.prefix = v6_prefix_length
+        ipv4_src.append(ipv4.name)
+        ipv6_src.append(ipv6.name)
 
-            bgpv4 = device.bgp
-            bgpv4.router_id = router_ids[index]
-            bgpv4_int = bgpv4.ipv4_interfaces.add()
-            bgpv4_int.ipv4_name = ipv4.name
-            bgpv4_peer = bgpv4_int.peers.add()
-            bgpv4_peer.name = 'BGP_%d' % index
-            bgpv4_peer.as_type = BGP_TYPE
-            bgpv4_peer.peer_address = t2_dut_ipv4_list[index]
-            bgpv4_peer.as_number = int(T2_SNAPPI_AS_NUM)
+    for index, port in enumerate(snappi_rx_ports, len(snappi_tx_ports)):
+        if len(str(hex(index+1).split('0x')[1])) == 1:
+            m = '0'+hex(index+1).split('0x')[1]
+        else:
+            m = hex(index+1).split('0x')[1]
 
-            route_range1 = bgpv4_peer.v4_routes.add(name="IPv4_Routes_%d" % (index))
+        device = config.devices.device(name="T3_Device_Rx_{}".format(index))[-1]
+        eth = device.ethernets.add()
+        eth.port_name = port['name']
+        eth.name = 'T3_Ethernet_%d' % index
+        eth.mac = "00:10:00:00:00:%s" % m
+        ipv4 = eth.ipv4_addresses.add()
+        ipv4.name = 'T3_IPv4_%d' % index
+        ipv4.address = t2_snappi_ipv4_list[index]
+        ipv4.gateway = t2_dut_ipv4_list[index]
+        ipv4.prefix = v4_prefix_length
+        ipv6 = eth.ipv6_addresses.add()
+        ipv6.name = 'T3_IPv6_%d' % index
+        ipv6.address = t2_snappi_ipv6_list[index]
+        ipv6.gateway = t2_dut_ipv6_list[index]
+        ipv6.prefix = v6_prefix_length
+
+        bgpv4 = device.bgp
+        bgpv4.router_id = router_ids[index]
+        bgpv4_int = bgpv4.ipv4_interfaces.add()
+        bgpv4_int.ipv4_name = ipv4.name
+        bgpv4_peer = bgpv4_int.peers.add()
+        bgpv4_peer.name = 'T3_BGP_%d' % index
+        bgpv4_peer.as_type = BGP_TYPE
+        bgpv4_peer.peer_address = t2_dut_ipv4_list[index]
+        bgpv4_peer.as_number = int(T2_SNAPPI_AS_NUM)
+
+        if 'IPv4' in route_range.keys():
+            route_range1 = bgpv4_peer.v4_routes.add(name="T3_IPv4_Routes_%d" % (index))
             for route_index, routes in enumerate(route_range['IPv4']):
                 route_range1.addresses.add(
                     address=routes[0], prefix=routes[1], count=routes[2])
@@ -315,17 +371,18 @@ def __snappi_bgp_config(api,
             as_path_segment.type = as_path_segment.AS_SEQ
             as_path_segment.as_numbers = AS_PATHS
 
-            bgpv6 = device.bgp
-            bgpv6.router_id = t2_snappi_ipv4_list[index]
-            bgpv6_int = bgpv6.ipv6_interfaces.add()
-            bgpv6_int.ipv6_name = ipv6.name
-            bgpv6_peer = bgpv6_int.peers.add()
-            bgpv6_peer.name = 'BGP+_%d' % index
-            bgpv6_peer.as_type = BGP_TYPE
-            bgpv6_peer.peer_address = t2_dut_ipv6_list[index]
-            bgpv6_peer.as_number = int(T2_SNAPPI_AS_NUM)
+        bgpv6 = device.bgp
+        bgpv6.router_id = t2_snappi_ipv4_list[index]
+        bgpv6_int = bgpv6.ipv6_interfaces.add()
+        bgpv6_int.ipv6_name = ipv6.name
+        bgpv6_peer = bgpv6_int.peers.add()
+        bgpv6_peer.name = 'T3_BGP+_%d' % index
+        bgpv6_peer.as_type = BGP_TYPE
+        bgpv6_peer.peer_address = t2_dut_ipv6_list[index]
+        bgpv6_peer.as_number = int(T2_SNAPPI_AS_NUM)
 
-            route_range2 = bgpv6_peer.v6_routes.add(name="IPv6_Routes_%d" % (index))
+        if 'IPv6' in route_range.keys():
+            route_range2 = bgpv6_peer.v6_routes.add(name="T3_IPv6_Routes_%d" % (index))
             for route_index, routes in enumerate(route_range['IPv6']):
                 route_range2.addresses.add(
                     address=routes[0], prefix=routes[1], count=routes[2])
@@ -334,23 +391,6 @@ def __snappi_bgp_config(api,
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
             as_path_segment.as_numbers = AS_PATHS
-        else:
-            eth = device.ethernets.add()
-            eth.port_name = port['name']
-            eth.name = 'Ethernet_%d' % index
-            eth.mac = "00:10:00:00:00:%s" % m
-            ipv4 = eth.ipv4_addresses.add()
-            ipv4.name = 'IPv4_%d' % index
-            ipv4.address = t2_snappi_ipv4_list[index]
-            ipv4.gateway = t2_dut_ipv4_list[index]
-            ipv4.prefix = v4_prefix_length
-            ipv6 = eth.ipv6_addresses.add()
-            ipv6.name = 'IPv6_%d' % index
-            ipv6.address = t2_snappi_ipv6_list[index]
-            ipv6.gateway = t2_dut_ipv6_list[index]
-            ipv6.prefix = v6_prefix_length
-            ipv4_src.append(ipv4.name)
-            ipv6_src.append(ipv6.name)
 
     def createTrafficItem(traffic_name, source, destination):
         logger.info('{} Source : {}'.format(traffic_name, source))
@@ -359,20 +399,28 @@ def __snappi_bgp_config(api,
         flow1.tx_rx.device.tx_names = source
         flow1.tx_rx.device.rx_names = destination
         flow1.size.fixed = 1024
-        flow1.rate.percentage = line_rate
+        flow1.rate.percentage = line_rate/2
         flow1.metrics.enable = True
         flow1.metrics.loss = True
 
-    if traffic_type == 'IPv4':
-        route_names = ipv4_dest
+    if 'IPv4' in traffic_type and 'IPv6' in traffic_type:
+        route_names = ipv4_dest + ipv6_dest
         for route in route_range['IPv4']:
             total_routes = total_routes+route[2]
+        for route in route_range['IPv6']:
+            total_routes = total_routes+route[2]
         createTrafficItem("IPv4_Traffic", ipv4_src, ipv4_dest)
-    else:
+        createTrafficItem("IPv6_Traffic", ipv6_src, ipv6_dest)
+    elif 'IPv6' in traffic_type and 'IPv4' not in traffic_type:
         route_names = ipv6_dest
         for route in route_range['IPv6']:
             total_routes = total_routes+route[2]
         createTrafficItem("IPv6 Traffic", ipv6_src, ipv6_dest)
+    elif 'IPv4' in traffic_type and 'IPv6' not in traffic_type:
+        route_names = ipv4_dest
+        for route in route_range['IPv4']:
+            total_routes = total_routes+route[2]
+        createTrafficItem("IPv4 Traffic", ipv4_src, ipv4_dest)
     return conv_config
 
 
@@ -393,7 +441,8 @@ def get_route_install_time(api,
                            iteration,
                            traffic_type,
                            route_range,
-                           rx_port_count):
+                           test_name
+                           ):
     """
     Args:
         api (pytest fixture): snappi API
@@ -402,10 +451,11 @@ def get_route_install_time(api,
         iteration: number of iterations for running convergence test on a port
         traffic_type: IPv4 or IPv6 traffic
         route_range: V4 and V6 route combination
-        rx_port_count: number of rx sessions
+        test_name: Test name
     """
     global route_names
-    snappi_bgp_config.rx_rate_threshold = 90/rx_port_count
+
+    snappi_bgp_config.rx_rate_threshold = 95/rx_port_count
     api.set_config(snappi_bgp_config)
 
     test_platform = TestPlatform(snappi_ports[0]['api_server_ip'])
@@ -433,29 +483,30 @@ def get_route_install_time(api,
     for i in range(0, iteration):
         logger.info(
             '|---- Route Install test, Iteration : {} ----|'.format(i+1))
+        """ Starting Protocols """
+        logger.info("Starting all protocols ...")
+        cs = api.convergence_state()
+        cs.protocol.state = cs.protocol.START
+        api.set_state(cs)
+        wait(SNAPPI_TRIGGER, "For Protocols To start")
+        logger.info('Verifying protocol sessions state')
+        protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
+        protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+
         """ withdraw all routes before starting traffic """
         logger.info('Withdraw All Routes before starting traffic')
         cs = api.convergence_state()
         cs.route.names = route_names
         cs.route.state = cs.route.WITHDRAW
         api.set_state(cs)
-        wait(TIMEOUT, "For Routes to be withdrawn")
-        """ Starting Protocols """
-        logger.info("Starting all protocols ...")
-        cs = api.convergence_state()
-        cs.protocol.state = cs.protocol.START
-        api.set_state(cs)
-        wait(TIMEOUT, "For Protocols To start")
-        logger.info('Verifying protocol sessions state')
-        protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
-        protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+        wait(SNAPPI_TRIGGER, "For Routes to be withdrawn")
 
         """ Start Traffic """
         logger.info('Starting Traffic')
         cs = api.convergence_state()
         cs.transmit.state = cs.transmit.START
         api.set_state(cs)
-        wait(TIMEOUT, "For Traffic To start")
+        wait(SNAPPI_TRIGGER, "For Traffic To start")
         flow_stats = get_flow_stats(api)
         tx_frame_rate = flow_stats[0].frames_tx_rate
         rx_frame_rate = flow_stats[0].frames_rx_rate
@@ -467,7 +518,7 @@ def get_route_install_time(api,
         cs.route.names = route_names
         cs.route.state = cs.route.ADVERTISE
         api.set_state(cs)
-        wait(TIMEOUT, "For all routes to be ADVERTISED")
+        wait(SNAPPI_TRIGGER, "For all routes to be ADVERTISED")
         flows = get_flow_stats(api)
         for flow in flows:
             tx_frate.append(flow.frames_tx_rate)
@@ -493,18 +544,20 @@ def get_route_install_time(api,
         cs = api.convergence_state()
         cs.transmit.state = cs.transmit.STOP
         api.set_state(cs)
-        wait(TIMEOUT, "For Traffic To stop")
+        wait(SNAPPI_TRIGGER, "For Traffic To stop")
         """ Stopping Protocols """
         logger.info("Stopping all protocols ...")
         cs = api.convergence_state()
         cs.protocol.state = cs.protocol.STOP
         api.set_state(cs)
-        wait(TIMEOUT, "For Protocols To STOP")
+        wait(SNAPPI_TRIGGER, "For Protocols To STOP")
+    table.append(test_name)
     table.append(traffic_type)
     table.append(total_routes)
+    table.append(rx_port_count)
     table.append(iteration)
     table.append(mean(avg_delta))
     table.append(mean(avg))
-    columns = ['Route Type', 'No. of Routes',
+    columns = ['Test Name', 'Traffic Type', 'No. of Routes', 'BGP Sessions',
                'Iterations', 'Frames Delta', 'BGP Route Install Time(ms)']
     logger.info("\n%s" % tabulate([table], headers=columns, tablefmt="psql"))
