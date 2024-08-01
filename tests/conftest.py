@@ -1663,6 +1663,44 @@ def enum_rand_one_frontend_asic_index(request):
     return request.param
 
 
+@pytest.fixture(scope='module')
+def enum_upstream_dut_hostname(duthosts, tbinfo):
+    for a_dut in duthosts.frontend_nodes:
+        minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
+        minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+        if tbinfo["topo"]["type"] == "t0":
+            upstream_nbr_type = "T1"
+        elif tbinfo["topo"]["type"] == "t1":
+            upstream_nbr_type = "T2"
+        else:
+            upstream_nbr_type = "T3"
+
+        for key, value in minigraph_neighbors.items():
+            if upstream_nbr_type in value['name']:
+                return a_dut.hostname
+
+    pytest.fail("No dut with topo {} & upstream nbr type {}".format(tbinfo["topo"]["type"], upstream_nbr_type))
+
+
+@pytest.fixture(scope='module')
+def enum_downstream_dut_hostname(duthosts, tbinfo):
+    for a_dut in duthosts.frontend_nodes:
+        minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
+        minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+        if tbinfo["topo"]["type"] == "t0":
+            downstream_nbr_type = "server"
+        elif tbinfo["topo"]["type"] == "t1":
+            downstream_nbr_type = "T0"
+        else:
+            downstream_nbr_type = "T1"
+
+        for key, value in minigraph_neighbors.items():
+            if downstream_nbr_type in value['name']:
+                return a_dut.hostname
+
+    pytest.fail("No dut with topo {} & downstream nbr type {}".format(tbinfo["topo"]["type"], downstream_nbr_type))
+
+
 @pytest.fixture(scope="module")
 def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_graph_facts, creds):   # noqa F811
     duthost = duthosts[enum_supervisor_dut_hostname]
