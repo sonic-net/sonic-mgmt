@@ -294,25 +294,6 @@ Config paths can be read or written.  Writing a config path indicates a desired 
 </li>
 </ul>
 <ul>
-<li>physical: (based on platform)</li>
-</ol>
-</li>
-</ul>
-<ul>
-<li>16GB for Taygeta</li>
-</ol>
-</li>
-</ol>
-</li>
-</ul>
-<ul>
-<li>32GB for Brixia</li>
-</ol>
-</li>
-</ol>
-</li>
-</ul>
-<ul>
 <li>used: 0 <= used <= physical</li>
 </ol>
 </li>
@@ -337,16 +318,14 @@ Config paths can be read or written.  Writing a config path indicates a desired 
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
-      <td><ul>
-<li>Confirm:</li>
-</ul>
+      <td>
 <ul>
-<li>0 = uncorrectable-ecc-errors</li>
+<li>Confirm: 0 = uncorrectable-ecc-errors</li>
 </ol>
 </li>
 </ul>
 <ul>
-<li>0 = correctable-ecc-errors*</li>
+<li>Confirm: 0 = correctable-ecc-errors*</li>
 </ol>
 </li>
 </ul>
