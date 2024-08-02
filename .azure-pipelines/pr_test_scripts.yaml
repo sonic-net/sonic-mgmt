@@ -352,9 +352,6 @@ onboarding_t1:
   - hash/test_generic_hash.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
-  - arp/test_neighbor_mac.py
-  - copp/test_copp.py
-  - crm/test_crm.py
   - stress/test_stress_routes.py
   - drop_packets/test_drop_counters.py
   - sub_port_interfaces/test_sub_port_interfaces.py
