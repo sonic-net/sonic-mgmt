@@ -194,3 +194,30 @@ ipfwd/test_dir_bcast.py:
     reason: "Skip traffic test for KVM testbed"
     conditions:
       - "asic_type in ['vs']"
+
+#######################################
+#####           vxlan            #####
+#######################################
+vxlan/test_vnet_vxlan.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+vxlan/test_vxlan_bfd_tsa.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+vxlan/test_vxlan_decap.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+vxlan/test_vxlan_ecmp.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
