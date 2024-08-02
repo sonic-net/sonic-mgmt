@@ -141,6 +141,11 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     @summary: This test case is to test various system checks in config reload
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    hwsku = duthost.facts["hwsku"]
+
+    config_reload_timeout = 120
+    if hwsku in ["Nokia-M0-7215", "Nokia-7215"]:
+        config_reload_timeout = 180
 
     if not config_force_option_supported(duthost):
         return
@@ -154,21 +159,21 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     wait_until(360, 1, 0, check_database_status, duthost)
 
     logging.info("Reload configuration check")
-    result, out = execute_config_reload_cmd(duthost)
+    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     # config reload command shouldn't work immediately after system reboot
     assert result and "Retry later" in out['stdout']
 
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
 
     # After the system checks succeed the config reload command should not throw error
-    result, out = execute_config_reload_cmd(duthost)
+    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     assert result and "Retry later" not in out['stdout']
 
     # Immediately after one config reload command, another shouldn't execute and wait for system checks
     logging.info("Checking config reload after system is up")
     # Check if all database containers have started
     wait_until(60, 1, 0, check_database_status, duthost)
-    result, out = execute_config_reload_cmd(duthost)
+    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     assert result and "Retry later" in out['stdout']
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
 
@@ -180,7 +185,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
         duthost.shell("sudo service swss stop")
 
     # Without swss running config reload option should not proceed
-    result, out = execute_config_reload_cmd(duthost)
+    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     assert result and "Retry later" in out['stdout']
 
     # However with force option config reload should proceed
