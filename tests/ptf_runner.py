@@ -50,7 +50,7 @@ def get_dut_type(host):
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
                socket_recv_size=None, log_file=None, device_sockets=[], timeout=0, custom_options="",
-               module_ignore_errors=False, async_mode=False):
+               module_ignore_errors=False, async_mode=False, pdb=False):
     dut_type = get_dut_type(host)
     if dut_type == "kvm" and params.get("kvm_support", True) is False:
         logger.info("Skip test case {} for not support on KVM DUT".format(testname))
