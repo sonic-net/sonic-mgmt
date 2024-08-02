@@ -342,14 +342,25 @@ onboarding_t0:
   - hash/test_generic_hash.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
+  - span/test_port_mirroring.py
+  - drop_packets/test_drop_counters.py
+  - vrf/test_vrf.py
+  - vrf/test_vrf_attr.py
 
 onboarding_t1:
   - generic_config_updater/test_cacl.py
   - hash/test_generic_hash.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
+  - arp/test_neighbor_mac.py
+  - copp/test_copp.py
+  - crm/test_crm.py
+  - stress/test_stress_routes.py
+  - drop_packets/test_drop_counters.py
+  - sub_port_interfaces/test_sub_port_interfaces.py
 
 onboarding_dualtor:
+  - arp/test_arp_dualtor.py
   - dualtor/test_ipinip.py
   - dualtor/test_orchagent_slb.py
   - dualtor/test_switchover_failure.py

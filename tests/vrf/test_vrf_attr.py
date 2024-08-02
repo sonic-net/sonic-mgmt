@@ -1,4 +1,5 @@
 import pytest
+import logging
 
 from test_vrf import g_vars
 from test_vrf import setup_vrf              # noqa F401
@@ -12,12 +13,15 @@ from test_vrf import PTF_TEST_PORT_MAP
 
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 
 
 pytestmark = [
     pytest.mark.topology('t0')
 ]
+logger = logging.getLogger(__name__)
 
 # tests
 
@@ -51,24 +55,28 @@ class TestVrfAttrSrcMac():
 
         duthost.shell("config load -y /tmp/vrf_attr_src_mac.json")
 
-    def test_vrf_src_mac_cfg(self, duthosts, rand_one_dut_hostname):
+    def test_vrf_src_mac_cfg(self, duthosts, rand_one_dut_hostname):     # noqa F811
         duthost = duthosts[rand_one_dut_hostname]
         # get vrf1 new router_mac from config_db
         vrf1_mac = duthost.shell(
             "redis-cli -n 4 hget 'VRF|Vrf1' 'src_mac'")['stdout']
         assert vrf1_mac == self.new_vrf1_router_mac
 
-    def test_vrf1_neigh_with_default_router_mac(self, partial_ptf_runner):  # noqa F811
+    def test_vrf1_neigh_with_default_router_mac(self, partial_ptf_runner, skip_traffic_test):  # noqa F811
         # send packets with default router_mac
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             pkt_action='drop',
             fib_info_files=['/tmp/vrf1_neigh.txt'],
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf1_neigh_with_new_router_mac(self, ptfhost, tbinfo):
+    def test_vrf1_neigh_with_new_router_mac(self, ptfhost, tbinfo, skip_traffic_test):      # noqa F811
         # send packets with new router_mac
+        if skip_traffic_test is True:
+            logger.info("Skipping traffic test")
+            return
         ptf_runner(ptfhost,
                    "ptftests",
                    "vrf_test.FwdTest",
@@ -82,12 +90,13 @@ class TestVrfAttrSrcMac():
                    log_file="/tmp/vrf_attr_src_mac_test.FwdTest2.log",
                    is_python3=True)
 
-    def test_vrf2_neigh_with_default_router_mac(self, partial_ptf_runner):  # noqa F811
+    def test_vrf2_neigh_with_default_router_mac(self, partial_ptf_runner, skip_traffic_test):  # noqa F811
         # verify router_mac of Vrf2 keep to be default router_mac
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             fib_info_files=['/tmp/vrf2_neigh.txt'],
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'],
+            skip_traffic_test=skip_traffic_test
         )
 
 
@@ -111,32 +120,35 @@ class TestVrfAttrTTL():
         # -------- Teardown ----------
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
-    def test_vrf1_drop_pkts_with_ttl_1(self, partial_ptf_runner):   # noqa F811
+    def test_vrf1_drop_pkts_with_ttl_1(self, partial_ptf_runner, skip_traffic_test):   # noqa F811
         # verify packets in Vrf1 with ttl=1 should be drop
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             pkt_action='drop',
             fib_info_files=['/tmp/vrf1_neigh.txt'],
             ttl=1,
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf1_fwd_pkts_with_ttl_2(self, partial_ptf_runner):    # noqa F811
+    def test_vrf1_fwd_pkts_with_ttl_2(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         # verify packets in Vrf1 with ttl=2 should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             fib_info_files=['/tmp/vrf1_neigh.txt'],
             ttl=2,
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf2_fwd_pkts_with_ttl_1(self, partial_ptf_runner):    # noqa F811
+    def test_vrf2_fwd_pkts_with_ttl_1(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         # verify packets in Vrf2 with ttl=1 should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             fib_info_files=['/tmp/vrf2_neigh.txt'],
             ttl=1,
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'],
+            skip_traffic_test=skip_traffic_test
         )
 
 
@@ -160,7 +172,7 @@ class TestVrfAttrIpAction():
         # -------- Teardown ----------
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
-    def test_vrf1_drop_pkts_with_ip_opt(self, partial_ptf_runner):      # noqa F811
+    def test_vrf1_drop_pkts_with_ip_opt(self, partial_ptf_runner, skip_traffic_test):      # noqa F811
         # verify packets in Vrf1 with ip_options should be drop
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -169,10 +181,11 @@ class TestVrfAttrIpAction():
             ip_options=[b'\x94\x04\x00\x00'],  # router alert
             ipv4=True,
             ipv6=False,
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf1_fwd_pkts_without_ip_opt(self, partial_ptf_runner):    # noqa F811
+    def test_vrf1_fwd_pkts_without_ip_opt(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         # verify packets in Vrf1 without ip_options should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -180,10 +193,11 @@ class TestVrfAttrIpAction():
             ip_options=False,
             ipv4=True,
             ipv6=False,
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf2_fwd_pkts_with_ip_opt(self, partial_ptf_runner):       # noqa F811
+    def test_vrf2_fwd_pkts_with_ip_opt(self, partial_ptf_runner, skip_traffic_test):       # noqa F811
         # verify packets in Vrf2 with ip_options should be forward
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -191,7 +205,8 @@ class TestVrfAttrIpAction():
             ip_options=[b'\x94\x04\x00\x00'],  # router alert
             ipv4=True,
             ipv6=False,
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'],
+            skip_traffic_test=skip_traffic_test
         )
 
 
@@ -215,7 +230,7 @@ class TestVrfAttrIpState():
         # -------- Teardown ----------
         duthost.shell("config load -y /tmp/vrf_restore.json")
 
-    def test_vrf1_drop_v4(self, partial_ptf_runner):        # noqa F811
+    def test_vrf1_drop_v4(self, partial_ptf_runner, skip_traffic_test):        # noqa F811
         # verify ipv4 L3 traffic is dropped in vrf1
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -223,30 +238,33 @@ class TestVrfAttrIpState():
             pkt_action='drop',
             ipv4=True,
             ipv6=False,
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf1_forward_v6(self, partial_ptf_runner):     # noqa F811
+    def test_vrf1_forward_v6(self, partial_ptf_runner, skip_traffic_test):     # noqa F811
         # verify ipv6 L3 traffic is forwarded in vrf1
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             fib_info_files=['/tmp/vrf1_neigh.txt'],
             ipv4=False,
             ipv6=True,
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf2_forward_v4(self, partial_ptf_runner):     # noqa F811
+    def test_vrf2_forward_v4(self, partial_ptf_runner, skip_traffic_test):     # noqa F811
         # verify ipv4 L3 traffic is forwarded in vrf2
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
             fib_info_files=['/tmp/vrf2_neigh.txt'],
             ipv4=True,
             ipv6=False,
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf2_drop_v6(self, partial_ptf_runner):        # noqa F811
+    def test_vrf2_drop_v6(self, partial_ptf_runner, skip_traffic_test):        # noqa F811
         # verify ipv6 L3 traffic is dropped in vrf2
         partial_ptf_runner(
             testname='vrf_test.FwdTest',
@@ -254,5 +272,6 @@ class TestVrfAttrIpState():
             fib_info_files=['/tmp/vrf2_neigh.txt'],
             ipv4=False,
             ipv6=True,
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'],
+            skip_traffic_test=skip_traffic_test
         )

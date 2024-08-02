@@ -17,6 +17,8 @@ import pytest
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
@@ -179,6 +181,10 @@ def ex_ptf_runner(ptf_runner, exc_queue, **kwargs):
     Example:
         refer to test 'test_vrf_swss_warm_reboot'
     '''
+    skip_traffic_test = kwargs.get('skip_traffic_test', False)
+    if skip_traffic_test is True:
+        logger.info("Skipping traffic test")
+        return
     try:
         ptf_runner(**kwargs)
     except Exception:
@@ -274,8 +280,8 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     # get members from Vlan1000, and move half of them to Vlan2000 in vrf basic cfg
     ports = get_vlan_members('Vlan1000', cfg_facts)
 
-    vlan_ports = {'Vlan1000': ports[:len(ports)/2],
-                  'Vlan2000': ports[len(ports)/2:]}
+    vlan_ports = {'Vlan1000': ports[:len(ports)//2],
+                  'Vlan2000': ports[len(ports)//2:]}
 
     extra_vars = {'cfg_t0': cfg_t0,
                   'vlan_ports': vlan_ports}
@@ -398,7 +404,8 @@ def gen_specific_neigh_file(dst_ips, dst_ports, render_file, ptfhost):
     dst_ports = [str(port) for port_list in dst_ports for port in port_list]
     tmp_file = tempfile.NamedTemporaryFile()
     for ip in dst_ips:
-        tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))
+        content = '{} [{}]\n'.format(ip, ' '.join(dst_ports))
+        tmp_file.write(content.encode())
     tmp_file.flush()
     ptfhost.copy(src=tmp_file.name, dest=render_file)
 
@@ -536,6 +543,10 @@ def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
 @pytest.fixture
 def partial_ptf_runner(request, ptfhost, tbinfo):
     def _partial_ptf_runner(testname, **kwargs):
+        skip_traffic_test = kwargs.get('skip_traffic_test', False)
+        if skip_traffic_test is True:
+            logger.info("Skipping traffic test")
+            return
         params = {'testbed_type': tbinfo['topo']['name'],
                   'ptf_test_port_map': PTF_TEST_PORT_MAP
                   }
@@ -548,6 +559,9 @@ def partial_ptf_runner(request, ptfhost, tbinfo):
                    socket_recv_size=16384,
                    log_file="/tmp/{}.{}.log".format(request.cls.__name__, request.function.__name__),
                    is_python3=True)
+    if skip_traffic_test is True:
+        logger.info("Skipping traffic test")
+        return
     return _partial_ptf_runner
 
 
@@ -673,22 +687,24 @@ class TestVrfNeigh():
                     duthost.shell(
                         "{} {} -c 3 -I {} -f".format(ping_cmd, ip.ip, vrf))
 
-    def test_vrf1_neigh_ip_fwd(self, ptfhost, partial_ptf_runner):
+    def test_vrf1_neigh_ip_fwd(self, ptfhost, partial_ptf_runner, skip_traffic_test):    # noqa F811
         gen_vrf_neigh_file('Vrf1', ptfhost, render_file="/tmp/vrf1_neigh.txt")
 
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             fib_info_files=["/tmp/vrf1_neigh.txt"],
-            src_ports=g_vars['vrf_member_port_indices']['Vrf1']
+            src_ports=g_vars['vrf_member_port_indices']['Vrf1'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf2_neigh_ip_fwd(self, ptfhost, partial_ptf_runner):
+    def test_vrf2_neigh_ip_fwd(self, ptfhost, partial_ptf_runner, skip_traffic_test):    # noqa F811
         gen_vrf_neigh_file('Vrf2', ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             fib_info_files=["/tmp/vrf2_neigh.txt"],
-            src_ports=g_vars['vrf_member_port_indices']['Vrf2']
+            src_ports=g_vars['vrf_member_port_indices']['Vrf2'],
+            skip_traffic_test=skip_traffic_test
         )
 
 
@@ -725,18 +741,20 @@ class TestVrfFib():
                         assert int(prefix_count) == route_count, "%s should received %s route prefixs!" % (
                             peer, route_count)
 
-    def test_vrf1_fib(self, partial_ptf_runner):
+    def test_vrf1_fib(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             fib_info_files=["/tmp/vrf1_fib.txt"],
-            src_ports=g_vars['vrf_member_port_indices']['Vrf1']
+            src_ports=g_vars['vrf_member_port_indices']['Vrf1'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf2_fib(self, partial_ptf_runner):
+    def test_vrf2_fib(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             fib_info_files=["/tmp/vrf2_fib.txt"],
-            src_ports=g_vars['vrf_member_port_indices']['Vrf2']
+            src_ports=g_vars['vrf_member_port_indices']['Vrf2'],
+            skip_traffic_test=skip_traffic_test
         )
 
 
@@ -754,40 +772,44 @@ class TestVrfIsolation():
 
         gen_vrf_neigh_file('Vrf2', ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
-    def test_neigh_isolate_vrf1_from_vrf2(self, partial_ptf_runner):
+    def test_neigh_isolate_vrf1_from_vrf2(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         # send packets from Vrf1
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             fib_info_files=["/tmp/vrf2_neigh.txt"],
             pkt_action='drop',
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_neigh_isolate_vrf2_from_vrf1(self, partial_ptf_runner):
+    def test_neigh_isolate_vrf2_from_vrf1(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         # send packets from Vrf2
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             fib_info_files=["/tmp/vrf1_neigh.txt"],
             pkt_action='drop',
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_fib_isolate_vrf1_from_vrf2(self, partial_ptf_runner):
+    def test_fib_isolate_vrf1_from_vrf2(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         # send packets from Vrf1
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             fib_info_files=["/tmp/vrf2_fib.txt"],
             pkt_action='drop',
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_fib_isolate_vrf2_from_vrf1(self, partial_ptf_runner):
+    def test_fib_isolate_vrf2_from_vrf1(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         # send packets from Vrf2
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             fib_info_files=["/tmp/vrf1_fib.txt"],
             pkt_action='drop',
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'],
+            skip_traffic_test=skip_traffic_test
         )
 
 
@@ -873,7 +895,7 @@ class TestVrfAclRedirect():
         duthost.shell("redis-cli -n 4 del 'ACL_TABLE|VRF_ACL_REDIRECT_V4'")
         duthost.shell("redis-cli -n 4 del 'ACL_TABLE|VRF_ACL_REDIRECT_V6'")
 
-    def test_origin_ports_recv_no_pkts_v4(self, partial_ptf_runner, ptfhost):
+    def test_origin_ports_recv_no_pkts_v4(self, partial_ptf_runner, ptfhost, skip_traffic_test):    # noqa F811
         # verify origin dst ports should not receive packets any more
         gen_specific_neigh_file(self.c_vars['pc1_v4_neigh_ips'], self.c_vars['dst_ports'],
                                 '/tmp/pc01_neigh_ipv4.txt', ptfhost)
@@ -882,10 +904,11 @@ class TestVrfAclRedirect():
             testname="vrf_test.FwdTest",
             pkt_action='drop',
             src_ports=self.c_vars['src_ports'],
-            fib_info_files=['/tmp/pc01_neigh_ipv4.txt']
+            fib_info_files=['/tmp/pc01_neigh_ipv4.txt'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_origin_ports_recv_no_pkts_v6(self, partial_ptf_runner, ptfhost):
+    def test_origin_ports_recv_no_pkts_v6(self, partial_ptf_runner, ptfhost, skip_traffic_test):    # noqa F811
         # verify origin dst ports should not receive packets any more
         gen_specific_neigh_file(self.c_vars['pc1_v6_neigh_ips'], self.c_vars['dst_ports'],
                                 '/tmp/pc01_neigh_ipv6.txt', ptfhost)
@@ -894,10 +917,11 @@ class TestVrfAclRedirect():
             testname="vrf_test.FwdTest",
             pkt_action='drop',
             src_ports=self.c_vars['src_ports'],
-            fib_info_files=['/tmp/pc01_neigh_ipv6.txt']
+            fib_info_files=['/tmp/pc01_neigh_ipv6.txt'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_redirect_to_new_ports_v4(self, partial_ptf_runner, ptfhost):
+    def test_redirect_to_new_ports_v4(self, partial_ptf_runner, ptfhost, skip_traffic_test):    # noqa F811
         # verify redicect ports should receive packets
         gen_specific_neigh_file(self.c_vars['pc1_v4_neigh_ips'], self.c_vars['redirect_dst_ports'],
                                 '/tmp/redirect_pc01_neigh_ipv4.txt', ptfhost)
@@ -908,10 +932,11 @@ class TestVrfAclRedirect():
             test_balancing=True,
             balancing_test_times=1000,
             balancing_test_ratio=1.0,  # test redirect balancing
-            fib_info_files=['/tmp/redirect_pc01_neigh_ipv4.txt']
+            fib_info_files=['/tmp/redirect_pc01_neigh_ipv4.txt'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_redirect_to_new_ports_v6(self, partial_ptf_runner, ptfhost):
+    def test_redirect_to_new_ports_v6(self, partial_ptf_runner, ptfhost, skip_traffic_test):    # noqa F811
         # verify redicect ports should receive packets
         gen_specific_neigh_file(self.c_vars['pc1_v6_neigh_ips'], self.c_vars['redirect_dst_ports'],
                                 '/tmp/redirect_pc01_neigh_ipv6.txt', ptfhost)
@@ -922,7 +947,8 @@ class TestVrfAclRedirect():
             test_balancing=True,
             balancing_test_times=1000,
             balancing_test_ratio=1.0,  # test redirect balancing
-            fib_info_files=['/tmp/redirect_pc01_neigh_ipv6.txt']
+            fib_info_files=['/tmp/redirect_pc01_neigh_ipv6.txt'],
+            skip_traffic_test=skip_traffic_test
         )
 
 
@@ -1136,7 +1162,8 @@ class TestVrfWarmReboot():
         pass
 
     @pytest.mark.usefixtures('disable_swss_warm_boot_flag')
-    def test_vrf_swss_warm_reboot(self, duthosts, rand_one_dut_hostname, cfg_facts, partial_ptf_runner):
+    def test_vrf_swss_warm_reboot(self, duthosts, rand_one_dut_hostname, cfg_facts, partial_ptf_runner,
+                                  skip_traffic_test):   # noqa F811
         duthost = duthosts[rand_one_dut_hostname]
         # enable swss warm-reboot
         duthost.shell("config warm_restart enable swss")
@@ -1147,7 +1174,8 @@ class TestVrfWarmReboot():
             'exc_queue': exc_que,  # use for store exception infos
             'testname': 'vrf_test.FibTest',
             'fib_info_files': ["/tmp/vrf1_fib.txt"],
-            'src_ports': g_vars['vrf_member_port_indices']['Vrf1']
+            'src_ports': g_vars['vrf_member_port_indices']['Vrf1'],
+            'skip_traffic_test': skip_traffic_test if skip_traffic_test else False
         }
 
         traffic_in_bg = threading.Thread(target=ex_ptf_runner, kwargs=params)
@@ -1186,7 +1214,8 @@ class TestVrfWarmReboot():
         assert wait_until(300, 20, 0, check_interface_status, duthost, up_ports), \
             "All interfaces should be up!"
 
-    def test_vrf_system_warm_reboot(self, duthosts, rand_one_dut_hostname, localhost, cfg_facts, partial_ptf_runner):
+    def test_vrf_system_warm_reboot(self, duthosts, rand_one_dut_hostname, localhost, cfg_facts, partial_ptf_runner,
+                                    skip_traffic_test):     # noqa F811
         duthost = duthosts[rand_one_dut_hostname]
         exc_que = queue.Queue()
         params = {
@@ -1194,7 +1223,8 @@ class TestVrfWarmReboot():
             'exc_queue': exc_que,  # use for store exception infos
             'testname': 'vrf_test.FibTest',
             'fib_info_files': ["/tmp/vrf1_fib.txt"],
-            'src_ports': g_vars['vrf_member_port_indices']['Vrf1']
+            'src_ports': g_vars['vrf_member_port_indices']['Vrf1'],
+            'skip_traffic_test': skip_traffic_test if skip_traffic_test else False
         }
         traffic_in_bg = threading.Thread(target=ex_ptf_runner, kwargs=params)
 
@@ -1462,7 +1492,7 @@ class TestVrfCapacity():
 
         duthost.shell('/tmp/vrf_capacity_ping.sh')
 
-    def test_ip_fwd(self, partial_ptf_runner, random_vrf_list, ptfhost):
+    def test_ip_fwd(self, partial_ptf_runner, random_vrf_list, ptfhost, skip_traffic_test):    # noqa F811
         ptf_port1 = g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'][1]
         ptf_port2 = g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'][1]
         dst_ips = [str(IPNetwork(self.route_prefix)[1])]
@@ -1475,7 +1505,8 @@ class TestVrfCapacity():
             fib_info_files=['/tmp/vrf_capability_fwd.txt'],
             random_vrf_list=random_vrf_list,
             src_base_vid=self.src_base_vid,
-            dst_base_vid=self.dst_base_vid
+            dst_base_vid=self.dst_base_vid,
+            skip_traffic_test=skip_traffic_test
         )
 
 
@@ -1548,7 +1579,7 @@ class TestVrfUnbindIntf():
         # assert 'PortChannel0001' not in show_ndp,\
         #     "The neighbors on PortChannel0001 should be flushed after unbind from vrf."
 
-    def test_pc1_neigh_flushed_by_traffic(self, partial_ptf_runner, ptfhost):
+    def test_pc1_neigh_flushed_by_traffic(self, partial_ptf_runner, ptfhost, skip_traffic_test):    # noqa F811
         pc1_neigh_ips = []
         for ver, ips in list(g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_1].items()):
             for ip in ips:
@@ -1562,10 +1593,11 @@ class TestVrfUnbindIntf():
             fib_info_files=['/tmp/unbindvrf_neigh_1.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
             ipv4=True,
-            ipv6=False
+            ipv6=False,
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_pc1_routes_flushed(self, ptfhost, tbinfo, partial_ptf_runner):
+    def test_pc1_routes_flushed(self, ptfhost, tbinfo, partial_ptf_runner, skip_traffic_test):    # noqa F811
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                          dst_intfs=[PORTCHANNEL_TEMP_1],
                          render_file="/tmp/unbindvrf_fib_1.txt")
@@ -1575,10 +1607,11 @@ class TestVrfUnbindIntf():
             testname="vrf_test.FibTest",
             pkt_action='drop',
             fib_info_files=["/tmp/unbindvrf_fib_1.txt"],
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_pc2_neigh(self, partial_ptf_runner, ptfhost):
+    def test_pc2_neigh(self, partial_ptf_runner, ptfhost, skip_traffic_test):    # noqa F811
         pc2_neigh_ips = []
         for ver, ips in list(g_vars['vrf_intfs']['Vrf1'][PORTCHANNEL_TEMP_2].items()):
             for ip in ips:
@@ -1591,9 +1624,10 @@ class TestVrfUnbindIntf():
             pkt_action='fwd',
             fib_info_files=['/tmp/unbindvrf_neigh_2.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_pc2_fib(self, ptfhost, tbinfo, partial_ptf_runner):
+    def test_pc2_fib(self, ptfhost, tbinfo, partial_ptf_runner, skip_traffic_test):    # noqa F811
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                          dst_intfs=[PORTCHANNEL_TEMP_2],
                          render_file="/tmp/unbindvrf_fib_2.txt")
@@ -1601,29 +1635,32 @@ class TestVrfUnbindIntf():
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             fib_info_files=["/tmp/unbindvrf_fib_2.txt"],
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
     @pytest.mark.usefixtures('setup_vrf_rebind_intf')
-    def test_pc1_neigh_after_rebind(self, partial_ptf_runner):
+    def test_pc1_neigh_after_rebind(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='fwd',
             fib_info_files=['/tmp/unbindvrf_neigh_1.txt'],
             src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
             ipv4=True,
-            ipv6=False
+            ipv6=False,
+            skip_traffic_test=skip_traffic_test
         )
 
     @pytest.mark.usefixtures('setup_vrf_rebind_intf')
-    def test_vrf1_fib_after_rebind(self, ptfhost, tbinfo, partial_ptf_runner):
+    def test_vrf1_fib_after_rebind(self, ptfhost, tbinfo, partial_ptf_runner, skip_traffic_test):    # noqa F811
         gen_vrf_fib_file('Vrf1', tbinfo, ptfhost,
                          render_file='/tmp/rebindvrf_vrf1_fib.txt')
 
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             fib_info_files=["/tmp/rebindvrf_vrf1_fib.txt"],
-            src_ports=g_vars['vrf_member_port_indices']['Vrf1']
+            src_ports=g_vars['vrf_member_port_indices']['Vrf1'],
+            skip_traffic_test=skip_traffic_test
         )
 
 
@@ -1705,48 +1742,54 @@ class TestVrfDeletion():
             "ip neigh show vrf Vrf1", module_ignore_errors=True)['stdout']
         assert '' == ip_neigh_show, "The neighbors on Vrf1 should be flushed after Vrf1 is deleted."
 
-    def test_vrf1_neighs_flushed_by_traffic(self, partial_ptf_runner):
+    def test_vrf1_neighs_flushed_by_traffic(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             pkt_action='drop',
             fib_info_files=["/tmp/vrf1_neigh.txt"],
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf1_routes_flushed(self, partial_ptf_runner):
+    def test_vrf1_routes_flushed(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             pkt_action='drop',
             fib_info_files=["/tmp/vrf1_fib.txt"],
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf2_neigh(self, partial_ptf_runner):
+    def test_vrf2_neigh(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             fib_info_files=["/tmp/vrf2_neigh.txt"],
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'],
+            skip_traffic_test=skip_traffic_test
         )
 
-    def test_vrf2_fib(self, partial_ptf_runner):
+    def test_vrf2_fib(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             fib_info_files=["/tmp/vrf2_fib.txt"],
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf2']['Vlan2000'],
+            skip_traffic_test=skip_traffic_test
         )
 
     @pytest.mark.usefixtures('setup_vrf_restore')
-    def test_vrf1_neigh_after_restore(self, partial_ptf_runner):
+    def test_vrf1_neigh_after_restore(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         partial_ptf_runner(
             testname="vrf_test.FwdTest",
             fib_info_files=["/tmp/vrf1_neigh.txt"],
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
 
     @pytest.mark.usefixtures('setup_vrf_restore')
-    def test_vrf1_fib_after_resotre(self, partial_ptf_runner):
+    def test_vrf1_fib_after_resotre(self, partial_ptf_runner, skip_traffic_test):    # noqa F811
         partial_ptf_runner(
             testname="vrf_test.FibTest",
             fib_info_files=["/tmp/vrf1_fib.txt"],
-            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000']
+            src_ports=g_vars['vrf_intf_member_port_indices']['Vrf1']['Vlan1000'],
+            skip_traffic_test=skip_traffic_test
         )
