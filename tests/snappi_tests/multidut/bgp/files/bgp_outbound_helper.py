@@ -931,11 +931,13 @@ def get_convergence_for_link_flap(duthosts,
                         format(flap_details['port_name'], flap_details['device_name']))
             duthosts[0].command('sudo config interface shutdown {} \n'.
                                 format(flap_details['port_name']))
+            wait(DUT_TRIGGER, "For link to shutdown")
         elif 'Ixia' == flap_details['device_name']:
             if fanout_presence is False:
                 ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
                 ixn_port.LinkUpDn("down")
                 logger.info('Shutting down snappi port : {}'.format(flap_details['port_name']))
+                wait(SNAPPI_TRIGGER, "For link to shutdown")
             else:
                 for port in fanout_uplink_snappi_info:
                     if flap_details['port_name'] == port['name']:
@@ -947,7 +949,7 @@ def get_convergence_for_link_flap(duthosts,
                 pytest_assert(fanout_port is not None, 'Unable to get fanout port info')
                 fanout_dut_obj.command('sudo config interface shutdown {} \n'.format(fanout_port))
                 logger.info(' Shutting down {} from {}'.format(fanout_port, fanout_dut_obj.hostname))
-        wait(SNAPPI_TRIGGER, "For link to shutdown")
+                wait(DUT_TRIGGER, "For link to shutdown")
         flow_stats = get_flow_stats(api)
         for i in range(0, len(traffic_type)):
             pytest_assert(flow_stats[i].frames_tx_rate == flow_stats[i].frames_rx_rate,
@@ -969,11 +971,25 @@ def get_convergence_for_link_flap(duthosts,
                         format(flap_details['port_name'], flap_details['device_name']))
             duthosts[0].command('sudo config interface startup {} \n'.
                                 format(flap_details['port_name']))
+            wait(DUT_TRIGGER, "For link to startup")
         elif 'Ixia' == flap_details['device_name']:
-            ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
-            ixn_port.LinkUpDn("up")
-            logger.info('Starting up snappi ports : {}'.format(flap_details['port_name']))
-        wait(SNAPPI_TRIGGER, "For link to startup")
+            if fanout_presence is False:
+                ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
+                ixn_port.LinkUpDn("up")
+                logger.info('Starting up snappi port : {}'.format(flap_details['port_name']))
+                wait(SNAPPI_TRIGGER, "For link to startup")
+            else:
+                for port in fanout_uplink_snappi_info:
+                    if flap_details['port_name'] == port['name']:
+                        uplink_port = port['peer_port']
+                for fanout_mapping in t2_uplink_fanout_info['port_mapping']:
+                    if fanout_mapping['uplink_port'] == uplink_port:
+                        fanout_port = fanout_mapping['fanout_port']
+                        break
+                pytest_assert(fanout_port is not None, 'Unable to get fanout port info')
+                fanout_dut_obj.command('sudo config interface startup {} \n'.format(fanout_port))
+                logger.info(' Starting up {} from {}'.format(fanout_port, fanout_dut_obj.hostname))
+                wait(DUT_TRIGGER, "For link to startup")
         logger.info('\n')
         port_stats = get_port_stats(api)
         logger.info('Rx Snappi Port Name : Rx Frame Rate')
