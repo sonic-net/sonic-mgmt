@@ -723,7 +723,7 @@ sonic_mlnx_sn3800:
 
 sonic_mlnx_sn4600c:
   vars:
-    hwsku: ACS-MSN4600C
+    hwsku: Mellanox-SN4600C-C64
     iface_speed: 100000
   hosts:
     bjw-can-4600c-1:
