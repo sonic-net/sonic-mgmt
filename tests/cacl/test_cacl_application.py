@@ -592,8 +592,13 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6tables_rules, asic_index)
 
     # Allow all packets with a TTL/hop limit of 0 or 1
-    iptables_rules.append("-A INPUT -m ttl --ttl-lt 2 -j ACCEPT")
-    ip6tables_rules.append("-A INPUT -p tcp -m hl --hl-lt 2 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p icmp -m ttl --ttl-lt 2 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p udp -m ttl --ttl-lt 2 -m udp --dport 1025:65535 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p tcp -m ttl --ttl-lt 2 -m tcp --dport 1025:65535 -j ACCEPT")
+
+    ip6tables_rules.append("-A INPUT -p ipv6-icmp -m hl --hl-lt 2 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT -p udp -m hl --hl-lt 2 -m udp --dport 1025:65535 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT -p tcp -m hl --hl-lt 2 -m tcp --dport 1025:65535 -j ACCEPT")
 
     # If we have added rules from the device config, we lastly add default drop rules
     if rules_applied_from_config > 0:
