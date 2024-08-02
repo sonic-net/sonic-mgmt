@@ -10,7 +10,8 @@ from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from
     remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, get_diff_hash_algorithm
 from generic_hash_helper import restore_configuration, reload, global_hash_capabilities, restore_interfaces  # noqa:F401
 from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxlan_port, \
-    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor   # noqa:F401
+    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor, \
+    get_balance_range_for_ingress_port_field  # noqa:F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa F401
@@ -267,7 +268,8 @@ def config_all_hash_algorithm(duthost, ecmp_algorithm, lag_algorithm):  # noqa:F
 
 def test_ecmp_and_lag_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,  # noqa:F811
                            restore_vxlan_port, get_supported_hash_algorithms,  # noqa:F811
-                           toggle_all_simulator_ports_to_upper_tor):  # noqa:F811
+                           toggle_all_simulator_ports_to_upper_tor,  # noqa:F811
+                           get_balance_range_for_ingress_port_field):  # noqa:F811
     """
     Test case to validate the hash behavior when both ecmp and lag hash are configured with a same field.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -297,9 +299,15 @@ def test_ecmp_and_lag_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, glob
     with allure.step('Prepare test parameters'):
         # Get the interfaces for the test, downlink interface is selected randomly
         uplink_interfaces, downlink_interfaces = get_interfaces_for_test(duthost, mg_facts, ecmp_test_hash_field)
-        ptf_params = generate_test_params(
-            duthost, tbinfo, mg_facts, ecmp_test_hash_field, ipver, inner_ipver, encap_type, uplink_interfaces,
-            downlink_interfaces, ecmp_hash=True, lag_hash=True)
+        if ecmp_test_hash_field == "IN_PORT":
+            ptf_params = generate_test_params(
+                duthost, tbinfo, mg_facts, ecmp_test_hash_field, ipver, inner_ipver, encap_type, uplink_interfaces,
+                downlink_interfaces, ecmp_hash=True, lag_hash=True,
+                balancing_range=get_balance_range_for_ingress_port_field)
+        else:
+            ptf_params = generate_test_params(
+                duthost, tbinfo, mg_facts, ecmp_test_hash_field, ipver, inner_ipver, encap_type, uplink_interfaces,
+                downlink_interfaces, ecmp_hash=True, lag_hash=True)
         if ptf_params.get('vxlan_port') and ptf_params['vxlan_port'] != DEFAULT_VXLAN_PORT:
             config_custom_vxlan_port(duthost, ptf_params['vxlan_port'])
     with allure.step('Start the ptf test, send traffic and check the balancing'):
