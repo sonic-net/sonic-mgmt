@@ -6,6 +6,7 @@ import sys
 import os
 import re
 import time
+import six
 
 DOCUMENTATION = '''
 module:  exabgp
@@ -48,6 +49,7 @@ DEFAULT_BGP_LISTEN_PORT = 179
 http_api_py = '''\
 from flask import Flask, request
 import sys
+import six
 
 #Disable banner msg from app.run, or the output might be caught by exabgp and run as command
 cli = sys.modules['flask.cli']
@@ -58,7 +60,15 @@ app = Flask(__name__)
 # Setup a command route to listen for prefix advertisements
 @app.route('/', methods=['POST'])
 def run_command():
-    if 'commands' in request.form:
+    # code made compatible to run in Py2 or Py3 environment
+    # to support back-porting
+    request_has_commands = False
+    if six.PY2:
+        request_has_commands = request.form.has_key('commands')
+    else:
+        request_has_commands = 'commands' in request.form
+
+    if request_has_commands:
         cmds = request.form['commands'].split(';')
     else:
         cmds = [ request.form['command'] ]
@@ -212,7 +222,12 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
         dump_config = jinja2.Template(
             dump_config_tmpl).render(dump_script=dump_script)
 
-    t = jinja2.Template(exabgp_v4_conf_tmpl)
+    # backport friendly checking; not required if everything is Py3
+    t = None
+    if six.PY2:
+        t = jinja2.Template(exabgp_conf_tmpl)
+    else:
+        t = jinja2.Template(exabgp_v4_conf_tmpl)
     data = t.render(name=name,
                     router_id=router_id,
                     local_ip=local_ip,
