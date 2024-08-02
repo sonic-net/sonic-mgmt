@@ -181,7 +181,7 @@ t2_uplink_fanout_info = {
                                 }
                             ]
                         }
-# The order of hostname is very important for the outbound test (T1, T2 Uplink and T2 Downlink)
+# The order of hostname is very important for the outbound test (T1, T2 Uplink, T2 Downlink and Supervisor)
 t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink", "sonic-t2-supervisor"]
 t1_ports = {
                 t1_t2_device_hostnames[0]:
