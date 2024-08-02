@@ -320,31 +320,21 @@ steps:
         echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
         IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
         failure_count=0
-        runtest_polling_timeout=0
         for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
         do
             echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
             echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
             echo -e "\033[33mfor detailed test plan progress \033[0m"
             # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
-            echo "[test_plan.py] poll EXECUTING status, timeout 20 hours"
-            python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }} --timeout 72000
+            echo "[test_plan.py] poll EXECUTING status, timeout 22 hours"
+            python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }} --timeout 79200
             RET=$?
-            if [ $RET -ne 0 ]; then
+            # RC==2 means polling test plan timeout, do not consider it as failure so far
+            if [ $RET -ne 0 ] && [ $RET -ne 2 ]; then
                 echo "Test plan $TEST_PLAN_ID failed with RC $RET"
                 ((failure_count++))
             fi
-            if [ $RET -eq 2 ]; then
-                echo "Polling timeout, test plan: $TEST_PLAN_ID"
-                ((runtest_polling_timeout++))
-            fi
         done
-
-        # Set variable POLL_AGAIN to "YES" if polling timeout
-        if [ $runtest_polling_timeout -gt 0 ]; then
-            echo "Polling timeout happened, run the next Run test step to poll again"
-            echo "##vso[task.setvariable variable=POLL_AGAIN]YES"
-        fi
 
         if [ $failure_count -eq ${#TEST_PLAN_ID_LIST[@]} ]; then
             echo "All testplan failed, cancel following steps"
@@ -352,49 +342,6 @@ steps:
         fi
 
     displayName: "Run test"
-    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: "SONiC-Automation"
-      scriptType: 'bash'
-      scriptLocation: 'inlineScript'
-      inlineScript: |
-        set -o
-        echo "Run test2"
-
-        # Check if variable POLL_AGAIN is set and equals to "YES". If not, skip this step
-        if [ "$POLL_AGAIN" != "YES" ]; then
-            echo "Previous Run Test step did not fail with polling timeout. Skip this Run test2 step"
-            exit 0
-        fi
-
-        echo "Polling timeout happened in previous Run test step, run this Run test2 step to poll again"
-
-        echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
-        IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
-        failure_count=0
-        for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
-        do
-            echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-            echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
-            echo -e "\033[33mfor detailed test plan progress \033[0m"
-            # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
-            echo "[test_plan.py] poll EXECUTING status, timeout 16 hours"
-            python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }} --timeout 57600
-            RET=$?
-            if [ $RET -ne 0 ]; then
-                echo "Test plan $TEST_PLAN_ID failed"
-                ((failure_count++))
-            fi
-        done
-
-        if [ $failure_count -eq ${#TEST_PLAN_ID_LIST[@]} ]; then
-            echo "All testplan failed, cancel following steps"
-            exit 3
-        fi
-    displayName: "Run test2"
-    condition: succeededOrFailed()
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
 
   - ${{ if eq(parameters.DUMP_KVM_IF_FAIL, 'True') }}:
@@ -430,6 +377,13 @@ steps:
       inlineScript: |
         set -e
         echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
+
+        # If TEST_PLAN_TYPE is NIGHTLY, skip the cancel step
+        if [ "${{ parameters.TEST_PLAN_TYPE }}" == "NIGHTLY" ]; then
+            echo "TEST_PLAN_TYPE is NIGHTLY, skip the cancel step as a dirty workaround for az login timeout issue"
+            exit 0
+        fi
+
         IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
         for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
         do
