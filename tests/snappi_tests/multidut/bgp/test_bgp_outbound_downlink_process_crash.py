@@ -86,7 +86,7 @@ def test_bgp_outbound_downlink_process_crash(snappi_api,                        
         elif t1_t2_device_hostnames[2] in duthost.hostname:
             snappi_extra_params.multi_dut_params.duthost3 = duthost
         else:
-            pytest_assert(False, "Hostnames in variables.py doesn't match the dut hostname")
+            continue
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
     run_bgp_outbound_process_restart_test(api=snappi_api,

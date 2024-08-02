@@ -158,9 +158,31 @@ AS_PATHS = [65002]
 
 snappi_community_for_t1 = ["8075:54000"]
 snappi_community_for_t2 = ["8075:316", "8075:10400"]
+fanout_presence = True
+t2_uplink_fanout_info = {
+                            'fanout_hostname': "sonic-t2-fanout",
+                            'port_mapping':
+                            [
+                                {
+                                    'uplink_port': 'Ethernet0',
+                                    'fanout_port': 'Ethernet0'
+                                },
+                                {
+                                    'uplink_port': 'Ethernet88',
+                                    'fanout_port': 'Ethernet88'
+                                },
+                                {
+                                    'uplink_port': 'Ethernet192',
+                                    'fanout_port': 'Ethernet192'
+                                },
+                                {
+                                    'uplink_port': 'Ethernet144',
+                                    'fanout_port': 'Ethernet144'
+                                }
+                            ]
+                        }
 # The order of hostname is very important for the outbound test (T1, T2 Uplink and T2 Downlink)
-t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink"]
-
+t1_t2_device_hostnames = ["sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink", "sonic-t2-supervisor"]
 t1_ports = {
                 t1_t2_device_hostnames[0]:
                 [

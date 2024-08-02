@@ -5,7 +5,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
      fanout_graph_facts_multidut                                                                     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api, multidut_snappi_ports_for_bgp                                                       # noqa: F401
-from tests.snappi_tests.variables import t1_t2_device_hostnames, t1_ports                             # noqa: F401
+from tests.snappi_tests.variables import t1_t2_device_hostnames, fanout_presence, \
+     t2_uplink_fanout_info                            # noqa: F401
 from tests.snappi_tests.multidut.bgp.files.bgp_outbound_helper import (
      run_bgp_outbound_link_flap_test)                                                               # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
@@ -72,7 +73,10 @@ def test_bgp_outbound_uplink_po_member_flap(snappi_api,                         
     ansible_dut_hostnames = []
     for duthost in duthosts:
         ansible_dut_hostnames.append(duthost.hostname)
-
+        if fanout_presence is True:
+            if t2_uplink_fanout_info['fanout_hostname'] == duthost.hostname:
+                fanout_dut_obj = duthost
+                snappi_extra_params.fanout_dut_obj = fanout_dut_obj
     for device_hostname in t1_t2_device_hostnames:
         if device_hostname not in ansible_dut_hostnames:
             logger.info('!!!!! Attention: {} not in : {} derived from ansible dut hostnames'.
@@ -87,8 +91,7 @@ def test_bgp_outbound_uplink_po_member_flap(snappi_api,                         
         elif t1_t2_device_hostnames[2] in duthost.hostname:
             snappi_extra_params.multi_dut_params.duthost3 = duthost
         else:
-            pytest_assert(False, "Hostnames in variables.py doesn't match the dut hostname")
-
+            continue
     snappi_extra_params.multi_dut_params.multi_dut_ports = multidut_snappi_ports_for_bgp
     run_bgp_outbound_link_flap_test(api=snappi_api,
                                     snappi_extra_params=snappi_extra_params)

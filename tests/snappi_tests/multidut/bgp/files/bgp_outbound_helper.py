@@ -17,10 +17,12 @@ from tests.snappi_tests.variables import T1_SNAPPI_AS_NUM, T2_SNAPPI_AS_NUM, T1_
      t1_t2_snappi_ipv6_list, t2_dut_portchannel_ipv4_list, t2_dut_portchannel_ipv6_list, \
      snappi_portchannel_ipv4_list, snappi_portchannel_ipv6_list, AS_PATHS, \
      BGP_TYPE, t1_side_interconnected_port, t2_side_interconnected_port, router_ids, \
-     snappi_community_for_t1, snappi_community_for_t2, SNAPPI_TRIGGER, DUT_TRIGGER  # noqa: F401
+     snappi_community_for_t1, snappi_community_for_t2, SNAPPI_TRIGGER, DUT_TRIGGER, \
+     fanout_presence, t2_uplink_fanout_info  # noqa: F401
 
 logger = logging.getLogger(__name__)
 total_routes = 0
+fanout_uplink_snappi_info = []
 
 
 def run_bgp_outbound_process_restart_test(api,
@@ -99,6 +101,8 @@ def run_bgp_outbound_link_flap_test(api,
     iteration = snappi_extra_params.iteration
     flap_details = snappi_extra_params.multi_dut_params.flap_details
     test_name = snappi_extra_params.test_name
+    if fanout_presence:
+        fanout_dut_obj = snappi_extra_params.fanout_dut_obj
 
     """ Create bgp config on dut """
     duthost_bgp_config(duthosts,
@@ -123,7 +127,8 @@ def run_bgp_outbound_link_flap_test(api,
                                       traffic_type,
                                       iteration,
                                       route_range,
-                                      test_name)
+                                      test_name,
+                                      fanout_dut_obj)
 
 
 def duthost_bgp_config(duthosts,
@@ -573,6 +578,7 @@ def __snappi_bgp_config(api,
         traffic_type: IPv4 or IPv6 traffic
         route_range: v4 and v6 route combination
     """
+    global fanout_uplink_snappi_info
     ipv4_src, ipv6_src = [], []
     ipv4_dest, ipv6_dest = [], []
     global total_routes
@@ -613,6 +619,7 @@ def __snappi_bgp_config(api,
                     if snappi_test_port['peer_port'] == mem_port and \
                        snappi_test_port['peer_device'] == duthosts[1].hostname:
                         snappi_test_port['name'] = 'Snappi_Uplink_PO_{}_Link_{}'.format(po, index)
+                        fanout_uplink_snappi_info.append(snappi_test_port)
                         config.ports.port(name=snappi_test_port['name'], location=snappi_test_port['location'])
                     else:
                         continue
@@ -851,7 +858,8 @@ def get_convergence_for_link_flap(duthosts,
                                   traffic_type,
                                   iteration,
                                   route_range,
-                                  test_name):
+                                  test_name,
+                                  fanout_dut_obj=None):
     """
     Args:
         duthost (pytest fixture): duthost fixture
@@ -861,6 +869,7 @@ def get_convergence_for_link_flap(duthosts,
         traffic_type : IPv4 / IPv6 traffic type
         iteration : Number of iterations
         test_name: Name of the test
+        fanout_dut_obj: Fanout dut object incase of fanout device between uplink and snappi
     """
     api.set_config(bgp_config)
     avg_pld = []
@@ -923,9 +932,21 @@ def get_convergence_for_link_flap(duthosts,
             duthosts[0].command('sudo config interface shutdown {} \n'.
                                 format(flap_details['port_name']))
         elif 'Ixia' == flap_details['device_name']:
-            ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
-            ixn_port.LinkUpDn("down")
-            logger.info('Shutting down snappi port : {}'.format(flap_details['port_name']))
+            if fanout_presence is False:
+                ixn_port = ixnetwork.Vport.find(Name=flap_details['port_name'])[0]
+                ixn_port.LinkUpDn("down")
+                logger.info('Shutting down snappi port : {}'.format(flap_details['port_name']))
+            else:
+                for port in fanout_uplink_snappi_info:
+                    if flap_details['port_name'] == port['name']:
+                        uplink_port = port['peer_port']
+                for fanout_mapping in t2_uplink_fanout_info['port_mapping']:
+                    if fanout_mapping['uplink_port'] == uplink_port:
+                        fanout_port = fanout_mapping['fanout_port']
+                        break
+                pytest_assert(fanout_port is not None, 'Unable to get fanout port info')
+                fanout_dut_obj.command('sudo config interface shutdown {} \n'.format(fanout_port))
+                logger.info(' Shutting down {} from {}'.format(fanout_port, fanout_dut_obj.hostname))
         wait(SNAPPI_TRIGGER, "For link to shutdown")
 
         for i in range(0, len(traffic_type)):
