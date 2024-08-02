@@ -342,14 +342,18 @@ onboarding_t0:
   - sub_port_interfaces/test_sub_port_interfaces.py
   - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
-
-
+  - vxlan/test_vnet_vxlan.py
+  - vxlan/test_vxlan_decap.py
 
 onboarding_t1:
   - generic_config_updater/test_cacl.py
   - hash/test_generic_hash.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
+  - vxlan/test_vxlan_bfd_tsa.py
+  - vxlan/test_vxlan_crm.py
+  - vxlan/test_vxlan_ecmp.py
+  - vxlan/test_vxlan_ecmp_switchover.py
 
 onboarding_dualtor:
   - dualtor/test_ipinip.py
