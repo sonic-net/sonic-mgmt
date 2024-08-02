@@ -648,7 +648,7 @@ config-meta-data is defined as a string in [google-pins-system.yang](https://sou
     <tr>
       <td><strong>Validations</strong></td>
       <td><ul>
-<li>Confirm no errors and return type is a string between 1 and 253 characters conforming to regex pattern for domain-name defined in openconfig-inet-types.yang.</li>
+<li>Confirm no errors and return type is a string between 1 and 253 characters conforming to regex pattern for domain-name defined in the openconfig-inet-types.yang.</li>
 </ul>
 <ul>
 <li>Confirm value matches dhcp assigned hostname.</li>
