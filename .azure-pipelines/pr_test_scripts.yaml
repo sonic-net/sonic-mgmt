@@ -19,6 +19,7 @@ t0:
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - console/test_console_availability.py
   - console/test_console_driver.py
@@ -190,6 +191,13 @@ t0:
   - platform_tests/link_flap/test_link_flap.py
   - platform_tests/test_memory_exhaustion.py
   - generic_config_updater/test_pg_headroom_update.py
+  - sub_port_interfaces/test_show_subinterface.py
+  - pc/test_lag_member.py
+  - platform_tests/test_link_down.py
+  - gnmi/test_gnmi_countersdb.py
+  - sub_port_interfaces/test_sub_port_l2_forwarding.py
+  - snmp/test_snmp_psu.py
+  - platform_tests/cli/test_show_platform.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -267,6 +275,7 @@ t1-lag:
   - snmp/test_snmp_pfc_counters.py
   - snmp/test_snmp_queue.py
   - snmp/test_snmp_v2mib.py
+  - sub_port_interfaces/test_show_subinterface.py
   - test_interfaces.py
   - test_pktgen.py
 
@@ -320,26 +329,19 @@ dpu:
 onboarding_t0:
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - generic_config_updater/test_dynamic_acl.py
-  - pc/test_lag_member.py
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
-  - platform_tests/cli/test_show_platform.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_reboot.py
   - platform_tests/test_reload_config.py
   - snmp/test_snmp_link_local.py
-  - snmp/test_snmp_psu.py
   - snmp/test_snmp_queue_counters.py
-  - sub_port_interfaces/test_show_subinterface.py
   - sub_port_interfaces/test_sub_port_interfaces.py
-  - sub_port_interfaces/test_sub_port_l2_forwarding.py
   - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
-  - gnmi/test_gnmi_countersdb.py
-  - platform_tests/test_link_down.py
   - vxlan/test_vnet_vxlan.py
   - vxlan/test_vxlan_decap.py
 
@@ -359,9 +361,14 @@ onboarding_dualtor:
   - dualtor/test_switchover_failure.py
   - dualtor/test_tor_ecn.py
   - dualtor/test_tunnel_memory_leak.py
+  - dualtor_io/test_heartbeat_failure.py
+  - dualtor_io/test_link_drop.py
+  - dualtor_io/test_link_failure.py
+  - dualtor_io/test_normal_op.py
+  - dualtor_io/test_tor_bgp_failure.py
+  - dualtor_io/test_tor_failure.py
   - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
-
 
 specific_param:
   t0-sonic:
