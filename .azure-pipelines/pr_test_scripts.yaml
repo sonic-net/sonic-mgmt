@@ -342,6 +342,8 @@ onboarding_t0:
   - sub_port_interfaces/test_sub_port_interfaces.py
   - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
+  - vxlan/test_vnet_vxlan.py
+  - vxlan/test_vxlan_decap.py
   - span/test_port_mirroring.py
   - drop_packets/test_drop_counters.py
   - vrf/test_vrf.py
@@ -352,6 +354,10 @@ onboarding_t1:
   - hash/test_generic_hash.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
+  - vxlan/test_vxlan_bfd_tsa.py
+  - vxlan/test_vxlan_crm.py
+  - vxlan/test_vxlan_ecmp.py
+  - vxlan/test_vxlan_ecmp_switchover.py
   - stress/test_stress_routes.py
   - drop_packets/test_drop_counters.py
   - sub_port_interfaces/test_sub_port_interfaces.py
