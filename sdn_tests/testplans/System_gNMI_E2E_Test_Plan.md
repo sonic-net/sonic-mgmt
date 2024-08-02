@@ -168,12 +168,12 @@ Config paths can be read or written.  Writing a config path indicates a desired 
 <li>One of the sylog ip addresses should be:</li>
 </ul>
 <ul>
-<li>"172.20.0.192": for ipv4</li>
+<li>"xx.xx.xx.xx": for ipv4</li>
 </ol>
 </li>
 </ul>
 <ul>
-<li>"[2001:4860:f802::c0]": for ipv4free installs</li>
+<li>"[xx::xx::xx::xx]": for ipv4free installs</li>
 </ol>
 </li>
 </ul>
@@ -181,12 +181,12 @@ Config paths can be read or written.  Writing a config path indicates a desired 
 <li>The other syslog ip address should be:</li>
 </ul>
 <ul>
-<li>"172.20.0.191": for ipv4</li>
+<li>"xx.xx.xx.xx": for ipv4</li>
 </ol>
 </li>
 </ul>
 <ul>
-<li>"[2001:4860:f802::bf]": for ipv4free installs</li>
+<li>"[xx::xx::xx::xx::]": for ipv4free installs</li>
 </ol>
 </li>
 </ul>
@@ -238,7 +238,7 @@ Config paths can be read or written.  Writing a config path indicates a desired 
 
 
 ## Tests
-### Perform a gNMI get on the following 6 openconfig paths:<br>
+**Test**: Perform a gNMI get on the following 6 openconfig paths:<br>
 /system/memory/state/active<br>
 /system/memory/state/buffer<br>
 /system/memory/state/cached<br>
@@ -329,7 +329,7 @@ Config paths can be read or written.  Writing a config path indicates a desired 
   </tbody>
 </table>
 
-### Perform a gNMI get on:<br>
+**Test**: Perform a gNMI get on:<br>
 /system/memory/state/counters/correctable-ecc-errors<br>
 /system/memory/state/counters/uncorrectable-ecc-errors<br>
 
@@ -435,7 +435,7 @@ OpenConfig Definition:
     peertype is not defined in openconfig-system.yang. ntpq lists peer type as one of (local, unicast, multicast or broadcast) and display the type as a single char (lumb). I presume this will be defined as 
 
 ## Tests
-### Perform a gNMI get: <br />
+**Test**: Perform a gNMI get on: <br />
 ntp/state/enabled<br />
 
 <table>
@@ -451,8 +451,7 @@ ntp/state/enabled<br />
 </table>
 
 #### 
-### Perform a gNMI read on <br />
-/system/ntp/servers to get the list of server address keys. <br />
+**Test**: Perform a gNMI read on /system/ntp/servers to get the list of server address keys.<br />
 For each returned address key read: /system/ntp/servers/server[address=<ntp_address>]/state/address <br />
 <table>
   <tbody>
@@ -473,7 +472,7 @@ For each returned address key read: /system/ntp/servers/server[address=<ntp_addr
 </table>
 
 #### 
-### Perform a gNMI read on /system/ntp/servers <br>
+**Test**: Perform a gNMI read on /system/ntp/servers <br>
 /system/ntp/servers/server[address=<ntp_address>]/state/stratum<br>
 /system/ntp/servers/server[address=<ntp_address>]/state/root-delay<br>
 /system/ntp/servers/server[address=<ntp_address>]/state/offset<br>
@@ -573,7 +572,7 @@ config-meta-data is defined as a string in [google-pins-system.yang](https://sou
 ```
 
 ## Tests
-### Perform a gNMI get to:
+**Test**:
 Read boot-time: time1. <br>
 Delay three seconds. <br>
 Read boot-time: time2. <br>
@@ -808,50 +807,6 @@ OpenConfig Definition here: [openconfig-procmon.yang](google3/third_party/openco
 
 
 <table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th><ul>
-<li>Perform gNMI read on /system/processes/process[pid=*] to fetch the list of processes running on the switch. For each process, perform a gNMI read on the following paths:</li>
-</ul>
-<ul>
-<li>/system/processes/process[pid=<process_id>]/state/memory-usage</li>
-</ol>
-</li>
-</ul>
-<ul>
-<li>/system/processes/process[pid=<process_id>]/state/pid</li>
-</ol>
-</li>
-</ul>
-<ul>
-<li>/system/processes/process[pid=<process_id>]/state/name</li>
-</ol>
-</li>
-</ul>
-<ul>
-<li>/system/processes/process[pid=<process_id>]/state/cpu-utilization</li>
-</ol>
-</li>
-</ul>
-<ul>
-<li>/system/processes/process[pid=<process_id>]/state/cpu-usage-user</li>
-</ol>
-</li>
-</ul>
-<ul>
-<li>/system/processes/process[pid=<process_id>]/state/cpu-usage-system</li>
-</ol>
-</li>
-</ul>
-<ul>
-<li>/system/processes/process[pid=<process_id>]/state/start-time</li>
-</ol>
-</li>
-</ul>
-</th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
