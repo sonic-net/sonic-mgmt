@@ -4,6 +4,7 @@ import logging
 import allure
 import json
 from datetime import datetime
+import six
 
 logger = logging.getLogger(__name__)
 
@@ -55,15 +56,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         logger.info("Skip test case {} for not support on KVM DUT".format(testname))
         return True
 
-    ptf_path = '/usr/local/bin/ptf'
-    path_exists = host.stat(path=ptf_path)
-    if path_exists["stat"]["exists"]:
-        cmd = ptf_path + " --test-dir {} {}".format(testdir, testname)
-    else:
-        error_msg = "PTF doesn't exist.\n" \
-                    "Please check and update docker-ptf image, make sure to use the correct one."
-        logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, error_msg))
-        raise Exception(error_msg)
+    cmd = "ptf --test-dir {} {}".format(testdir, testname)
 
     if platform_dir:
         cmd += " --platform-dir {}".format(platform_dir)
@@ -100,6 +93,9 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         cmd += " " + custom_options
 
     if hasattr(host, "macsec_enabled") and host.macsec_enabled:
+        if six.PY2:
+            logger.error("MACsec is only available in Python3")
+            raise Exception("MACsec is only available in Python3")
         host.create_macsec_info()
 
     try:

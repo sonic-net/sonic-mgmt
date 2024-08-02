@@ -132,7 +132,7 @@
       config_source: "config_db"
 
   - name: Get PID of the PTF script
-    command: "pgrep -f '/usr/bin/python /usr/local/bin/ptf'"
+    command: "pgrep -f '/usr/bin/python /usr/bin/ptf'"
     register: ptf_script_pid
     delegate_to: "{{ ptf_host }}"
     ignore_errors: yes
