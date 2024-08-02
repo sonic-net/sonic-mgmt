@@ -438,6 +438,17 @@ def rand_one_dut_front_end_hostname(request):
 
 
 @pytest.fixture(scope="module")
+def rand_one_tgen_dut_hostname(request, tbinfo, rand_one_dut_front_end_hostname, rand_one_dut_hostname):
+    """
+    Return the randomly selected duthost for TGEN test cases
+    """
+    # For T2, we need to skip supervisor, only use linecards.
+    if 't2' in tbinfo['topo']['name']:
+        return rand_one_dut_front_end_hostname
+    return rand_one_dut_hostname
+
+
+@pytest.fixture(scope="module")
 def rand_selected_front_end_dut(duthosts, rand_one_dut_front_end_hostname):
     """
     Return the randomly selected duthost

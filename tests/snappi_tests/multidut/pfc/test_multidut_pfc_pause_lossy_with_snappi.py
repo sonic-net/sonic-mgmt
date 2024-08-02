@@ -58,10 +58,10 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     pytest_require(len(linecard_configuration_set[line_card_choice]['hostname']) != 0,
                    "Hostname can't be an empty list")
     if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
-        dut_list = random.sample(list(duthosts), 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts
+        dut_list = [dut for dut in duthosts.frontend_nodes
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
 
@@ -136,10 +136,10 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
     pytest_require(len(linecard_configuration_set[line_card_choice]['hostname']) != 0,
                    "Hostname can't be an empty list")
     if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
-        dut_list = random.sample(list(duthosts), 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts
+        dut_list = [dut for dut in duthosts.frontend_nodes
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
 
@@ -218,10 +218,10 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     pytest_require(len(linecard_configuration_set[line_card_choice]['hostname']) != 0,
                    "Hostname can't be an empty list")
     if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
-        dut_list = random.sample(list(duthosts), 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts
+        dut_list = [dut for dut in duthosts.frontend_nodes
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
 
@@ -313,10 +313,10 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     pytest_require(len(linecard_configuration_set[line_card_choice]['hostname']) != 0,
                    "Hostname can't be an empty list")
     if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
-        dut_list = random.sample(list(duthosts), 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts
+        dut_list = [dut for dut in duthosts.frontend_nodes
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
 

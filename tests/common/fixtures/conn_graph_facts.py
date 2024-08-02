@@ -12,8 +12,8 @@ def conn_graph_facts(duthosts, localhost):
 
 
 @pytest.fixture(scope="module")
-def fanout_graph_facts(localhost, duthosts, rand_one_dut_hostname, conn_graph_facts):
-    duthost = duthosts[rand_one_dut_hostname]
+def fanout_graph_facts(localhost, duthosts, rand_one_tgen_dut_hostname, conn_graph_facts):
+    duthost = duthosts[rand_one_tgen_dut_hostname]
     facts = dict()
     dev_conn = conn_graph_facts.get('device_conn', {})
     if not dev_conn:
