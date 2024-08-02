@@ -181,6 +181,12 @@ cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
       - "topo_type not in ['t1', 't0']"
       - "'dualtor' in topo_name"
 
+cacl/test_cacl_application.py:
+  skip:
+    reason: "Skip test_cacl_application temporarily due to known issue"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13805
+
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
@@ -1756,6 +1762,42 @@ vxlan/test_vxlan_crm.py:
     reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v4_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v6_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v4_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v6_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v4_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
+  skip:
+    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions:
+      - "asic_gen == 'spc1'"
 
 vxlan/test_vxlan_ecmp.py:
   skip:
