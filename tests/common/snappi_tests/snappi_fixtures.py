@@ -980,3 +980,176 @@ def pre_configure_dut_interface(duthost, snappi_ports):
         except Exception:
             pytest_assert(False, "Unable to configure ip on the interface {}".format(port['peer_port']))
     return snappi_ports_dut
+
+
+def new_get_multidut_tgen_peer_port_set(line_card_choice, ports, config_set, port_map=[1, 100, 1, 100]):
+    """
+    Configures interfaces of the DUT
+    Args:
+        line_card_choice (obj): Line card type defined by the variable file
+        ports (list): list of Snappi port configuration information
+        config_set: Comprises of linecard configuration type and asic values
+        port_map: number of ports and their speed needed for the test
+    Returns:
+        The ports for the respective line card choice from the testbed file
+    """
+    linecards = {}
+
+    for port in ports:
+        if port['peer_device'] in linecards:
+            if port['asic_value'] not in linecards[port['peer_device']]:
+                linecards[port['peer_device']][port['asic_value']] = []
+        else:
+            linecards[port['peer_device']] = {}
+            linecards[port['peer_device']][port['asic_value']] = []
+        linecards[port['peer_device']][port['asic_value']].append(port)
+
+    # Check for available ports not enough for the test.
+    if len(ports) < (port_map[0]+port_map[2]) or not linecards:
+        raise Exception("Not Enough ports ")
+    peer_ports = []
+    ports = []
+    # Single line card single ASIC.
+    card_choices = ['chassis_single_line_card_single_asic', 'chassis_slcsa_100Gbps', 'chassis_slcsa_400Gbps']
+    if line_card_choice in card_choices:
+        for line_card, asics in linecards.items():
+            for asic, asic_info in asics.items():
+                if config_set[line_card_choice]['asic'][0] == asic:
+                    peer_ports = links(asic_info, port_map[0], port_map[1])
+                    if len(peer_ports) < port_map[0]:
+                        logger.info('skipping line_card:{}, asic:{},speed:{}Gbps'.
+                                    format(line_card, asic, port_map[1]))
+                        continue
+
+                    asic_info = [x for x in asic_info if x not in peer_ports]
+
+                    ports = links(asic_info, port_map[2], port_map[3])
+                    if len(ports) < (port_map[2]):
+                        logger.info('skipping line_card:{}, asic:{},speed:{}Gbps'.
+                                    format(line_card, asic, port_map[1]))
+                        continue
+                    for i in ports:
+                        peer_ports.append(i)
+                    return peer_ports
+        if (not peer_ports):
+            raise Exception(
+                    'Error: No %dGbps-line card: %s, asic: %s' % (port_map[3], line_card_choice, asic))
+
+    elif line_card_choice in ['chassis_single_line_card_multi_asic', 'chassis_slcma_100Gbps', 'chassis_slcma_400Gbps']:
+        # Single line card multiple ASIC.
+        # if ingress ports and egress ports cannot be fitted on ASIC combination,
+        # script will swap to check if ports can be fitted on swapped ASIC.
+        for line_card, asics in linecards.items():
+            for asic, asic_info in asics.items():
+                if config_set[line_card_choice]['asic'][0] == asic and len(peer_ports) == 0:
+                    peer_ports = links(asic_info, port_map[0], port_map[1])
+                    if len(peer_ports) < port_map[0]:
+                        peer_ports = []
+                        ports = links(asic_info, port_map[2], port_map[3])
+                        if len(ports) < (port_map[2]):
+                            logger.info('Skipping: Not enough {}Gbps ports on linecard:{}:{}'.
+                                        format(port_map[3], line_card, asic))
+                            continue
+                elif ((config_set[line_card_choice]['asic'][0] == asic)
+                        and (len(peer_ports) != 0) and (len(ports) == 0)):
+                    ports = links(asic_info, port_map[2], port_map[3])
+                    if len(ports) < (port_map[2]):
+                        raise Exception(
+                                'Error: No %dGbps-line card: %s, asic: %s' % (port_map[3], line_card_choice, asic))
+
+                if config_set[line_card_choice]['asic'][1] == asic and len(peer_ports) == 0:
+                    peer_ports = links(asic_info, port_map[0], port_map[1])
+                    if len(peer_ports) < (port_map[0]):
+                        peer_ports = []
+                        ports = links(asic_info, port_map[2], port_map[3])
+                        if len(ports) < (port_map[2]):
+                            logger.info('Skipping: Not enough {}Gbps ports on linecard:{}:{}'.
+                                        format(port_map[3], line_card, asic))
+                            continue
+
+        if ((not len(peer_ports)) or (not len(ports))):
+            raise Exception('Error: Not enough ports for line card: %s' % (line_card_choice))
+
+        for i in ports:
+            peer_ports.append(i)
+        return peer_ports
+
+    elif line_card_choice in ['chassis_multi_line_card_multi_asic', 'chassis_mlcma_100Gbps', 'chassis_mlcma_400Gbps']:
+        # Multiple line cards.
+        # If ports cannot be fitted on existing line cards combination, script will swap to check if ports,
+        # can be fitted in different combination.
+        lc = 0
+        nlc_peer_ports = []
+        nlc_ports = []
+        for line_card, asics in linecards.items():
+            if (not lc):
+                for asic, asic_info in asics.items():
+                    if config_set[line_card_choice]['asic'][0] == asic and len(peer_ports) == 0 \
+                                                                       and len(ports) == 0:
+                        peer_ports, ports = comp_links(asic_info, port_map)
+                        if len(peer_ports) != 0:
+                            ports = links(asic_info, port_map[2], port_map[3])
+                        if len(ports) < (port_map[2]):
+                            ports = []
+                if (not peer_ports):
+                    continue
+            else:
+                for asic, asic_info in asics.items():
+                    if config_set[line_card_choice]['asic'][0] == asic and len(nlc_peer_ports) == 0 \
+                                                                       and len(nlc_ports) == 0:
+                        nlc_peer_ports, nlc_ports = comp_links(asic_info, port_map)
+                        if len(nlc_peer_ports) != 0:
+                            nlc_ports = links(asic_info, port_map[2], port_map[3])
+                        if len(nlc_ports) < (port_map[2]):
+                            nlc_ports = []
+
+            lc = 1
+        if (len(peer_ports) == 0 and len(ports) == 0) or (len(nlc_peer_ports) == 0 and len(nlc_ports) == 0):
+            raise Exception('Error: Not enough ports for line card: %s' % (line_card_choice))
+
+        if (len(nlc_peer_ports) != 0 and len(ports) != 0):
+            for i in ports:
+                nlc_peer_ports.append(i)
+            return nlc_peer_ports
+        if (len(peer_ports) != 0 and len(nlc_ports) != 0):
+            for i in nlc_ports:
+                peer_ports.append(i)
+            return peer_ports
+
+
+def comp_links(asic_info, port_map):
+    """
+    Gets the asic_info array and returns peer_ports and ports.
+    Arg:
+        asic_info (list): Contains list of the interfaces on given linecard
+        port_map (list): Contains the ports-speed of the setup.
+    Returns:
+        peer_ports : list for the source ports.
+        ports: list for destination ports.
+    """
+    ports = []
+    peer_ports = links(asic_info, port_map[0], port_map[1])
+    if len(peer_ports) < port_map[0]:
+        peer_ports = []
+        ports = links(asic_info, port_map[2], port_map[3])
+    return peer_ports, ports
+
+
+def links(asic_info, count=1, speed=100):
+    """
+    Gets the list with links and returns back 'count' links of 'speed'Gbps.
+    Args:
+        asic_info (list): Contains list of the interfaces on given linecard
+        count: Specific number of the interfaces to be returned back.
+        speed: Returning back interfaces matching specific speed
+    Returns:
+        The list of peer-ports with specific count and specific speed.
+    """
+    ports = []
+    for val in asic_info:
+        if (int(val['speed']) / 1000) == speed:
+            ports.append(val)
+            if len(ports) == count:
+                return ports
+
+    return ports
