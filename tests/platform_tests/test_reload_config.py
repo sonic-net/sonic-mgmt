@@ -157,7 +157,6 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     result, out = execute_config_reload_cmd(duthost)
     # config reload command shouldn't work immediately after system reboot
     assert result and "Retry later" in out['stdout']
-
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
 
     # After the system checks succeed the config reload command should not throw error
