@@ -948,12 +948,12 @@ def get_convergence_for_link_flap(duthosts,
                 fanout_dut_obj.command('sudo config interface shutdown {} \n'.format(fanout_port))
                 logger.info(' Shutting down {} from {}'.format(fanout_port, fanout_dut_obj.hostname))
         wait(SNAPPI_TRIGGER, "For link to shutdown")
-
+        flow_stats = get_flow_stats(api)
         for i in range(0, len(traffic_type)):
             pytest_assert(flow_stats[i].frames_tx_rate == flow_stats[i].frames_rx_rate,
                           'Traffic has not converged after link flap')
         logger.info('Traffic has converged after link flap')
-        flow_stats = get_flow_stats(api)
+
         delta_frames = 0
         for i in range(0, len(traffic_type)):
             delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
