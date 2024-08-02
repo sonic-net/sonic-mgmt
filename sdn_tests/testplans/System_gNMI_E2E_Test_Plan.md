@@ -238,21 +238,14 @@ Config paths can be read or written.  Writing a config path indicates a desired 
 
 
 ## Tests
+### Perform a gNMI get on the following 6 openconfig paths:<br>
+/system/memory/state/active<br>
+/system/memory/state/buffer<br>
+/system/memory/state/cached<br>
+/system/memory/state/free<br>
+/system/memory/state/physical<br>
 
 <table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th>
-Perform a gNMI get on the following 6 openconfig paths:
-<li>/system/memory/state/active</li>
-<li>/system/memory/state/buffer</li>
-<li>/system/memory/state/cached</li>
-<li>/system/memory/state/free</li>
-<li>/system/memory/state/physical</li>
-<li>/system/memory/state/used</li></th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
@@ -336,21 +329,11 @@ Perform a gNMI get on the following 6 openconfig paths:
   </tbody>
 </table>
 
-## 
-
-<table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th><br>
-<ul>
-<li>Perform a gNMI get on:</li>
-</ul>
+### Perform a gNMI get on:<br>
 /system/memory/state/counters/correctable-ecc-errors<br>
 /system/memory/state/counters/uncorrectable-ecc-errors<br>
-</th>
-    </tr>
-  </thead>
+
+<table>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
@@ -422,33 +405,40 @@ Perform a gNMI get on the following 6 openconfig paths:
 </table>
 
  
-enabled 	boolean  
-stratum 	uint8  
-root_delay 	uint32		milliseconds  
-offset		uint64		milliseconds  
-poll-interval	uint32		seconds  
-root-disperson uint64		milliseconds
+OpenConfig Definition: 
 
-> refid is not defined in openconfig-system.yang: but reference ids are defined in RFC5905 as 4 byte ascii strings and are commonly handled as a uint32.
 
-> reach is not defined in openconfig-system.yang, but reach is defined as an 8 bit integer shift register in RF5905. (note that "ntpq -p" returns ‘reach' in octal)
+    enabled 	boolean
 
-> peertype is not defined in openconfig-system.yang. ntpq lists peer type as one of (local, unicast, multicast or broadcast) and display the type as a single char (lumb). I presume this will be defined as a string.
->
 
-> 	These are not configurable on the switch.
+    stratum 	uint8
+
+
+    root_delay 	uint32		milliseconds
+
+
+    offset		uint64		milliseconds
+
+
+    poll-interval	uint32		seconds
+
+
+    root-disperson uint64		milliseconds
+
+
+    refid is not defined in openconfig-system.yang: but reference ids are defined in RFC5905 as 4 byte ascii strings and are commonly handled as a uint32.
+
+
+    reach is not defined in openconfig-system.yang, but reach is defined as an 8 bit integer shift register in RF5905. (note that “ntpq -p” returns ‘reach’ in octal)
+
+
+    peertype is not defined in openconfig-system.yang. ntpq lists peer type as one of (local, unicast, multicast or broadcast) and display the type as a single char (lumb). I presume this will be defined as 
+
 ## Tests
+### Perform a gNMI get: <br />
+ntp/state/enabled<br />
 
 <table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th><ul>
-<li>Perform a gNMI get on the ntp/state/enabled path.</li>
-</ul>
-</th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
@@ -461,21 +451,10 @@ root-disperson uint64		milliseconds
 </table>
 
 #### 
-
+### Perform a gNMI read on <br />
+/system/ntp/servers to get the list of server address keys. <br />
+For each returned address key read: /system/ntp/servers/server[address=<ntp_address>]/state/address <br />
 <table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th><ul>
-<li>Perform a gNMI read on /system/ntp/servers to get the list of server address keys.</li>
-</ul>
-<ul>
-<li>For each returned address key read:</li>
-</ul>
-<br>
-/system/ntp/servers/server[address=<ntp_address>]/state/address</th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
@@ -494,17 +473,7 @@ root-disperson uint64		milliseconds
 </table>
 
 #### 
-
-<table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th><ul>
-<li>Perform a gNMI read on /system/ntp/servers to get the list of server address keys.</li>
-</ul>
-<ul>
-<li>For each address key perform a gNMI read of: </li>
-</ul>
+### Perform a gNMI read on /system/ntp/servers <br>
 /system/ntp/servers/server[address=<ntp_address>]/state/stratum<br>
 /system/ntp/servers/server[address=<ntp_address>]/state/root-delay<br>
 /system/ntp/servers/server[address=<ntp_address>]/state/offset<br>
@@ -512,9 +481,9 @@ root-disperson uint64		milliseconds
 /system/ntp/servers/server[address=<ntp_address>]/state/root-dispersion<br>
 /system/ntp/servers/server[address=<ntp_address>]/state/peertype<br>
 /system/ntp/servers/server[address=<ntp_address>]/state/reach<br>
-/system/ntp/servers/server[address=<ntp_address>]/state/refid</th>
-    </tr>
-  </thead>
+/system/ntp/servers/server[address=<ntp_address>]/state/refid <br>
+
+<table>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
@@ -544,13 +513,13 @@ All others are probably greater than 0.<br>
   </tbody>
 </table>
 
-State Paths
+# State Paths
 
 <table>
   <thead>
     <tr>
       <th><br>
-/system/state/boot-time</th>
+/system/state/boot-time </th>
       <th><br>
 Telemetry</th>
     </tr>
@@ -604,23 +573,12 @@ config-meta-data is defined as a string in [google-pins-system.yang](https://sou
 ```
 
 ## Tests
+### Perform a gNMI get to:
+Read boot-time: time1. <br>
+Delay three seconds. <br>
+Read boot-time: time2. <br>
 
 <table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th><ul>
-<li>Read boot-time: time1.</li>
-</ul>
-<ul>
-<li>Delay three seconds.</li>
-</ul>
-<ul>
-<li>Read boot-time: time2.</li>
-</ul>
-</th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
@@ -633,17 +591,9 @@ config-meta-data is defined as a string in [google-pins-system.yang](https://sou
 </table>
 
 #### 
+#### Perform a gNMI get on hostname.
 
 <table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th><ul>
-<li>Perform a gNMI get on hostname.</li>
-</ul>
-</th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
@@ -659,12 +609,9 @@ config-meta-data is defined as a string in [google-pins-system.yang](https://sou
 </table>
 
 #### 
+#### Test on state/config-meta-data path
 
-<table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th><ul>
+<ul>
 <li>Perform a gNMI get on state/config-meta-data and store result as string1.</li>
 </ul>
 <ul>
@@ -672,10 +619,8 @@ config-meta-data is defined as a string in [google-pins-system.yang](https://sou
 </ul>
 <ul>
 <li>Perform a gNMI get on config/config-meta-data and state/config-meta-data as string3 and string 4 respectively.</li>
-</ul>
-</th>
-    </tr>
-  </thead>
+
+<table>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
@@ -718,17 +663,9 @@ interval is a uint64 in units of nanoseconds.
 ## Tests
 
 #### 
+**Test**: Perform a gNMI read on /system/cpus/cpu to get the list of cpu index keys.
 
 <table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th><ul>
-<li>Perform a gNMI read on /system/cpus/cpu to get the list of cpu index keys.</li>
-</ul>
-</th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
@@ -741,6 +678,7 @@ interval is a uint64 in units of nanoseconds.
 </table>
 
 #### 
+**Test**: For cpu's 0 -> 7: read average cpu usage.
 
 <table>
   <thead>
@@ -764,17 +702,8 @@ interval is a uint64 in units of nanoseconds.
 </table>
 
 #### 
-
+**Test**: For cpu's 0 -> 7: read interval.
 <table>
-  <thead>
-    <tr>
-      <th><strong>Test</strong></th>
-      <th><ul>
-<li>For cpu's 0 -> 7: read interval.</li>
-</ul>
-</th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><strong>Validations</strong></td>
@@ -868,6 +797,15 @@ interval is a uint64 in units of nanoseconds.
 OpenConfig Definition here: [openconfig-procmon.yang](google3/third_party/openconfig/public/release/models/system/openconfig-procmon.yang).
 
 ## Tests
+**Test**: Perform gNMI read on /system/processes/process[pid=*] to fetch the list of processes running on the switch. For each process, perform a gNMI read on the following paths: <br>
+/system/processes/process[pid=&lt;process_id>]/state/memory-usage<br>
+/system/processes/process[pid=&lt;process_id>]/state/pid<br>
+/system/processes/process[pid=&lt;process_id>]/state/name<br>
+/system/processes/process[pid=&lt;process_id>]/state/cpu-utilization<br>
+/system/processes/process[pid=&lt;process_id>]/state/cpu-usage-user<br>
+/system/processes/process[pid=&lt;process_id>]/state/cpu-usage-system<br>
+/system/processes/process[pid=&lt;process_id>]/state/start-time<br>
+
 
 <table>
   <thead>
