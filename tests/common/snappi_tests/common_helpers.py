@@ -1007,3 +1007,25 @@ def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):
     pps = int(oversubscription_ratio / pause_dur)
 
     return pps
+
+
+def start_pfcwd_fwd(duthost, asic_value=None):
+    """
+    Start PFC watchdog in Forward mode.
+    Stops the PFCWD cleanly before restarting it in FORWARD mode.
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+        asic_value: asic value of the host
+
+    Returns:
+        N/A
+    """
+
+    # Starting PFCWD in forward mode with detection and restoration duration of 200msec.
+    if asic_value is None:
+        stop_pfcwd(duthost)
+        duthost.shell('sudo pfcwd start --action forward 200 --restoration-time 200')
+    else:
+        stop_pfcwd(duthost, asic_value)
+        duthost.shell('sudo ip netns exec {} pfcwd start --action forward 200 --restoration-time 200'.
+                      format(asic_value))
