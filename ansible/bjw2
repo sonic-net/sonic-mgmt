@@ -263,18 +263,23 @@ fanout:
     bjw2-can-8101-leaf-1:
       ansible_host: 10.150.22.56
       ansible_hostv6: 2404:f801:10:2200::a96:1638
+      os: sonic
     bjw2-can-8101-leaf-2:
       ansible_host: 10.150.22.58
       ansible_hostv6: 2404:f801:10:2200::a96:163a
+      os: sonic
     bjw2-can-8101-leaf-3:
       ansible_host: 10.150.22.60
       ansible_hostv6: 2404:f801:10:2200::a96:163c
+      os: sonic
     bjw2-can-8101-leaf-4:
       ansible_host: 10.150.22.61
       ansible_hostv6: 2404:f801:10:2200::a96:163d
+      os: sonic
     bjw2-can-8101-leaf-5:
       ansible_host: 10.150.22.63
       ansible_hostv6: 2404:f801:10:2200::a96:163f
+      os: sonic
 
 
 
