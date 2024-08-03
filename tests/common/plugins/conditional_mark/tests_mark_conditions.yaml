@@ -1299,13 +1299,13 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
   skip:
     reason: "Lossless Voq test is not supported"
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
   skip:
     reason: "Lossy Queue Voq test is not supported"
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
   skip:
@@ -1317,13 +1317,13 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
   skip:
     reason: "PG drop size test is not supported."
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
   skip:
     reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000'] and platform not in ['x86_64-8122_64eh_o-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
   xfail:
@@ -1341,7 +1341,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
   skip:
     reason: "Shared reservation size test is not supported."
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
 
 qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_active:
   xfail:
