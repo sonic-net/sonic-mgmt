@@ -453,6 +453,17 @@ def rand_one_dut_front_end_hostname(request):
 
 
 @pytest.fixture(scope="module")
+def rand_one_tgen_dut_hostname(request, tbinfo, rand_one_dut_front_end_hostname, rand_one_dut_hostname):
+    """
+    Return the randomly selected duthost for TGEN test cases
+    """
+    # For T2, we need to skip supervisor, only use linecards.
+    if 't2' in tbinfo['topo']['name']:
+        return rand_one_dut_front_end_hostname
+    return rand_one_dut_hostname
+
+
+@pytest.fixture(scope="module")
 def rand_selected_front_end_dut(duthosts, rand_one_dut_front_end_hostname):
     """
     Return the randomly selected duthost
@@ -2198,6 +2209,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             # Current skipped keys:
             # 1. "MUX_LINKMGR|LINK_PROBER"
             # 2. "MUX_LINKMGR|TIMED_OSCILLATION"
+            # 3. "LOGGER|linkmgrd"
             # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
             # to account for the lower performance of the ICMP responder/mux simulator compared to
             # real servers and mux cables.
@@ -2207,7 +2219,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if "dualtor" in tbinfo["topo"]["name"]:
                 EXCLUDE_CONFIG_KEY_NAMES = [
                     'MUX_LINKMGR|LINK_PROBER',
-                    'MUX_LINKMGR|TIMED_OSCILLATION'
+                    'MUX_LINKMGR|TIMED_OSCILLATION',
+                    'LOGGER|linkmgrd'
                 ]
             else:
                 EXCLUDE_CONFIG_KEY_NAMES = []
