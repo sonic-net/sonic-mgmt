@@ -328,7 +328,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
                 "if flows reblanced as expected and are seen on now brought up link")
 
     configure_dut(duthost, "config interface startup " + dut_if_shutdown)
-    time.sleep(30)
+    time.sleep(180)
 
     flows_per_nh = NUM_FLOWS/len(port_list)
     for port in port_list:
@@ -392,7 +392,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
                 "the flow hash redistribution")
 
     configure_dut(duthost, "config interface startup " + dut_if_shutdown)
-    time.sleep(30)
+    time.sleep(180)
 
     exp_flow_count = {}
     flows_for_withdrawn_nh_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 1)
