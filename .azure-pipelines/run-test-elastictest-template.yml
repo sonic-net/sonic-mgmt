@@ -379,7 +379,9 @@ steps:
         echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
 
         # If TEST_PLAN_TYPE is NIGHTLY, skip the cancel step
-        if [ "${{ parameters.TEST_PLAN_TYPE }}" == "NIGHTLY" ]; then
+        test_plan_type=${{ parameters.TEST_PLAN_TYPE }}
+        echo "TEST_PLAN_TYPE is $test_plan_type"
+        if [ "$test_plan_type" == "NIGHTLY" ]; then
             echo "TEST_PLAN_TYPE is NIGHTLY, skip the cancel step as a dirty workaround for az login timeout issue"
             exit 0
         fi
