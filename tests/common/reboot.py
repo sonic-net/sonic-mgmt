@@ -361,11 +361,6 @@ def check_reboot_cause(dut, reboot_cause_expected):
     """
     reboot_cause_got = get_reboot_cause(dut)
     logger.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
-
-    if dut.facts["asic_type"] == "vs":
-        reboot_cause_expected = "User issued \'reboot\' command"
-        return reboot_cause_expected in reboot_cause_got
-
     return reboot_cause_got == reboot_cause_expected
 
 
