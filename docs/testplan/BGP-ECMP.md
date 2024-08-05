@@ -80,4 +80,3 @@ All expected next-hops should be present in the routing table entry.
 
 Pass: All expected paths are correctly installed in both the BGP and IP routing tables, and traffic is evenly distributed.
 Fail: One or more paths are missing from either the BGP or IP routing tables, or traffic distribution is not even.
-
