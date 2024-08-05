@@ -80,6 +80,7 @@ def run_bgp_outbound_process_restart_test(api,
 
 
 def run_bgp_outbound_link_flap_test(api,
+                                    creds,
                                     snappi_extra_params):
     """
     Run Local link failover test
@@ -101,8 +102,6 @@ def run_bgp_outbound_link_flap_test(api,
     iteration = snappi_extra_params.iteration
     flap_details = snappi_extra_params.multi_dut_params.flap_details
     test_name = snappi_extra_params.test_name
-    if fanout_presence:
-        fanout_dut_obj = snappi_extra_params.fanout_dut_obj
 
     """ Create bgp config on dut """
     duthost_bgp_config(duthosts,
@@ -128,7 +127,7 @@ def run_bgp_outbound_link_flap_test(api,
                                       iteration,
                                       route_range,
                                       test_name,
-                                      fanout_dut_obj)
+                                      creds)
 
 
 def duthost_bgp_config(duthosts,
@@ -851,6 +850,26 @@ def get_port_stats(api):
     return api.get_metrics(request).port_metrics
 
 
+def flap_fanout_port(fanout_ip, creds, port_name, state):
+    """
+    Args:
+        fanout_ip (pytest fixture): IP of the fanout device
+        creds (dict): DUT credentials
+        port_name: Name of the fanout port to be flapped
+        state: State of the interface to be up/down
+    """
+    username = creds.get('sonicadmin_user')
+    password = creds.get('sonicadmin_password')
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(fanout_ip, port=22, username=username, password=password)
+    if state == 'up':
+        command = f'sudo config interface startup {port_name}'
+    elif state == 'down':
+        command = f'sudo config interface shutdown {port_name}'
+    stdin, stdout, stderr = ssh.exec_command(command)
+
+
 def get_convergence_for_link_flap(duthosts,
                                   api,
                                   bgp_config,
@@ -859,7 +878,7 @@ def get_convergence_for_link_flap(duthosts,
                                   iteration,
                                   route_range,
                                   test_name,
-                                  fanout_dut_obj=None):
+                                  creds):
     """
     Args:
         duthost (pytest fixture): duthost fixture
@@ -869,7 +888,7 @@ def get_convergence_for_link_flap(duthosts,
         traffic_type : IPv4 / IPv6 traffic type
         iteration : Number of iterations
         test_name: Name of the test
-        fanout_dut_obj: Fanout dut object incase of fanout device between uplink and snappi
+        creds (pytest fixture): DUT credentials
     """
     api.set_config(bgp_config)
     avg_pld = []
@@ -942,13 +961,15 @@ def get_convergence_for_link_flap(duthosts,
                 for port in fanout_uplink_snappi_info:
                     if flap_details['port_name'] == port['name']:
                         uplink_port = port['peer_port']
-                for fanout_mapping in t2_uplink_fanout_info['port_mapping']:
-                    if fanout_mapping['uplink_port'] == uplink_port:
-                        fanout_port = fanout_mapping['fanout_port']
-                        break
+                for fanout_info in t2_uplink_fanout_info:
+                    for port_mapping in fanout_info['port_mapping']:
+                        if uplink_port == port_mapping['uplink_port']:
+                            fanout_port = port_mapping['fanout_port']
+                            fanout_ip = fanout_info['fanout_ip']
+                            break
                 pytest_assert(fanout_port is not None, 'Unable to get fanout port info')
-                fanout_dut_obj.command('sudo config interface shutdown {} \n'.format(fanout_port))
-                logger.info(' Shutting down {} from {}'.format(fanout_port, fanout_dut_obj.hostname))
+                flap_fanout_port(fanout_ip, creds, fanout_port, state='down')
+                logger.info(' Shutting down {} from {}'.format(fanout_port, fanout_ip))
                 wait(DUT_TRIGGER, "For link to shutdown")
         flow_stats = get_flow_stats(api)
         for i in range(0, len(traffic_type)):
@@ -980,16 +1001,8 @@ def get_convergence_for_link_flap(duthosts,
                 logger.info('Starting up snappi port : {}'.format(flap_details['port_name']))
                 wait(SNAPPI_TRIGGER, "For link to startup")
             else:
-                for port in fanout_uplink_snappi_info:
-                    if flap_details['port_name'] == port['name']:
-                        uplink_port = port['peer_port']
-                for fanout_mapping in t2_uplink_fanout_info['port_mapping']:
-                    if fanout_mapping['uplink_port'] == uplink_port:
-                        fanout_port = fanout_mapping['fanout_port']
-                        break
-                pytest_assert(fanout_port is not None, 'Unable to get fanout port info')
-                fanout_dut_obj.command('sudo config interface startup {} \n'.format(fanout_port))
-                logger.info(' Starting up {} from {}'.format(fanout_port, fanout_dut_obj.hostname))
+                flap_fanout_port(fanout_ip, creds, fanout_port, state='up')
+                logger.info('Starting up {} from {}'.format(fanout_port, fanout_ip))
                 wait(DUT_TRIGGER, "For link to startup")
         logger.info('\n')
         port_stats = get_port_stats(api)
