@@ -172,6 +172,13 @@
             "Vlan220|172.17.0.254/24": {},
             "Vlan220|2603:10e2:11:b20f:0:1:0:1/96": {}
         },
+        "DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS": {
+            "option223": {
+                "id": "223",
+                "type": "string",
+                "value": "R1,R2,0,0,1,1,1,1,1,1,1,1,0,0,0,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+            }
+        },
         "DHCP_SERVER_IPV4": {
             "Vlan220": {
                 "gateway": "172.17.0.254",
@@ -265,128 +272,9 @@
                     "172.17.0.93"
                 ]
             }
-        },
-        "DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS": {
-            "option223": {
-                "id": "223",
-                "type": "string",
-                "value": "R1,R2,0,0,1,1,1,1,1,1,1,1,0,0,0,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
-            }
         }
     },
     "4": {
-        "DHCP_SERVER_IPV4_PORT": {
-            "Vlan220|Ethernet2": {
-                "ips": [
-                    "172.17.0.9"
-                ]
-            },
-            "Vlan220|Ethernet3": {
-                "ips": [
-                    "172.17.0.13"
-                ]
-            },
-            "Vlan220|Ethernet4": {
-                "ips": [
-                    "172.17.0.17"
-                ]
-            },
-            "Vlan220|Ethernet5": {
-                "ips": [
-                    "172.17.0.21"
-                ]
-            },
-            "Vlan220|Ethernet6": {
-                "ips": [
-                    "172.17.0.25"
-                ]
-            },
-            "Vlan220|Ethernet7": {
-                "ips": [
-                    "172.17.0.29"
-                ]
-            },
-            "Vlan220|Ethernet8": {
-                "ips": [
-                    "172.17.0.33"
-                ]
-            },
-            "Vlan220|Ethernet9": {
-                "ips": [
-                    "172.17.0.37"
-                ]
-            },
-            "Vlan221|Ethernet26": {
-                "ips": [
-                    "172.17.0.105"
-                ]
-            },
-            "Vlan221|Ethernet27": {
-                "ips": [
-                    "172.17.0.109"
-                ]
-            },
-            "Vlan221|Ethernet28": {
-                "ips": [
-                    "172.17.0.113"
-                ]
-            },
-            "Vlan221|Ethernet29": {
-                "ips": [
-                    "172.17.0.117"
-                ]
-            },
-            "Vlan221|Ethernet30": {
-                "ips": [
-                    "172.17.0.121"
-                ]
-            },
-            "Vlan221|Ethernet31": {
-                "ips": [
-                    "172.17.0.125"
-                ]
-            },
-            "Vlan222|Ethernet32": {
-                "ips": [
-                    "172.17.0.129"
-                ]
-            },
-            "Vlan222|Ethernet33": {
-                "ips": [
-                    "172.17.0.133"
-                ]
-            }
-        },
-        "DHCP_SERVER_IPV4": {
-            "Vlan220": {
-                "gateway": "172.17.0.62",
-                "lease_time": "900",
-                "mode": "PORT",
-                "netmask": "255.255.255.192",
-                "state": "enabled"
-            },
-            "Vlan221": {
-                "gateway": "172.17.0.126",
-                "lease_time": "900",
-                "mode": "PORT",
-                "netmask": "255.255.255.192",
-                "state": "enabled"
-            },
-            "Vlan222": {
-                "gateway": "172.17.0.182",
-                "lease_time": "900",
-                "mode": "PORT",
-                "netmask": "255.255.255.192",
-                "state": "enabled"
-            },
-            "Vlan223": {
-                "gateway": "172.17.0.201",
-                "lease_time": "900",
-                "mode": "PORT",
-                "netmask": "255.255.255.252",
-                "state": "enabled"
-            }
-        },
         "VLAN": {
             "Vlan220": {
                 "dhcp_servers": [
@@ -602,6 +490,118 @@
             "Vlan223": {},
             "Vlan223|172.17.0.201/30": {},
             "Vlan223|2603:10e2:70:b076:0:4:0:1/96": {}
+        },
+        "DHCP_SERVER_IPV4_PORT": {
+            "Vlan220|Ethernet2": {
+                "ips": [
+                    "172.17.0.9"
+                ]
+            },
+            "Vlan220|Ethernet3": {
+                "ips": [
+                    "172.17.0.13"
+                ]
+            },
+            "Vlan220|Ethernet4": {
+                "ips": [
+                    "172.17.0.17"
+                ]
+            },
+            "Vlan220|Ethernet5": {
+                "ips": [
+                    "172.17.0.21"
+                ]
+            },
+            "Vlan220|Ethernet6": {
+                "ips": [
+                    "172.17.0.25"
+                ]
+            },
+            "Vlan220|Ethernet7": {
+                "ips": [
+                    "172.17.0.29"
+                ]
+            },
+            "Vlan220|Ethernet8": {
+                "ips": [
+                    "172.17.0.33"
+                ]
+            },
+            "Vlan220|Ethernet9": {
+                "ips": [
+                    "172.17.0.37"
+                ]
+            },
+            "Vlan221|Ethernet26": {
+                "ips": [
+                    "172.17.0.105"
+                ]
+            },
+            "Vlan221|Ethernet27": {
+                "ips": [
+                    "172.17.0.109"
+                ]
+            },
+            "Vlan221|Ethernet28": {
+                "ips": [
+                    "172.17.0.113"
+                ]
+            },
+            "Vlan221|Ethernet29": {
+                "ips": [
+                    "172.17.0.117"
+                ]
+            },
+            "Vlan221|Ethernet30": {
+                "ips": [
+                    "172.17.0.121"
+                ]
+            },
+            "Vlan221|Ethernet31": {
+                "ips": [
+                    "172.17.0.125"
+                ]
+            },
+            "Vlan222|Ethernet32": {
+                "ips": [
+                    "172.17.0.129"
+                ]
+            },
+            "Vlan222|Ethernet33": {
+                "ips": [
+                    "172.17.0.133"
+                ]
+            }
+        },
+        "DHCP_SERVER_IPV4": {
+            "Vlan220": {
+                "gateway": "172.17.0.62",
+                "lease_time": "900",
+                "mode": "PORT",
+                "netmask": "255.255.255.192",
+                "state": "enabled"
+            },
+            "Vlan221": {
+                "gateway": "172.17.0.126",
+                "lease_time": "900",
+                "mode": "PORT",
+                "netmask": "255.255.255.192",
+                "state": "enabled"
+            },
+            "Vlan222": {
+                "gateway": "172.17.0.182",
+                "lease_time": "900",
+                "mode": "PORT",
+                "netmask": "255.255.255.192",
+                "state": "enabled"
+            },
+            "Vlan223": {
+                "gateway": "172.17.0.201",
+                "lease_time": "900",
+                "mode": "PORT",
+                "netmask": "255.255.255.252",
+                "state": "enabled"
+            }
         }
     }
 }
