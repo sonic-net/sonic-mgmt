@@ -10,6 +10,7 @@ t0:
   - arp/test_stress_arp.py
   - arp/test_tagged_arp.py
   - arp/test_wr_arp.py
+  - arp/test_unknown_mac.py
   - autorestart/test_container_autorestart.py
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
@@ -183,6 +184,8 @@ t0:
   - vlan/test_vlan.py
   - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
+  - vxlan/test_vnet_vxlan.py
+  - vxlan/test_vxlan_decap.py
   - test_pktgen.py
   - bgp/test_bgp_peer_shutdown.py
   - clock/test_clock.py
@@ -217,6 +220,15 @@ t0-sonic:
 
 dualtor:
   - arp/test_arp_extended.py
+  - dualtor/test_ipinip.py
+  - dualtor/test_switchover_failure.py
+  - dualtor/test_tor_ecn.py
+  - dualtor/test_tunnel_memory_leak.py
+  - dualtor_io/test_heartbeat_failure.py
+  - dualtor_io/test_link_drop.py
+  - dualtor_io/test_normal_op.py
+  - dualtor_io/test_tor_bgp_failure.py
+  - dualtor_io/test_tor_failure.py
   - dualtor_mgmt/test_grpc_periodical_sync.py
   - dualtor_mgmt/test_server_failure.py
   - dualtor_mgmt/test_toggle_mux.py
@@ -278,6 +290,8 @@ t1-lag:
   - sub_port_interfaces/test_show_subinterface.py
   - test_interfaces.py
   - test_pktgen.py
+  - vxlan/test_vxlan_crm.py
+  - vxlan/test_vxlan_ecmp.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -340,10 +354,7 @@ onboarding_t0:
   - snmp/test_snmp_link_local.py
   - snmp/test_snmp_queue_counters.py
   - sub_port_interfaces/test_sub_port_interfaces.py
-  - arp/test_unknown_mac.py
   - hash/test_generic_hash.py
-  - vxlan/test_vnet_vxlan.py
-  - vxlan/test_vxlan_decap.py
 
 onboarding_t1:
   - generic_config_updater/test_cacl.py
@@ -351,22 +362,11 @@ onboarding_t1:
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
   - vxlan/test_vxlan_bfd_tsa.py
-  - vxlan/test_vxlan_crm.py
-  - vxlan/test_vxlan_ecmp.py
   - vxlan/test_vxlan_ecmp_switchover.py
 
 onboarding_dualtor:
-  - dualtor/test_ipinip.py
   - dualtor/test_orchagent_slb.py
-  - dualtor/test_switchover_failure.py
-  - dualtor/test_tor_ecn.py
-  - dualtor/test_tunnel_memory_leak.py
-  - dualtor_io/test_heartbeat_failure.py
-  - dualtor_io/test_link_drop.py
   - dualtor_io/test_link_failure.py
-  - dualtor_io/test_normal_op.py
-  - dualtor_io/test_tor_bgp_failure.py
-  - dualtor_io/test_tor_failure.py
   - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
 
