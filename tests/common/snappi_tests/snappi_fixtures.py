@@ -629,8 +629,9 @@ def get_multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):  
         host_names = line_card_info['hostname']
         asic_info = line_card_info['asic']
         asic_port_map = {
-            "asic0": ['Ethernet%d' % i for i in range(0, 72, 4)],
-            "asic1": ['Ethernet%d' % i for i in range(72, 144, 4)],
+            "asic0": ['Ethernet%d' % i for i in range(0, 96, 8)],
+            "asic1": ['Ethernet%d' % i for i in range(96, 192, 8)],
+            "asic2": ['Ethernet%d' % i for i in range(192, 288, 8)],
             None: ['Ethernet%d' % i for i in range(0, 144, 4)],
         }
         ports = []
