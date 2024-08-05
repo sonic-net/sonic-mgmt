@@ -823,7 +823,7 @@ class Ecmp_Utils(object):
         supervisor_conf_content = '''
 [program:bfd_responder]
 command=/root/env-python3/bin/ptf --test-dir /root/ptftests/py3 bfd_responder.BFD_Responder''' +\
-            ' --platform-dir /root/ptftests/py3 -t' + \
+            ' --platform-dir /root/ptftests -t' + \
             ''' '{}' --relax  --platform remote
 process_name=bfd_responder
 stdout_logfile=/tmp/bfd_responder.out.log
