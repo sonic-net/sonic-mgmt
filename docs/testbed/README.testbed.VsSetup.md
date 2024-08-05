@@ -43,31 +43,31 @@ We currently support EOS-based or SONiC VMs to simulate neighboring devices in t
 2. Copy below image files to `~/veos-vm/images` on your testbed host:
    - `Aboot-veos-serial-8.0.0.iso`
    - `vEOS-lab-4.20.15M.vmdk`
-### Option 2: cEOS (container-based) image (experimental)
+### Option 2: cEOS (container-based) image (recommended)
 #### Option 2.1: Download and import cEOS image manually
-1. Download the [cEOS image from Arista](https://www.arista.com/en/support/software-download)
-2. Import the cEOS image (it will take several minutes to import, so please be patient!)
+Download the [cEOS image from Arista](https://www.arista.com/en/support/software-download). For example download file `cEOS64-lab-4.29.3M.tar`.
+Put the downloaded file under `~/veos-vm/images/` on your testbed host.
+The playbook will automatically look for the cEOS image file in the `~/veos-vm/images/` directory and import it into the testbed server.
 
-```
-docker import cEOS-lab-4.25.5.1M.tar.xz ceosimage:4.25.5.1M
-```
-After imported successfully, you can check it by 'docker images'
-```
-$ docker images
-REPOSITORY                                             TAG           IMAGE ID       CREATED         SIZE
-ceosimage                                              4.25.5.1M     fa0df4b01467   9 seconds ago   1.62GB
-```
 **Note**: *For time being, the image might be updated, in that case you can't download the same version of image as in the instruction,
 please download the corresponding version(following [Arista recommended release](https://www.arista.com/en/support/software-download#datatab300)) of image and import it to your local docker repository.
 The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), make sure you modify locally to keep it up with the image version you imported.*
 
 **Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
 #### Option 2.2: Pull cEOS image automatically
-1. Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2).
+Alternatively, you can host the cEOS image on a http server. Specify `ceos_image_url` for downloading the image in file `ansible/group_vars/all/ceos.yml`. For example:
+```
+ceos_image_url: "http://example1.com/cEOS64-lab-4.29.3M.tar"
+```
+The `ceos_image_url` variable also can be a list of URLs, for example:
+```
+ceos_image_url:
+  - "http://example1.com/cEOS64-lab-4.29.3M.tar"
+  - "http://example2.com/cEOS64-lab-4.29.3M.tar"
+```
+The playbook will try to download the image from the URLs in the list one by one until it succeeds.
 
-2. If a SAS key is required for downloading the cEOS image, specify `ceosimage_saskey` in `sonic-mgmt/ansible/vars/azure_storage.yml`.
-
-If you want to skip downloading the image when the cEOS image is not imported locally, set `skip_ceos_image_downloading` to `true` in `sonic-mgmt/ansible/group_vars/all/ceos.yml`. Then, when the cEOS image is not locally available, the scripts will not try to download it and will fail with an error message. Please use option 1 to download and import the cEOS image manually.
+If you want to skip downloading the image when the cEOS image is not imported locally and image file is not available on testbed server, set `skip_ceos_image_downloading` to `true` in `ansible/group_vars/all/ceos.yml`. Then, when the cEOS image is not locally available, the scripts will not try to download it and will fail with an error message. Please use option 2.1 to download the cEOS image manually.
 
 ### Option 3: Use SONiC image as neighboring devices
 You need to prepare a sound SONiC image `sonic-vs.img` in `~/veos-vm/images/`. We don't support to download sound sonic image right now, but for testing, you can also follow the section [Download the sonic-vs image](##download-the-sonic-vs-image) to download an available image and put it into the directory `~/veos-vm/images`
@@ -96,10 +96,11 @@ All testbed configuration steps and tests are run from a `sonic-mgmt` docker con
 
 1. Run the `setup-container.sh` in the root directory of the sonic-mgmt repository:
 
-```
+```bash
 cd sonic-mgmt
 ./setup-container.sh -n <container name> -d /data
 ```
+
 
 2. (Required for IPv6 test cases): Follow the steps [IPv6 for docker default bridge](https://docs.docker.com/config/daemon/ipv6/#use-ipv6-for-the-default-bridge-network) to enable IPv6 for container. For example, edit the Docker daemon configuration file located at `/etc/docker/daemon.json` with the following parameters to use ULA address if no special requirement. Then restart docker daemon by running `sudo systemctl restart docker` to take effect.
 
@@ -111,6 +112,7 @@ cd sonic-mgmt
     "ip6tables": true
 }
 ```
+
 
 3. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
 
@@ -320,6 +322,8 @@ cd /data/sonic-mgmt/ansible
 
 ## Deploy minigraph on the DUT
 Once the topology has been created, we need to give the DUT an initial configuration.
+
+(Optional) The connectivity to the public internet is necessary during the setup, if the lab env of your organization requires http/https proxy server to reach out to the internet, you need to configure to use the proxy server. It will automatically be leveraged on required steps (e.g. Docker daemon config for image pulling, APT configuration for installing packages). You can configure it in [`ansible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
 
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
 

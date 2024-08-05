@@ -14,6 +14,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+
 pytestmark = [
     pytest.mark.topology('t2'),
 ]

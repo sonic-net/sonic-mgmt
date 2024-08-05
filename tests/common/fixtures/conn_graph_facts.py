@@ -12,10 +12,12 @@ def conn_graph_facts(duthosts, localhost):
 
 
 @pytest.fixture(scope="module")
-def fanout_graph_facts(localhost, duthosts, rand_one_dut_hostname, conn_graph_facts):
-    duthost = duthosts[rand_one_dut_hostname]
+def fanout_graph_facts(localhost, duthosts, rand_one_tgen_dut_hostname, conn_graph_facts):
+    duthost = duthosts[rand_one_tgen_dut_hostname]
     facts = dict()
     dev_conn = conn_graph_facts.get('device_conn', {})
+    if not dev_conn:
+        return facts
     for _, val in list(dev_conn[duthost.hostname].items()):
         fanout = val["peerdevice"]
         if fanout not in facts:
@@ -28,6 +30,8 @@ def enum_fanout_graph_facts(localhost, duthosts, enum_rand_one_per_hwsku_fronten
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     facts = dict()
     dev_conn = conn_graph_facts.get('device_conn', {})
+    if not dev_conn:
+        return facts
     for _, val in list(dev_conn[duthost.hostname].items()):
         fanout = val["peerdevice"]
         if fanout not in facts:
