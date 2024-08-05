@@ -9,8 +9,10 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .files.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
 from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, fetch_vendor_specific_diagnosis_re
 from .files.pfcwd_helper import send_background_traffic
+from tests.common import config_reload
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
+FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "files")
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -24,6 +26,36 @@ logger = logging.getLogger(__name__)
 def pfc_queue_idx():
     # Needed for start_background_traffic
     yield 3   # Hardcoded in the testcase as well.
+
+
+@pytest.fixture(scope='class')
+def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    A fixture to degrade PFC Watchdog detection logic.
+    It's requried because leaf fanout switch can't generate enough PFC pause to trigger
+    PFC storm on all ports.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    dut_asic_type = duthost.facts["asic_type"].lower()
+    if dut_asic_type != "mellanox":
+        yield
+        return
+    logger.notice("--- Degrade Pfcwd Detection logic --")
+    SRC_FILE = FILE_DIR + "/pfc_detect_mellanox.lua"
+    DST_FILE = "/usr/share/swss/pfc_detect_mellanox.lua"
+    # Backup original PFC Watchdog detection script
+    cmd = "docker exec -i swss cp {} {}.bak".format(DST_FILE, DST_FILE)
+    duthost.shell(cmd)
+    # Copy the new script to DUT
+    duthost.copy(src=SRC_FILE, dest='/tmp')
+    # Copy the new script to swss container
+    cmd = "docker cp /tmp/pfc_detect_mellanox.lua swss:{}".format(DST_FILE)
+    # Reload DUT to apply the new script
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    yield
+    # Restore the original PFC Watchdog detection script
+    cmd = "docker exec -i swss cp {}.bak {}".format(DST_FILE, DST_FILE)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope='class', autouse=True)
@@ -40,7 +72,7 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope='class', autouse=True)
-def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,     # noqa F811
+def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, degrade_pfcwd_detection,    # noqa F811
                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
