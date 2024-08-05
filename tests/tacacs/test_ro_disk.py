@@ -8,6 +8,7 @@ from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait
+from tests.common.utilities import pdu_reboot
 from tests.common.reboot import reboot
 from .test_ro_user import ssh_remote_run
 from .utils import setup_tacacs_client, change_and_wait_aaa_config_update
@@ -55,6 +56,13 @@ def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
     return rc == 0
 
 
+def do_pdu_reboot(duthost, localhost, duthosts, pdu_controller):
+    if not pdu_reboot(pdu_controller):
+        logger.error("Failed to do PDU reboot for {}".format(duthost.hostname))
+        return
+    return post_reboot_healthcheck(duthost, localhost, duthosts, 20)
+
+
 def do_reboot(duthost, localhost, duthosts):
     # occasionally reboot command fails with some kernel error messages
     # Hence retry if needed.
@@ -83,11 +91,19 @@ def do_reboot(duthost, localhost, duthosts):
 
         wait(wait_time, msg="Wait {} seconds before retry.".format(wait_time))
 
-    assert rebooted, "Failed to reboot"
+    if not rebooted:
+        logger.error("Failed to reboot DUT after {} retries".format(retries))
+        return False
+
+    return post_reboot_healthcheck(duthost, localhost, duthosts, wait_time)
+
+
+def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
     localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
-    assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
-        "All critical services should fully started!"
+    if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
+        logger.error("Not all critical services fully started!")
+        return False
     # If supervisor node is rebooted in chassis, linecards also will reboot.
     # Check if all linecards are back up.
     if duthost.is_supervisor_node():
@@ -95,8 +111,10 @@ def do_reboot(duthost, localhost, duthosts):
             if host != duthost:
                 logger.info("checking if {} critical services are up".format(host.hostname))
                 wait_critical_processes(host)
-                assert wait_until(300, 20, 0, check_interface_status_of_up_ports, host), \
-                    "Not all ports that are admin up on are operationally up"
+                if not wait_until(300, 20, 0, check_interface_status_of_up_ports, host):
+                    logger.error("Not all ports that are admin up on are operationally up")
+                    return False
+    return True
 
 
 def do_setup_tacacs(ptfhost, duthost, tacacs_creds):
@@ -142,7 +160,7 @@ def log_rotate(duthost):
 
 
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                 tacacs_creds, check_tacacs):
+                 tacacs_creds, check_tacacs, pdu_controller):
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -162,7 +180,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         #
         logger.info("PRETEST: reboot {} to restore system state".
                     format(enum_rand_one_per_hwsku_hostname))
-        do_reboot(duthost, localhost, duthosts)
+        assert do_reboot(duthost, localhost, duthosts), "Failed to reboot"
         assert do_check_clean_state(duthost), "state not good even after reboot"
         do_setup_tacacs(ptfhost, duthost, tacacs_creds)
 
@@ -240,7 +258,10 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
-        do_reboot(duthost, localhost, duthosts)
+        if not do_reboot(duthost, localhost, duthosts):
+            logger.warning("Failed to reboot {}, try PDU reboot to restore disk RW state".
+                           format(enum_rand_one_per_hwsku_hostname))
+            do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
         logger.debug("  END: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
 
