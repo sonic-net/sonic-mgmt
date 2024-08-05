@@ -74,7 +74,7 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope='class', autouse=True)
-def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, # noqa F811
+def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,     # noqa F811
                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
