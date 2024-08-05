@@ -342,7 +342,7 @@ def get_reboot_cause(dut):
 
     # For kvm testbed, the expected output of command `show reboot-cause`
     # is such like "User issued 'xxx' command [User: admin, Time: Sun Aug  4 06:43:19 PM UTC 2024]"
-    # So, match the command here
+    # So, use the above pattern to get real reboot cause
     if dut.facts["asic_type"] == "vs":
         cause = re.search("User issued '(.*)' command", cause).groups()[0]
 
