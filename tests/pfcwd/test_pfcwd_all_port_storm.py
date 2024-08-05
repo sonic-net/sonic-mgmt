@@ -28,7 +28,7 @@ def pfc_queue_idx():
     yield 3   # Hardcoded in the testcase as well.
 
 
-@pytest.fixture(scope='class')
+@pytest.fixture(scope='module')
 def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     A fixture to degrade PFC Watchdog detection logic.
@@ -40,7 +40,7 @@ def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     if dut_asic_type != "mellanox":
         yield
         return
-    logger.notice("--- Degrade Pfcwd Detection logic --")
+    logger.info("--- Degrade PFCWD detection logic --")
     SRC_FILE = FILE_DIR + "/pfc_detect_mellanox.lua"
     DST_FILE = "/usr/share/swss/pfc_detect_mellanox.lua"
     # Backup original PFC Watchdog detection script
@@ -56,6 +56,8 @@ def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     # Restore the original PFC Watchdog detection script
     cmd = "docker exec -i swss cp {}.bak {}".format(DST_FILE, DST_FILE)
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    # Cleanup
+    duthost.file(path='/tmp/pfc_detect_mellanox.lua', state='absent')
 
 
 @pytest.fixture(scope='class', autouse=True)
@@ -72,7 +74,7 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope='class', autouse=True)
-def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, degrade_pfcwd_detection,    # noqa F811
+def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, # noqa F811
                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
@@ -152,7 +154,7 @@ def set_storm_params(duthost, fanout_graph, fanouthosts, peer_params):
     return storm_hndle
 
 
-@pytest.mark.usefixtures('stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic')
+@pytest.mark.usefixtures('degrade_pfcwd_detection', 'stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic') # noqa E501
 class TestPfcwdAllPortStorm(object):
     """ PFC storm test class """
     def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action):
