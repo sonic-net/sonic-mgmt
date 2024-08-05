@@ -1,14 +1,9 @@
-import datetime
 import logging
 import ipaddress
 import pytest
-import ptf.testutils as testutils
-import random
-import time
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from dhcp_server_test_common import DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
-    apply_dhcp_server_config_gcu, create_dhcp_client_packet, empty_config_patch, append_common_config_patch
+from dhcp_server_test_common import apply_dhcp_server_config_gcu, empty_config_patch, append_common_config_patch
 
 
 pytestmark = [
