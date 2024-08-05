@@ -15,8 +15,8 @@
     stopped by the supervisor.
 
     CMD:
-    /usr/bin/python /usr/bin/ptf --test-dir \
-        /root/ptftests pfcwd_background_traffic.BG_pkt_sender \
+    /root/env-python3/bin/python3 /root/env-python3/bin/ptf --test-dir \
+        /root/ptftests/py3 pfcwd_background_traffic.BG_pkt_sender \
         --platform-dir /root/ptftests/ -t \
         'dest_mac=u"80:27:6c:47:8c:cc";dst_ip_addr="10.0.0.5";\
         ptf_src_port=5;ptf_dst_port=4;pfc_queue_idx=4' \

@@ -454,7 +454,7 @@ def start_background_traffic(
                 pfc_queue_idx)
     supervisor_conf_content = ('''
 [program:{program_name}]
-command=/usr/local/bin/ptf --test-dir /root/ptftests/py3 {program_name}.BG_pkt_sender'''
+command=/root/env-python3/bin/ptf --test-dir /root/ptftests/py3 {program_name}.BG_pkt_sender'''
                                ''' --platform-dir /root/ptftests/ -t'''
                                ''' '{script_args}' --relax  --platform remote
 process_name={program_name}

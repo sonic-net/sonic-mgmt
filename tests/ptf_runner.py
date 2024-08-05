@@ -65,10 +65,13 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         cmd = "ptf --test-dir {} {}".format(testdir, testname)
     else:
         ptf_venv_path = host.stat(path="/root/env-python3/bin/ptf")
-        ptf_path = host.stat(path="/usr/bin/ptf")
+        ptf_path_1 = host.stat(path="/usr/local/bin/ptf")
+        ptf_path_2 = host.stat(path="/usr/bin/ptf")
         if ptf_venv_path["stat"]["exists"]:
             cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir + "/py3", testname)
-        elif ptf_path["stat"]["exists"]:
+        elif ptf_path_1["stat"]["exists"]:
+            cmd = "/usr/local/bin/ptf --test-dir {} {}".format(testdir + "/py3", testname)
+        elif ptf_path_2["stat"]["exists"]:
             cmd = "/usr/bin/ptf --test-dir {} {}".format(testdir + "/py3", testname)
         else:
             err_msg = "PTF not found! PTF not found in /root/env-python3/bin or /usr/bin. "\
