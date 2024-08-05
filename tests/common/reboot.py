@@ -340,6 +340,12 @@ def get_reboot_cause(dut):
     output = dut.shell('show reboot-cause')
     cause = output['stdout']
 
+    # For kvm testbed, the expected output of command `show reboot-cause`
+    # is such like "User issued 'xxx' command [User: admin, Time: Sun Aug  4 06:43:19 PM UTC 2024]"
+    # So, match the command here
+    if dut.facts["asic_type"] == "vs":
+        cause = re.search("User issued '(.*)' command", cause).groups()[0]
+
     for type, ctrl in list(reboot_ctrl_dict.items()):
         if re.search(ctrl['cause'], cause):
             return type
@@ -356,9 +362,6 @@ def check_reboot_cause(dut, reboot_cause_expected):
     reboot_cause_got = get_reboot_cause(dut)
     logger.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
 
-    # For kvm testbed, the expected output of command `show reboot-cause`
-    # is such like "User issued 'reboot' command [User: admin, Time: Sun Aug  4 06:43:19 PM UTC 2024]"
-    # So, overwrite the reboot_cause_expected
     if dut.facts["asic_type"] == "vs":
         reboot_cause_expected = "User issued \'reboot\' command"
         return reboot_cause_expected in reboot_cause_got
