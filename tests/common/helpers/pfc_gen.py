@@ -23,6 +23,9 @@ MIN_PROCESS_NUM = 2
 # Maximum number of processes to be created
 MAX_PROCESS_NUM = 4
 
+# Minimum number of packets for enabling multiple processes
+MIN_PACKET_NUM_MP = 10000
+
 
 class PacketSender():
     """
@@ -60,7 +63,8 @@ class PacketSender():
     def stop(self, timeout=None):
         if self.process:
             self.process.join(timeout)
-        self.socket.close()
+        for s in self.sockets:
+            s.close()
 
 
 def main():
@@ -177,8 +181,11 @@ def main():
     logger.debug(pre_str + '_STORM_START')
 
     # Send PFC pause with multiple processes even if only one interface is provided
-    while len(interfaces) < MIN_PROCESS_NUM:
-        interfaces.extend(interfaces)
+    # if packet number is smaller than the threshold, then it's not necessary to use multiple processes
+    if options.num >= MIN_PACKET_NUM_MP:
+        while len(interfaces) < MIN_PROCESS_NUM:
+            interfaces.extend(interfaces)
+            options.num /= 2
 
     # Start sending PFC pause frames
     senders = []
