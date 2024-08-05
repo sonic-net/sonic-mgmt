@@ -29,7 +29,7 @@ def pfc_queue_idx():
 
 
 @pytest.fixture(scope='module')
-def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     A fixture to degrade PFC Watchdog detection logic.
     It's requried because leaf fanout switch can't generate enough PFC pause to trigger
@@ -37,7 +37,17 @@ def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     dut_asic_type = duthost.facts["asic_type"].lower()
+    skip_fixture = False
     if dut_asic_type != "mellanox":
+        skip_fixture = True
+    # The workaround is not applicable for Mellanox leaf-fanout running ONYX or SONiC
+    # as we can leverage ASIC to generate PFC pause frames
+    for fanouthost in list(fanouthosts.values()):
+        fanout_os = fanouthost.get_fanout_os()
+        if fanout_os == 'onyx' or fanout_os == 'sonic' and fanouthost.facts['asic_type'] == "mellanox":
+            skip_fixture = True
+            break
+    if skip_fixture:
         yield
         return
     logger.info("--- Degrade PFCWD detection logic --")
