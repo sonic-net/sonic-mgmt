@@ -25,6 +25,7 @@ MX_VLAN_AND_DHCP_SERVER_CONF_PATH = "mx/config/mx_vlan_dhcp_server_conf.json"
 
 @pytest.fixture(scope="function", autouse=True)
 def clean_dhcp_server_config_after_test(duthost, mx_common_setup_teardown):
+    clean_dhcp_server_config(duthost)
 
     yield
 
