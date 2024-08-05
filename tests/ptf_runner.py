@@ -56,7 +56,25 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         logger.info("Skip test case {} for not support on KVM DUT".format(testname))
         return True
 
-    cmd = "ptf --test-dir {} {}".format(testdir, testname)
+    # condition checked below exists to support PTF images with older
+    # Python 3 in virtual environment and newer Python 3 only environment
+    # and the Python 2 only environments.
+    # This ensures tests can be backported to older branches easily
+    cmd = ""
+    if six.PY2:
+        cmd = "ptf --test-dir {} {}".format(testdir, testname)
+    else:
+        ptf_venv_path = host.stat(path="/root/env-python3/bin/ptf")
+        ptf_path = host.stat(path="/usr/bin/ptf")
+        if ptf_venv_path["stat"]["exists"]:
+            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir + "/py3", testname)
+        elif ptf_path["stat"]["exists"]:
+            cmd = "/usr/bin/ptf --test-dir {} {}".format(testdir + "/py3", testname)
+        else:
+            err_msg = "PTF not found! PTF not found in /root/env-python3/bin or /usr/bin. "\
+                "Test {} execution has failed.".format(testname)
+            logger.error(err_msg)
+            raise Exception(err_msg)
 
     if platform_dir:
         cmd += " --platform-dir {}".format(platform_dir)
