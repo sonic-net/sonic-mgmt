@@ -34,6 +34,7 @@ Smartswitch is connected to DPUs via pcie links.
 The test is targeting a running SONIC on Switch and SONIC-DASH system on each DPUs. 
 Purpose of the test is to verify smartswich platform related functionalities/features for each DPUs and PMON APIs. 
 For every test cases, all DPUs need to be powered on unless specified in any of the case.
+General convention of DPU0, DPU1, DPU2 and DPUX has been followed to represent DPU modules and the number of DPU modules can vary.
 
 ## Definitions and Abbreviations
 
