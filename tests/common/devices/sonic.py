@@ -2173,6 +2173,12 @@ Totals               6450                 6449
             "docker rm {}".format(service), module_ignore_errors=True
         )
 
+    def start_bgpd(self):
+        return self.command("sudo config feature state bgp enabled")
+
+    def kill_bgpd(self):
+        return self.command("sudo config feature state bgp disabled")
+
     def no_shutdown_bgp(self, asn):
         command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
         logging.info('No shut BGP: {}'.format(asn))
