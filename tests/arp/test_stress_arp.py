@@ -89,6 +89,8 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
             if not skip_traffic_test:
                 # There is a certain probability of hash collision, we set the percentage as 1% here
                 # The entries we add will not exceed 10000, so the number we tolerate is 100
+                logger.debug("Expected route number: {}, real route number {}"
+                             .format(arp_avaliable, get_fdb_dynamic_mac_count(duthost)))
                 pytest_assert(wait_until(20, 1, 0,
                                          lambda: abs(arp_avaliable - get_fdb_dynamic_mac_count(duthost)) < 100),
                               "ARP Table Add failed")
@@ -166,6 +168,8 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
             if not skip_traffic_test:
                 # There is a certain probability of hash collision, we set the percentage as 1% here
                 # The entries we add will not exceed 10000, so the number we tolerate is 100
+                logger.debug("Expected route number: {}, real route number {}"
+                             .format(nd_avaliable, get_fdb_dynamic_mac_count(duthost)))
                 pytest_assert(wait_until(20, 1, 0,
                                          lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 100),
                               "Neighbor Table Add failed")
