@@ -2038,6 +2038,9 @@ Totals               6450                 6449
     def start_bgpd(self):
         return self.command("sudo config feature state bgp enabled")
 
+    def kill_bgpd(self):
+        return self.command("sudo config feature state bgp disabled")
+
     def no_shutdown_bgp(self, asn):
         logging.warning("SONiC don't support `no shutdown bgp`")
         return None
