@@ -54,7 +54,7 @@ For every test cases, all DPUs need to be powered on unless specified in any of 
 | 1.3 | Check platform temperature       |  To Verify the Temperature sensor values and functionality of alarm by changing the threshold values | |
 | 1.4 | Check DPU console       | To Verify console access for all DPUs       | |
 | 1.5 | Check midplane ip address between NPU and DPU      | To Verify PCIe interface created between NPU and DPU according to bus number | |
-| 1.6 | Check DPU shutdown and power up individually      |  To Verify one DPU shutdown  and other DPUs in same as well in other sleds are up | |
+| 1.6 | Check DPU shutdown and power up individually      |  To Verify DPU shutdown and DPUs power up | |
 | 1.7 | Check removal of pcie link between NPU and DPU       | To Verify the PCie hot plug functinality        | |
 | 1.8 | Check the NTP date and timezone between DPU and NPU       | To Verify NPU and DPU are in sync with respect to timezone and logs timestamp | |
 | 1.9 | Check the State of DPUs      | To Verify DPU state details during online and offline      | |
@@ -467,14 +467,14 @@ root@sonic:/home/cisco#
       Interface     Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
       ------------  --------  -------------------  ------------  --------------  -------------
       eth0                    172.25.42.65/24      up/up         N/A             N/A
-      eth1                    169.254.24.2/24      up/up         N/A             N/A
-      eth2                    169.254.28.2/24      up/up         N/A             N/A
-      eth3                    169.254.32.2/24      up/up         N/A             N/A
-      eth4                    169.254.36.2/24      up/up         N/A             N/A
-      eth5                    169.254.139.2/24     up/up         N/A             N/A
-      eth6                    169.254.143.2/24     up/up         N/A             N/A
-      eth7                    169.254.147.2/24     up/up         N/A             N/A
-      eth8                    169.254.151.2/24     up/up         N/A             N/A
+      eth1                    169.254.200.1/24      up/up         N/A             N/A
+      eth2                    169.254.200.2/24      up/up         N/A             N/A
+      eth3                    169.254.200.3/24      up/up         N/A             N/A
+      eth4                    169.254.200.4/24      up/up         N/A             N/A
+      eth5                    169.254.200.5/24     up/up         N/A             N/A
+      eth6                    169.254.200.6/24     up/up         N/A             N/A
+      eth7                    169.254.200.7/24     up/up         N/A             N/A
+      eth8                    169.254.200.8/24     up/up         N/A             N/A
       lo                      127.0.0.1/16         up/up         N/A             N/A
       root@sonic:/home/cisco# 
 ```
@@ -537,9 +537,9 @@ root@sonic:/home/cisco# show chassis modules status
 #### Steps
  * Use command `pcieutil generate` to generate pcie yaml
  * Use `show platform pcieinfo -c` to run the pcie info test to check everything is passing
- * Use command `echo 1 > /sys/bus/pci/devices/BUS_ID/remove` to remove pcie link between NPU and one DPU
+ * Use command `config chassis modules shutdown DPU<DPU_NUM>` to bring down the dpu (This will bring down the pcie link between npu and dpu)
  * Use `show platform pcieinfo -c` to run the pcie info test to check pcie link has been removed
- * Use command `echo 1 > /sys/bus/pci/rescan` to rescan pcie links
+ * Use command `config chassis modules startup DPU<DPU_NUM>` to bring up the dpu (This will rescan pcie links)
  * Use `show platform pcieinfo -c` to run the pcie info test to check everything is passing
  * This test is to check the PCie hot plug functinality since there is no OIR possible
 
@@ -654,6 +654,9 @@ DPU0       1     Partial Online       dpu_midplane_link_state        up         
 
 ### 1.10 Check the Health of DPUs
 
+####NOTE
+ * This Test case is to be covered in Phase 2
+
 #### Steps
  *  Use command `show system-health detail <DPU_SLOT_NUMBER>` to check the health of the DPU.
  
@@ -748,20 +751,22 @@ DPU3        2023_10_02_17_23_46     Host Reset DPU                  Sun 02 Oct 2
 
 #### Steps
 
-Existing Test case:
-   * Reboot using a particular command (sonic reboot, watchdog reboot, etc) (timeout 5 mins, wait 2 mins)
+Existing Test case for NPU:
+   * Reboot using a particular command (sonic reboot, watchdog reboot, etc)
+   * All the timeout and poll timings are read from platform.json
    * Wait for ssh to drop
    * Wait for ssh to connect
-   * Database check –1 min timeout
+   * Database check 
    * Check for uptime – (NTP sync)
-   * Check for critical process – 5 mins timeout – check every 20 secs
-   * Check for transceiver status –– 5 mins timeout – check every 20 seconds
+   * Check for critical process 
+   * Check for transceiver status
    * Check for pmon status
    * Check for reboot cause 
    * Reboot is successful
    
 Reboot Test Case for DPU:
- * After the exisiting case, Power on all the DPUs using `config chassis modules startup <DPU_Number>`
+ * Save the configurations of all DPU state before reboot
+ * Power on all the DPUs that were powered on before reboot using `config chassis modules startup <DPU_Number>`
  * Wait for DPUs to be up
  * Use command `show chassis modules status` to get DPU status
  * Get the number of DPU modules from PMON APIs - get_num_modules()
@@ -812,7 +817,7 @@ root@sonic:/home/cisco# show chassis modules status
  * Execute the following APIs on SmartSwitch
  * get_dpu_id(self, name):
     * Provide name (Example: DPU0 - Get it from platform.json file)
-    * This API should return an integer from 1-8 (check it against platform.json)
+    * This API should return an integer from 0-7 (check it against platform.json)
  * is_smartswitch(self):
     * This API should return True
  * get_module_dpu_data_port(self, index):
