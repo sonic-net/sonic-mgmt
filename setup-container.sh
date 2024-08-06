@@ -116,6 +116,7 @@ function show_help_and_exit() {
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -d /var/src"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -m /my/working/dir"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -p 192.0.2.1:8080:80/tcp"
+    echo "  ./${SCRIPT_NAME} -i docker-sonic-mgmt-username:master -s"
     echo "  ./${SCRIPT_NAME} -h"
     echo
     exit ${1}
