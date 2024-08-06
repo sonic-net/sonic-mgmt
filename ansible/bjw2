@@ -80,13 +80,13 @@ all:
         bjw2-2-5:
           ansible_host: 10.150.23.98
           ansible_hostv6: 2404:f801:10:2200::a96:1762
-        bjw2-2-6:
+        bjw2-3-1:
           ansible_host: 10.150.23.99
           ansible_hostv6: 2404:f801:10:2200::a96:1763
-        bjw2-2-7:
+        bjw2-3-2:
           ansible_host: 10.150.23.100
           ansible_hostv6: 2404:f801:10:2200::a96:1764
-        bjw2-2-8:
+        bjw2-3-3:
           ansible_host: 10.150.23.101
           ansible_hostv6: 2404:f801:10:2200::a96:1765
     pdu:
@@ -260,6 +260,26 @@ fanout:
     bjw2-can-7260-leaf-18:
       ansible_host: 10.150.22.42
       ansible_hostv6: 2404:f801:10:2200::a96:162a
+    bjw2-can-8101-leaf-1:
+      ansible_host: 10.150.22.56
+      ansible_hostv6: 2404:f801:10:2200::a96:1638
+      os: sonic
+    bjw2-can-8101-leaf-2:
+      ansible_host: 10.150.22.58
+      ansible_hostv6: 2404:f801:10:2200::a96:163a
+      os: sonic
+    bjw2-can-8101-leaf-3:
+      ansible_host: 10.150.22.60
+      ansible_hostv6: 2404:f801:10:2200::a96:163c
+      os: sonic
+    bjw2-can-8101-leaf-4:
+      ansible_host: 10.150.22.61
+      ansible_hostv6: 2404:f801:10:2200::a96:163d
+      os: sonic
+    bjw2-can-8101-leaf-5:
+      ansible_host: 10.150.22.63
+      ansible_hostv6: 2404:f801:10:2200::a96:163f
+      os: sonic
 
 
 
@@ -835,6 +855,97 @@ sonic_arista_7260cx3:
       serial: JPA2403P3BP
       base_mac: a4:3f:68:fa:7c:0c
       syseeprom_info:
+
+
+sonic_cisco_8101_O8C48:
+  vars:
+    hwsku: Cisco-8101-O8C48
+    iface_speed: 100000
+  hosts:
+    bjw2-can-8101-1:
+      ansible_host: 10.150.22.55
+      ansible_hostv6: 2404:f801:10:2200::a96:1637
+      mgmt_subnet_mask_length: 23
+      model: 8101-32FH-O
+      serial:
+      base_mac:
+      syseeprom_info:
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+    bjw2-can-8101-2:
+      ansible_host: 10.150.22.57
+      ansible_hostv6: 2404:f801:10:2200::a96:1639
+      mgmt_subnet_mask_length: 23
+      model: 8101-32FH-O
+      serial:
+      base_mac:
+      syseeprom_info:
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+    bjw2-can-8101-3:
+      ansible_host: 10.150.22.59
+      ansible_hostv6: 2404:f801:10:2200::a96:163b
+      mgmt_subnet_mask_length: 23
+      model: 8101-32FH-O
+      serial:
+      base_mac:
+      syseeprom_info:
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+    bjw2-can-8101-4:
+      ansible_host: 10.150.22.62
+      ansible_hostv6: 2404:f801:10:2200::a96:163e
+      mgmt_subnet_mask_length: 23
+      model: 8101-32FH-O
+      serial:
+      base_mac:
+      syseeprom_info:
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
 
 
 server:
