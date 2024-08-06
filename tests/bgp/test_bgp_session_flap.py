@@ -10,6 +10,7 @@ import logging
 import pytest
 import time
 from tests.common.utilities import InterruptableThread
+from tests.common.devices.eos import EosHost
 import textfsm
 import traceback
 
@@ -92,8 +93,11 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     logger.info("DUT BGP Config: {}".format(duthost.shell("vtysh -n {} -c \"show run bgp\"".format(namespace),
                                                           module_ignore_errors=True)))
-    logger.info("Neighbor BGP Config: {}".format(
-        nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
+    if isinstance(nbrhosts[tor1]['host'], EosHost):
+        logger.info("Neighbor BGP Config: {}".format(
+            nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
+    else:
+        logger.info("Neighbor BGP Config: {}".format(nbrhosts[tor1]["host"].shell("show run bgp")))
     logger.info('Setup_info: {}'.format(setup_info))
 
     #  get baseline BGP CPU and Memory Utilization
@@ -148,7 +152,7 @@ def test_bgp_single_session_flaps(setup):
     # start threads to flap neighbor sessions
     thread = InterruptableThread(
         target=flap_neighbor_session,
-        args=(setup['neighhost']))
+        args=(setup['neighhost'],))
     thread.daemon = True
     thread.start()
     flap_threads.append(thread)
@@ -195,7 +199,7 @@ def test_bgp_multiple_session_flaps(setup):
     for neigh in setup['neighbors']:
         thread = InterruptableThread(
             target=flap_neighbor_session,
-            args=(neigh))
+            args=(neigh,))
         thread.daemon = True
         thread.start()
         flap_threads.append(thread)
