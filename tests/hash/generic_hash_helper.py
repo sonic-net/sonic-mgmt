@@ -431,7 +431,7 @@ def get_asic_type(request):
     else:
         # Always get the asic type from the first dut
         dut_info = metadata[list(metadata.keys())[0]]
-        asic_type = dut_info['asic_type']
+        asic_type = dut_info.get('asic_type', "")
     return asic_type
 
 
