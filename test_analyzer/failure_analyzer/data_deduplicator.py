@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 def get_deduplicator():
     return DataDeduplicator(configuration)
 
-class DataDeduplicator:  
+class DataDeduplicator:
     def __init__(self, config_info):
-        configuration = config_info  
+        configuration = config_info
         current_time = datetime.now(tz=pytz.UTC)
         self.current_time = current_time
-        
+
         self.new_icm_number_limit = configuration['icm_limitation']['new_icm_number_limit']
         self.setup_error_limit = configuration['icm_limitation']['setup_error_limit']
         self.failure_limit = configuration['icm_limitation']['failure_limit']
@@ -245,6 +245,10 @@ class DataDeduplicator:
         summaries_to_indices = {}  # Map summaries to their indices
         for index, row in dataframe_data.iterrows():
             summary = row["failure_summary"]
+            if summary == '':
+                unique_summaries[index] = summary
+                summaries_to_indices.setdefault(summary, []).append(index)
+                continue
             if summary in ("AssertionError", "test setup failure", "test teardown failure"):
                 unique_summaries[index] = summary
                 summaries_to_indices.setdefault(summary, []).append(index)
@@ -278,6 +282,8 @@ class DataDeduplicator:
             else:
                 # Find the original summary corresponding to the matched summary for mapping
                 for orig_summary, indices in summaries_to_indices.items():
+                    if orig_summary == '':
+                        summaries_to_indices[orig_summary].append(index)
                     if matched_summary in orig_summary:
                         summaries_to_indices[orig_summary].append(index)
                         break
@@ -299,12 +305,13 @@ class DataDeduplicator:
         """
         Calculate the similarity between target_summary and all summaries in active_icm_df
         Save the similarity into a new column in active_icm_df
-        after all, compare the similarity with the threshold, if it is 
+        after all, compare the similarity with the threshold, if it is
         higher than the threshold, return True and highest matched row in active_icm_df
         """
+
         active_icm_df['SourceCreateDate'] = pd.to_datetime(active_icm_df['SourceCreateDate'])
         valid_date = self.current_time - timedelta(days=configuration["threshold"]["summary_expiration_days"])
-        
+
         # valid_active_icm_df.loc[:, 'Similarity'] = valid_active_icm_df['FailureSummary'].apply(lambda x: fuzz.ratio(target_summary, x))
 
         valid_active_icm_df = active_icm_df[active_icm_df['SourceCreateDate'] >= valid_date]
@@ -329,51 +336,106 @@ class DataDeduplicator:
         # TODO:
         pass
 
-    def deduplicate_limit_with_active_icm(self, kusto_data_list, original_case_item, icm_count_dict, active_icm_df):
+    def set_failure_summary(self, kusto_data_list, week_failed_testcases_df):
+        if week_failed_testcases_df is None:
+            logger.info("week_failed_testcases_df is None")
+            return kusto_data_list
+
+        week_failed_testcases_df_copy = week_failed_testcases_df.copy()  # Create a copy of the DataFrame
+
+        for kusto_data in kusto_data_list:
+            case_branch = kusto_data['module_path'] + '.' + kusto_data['testcase'] + "#" + kusto_data['branch']
+            # Add conditional filters if they exist
+            asic = kusto_data['failure_level_info'].get('asic')
+            hwsku = kusto_data['failure_level_info'].get('hwsku')
+            osversion = kusto_data['failure_level_info'].get('osversion')
+            logger.info("{}: asic={}, hwsku={}, osversion={}".format(case_branch, asic, hwsku, osversion))
+
+            query_conditions = [
+                f"ModulePath == '{kusto_data['module_path']}'",
+                f"opTestCase == '{kusto_data['testcase']}'",
+                f"BranchName == '{kusto_data['branch']}'"
+            ]
+            if asic:
+                query_conditions.append(f"AsicType.str.lower() == '{asic.lower()}'")
+            if hwsku:
+                query_conditions.append(f"HardwareSku.str.lower() == '{hwsku.lower()}'")
+            if osversion:
+                query_conditions.append(f"OSVersion.str.lower() == '{osversion.lower()}'")
+
+            query_string = " & ".join(query_conditions)
+            # Apply the combined filters to get the filtered DataFrame
+            failed_results_df = week_failed_testcases_df_copy.query(query_string)
+
+            logger.debug("{} failed_results_df=\n{}".format(case_branch, failed_results_df[['TestCase', 'Summary']]))
+            if len(failed_results_df) > 0:
+                if all(failed_results_df['Summary'].apply(lambda x: fuzz.ratio(x, failed_results_df['Summary'].iloc[0])) >=
+                       int(configuration['threshold']['fuzzy_rate'])):
+                    kusto_data['failure_summary'] = failed_results_df['Summary'].iloc[0]
+                    logger.info("{}:{} {} {} Share similar summary and it can be aggregated: {}".format(case_branch,asic, hwsku, osversion, kusto_data['failure_summary']))
+                else:
+                    kusto_data['failure_summary'] = ''
+                    logger.info("{}:{} {} {} Don't share similar summary but it can't be aggregated".format(case_branch, asic, hwsku, osversion))
+            else:
+                kusto_data['failure_summary'] = ''
+                logger.info("{}: No failed results found".format(case_branch))
+        no_summary_count = sum(1 for icm in kusto_data_list if 'failure_summary' not in icm)
+        has_summary_count = sum(1 for icm in kusto_data_list if 'failure_summary' in icm)
+        logger.info("{}:{} {} {} Number of cases without failure_summary:{}".format(case_branch, asic, hwsku, osversion, no_summary_count))
+        logger.info("{}:{} {} {} Number of cases with failure_summary:{}".format(case_branch, asic, hwsku, osversion, has_summary_count))
+        return kusto_data_list
+
+    def deduplicate_limit_with_active_icm(self, kusto_data_list, icm_count_dict, active_icm_df):
         new_icm_list = []
         duplicated_icm_list = []
         new_icm_count = 0
         active_icm_list = active_icm_df['Title'].tolist()
         for idx, icm in enumerate(kusto_data_list):
-            logger.info("Check if there is existing active IcM for {} is_module_path={}"
-                        .format(icm['subject'], original_case_item["is_module_path"]))
+            module_path = icm["module_path"]
+            testcase = icm["testcase"]
+            branch = icm["branch"]
+            case_branch = module_path + '.' + testcase + "#" + branch
+            logger.info("Check if there is existing active IcM for {}"
+                        .format(icm['subject']))
             duplicated_flag = False
-            is_matched, matched_row = self.is_matched_active_icm(icm['failure_summary'], active_icm_df)
-            if is_matched:
-                logger.info("{}: Found summary matched item in active IcM list, not trigger IcM:\n\t \
-                            active IcM {}\n summary:{}\n duplicated one {}\n summary:{}".format(
-                    original_case_item['case_branch'], matched_row['Title'], matched_row['FailureSummary'], icm['subject'], icm['failure_summary']))
 
-                icm['trigger_icm'] = False
-                duplicated_icm_list.append(icm)
-                duplicated_flag = True
-                break
             # For loop every active IcM title, avoid generating smaller level IcM for same failure
             for icm_title in active_icm_list:
                 # For platform_test, we aggregate branches, don't trigger same IcM for different branches
-                if 'platform_tests' in icm['module_path']:
-                    icm_branch = icm['branch']
-                    for branch_name in configuration["branch"]["included_branch"]:
-                        replaced_title = icm['subject'].replace(
-                            icm_branch, branch_name)
-                        if icm_title in ICM_PREFIX + replaced_title:
-                            logger.info("{}: For platform_tests, found same case for branch {}, not trigger IcM:\n\t active IcM {}\t duplicated one {}".format(
-                                original_case_item['case_branch'], icm_branch, icm_title, icm['subject']))
-                            icm['trigger_icm'] = False
-                            duplicated_icm_list.append(icm)
-                            duplicated_flag = True
-                            break
-                    if duplicated_flag:
-                        break
-                elif icm_title in ICM_PREFIX + icm['subject']:
+                # if 'platform_tests' in icm['module_path']:
+                #     icm_branch = icm['branch']
+                #     for branch_name in configuration["branch"]["included_branch"]:
+                #         replaced_title = icm['subject'].replace(
+                #             icm_branch, branch_name)
+                #         if icm_title in ICM_PREFIX + replaced_title:
+                #             logger.info("{}: For platform_tests, found same case for branch {}, not trigger IcM:\n\t active IcM {}\t duplicated one {}".format(
+                #                 case_branch, icm_branch, icm_title, icm['subject']))
+                #             icm['trigger_icm'] = False
+                #             duplicated_icm_list.append(icm)
+                #             duplicated_flag = True
+                #             break
+                #     if duplicated_flag:
+                #         break
+                if icm_title in ICM_PREFIX + icm['subject']:
                     # Don't trigger IcM for duplicated cases, avoid IcM throttling
                     logger.info("{}: Found same title or higher title item in active IcM list, not trigger IcM:\n active IcM {}\t duplicated one {}".format(
-                        original_case_item['case_branch'], icm['subject'], icm['subject']))
+                        case_branch, icm['subject'], icm['subject']))
                     icm['trigger_icm'] = False
                     duplicated_icm_list.append(icm)
                     duplicated_flag = True
                     break
+            if icm['failure_summary']:
+                logger.info("{} has failure_summary:{}".format(case_branch, icm['failure_summary']))
+                is_matched, matched_row = self.is_matched_active_icm(icm['failure_summary'], active_icm_df)
+                if is_matched:
+                    logger.info("{}: Found summary matched item in active IcM list, not trigger IcM:\n\t \
+                                active IcM {}\n summary:{}\n duplicated one {}\n summary:{}".format(
+                        case_branch, matched_row['Title'], matched_row['FailureSummary'], icm['subject'], icm['failure_summary']))
 
+                    icm['trigger_icm'] = False
+                    duplicated_icm_list.append(icm)
+                    duplicated_flag = True
+                    continue
             if not duplicated_flag:
                 module_path = icm['module_path']
                 items = module_path.split('.')
@@ -403,10 +465,10 @@ class DataDeduplicator:
                         break
                     else:
                         icm_count_dict['acl_count'] += 1
-                logger.info("Got new IcM for this run: {} idx = {} is_module_path={}".format(
-                    icm['subject'], idx, original_case_item["is_module_path"]))
+                logger.info("Got new IcM for this run: {} idx = {}".format(
+                    icm['subject'], idx))
                 new_icm_list.append(icm)
                 new_icm_count += 1
         updated_icm_count_dict = copy.deepcopy(icm_count_dict)
-        logger.info("{}: There are {} new IcMs for this run".format(original_case_item['case_branch'], new_icm_count))
+        logger.info("{}: There are {} new IcMs for this run".format(case_branch, new_icm_count))
         return new_icm_list, duplicated_icm_list, updated_icm_count_dict

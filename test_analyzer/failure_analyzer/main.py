@@ -40,13 +40,6 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error):
     common_summary_duplicated_icm_table = []
     branches_wanted = []
     branches_wanted_dict = {}
-    # setup_error_new_icm_table, setup_error_duplicated_icm_table, setup_error_info = general.run_setup_error()
-    # logger.info("=================Exclude the following setup error cases=================")
-    # for case in setup_error_new_icm_table + setup_error_duplicated_icm_table:
-    #     key = case["testcase"] + "#" + case["branch"]
-    #     if key in setup_error_info:
-    #         excluse_setup_error_dict[key] = setup_error_info[key]
-    # logger.info(json.dumps(excluse_setup_error_dict, indent=4))
 
     common_summary_new_icm_table, common_summary_duplicated_icm_table, common_summary_failures_info = general.run_common_summary_failure()
     logger.info("=================Exclude the following common summary cases=================")
@@ -55,49 +48,6 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error):
         if key in common_summary_failures_info:
             excluse_common_summary_dict[key] = common_summary_failures_info[key]
     logger.info(json.dumps(excluse_common_summary_dict, indent=4))
-
-    # module_failures = {}
-    # module_failures.update(excluse_setup_error_dict)
-    # module_failures.update(excluse_common_summary_dict)
-    # logger.info("=================Exclude the following module failures=================")
-    # logger.info(json.dumps(module_failures, indent=4))
-
-    # failure_new_icm_table, failure_duplicated_icm_table, failure_info = general.run_failure(
-    #     exclude_error_module_failures=excluse_setup_error_dict, exclude_common_summary_failures=excluse_common_summary_dict)
-
-    # logger.info("=================Exclude the following cases for release branches=================")
-    # excluse_failure_dict = {}
-    # for case in failure_new_icm_table + failure_duplicated_icm_table:
-    #     key = case["full_casename"] + "#" + case["branch"]
-    #     if key in failure_info:
-    #         excluse_failure_dict[key] = failure_info[key]
-    # logger.info(json.dumps(excluse_failure_dict, indent=4))
-
-    # # Since master pipelines run less, add master into release branch for surfacing more failures
-    # branches_wanted = configuration['branch']['released_branch']
-    # for branch in branches_wanted:
-    #     branches_wanted_dict['branch'] = branch
-    #     new_icm_table, duplicated_icm_table, failure_info = general.run_failure(
-    #         branch, exclude_error_module_failures=excluse_setup_error_dict, exclude_common_summary_failures=excluse_common_summary_dict, exclude_case_failures=excluse_failure_dict)
-    #     branches_wanted_dict[branch] = {}
-    #     branches_wanted_dict[branch]["new_icm_table"] = new_icm_table
-    #     branches_wanted_dict[branch]["duplicated_icm_table"] = duplicated_icm_table
-    #     branches_wanted_dict[branch]["failure_info"] = failure_info
-
-    # for branch in branches_wanted:
-    #     logger.info("=================Generate the following cases for {} branch=================".format(
-    #         branch))
-    #     logger.info(json.dumps(branches_wanted_dict[branch]["failure_info"], indent=4))
-
-    # logger.info("=================Setup error cases=================")
-    # logger.info("Found {} IcM for setup error cases".format(
-    #     len(setup_error_new_icm_table)))
-    # for index, case in enumerate(setup_error_new_icm_table):
-    #     logger.info("{}: {}".format(index + 1, case['subject']))
-    # logger.info("Found {} duplicated IcM for setup error cases".format(
-    #     len(setup_error_duplicated_icm_table)))
-    # for index, case in enumerate(setup_error_duplicated_icm_table):
-    #     logger.info("{}: {}".format(index + 1, case['subject']))
 
     logger.info("=================Common summary failed cases=================")
     logger.info("Found {} IcM for common summary cases".format(
@@ -119,18 +69,6 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error):
     for index, case in enumerate(failure_duplicated_icm_table):
         logger.info("{}: {}".format(index + 1, case['subject']))
     
-    # for branch in branches_wanted:
-    #     logger.info("================={} failure cases=================".format(
-    #         branch))
-    #     logger.info("Found {} IcM for {} failure cases".format(
-    #         len(branches_wanted_dict[branch]["new_icm_table"]), branch))
-    #     for index, case in enumerate(branches_wanted_dict[branch]["new_icm_table"]):
-    #         logger.info("{}: {}".format(index + 1, case['subject']))
-    #     logger.info("Found {} duplicated IcM for {} failure cases".format(
-    #         len(branches_wanted_dict[branch]["duplicated_icm_table"]), branch))
-    #     for index, case in enumerate(branches_wanted_dict[branch]["duplicated_icm_table"]):
-    #         logger.info("{}: {}".format(index + 1, case['subject']))
-    # Convert failure_new_icm_table to dataframe
     failures_df = pd.DataFrame(failure_new_icm_table, columns=['subject', 'failure_summary'])
 
     # failures_df.to_csv('failures_df_post.csv', index=True)

@@ -424,7 +424,7 @@ class KustoConnector(object):
         | where OSVersion !contains "nokia"
         | where ModulePath != ""
         | where Summary !in (SummaryWhileList)
-        | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, BuildId, PipeStatus
+        | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase, opTestCase, Summary, Result, BranchName, OSVersion, TestbedName, Asic, AsicType, TopologyType, HardwareSku, BuildId, PipeStatus
         | sort by UploadTimestamp desc
         '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords"],
                    configuration["branch"]["excluded_branch"], configuration["hwsku"]["excluded_hwsku"],

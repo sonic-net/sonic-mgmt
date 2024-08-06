@@ -20,6 +20,7 @@ import logging
 import sys
 import pandas as pd
 
+
 TOKEN = os.environ.get('AZURE_DEVOPS_MSAZURE_TOKEN')
 
 if not TOKEN:
@@ -177,6 +178,9 @@ class DataAnalyzer(BasicAnalyzer):
             logger.info("{}: {} : {} : {}".format(index + 1, summary_failures[item]['ReproCount'], item, summary_failures[item]['Summary'][:80]))
         common_summary_new_icm_table, common_summary_duplicated_icm_table = self.multiple_process(
             waiting_list)
+        logger.debug("New common summary Icms\n{}".format(common_summary_new_icm_table))
+        for row in common_summary_duplicated_icm_table:
+            logger.debug("Common summary Icms dulicated Subject: {}".format(row['subject']))
         return common_summary_new_icm_table, common_summary_duplicated_icm_table, summary_failures
 
     def run_failure(self, branch=None, exclude_error_module_failures=None, exclude_common_summary_failures=None, exclude_case_failures=None):
@@ -212,7 +216,24 @@ class DataAnalyzer(BasicAnalyzer):
 
     def run_failure_cross_branch(self):
         waiting_list = []
-        failed_testcases = self.collect_failed_testcase_cross_branch()
+        failed_testcases_df = self.collect_failed_testcase_cross_branch()
+        failed_testcases = {}
+        for index, row in failed_testcases_df.iterrows():
+            module_path = row['ModulePath']
+            testcase = row['opTestCase']
+            branch = row['BranchName']
+            key = module_path + '.' + testcase + "#" + branch
+            if testcase in failed_testcases:
+                continue
+            else:
+                if key not in failed_testcases:
+                    failed_testcases[key] = {}
+                    failed_testcases[key]['OSVersion'] = row['OSVersion']
+                    failed_testcases[key]['BranchName'] = row['BranchName']
+                    failed_testcases[key]['FullCaseName'] = row['FullCaseName']
+
+        logger.info("Found {} kinds of failed test cases.".format(
+            len(failed_testcases)))
         failed_testcases_list = list(failed_testcases.keys())
         logger.info("Total failure cases cross branches in waiting: {}".format(
             len(failed_testcases_list)))
@@ -220,26 +241,20 @@ class DataAnalyzer(BasicAnalyzer):
             item_dict = {
                 "case_branch": failed_testcase,
                 "is_module_path": False,
-                "is_common_summary": False,
-                "is_aggregated": True,
-                "summary": failed_testcases[failed_testcase]['Summary']
+                "is_common_summary": False
             }
             waiting_list.append(item_dict)
-            logger.info("{}: {}".format(index + 1, failed_testcase))
-            logger.info("Summary: {}".format(failed_testcases[failed_testcase]['Summary']))
 
         failure_new_icm_table, failure_duplicated_icm_table = self.multiple_process(
-            waiting_list)
+            waiting_list, failed_testcases_df)
         return failure_new_icm_table, failure_duplicated_icm_table, failed_testcases
-        
-    def multiple_process(self, waiting_list):
+
+    def multiple_process(self, waiting_list, week_failed_testcases_df=None):
         """Multiple process to analyze test cases"""
-        
+
         # break_flag = False
         new_icm_table = []
         duplicated_icm_table = []
-        new_icm_list = []
-        duplicated_icm_list = []
         logger.info(
             "============== Start searching history result ================")
         # We can use a with statement to ensure threads are cleaned up promptly
@@ -253,13 +268,19 @@ class DataAnalyzer(BasicAnalyzer):
                     self.analysis_process, item_dict))
             for task in concurrent.futures.as_completed(tasks):
                 kusto_data = []
+                new_icm_list = []
+                duplicated_icm_list = []
                 try:
                     kusto_data = task.result()
                 except Exception as exc:
                     logger.error("Task {} generated an exception: {}".format(
                         task, exc))
                     logger.error(traceback.format_exc())
-                new_icm_list, duplicated_icm_list, self.icm_count_dict = deduper.deduplicate_limit_with_active_icm(kusto_data, item_dict, self.icm_count_dict, self.active_icm_df)
+
+                if len(kusto_data) != 0:
+                    logger.debug("After analysis_process, task {} completed, check duplication for {} kusto_data".format(task, len(kusto_data)))
+                    kusto_data = deduper.set_failure_summary(kusto_data, week_failed_testcases_df)
+                    new_icm_list, duplicated_icm_list, self.icm_count_dict = deduper.deduplicate_limit_with_active_icm(kusto_data, self.icm_count_dict, self.active_icm_df)
                 if len(new_icm_list) != 0:
                     new_icm_table.extend(new_icm_list)
                 if len(duplicated_icm_list) != 0:
@@ -442,7 +463,7 @@ class DataAnalyzer(BasicAnalyzer):
         # Read the aggregated_df.csv file
         # aggregated_df = pd.read_csv('aggregated_df.csv')
 
-        # # Get the Summary column from aggregated_df
+        # Get the Summary column from aggregated_df
         # summary_data = aggregated_df['Summary'].tolist()
 
         # # Check if the number of rows in aggregated_df is less than active_icm_df
@@ -458,7 +479,7 @@ class DataAnalyzer(BasicAnalyzer):
             summary = row['FailureSummary']
             logger.info("{} Created at:{} {}".format(index + 1, source_create_date, title))
             logger.info("   Summary: {}".format(summary))
-        # 
+        #
 
         # active_icm_df["IcMPrintInfo"] = "Created at " + \
         #     active_icm_df["SourceCreateDate"].astype(
@@ -703,27 +724,9 @@ class DataAnalyzer(BasicAnalyzer):
         logger.debug("Found {} failed test cases in total on all branches.".format(len(failures_df)))
         # aggregated_df = deduper.find_similar_summaries_and_count(failures_df)
         # aggregated_df.to_csv('aggregated_df.csv', index=False)
-        # logger.debug("The count of failures before aggregation: {} after:{}".format(len(failures_df), len(aggregated_df)))
+        # logger.debug("The count of failures before aggregation: {}".format(len(failures_df)))
 
-        search_cases = {}
-        for index, row in failures_df.iterrows():
-            module_path = row['ModulePath']
-            testcase = row['opTestCase']
-            branch = row['BranchName']
-            key = module_path + '.' + testcase + "#" + branch
-            if testcase in search_cases:
-                continue
-            else:
-                if key not in search_cases:
-                    search_cases[key] = {}
-                    search_cases[key]['OSVersion'] = row['OSVersion']
-                    search_cases[key]['BranchName'] = row['BranchName']
-                    search_cases[key]['FullCaseName'] = row['FullCaseName']
-                    search_cases[key]['Summary'] = row['Summary']
-
-        logger.info("Found {} kinds of failed test cases.".format(
-            len(search_cases)))
-        return search_cases
+        return failures_df
 
     def analysis_process(self, case_info_dict):
         history_testcases, history_case_df = self.search_and_parse_history_results(
@@ -1216,8 +1219,8 @@ class DataAnalyzer(BasicAnalyzer):
                     #     logger.info("{}: This is an aggregated case, skip further analysis, one IcM is enough.".format(case_name_branch))
                     #     return kusto_table
                 else:
-                    logger.debug("{} asic_case_df for asic {} is :{}".format(
-                        case_name_branch, asic, asic_case_df))
+                    # logger.debug("{} asic_case_df for asic {} is :{}".format(
+                    #     case_name_branch, asic, asic_case_df))
                     filter_success_rate_results = self.calculate_success_rate(
                         asic_case_df, 'HardwareSku', 'hwsku')
                     logger.debug("{} success rate after filtering by asic {}: {}".format(
