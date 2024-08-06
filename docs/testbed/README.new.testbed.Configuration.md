@@ -19,6 +19,32 @@ There are several devices needed to get sonic-mgmt up and running with the test 
 
 Information for testbed and topology can be referenced at [Sonic-Mgmt Testbed Overview](/docs/testbed/README.testbed.Overview.md)
 
+# Testbed inventory
+
+- [```ansible/lab```](/ansible/lab): Include all lab DUTs, fanout switches and testbed server topologies
+
+- [```ansible/veos```](/ansible/veos): all servers and VMs
+
+
+## Testbed Physical Topology
+
+- [```ansible/files/sonic_lab_devices.csv```](/ansible/files/sonic_lab_devices.csv): Helper file helps you create lab_connection_graph.xml, list all devices that are physically connected to fanout testbed (all devices should be in ansible/lab)
+
+- [```ansible/files/sonic_lab_links.csv```](/ansible/files/sonic_lab_links.csv): Helper file helps you to create lab_connection_graph.xml, list all physical links between DUT, Fanoutleaf and Fanout root switches, servers and vlan configurations for each link
+
+- [```ansible/files/sonic_lab_pdu_links.csv```](/ansible/files/sonic_lab_pdu_links.csv): Helper file helps you to create lab_connection_graph.xml, list all pdu links between devices and pdu devices. For details about pdu configuraions, check doc [pdu wiring](./README.testbed.PDUWiring.md)
+
+- [```ansible/files/sonic_lab_bmc_links.csv```](/ansible/files/sonic_lab_bmc_links.csv): Helper file helps you to create lab_connection_graph.xml, list all bmc links between devices and management devices.
+
+- [```ansible/files/sonic_lab_console_links.csv```](/ansible/files/sonic_lab_console_links.csv): Helper file helps you to create lab_connection_graph.xml, list all console links between devices and management devices.
+
+- [```ansible/files/lab_connection_graph.xml```](/ansible/files/lab_connection_graph.xml): This is the lab graph file for library/conn_graph_facts.py to parse and get all lab fanout switch connections information. If you have only one fanout switch, you may go ahead and manually modify the sample lab_connection_graph.xml file to set both your fanout leaf and fanout root switch management IP point to the same fanout switch management IP and make sure all DUT and Fanout name and IP are matching your testbed.
+
+- [```ansible/files/creategraph.py```](/ansible/files/creategraph.py): Helper file helps you generate a lab_connection_graph.xml based on the device file and link file specified above.
+
+     Based on ansible_facts,  you may write ansible playbooks to deploy fanout switches or run test which requires to know the DUT physical connections to fanout switch
+
+
 # Modify Testbed.yaml Configuration File
 There are 7 main sections in testbed.yaml that need to be edited:
 1. device_groups
@@ -29,7 +55,7 @@ There are 7 main sections in testbed.yaml that need to be edited:
 6. testbed
 7. topology
 
-Each of the sections above contribute to the files that need to be written into in order for the test cases to run. For more information about what each file does, please reference [Sonic-Mgmt Testbed Configuration](/docs/testbed/README.testbed.Config.md).
+Each of the sections above contribute to the files that need to be written into in order for the test cases to run. For more information about what each file does, please reference [Testbed Inventory](#testbed-inventory) and [Testbed Physical Topology](#testbed-physical-topology).
 
 Within the testbed.yaml file:
 
@@ -152,6 +178,18 @@ For each topology you use in your testbed environment, define the following:
     - ansible_host - IP address with port number
     - ansible_ssh_user - username to login to lab server
     - ansible_ssh_pass - password to login to lab server
+
+#### Consistency Rule:
+1. `conf-name` must be unique.
+2. `group-name` must be up to 8 characters long.
+3. All testbed with the same `group-name` must have the same:
+      - `ptf_ip`
+      - `server`
+      - `vm_base`
+4. `topo` name must be valid and presented in [`/ansible/vars/topo_*.yml`](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/vars).
+5. `ptf_image_name` must be valid.
+6. `server` name must be valid and presented in [`veos`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/veos) file.
+7. `vm_base` must not overlap with testbed of different group names.
 
 ### topology section:
 **USAGE**: files/sonic_lab_links.csv
@@ -355,3 +393,37 @@ Resolution: There are a plethora of things that could be wrong here. Here are so
 3. Does your device have the correct hwsku in files/sonic_lab_devices.csv?
 4. Confirm that your lab file does not have "/"s after the IPs. "/"s are a way to denote port numbers which INI files do not recognize.
 5. Recheck your testbed.yaml configuration file to see if you got the IPs and credentials correct
+
+
+# Configuration Validation Script
+
+We have provided a script that cross-checks your configuration with the guidelines outlined in this document to ensure optimal functionality. The script is located at `ansible/verify_config.py`.
+
+To validate all configurations within your project, execute the following command:
+
+```bash
+python3 verify_config.py
+```
+The script will present any warnings or errors based on our validation rules, using the default testbed file `testbed.yaml` and the default VM file `veos`.
+
+
+If you wish to use custom VM and testbed files, input the command as shown below, replacing <vm_file> and <testbed_file> with your filenames:
+
+```bash
+python3 verify_config.py -t <testbed-file> -m <vm-file>
+```
+
+For validating your connection to a specific testbed listed in the testbed file, run the following command **within `sonic-mgmt` container**:
+
+```bash
+python3 verify_config.py -tb <testbed-name>
+```
+
+Lastly, to specify both custom testbed and VM files along with a specific testbed, use:
+
+
+```bash
+python3 verify_config.py -t <testbed-file> -m <vm-file> -tb <testbed-name>
+```
+
+Replace `<testbed_file>`, `<vm_file>`, and `<testbed_name>` with your respective file names and testbed name to proceed with the validation.
