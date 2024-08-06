@@ -60,11 +60,13 @@ def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost.copy(src=SRC_FILE, dest='/tmp')
     # Copy the new script to swss container
     cmd = "docker cp /tmp/pfc_detect_mellanox.lua swss:{}".format(DST_FILE)
+    duthost.shell(cmd)
     # Reload DUT to apply the new script
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     yield
     # Restore the original PFC Watchdog detection script
     cmd = "docker exec -i swss cp {}.bak {}".format(DST_FILE, DST_FILE)
+    duthost.shell(cmd)
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     # Cleanup
     duthost.file(path='/tmp/pfc_detect_mellanox.lua', state='absent')
