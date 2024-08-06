@@ -9,7 +9,7 @@ from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CON
     validate_dhcp_server_pkts_custom_option, verify_lease, \
     verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
-    apply_dhcp_server_config_gcu, create_dhcp_client_packet
+    apply_dhcp_server_config_gcu, create_dhcp_client_packet, vlan_n2i
 
 
 pytestmark = [
@@ -596,8 +596,8 @@ def test_dhcp_server_config_change_common(
                  (changed_expected_assigned_ip, changed_gateway, changed_lease_time))
     change_to_apply = [
         {
-            "op": "replace",
-            "path": "/DHCP_SERVER_IPV4_RANGE/%s/range/0" % ("range_" + expected_assigned_ip),
+            "op": "add",
+            "path": "/DHCP_SERVER_IPV4_RANGE/%s/range/1" % ("range_" + expected_assigned_ip),
             "value": "%s" % changed_expected_assigned_ip
         },
         {
@@ -609,6 +609,14 @@ def test_dhcp_server_config_change_common(
             "op": "replace",
             "path": "/DHCP_SERVER_IPV4/%s/gateway" % vlan_name,
             "value": "%s" % changed_gateway
+        }
+    ]
+    apply_dhcp_server_config_gcu(duthost, change_to_apply)
+    change_to_apply = [
+        {
+            "op": "remove",
+            "path": "/DHCP_SERVER_IPV4_RANGE/%s/range/0" % ("range_" + expected_assigned_ip),
+            "value": "%s" % expected_assigned_ip
         }
     ]
     apply_dhcp_server_config_gcu(duthost, change_to_apply)
@@ -633,11 +641,13 @@ def test_dhcp_server_config_vlan_member_change(
     duthost,
     ptfhost,
     ptfadapter,
-    parse_vlan_setting_from_running_config
+    parse_vlan_setting_from_running_config,
+    loganalyzer
 ):
     """
         Test if config change on dhcp interface status can take effect
     """
+    loganalyzer[duthost.hostname].ignore_regex.append(".*Failed to get port by bridge port.*")
     test_xid = 11
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     expected_assigned_ip = random.choice(vlan_hosts)
@@ -647,38 +657,28 @@ def test_dhcp_server_config_vlan_member_change(
     config_to_apply = create_common_config_patch(vlan_name, gateway, net_mask, [dut_port], [[expected_assigned_ip]])
     apply_dhcp_server_config_gcu(duthost, config_to_apply)
     # delete member
-    config_to_apply = [
-        {
-            "op": "remove",
-            "path": "/VLAN_MEMBER/%s|%s" % (vlan_name, dut_port)
-        }
-    ]
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
-    verify_discover_and_request_then_release(
-        duthost=duthost,
-        ptfhost=ptfhost,
-        ptfadapter=ptfadapter,
-        dut_port_to_capture_pkt=dut_port,
-        ptf_port_index=ptf_port_index,
-        ptf_mac_port_index=ptf_port_index,
-        test_xid=test_xid,
-        dhcp_interface=vlan_name,
-        expected_assigned_ip=None,
-        exp_gateway=gateway,
-        server_id=gateway,
-        net_mask=net_mask
-    )
+    duthost.del_member_from_vlan(vlan_n2i(vlan_name), dut_port)
+    try:
+        verify_discover_and_request_then_release(
+            duthost=duthost,
+            ptfhost=ptfhost,
+            ptfadapter=ptfadapter,
+            dut_port_to_capture_pkt=dut_port,
+            ptf_port_index=ptf_port_index,
+            ptf_mac_port_index=ptf_port_index,
+            test_xid=test_xid,
+            dhcp_interface=vlan_name,
+            expected_assigned_ip=None,
+            exp_gateway=gateway,
+            server_id=gateway,
+            net_mask=net_mask
+        )
+    except Exception as e:
+        duthost.add_member_to_vlan(vlan_n2i(vlan_name), dut_port)
+        raise e
+
     # restore deleted member
-    config_to_apply = [
-        {
-            "op": "add",
-            "path": "/VLAN_MEMBER/%s|%s" % (vlan_name, dut_port),
-            "value": {
-                "tagging_mode": "untagged"
-            }
-        }
-    ]
-    apply_dhcp_server_config_gcu(duthost, config_to_apply)
+    duthost.add_member_to_vlan(vlan_n2i(vlan_name), dut_port, False)
     time.sleep(3)  # wait for vlan member change take effect
     verify_discover_and_request_then_release(
         duthost=duthost,
@@ -777,31 +777,8 @@ def test_dhcp_server_config_vlan_intf_change(
     apply_dhcp_server_config_gcu(duthost, config_to_apply)
 
     # When the subnet not match to VLAN, client won't get IP
-    patch_replace_subnet = [
-        {
-            "op": "remove",
-            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_1.replace('/', '~1'))
-        },
-        {
-            "op": "add",
-            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_2.replace('/', '~1')),
-            "value": {}
-        }
-    ]
-
-    # When the subnet is changed to match VLAN, client can get IP
-    patch_restore_subnet = [
-        {
-            "op": "remove",
-            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_2.replace('/', '~1'))
-        },
-        {
-            "op": "add",
-            "path": "/VLAN_INTERFACE/%s|%s" % (vlan_name_1, vlan_ipv4_1.replace('/', '~1')),
-            "value": {}
-        }
-    ]
-    apply_dhcp_server_config_gcu(duthost, patch_replace_subnet)
+    duthost.add_ip_addr_to_vlan(vlan_name_1, vlan_ipv4_2)
+    duthost.remove_ip_addr_from_vlan(vlan_name_1, vlan_ipv4_1)
     try:
         verify_discover_and_request_then_release(
             duthost=duthost,
@@ -818,10 +795,13 @@ def test_dhcp_server_config_vlan_intf_change(
             net_mask=None
         )
     except Exception as e:
-        apply_dhcp_server_config_gcu(duthost, patch_restore_subnet)
+        duthost.add_ip_addr_to_vlan(vlan_name_1, vlan_ipv4_1)
+        duthost.remove_ip_addr_from_vlan(vlan_name_1, vlan_ipv4_2)
         raise e
 
-    apply_dhcp_server_config_gcu(duthost, patch_restore_subnet)
+    # When the subnet is changed to match VLAN, client can get IP
+    duthost.add_ip_addr_to_vlan(vlan_name_1, vlan_ipv4_1)
+    duthost.remove_ip_addr_from_vlan(vlan_name_1, vlan_ipv4_2)
     verify_discover_and_request_then_release(
         duthost=duthost,
         ptfhost=ptfhost,

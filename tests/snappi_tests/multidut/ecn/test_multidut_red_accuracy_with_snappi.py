@@ -16,7 +16,6 @@ from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test
 from tests.common.snappi_tests.common_helpers import packet_capture # noqa F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.config_reload import config_reload
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
@@ -60,10 +59,11 @@ def test_red_accuracy(request,
         pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]      # noqa: E501
+        dut_list = [dut for dut in duthosts.frontend_nodes if
+                    linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]      # noqa: E501
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:
         pytest_require(False, "Hostname can't be an empty list")
@@ -90,9 +90,9 @@ def test_red_accuracy(request,
 
     snappi_extra_params.packet_capture_type = packet_capture.IP_CAPTURE
     snappi_extra_params.is_snappi_ingress_port_cap = True
-    snappi_extra_params.ecn_params = {'kmin': 500000, 'kmax': 2000000, 'pmax': 5}
+    snappi_extra_params.ecn_params = {'kmin': 500000, 'kmax': 900000, 'pmax': 5}
     data_flow_pkt_size = 1024
-    data_flow_pkt_count = 2100
+    data_flow_pkt_count = 910
     num_iterations = 1
 
     logger.info("Running ECN red accuracy test with ECN params: {}".format(snappi_extra_params.ecn_params))
@@ -145,8 +145,3 @@ def test_red_accuracy(request,
     for queue, mark_cnt in list(queue_mark_cnt.items()):
         output_table.append([queue, float(mark_cnt)/num_iterations])
     logger.info(tabulate(output_table, headers=['Queue Length', 'ECN Marking Probability']))
-
-    # Teardown ECN config through a reload
-    logger.info("Reloading config to teardown ECN config")
-    config_reload(sonic_host=duthost1, config_source='config_db', safe_reload=True)
-    config_reload(sonic_host=duthost2, config_source='config_db', safe_reload=True)

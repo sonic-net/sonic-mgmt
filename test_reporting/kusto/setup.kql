@@ -183,7 +183,7 @@
 ###############################################################################
 // Create table command
 ////////////////////////////////////////////////////////////
-.create table ['RebootTimingData'] (ReportId: string, ['RebootType']:string,
+.create table ['RebootTimingData'] (ReportId: string, TrackingId: string, Hostname: string, BaseImage:string, TargetImage:string, HwSku:string, ['RebootType']:string,
                                     ['ControlplaneArpPing']:string, ['ControlplaneDowntime']:string, ['DataplaneLostPackets']:string, ['DataplaneDowntime']:string,
                                     ['OffsetFromKexecDatabase']:string, ['OffsetFromKexecFinalizer']:string, ['OffsetFromKexecInitView']:string, ['OffsetFromKexecSyncdCreateSwitch']:string,
                                     ['OffsetFromKexecPortInit']:string, ['OffsetFromKexecPortReady']:string, ['OffsetFromKexecSaiCreateSwitch']:string, ['OffsetFromKexecNeighborEntry']:string,
@@ -196,6 +196,11 @@
 ////////////////////////////////////////////////////////////
 .create table ['RebootTimingData'] ingestion json mapping 'RebootTimingDataMapping' @'['
                                                             '{"column":"ReportId","Properties":{"path":"$.id"}},'
+                                                            '{"column":"TrackingId","Properties":{"path":"$.tracking_id"}},'
+                                                            '{"column":"Hostname","Properties":{"path":"$[\'hostname\']"}},'
+                                                            '{"column":"HwSku","Properties":{"path":"$[\'hwsku\']"}},'
+                                                            '{"column":"BaseImage","Properties":{"path":"$[\'base_ver\']"}},'
+                                                            '{"column":"TargetImage","Properties":{"path":"$[\'target_ver\']"}},'
                                                             '{"column":"OffsetFromKexecDatabase", "Properties":{"Path":"$[\'offset_from_kexec\'][\'database\']"}},'
                                                             '{"column":"OffsetFromKexecFinalizer", "Properties":{"Path":"$[\'offset_from_kexec\'][\'finalizer\']"}},'
                                                             '{"column":"OffsetFromKexecPortInit", "Properties":{"Path":"$[\'offset_from_kexec\'][\'port_init\']"}},'

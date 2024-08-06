@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"flag"
 
 	log "github.com/golang/glog"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
@@ -16,7 +17,13 @@ import (
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
+
+var (
+	supportedSecurityModes = []string{"insecure", "mtls"}
+	securityMode = flag.String("security_mode", "insecure", fmt.Sprintf("define the security mode of the conntections to gnmi server, choose from : %v. Uses insecure as default.", supportedSecurityModes))
+ )
 
 // Backend can reserve Ondatra DUTs and provide clients to interact with the DUTs.
 type Backend struct {
@@ -168,17 +175,20 @@ func (b *Backend) Release(ctx context.Context) error {
 
 // DialGRPC connects to grpc service and returns the opened grpc client for use.
 func (b *Backend) DialGRPC(ctx context.Context, addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	tlsConfig, ok := b.configs[addr]
-	if !ok {
-		return nil, fmt.Errorf("failed to find TLS config for %s", addr)
-	}
+	if *securityMode  == "mtls" {
+	    tlsConfig, ok := b.configs[addr]
+	    if !ok {
+	   	return nil, fmt.Errorf("failed to find TLS config for %s", addr)
+	    }
 
-	opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	    opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+        } else  {
+	   opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+ 	}
 	conn, err := grpc.DialContext(ctx, addr, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("DialContext(%s, %v) : %v", addr, opts, err)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("DialContext(%s, %v) : %v", addr, opts, err)
 	}
-
 	return conn, nil
 }
 

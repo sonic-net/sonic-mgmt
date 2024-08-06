@@ -6,8 +6,7 @@ import logging
 import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
-import time
-from tests.common.utilities import capture_and_check_packet_on_dut
+from tests.common.utilities import capture_and_check_packet_on_dut, wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 
@@ -38,6 +37,20 @@ DHCP_SERVER_SUPPORTED_OPTION_ID = (
 )
 
 
+def vlan_i2n(vlan_id):
+    """
+        Convert vlan id to vlan name
+    """
+    return "Vlan%s" % vlan_id
+
+
+def vlan_n2i(vlan_name):
+    """
+        Convert vlan name to vlan id
+    """
+    return vlan_name.replace("Vlan", "")
+
+
 def clean_fdb_table(duthost):
     duthost.shell("sonic-clear fdb all")
 
@@ -48,12 +61,33 @@ def ping_dut_refresh_fdb(ptfhost, interface):
 
 def clean_dhcp_server_config(duthost):
     keys = duthost.shell("sonic-db-cli CONFIG_DB KEYS DHCP_SERVER_IPV4*")
-    for key in keys["stdout_lines"]:
-        duthost.shell("sonic-db-cli CONFIG_DB DEL '{}'".format(key))
+    clean_order = [
+        "DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS",
+        "DHCP_SERVER_IPV4_RANGE",
+        "DHCP_SERVER_IPV4_PORT",
+        "DHCP_SERVER_IPV4"
+    ]
+    for key in clean_order:
+        for line in keys['stdout_lines']:
+            if line.startswith(key + '|'):
+                duthost.shell("sonic-db-cli CONFIG_DB DEL '{}'".format(line))
 
 
 def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
-    time.sleep(5)  # wait for dhcp server to update lease info
+    pytest_assert(
+        wait_until(
+            11,  # it's by design that there is a latency around 0~11 seconds for updating state db
+            1,
+            3,
+            lambda _dh, _di, _cm: len(_dh.shell(
+                    "sonic-db-cli STATE_DB KEYS 'DHCP_SERVER_IPV4_LEASE|{}|{}'".format(_di, _cm)
+                )['stdout']) > 0,
+            duthost,
+            dhcp_interface,
+            client_mac
+        ),
+        'state db doesnt have lease info for client {}'.format(client_mac)
+    )
     lease_start = duthost.shell("sonic-db-cli STATE_DB HGET 'DHCP_SERVER_IPV4_LEASE|{}|{}' '{}'"
                                 .format(dhcp_interface, client_mac, STATE_DB_KEY_LEASE_START))['stdout']
     lease_end = duthost.shell("sonic-db-cli STATE_DB HGET 'DHCP_SERVER_IPV4_LEASE|{}|{}' '{}'"
@@ -127,11 +161,14 @@ def empty_config_patch(customized_options=None):
         }
     ]
     if customized_options:
-        ret_empty_patch.append({
-            "op": "add",
-            "path": "/DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS",
-            "value": {}
-        })
+        ret_empty_patch.insert(
+            0,
+            {
+                "op": "add",
+                "path": "/DHCP_SERVER_IPV4_CUSTOMIZED_OPTIONS",
+                "value": {}
+            }
+        )
     return ret_empty_patch
 
 
@@ -145,12 +182,13 @@ def append_common_config_patch(
     customized_options=None
 ):
     pytest_require(len(dut_ports) == len(ip_ranges), "Invalid input, dut_ports and ip_ranges should have same length")
-    new_patch = generate_dhcp_interface_config_patch(vlan_name, gateway, net_mask, customized_options)
+    new_patch = []
+    if customized_options:
+        new_patch += generate_dhcp_custom_option_config_patch(customized_options)
+    new_patch += generate_dhcp_interface_config_patch(vlan_name, gateway, net_mask, customized_options)
     range_names = ["range_" + ip_range[0] for ip_range in ip_ranges]
     new_patch += generate_dhcp_range_config_patch(ip_ranges, range_names)
     new_patch += generate_dhcp_port_config_patch(vlan_name, dut_ports, range_names)
-    if customized_options:
-        new_patch += generate_dhcp_custom_option_config_patch(customized_options)
     config_patch += new_patch
 
 

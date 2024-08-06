@@ -26,13 +26,6 @@ TS_INCONSISTENT = "System Mode: Not consistent"
 TS_NO_NEIGHBORS = "System Mode: No external neighbors"
 
 
-@pytest.fixture
-def traffic_shift_community(duthost):
-    community = duthost.shell('sonic-cfggen -y /etc/sonic/constants.yml -v constants.bgp.traffic_shift_community')[
-        'stdout']
-    return community
-
-
 @pytest.fixture(scope="module")
 def nbrhosts_to_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -123,7 +116,7 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
     return all_routes
 
 
-def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
+def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
     """
     Parse the output of 'show ip bgp neigh received-routes' on eos, and store in a dict
     """
@@ -140,7 +133,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
         host_name_map[neigh_host['host'].hostname] = hostname
 
     # Retrieve the routes on all VMs  in parallel by using a thread poll
-    def parse_routes_process(node=None, results=None):
+    def parse_routes_process(node=None, results=None, my_community=exp_community):
         """
         The process to parse routes on a VM.
         :param neigh_host_item: tuple of hostname and host_conf dict
@@ -174,6 +167,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
         pytest_assert(
             not res['failed'], "Failed to retrieve routes from VM {}".format(hostname))
         routes = {}
+        routes_with_community = {}
         entry = None
         for line in res['stdout_lines'][0]:
             addr = re.findall(BGP_ENTRY_HEADING + r"(.+)", line)
@@ -186,11 +180,23 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
             if community:
                 if entry:
                     routes[entry] = community[0]
+                    if my_community:
+                        for comm in my_community:
+                            if comm in community[0]:
+                                routes_with_community[entry] = comm
+                                break
                     entry = None
                     community = ""
         if entry:
             routes[entry] = community
-        results[hostname] = routes
+            if my_community:
+                for comm in my_community:
+                    if comm in community:
+                        routes_with_community[entry] = comm
+        if my_community:
+            results[hostname] = routes_with_community
+        else:
+            results[hostname] = routes
     try:
         all_routes = parallel_run(parse_routes_process, (), {}, list(
             neigh_hosts.values()), timeout=240, concurrent_tasks=8)
@@ -202,9 +208,9 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
     return all_routes
 
 
-def parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver):
+def parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver, exp_community=[]):
     if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
-        routes_on_all_nbrs = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver)
+        routes_on_all_nbrs = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community)
     else:
         routes_on_all_nbrs = parse_routes_on_vsonic(
             dut_host, neigh_hosts, ip_ver)
@@ -241,14 +247,14 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
 
 
 def verify_current_routes_announced_to_neighs(dut_host, neigh_hosts, orig_routes_on_all_nbrs,
-                                              cur_routes_on_all_nbrs, ip_ver):
+                                              cur_routes_on_all_nbrs, ip_ver, exp_community=[]):
     """
     Verify all the original routes are announced to neighbors after TSB
     """
     logger.info(
         "Verifying all the original routes(ipv{}) are announced to bgp neighbors".format(ip_ver))
     cur_routes_on_all_nbrs.update(
-        parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver))
+        parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver, exp_community))
     # Compare current routes after TSB with original routes advertised to neighbors
     if cur_routes_on_all_nbrs != orig_routes_on_all_nbrs:
         return False

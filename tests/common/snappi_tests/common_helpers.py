@@ -32,7 +32,7 @@ def increment_ip_address(ip, incr=1):
     ipaddress = ipaddr.IPv4Address(ip)
     ipaddress = ipaddress + incr
     return_value = ipaddress._string_from_ip_int(ipaddress._ip)
-    return(return_value)
+    return return_value
 
 
 def ansible_stdout_to_str(ansible_stdout):
@@ -644,7 +644,7 @@ def get_pfcwd_poll_interval(host_ans, asic_value=None):
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope='GLOBAL',
                                     attr='POLL_INTERVAL',
-                                    namespace=asic_value)
+                                    asic_value=asic_value)
 
     if val is not None:
         return int(val)
@@ -671,7 +671,7 @@ def get_pfcwd_detect_time(host_ans, intf, asic_value=None):
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope=intf,
                                     attr='detection_time',
-                                    namespace=asic_value)
+                                    asic_value=asic_value)
 
     if val is not None:
         return int(val)
@@ -698,12 +698,49 @@ def get_pfcwd_restore_time(host_ans, intf, asic_value=None):
         val = get_pfcwd_config_attr(host_ans=host_ans,
                                     config_scope=intf,
                                     attr='restoration_time',
-                                    namespace=asic_value)
+                                    asic_value=asic_value)
 
     if val is not None:
         return int(val)
 
     return None
+
+
+def get_pfcwd_stats(duthost, port, prio, asic_value=None):
+    """
+    Get PFC watchdog statistics for given interface:prio
+    Args:
+        duthost		: Ansible host instance of the device
+        port		: Port for which stats needs to be gathered.
+        prio		: Lossless priority for which stats needs to be captured.
+        asic_value	: asic value of the host
+
+    Returns:
+        Dictionary with PFCWD statistics as key-value pair.
+        If the entry is not present, then values are returned as zero.
+    """
+
+    pfcwd_stats = {}
+    if asic_value is None:
+        raw_out = duthost.shell("show pfcwd stats | grep -E 'QUEUE|{}:{}'".format(port, prio))['stdout']
+    else:
+        comm = "sudo ip netns exec {} show pfcwd stats | grep -E 'QUEUE|{}:{}'".format(asic_value, port, prio)
+        raw_out = duthost.shell(comm)['stdout']
+
+    val_list = []
+    key_list = []
+    for line in raw_out.split('\n'):
+        if ('QUEUE' in line):
+            key_list = (re.sub(r"(\w) (\w)", r"\1_\2", line)).split()
+        else:
+            val_list = line.split()
+    if val_list:
+        for key, val in zip(key_list, val_list):
+            pfcwd_stats[key] = val
+    else:
+        pfcwd_stats = {key: '0/0' if '/' in key else 0 for key in key_list}
+
+    return pfcwd_stats
 
 
 def start_pfcwd(duthost, asic_value=None):
@@ -970,3 +1007,25 @@ def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):
     pps = int(oversubscription_ratio / pause_dur)
 
     return pps
+
+
+def start_pfcwd_fwd(duthost, asic_value=None):
+    """
+    Start PFC watchdog in Forward mode.
+    Stops the PFCWD cleanly before restarting it in FORWARD mode.
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+        asic_value: asic value of the host
+
+    Returns:
+        N/A
+    """
+
+    # Starting PFCWD in forward mode with detection and restoration duration of 200msec.
+    if asic_value is None:
+        stop_pfcwd(duthost)
+        duthost.shell('sudo pfcwd start --action forward 200 --restoration-time 200')
+    else:
+        stop_pfcwd(duthost, asic_value)
+        duthost.shell('sudo ip netns exec {} pfcwd start --action forward 200 --restoration-time 200'.
+                      format(asic_value))
