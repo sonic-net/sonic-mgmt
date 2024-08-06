@@ -10,6 +10,7 @@ import logging
 import pytest
 import time
 from tests.common.utilities import InterruptableThread
+from tests.common.devices.eos import EosHost
 import textfsm
 import traceback
 from tests.common.devices.sonic import SonicHost
@@ -157,7 +158,7 @@ def test_bgp_single_session_flaps(setup):
     # start threads to flap neighbor sessions
     thread = InterruptableThread(
         target=flap_neighbor_session,
-        args=(setup['neighhost']))
+        args=(setup['neighhost'],))
     thread.daemon = True
     thread.start()
     flap_threads.append(thread)
@@ -204,7 +205,7 @@ def test_bgp_multiple_session_flaps(setup):
     for neigh in setup['neighbors']:
         thread = InterruptableThread(
             target=flap_neighbor_session,
-            args=(neigh))
+            args=(neigh,))
         thread.daemon = True
         thread.start()
         flap_threads.append(thread)
