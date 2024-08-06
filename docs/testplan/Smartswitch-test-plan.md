@@ -585,7 +585,7 @@ root@sonic:/home/cisco# date
 Tue 23 Apr 2024 11:46:47 PM UTC
 root@sonic:/home/cisco#
 .
-root@sonic:/home/cisco# ssh admin@169.254.24.1
+root@sonic:/home/cisco# ssh admin@169.254.200.1
 root@sonic:/home/cisco#
 .
 On DPU:
