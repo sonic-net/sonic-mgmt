@@ -105,6 +105,7 @@ function show_help_and_exit() {
     echo "  -m <mount_point>     specify directory to bind mount to container"
     echo "  -p <port>            publish container port to the host"
     echo "  -f                   automatically remove the container when it exits"
+    echo "  -s                   start existing container"
     echo "  -v                   explain what is being done"
     echo "  -x                   show execution details"
     echo "  -h                   display this help and exit"
@@ -298,10 +299,16 @@ EOF
 function start_local_container() {
     log_info "creating a container: ${CONTAINER_NAME} ..."
 
-    eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
-    -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
-    --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
-    exit_failure "failed to start a container: ${CONTAINER_NAME}"
+    if [ $1 == "existing" ]
+    then
+        log_info "starting existing container: ${CONTAINER_NAME} ..."
+        docker start ${CONTAINER_NAME}
+    else
+        eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
+        -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
+        --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
+        exit_failure "failed to start a container: ${CONTAINER_NAME}"
+    fi
 
     eval "docker exec --user root \"${CONTAINER_NAME}\" \
     bash -c \"service ssh restart\" ${SILENT_HOOK}" || \
@@ -331,6 +338,36 @@ function parse_arguments() {
     fi
 }
 
+function start_existing_container() {
+    if [ -z ${IMAGE_ID} ]
+    then
+        echo "Missing required argument -i IMAGE_ID to start the container"
+        exit 1
+    fi
+    container_id=`docker container ls --all --filter=ancestor=${IMAGE_ID} --format '{{.ID}}'`
+    count=`echo $container_id | wc -w`
+    if [ $count -eq 0 ]
+    then
+        echo "No containers found for image ${IMAGE_ID}"
+        exit 0
+    fi
+    if [ $count -eq 1 ]
+    then
+        container_name=`docker inspect $container_id --format '{{.Name}}'`
+        cname=""
+        if [[ $container_name == /* ]]
+        then
+            CONTAINER_NAME="${container_name:1}"
+        fi
+        start_local_container "existing"
+    fi
+    if [ $count -gt 1 ]
+    then
+        echo "There are more than one containers for this image"
+        exit 1
+    fi
+}
+
 #
 # Script --------------------------------------------------------------------------------------------------------------
 #
@@ -339,7 +376,7 @@ if [[ $# -eq 0 ]]; then
     show_help_and_exit "${EXIT_SUCCESS}"
 fi
 
-while getopts "n:i:d:m:p:fvxh" opt; do
+while getopts "n:i:d:m:p:fvxhs" opt; do
     case "${opt}" in
         n )
             CONTAINER_NAME="${OPTARG}"
@@ -368,6 +405,9 @@ while getopts "n:i:d:m:p:fvxh" opt; do
             ;;
         h )
             show_help_and_exit "${EXIT_SUCCESS}"
+            ;;
+        s )
+            start_existing_container
             ;;
         * )
             show_help_and_exit "${EXIT_FAILURE}"
