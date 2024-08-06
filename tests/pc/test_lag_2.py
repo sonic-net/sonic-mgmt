@@ -4,6 +4,7 @@ import time
 import logging
 
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
 from tests.common.utilities import wait_until
@@ -37,7 +38,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(copy_acstests_directory, ptfhost, duthosts): # noqa F811
+def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfhost, duthosts): # noqa F811
 
     logger.info("########### Setup for lag testing ###########")
 
