@@ -314,7 +314,7 @@ def test_dhcp_relay_ipv4_single_vrf():
     else:
         st.report_fail("test_case_failed", "test_dhcp_relay_ipv4_single_vrf failed")
 
-
+"""
 @pytest.mark.skip(reason="not required for tortuga beta")
 def test_dhcp_relay_ipv4_diff_vrf():
     vars = st.get_testbed_vars()
@@ -350,7 +350,7 @@ def test_dhcp_relay_ipv4_diff_vrf():
         st.report_pass("test_case_passed", "test_dhcp_relay_ipv4_diff_vrf passed")
     else:
         st.report_fail("test_case_failed", "test_dhcp_relay_ipv4_diff_vrf failed")
-
+"""
 
 ######################################################################
 ##  IPv6 2VLANS:
@@ -407,6 +407,7 @@ def test_dhcp_relay_ipv6_basic():
 ##
 ######################################################################
 
+"""
 @pytest.mark.skip(reason="not implemented")
 def test_dhcp_relay_ipv6_single_vrf():
     vars = st.get_testbed_vars()
@@ -437,5 +438,5 @@ def test_dhcp_relay_ipv6_single_vrf():
         st.report_pass("test_case_passed", "test_dhcp_relay_ipv6_single_vrf passed")
     else:
         st.report_fail("test_case_failed", "test_dhcp_relay_ipv6_single_vrf failed")
-
+"""
 
