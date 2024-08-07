@@ -55,9 +55,8 @@ def get_ptf_image_type(host):
     The function queries the PTF image to determine
     if the image is of type 'mixed' or 'py3only'
     """
-    cmd_check_mixed = "/usr/bin/test -e /root/env-python3/pyvenv.cfg"
-    result = host.shell(cmd_check_mixed)
-    if result.rc == 0:
+    pyvenv = host.stat(path="/root/env-python3/pyvenv.cfg")
+    if pyvenv["stat"]["exists"]:
         return "mixed"
     return "py3only"
 
