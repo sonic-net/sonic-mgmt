@@ -712,14 +712,14 @@ sonic_mlnx_4700:
       ansible_hostv6: 2a01:111:e210:3000::a03:92ce
       hwsku: Mellanox-SN4700-O28
       model: MSN4700-WS2ROS
-      serial: MT2409XZ00BU
-      base_mac: 9C:05:91:F7:48:00
+      serial: MT2409XZ00CE
+      base_mac: 9C:05:91:F7:5C:00
       syseeprom_info:
         "0x21": "MSN4700"
         "0x22": "MSN4700-WS2ROS"
-        "0x23": "MT2409XZ00BU"
-        "0x24": "9C:05:91:F7:48:00"
-        "0x25": "02/29/2024 00:28:22"
+        "0x23": "MT2409XZ00CE"
+        "0x24": "9C:05:91:F7:5C:00"
+        "0x25": "02/28/2024 15:25:14"
         "0x26": "18"
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-9600"
