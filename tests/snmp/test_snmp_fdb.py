@@ -71,6 +71,26 @@ def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff
     return pkt
 
 
+def is_port_channel_up(duthost, config_portchannels):
+    portchannel_status = duthost.show_and_parse("show int po")
+    portchannel_status_obj = {}
+    for item in portchannel_status:
+        all_members_up = True
+        for port in item["ports"].split(" "):
+            all_members_up = all_members_up and port.endswith("(S)")
+        portchannel_status_obj[item["team dev"]] = {
+            "pc_up": True if item["protocol"].endswith("(Up)") else False,
+            "all_members_up": all_members_up
+        }
+    for portchannel in config_portchannels.keys():
+        if portchannel not in portchannel_status_obj:
+            return False
+        if not (portchannel_status_obj[portchannel]["pc_up"] and
+                portchannel_status_obj[portchannel]["all_members_up"]):
+            return False
+    return True
+
+
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,          # noqa F811
@@ -85,6 +105,7 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")[
         'ansible_facts']
     config_portchannels = cfg_facts.get('PORTCHANNEL', {})
+    assert wait_until(60, 2, 0, is_port_channel_up, duthost, config_portchannels), "Portchannel is not up"
     send_cnt = 0
     send_portchannels_cnt = 0
     vlan_ports_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
