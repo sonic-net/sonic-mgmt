@@ -11,7 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
     get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
-    traffic_flow_mode, get_pfc_count, clear_counters, interface_stats, get_queue_count
+    traffic_flow_mode, get_pfc_count, clear_counters, interface_stats, get_queue_count_all_prio
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
@@ -1046,7 +1046,7 @@ def run_sys_traffic(rx_duthost,
         for dut, port in dutport_list:
             f_stats = update_dict(m, f_stats, interface_stats(dut, port))
             f_stats = update_dict(m, f_stats, get_pfc_count(dut, port))
-            f_stats = update_dict(m, f_stats, get_queue_count(dut, port))
+            f_stats = update_dict(m, f_stats, get_queue_count_all_prio(dut, port))
 
         logger.info("Polling DUT for Egress Queue statistics")
 
@@ -1119,7 +1119,7 @@ def run_sys_traffic(rx_duthost,
     for dut, port in dutport_list:
         f_stats = update_dict(m, f_stats, interface_stats(dut, port))
         f_stats = update_dict(m, f_stats, get_pfc_count(dut, port))
-        f_stats = update_dict(m, f_stats, get_queue_count(dut, port))
+        f_stats = update_dict(m, f_stats, get_queue_count_all_prio(dut, port))
 
     for lossless_prio in switch_tx_lossless_prios:
         for dut, port in dutport_list:
