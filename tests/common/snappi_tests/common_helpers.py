@@ -1038,7 +1038,7 @@ def start_pfcwd_fwd(duthost, asic_value=None):
         duthost.shell('sudo ip netns exec {} pfcwd start --action forward 200 --restoration-time 200'.
                       format(asic_value))
 
-        
+
 def clear_counters(duthost, port):
     """
     Clear PFC, Queuecounters, Drop and generic counters from SONiC CLI.
@@ -1130,7 +1130,7 @@ def get_queue_count(duthost, port):
     return queue_dict
 
 
-def get_pfc_count(duthost, port):
+def get_queue_count_all_prio(duthost, port):
     """
     Get the PFC frame count for a given port from SONiC CLI
     Args:
