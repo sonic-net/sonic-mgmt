@@ -355,6 +355,10 @@ onboarding_t0:
   - snmp/test_snmp_queue_counters.py
   - sub_port_interfaces/test_sub_port_interfaces.py
   - hash/test_generic_hash.py
+  - span/test_port_mirroring.py
+  - drop_packets/test_drop_counters.py
+  - vrf/test_vrf.py
+  - vrf/test_vrf_attr.py
 
 onboarding_t1:
   - generic_config_updater/test_cacl.py
@@ -363,6 +367,9 @@ onboarding_t1:
   - platform_tests/test_link_down.py
   - vxlan/test_vxlan_bfd_tsa.py
   - vxlan/test_vxlan_ecmp_switchover.py
+  - stress/test_stress_routes.py
+  - drop_packets/test_drop_counters.py
+  - sub_port_interfaces/test_sub_port_interfaces.py
   - autorestart/test_container_autorestart.py
   - bgp/test_bgp_gr_helper.py
   - bgp/test_bgp_peer_shutdown.py
@@ -462,8 +469,8 @@ onboarding_t1:
   - test_features.py
   - test_procdockerstatsd.py
 
-
 onboarding_dualtor:
+  - arp/test_arp_dualtor.py
   - dualtor/test_orchagent_slb.py
   - dualtor_io/test_link_failure.py
   - dualtor_mgmt/test_ingress_drop.py
