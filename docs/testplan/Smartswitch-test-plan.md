@@ -389,7 +389,6 @@ root@sonic:/home/cisco# show chassis modules status
 ### 1.7 Check removal of pcie link between NPU and DPU
 
 #### Steps
- * Use command `pcieutil generate` to generate pcie yaml
  * Use `show platform pcieinfo -c` to run the pcie info test to check everything is passing
  * Use command `config chassis modules shutdown DPU<DPU_NUM>` to bring down the dpu (This will bring down the pcie link between npu and dpu)
  * Use `show platform pcieinfo -c` to run the pcie info test to check pcie link has been removed
@@ -404,9 +403,7 @@ root@sonic:/home/cisco# show chassis modules status
 ```
 On Switch: Showing example of one DPU pcie link
 
-root@sonic:/home/cisco# pcieutil generate
-Are you sure to overwrite config file pcie.yaml with current pcie device info? [y/N]: y
-Generated config file '/usr/share/sonic/device/x86_64-8102_28fh_dpu_o-r0/pcie.yaml'
+
 root@sonic:/home/cisco# show platform pcieinfo -c
 
 root@sonic:/home/cisco# echo 1 > /sys/bus/pci/devices/0000:1a:00.0/remove
