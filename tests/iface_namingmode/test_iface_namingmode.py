@@ -225,7 +225,8 @@ def select_interface_for_mellnaox_device(setup, duthost):
 #############################################################
 #                        START OF TESTS                     #
 #############################################################
-# Tests to be run in all topologies
+# Tests to be run in the topologies except 'ptf'
+@pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx')
 class TestShowLLDP():
 
     @pytest.fixture(scope="class")
@@ -298,6 +299,7 @@ class TestShowLLDP():
             assert re.search(r'SysName:\s+{}'.format(minigraph_neighbors[test_intf]['name']), lldp_neighbor) is not None
 
 
+# Tests to be run in all topologies
 class TestShowInterfaces():
 
     def test_show_interfaces_counter(self, setup, setup_config_mode):
