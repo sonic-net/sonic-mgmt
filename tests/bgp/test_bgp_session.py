@@ -9,7 +9,7 @@ from tests.common.reboot import reboot
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology("t0", "t1"),
 ]
 
 
