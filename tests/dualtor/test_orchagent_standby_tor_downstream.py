@@ -130,6 +130,16 @@ def startup_bgp_session(dut, bgp_to_up):
         logger.info("Bring back bgp session with {}".format(bgp_to_up))
         dut.shell("config bgp startup neighbor {}".format(bgp_to_up))
 
+def check_mux_status(duthost, state):
+    output = duthost.shell("python3 /usr/local/bin/dualtor_neighbor_check.py")["stdout_lines"]
+    if len(output) <= 2:
+        return False
+    for intf_state in output[2:]:
+        intf = intf_state.split()
+        if intf[3] == state and intf[7] == "consistent":
+            continue
+        return False
+    return True
 
 @pytest.fixture
 def shutdown_one_bgp_session(rand_selected_dut):
@@ -364,11 +374,12 @@ def test_downstream_standby_mux_toggle_active(
         with tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=10)
 
+    timeout = 60
     logger.info("Stage 1: Verify Standby Forwarding")
     logger.info("Step 1.1: Add route to a nexthop which is a standby Neighbor")
     set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
     add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthops=[target_server])
-    time.sleep(30)
+    wait_until(timeout, 10, 10, lambda: check_mux_status(rand_selected_dut, "standby"))
     logger.info("Step 1.2: Verify traffic to this route dst is forwarded to Active ToR and equally distributed")
     check_tunnel_balance(**test_params)
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=False,
@@ -377,7 +388,7 @@ def test_downstream_standby_mux_toggle_active(
     logger.info("Stage 2: Verify Active Forwarding")
     logger.info("Step 2.1: Simulate Mux state change to active")
     set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
-    time.sleep(30)
+    wait_until(timeout, 10, 10, lambda: check_mux_status(rand_selected_dut, "active"))
     logger.info("Step 2.2: Verify traffic to this route dst is forwarded directly to server")
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=True,
                                       expect_tunnel_traffic=False, skip_traffic_test=skip_traffic_test)
@@ -385,7 +396,7 @@ def test_downstream_standby_mux_toggle_active(
     logger.info("Stage 3: Verify Standby Forwarding Again")
     logger.info("Step 3.1: Simulate Mux state change to standby")
     set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
-    time.sleep(30)
+    wait_until(timeout, 10, 10, lambda: check_mux_status(rand_selected_dut, "standby"))
     logger.info("Step 3.2: Verify traffic to this route dst \
                 is now redirected back to Active ToR and equally distributed")
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=False,
