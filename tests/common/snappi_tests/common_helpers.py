@@ -1110,7 +1110,7 @@ def interface_stats(duthost, port):
     return i_stats
 
 
-def get_queue_count(duthost, port):
+def get_queue_count_all_prio(duthost, port):
     """
     Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
     This is the equivalent of the "show queue counters" command.
