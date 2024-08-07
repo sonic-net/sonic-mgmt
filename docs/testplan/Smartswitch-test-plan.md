@@ -335,9 +335,7 @@ root@sonic:/home/cisco#
       Interface     Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
       ------------  --------  -------------------  ------------  --------------  -------------
       eth0                    172.25.42.65/24      up/up         N/A             N/A
-      eth1                    169.254.200.1/24     up/up         N/A             N/A
-      eth2                    169.254.200.2/24     up/up         N/A             N/A
-      ethX                    169.254.200.X/24     up/up         N/A             N/A
+      bridge-midplane         169.254.200.254/24   up/up         N/A             N/A
       lo                      127.0.0.1/16         up/up         N/A             N/A
       root@sonic:/home/cisco# 
 ```
