@@ -321,7 +321,7 @@ def __gen_data_flow(testbed_config,
         src_port = random.randint(5000, 6000)
         udp.src_port.increment.start = src_port
         udp.src_port.increment.step = 1
-        udp.src_port.increment.coun = 1
+        udp.src_port.increment.count = 1
 
         eth.src.value = tx_mac
         eth.dst.value = rx_mac
