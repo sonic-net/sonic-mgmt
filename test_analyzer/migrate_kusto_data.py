@@ -139,7 +139,7 @@ class KustoConnector(object):
 
     def query_missing_testplan(self, upload_time_start, upload_time_end):
         query_str = '''
-            let ExcludeTestbedList = dynamic(['ixia', '3132', '7280', 'slx', '3164', 'azd']);
+            let ExcludeTestbedList = dynamic(['3132', '7280', 'slx', '3164', 'azd']);
             let ExcludeAsicList = dynamic(['barefoot']);
             let newTestBeds = TestBeds
             | where UploadTime between (datetime({}) .. datetime({}))
@@ -161,22 +161,25 @@ class KustoConnector(object):
             | project-away TestbedId1, TestPlanId1,TestPlanId2,HardwareSku1,AsicType1,Topology1,Platform1,Asic1,UploadTime
             | distinct *
             | extend Asic = case(HardwareSku has_any ("7050CX3"), "TD3",
-                                HardwareSku has_any ("7050", "S6000"), "TD2",
-                                HardwareSku has_any ("7060CX", "DX010", "S6100", "3164"), "TH",
+                                HardwareSku has_any ("7050", "7050qx","S6000","Nexus-3164"), "TD2",
+                                HardwareSku has_any ("7060CX", "DX010", "S6100"), "TH",
                                 HardwareSku has_any ("7260CX3"), "TH2",
                                 HardwareSku has_any ("Z9332f"), "TH3",
+                                HardwareSku has_any ("7050DX5"), "TH4",
+                                HardwareSku has_any ("7060X6"), "TH5",
                                 HardwareSku has_any ("MSN4600C"), "Spectrum3",
                                 HardwareSku has_any ("64x100Gb"), "SiliconOne",
                                 HardwareSku has_any ("Celestica-E1031-T48S4"), "Helix4",
                                 HardwareSku has_any ("7215"), "Marvell",
                                 HardwareSku has_any ("7280CR3"), "J2C",
-                                HardwareSku has_any ("IXR7250E"), "J2C+",
+                                HardwareSku has_any ("IXR7250E", "7800R3A", "7800R3AK"), "J2C+",
                                 HardwareSku has_any ("8102"), "Q201L",
                                 HardwareSku has_any ("8101"), "Q200",
                                 HardwareSku has_any ("9516"), "Tofino2",
                                 HardwareSku has_any ("ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2010", "ACS-MSN2201"), "SPC1",
                                 HardwareSku has_any ("ACS-MSN3700", "ACS-MSN3700C", "ACS-MSN3800", "Mellanox-SN3800-D112C8", "ACS-MSN3420"), "SPC2",
-                                HardwareSku has_any ("ACS-MSN4700", "ACS-MSN4600C", "ACS-MSN4410", "ACS-MSN4600", "Mellanox-SN4600C-D112C8", "Mellanox-SN4600C-C64"), "SPC3",
+                                HardwareSku has_any ("ACS-MSN4700", "ACS-MSN4600C", "ACS-MSN4410", "ACS-MSN4600", "Mellanox-SN4600C-D112C8", "Mellanox-SN4600C-C64", 'Mellanox-SN4700-O8C48', 'Mellanox-SN4700-O8V48', "ACS-SN4280"), "SPC3",
+                                HardwareSku has_any ("ACS-SN5600" , "Mellanox-SN5600-V256"), "SPC4",
                                 "FIXME"),
                 TopologyType = case(Topology has "dualtor", "dualtor",
                                     Topology has "t0", "t0",
