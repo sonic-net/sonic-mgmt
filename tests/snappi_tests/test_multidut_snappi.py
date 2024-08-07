@@ -57,7 +57,7 @@ def __gen_all_to_all_traffic(testbed_config,
             flow.tx_rx.port.rx_name = rx_port_name
 
             eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
-            src_port = random.randomint(5000, 6000)
+            src_port = random.randint(5000, 6000)
             udp.src_port.increment.start = src_port
             udp.src_port.increment.step = 1
             udp.src_port.increment.count = 1

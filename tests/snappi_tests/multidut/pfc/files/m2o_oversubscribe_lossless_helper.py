@@ -282,7 +282,7 @@ def __gen_data_flow(testbed_config,
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
     eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
-    src_port = random.randomint(5000, 6000)
+    src_port = random.randint(5000, 6000)
     udp.src_port.increment.start = src_port
     udp.src_port.increment.step = 1
     udp.src_port.increment.count = 1
