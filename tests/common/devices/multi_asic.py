@@ -285,6 +285,12 @@ class MultiAsicSonicHost(object):
         ns_cmd = cmd.replace('ip', 'ip -n {}'.format(namespace))
         return ns_cmd
 
+    def get_cli_cmd_for_namespace(self, cmd, namespace):
+        if not namespace:
+            return cmd
+        ns_cmd = cmd.replace('sonic-db-cli', 'sonic-db-cli -n {}'.format(namespace))
+        return ns_cmd
+
     @property
     def ttl_decr_value(self):
         """
@@ -532,6 +538,23 @@ class MultiAsicSonicHost(object):
         for asic in self.asics:
             bgp_info = asic.bgp_facts()
             bgp_neigh.update(bgp_info["ansible_facts"]["bgp_neighbors"])
+
+        return bgp_neigh
+
+    def get_bgp_neighbors_for_asic(self, namespace=None):
+        """
+        Get a diction of BGP neighbor states for asic with specific namespace
+
+        Args: None
+
+        Returns: dictionary { (neighbor_ip : info_dict)* }
+
+        """
+        bgp_neigh = {}
+        for asic in self.asics:
+            if asic.namespace == namespace:
+                bgp_info = asic.bgp_facts()
+                bgp_neigh.update(bgp_info["ansible_facts"]["bgp_neighbors"])
 
         return bgp_neigh
 
