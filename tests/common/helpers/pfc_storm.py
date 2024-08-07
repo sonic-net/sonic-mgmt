@@ -1,8 +1,10 @@
 import logging
 import os
+import re
 
 from jinja2 import Template
 from tests.common.errors import MissingInputError
+from tests.common.devices.sonic import SonicHost
 
 TEMPLATES_DIR = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../common/templates")))
 ANSIBLE_ROOT = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../../ansible")))
@@ -51,6 +53,8 @@ class PFCStorm(object):
         self.update_platform_name()
         self._populate_optional_params(kwargs)
         self.peer_device = self.fanout_hosts[self.peer_info['peerdevice']]
+        self.fanout_asic_type = self.peer_device.facts['asic_type'] if isinstance(self.peer_device.host, SonicHost) \
+            else None
 
     def _populate_peer_hwsku(self):
         """
@@ -78,6 +82,27 @@ class PFCStorm(object):
             self.__dict__.update(kwargs)
         kwargs.clear()
 
+    def _generate_mellanox_lable_port_map(self):
+        """
+        In SONiC the port alias contains mellanox label port
+        For example, 'etp20' contains label port '20'
+        This method is used to generate port name and label port map from fanout
+        """
+        port_name_label_port_map = {}
+        show_int_status = self.fanout_hosts[self.peer_info['peerdevice']].host.show_and_parse("show interface status")
+        port_name_alias_map = {intf["interface"]: intf['alias'] for intf in show_int_status}
+        for port_name, alias in port_name_alias_map.items():
+            label_port = re.findall(r'\d+[a-z]?', alias)
+            port_name_label_port_map[port_name] = label_port[0]
+        return port_name_label_port_map
+
+    def _generate_mellanox_label_ports(self):
+        label_port_map = self._generate_mellanox_lable_port_map()
+        port_names = self.peer_info['pfc_fanout_interface']
+        label_ports = [label_port_map[port_name] for port_name in port_names.split(',')]
+
+        return ",".join(label_ports)
+
     def _create_pfc_gen(self):
         """
         Create the pfc generation file on the fanout if it does not exist
@@ -93,11 +118,17 @@ class PFCStorm(object):
         Deploy the pfc generation file on the fanout
         """
         if self.peer_device.os in ('eos', 'sonic'):
+            src_pfc_gen_file = "common/helpers/{}".format(self.pfc_gen_file)
             self._create_pfc_gen()
+            if self.fanout_asic_type == 'mellanox':
+                src_pfc_gen_file = f"../ansible/roles/test/files/mlnx/docker-tests-pfcgen-asic/{self.pfc_gen_file}"
             self.peer_device.copy(
-                src="common/helpers/{}".format(self.pfc_gen_file),
+                src=src_pfc_gen_file,
                 dest=self._PFC_GEN_DIR[self.peer_device.os]
                 )
+            if self.fanout_asic_type == 'mellanox':
+                cmd = f"docker cp {self._PFC_GEN_DIR[self.peer_device.os]}/{self.pfc_gen_file} syncd:/root/"
+                self.peer_device.shell(cmd)
 
     def update_queue_index(self, q_idx):
         """
@@ -150,6 +181,8 @@ class PFCStorm(object):
             self.extra_vars.update({"pfc_storm_stop_defer_time": self.pfc_storm_stop_defer_time})
         if getattr(self, "pfc_asym", None):
             self.extra_vars.update({"pfc_asym": self.pfc_asym})
+        if self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
+            self.extra_vars.update({"pfc_fanout_label_port": self._generate_mellanox_label_ports()})
 
     def _prepare_start_template(self):
         """
@@ -159,6 +192,9 @@ class PFCStorm(object):
         if self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}_t2.j2".format(self.peer_device.os))
+        elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
+            self.pfc_start_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_mlnx_{}.j2".format(self.peer_device.os))
         else:
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}.j2".format(self.peer_device.os))
@@ -172,6 +208,9 @@ class PFCStorm(object):
         if self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
+        elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
+            self.pfc_stop_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_stop_mlnx_{}.j2".format(self.peer_device.os))
         else:
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}.j2".format(self.peer_device.os))
