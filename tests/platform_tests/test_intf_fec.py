@@ -111,6 +111,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
                                    enum_frontend_asic_index, conn_graph_facts):
     """
     @Summary: Verify the FEC stats counters are valid
+    Also, check for any uncorrectable FEC errors
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -129,9 +130,14 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         # Check if fec_corr, fec_uncorr, and fec_symbol_err are valid integers
         try:
             int(fec_corr)
-            int(fec_uncorr)
+            fec_uncorr_int = int(fec_uncorr)
             int(fec_symbol_err)
         except ValueError:
             pytest.fail("FEC stat counters are not valid integers for interface {}, \
-                        fec_corr {} fec_uncorr {} fec_symbol_err {}"
+                        fec_corr: {} fec_uncorr: {} fec_symbol_err: {}"
                         .format(intf_name, fec_corr, fec_uncorr, fec_symbol_err))
+
+        # Check for uncorrectable FEC errors
+        if fec_uncorr_int > 0:
+            pytest.fail("FEC uncorrectable errors are non-zero for interface {}: {}"
+                        .format(intf_name, fec_uncorr_int))
