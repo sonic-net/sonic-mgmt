@@ -2,17 +2,7 @@ import requests
 import json
 import logging
 import time
-import math
-from collections import namedtuple
 import pytest
-import ptf.testutils as testutils
-import ptf.packet as scapy
-from tests.common.dualtor.mux_simulator_control import \
-            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m   # noqa F401
-
-from ptf.mask import Mask
-from natsort import natsorted
-from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology("t0"),
