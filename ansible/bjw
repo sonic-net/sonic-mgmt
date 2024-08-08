@@ -425,7 +425,7 @@ sonic_arista_720dt:
     bjw-can-720dt-3:
       ansible_host: 10.150.22.129
       ansible_hostv6: 2404:f801:10:2200::a96:1681
-      model: CCCS-720DT-48S-2F
+      model: CCS-720DT-48S-2F
       serial: WTW23380612
       base_mac: c0:69:11:c9:00:bc
       syseeprom_info:
