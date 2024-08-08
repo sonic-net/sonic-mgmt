@@ -337,7 +337,7 @@ sonic_arista_720dt:
       serial: WTW23380751
       base_mac: c0:69:11:c9:1e:0e
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2F"
+        "0x21": "CCS-720DT-48S-2"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380751"
         "0x24": "c0:69:11:c9:1e:0e"
@@ -355,7 +355,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-2:
       ansible_host: 10.150.22.185
       ansible_hostv6: 2404:f801:10:2200::a96:16b9
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380597
       base_mac: c0:69:11:c8:fd:92
       syseeprom_info:
@@ -377,7 +377,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-3:
       ansible_host: 10.150.22.187
       ansible_hostv6: 2404:f801:10:2200::a96:16bb
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380772
       base_mac: c0:69:11:c9:22:7c
       syseeprom_info:
@@ -399,7 +399,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-4:
       ansible_host: 10.150.22.189
       ansible_hostv6: 2404:f801:10:2200::a96:16bd
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380687
       base_mac: c0:69:11:c9:10:8e
       syseeprom_info:
@@ -425,7 +425,7 @@ sonic_arista_720dt:
       serial: WTW23380766
       base_mac: c0:69:11:c9:21:38
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2F"
+        "0x21": "CCS-720DT-48S-2"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380766"
         "0x24": "c0:69:11:c9:21:38"
@@ -443,7 +443,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-6:
       ansible_host: 10.150.22.193
       ansible_hostv6: 2404:f801:10:2200::a96:16c1
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380775
       base_mac: c0:69:11:c9:23:1e
       syseeprom_info:
@@ -465,7 +465,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-7:
       ansible_host: 10.150.22.195
       ansible_hostv6: 2404:f801:10:2200::a96:16c3
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380571
       base_mac: c0:69:11:c8:f8:16
       syseeprom_info:
@@ -487,7 +487,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-8:
       ansible_host: 10.150.22.197
       ansible_hostv6: 2404:f801:10:2200::a96:16c5
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380749
       base_mac: c0:69:11:c9:1d:a2
       syseeprom_info:
