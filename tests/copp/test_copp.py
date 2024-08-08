@@ -92,7 +92,7 @@ class TestCOPP(object):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         hwsku = duthost.facts['hwsku']
         if ((hwsku == "Cisco-8111-O64") and
-            (protocol == "LLDP" or protocol == "UDLD")):
+                (protocol == "LLDP" or protocol == "UDLD")):
             pytest.skip("LLDP and UDLD have known issue on Cisco-8111-O64")
         _copp_runner(duthost,
                      ptfhost,
