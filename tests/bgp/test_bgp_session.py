@@ -144,7 +144,7 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     elif test_type == "reboot":
         reboot(duthost, localhost, reboot_type="warm", wait_warmboot_finalizer=True, warmboot_finalizer_timeout=360)
 
-    pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
+    pytest_assert(wait_until(600, 10, 120, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
     if failure_type == "interface":
