@@ -8638,7 +8638,7 @@ server_68:
   children:
     vm_host_68:
     vms_68:
-server_69:   # dedicated server for vms68-t2-8800-x
+server_69:   # dedicated server for vms69-t2-8800-x
   vars:
     host_var_file: host_vars/STR3-ACS-SERV-69.yml
   children:
