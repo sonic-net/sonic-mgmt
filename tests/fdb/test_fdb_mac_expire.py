@@ -99,7 +99,8 @@ class TestFdbMacExpire:
             testCase,
             platform_dir="ptftests",
             params=testParams,
-            log_file="/tmp/{0}".format(testCase)
+            log_file="/tmp/{0}".format(testCase),
+            is_python3=True
         )
 
     @pytest.fixture(scope="class", autouse=True)

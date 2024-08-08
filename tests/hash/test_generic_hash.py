@@ -179,7 +179,8 @@ def test_ecmp_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, global_hash_
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
 
 
@@ -249,7 +250,8 @@ def test_lag_hash(duthost, ptfhost, tbinfo, fine_params, mg_facts, restore_confi
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
 
 
@@ -312,7 +314,8 @@ def test_ecmp_and_lag_hash(duthost, tbinfo, ptfhost, fine_params, mg_facts, glob
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
 
 
@@ -366,7 +369,8 @@ def test_nexthop_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_i
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
     with allure.step('Randomly shutdown 1 nexthop interface'):
         interface = random.choice(list(uplink_interfaces.keys()))
@@ -385,7 +389,8 @@ def test_nexthop_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_i
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
     with allure.step('Startup the interface, and then flap it 3 more times'):
         startup_interface(duthost, interface)
@@ -402,7 +407,8 @@ def test_nexthop_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restore_i
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
 
 
@@ -473,7 +479,8 @@ def test_lag_member_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restor
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
 
     with allure.step('Randomly select one member in each portchannel and flap them 3 times'):
@@ -499,7 +506,8 @@ def test_lag_member_flap(duthost, tbinfo, ptfhost, fine_params, mg_facts, restor
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
 
 
@@ -571,7 +579,8 @@ def test_lag_member_remove_add(duthost, tbinfo, ptfhost, fine_params, mg_facts, 
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
 
     with allure.step('Randomly select one member in each portchannel and remove it from the lag and add it back'):
@@ -594,7 +603,8 @@ def test_lag_member_remove_add(duthost, tbinfo, ptfhost, fine_params, mg_facts, 
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
 
 
@@ -648,7 +658,8 @@ def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, rest
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
 
     with allure.step(f'Randomly choose a reboot type: {reboot_type}, and reboot'):
@@ -677,7 +688,8 @@ def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, rest
             params=ptf_params,
             log_file=PTF_LOG_PATH,
             qlen=PTF_QLEN,
-            socket_recv_size=16384
+            socket_recv_size=16384,
+            is_python3=True
         )
 
 

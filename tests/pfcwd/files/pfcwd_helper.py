@@ -530,7 +530,7 @@ def _send_background_traffic(ptfhost, ptf_params):
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/pfc_wd_background_traffic.PfcWdBackgroundTrafficTest.{}.log".format(timestamp)
     ptf_runner(ptfhost, "ptftests", "pfc_wd_background_traffic.PfcWdBackgroundTrafficTest", "/root/ptftests",
-               params=ptf_params, log_file=log_file, async_mode=True)
+               params=ptf_params, log_file=log_file, async_mode=True, is_python3=True)
 
     return log_file
 

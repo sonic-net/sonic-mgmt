@@ -30,7 +30,7 @@ def test_arp_unicast_reply(common_setup_teardown, intfs_for_test, enum_frontend_
     }
     log_file = "/tmp/arptest.VerifyUnicastARPReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.VerifyUnicastARPReply", '/root/ptftests',
-               params=params, log_file=log_file)
+               params=params, log_file=log_file, is_python3=True)
 
     # Get DUT arp table
     switch_arptable = asichost.switch_arptable()['ansible_facts']
@@ -52,7 +52,7 @@ def test_arp_expect_reply(common_setup_teardown, intfs_for_test, enum_frontend_a
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)
     log_file = "/tmp/arptest.ExpectReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.ExpectReply", '/root/ptftests',
-               params=params, log_file=log_file)
+               params=params, log_file=log_file, is_python3=True)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
     pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:0a')
@@ -73,7 +73,7 @@ def test_arp_no_reply_other_intf(common_setup_teardown, intfs_for_test, enum_fro
     }
     log_file = "/tmp/arptest.SrcOutRangeNoReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.SrcOutRangeNoReply", '/root/ptftests',
-               params=intf2_params, log_file=log_file)
+               params=intf2_params, log_file=log_file, is_python3=True)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
     for ip in list(switch_arptable['arptable']['v4'].keys()):
@@ -94,7 +94,7 @@ def test_arp_no_reply_src_out_range(common_setup_teardown, intfs_for_test, enum_
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)
     log_file = "/tmp/arptest.SrcOutRangeNoReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.SrcOutRangeNoReply", '/root/ptftests',
-               params=params, log_file=log_file)
+               params=params, log_file=log_file, is_python3=True)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
     for ip in list(switch_arptable['arptable']['v4'].keys()):
@@ -115,7 +115,7 @@ def test_arp_garp_no_update(common_setup_teardown, intfs_for_test, enum_frontend
     clear_dut_arp_cache(duthost, asichost.cli_ns_option)
     log_file = "/tmp/arptest.GarpNoUpdate.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.GarpNoUpdate", '/root/ptftests',
-               params=params, log_file=log_file)
+               params=params, log_file=log_file, is_python3=True)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
     for ip in list(switch_arptable['arptable']['v4'].keys()):
@@ -124,7 +124,7 @@ def test_arp_garp_no_update(common_setup_teardown, intfs_for_test, enum_frontend
     # Test Gratuitous ARP update case, when received garp, no arp reply, update arp table if it was solved before
     log_file = "/tmp/arptest.ExpectReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.ExpectReply", '/root/ptftests',
-               params=params, log_file=log_file)
+               params=params, log_file=log_file, is_python3=True)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
     pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['macaddress'] == '00:06:07:08:09:0a')
@@ -134,7 +134,7 @@ def test_arp_garp_no_update(common_setup_teardown, intfs_for_test, enum_frontend
 
     log_file = "/tmp/arptest.GarpUpdate.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     ptf_runner(ptfhost, 'ptftests', "arptest.GarpUpdate", '/root/ptftests',
-               params=params, log_file=log_file)
+               params=params, log_file=log_file, is_python3=True)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
     pytest_assert(switch_arptable['arptable']['v4']['10.10.1.3']['macaddress'] == '00:00:07:08:09:0a')

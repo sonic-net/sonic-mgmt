@@ -110,7 +110,8 @@ class PopulateFdb:
                 "packet_count": self.packetCount,
                 "mac_to_ip_ratio": self.macToIpRatio,
             },
-            log_file="/tmp/populate_fdb.PopulateFdb.log"
+            log_file="/tmp/populate_fdb.PopulateFdb.log",
+            is_python3=True
         )
 
 

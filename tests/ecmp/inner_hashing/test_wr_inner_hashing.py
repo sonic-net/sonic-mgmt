@@ -79,7 +79,8 @@ class TestWRDynamicInnerHashing():
                                    "symmetric_hashing": symmetric_hashing},
                            log_file=log_file,
                            qlen=PTF_QLEN,
-                           socket_recv_size=16384)
+                           socket_recv_size=16384,
+                           is_python3=True)
             reboot_thr.join()
 
 
@@ -120,5 +121,6 @@ class TestWRStaticInnerHashing():
                                "symmetric_hashing": symmetric_hashing},
                        log_file=log_file,
                        qlen=PTF_QLEN,
-                       socket_recv_size=16384)
+                       socket_recv_size=16384,
+                       is_python3=True)
         reboot_thr.join()
