@@ -109,6 +109,11 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     5: Verify all bgp sessions are up
     '''
     duthost = duthosts[rand_one_dut_hostname]
+
+    asic_type = duthost.facts['asic_type']
+    if asic_type == "vs" and (failure_type == "interface" or test_type == "reboot"):
+        pytest.skip("BGP session test is not supported on Virtual Switch")
+
     neighbor = setup['test_neighbor']
     neighbor_name = setup['neighhosts'][neighbor]['name']
     local_interfaces = list(setup['neighhosts'][neighbor]['interface'].keys())
