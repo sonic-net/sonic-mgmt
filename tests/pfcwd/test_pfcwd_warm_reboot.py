@@ -439,14 +439,21 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.traffic_inst.verify_wd_func(self.dut, detect=detect)
 
     @pytest.fixture(autouse=True)
-    def pfcwd_wb_test_cleanup(self):
+    def pfcwd_wb_test_cleanup(self, setup_pfc_test):
         """
         Cleanup method
+
+        Args:
+            setup_pfc_test(fixture): module scoped autouse fixture
         """
         yield
 
         # stop all threads that might stuck in wait
         DUT_ACTIVE.set()
+        # if there are no neighbor devices detected, exit the cleanup function early
+        if not self.has_neighbor_device(setup_pfc_test):
+            return
+
         for thread in self.storm_threads:
             thread_exception = thread.join(timeout=0.1,
                                            suppress_exception=True)
@@ -577,6 +584,23 @@ class TestPfcwdWb(SetupPfcwdFunc):
             testcase_action(string) : testcase to execute
         """
         yield request.param
+    
+    def has_neighbor_device(self, setup_pfc_test):
+        """
+        Check if there are neighbor devices present 
+
+        Args:
+            setup_pfc_test (fixture): Module scoped autouse fixture for PFCwd
+
+        Returns:
+            bool: True if there are neighbor devices present, False otherwise
+        """
+        for _, details in setup_pfc_test['selected_test_ports'].items():
+            # If any 'rx_port_id' is not [None], neighbor devices are present
+            if details['rx_port_id'] != [None]:
+                return True
+            
+        return False
 
     def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
                       ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -604,6 +628,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
             localhost(AnsibleHost) : localhost instance
             fanouthosts(AnsibleHost): fanout instance
         """
+        # skip the pytest when the device does not have neighbors
+        # 'rx_port_id' being None indicates there are no ports available to send frames for the fake storm
+        if not self.has_neighbor_device(setup_pfc_test):
+            pytest.skip("Test skipped: No neighbors detected as 'rx_port_id' is None for selected test ports,"
+                        " which is necessary for PFCwd test setup.")
+
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
