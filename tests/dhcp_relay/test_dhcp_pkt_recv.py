@@ -2,6 +2,7 @@ import logging
 import ptf.packet as scapy
 import pytest
 import random
+import re
 
 from ptf import testutils
 from scapy.layers.dhcp6 import DHCP6_Solicit
@@ -36,17 +37,25 @@ def check_dhcp_relay_feature_state(duthost):
 class Dhcpv6PktRecvBase:
 
     @pytest.fixture(scope="class")
-    def setup_teardown(self, duthost, tbinfo):
-        disabled_host_interfaces = tbinfo['topo']['properties']['topology'].get('disabled_host_interfaces', [])
-        ptf_indices = [interface for interface in tbinfo['topo']['properties']['topology'].get('host_interfaces', [])
-                       if interface not in disabled_host_interfaces]
-        dut_intf_ptf_index = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
+    def setup_teardown(self, rand_selected_dut, tbinfo):
+        ptf_indices = tbinfo['topo']['properties']['topology']['host_interfaces']
+        dut_intf_ptf_index = rand_selected_dut.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
+        if 'dualtor' in tbinfo['topo']['name']:
+            pattern = r'0.(\d+)'
+            ptf_indices = [int(re.findall(pattern, index)[0]) for index in ptf_indices if re.match(pattern, index)]
         yield ptf_indices, dut_intf_ptf_index
 
-    def test_dhcpv6_multicast_recv(self, duthost, ptfadapter, setup_teardown):
+    def test_dhcpv6_multicast_recv(
+        self,
+        rand_selected_dut,
+        setup_standby_ports_on_rand_unselected_tor,
+        ptfadapter,
+        setup_teardown
+    ):
         """
         Test the DUT can receive DHCPv6 multicast packet
         """
+        duthost = rand_selected_dut
         ptf_indices, dut_intf_ptf_index = setup_teardown
         ptf_index = random.choice(ptf_indices)
         intf, ptf_port_id = [(intf, id) for intf, id in dut_intf_ptf_index.items() if id == ptf_index][0]
