@@ -889,6 +889,15 @@ link_flap/test_cont_link_flap.py:
       - https://github.com/sonic-net/sonic-mgmt/issues/10955
 
 #######################################
+#######         lldp              #####
+#######################################
+lldp:
+  skip:
+    reason: "Not applicable to standalone topologies."
+    condition:
+      - "'standalone' in topo_name"
+
+#######################################
 #####           macsec            #####
 #######################################
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
