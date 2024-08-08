@@ -449,10 +449,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
             bool: True if there are neighbor devices present, False otherwise
         """
         for _, details in setup_pfc_test['selected_test_ports'].items():
-            # If any 'rx_port_id' is not [None], neighbor devices are present
-            if details['rx_port_id'] != [None]:
-                return True
-        return False
+            # Check if 'rx_port_id' is missing or contains None
+            # If any 'rx_port_id' is missing or contains None, it indicates no neighbors
+            # Return False to prevent executing tests
+            if not details['rx_port_id'] or None in details['rx_port_id']:
+                return False
+        return True
     
     @pytest.fixture(autouse=True)
     def pfcwd_wb_test_cleanup(self, setup_pfc_test):
