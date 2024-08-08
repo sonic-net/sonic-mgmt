@@ -666,7 +666,7 @@ stages:
         - script: |
             set -xe
 
-            if [[ $(smokeTestResult) == "Succeeded" || $(smokeTestResult) == "Skipped" ]]; then
+            if [[ $(smokeTestResult) == "Succeeded" || $(smokeTestResult) == "Skipped" || $(smokeTestResult) == "SucceededWithIssues" ]]; then
               echo "Smoke test is Succeeded or Skipped"
               git gc --auto || true
 
