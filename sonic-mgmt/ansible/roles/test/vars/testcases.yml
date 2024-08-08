@@ -259,7 +259,7 @@ testcases:
 
     reboot:
       filename: reboot.yml
-      topologies: [dualtor, t0, t0-52, t0-56, t0-56-po2vlan, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-28-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
+      topologies: [dualtor, dualtor-64-breakout, dualtor-aa-64-breakout, t0, t0-52, t0-56, t0-56-po2vlan, t0-64, t0-64-32, t0-116, t0-120, t1, t1-lag, t1-28-lag, t1-64-lag, t1-64-lag-clet, t1-56-lag, ptf32, ptf64]
 
     repeat_harness:
       filename: repeat_harness.yml

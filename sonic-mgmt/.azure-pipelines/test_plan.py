@@ -27,6 +27,10 @@ TOKEN_EXPIRE_HOURS = 1
 MAX_GET_TOKEN_RETRY_TIMES = 3
 
 
+class PollTimeoutException(Exception):
+    pass
+
+
 class TestPlanStatus(Enum):
     INIT = 10
     LOCK_TESTBED = 20
@@ -147,7 +151,6 @@ def parse_list_from_str(s):
 class TestPlanManager(object):
 
     def __init__(self, url, frontend_url, client_id=None):
-        self.last_login_time = datetime.now()
         self.url = url
         self.frontend_url = frontend_url
         self.client_id = client_id
@@ -177,27 +180,6 @@ class TestPlanManager(object):
         return stdout, stderr, retcode
 
     def get_token(self):
-
-        # Success of "az account get-access-token" depends on "az login". However, the "az login" session may expire
-        # after 24 hours. So we re-login every 12 hours to ensure success of "az account get-access-token".
-        if datetime.now() - self.last_login_time > timedelta(hours=12):
-            cmd = "az login --service-principal -u {} --tenant {} --allow-no-subscriptions --federated-token {}"\
-                .format(
-                    os.environ.get("SONIC_AUTOMATION_SERVICE_PRINCIPAL"),
-                    os.environ.get("ELASTICTEST_MSAL_TENANT_ID"),
-                    os.environ.get("SYSTEM_ACCESS_TOKEN")
-                )
-            attempt = 0
-            while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
-                try:
-                    stdout, _, _ = self.az_run(cmd)
-                    self.last_login_time = datetime.now()
-                    print("Login successfully.")
-                    break
-                except Exception as exception:
-                    attempt += 1
-                    print("Failed to login with exception: {}. Retry {} times to login."
-                          .format(repr(exception), MAX_GET_TOKEN_RETRY_TIMES - attempt))
 
         token_is_valid = \
             self._token_expires_on is not None and \
@@ -466,8 +448,9 @@ class TestPlanManager(object):
                 time.sleep(interval)
 
         else:
-            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
-                            .format(poll_url))
+            raise PollTimeoutException(
+                "Max polling time reached, test plan at {} is not successfully finished or cancelled".format(poll_url)
+            )
 
 
 if __name__ == "__main__":
@@ -864,7 +847,7 @@ if __name__ == "__main__":
         required=False,
         default=-1,
         dest="timeout",
-        help="Max polling time. Default 36000 seconds (10 hours)."
+        help="Max polling time in seconds. Default -1, no timeout."
     )
 
     if len(sys.argv) == 1:
@@ -977,6 +960,9 @@ if __name__ == "__main__":
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)
+    except PollTimeoutException as e:
+        print("Polling test plan failed with exception: {}".format(repr(e)))
+        sys.exit(2)
     except Exception as e:
         print("Operation failed with exception: {}".format(repr(e)))
         sys.exit(3)

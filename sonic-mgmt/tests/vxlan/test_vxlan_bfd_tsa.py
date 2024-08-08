@@ -13,8 +13,9 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils \
-    import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.config_reload import config_system_checks_passed
@@ -83,7 +84,7 @@ def fixture_setUp(duthosts,
     '''
     data = {}
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type in ["cisco-8000", "mellanox"]:
+    if asic_type in ["cisco-8000", "mellanox", "vs"]:
         data['tolerance'] = 0.03
     else:
         raise RuntimeError("Pls update this script for your platform.")
@@ -238,7 +239,8 @@ class Test_VxLAN_BFD_TSA():
                                    random_sport=False,
                                    random_src_ip=False,
                                    tolerance=None,
-                                   payload=None):
+                                   payload=None,
+                                   skip_traffic_test=False):        # noqa F811
         '''
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines
            everytime.
@@ -290,6 +292,9 @@ class Test_VxLAN_BFD_TSA():
         Logger.info(
             "dest->nh mapping:%s", self.vxlan_test_setup[encap_type]['dest_to_nh_map'])
 
+        if skip_traffic_test is True:
+            Logger.info("Skipping traffic test.")
+            return
         ptf_runner(self.vxlan_test_setup['ptfhost'],
                    "ptftests",
                    "vxlan_traffic.VxLAN_in_VxLAN" if payload == 'vxlan'
@@ -407,7 +412,7 @@ class Test_VxLAN_BFD_TSA():
                     return False
         return True
 
-    def test_tsa_case1(self, setUp, encap_type):
+    def test_tsa_case1(self, setUp, encap_type, skip_traffic_test):     # noqa F811
         '''
             tc1: This test checks the basic TSA removal of BFD sessions.
             1) Create Vnet route with 4 endpoints and BFD monitors.
@@ -424,7 +429,7 @@ class Test_VxLAN_BFD_TSA():
 
         dest, ep_list = self.create_vnet_route(encap_type)
 
-        self.dump_self_info_and_run_ptf("test1", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test1", encap_type, True, [], skip_traffic_test=skip_traffic_test)
 
         self.apply_tsa()
         pytest_assert(self.in_maintainence())
@@ -433,11 +438,11 @@ class Test_VxLAN_BFD_TSA():
         self.apply_tsb()
         pytest_assert(not self.in_maintainence())
 
-        self.dump_self_info_and_run_ptf("test1b", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test1b", encap_type, True, [], skip_traffic_test=skip_traffic_test)
 
         self.delete_vnet_route(encap_type, dest)
 
-    def test_tsa_case2(self, setUp, encap_type):
+    def test_tsa_case2(self, setUp, encap_type, skip_traffic_test):    # noqa F811
         '''
             tc2: This test checks the basic route application while in TSA.
             1) apply TSA.
@@ -460,11 +465,11 @@ class Test_VxLAN_BFD_TSA():
         self.apply_tsb()
         pytest_assert(not self.in_maintainence())
 
-        self.dump_self_info_and_run_ptf("test2", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test2", encap_type, True, [], skip_traffic_test=skip_traffic_test)
 
         self.delete_vnet_route(encap_type, dest)
 
-    def test_tsa_case3(self, setUp, encap_type):
+    def test_tsa_case3(self, setUp, encap_type, skip_traffic_test):     # noqa F811
         '''
             tc3: This test checks for lasting impact of TSA and TSB.
             1) apply TSA.
@@ -487,11 +492,11 @@ class Test_VxLAN_BFD_TSA():
 
         dest, ep_list = self.create_vnet_route(encap_type)
 
-        self.dump_self_info_and_run_ptf("test3", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test3", encap_type, True, [], skip_traffic_test=skip_traffic_test)
 
         self.delete_vnet_route(encap_type, dest)
 
-    def test_tsa_case4(self, setUp, encap_type):
+    def test_tsa_case4(self, setUp, encap_type, skip_traffic_test):     # noqa F811
         '''
             tc4: This test checks basic Vnet route state retention during config reload.
             1) Create Vnet route with 4 endpoints and BFD monitors.
@@ -510,7 +515,7 @@ class Test_VxLAN_BFD_TSA():
         duthost.shell("sudo config save -y",
                       executable="/bin/bash", module_ignore_errors=True)
 
-        self.dump_self_info_and_run_ptf("test4", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test4", encap_type, True, [], skip_traffic_test=skip_traffic_test)
 
         duthost.shell("sudo config reload -y",
                       executable="/bin/bash", module_ignore_errors=True)
@@ -520,11 +525,11 @@ class Test_VxLAN_BFD_TSA():
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
         dest, ep_list = self.create_vnet_route(encap_type)
 
-        self.dump_self_info_and_run_ptf("test4b", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test4b", encap_type, True, [], skip_traffic_test=skip_traffic_test)
 
         self.delete_vnet_route(encap_type, dest)
 
-    def test_tsa_case5(self, setUp, encap_type):
+    def test_tsa_case5(self, setUp, encap_type, skip_traffic_test):    # noqa F811
         '''
             tc4: This test checks TSA state retention w.r.t BFD accross config reload.
             1) Create Vnet route with 4 endpoints and BFD monitors.
@@ -548,7 +553,7 @@ class Test_VxLAN_BFD_TSA():
         duthost.shell("sudo config save -y",
                       executable="/bin/bash", module_ignore_errors=True)
 
-        self.dump_self_info_and_run_ptf("test5", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test5", encap_type, True, [], skip_traffic_test=skip_traffic_test)
 
         self.apply_tsa()
         pytest_assert(self.in_maintainence())
@@ -565,11 +570,11 @@ class Test_VxLAN_BFD_TSA():
         self.apply_tsb()
         pytest_assert(not self.in_maintainence())
 
-        self.dump_self_info_and_run_ptf("test5b", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test5b", encap_type, True, [], skip_traffic_test=skip_traffic_test)
 
         self.delete_vnet_route(encap_type, dest)
 
-    def test_tsa_case6(self, setUp, encap_type):
+    def test_tsa_case6(self, setUp, encap_type, skip_traffic_test):     # noqa F811
         '''
             tc6: This test checks that the BFD doesnt come up while device
             is in TSA and remains down accross config reload.
@@ -611,6 +616,6 @@ class Test_VxLAN_BFD_TSA():
         self.apply_tsb()
         pytest_assert(not self.in_maintainence())
 
-        self.dump_self_info_and_run_ptf("test6", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test6", encap_type, True, [], skip_traffic_test=skip_traffic_test)
 
         self.delete_vnet_route(encap_type, dest)

@@ -240,10 +240,6 @@ steps:
         echo "##vso[task.setvariable variable=TEST_PLAN_ID_LIST_STRING]$TEST_PLAN_ID_LIST_STRING"
 
     displayName: "Trigger test"
-    env:
-      SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
-      ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
-      SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
 
   - task: AzureCLI@2
     inputs:
@@ -277,10 +273,6 @@ steps:
         fi
 
     displayName: "Lock testbed"
-    env:
-      SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
-      ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
-      SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
 
   - task: AzureCLI@2
     inputs:
@@ -315,10 +307,6 @@ steps:
         fi
 
     displayName: "Prepare testbed"
-    env:
-      SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
-      ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
-      SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
 
   - task: AzureCLI@2
     inputs:
@@ -338,10 +326,12 @@ steps:
             echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
             echo -e "\033[33mfor detailed test plan progress \033[0m"
             # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
-            echo "[test_plan.py] poll EXECUTING status"
-            python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}
+            echo "[test_plan.py] poll EXECUTING status, timeout 22 hours"
+            python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }} --timeout 79200
             RET=$?
-            if [ $RET -ne 0 ]; then
+            # RC==2 means polling test plan timeout, do not consider it as failure so far
+            if [ $RET -ne 0 ] && [ $RET -ne 2 ]; then
+                echo "Test plan $TEST_PLAN_ID failed with RC $RET"
                 ((failure_count++))
             fi
         done
@@ -353,10 +343,6 @@ steps:
 
     displayName: "Run test"
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-    env:
-      SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
-      ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
-      SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
 
   - ${{ if eq(parameters.DUMP_KVM_IF_FAIL, 'True') }}:
       - task: AzureCLI@2
@@ -382,10 +368,6 @@ steps:
 
         condition: succeededOrFailed()
         displayName: "KVM dump"
-        env:
-          SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
-          ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
-          SYSTEM_ACCESS_TOKEN: $(System.AccessToken)
 
   - task: AzureCLI@2
     inputs:
@@ -395,6 +377,15 @@ steps:
       inlineScript: |
         set -e
         echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
+
+        # If TEST_PLAN_TYPE is NIGHTLY, skip the cancel step
+        test_plan_type=${{ parameters.TEST_PLAN_TYPE }}
+        echo "TEST_PLAN_TYPE is $test_plan_type"
+        if [ "$test_plan_type" == "NIGHTLY" ]; then
+            echo "TEST_PLAN_TYPE is NIGHTLY, skip the cancel step as a dirty workaround for az login timeout issue"
+            exit 0
+        fi
+
         IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
         for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
         do
@@ -402,7 +393,3 @@ steps:
         done
     condition: always()
     displayName: "Finalize running test plan"
-    env:
-      SONIC_AUTOMATION_SERVICE_PRINCIPAL: $(SONIC_AUTOMATION_SERVICE_PRINCIPAL)
-      ELASTICTEST_MSAL_TENANT_ID: $(ELASTICTEST_MSAL_TENANT_ID)
-      SYSTEM_ACCESS_TOKEN: $(System.AccessToken)

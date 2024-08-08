@@ -77,7 +77,7 @@ def fixture_setUp(duthosts,
     '''
     data = {}
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type in ["cisco-8000", "mellanox"]:
+    if asic_type in ["cisco-8000", "mellanox", "vs"]:
         data['tolerance'] = 0.03
     else:
         raise RuntimeError("Pls update this script for your platform.")

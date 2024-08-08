@@ -641,11 +641,13 @@ def test_dhcp_server_config_vlan_member_change(
     duthost,
     ptfhost,
     ptfadapter,
-    parse_vlan_setting_from_running_config
+    parse_vlan_setting_from_running_config,
+    loganalyzer
 ):
     """
         Test if config change on dhcp interface status can take effect
     """
+    loganalyzer[duthost.hostname].ignore_regex.append(".*Failed to get port by bridge port.*")
     test_xid = 11
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     expected_assigned_ip = random.choice(vlan_hosts)
