@@ -88,6 +88,15 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
                       "Not all BGP sessions are established on DUT")
 
 
+def verify_bgp_session_down(duthost, bgp_neighbor):
+    """Verify the bgp session to the DUT is established."""
+    bgp_facts = duthost.bgp_facts()["ansible_facts"]
+    return (
+        bgp_neighbor in bgp_facts["bgp_neighbors"]
+        and bgp_facts["bgp_neighbors"][bgp_neighbor]["state"] != "established"
+    )
+
+
 @pytest.mark.parametrize("test_type", ["bgp_docker", "swss_docker", "reboot"])
 @pytest.mark.parametrize("failure_type", ["interface", "neighbor"])
 @pytest.mark.disable_loganalyzer
@@ -116,7 +125,6 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
                 time.sleep(1)
 
     elif failure_type == "neighbor":
-        logger.info("###### shutdown neighbor {}".format(failure_type))
         for port in local_interfaces:
             neighbor_port = setup['neighhosts'][neighbor]['interface'][port]['port']
             logger.info("shutdown interface neighbor {} port {}".format(neighbor_name, neighbor_port))
@@ -124,16 +132,16 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
             time.sleep(1)
 
     duthost.shell('show ip bgp summary', module_ignore_errors=True)
+    pytest_assert(
+        wait_until(60, 5, 0, verify_bgp_session_down, duthost, neighbor),
+        "neighbor {} state is still established".format(neighbor)
+    )
 
     if test_type == "bgp_docker":
         duthost.shell("docker restart bgp")
     elif test_type == "swss_docker":
-        # disable log analyzer
-        pytest.mark.disable_loganalyzer()
         duthost.shell("docker restart swss")
     elif test_type == "reboot":
-        # disable log analyzer
-        pytest.mark.disable_loganalyzer()
         reboot(duthost, localhost, reboot_type="warm", wait_warmboot_finalizer=True, warmboot_finalizer_timeout=360)
 
     pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
