@@ -170,8 +170,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     # Check if all containers have started
     assert wait_until(300, 10, 0, check_docker_status, duthost)
 
-    # To ensure the system is stable enough, wait for another 60s
-    time.sleep(60)
+    # To ensure the system is stable enough, wait for another 30s
+    time.sleep(30)
 
     # After the system checks succeed the config reload command should not throw error
     result, out = execute_config_reload_cmd(duthost)
