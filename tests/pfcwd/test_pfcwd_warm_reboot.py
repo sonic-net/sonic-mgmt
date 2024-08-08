@@ -438,6 +438,23 @@ class TestPfcwdWb(SetupPfcwdFunc):
         # test pfcwd functionality on a storm/restore
         self.traffic_inst.verify_wd_func(self.dut, detect=detect)
 
+    def has_neighbor_device(self, setup_pfc_test):
+        """
+        Check if there are neighbor devices present 
+
+        Args:
+            setup_pfc_test (fixture): Module scoped autouse fixture for PFCwd
+
+        Returns:
+            bool: True if there are neighbor devices present, False otherwise
+        """
+        for _, details in setup_pfc_test['selected_test_ports'].items():
+            # If any 'rx_port_id' is not [None], neighbor devices are present
+            if details['rx_port_id'] != [None]:
+                return True
+            
+        return False
+    
     @pytest.fixture(autouse=True)
     def pfcwd_wb_test_cleanup(self, setup_pfc_test):
         """
@@ -584,23 +601,6 @@ class TestPfcwdWb(SetupPfcwdFunc):
             testcase_action(string) : testcase to execute
         """
         yield request.param
-    
-    def has_neighbor_device(self, setup_pfc_test):
-        """
-        Check if there are neighbor devices present 
-
-        Args:
-            setup_pfc_test (fixture): Module scoped autouse fixture for PFCwd
-
-        Returns:
-            bool: True if there are neighbor devices present, False otherwise
-        """
-        for _, details in setup_pfc_test['selected_test_ports'].items():
-            # If any 'rx_port_id' is not [None], neighbor devices are present
-            if details['rx_port_id'] != [None]:
-                return True
-            
-        return False
 
     def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
                       ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
