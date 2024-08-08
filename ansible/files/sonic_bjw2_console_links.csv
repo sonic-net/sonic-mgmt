@@ -2,6 +2,10 @@ StartDevice,StartPort,EndDevice,Console_type,Proxy,BaudRate
 bjw2-can-720dt-mc0-1,1,bjw2-can-720dt-mc0-2,ssh,,9600
 bjw2-can-720dt-mc0-1,2,bjw2-can-7260-root-1,ssh,,9600
 bjw2-can-720dt-mc0-1,3,bjw2-can-7260-leaf-25,ssh,,9600
+bjw2-can-720dt-mc0-1,4,bjw2-can-7215a1-1,ssh,,9600
+bjw2-can-720dt-mc0-1,5,bjw2-can-7215a1-leaf-1,ssh,,9600
+bjw2-can-720dt-mc0-1,6,bjw2-can-7215a1-2,ssh,,9600
+bjw2-can-720dt-mc0-1,7,bjw2-can-7215a1-leaf-2,ssh,,9600
 bjw2-can-720dt-mc0-1,49,bjw2-can-8101-1,ssh,,9600
 bjw2-can-720dt-mc0-1,50,bjw2-can-8101-leaf-1,ssh,,9600
 bjw2-can-720dt-mc0-1,51,bjw2-can-8101-2,ssh,,9600
