@@ -107,4 +107,3 @@ def test_route_bgp_ecmp(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostn
         logger.info("Sleep 5 seconds and check if route is withdrawn")
         time.sleep(5)
         check_route(duthost, TEST_ROUTE, WITHDRAW)
-
