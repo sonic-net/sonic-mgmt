@@ -135,6 +135,15 @@ def execute_config_reload_cmd(duthost, timeout=120, check_interval=5):
         return False, None
 
 
+def check_docker_status(duthost):
+    logging.info("Check all containers")
+    containers = duthost.get_all_containers()
+    for container in containers:
+        if not duthost.is_service_fully_started(container):
+            return False
+    return True
+
+
 def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname, delayed_services,
                                      localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     """
@@ -158,6 +167,9 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     # config reload command shouldn't work immediately after system reboot
     assert result and "Retry later" in out['stdout']
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
+
+    # Wait for all the containers ready
+    assert wait_until(300, 10, 0, check_docker_status, duthost)
 
     # After the system checks succeed the config reload command should not throw error
     result, out = execute_config_reload_cmd(duthost)
