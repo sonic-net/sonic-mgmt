@@ -39,6 +39,8 @@ class Dhcpv6PktRecvBase:
     @pytest.fixture(scope="class")
     def setup_teardown(self, rand_selected_dut, tbinfo):
         ptf_indices = tbinfo['topo']['properties']['topology']['host_interfaces']
+        disabled_ptf_indices = tbinfo['topo']['properties']['topology'].get('disabled_host_interfaces', [])
+        ptf_indices = [index for index in ptf_indices if index not in disabled_ptf_indices]
         dut_intf_ptf_index = rand_selected_dut.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
         if 'dualtor' in tbinfo['topo']['name']:
             pattern = r'0.(\d+)'
