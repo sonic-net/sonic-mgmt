@@ -116,7 +116,8 @@ class LagTest:
             'ether_type': 0x8809,
             'interval_count': 3
         }
-        ptf_runner(self.ptfhost, 'acstests', "lag_test.LacpTimingTest", '/root/ptftests', params=params)
+        ptf_runner(self.ptfhost, 'acstests', "lag_test.LacpTimingTest",
+                   '/root/ptftests', params=params, is_python3=True)
 
     def __verify_lag_minlink(self, host, lag_name, lag_facts,
                              neighbor_intf, deselect_time, wait_timeout=30):
