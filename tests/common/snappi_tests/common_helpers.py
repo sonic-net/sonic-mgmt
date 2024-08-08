@@ -790,10 +790,19 @@ def disable_packet_aging(duthost, asic_value=None):
         duthost.command("docker exec syncd python /packets_aging.py disable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
     elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
-        try:
-            duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
-        except Exception:
-            duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
+        # if asic_value is present, disable packet aging for specific asic_value.
+        if (asic_value):
+            try:
+                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+            except Exception:
+                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
+        else:
+            # Disabling packet aging for all asics on given DUT.
+            for asic_value in duthost.facts['asics_present']:
+                try:
+                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
+                except Exception:
+                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value[-1]))
 
 
 def enable_packet_aging(duthost, asic_value=None):
@@ -811,10 +820,19 @@ def enable_packet_aging(duthost, asic_value=None):
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
     elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
-        try:
-            duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
-        except Exception:
-            duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
+        # if asic_value is present, enable packet aging for specific asic_value.
+        if (asic_value):
+            try:
+                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
+            except Exception:
+                duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
+        else:
+            # Enabling packet aging for all asics on given DUT.
+            for asic_value in duthost.facts['asics_present']:
+                try:
+                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
+                except Exception:
+                    duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
 
 
 def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
