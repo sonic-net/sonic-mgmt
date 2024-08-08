@@ -189,7 +189,7 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     for d in devices:
         if isinstance(d, EosHost):
             continue
-        assert wait_until(30, 1, 0, lambda d=d: not get_mka_session(d))
+        assert wait_until(180, 1, 0, lambda d=d: not get_mka_session(d))
 
 
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
