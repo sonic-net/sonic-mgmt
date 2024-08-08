@@ -623,7 +623,7 @@ def test_dhcp_relay_counter(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
     skip_release(duthost, ["201811", "201911", "202012"])
 
-    # based on message types we currently support in ptftest/dhcp_relay_test.py
+    # based on message types we currently support in ptftest/py3/dhcp_relay_test.py
     dhcp_message_types = ["Discover", "Offer", "Request", "Ack"]
     for dhcp_relay in dut_dhcp_relay_data:
         init_counter(duthost, dhcp_relay['client_iface']['name'])
