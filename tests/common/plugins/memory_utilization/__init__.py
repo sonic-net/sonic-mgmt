@@ -48,8 +48,11 @@ def pytest_runtest_setup(item):
 def pytest_runtest_teardown(item, nextitem):
     logging.info("collect memory after test {}".format(item.name))
 
-    duthosts = item.config.store_duthosts
-    memory_utilization = item.config.store_memory_utilization
+    duthosts = getattr(item.config, 'store_duthosts', None)
+    memory_utilization = getattr(item.config, 'store_memory_utilization', None)
+    if duthosts is None and memory_utilization is None:
+        return
+
     memory_monitors, memory_values = memory_utilization
 
     logging.debug("memory_values {} ".format(memory_values))
