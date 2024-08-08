@@ -1114,14 +1114,14 @@
   comment: v-saidia
 
 - conf-name: vms68-t2-8800-1
-  group-name: vms68-2
+  group-name: vms69-1
   topo: t2
   ptf_image_name: docker-ptf
-  ptf: vms68-2
+  ptf: vms69-1
   ptf_ip: 10.64.246.37/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f625/64
-  server: server_68
-  vm_base: VM68024
+  server: server_69
+  vm_base: VM69000
   dut:
   - str3-8800-lc4-1
   - str3-8800-lc1-1
@@ -1133,14 +1133,14 @@
   comment: v-saidia
 
 - conf-name: vms68-t2-8800-2
-  group-name: vms68-2
+  group-name: vms69-1
   topo: t2
   ptf_image_name: docker-ptf
-  ptf: vms68-2
+  ptf: vms69-1
   ptf_ip: 10.64.246.37/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f625/64
-  server: server_68
-  vm_base: VM68024
+  server: server_69
+  vm_base: VM69000
   dut:
   - str3-8800-lc4-1
   - str3-8800-lc3-1
