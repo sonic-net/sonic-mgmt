@@ -53,11 +53,11 @@ arp/test_unknown_mac.py:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now."
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not yet supported in TH5"
+    conditions_logical_operator: or
     conditions:
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-buildimage/issues/16502
-
+      - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
+      - "asic_gen in ['th5']"
 
 #######################################
 #####            bfd              #####
