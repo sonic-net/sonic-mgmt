@@ -49,6 +49,7 @@ str3-7260cx3-acs-root03,Ethernet48/1,str3-7260cx3-acs-fan-11,Ethernet64/1,100000
 str3-7260cx3-acs-root03,Ethernet51/1,str3-msn4700-fanout-03,Ethernet248,100000,"3064-3177",Trunk
 str3-7260cx3-acs-root03,Ethernet29/1,str3-8101-fanout-07,etp31,100000,"3940-3944",Trunk
 str3-7260cx3-acs-root03,Ethernet30/1,str3-8101-fanout-08,etp31,100000,"3945-3967",Trunk
+str3-7260cx3-acs-root03,Ethernet60/1,str3-acs-serv-69,ens4f1,100000,,Trunk
 str3-8102-01,Ethernet0,str3-7260cx3-acs-fan-04,Ethernet1/1,100000,385,Access
 str3-8102-01,Ethernet4,str3-7260cx3-acs-fan-04,Ethernet2/1,100000,386,Access
 str3-8102-01,Ethernet8,str3-7260cx3-acs-fan-04,Ethernet3/1,100000,387,Access
