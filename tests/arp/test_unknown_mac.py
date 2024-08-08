@@ -51,8 +51,9 @@ def dut_disable_arp_update(rand_selected_dut):
         rand_selected_dut(AnsibleHost) : dut instance
     """
     duthost = rand_selected_dut
-    assert duthost.shell("docker exec -t swss supervisorctl stop arp_update")['stdout_lines'][0] \
-        == 'arp_update: stopped'
+    if duthost.shell("docker exec -t swss supervisorctl stop arp_update")['stdout_lines'][0] \
+            == 'arp_update: ERROR (not running)':
+        logger.warning("arp_update not running, already disabled")
 
     yield
 
