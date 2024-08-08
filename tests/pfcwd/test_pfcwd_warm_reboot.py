@@ -452,7 +452,6 @@ class TestPfcwdWb(SetupPfcwdFunc):
             # If any 'rx_port_id' is not [None], neighbor devices are present
             if details['rx_port_id'] != [None]:
                 return True
-            
         return False
     
     @pytest.fixture(autouse=True)
