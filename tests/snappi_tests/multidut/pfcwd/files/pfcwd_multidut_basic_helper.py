@@ -1,6 +1,7 @@
 import time
 from math import ceil
 import logging
+import random
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
@@ -292,7 +293,7 @@ def __gen_traffic(testbed_config,
 
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
-    data_flow_rate_percent = int(100 / len(prio_list))
+    data_flow_rate_percent = int(99.98 / len(prio_list))
 
     """ For each data flow """
     for i in range(len(data_flow_name_list)):
@@ -304,7 +305,12 @@ def __gen_traffic(testbed_config,
             data_flow.tx_rx.port.tx_name = tx_port_name
             data_flow.tx_rx.port.rx_name = rx_port_name
 
-            eth, ipv4 = data_flow.packet.ethernet().ipv4()
+            eth, ipv4, udp = data_flow.packet.ethernet().ipv4().udp()
+            src_port = random.randint(5000, 6000)
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = 2
+
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
             if pfcQueueGroupSize == 8:
