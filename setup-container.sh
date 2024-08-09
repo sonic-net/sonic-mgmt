@@ -34,6 +34,9 @@ declare -r VERBOSE_INFO="4"
 declare -r VERBOSE_MAX="${VERBOSE_INFO}"
 declare -r VERBOSE_MIN="${VERBOSE_ERROR}"
 
+declare -ri CREATE_NEW_CONTAINER=1
+declare -ri START_EXISTING_CONTAINER=2
+
 #
 # Arguments -----------------------------------------------------------------------------------------------------------
 #
@@ -298,13 +301,13 @@ EOF
 }
 
 function start_local_container() {
-    log_info "creating a container: ${CONTAINER_NAME} ..."
 
-    if [ $1 == "existing" ]
+    if [ $1 -eq ${START_EXISTING_CONTAINER} ]
     then
         log_info "starting existing container: ${CONTAINER_NAME} ..."
         docker start ${CONTAINER_NAME}
     else
+        log_info "creating a container: ${CONTAINER_NAME} ..."
         eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
         -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
         --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
@@ -355,12 +358,12 @@ function start_existing_container() {
     if [ $count -eq 1 ]
     then
         container_name=`docker inspect $container_id --format '{{.Name}}'`
-        cname=""
+        CONTAINER_NAME=${container_name}
         if [[ $container_name == /* ]]
         then
             CONTAINER_NAME="${container_name:1}"
         fi
-        start_local_container "existing"
+        start_local_container ${START_EXISTING_CONTAINER}
     fi
     if [ $count -gt 1 ]
     then
@@ -442,7 +445,7 @@ fi
 
 pull_sonic_mgmt_docker_image
 setup_local_image
-start_local_container
+start_local_container ${CREATE_NEW_CONTAINER}
 show_local_container_login
 
 exit_success "sonic-mgmt configuration is done!"
