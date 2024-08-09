@@ -228,8 +228,7 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
     device2 = dict(list(ptfhost_info.items())[1:])
     device1 = dict(list(ptfhost_info.items())[:1])
     # use mac addr of vlan interface in case of dualtor
-    dualtor_topo = ["dualtor", "dualtor-aa"]
-    if tbinfo["topo"]["name"] in dualtor_topo:
+    if 'dualtor' in tbinfo["topo"]["name"]:
         vlan_table = duthost.get_running_config_facts()['VLAN']
         vlan_name = list(vlan_table.keys())[0]
         vlan_mac = duthost.get_dut_iface_mac(vlan_name)
@@ -246,7 +245,7 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
     logger.info("Checking connectivity to ptf ports")
 
     for member in ptfhost_info:
-        if tbinfo["topo"]["name"] in dualtor_topo:
+        if 'dualtor' in tbinfo["topo"]["name"]:
             verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
                                vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True)
             verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
@@ -270,7 +269,7 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
     # Checking for connectivity
     logger.info("Check connectivity to both ptfhost")
     for member in ptfhost_info:
-        if tbinfo["topo"]["name"] in dualtor_topo:
+        if 'dualtor' in tbinfo["topo"]["name"]:
             verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
                                vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True)
             verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
