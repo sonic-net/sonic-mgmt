@@ -60,7 +60,7 @@
     },
     {
         "DASH_ROUTE_TABLE:F4939FEFC47E:20.2.2.0/24": {
-            "action_type": "vnet",
+            "routing_type": "vnet",
             "vnet": "Vnet2"
     },
         "OP": "DEL"
