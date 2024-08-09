@@ -3,8 +3,8 @@ import json
 import pytest
 import logging
 import os
-from random import randrange
 from fwutil_common import show_firmware
+from pytest_ansible.errors import AnsibleConnectionFailure
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,7 @@ FS_RW_TEMPLATE = "/host/image-{}/rw"
 FS_WORK_TEMPLATE = "/host/image-{}/work"
 FS_MOUNTPOINT_TEMPLATE = "/tmp/image-{}-fs"
 OVERLAY_MOUNTPOINT_TEMPLATE = "/tmp/image-{}-overlay"
+PLATFORMS_HAVE_FPGA = ['x86_64-nvidia_sn4280-r0']
 
 
 def pytest_addoption(parser):
@@ -58,6 +59,35 @@ def fw_pkg(fw_pkg_name):
     yield extract_fw_data(fw_pkg_name)
 
 
+@pytest.fixture(scope='session', autouse=True)
+def update_ssh_client_alive_interval(duthost, localhost):
+    """
+    Fixture to increase the ssh ClientAliveInterval of the dut. It may take very long time for the firmware burning
+    and the default interval is not enough for the ansible command to complete.
+    """
+    sshd_config = "/etc/ssh/sshd_config"
+    default_interval = duthost.shell(f"cat {sshd_config} | grep ^ClientAliveInterval |  awk '{{print $2}}'")['stdout']
+    if not default_interval:
+        return
+
+    def _update_interval(interval):
+        duthost.shell(f"sudo sed -i 's/^ClientAliveInterval.*/ClientAliveInterval {interval}/' {sshd_config}")
+        duthost.shell("sudo systemctl restart sshd")
+        # Kill the sshd of the duthost to make sure the new interval take effect in the next ansible command
+        pid_list = duthost.shell('ps -aux | grep "[s]shd: admin@notty" | awk \'{print $2}\'')['stdout_lines']
+        for pid in pid_list:
+            try:
+                duthost.shell(f"kill {pid}")
+            except AnsibleConnectionFailure:
+                pass
+
+    _update_interval('3600')
+
+    yield
+
+    _update_interval(default_interval)
+
+
 def extract_fw_data(fw_pkg_path):
     """
     Extract fw data from updated-fw.tar.gz file or firmware.json file
@@ -81,15 +111,21 @@ def extract_fw_data(fw_pkg_path):
     return fw_data
 
 
-@pytest.fixture(scope='function')
-def random_component(duthost, fw_pkg):
-    chass = list(show_firmware(duthost)["chassis"].keys())[0]
-    components = list(fw_pkg["chassis"].get(chass, {}).get("component", {}).keys())
-    if 'ONIE' in components:
-        components.remove('ONIE')
-    if len(components) == 0:
-        pytest.skip("No suitable components found in config file for platform {}.".format(duthost.facts['platform']))
-    return components[randrange(len(components))]
+@pytest.fixture(scope='function', params=["CPLD", "ONIE", "BIOS", "FPGA"])
+def component(request, duthost, fw_pkg):
+    component_type = request.param
+    if component_type == 'FPGA' and duthost.facts['platform'] not in PLATFORMS_HAVE_FPGA:
+        pytest.skip("Skip the FPGA test for the platform doesn't have FPGA components.")
+    chassis = list(show_firmware(duthost)["chassis"].keys())[0]
+    available_components = list(fw_pkg["chassis"].get(chassis, {}).get("component", {}).keys())
+    if 'ONIE' in available_components:
+        available_components.remove('ONIE')
+    if len(available_components) > 0:
+        for component in available_components:
+            if component_type in component:
+                return component
+    pytest.skip(f"No suitable components found in config file for "
+                f"platform {duthost.facts['platform']}, firmware type {component_type}.")
 
 
 @pytest.fixture(scope='function')
