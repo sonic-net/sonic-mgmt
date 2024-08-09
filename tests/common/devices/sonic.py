@@ -500,8 +500,6 @@ class SonicHost(AnsibleHostBase):
         """
         @summary: Check whether all the SONiC critical services have started
         """
-        self.command("docker ps -a")
-        self.command("systemctl status bgp.service ")
         result = self.critical_services_status()
         logging.debug("Status of critical services: %s" % str(result))
         return all(result.values())
