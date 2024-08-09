@@ -11,6 +11,8 @@ from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 logger = logging.getLogger(__name__)
 
+CONFIG_RELOAD_INTERVAL_IN_SEC = 30
+
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
 
@@ -124,6 +126,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                 reloading = wait_until(wait_before_force_reload, 10, 0, _config_reload_cmd_wrapper, cmd, "/bin/bash")
             cmd = 'config reload -y -f &>/dev/null'
         if not reloading:
+            time.sleep(CONFIG_RELOAD_INTERVAL_IN_SEC)
             sonic_host.shell(cmd, executable="/bin/bash")
 
     elif config_source == 'running_golden_config':

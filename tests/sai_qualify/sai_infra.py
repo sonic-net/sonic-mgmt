@@ -39,6 +39,7 @@ from .conftest import get_sai_running_vendor_id
 from .conftest import get_sai_test_container_name
 from .conftest import saiserver_warmboot_config
 from .conftest import *  # noqa: F403 F401
+from tests.common.config_reload import CONFIG_RELOAD_INTERVAL_IN_SEC
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,6 @@ pytestmark = [
 SAI_TEST_ENV_RESET_TIMES = 3
 LIVENESS_CHECK_RETRY_TIMES = 12
 LIVENESS_CHECK_INTERVAL_IN_SEC = 5
-CONFIG_RELOAD_INTERVAL_IN_SEC = 30
 TEST_INTERVAL_IN_SEC = 1
 
 
