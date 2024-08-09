@@ -835,6 +835,22 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.rx_action = action
         self.tx_action = action
 
+    def has_neighbor_device(self, setup_pfc_test):
+        """
+        Check if there are neighbor devices present
+
+        Args:
+            setup_pfc_test (fixture): Module scoped autouse fixture for PFCwd
+
+        Returns:
+            bool: True if there are neighbor devices present, False otherwise
+        """
+        for _, details in setup_pfc_test['selected_test_ports'].items():
+            # If any 'rx_port' is not [None], neighbor devices are present
+            if not details['rx_port'] or None in details['rx_port']:
+                return False
+        return True
+
     def test_pfcwd_actions(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
                            ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
                            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa F811
@@ -871,6 +887,12 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.rx_action = None
         self.tx_action = None
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
+
+        # skip the pytest when the device does not have neighbors
+        # 'rx_port' being None indicates there are no ports available to send frames for pfc storm
+        if not self.has_neighbor_device(setup_pfc_test):
+            pytest.skip("Test skipped: No neighbors detected as 'rx_port' is None for selected test ports,"
+                        " which is necessary for PFCwd test setup.")
 
         for idx, port in enumerate(self.ports):
             logger.info("")
@@ -961,6 +983,12 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.set_traffic_action(duthost, "drop")
         self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
 
+        # skip the pytest when the device does not have neighbors
+        # 'rx_port' being None indicates there are no ports available to send frames for pfc storm
+        if not self.has_neighbor_device(setup_pfc_test):
+            pytest.skip("Test skipped: No neighbors detected as 'rx_port' is None for selected test ports,"
+                        " which is necessary for PFCwd test setup.")
+
         for count in range(2):
             try:
                 for idx, port in enumerate(selected_ports):
@@ -1042,6 +1070,12 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.tx_action = None
         self.set_traffic_action(duthost, "drop")
         self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
+
+        # skip the pytest when the device does not have neighbors
+        # 'rx_port' being None indicates there are no ports available to send frames for pfc storm
+        if not self.has_neighbor_device(setup_pfc_test):
+            pytest.skip("Test skipped: No neighbors detected as 'rx_port' is None for selected test ports,"
+                        " which is necessary for PFCwd test setup.")
 
         try:
             for idx, mmu_action in enumerate(MMU_ACTIONS):
@@ -1126,6 +1160,12 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.tx_action = None
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
         action = "dontcare"
+
+        # skip the pytest when the device does not have neighbors
+        # 'rx_port' being None indicates there are no ports available to send frames for pfc storm
+        if not self.has_neighbor_device(setup_pfc_test):
+            pytest.skip("Test skipped: No neighbors detected as 'rx_port' is None for selected test ports,"
+                        " which is necessary for PFCwd test setup.")
 
         for idx, port in enumerate(self.ports):
             logger.info("")
@@ -1214,6 +1254,12 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.tx_action = None
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
         self.fake_storm = False  # Not needed for this test.
+
+        # skip the pytest when the device does not have neighbors
+        # 'rx_port' being None indicates there are no ports available to send frames for pfc storm
+        if not self.has_neighbor_device(setup_pfc_test):
+            pytest.skip("Test skipped: No neighbors detected as 'rx_port' is None for selected test ports,"
+                        " which is necessary for PFCwd test setup.")
 
         for idx, port in enumerate(self.ports):
             logger.info("")
