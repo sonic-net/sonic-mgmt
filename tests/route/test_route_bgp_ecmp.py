@@ -6,12 +6,11 @@ import pytest
 
 pytestmark = [
     pytest.mark.topology("t0"),
-    pytest.mark.device_type('any')
+    pytest.mark.device_type('vs')
 ]
 
 logger = logging.getLogger(__name__)
 
-WAIT_EXPECTED_PACKET_TIMEOUT = 15
 EXABGP_BASE_PORT = 5000
 TEST_ROUTE = '20.0.0.1/32'
 TEST_AS_PATH = '65000 65001 65002'
