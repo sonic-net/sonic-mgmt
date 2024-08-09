@@ -5,8 +5,7 @@ import time
 import pytest
 
 pytestmark = [
-    pytest.mark.topology("t0"),
-    pytest.mark.device_type('vs')
+    pytest.mark.topology("t0")
 ]
 
 logger = logging.getLogger(__name__)
