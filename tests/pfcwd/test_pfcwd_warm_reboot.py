@@ -440,7 +440,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
 
     def has_neighbor_device(self, setup_pfc_test):
         """
-        Check if there are neighbor devices present 
+        Check if there are neighbor devices present
 
         Args:
             setup_pfc_test (fixture): Module scoped autouse fixture for PFCwd
@@ -455,7 +455,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
             if not details['rx_port_id'] or None in details['rx_port_id']:
                 return False
         return True
-    
+
     @pytest.fixture(autouse=True)
     def pfcwd_wb_test_cleanup(self, setup_pfc_test):
         """
@@ -602,6 +602,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
             testcase_action(string) : testcase to execute
         """
         yield request.param
+
+
 
     def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
                       ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
