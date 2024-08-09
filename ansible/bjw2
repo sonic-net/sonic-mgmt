@@ -882,19 +882,43 @@ sonic_arista_7260cx3:
     bjw2-can-7260-1:
       ansible_host: 10.150.22.31
       ansible_hostv6: 2404:f801:10:2200::a96:161f
+      mgmt_subnet_mask_length: 23
       hwsku: Arista-7260CX3-D108C8
       model: DCS-7260CX3-64
       serial: JPA2401P27E
       base_mac: a4:3f:68:20:df:60
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2401P27E"
+        "0x24": "a4:3f:68:20:df:60"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2401P27E"
     bjw2-can-7260-2:
       ansible_host: 10.150.22.33
       ansible_hostv6: 2404:f801:10:2200::a96:1621
+      mgmt_subnet_mask_length: 23
       hwsku: Arista-7260CX3-D108C8
       model: DCS-7260CX3-64
       serial: JPA2403P33Z
       base_mac: a4:3f:68:fa:e2:a0
       syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250509C0"
+        "0x23": "JPA2403P33Z"
+        "0x24": "a4:3f:68:fa:e2:a0"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2403P33Z"
     bjw2-can-7260-3:
       ansible_host: 10.150.22.35
       ansible_hostv6: 2404:f801:10:2200::a96:1623
