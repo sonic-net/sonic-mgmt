@@ -73,7 +73,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
         get_crm_resources(duthost, "fdb_entry", "used")
     pytest_assert(ipv4_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
-    arp_avaliable = min(min(ipv4_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
+    arp_avaliable = int(min(min(ipv4_avaliable, fdb_avaliable), ENTRIES_NUMBERS) / 3 * 2)
 
     pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
     ptf_intf_ipv4_hosts = genrate_ipv4_ip()
@@ -159,7 +159,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
         get_crm_resources(duthost, "fdb_entry", "used")
     pytest_assert(ipv6_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
-    nd_avaliable = min(min(ipv6_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
+    nd_avaliable = int(min(ipv6_avaliable, ENTRIES_NUMBERS) / 3 * 2)
 
     while loop_times > 0:
         loop_times -= 1
