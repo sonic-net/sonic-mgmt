@@ -33,7 +33,7 @@ barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista
 marvell_hwskus: [ "et6448m" ]
 innovium_tl7_hwskus: ["Wistron_sw_to3200k_32x100" , "Wistron_sw_to3200k"]
 
-cisco_hwskus: ["Cisco-8102-C64", "Cisco-8111-O32", "Cisco-8111-O64", "Cisco-8800-LC-48H-C48"]
+cisco_hwskus: ["Cisco-8102-C64", "Cisco-8111-O32", "Cisco-8111-O64", "Cisco-8800-LC-48H-C48", "cisco-8101-p4-32x100-vs"]
 cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-88-LC0-36FH-M-O36", "Cisco-8101-O8C48", "Cisco-8101-O32", "Cisco-88-LC0-36FH-O36"]
 cisco-8000_gr_hwskus: ["Cisco-8111-O32", "Cisco-8111-O64"]
 cisco-8000_gr2_hwskus: ["Cisco-8122-O64"]

@@ -48,6 +48,8 @@ all:
           - wan-pub-isis
           - dpu
           - dpu-1
+          - ciscovs-7nodes
+          - ciscovs-5nodes
       children:
         server_1:
     lab:
@@ -68,6 +70,7 @@ all:
         vlab-t2-01:
         vlab-t2-02:
         vlab-t2-sup:
+        vlab-c-01:
     ptf:
       hosts:
         ptf-01:
@@ -263,7 +266,16 @@ all:
           # sdk/npsuite override:
           #cisco_sdk_ver: "1.50.10.4.22"
           #cisco_npsuite_ver: "1.90.0"
-
+        vlab-c-01:
+          ansible_host: 10.250.0.125
+          ansible_hostv6: fec0::ffff:afb:8
+          type: kvm
+          hwsku: cisco-8101-p4-32x100-vs
+          serial_port: 9025
+          ansible_password: admin
+          ansible_user: admin
+          ansible_ssh_user: admin
+          ansible_altpassword: admin
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:

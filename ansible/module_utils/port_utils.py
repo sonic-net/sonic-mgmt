@@ -406,6 +406,10 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "Arista-7060DX5-32":
             for i in range(1, 33):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 8)
+        elif hwsku == "cisco-8101-p4-32x100-vs":
+            # this device simulates 32 ports, with 4 as the step for port naming.
+            for i in range(0, 32, 4):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         else:
             for i in range(0, 128, 4):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
