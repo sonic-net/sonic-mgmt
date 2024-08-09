@@ -56,8 +56,10 @@ t0:
   # There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed
   # The tests in this script are all related to the above table
   - system_health/test_system_health.py
-  # This script is also skipped in nightly test
+  # Vrf tests are also skipped in nightly test
   - mvrf/test_mgmtvrf.py
+  - vrf/test_vrf.py
+  - vrf/test_vrf_attr.py
 
 t1-lag:
   # KVM do not support bfd test
@@ -109,7 +111,7 @@ t1-lag:
   # There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed
   # The tests in this script are all related to the above table
   - system_health/test_system_health.py
-  # This script is also skipped in nightly test
+  # Vrf tests are also skipped in nightly test
   - mvrf/test_mgmtvrf.py
 
 t2:
