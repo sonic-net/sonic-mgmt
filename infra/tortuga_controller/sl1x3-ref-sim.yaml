@@ -11,6 +11,7 @@ devices:
     data_ports:
       - eth1
       - eth2
+      - eth3
     disks:
       - hda_ref:
           file: /nobackup/images/rhel7_serial.qcow2
@@ -33,7 +34,7 @@ devices:
         24..31: 4x10
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.25/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.28/npl
         ConfigS1NpsuiteVer: 1.137.1
         ConfigCardPidOverride: HF6100-32D
     linux_password: cisco123
@@ -44,16 +45,18 @@ devices:
     vcpu: 8
     platform: spitfire_f
     data_ports:
-      - Ethernet0
-      - Ethernet1
-      - Ethernet2
-      - Ethernet3
-      - Ethernet4
-      - Ethernet5
-      - Ethernet6
-      - Ethernet7
-      - Ethernet8
-      - Ethernet9
+      - Ethernet1_1
+      - Ethernet1_2
+      - Ethernet1_3
+      - Ethernet1_4
+      - Ethernet1_5
+      - Ethernet1_6
+      - Ethernet1_7
+      - Ethernet1_8
+      - Ethernet1_9
+      - Ethernet1_10
+      - Ethernet1_11
+      - Ethernet1_12
     xr_port_redir:
       - 22
 
@@ -134,48 +137,57 @@ devices:
 
 connections:
   hubs:
-    L0_trex1:
-      - L0.Ethernet6
+    L0_trex1_1:
+      - L0.Ethernet1_7
       - trex1.eth1
-    L0_trex2:
-      - L0.Ethernet7
+    L0_trex2_1:
+      - L0.Ethernet1_8
       - trex2.eth1
-    L0_trex3:
-      - L0.Ethernet8
+    L0_trex3_1:
+      - L0.Ethernet1_9
       - trex3.eth1
-    L1_trex4:
-      - L1.Ethernet6
+    L0_trex1_2:
+      - L0.Ethernet1_10
+      - trex1.eth2
+    L1_trex4_1:
+      - L1.Ethernet1_7
       - trex4.eth1
-    L1_trex5:
-      - L1.Ethernet7
+    L1_trex5_1:
+      - L1.Ethernet1_8
       - trex5.eth1
-    L1_trex6:
-      - L1.Ethernet8
+    L1_trex6_1:
+      - L1.Ethernet1_9
       - trex6.eth1
-    L2_trex7:
-      - L2.Ethernet6
+    L1_trex4_2:
+      - L1.Ethernet1_10
+      - trex4.eth2
+    L2_trex7_1:
+      - L2.Ethernet1_7
       - trex7.eth1
-    L2_trex8:
-      - L2.Ethernet7
+    L2_trex8_1:
+      - L2.Ethernet1_8
       - trex8.eth1
-    L2_trex9:
-      - L2.Ethernet8
+    L2_trex9_1:
+      - L2.Ethernet1_9
       - trex9.eth1
+    L2_trex7_2:
+      - L2.Ethernet1_10
+      - trex7.eth2
     S0_L0_conn1:
-      - S0.Ethernet0
-      - L0.Ethernet0
+      - S0.Ethernet1_1
+      - L0.Ethernet1_1
     S0_L0_conn2:
-      - S0.Ethernet1
-      - L0.Ethernet1
+      - S0.Ethernet1_2
+      - L0.Ethernet1_2
     S0_L1_conn1:
-      - S0.Ethernet2
-      - L1.Ethernet0
+      - S0.Ethernet1_3
+      - L1.Ethernet1_1
     S0_L1_conn2:
-      - S0.Ethernet3
-      - L1.Ethernet1
+      - S0.Ethernet1_4
+      - L1.Ethernet1_2
     S0_L2_conn1:
-      - S0.Ethernet4
-      - L2.Ethernet0
+      - S0.Ethernet1_5
+      - L2.Ethernet1_1
     S0_L2_conn2:
-      - S0.Ethernet5
-      - L2.Ethernet1
+      - S0.Ethernet1_6
+      - L2.Ethernet1_2

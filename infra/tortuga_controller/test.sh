@@ -18,11 +18,14 @@ LEAF_PORTS=40361,41899,40815
 SPINE_COUNT=1
 TEST_NAME="${1}"
 
-# Routes are for BGP verification purposes only. IP address 5.1.1.1 is not a
-# real IP. Vrf40000 is automatically created by Tortuga when a L2VNI + SAG
+# Vrf40000 is automatically created by Tortuga when a L2VNI + SAG
 # is added to the fabric.
-ROUTES1x3="Vrf40000|leaf1|Ethernet1_32|5.1.1.0/24|41.220.10.1"
-PORTS1x3="leaf1|2x30|Ethernet1_32#41.220.10.2/24#Vrf40000"
+SUBINFS1x3="Vrf40000|Ethernet1_10#1"
+SUBINFS1x3="*"
+RELAYS1x3="Vrf40000|relay1|5.1.30.1|5010#5020"
+RELAYS1x3="*"
+BGPPEERS1x3="Vrf40000|bgp1#5.1.30.1#4000#65200"
+BGPPEERS1x3="*"
 
 CONFIG_GEN=./config-gen
 os=$(uname)
@@ -71,11 +74,12 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
     --cloud "${CLOUD_URL}" \
     --fabric "${FABRIC_NAME}" \
     --pyvxr "${PYVXR_HOST}" \
-    --hosts "${HOST_PORTS}" \
     --spines "${SPINE_COUNT}" \
     --leaves "${LEAF_PORTS}" \
-    --ports "${PORTS1x3}" \
-    --routes "${ROUTES1x3}" \
+    --hosts "${HOST_PORTS}" \
+    --dhcpRelays "${RELAYS1x3}" \
+    --bgpPeers "${BGPPEERS1x3}" \
+    --subInterfaces "${SUBINFS1x3}" \
     --tags "${TEST_TAGS},add-sag,ipv4,ipv6,l3vni,loopback"
 fi
 
