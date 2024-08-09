@@ -110,9 +110,18 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     '''
     duthost = duthosts[rand_one_dut_hostname]
 
+    # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
     if asic_type == "vs" and (failure_type == "interface" or test_type == "reboot"):
         pytest.skip("BGP session test is not supported on Virtual Switch")
+
+    # Skip the test if BGP or SWSS autorestart is disabled
+    autorestart_states = duthost.get_container_autorestart_states()
+    bgp_autorestart = autorestart_states['bgp']
+    swss_autorestart = autorestart_states['swss']
+    if bgp_autorestart != "enabled" or swss_autorestart != "enabled":
+        logger.info("auto restart config bgp {} swss {}".format(bgp_autorestart, swss_autorestart))
+        pytest.skip("BGP or SWSS autorestart is disabled")
 
     neighbor = setup['test_neighbor']
     neighbor_name = setup['neighhosts'][neighbor]['name']
