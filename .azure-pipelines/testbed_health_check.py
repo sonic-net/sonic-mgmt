@@ -99,7 +99,7 @@ class TestbedHealthChecker:
 
         logger.info("======================= init_hosts starts =======================")
 
-        skip_healthy_check_testbed_list = ["vms68-t2-8800-1", "vms68-t2-8800-2",
+        skip_healthy_check_testbed_list = ["vms69-t2-8800-1", "vms69-t2-8800-2",
                                            "vms29-t2-8800-2", "vms29-t2-8800-3",
                                            "vmsvc5-t2-8800-1", "vmsvc5-t2-8800-2"]
 

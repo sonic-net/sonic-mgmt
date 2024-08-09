@@ -117,6 +117,8 @@ pdu-93,17,str3-acs-serv-67,PSU1
 pdu-94,25,str3-acs-serv-67,PSU2
 pdu-93,13,str3-acs-serv-68,PSU1
 pdu-94,26,str3-acs-serv-68,PSU2
+pdu-102,11,str3-acs-serv-69,PSU1
+pdu-103,11,str3-acs-serv-69,PSU2
 pdu-120,32,str3-7060-acs-1,PSU1
 pdu-119,32,str3-7060-acs-1,PSU2
 pdu-89,10,str3-7060-acs-2,PSU1

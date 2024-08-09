@@ -139,6 +139,12 @@ all:
         bjw2-pdu-126-91:  # R505S
           ansible_host: 10.150.126.91
           protocol: snmp
+        bjw2-pdu-126-92:
+          ansible_host: 10.150.126.92
+          protocol: snmp
+        bjw2-pdu-126-93:
+          ansible_host: 10.150.126.93
+          protocol: snmp
         bjw2-pdu-126-94:  # R507M
           ansible_host: 10.150.126.94
           protocol: snmp
@@ -217,6 +223,14 @@ fanout:
     bjw2-can-720dt-leaf-16:
       ansible_host: 10.150.22.198
       ansible_hostv6: 2404:f801:10:2200::a96:16c6
+      os: sonic
+    bjw2-can-7215a1-leaf-1:
+      ansible_host: 10.150.22.212
+      ansible_hostv6: 2404:f801:10:2200::a96:16d4
+      os: sonic
+    bjw2-can-7215a1-leaf-2:
+      ansible_host: 10.150.22.214
+      ansible_hostv6: 2404:f801:10:2200::a96:16d6
       os: sonic
     bjw2-can-7260-leaf-1:
       ansible_host: 10.150.22.44
@@ -302,6 +316,7 @@ sonic:
   children:
     sonic_arista_720dt:
     sonic_nokia_7215:
+    sonic_nokia_7215a1:
     sonic_cisco_8102:
     sonic_mlnx_sn4600c:
     sonic_arista_7260cx3:
@@ -322,7 +337,7 @@ sonic_arista_720dt:
       serial: WTW23380751
       base_mac: c0:69:11:c9:1e:0e
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2F"
+        "0x21": "CCS-720DT-48S-2"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380751"
         "0x24": "c0:69:11:c9:1e:0e"
@@ -340,7 +355,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-2:
       ansible_host: 10.150.22.185
       ansible_hostv6: 2404:f801:10:2200::a96:16b9
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380597
       base_mac: c0:69:11:c8:fd:92
       syseeprom_info:
@@ -362,7 +377,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-3:
       ansible_host: 10.150.22.187
       ansible_hostv6: 2404:f801:10:2200::a96:16bb
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380772
       base_mac: c0:69:11:c9:22:7c
       syseeprom_info:
@@ -384,7 +399,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-4:
       ansible_host: 10.150.22.189
       ansible_hostv6: 2404:f801:10:2200::a96:16bd
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380687
       base_mac: c0:69:11:c9:10:8e
       syseeprom_info:
@@ -410,7 +425,7 @@ sonic_arista_720dt:
       serial: WTW23380766
       base_mac: c0:69:11:c9:21:38
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2F"
+        "0x21": "CCS-720DT-48S-2"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380766"
         "0x24": "c0:69:11:c9:21:38"
@@ -428,7 +443,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-6:
       ansible_host: 10.150.22.193
       ansible_hostv6: 2404:f801:10:2200::a96:16c1
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380775
       base_mac: c0:69:11:c9:23:1e
       syseeprom_info:
@@ -450,7 +465,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-7:
       ansible_host: 10.150.22.195
       ansible_hostv6: 2404:f801:10:2200::a96:16c3
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380571
       base_mac: c0:69:11:c8:f8:16
       syseeprom_info:
@@ -472,7 +487,7 @@ sonic_arista_720dt:
     bjw2-can-720dt-8:
       ansible_host: 10.150.22.197
       ansible_hostv6: 2404:f801:10:2200::a96:16c5
-      model: CCS-720DT-48S-2
+      model: CCS-720DT-48S-2F
       serial: WTW23380749
       base_mac: c0:69:11:c9:1d:a2
       syseeprom_info:
@@ -649,6 +664,51 @@ sonic_nokia_7215:
         "0x2F": "CSM9W00FRA"
         "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC0"
         "0xFE": "0xD50814FD"
+
+
+sonic_nokia_7215a1:
+  vars:
+    hwsku: Nokia-7215-A1
+    iface_speed: 1000
+  hosts:
+    bjw2-can-7215a1-1:
+      ansible_host: 10.150.22.211
+      ansible_hostv6: 2404:f801:10:2200::a96:16d3
+      model: 3HE18723AARA01
+      serial: "1241300015"
+      base_mac: E0:CB:19:74:57:70
+      syseeprom_info:
+        "0x21": "7215 IXS-A1"
+        "0x22": "3HE18723AARA01"
+        "0x23": "1241300015"
+        "0x24": "E0:CB:19:74:57:70"
+        "0x25": "04/25/2024 13:37:35"
+        "0x28": "arm64-nokia_ixs7215_52xb-r0"
+        "0x29": "2023.02-42-g56361a00-V01"
+        "0x2A": "256"
+        "0x2D": "NOKIA"
+        "0x2F": "CSMAR00ERA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC4"
+        "0xFE": "0x1BCCE53E"
+    bjw2-can-7215a1-2:
+      ansible_host: 10.150.22.213
+      ansible_hostv6: 2404:f801:10:2200::a96:16d5
+      model: 3HE18723AARA01
+      serial: "1241300011"
+      base_mac: E0:CB:19:74:56:70
+      syseeprom_info:
+        "0x21": "7215 IXS-A1"
+        "0x22": "3HE18723AARA01"
+        "0x23": "1241300011"
+        "0x24": "E0:CB:19:74:56:70"
+        "0x25": "04/25/2024 13:37:35"
+        "0x28": "arm64-nokia_ixs7215_52xb-r0"
+        "0x29": "2023.02-42-g56361a00-V01"
+        "0x2A": "256"
+        "0x2D": "NOKIA"
+        "0x2F": "CSMAR00ERA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC4"
+        "0xFE": "0x1F31FB9C"
 
 
 sonic_cisco_8102:

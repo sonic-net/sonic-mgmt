@@ -17,6 +17,8 @@ bjw2-can-720dt-leaf-13,10.150.22.192/23,Arista-720DT-G48S4,FanoutLeafSonic,,soni
 bjw2-can-720dt-leaf-14,10.150.22.194/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
 bjw2-can-720dt-leaf-15,10.150.22.196/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
 bjw2-can-720dt-leaf-16,10.150.22.198/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
+bjw2-can-7215a1-leaf-1,10.150.22.212/23,Nokia-7215-A1,FanoutLeafSonic,,sonic
+bjw2-can-7215a1-leaf-2,10.150.22.214/23,Nokia-7215-A1,FanoutLeafSonic,,sonic
 bjw2-can-7260-leaf-1,10.150.22.44/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-2,10.150.22.46/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-3,10.150.22.48/23,Arista-7260CX3,FanoutLeaf,,
@@ -48,6 +50,8 @@ bjw2-can-7215-5,10.150.22.175/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-6,10.150.22.177/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-7,10.150.22.179/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-8,10.150.22.181/23,Nokia-M0-7215,DevSonic,,sonic
+bjw2-can-7215a1-1,10.150.22.211/23,Nokia-7215-A1,DevSonic,,sonic
+bjw2-can-7215a1-2,10.150.22.213/23,Nokia-7215-A1,DevSonic,,sonic
 bjw2-can-720dt-1,10.150.22.183/23,Arista-720DT-G48S4,DevSonic,,sonic
 bjw2-can-720dt-2,10.150.22.185/23,Arista-720DT-G48S4,DevSonic,,sonic
 bjw2-can-720dt-3,10.150.22.187/23,Arista-720DT-G48S4,DevSonic,,sonic
@@ -90,6 +94,8 @@ bjw2-pdu-126-88,10.150.126.88,Vertiv,Pdu,snmp,
 bjw2-pdu-126-89,10.150.126.89,Vertiv,Pdu,snmp,
 bjw2-pdu-126-90,10.150.126.90,Vertiv,Pdu,snmp,
 bjw2-pdu-126-91,10.150.126.91,Vertiv,Pdu,snmp,
+bjw2-pdu-126-92,10.150.126.92,Vertiv,Pdu,snmp,
+bjw2-pdu-126-93,10.150.126.93,Vertiv,Pdu,snmp,
 bjw2-pdu-126-94,10.150.126.94,Vertiv,Pdu,snmp,
 bjw2-pdu-126-95,10.150.126.95,Vertiv,Pdu,snmp,
 bjw2-can-serv-1,10.150.22.238/23,TestServ,Server,,
