@@ -28,8 +28,11 @@ def config_system_checks_passed(duthost, delayed_services=[]):
         if duthost.facts["asic_type"] == "vs":
             if any("watchdog-control.service" in service for service in fail_reason['stdout_lines']) \
                     and any("system-health.service" in service for service in fail_reason['stdout_lines']):
-                return True
-        return False
+                pass
+            else:
+                return False
+        else:
+            return False
 
     logging.info("Checking if Orchagent up for at least 2 min")
     if duthost.is_multi_asic:
