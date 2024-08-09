@@ -45,8 +45,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa
 from tests.common.fixtures.duthost_utils import skip_traffic_test         # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx"),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",

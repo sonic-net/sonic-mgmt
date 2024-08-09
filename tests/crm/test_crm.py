@@ -50,7 +50,7 @@ NS_PREFIX_TEMPLATE = """
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """Ignore expected failures logs during test execution.
 
     We don't have control over the order events are received by orchagent, so it is
@@ -66,9 +66,15 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
     ignoreRegex = [
         ".*ERR swss#orchagent.*removeVlan: Failed to remove non-empty VLAN.*"
     ]
-
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*flushFdbEntries: failed to find fdb entry in info set.*"
+    ]
     if loganalyzer:  # Skip if loganalyzer is disabled
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(KVMIgnoreRegex)
 
 
 @pytest.fixture(scope="function")
