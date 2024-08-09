@@ -1,3 +1,4 @@
+import json
 import logging
 import pytest
 import re
@@ -39,7 +40,7 @@ IDF_UNISOLATION = [
     },
 ]
 
-LINK_CRC_MITIGATION_REMOVE_TEMPLATE = '[{"op": "remove", "path": "/asic0/PORTCHANNEL_MEMBER/{}|{}"}]'
+LINK_CRC_MITIGATION_REMOVE_TEMPLATE = '[{{"op": "remove", "path": "/asic0/PORTCHANNEL_MEMBER/{}|{}"}}]'
 LINK_CRC_MITIGATION_ADD_TEMPLATE = '[{{"op": "add", "path": "/asic0/PORTCHANNEL_MEMBER/{}|{}", "value": {}}}]'
 
 
@@ -58,7 +59,6 @@ def setup_env(duthosts, rand_one_dut_hostname):
     """
     Setup/teardown fixture for each multi asic test.
     rollback to check if it goes back to starting config
-
     Args:
         duthosts: list of DUTs.
         rand_selected_dut: The fixture returns a randomly selected DuT.
@@ -98,10 +98,10 @@ def test_check_idf_isolation_apply_patch(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
-            logger.info(f"Patching process broken, the error output is {output['stdout']}")
+            logger.info("Patching process broken, the error output is {}".format(output['stdout']))
             pytest_assert(False, "Patching process broken, the error output is {}").format(output['stdout'])
 
-        cmds = 'sonic-db-cli -n asic0 CONFIG_DB hget "BGP_DEVICE_GLOBAL|STATE" "idf_isolation_state"'
+        cmds = 'sonic-db-cli -n asic0 CONFIG_DB hget "BGP_DEVICE_GLOBAL|STATE" idf_isolation_state'
         expected_value = "isolated_no_export"
         redis_value = duthost.shell(cmds, module_ignore_errors=False)['stdout']
         pytest_assert(redis_value == expected_value, "Config IDF ISOLATION failed")
@@ -122,16 +122,15 @@ def test_check_idf_unisolation_apply_patch(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
-            logger.info(f"Patching process broken, the error output is {output['stdout']}")
+            logger.info("Patching process broken, the error output is {}".format(output['stdout']))
             pytest_assert(False, "Patching process broken, the error output is {}").format(output['stdout'])
-
-        cmds = ["sonic-db-cli", "-n", "asic0", "CONFIG_DB",
-                "hget", "\"BGP_DEVICE_GLOBAL|STATE\"" "\"idf_isolation_state\""]
+        
+        cmds = 'sonic-db-cli -n asic0 CONFIG_DB hget "BGP_DEVICE_GLOBAL|STATE" idf_isolation_state'
         expected_value = "unisolated"
         redis_value = duthost.shell(cmds, module_ignore_errors=False)['stdout']
         pytest_assert(redis_value == expected_value, "Config IDF ISOLATION failed")
 
-        cmds = 'sonic-db-cli -n asic1 CONFIG_DB hget "BGP_DEVICE_GLOBAL|STATE" "idf_isolation_state"'
+        cmds = 'sonic-db-cli -n asic1 CONFIG_DB hget "BGP_DEVICE_GLOBAL|STATE" idf_isolation_state'
         expected_value = "unisolated"
         redis_value = duthost.shell(cmds, module_ignore_errors=False)['stdout']
         pytest_assert(redis_value == expected_value, "Config IDF ISOLATION failed")
@@ -143,66 +142,50 @@ def test_check_link_crc_mitigation_remove_and_add_apply_patch(duthost):
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        result = duthost.shell(["show", "interfaces", "portchannel", "-n", "asic0"])
+        result = duthost.shell("show interfaces portchannel -n asic0", module_ignore_errors=False)['stdout']
         portchannel, port = extract_up_interface(result)
 
         # Precheck keys existing
-        cmds = ["sonic-db-cli", "-n", "asic0", "CONFIG_DB", "keys", f"\"PORTCHANNEL_MEMBER|{portchannel}|{port}\""]
-        expected_value = f"PORTCHANNEL_MEMBER|{portchannel}|{port}"
+        cmds = 'sonic-db-cli -n asic0 CONFIG_DB keys "PORTCHANNEL_MEMBER|{}|{}"'.format(portchannel, port)
+        expected_value = "PORTCHANNEL_MEMBER|{}|{}".format(portchannel, port)
         redis_value = duthost.shell(cmds, module_ignore_errors=False)['stdout']
         pytest_assert(redis_value == expected_value, "Config Link CRC Mitigation add action failed.")
 
         json_patch = LINK_CRC_MITIGATION_REMOVE_TEMPLATE.format(portchannel, port)
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json.loads(json_patch), dest_file=tmpfile)
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
-            logger.info(f"Patching process broken, the error output is {output['stdout']}")
+            logger.info("Patching process broken, the error output is {}".format(output['stdout']))
             pytest_assert(False, "Patching process broken, the error output is {}").format(output['stdout'])
 
-        cmds = ["sonic-db-cli", "-n", "asic0", "CONFIG_DB", "keys", f"\"PORTCHANNEL_MEMBER|{portchannel}|{port}\""]
+        cmds = 'sonic-db-cli -n asic0 CONFIG_DB keys "PORTCHANNEL_MEMBER|{}|{}"'.format(portchannel, port)
         expected_value = ""
         redis_value = duthost.shell(cmds, module_ignore_errors=False)['stdout']
         pytest_assert(redis_value.strip() == expected_value, "Config Link CRC Mitigation remove action failed.")
 
         json_patch = LINK_CRC_MITIGATION_ADD_TEMPLATE.format(portchannel, port, "{}")
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json.loads(json_patch), dest_file=tmpfile)
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
-            logger.info(f"Patching process broken, the error output is {output['stdout']}")
+            logger.info("Patching process broken, the error output is {}".format(output['stdout']))
             pytest_assert(False, "Patching process broken, the error output is {}").format(output['stdout'])
 
-        cmds = ["sonic-db-cli", "-n", "asic0", "CONFIG_DB", "keys", f"\"PORTCHANNEL_MEMBER|{portchannel}|{port}\""]
-        expected_value = f"PORTCHANNEL_MEMBER|{portchannel}|{port}"
+        cmds = 'sonic-db-cli -n asic0 CONFIG_DB keys "PORTCHANNEL_MEMBER|{}|{}"'.format(portchannel, port)
+        expected_value = "PORTCHANNEL_MEMBER|{}|{}".format(portchannel, port)
         redis_value = duthost.shell(cmds, module_ignore_errors=False)['stdout']
         pytest_assert(redis_value == expected_value, "Config Link CRC Mitigation add action failed.")
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def check_apply_patch_negative_case(duthost):
-    json_patch = '[{"op": "add"}]'
+def test_check_apply_patch_negative_case(duthost):
+    json_patch = '[{"op": "replace", "path": "/x"}]'
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json.loads(json_patch), dest_file=tmpfile)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-    if output['rc'] or "Failed to apply patch" not in output['stdout']:
-        logger.info("Negative patching process broken, the error output is {}").format(output['stdout'])
-        pytest_assert(False, "Patching process broken, the error output is {}").format(output['stdout'])
-
-
-def check_replace(duthost):
-    tmpfile = generate_tmpfile(duthost)
-
-    duthost.copy(src=f"/etc/sonic/checkpoints/{DEFAULT_CHECKPOINT_NAME}.cp.json", dest=tmpfile)
-
-    try:
-        output = replace(duthost, replace_config_file=tmpfile)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
-
-    if output['rc'] or "Config replaced successfully" not in output['stdout']:
-        logger.info("Replacing process broken, the error output is {}").format(output['stdout'])
-        pytest_assert(False, "Replacing process broken, the error output is {}").format(output['stdout'])
+    pytest_assert(output['rc'] != 0 and "Failed to apply patch" in output['stderr'],
+              "Expected failure did not occur as expected. Output: {}".format(output['stderr']))
