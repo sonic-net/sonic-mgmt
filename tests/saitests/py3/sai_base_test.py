@@ -184,13 +184,14 @@ class ThriftInterface(BaseTest):
         return stdOut, stdErr, retValue
 
     def sai_thrift_port_tx_enable(
-            self, client, asic_type, port_list, target='dst', last_port=True, enable_port_by_unblock_queue=True):
+            self, client, asic_type, port_list, target='dst', last_port=True, enable_port_by_unblock_queue=True,
+            wd_enable=True):
         count = 0
         if asic_type == 'mellanox' and enable_port_by_unblock_queue:
             self.enable_mellanox_egress_data_plane(port_list)
         else:
             sai_thrift_port_tx_enable(client, asic_type, port_list, target=target)
-        if self.platform_asic and self.platform_asic == "broadcom-dnx" and last_port:
+        if self.platform_asic and self.platform_asic == "broadcom-dnx" and last_port and wd_enable:
             # need to enable watchdog on the source asic
             # max 3 retries
             while count < 3:
@@ -204,9 +205,10 @@ class ThriftInterface(BaseTest):
             assert retValue == 0, "enable wd failed on asic '{}' on '{}' with error '{}'".format(
                 self.src_asic_index, self.src_server_ip, retValue)
 
-    def sai_thrift_port_tx_disable(self, client, asic_type, port_list, target='dst', disable_port_by_block_queue=True):
+    def sai_thrift_port_tx_disable(self, client, asic_type, port_list, target='dst', disable_port_by_block_queue=True,
+                                   wd_diable=True):
         count = 0
-        if self.platform_asic and self.platform_asic == "broadcom-dnx":
+        if self.platform_asic and self.platform_asic == "broadcom-dnx" and wd_diable:
             # need to disable watchdog on the source asic
             # max 3 retries
             while count < 3:

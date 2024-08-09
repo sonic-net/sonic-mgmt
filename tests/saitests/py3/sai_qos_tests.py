@@ -6052,3 +6052,56 @@ class FullMeshTrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
                     findFaultySrcDstPair(dscp, queue)
 
         assert len(failed_pairs) == 0, "Traffic failed between {}".format(failed_pairs)
+
+
+class VOQ_drop_Countertest(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        time.sleep(5)
+        switch_init(self.clients)
+        initialize_diag_counter(self)
+
+        # Parse input parameters
+
+        router_mac = self.test_params['router_mac']
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
+
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+
+        # Prepare IP packet data
+        ttl = 64
+        packet_length = 64
+
+        pkt = construct_ip_pkt(packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               0,
+                               None,
+                               ttl=ttl)
+
+        log_message("test dst_port_id: {}, src_port_id: {},".format(
+            dst_port_id, src_port_id), to_stderr=True)
+        # in case dst_port_id is part of LAG, find out the actual dst port
+        # for given IP parameters
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+        )
+        log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
+
+        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], wd_diable=False)
+
+        try:
+
+            send_packet(self, src_port_id, pkt, 100)
+            time.sleep(5)
+
+        finally:
+            summarize_diag_counter(self)
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id], wd_enable=False)
