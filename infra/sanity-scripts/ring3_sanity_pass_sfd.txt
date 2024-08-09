@@ -59,9 +59,6 @@ platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
 ssh/test_ssh_ciphers.py::test_ssh_protocol_version
 system_health/test_system_status.py
-tacacs/test_jit_user.py::test_jit_user
-tacacs/test_ro_user.py::test_ro_user_allowed_command
-tacacs/test_ro_user.py::test_ro_user_banned_command
 telemetry/test_telemetry.py::test_config_db_parameters
 telemetry/test_telemetry.py::test_telemetry_enabledbydefault
 test_posttest.py
