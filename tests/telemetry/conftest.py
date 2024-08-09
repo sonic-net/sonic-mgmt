@@ -164,7 +164,8 @@ def do_init(duthost):
 
 
 @pytest.fixture(scope="module")
-def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, gnxi_path):
+def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter,
+                        setup_streaming_telemetry, gnxi_path):
     """
     @summary: Test eventd heartbeat before testing all testcases
     """
@@ -183,6 +184,6 @@ def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, set
 
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started.")
 
-    module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, None)
+    module.test_event(duthost, gnxi_path, ptfhost, ptfadapter, DATA_DIR, None)
 
     logger.info("Completed test file: {}".format("eventd_events test completed."))
