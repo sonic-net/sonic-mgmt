@@ -772,6 +772,13 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/11007
 
+platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
+  xfail:
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13627
+      - "neighbor_type!='eos'"
+
+
 #######################################
 ####        test_kdump.py         #####
 #######################################
