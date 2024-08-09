@@ -1176,7 +1176,7 @@ qos/test_buffer.py::test_buffer_model_test:
   skip:
     reason: "Running only on mellanox devices and covered by unit testing"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
 qos/test_buffer_traditional.py:
   skip:
