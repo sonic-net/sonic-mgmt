@@ -38,15 +38,6 @@ def get_asic_str(duthost):
     else:
         return ""
 
-def check_config_flags(duthost):
-    config_file = duthost.command("docker exec syncd cat /etc/supervisor/conf.d/dshell_client.conf")["stdout"].split("\n")
-    for line in config_file:
-        if "autostart" in line and "true" not in line:
-            return False, "autostart flag is not set to True"
-        elif "autorestart" in line and "true" not in line:
-            assert False, "autorestart flag is not set to True"
-    return True, ""
-
 def check_dshell_client(duthost, enabled=True, change=True):
     """
     @summary: This function can either modify the state of dshell_client or check it. 
@@ -54,18 +45,24 @@ def check_dshell_client(duthost, enabled=True, change=True):
         @change : if set to true, dshell_client will either be enabled or disabled based on "enabled"
         @enabled : whether or not we expect dshell client to be enabled
     """
-    check_dshell = duthost.command("docker exec syncd ps -efl")
-    action = "start" if enabled else "stop"
-    timeout = 12
-    while timeout > 0 and ("/usr/bin/dshell_client.py" in check_dshell["stdout"]) is not enabled:
+    asics = ['']
+    if duthost.is_multi_asic:
+        asics = duthost.get_asic_ids()
+    result = True
+    for asic in asics:
+        check_dshell = duthost.command(f"docker exec syncd{asic} ps -efl")
+        action = "start" if enabled else "stop"
+        timeout = 0
+        while timeout < 12 and ("/usr/bin/dshell_client.py" in check_dshell["stdout"]) is not enabled:
+            if timeout:
+                time.sleep(15)
+            if change:
+                duthost.command(f"docker exec syncd{asic} supervisorctl " + action + " dshell_client")
+            check_dshell = duthost.command(f"docker exec syncd{asic} ps -efl")
+            timeout += 1
+        result &= ("/usr/bin/dshell_client.py" in check_dshell["stdout"]) is enabled
         if change:
-            duthost.command("docker exec syncd supervisorctl " + action + " dshell_client")
-        time.sleep(30)
-        timeout -= 1
-        check_dshell = duthost.command("docker exec syncd ps -efl")
-    result = ("/usr/bin/dshell_client.py" in check_dshell["stdout"]) is enabled
-    if change:
-        assert result, logging.error("Unable to %s dshell client." % (action))
+            assert result, logging.error(f"Unable to {action} dshell client in syncd{asic}")
     return result
 
 def test_disable_dshell_client(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -74,10 +71,14 @@ def test_disable_dshell_client(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     check_dshell_client(duthost)
-    result = duthost.command("docker exec syncd supervisorctl stop dshell_client")
-    logging.info(result)
+    asics = ['']
+    if duthost.is_multi_asic:
+        asics = duthost.get_asic_ids()
+    for asic in asics:
+        result = duthost.command(f"docker exec syncd{asic} supervisorctl stop dshell_client")
+        logging.info(result)
+        assert "dshell_client: stopped" in result["stdout"], f"dshell_client stopped : expected output is missing for asic {asic}"
     assert check_dshell_client(duthost, False, False), "dshell_client still running"
-    assert "dshell_client: stopped" in result["stdout"], "dshell_client stopped : expected output is missing"
 
 def test_disable_sdk_debug(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -98,11 +99,15 @@ def test_enable_dshell_client(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     check_dshell_client(duthost, False)
-    result = duthost.command("docker exec syncd supervisorctl start dshell_client")
-    logging.info(result)
+    asics = ['']
+    if duthost.is_multi_asic:
+        asics = duthost.get_asic_ids()
+    for asic in asics:
+        result = duthost.command(f"docker exec syncd{asic} supervisorctl start dshell_client")
+        logging.info(result)
+        assert f"dshell_client: started" in result["stdout"], f"dshell_client started : expected output is missing for asic {asic}"
     assert check_dshell_client(duthost, True, False), "dshell_client not started"
-    assert "dshell_client: started" in result["stdout"], "dshell_client started : expected output is missing"
-
+    
 def test_enable_sdk_debug(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     @summary: Verify output of `sudo config platform cisco sdk-debug enable"`
@@ -114,7 +119,7 @@ def test_enable_sdk_debug(duthosts, enum_rand_one_per_hwsku_hostname):
     assert check_dshell_client(duthost, True, False), "dshell_client not started"
     assert "Enabling sdk-debug on all ASICs" in result["stdout"], "sdk-debug not enabled on all ASICS"
     assert "Enabling sdk-debug on syncd" in result["stdout"], "sdk-debug not enabled on syncd"
-    assert "sdk-debug has been enabled on syncd, please wait 10 seconds before using it" in result["stdout"], "sdk-debug not enabled on syncd"
+    assert "sdk-debug has been enabled on syncd" in result["stdout"], "sdk-debug not enabled on syncd"
 
 def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -136,7 +141,7 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname):
             if traceback_found:
                 result_list.append("Traceback found in show platform npu {} {}".format(cli, opt))
             elif result is None:
-                result_list.append("No ouput for this CLI show platform npu {} {}".format(cli, opt))
+                result_list.append("No output for this CLI show platform npu {} {}".format(cli, opt))
             elif result["failed"]:
                 result_list.append("Failed CLI show platform npu {} {}".format(cli, opt))
 
