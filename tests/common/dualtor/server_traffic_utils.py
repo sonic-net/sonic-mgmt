@@ -24,22 +24,28 @@ def dump_intf_packets(ansible_host, iface, pcap_save_path, dumped_packets,
     @pcap_filter: pcap filter used by tcpdump.
     @cleanup_pcap: True to remove packet capture file.
     """
-
+    nohup_output = "/tmp/nohup.out"
     start_pcap = "tcpdump --immediate-mode -i %s -w %s" % (iface, pcap_save_path)
     if pcap_filter:
         start_pcap += (" " + pcap_filter)
-    start_pcap = "nohup %s > /dev/null 2>&1 & echo $!" % start_pcap
+    start_pcap = "nohup %s > %s 2>&1 & echo $!" % (start_pcap, nohup_output)
+    ansible_host.file(path=nohup_output, state="absent")
     pid = ansible_host.shell(start_pcap)["stdout"]
     # sleep to let tcpdump starts to capture
     time.sleep(1)
     try:
         yield
     finally:
+        # wait for tcpdump to finish
+        time.sleep(2)
         ansible_host.shell("kill -s 2 %s" % pid)
         with tempfile.NamedTemporaryFile() as temp_pcap:
             ansible_host.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
             packets = sniff(offline=temp_pcap.name)
             dumped_packets.extend(packets)
+        # show the tcpdump run output for debug
+        ansible_host.shell("cat %s" % nohup_output)
+        ansible_host.file(path=nohup_output, state="absent")
         if cleanup_pcap:
             ansible_host.file(path=pcap_save_path, state="absent")
 
