@@ -40,7 +40,10 @@ def apply_patch(duthost, json_data, dest_file):
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
     """
-    duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
+
+    patch_content = json.dumps(json_data, indent=4)
+    logger.debug("File {} contents::\n{}".format(dest_file, patch_content))
+    duthost.copy(content=patch_content, dest=dest_file)
 
     cmds = 'config apply-patch {}'.format(dest_file)
 
@@ -53,6 +56,7 @@ def apply_patch(duthost, json_data, dest_file):
 def expect_op_success(duthost, output):
     """Expected success from apply-patch output
     """
+
     pytest_assert(not output['rc'], "Command is not running successfully")
     pytest_assert(
         "Patch applied successfully" in output['stdout'],
@@ -261,6 +265,61 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     if output['rc'] or "Config rolled back successfully" not in output['stdout']:
         config_reload(duthost)
         pytest.fail("config rollback failed. Restored by config_reload")
+
+
+def save_backup_test_config(duthost, file_postfix="bkp"):
+    """Save test env before a test case starts.
+
+    Back up the existing config_db.json file(s).
+
+    Args:
+        duthost: Device Under Test (DUT)
+        file_postfix: Postfix string to be used for the backup files.
+
+    Returns:
+        None.
+    """
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.{}".format(file_postfix)
+
+    logger.info("Backup {} to {} on {}".format(
+        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
+    duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BACKUP))
+    if duthost.is_multi_asic:
+        for n in range(len(duthost.asics)):
+            asic_config_db = "/etc/sonic/config_db{}.json".format(n)
+            asic_config_db_backup = "/etc/sonic/config_db{}.json.{}".format(n, file_postfix)
+            logger.info("Backup {} to {} on {}".format(
+                asic_config_db, asic_config_db_backup, duthost.hostname))
+            duthost.shell("cp {} {}".format(asic_config_db, asic_config_db_backup))
+
+
+def restore_backup_test_config(duthost, file_postfix="bkp", config_reload=True):
+    """Restore test env after a test case finishes.
+
+    Args:
+        duthost: Device Under Test (DUT)
+        file_postfix: Postfix string to be used for restoring the saved backup files.
+
+    Returns:
+        None.
+    """
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.{}".format(file_postfix)
+
+    logger.info("Restore {} with {} on {}".format(
+        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
+    duthost.shell("mv {} {}".format(CONFIG_DB_BACKUP, CONFIG_DB))
+    if duthost.is_multi_asic:
+        for n in range(len(duthost.asics)):
+            asic_config_db = "/etc/sonic/config_db{}.json".format(n)
+            asic_config_db_backup = "/etc/sonic/config_db{}.json.{}".format(n, file_postfix)
+            logger.info("Restore {} with {} on {}".format(
+                asic_config_db, asic_config_db_backup, duthost.hostname))
+            duthost.shell("mv {} {}".format(asic_config_db_backup, asic_config_db))
+
+    if config_reload:
+        config_reload(duthost)
 
 
 def create_path(tokens):

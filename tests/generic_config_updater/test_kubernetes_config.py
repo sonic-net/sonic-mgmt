@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 # K8S config
+
 K8SEMPTYCONFIG = []
 K8SHALFCONFIG = [
     '"KUBERNETES_MASTER": {\n'
@@ -207,6 +208,10 @@ def setup_env(duthosts, rand_one_dut_hostname):
         delete_checkpoint(duthost)
 
 
+def add_namespace_indentation(multiline_string, spaces=4):
+    return multiline_string.replace('\n', '\n' + ' ' * spaces)
+
+
 def get_k8s_runningconfig(duthost):
     """ Get k8s config from running config
     Sample output: K8SEMPTYCONFIG, K8SHALFCONFIG, K8SFULLCONFIG
@@ -265,6 +270,14 @@ def k8s_config_update(duthost, test_data):
     for num, (json_patch, target_config, target_table, expected_result) in enumerate(test_data):
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
+
+        if duthost.is_multi_asic:
+            json_namespace = '/localhost'
+            for patch in json_patch:
+                if 'path' in patch:
+                    patch['path'] = re.sub(r'^/', f'/{json_namespace}/', patch['path'])
+
+            target_config = [add_namespace_indentation(item) for item in target_config]
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
