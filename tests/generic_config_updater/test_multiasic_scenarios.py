@@ -188,4 +188,5 @@ def test_check_apply_patch_negative_case(duthost):
         delete_tmpfile(duthost, tmpfile)
 
     pytest_assert(output['rc'] != 0 and "Failed to apply patch" in output['stderr'],
-            "Expected failure did not occur as expected. Output: {}".format(output['stderr']))
+              "Expected failure did not occur as expected. Output: {}".format(output['stderr']))
+
