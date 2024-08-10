@@ -4,7 +4,7 @@ import pytest
 import re
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import DEFAULT_CHECKPOINT_NAME, apply_patch, replace
+from tests.generic_config_updater.gu_utils import apply_patch
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
@@ -188,4 +188,4 @@ def test_check_apply_patch_negative_case(duthost):
         delete_tmpfile(duthost, tmpfile)
 
     pytest_assert(output['rc'] != 0 and "Failed to apply patch" in output['stderr'],
-              "Expected failure did not occur as expected. Output: {}".format(output['stderr']))
+            "Expected failure did not occur as expected. Output: {}".format(output['stderr']))
