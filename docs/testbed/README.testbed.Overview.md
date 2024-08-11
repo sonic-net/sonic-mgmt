@@ -224,16 +224,15 @@ The PTF type topology does not have VMs. All the DUT ports are connected to a PT
 ### Point-to-point type topology
 This topology is used to validate transceivers and their link stability over L2 control traffic such as LLDP. It does not involve ports connected to PTF docker or VMs. Instead, both SONiC DUTs are connected through multiple ports.
 
-    ```text
-
-    +-----------------+     +-----------------+
-    |           Port 1|<--->|Port 1           |
-    |           Port 2|<--->|Port 2           |
-    |    Device 1     |     |     Device 2    |
-    |                 |     |                 |
-    |                 |     |                 |
-    +-----------------+     +-----------------+
-    ```
+```text
++-----------------+     +-----------------+
+|           Port 1|<--->|Port 1           |
+|           Port 2|<--->|Port 2           |
+|    Device 1     |     |     Device 2    |
+|                 |     |                 |
+|           Port N|<--->|Port N           |
++-----------------+     +-----------------+
+```
 
 ## Build testbed
 
