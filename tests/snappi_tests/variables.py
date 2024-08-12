@@ -159,6 +159,7 @@ AS_PATHS = [65002]
 snappi_community_for_t1 = ["8075:54000"]
 snappi_community_for_t2 = ["8075:316", "8075:10400"]
 fanout_presence = True
+# Note: Increase the MaxSessions in /etc/ssh/sshd_config if the number of fanout ports used is more than 10
 t2_uplink_fanout_info = [
                             {
                                  'fanout_ip': '152.148.150.143',

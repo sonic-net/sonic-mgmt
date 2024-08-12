@@ -964,7 +964,7 @@ def get_port_stats(api):
     return api.get_metrics(request).port_metrics
 
 
-def flap_fanout_port(fanout_ip, creds, port_name, state):
+def flap_single_fanout_port(fanout_ip, creds, port_name, state):
     """
     Args:
         fanout_ip (pytest fixture): IP of the fanout device
@@ -1082,7 +1082,7 @@ def get_convergence_for_link_flap(duthosts,
                             fanout_ip = fanout_info['fanout_ip']
                             break
                 pytest_assert(fanout_port is not None, 'Unable to get fanout port info')
-                flap_fanout_port(fanout_ip, creds, fanout_port, state='down')
+                flap_single_fanout_port(fanout_ip, creds, fanout_port, state='down')
                 logger.info(' Shutting down {} from {}'.format(fanout_port, fanout_ip))
                 wait(DUT_TRIGGER, "For link to shutdown")
         flow_stats = get_flow_stats(api)
@@ -1115,7 +1115,7 @@ def get_convergence_for_link_flap(duthosts,
                 logger.info('Starting up snappi port : {}'.format(flap_details['port_name']))
                 wait(SNAPPI_TRIGGER, "For link to startup")
             else:
-                flap_fanout_port(fanout_ip, creds, fanout_port, state='up')
+                flap_single_fanout_port(fanout_ip, creds, fanout_port, state='up')
                 logger.info('Starting up {} from {}'.format(fanout_port, fanout_ip))
                 wait(DUT_TRIGGER, "For link to startup")
         logger.info('\n')
