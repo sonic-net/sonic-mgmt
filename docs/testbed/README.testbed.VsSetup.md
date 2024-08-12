@@ -149,7 +149,7 @@ become_user='root'
 become_ask_pass=False
 ```
 
-3. Modify `/data/sonic-mgmt/ansible/group_vars/vm_host/creds.yml` to use the username (e.g. `foo`) and password (e.g. `foo123`) you want to use to login to the host machine (this can be your username and sudo password on the host)
+3. Modify `/data/sonic-mgmt/ansible/group_vars/vm_host/creds.yml` to use the username (e.g. `foo`) and password (e.g. `foo123`) you want to use to login to the host machine (this can be your username and sudo password on the host). For more information about credentials variables, see: [credentials management configuration](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#credentials-management).
 
 ```
 vm_host_user: foo
