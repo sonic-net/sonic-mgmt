@@ -18,6 +18,7 @@ from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
 from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
 from .files.pfcwd_helper import send_background_traffic
+from .files.pfcwd_helper import has_neighbor_device
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 TESTCASE_INFO = {'no_storm': {'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
@@ -438,24 +439,6 @@ class TestPfcwdWb(SetupPfcwdFunc):
         # test pfcwd functionality on a storm/restore
         self.traffic_inst.verify_wd_func(self.dut, detect=detect)
 
-    def has_neighbor_device(self, setup_pfc_test):
-        """
-        Check if there are neighbor devices present
-
-        Args:
-            setup_pfc_test (fixture): Module scoped autouse fixture for PFCwd
-
-        Returns:
-            bool: True if there are neighbor devices present, False otherwise
-        """
-        for _, details in setup_pfc_test['selected_test_ports'].items():
-            # Check if 'rx_port_id' is missing or contains None
-            # If any 'rx_port_id' is missing or contains None, it indicates no neighbors
-            # Return False to prevent executing tests
-            if not details['rx_port_id'] or None in details['rx_port_id']:
-                return False
-        return True
-
     @pytest.fixture(autouse=True)
     def pfcwd_wb_test_cleanup(self, setup_pfc_test):
         """
@@ -469,7 +452,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         # stop all threads that might stuck in wait
         DUT_ACTIVE.set()
         # if there are no neighbor devices detected, exit the cleanup function early
-        if not self.has_neighbor_device(setup_pfc_test):
+        if not has_neighbor_device(setup_pfc_test):
             return
 
         for thread in self.storm_threads:
@@ -630,8 +613,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
             fanouthosts(AnsibleHost): fanout instance
         """
         # skip the pytest when the device does not have neighbors
-        # 'rx_port_id' being None indicates there are no ports available to send frames for the fake storm
-        if not self.has_neighbor_device(setup_pfc_test):
+        # 'rx_port_id' being None indicates there are no ports available to receive frames for the fake storm
+        if not has_neighbor_device(setup_pfc_test):
             pytest.skip("Test skipped: No neighbors detected as 'rx_port_id' is None for selected test ports,"
                         " which is necessary for PFCwd test setup.")
 
