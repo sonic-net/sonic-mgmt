@@ -442,6 +442,7 @@ onboarding_t0:
   - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_reboot.py
   - platform_tests/test_reload_config.py
+  - route/test_route_bgp_ecmp.py
   - snmp/test_snmp_link_local.py
   - sub_port_interfaces/test_sub_port_interfaces.py
   - hash/test_generic_hash.py
