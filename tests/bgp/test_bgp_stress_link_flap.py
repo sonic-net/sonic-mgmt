@@ -88,10 +88,11 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
                 logger.info("no shutdown fanout interface, fanout {} port {}".format(fanout, fanout_port))
                 fanout.no_shutdown(fanout_port)
 
-            neighbor_name = dev_nbrs[port]["name"]
+            neighbor = dev_nbrs[port]["name"]
             neighbor_port = dev_nbrs[port]["port"]
-            logger.info("no shutdown neighbor interface, neighbor {} port {}".format(neighbor_name, neighbor_port))
-            nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
+
+            logger.info("no shutdown neighbor interface, neighbor {} port {}".format(neighbor, neighbor_port))
+            nbrhosts[neighbor]['host'].no_shutdown(neighbor_port)
 
             time.sleep(1)
 
@@ -102,7 +103,7 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
 def flap_dut_interface(duthost, port):
     logger.info("flap dut {} interface {}".format(duthost, port))
     dut_flap_count = 0
-    while(True):
+    while (True):
         duthost.shutdown(port)
         time.sleep(0.1)
         duthost.no_shutdown(port)
@@ -119,7 +120,7 @@ def flap_fanout_interface(fanouthosts, duthost, port):
     fanout_flap_count = 0
     if fanout and fanout_port:
         logger.info("flap interface fanout {} port {}".format(fanout, fanout_port))
-        while(True):
+        while (True):
             fanout.shutdown(fanout_port)
             time.sleep(0.1)
             fanout.no_shutdown(fanout_port)
@@ -136,7 +137,7 @@ def flap_fanout_interface(fanouthosts, duthost, port):
 def flap_neighbor_interface(neighbor, neighbor_port):
     logger.info("flap neighbor {} interface {}".format(neighbor, neighbor_port))
     neighbor_flap_count = 0
-    while(True):
+    while (True):
         neighbor.shutdown(neighbor_port)
         time.sleep(0.1)
         neighbor.no_shutdown(neighbor_port)
