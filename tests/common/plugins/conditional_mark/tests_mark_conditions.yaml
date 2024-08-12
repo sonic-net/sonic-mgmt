@@ -305,11 +305,35 @@ dhcp_relay/test_dhcp_relay.py:
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap:
+  skip:
+    reason: "Skip test_dhcp_relay_after_link_flap on dualtor"
+    conditions:
+      - "'dualtor' in topo_name"
+
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default:
   skip:
     reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-mgmt/issues/11404 and 'dualtor-64' in topo_name"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11404 and 'dualtor-64' in topo_name"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_random_sport:
+  skip:
+    reason: "Skip test_dhcp_relay_random_sport on dualtor in 201811 and 201911"
+    conditions:
+      - "'dualtor' in topo_name and release in ['201811', '201911']"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_start_with_uplinks_down:
+  skip:
+    reason: "Skip test_dhcp_relay_start_with_uplinks_down on dualtor"
+    conditions:
+      - "'dualtor' in topo_name"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac:
+  skip:
+    reason: "Skip test_dhcp_relay_unicast_mac on dualtor"
+    conditions:
+      - "'dualtor' in topo_name and release in ['201811', '201911']"
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
