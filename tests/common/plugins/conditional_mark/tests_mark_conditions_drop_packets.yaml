@@ -5,8 +5,10 @@
 #Hence, it is not dropped by default in Cisco-8000. For dropping link local address, it should be done through security/DATA ACL
 drop_packets/test_configurable_drop_counters.py::test_dip_link_local:
   skip:
-    reason: "Some mlx platforms does not drop DIP link local packets"
+    reason: "Cisco 8000 platform and some mlx platforms does not drop DIP link local packets"
+    conditions_logical_operator: or
     conditions:
+      - asic_type=="cisco-8000"
       - "'Mellanox' in hwsku"
 
 drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
