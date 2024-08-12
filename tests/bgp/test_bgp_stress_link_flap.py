@@ -200,6 +200,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, fanouthost
             flap_threads.append(thread)
     elif interface == "all":
         for interface in interface_list:
+            logger.info("shutdown all interface {} ".format(interface))
             thread_dut = InterruptableThread(
                 target=flap_dut_interface,
                 args=(duthost, interface)
@@ -216,6 +217,8 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, fanouthost
             thread_fanout.start()
             flap_threads.append(thread_fanout)
 
+            neighbor = eth_nbrs[interface]["name"]
+            neighbor_port = eth_nbrs[interface]["port"]
             thread_neighbor = InterruptableThread(
                 target=flap_neighbor_interface,
                 args=(neighbor, neighbor_port)
