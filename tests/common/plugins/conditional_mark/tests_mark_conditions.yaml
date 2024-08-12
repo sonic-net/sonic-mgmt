@@ -121,9 +121,9 @@ bgp/test_bgp_multipath_relax.py:
 
 bgp/test_bgp_queue.py:
   skip:
-    reason: "1. Not support on mgmt device 2. Known issue on Mellanox platform with T1-LAG topology"
+    reason: "Not supported on mgmt device"
     conditions:
-      - "topo_type in ['m0', 'mx'] or ((topo_name in ['t1-lag']) and (asic_type in ['mellanox']))"
+      - "topo_type in ['m0', 'mx']"
 
 bgp/test_bgp_slb.py:
   skip:
@@ -300,6 +300,30 @@ dhcp_relay/test_dhcp_relay.py:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap:
+  skip:
+    reason: "Skip test_dhcp_relay_after_link_flap on dualtor"
+    conditions:
+      - "'dualtor' in topo_name"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_random_sport:
+  skip:
+    reason: "Skip test_dhcp_relay_random_sport on dualtor in 201811 and 201911"
+    conditions:
+      - "'dualtor' in topo_name and release in ['201811', '201911']"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_start_with_uplinks_down:
+  skip:
+    reason: "Skip test_dhcp_relay_start_with_uplinks_down on dualtor"
+    conditions:
+      - "'dualtor' in topo_name"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac:
+  skip:
+    reason: "Skip test_dhcp_relay_unicast_mac on dualtor"
+    conditions:
+      - "'dualtor' in topo_name and release in ['201811', '201911']"
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
@@ -1299,13 +1323,13 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
   skip:
     reason: "Lossless Voq test is not supported"
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
   skip:
     reason: "Lossy Queue Voq test is not supported"
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
   skip:
@@ -1317,13 +1341,13 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
   skip:
     reason: "PG drop size test is not supported."
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
   skip:
     reason: "Priority Group Headroom Watermark is not supported on cisco asic. PG drop counter stat is covered as a part of testQosSaiPfcXoffLimit"
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000'] and platform not in ['x86_64-8122_64eh_o-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
   xfail:
@@ -1341,7 +1365,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
   skip:
     reason: "Shared reservation size test is not supported."
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
 
 qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_active:
   xfail:
@@ -1487,6 +1511,13 @@ snmp/test_snmp_queue.py:
     reason: "Interfaces not present on supervisor node or M0/MX topo does not support test_snmp_queue or unsupported platform"
     conditions:
       - "topo_type in ['m0', 'mx'] or asic_type in ['barefoot']"
+
+snmp/test_snmp_queue_counters.py:
+  skip:
+    reason: "Have an known issue on kvm testbed"
+    conditions:
+      - asic_type in ['vs']
+      - https://github.com/sonic-net/sonic-mgmt/issues/14007
 
 #######################################
 #####            span             #####
@@ -1722,20 +1753,20 @@ vxlan/test_vnet_vxlan.py:
              2. Test skipped due to issue #8374"
     conditions_logical_operator: OR
     conditions:
-      - "asic_type not in ['mellanox', 'barefoot']"
+      - "asic_type not in ['mellanox', 'barefoot', 'vs']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8374
 
 vxlan/test_vxlan_bfd_tsa.py:
   skip:
     reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
 
 vxlan/test_vxlan_crm.py:
   skip:
     reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v4_in_v6]:
   skip:
@@ -1777,13 +1808,13 @@ vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
 
 vxlan/test_vxlan_ecmp_switchover.py:
   skip:
     reason: "VxLAN ECMP switchover test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
 
 #######################################
 #####           wan_lacp          #####
