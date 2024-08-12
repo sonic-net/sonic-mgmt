@@ -148,8 +148,6 @@ class DHCPTest(DataplaneBaseTest):
         # 'single' for regular single tor testing
         self.dual_tor = (self.test_params['testing_mode'] == 'dual')
 
-        self.testbed_mode = self.test_params['testbed_mode']
-
         # option82 is a byte string created by the relay agent. It contains the circuit_id and remote_id fields.
         # circuit_id is stored as suboption 1 of option 82.
         # It consists of the following:
