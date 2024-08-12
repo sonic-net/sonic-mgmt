@@ -51,6 +51,7 @@ from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.helpers.sonic_db import AsicDbCli
 
 try:
     from tests.macsec import MacsecPluginT2, MacsecPluginT0
@@ -434,6 +435,17 @@ def rand_one_dut_front_end_hostname(request):
         dut_hostnames = random.sample(dut_hostnames, 1)
     logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
+
+
+@pytest.fixture(scope="module")
+def rand_one_tgen_dut_hostname(request, tbinfo, rand_one_dut_front_end_hostname, rand_one_dut_hostname):
+    """
+    Return the randomly selected duthost for TGEN test cases
+    """
+    # For T2, we need to skip supervisor, only use linecards.
+    if 't2' in tbinfo['topo']['name']:
+        return rand_one_dut_front_end_hostname
+    return rand_one_dut_hostname
 
 
 @pytest.fixture(scope="module")
@@ -861,6 +873,13 @@ def collect_techsupport(request, duthosts, enum_dut_hostname):
 def collect_techsupport_all_duts(request, duthosts):
     yield
     [collect_techsupport_on_dut(request, a_dut) for a_dut in duthosts]
+
+
+@pytest.fixture
+def collect_techsupport_all_nbrs(request, nbrhosts):
+    yield
+    if request.config.getoption("neighbor_type") == "sonic":
+        [collect_techsupport_on_dut(request, nbrhosts[nbrhost]['host']) for nbrhost in nbrhosts]
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -2057,7 +2076,7 @@ def compare_running_config(pre_running_config, cur_running_config):
             for key in pre_running_config.keys():
                 if not compare_running_config(pre_running_config[key], cur_running_config[key]):
                     return False
-                return True
+            return True
         # We only have string in list in running config now, so we can ignore the order of the list.
         elif type(pre_running_config) is list:
             if set(pre_running_config) != set(cur_running_config):
@@ -2177,6 +2196,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             # Current skipped keys:
             # 1. "MUX_LINKMGR|LINK_PROBER"
             # 2. "MUX_LINKMGR|TIMED_OSCILLATION"
+            # 3. "LOGGER|linkmgrd"
             # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
             # to account for the lower performance of the ICMP responder/mux simulator compared to
             # real servers and mux cables.
@@ -2186,7 +2206,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if "dualtor" in tbinfo["topo"]["name"]:
                 EXCLUDE_CONFIG_KEY_NAMES = [
                     'MUX_LINKMGR|LINK_PROBER',
-                    'MUX_LINKMGR|TIMED_OSCILLATION'
+                    'MUX_LINKMGR|TIMED_OSCILLATION',
+                    'LOGGER|linkmgrd'
                 ]
             else:
                 EXCLUDE_CONFIG_KEY_NAMES = []
@@ -2308,6 +2329,7 @@ def on_exit():
     Utility to register callbacks for cleanup. Runs callbacks despite assertion
     failures. Callbacks are executed in reverse order of registration.
     '''
+
     class OnExit():
         def __init__(self):
             self.cbs = []
@@ -2332,6 +2354,27 @@ def add_mgmt_test_mark(duthosts):
     '''
     mark_file = "/etc/sonic/mgmt_test_mark"
     duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def asic_db_dut(request, duthosts, enum_frontend_dut_hostname):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asic_db = AsicDbCli(duthost)
+    yield asic_db
+
+
+@pytest.fixture(scope="module")
+def asic_db_dut_rand(request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    asic_db = AsicDbCli(duthost)
+    yield asic_db
+
+
+@pytest.fixture(scope="module")
+def asic_db_dut_supervisor(request, duthosts, enum_supervisor_dut_hostname):
+    duthost = duthosts[enum_supervisor_dut_hostname]
+    asic_db = AsicDbCli(duthost)
+    yield asic_db
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):
