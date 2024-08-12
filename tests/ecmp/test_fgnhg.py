@@ -66,8 +66,8 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip):
             ptf_to_dut_port_map[ptf_port_id] = port
 
     port_list.sort()
-    bank_0_port = port_list[:len(port_list)/2]
-    bank_1_port = port_list[len(port_list)/2:]
+    bank_0_port = port_list[:len(port_list)//2]
+    bank_1_port = port_list[len(port_list)//2:]
 
     # Create vlan if
     duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(vlan_ip))
@@ -131,6 +131,8 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
     logger.info("neigh entries programmed to DUT " + str(neigh_entries))
     duthost.copy(content=json.dumps(neigh_entries, indent=2), dest="/tmp/neigh.json")
     duthost.shell("sonic-cfggen -j /tmp/neigh.json --write-to-db")
+    duthost.command("sonic-clear arp")
+    duthost.command("sonic-clear ndp")
 
 
 def setup_arpresponder(ptfhost, ip_to_port):
@@ -328,7 +330,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
                 "if flows reblanced as expected and are seen on now brought up link")
 
     configure_dut(duthost, "config interface startup " + dut_if_shutdown)
-    time.sleep(180)
+    time.sleep(30)
 
     flows_per_nh = NUM_FLOWS/len(port_list)
     for port in port_list:
@@ -392,7 +394,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
                 "the flow hash redistribution")
 
     configure_dut(duthost, "config interface startup " + dut_if_shutdown)
-    time.sleep(180)
+    time.sleep(30)
 
     exp_flow_count = {}
     flows_for_withdrawn_nh_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 1)
