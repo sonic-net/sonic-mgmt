@@ -356,6 +356,8 @@ class Sonic(host_device.HostDevice):
         dut_bgp = None
         asn = None
         for neighbor, attrs in list(obj.items()):
+            if "exabgp" in attrs["nbrDesc"]:
+                continue
             dut_bgp = neighbor
             asn = attrs["localAs"]
             neigh_bgp = attrs["hostLocal"]
@@ -399,10 +401,10 @@ class Sonic(host_device.HostDevice):
 
     def parse_supported_bgp_neighbor_command(self, v4=True):
         if v4:
-            show_bgp_neighbors_cmd = "show ip bgp neighbors"
+            show_bgp_neighbors_cmd = "vtysh -c 'show bgp ipv4 neighbors json'"
             self.log("show ip bgp neighbor command is '{}'".format(show_bgp_neighbors_cmd))
         else:
-            show_bgp_neighbors_cmd = "show ipv6 bgp neighbors"
+            show_bgp_neighbors_cmd = "vtysh -c 'show bgp ipv6 neighbors json'"
             self.log("show ipv6 bgp neighbor command is '{}'".format(show_bgp_neighbors_cmd))
 
         return show_bgp_neighbors_cmd
@@ -423,10 +425,7 @@ class Sonic(host_device.HostDevice):
         dut_bgp = {}
         for cmd, ver in [(self.show_ip_bgp_command, 'v4'), (self.show_ipv6_bgp_command, 'v6')]:
             output = self.do_cmd(cmd)
-            if ver == 'v6':
-                neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_info(output)
-            else:
-                neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_info(output)
+            neigh_bgp[ver], dut_bgp[ver], neigh_bgp['asn'] = self.parse_bgp_info(output)
 
         return neigh_bgp, dut_bgp
 
@@ -436,56 +435,54 @@ class Sonic(host_device.HostDevice):
             self.do_cmd(item)
         self.do_cmd('exit')
 
-    def change_bgp_neigh_state(self, asn, is_up=True):
-        # BGP shut/unshut for peer
-        raise NotImplementedError
+    def change_bgp_neigh_state(self, bgp_info, is_up=True):
+        state = ['shutdown', 'startup']
+        for ver in ["v4", "v6"]:
+            cmd = "sudo config bgp %s neighbor %s" % (state[is_up], bgp_info[ver])
+            self.do_cmd(cmd)
 
     def verify_bgp_neigh_state(self, dut=None, state="Active"):
         bgp_state = {}
         bgp_state['v4'] = bgp_state['v6'] = False
-        for cmd, ver in [('show ip bgp summary | json', 'v4'), ('show ipv6 bgp summary | json', 'v6')]:
+        for cmd, ver in [("vtysh -c 'show ip bgp summary json'", 'v4'), ("vtysh -c 'show bgp ipv6 summary json'", 'v6')]:
             output = self.do_cmd(cmd)
-            data = '\n'.join(output.split('\r\n')[1:-1])
-            obj = json.loads(data)
+            obj = json.loads(output)
 
-            if state == 'down':
-                if 'vrfs' in obj:
-                    # return True when obj['vrfs'] is empty which is the case when the bgp state is 'down'
-                    bgp_state[ver] = not obj['vrfs']
+            if 'ip{}Unicast'.format(ver) in obj:
+                obj = obj['ip{}Unicast'.format(ver)]
+                if 'peers' in obj:
+                    bgp_state[ver] = (obj['peers'][dut[ver]]['state'] in state)
                 else:
-                    self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
+                    self.fails.add('Verify BGP %s neighbor: Peer attribute missing in output' % ver)
             else:
-                if 'vrfs' in obj and 'default' in obj['vrfs']:
-                    obj = obj['vrfs']['default']
-                    if 'peers' in obj:
-                        bgp_state[ver] = (obj['peers'][dut[ver]]['peerState'] in state)
-                    else:
-                        self.fails.add('Verify BGP %s neighbor: Peer attribute missing in output' % ver)
-                else:
-                    self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
+                self.fails.add('Verify BGP %s neighbor: Object missing in output' % ver)
         return self.fails, bgp_state
 
     def change_neigh_lag_state(self, intf, is_up=True):
-        # Port-channel interface shut/unshut
-        raise NotImplementedError
+        state = ['shutdown', 'startup']
+        is_match = re.match(r'(Port-Channel|Ethernet)\d+', intf)
+        if is_match:
+            self.do_cmd('sudo config interface %s intf' % state[is_up])
 
     def change_neigh_intfs_state(self, intfs, is_up=True):
         for intf in intfs:
             self.change_neigh_lag_state(intf, is_up=is_up)
 
-    def verify_neigh_lag_state(self, lag, state="connected", pre_check=True):
-        states = state.split(',')
+    def verify_neigh_lag_state(self, lag, state="up", pre_check=True):
         lag_state = False
         msg_prefix = ['Postboot', 'Preboot']
-        is_match = re.match(r'(Port-Channel|Ethernet)\d+', lag)
+        lag = lag.replace("-", "")
+        is_match = re.match(r'(PortChannel|Ethernet)\d+', lag)
         if is_match:
-            output = self.do_cmd('show interfaces %s | json' % lag)
+            output = self.do_cmd("vtysh -c 'show interface %s json'" % lag)
             if 'Invalid' not in output:
-                data = '\n'.join(output.split('\r\n')[1:-1])
-                obj = json.loads(data)
-
-                if 'interfaces' in obj and lag in obj['interfaces']:
-                    lag_state = (obj['interfaces'][lag]['interfaceStatus'] in states)
+                obj = json.loads(output)
+                if lag in obj:
+                    obj = obj[lag]
+                    if not 'operationalStatus' in obj or obj['operationalStatus'] == 'down':
+                        lag_state = state == 'down'
+                    else:
+                        lag_state = (obj['operationalStatus'] in state)
                 else:
                     self.fails.add('%s: Verify LAG %s: Object missing in output' % (msg_prefix[pre_check], lag))
                 return self.fails, lag_state

@@ -1,6 +1,7 @@
 """ Module contains sad path operations. """
 
 import datetime
+import json
 import logging
 
 from itertools import groupby, chain, islice
@@ -224,11 +225,17 @@ class LagMemberDown(SadOperation):
             nbrhost = self.nbrhosts[vm]["host"]
             # TODO: remove this hardcode, implement a mapping of DUT LAG to VM LAG.
             nbr_lag_name = "Port-Channel1"
-            commands = ["show interface {} | json".format(nbr_lag_name)]
-            output = nbrhost.eos_command(commands=commands)["stdout"][0]
-            state = output["interfaces"][nbr_lag_name]["interfaceStatus"]
-            assert state in ["notconnect"]
-
+            if 'SonicHost' in str(nbrhost):
+                nbr_lag_name = nbr_lag_name.replace("-", "")
+                output = nbrhost.command("vtysh -c 'show interface {} json'".format(nbr_lag_name))
+                output = json.loads(output["stdout"])
+                state = output[nbr_lag_name]["operationalStatus"]
+                assert state in ["down"]
+            else:
+                commands = ["show interface {} | json".format(nbr_lag_name)]
+                output = nbrhost.eos_command(commands=commands)["stdout"][0]
+                state = output["interfaces"][nbr_lag_name]["interfaceStatus"]
+                assert state in ["notconnect"]
 
 class DutLagMemberDown(LagMemberDown):
     """ Sad path to test warm-reboot when LAG member on DUT is shutdown
