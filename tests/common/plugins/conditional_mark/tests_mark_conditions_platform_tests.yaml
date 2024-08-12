@@ -929,7 +929,8 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
 #######################################
 platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
   xfail:
-    reason: "CLI Utility sfpshow not working correctly"
+    reason: "CLI Utility sfpshow not working correctly. Expected to fail with flat memory modules due to sonic-mgmt issue #12981"
+    conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-cel_e1031-r0']"
-      - https://github.com/sonic-net/sonic-buildimage/issues/18231
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18231"
+      - https://github.com/sonic-net/sonic-mgmt/issues/12981
