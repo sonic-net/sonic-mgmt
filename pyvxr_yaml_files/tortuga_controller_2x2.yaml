@@ -89,6 +89,9 @@ devices:
     xr_port_redir:
       - 22
       - 23
+    vxr_sim_config:
+        shelf:
+           ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60010]
     cli_commands: |
       sudo config hostname kindly-2x2-leaf0
@@ -127,6 +130,9 @@ devices:
     xr_port_redir:
       - 22
       - 23
+    vxr_sim_config:
+        shelf:
+           ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60011]
     cli_commands: |
       sudo config hostname kindly-2x2-leaf1
@@ -165,6 +171,9 @@ devices:
     xr_port_redir:
       - 22
       - 23
+    vxr_sim_config:
+        shelf:
+           ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60020]
     cli_commands: |
       sudo config hostname kindly-2x2-spine0
@@ -203,6 +212,9 @@ devices:
     xr_port_redir:
       - 22
       - 23
+    vxr_sim_config:
+        shelf:
+           ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60021]
     cli_commands: |
       sudo config hostname kindly-2x2-spine1
