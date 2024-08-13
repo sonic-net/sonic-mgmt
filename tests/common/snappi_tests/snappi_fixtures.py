@@ -980,3 +980,50 @@ def pre_configure_dut_interface(duthost, snappi_ports):
         except Exception:
             pytest_assert(False, "Unable to configure ip on the interface {}".format(port['peer_port']))
     return snappi_ports_dut
+
+
+@pytest.fixture(scope="module")
+def multidut_snappi_ports_for_bgp(duthosts,                                # noqa: F811
+                                  tbinfo,                                  # noqa: F811
+                                  conn_graph_facts,                        # noqa: F811
+                                  fanout_graph_facts_multidut):            # noqa: F811
+    """
+    Populate snappi ports and connected DUT ports info of T1 and T2 testbed and returns as a list
+    Args:
+        duthost (pytest fixture): duthost fixture
+        tbinfo (pytest fixture): fixture provides information about testbed
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
+    Return:
+        return tuple of duts and snappi ports
+    """
+    speed_type = {'50000': 'speed_50_gbps',
+                  '100000': 'speed_100_gbps',
+                  '200000': 'speed_200_gbps',
+                  '400000': 'speed_400_gbps'}
+    multidut_snappi_ports = []
+
+    for duthost in duthosts:
+        snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                                dut_hostname=duthost.hostname)
+        if snappi_fanout is None:
+            continue
+        snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
+        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        port_speed = None
+        for i in range(len(snappi_ports)):
+            if port_speed is None:
+                port_speed = int(snappi_ports[i]['speed'])
+
+            elif port_speed != int(snappi_ports[i]['speed']):
+                """ All the ports should have the same bandwidth """
+                return None
+
+        for port in snappi_ports:
+            port['location'] = get_snappi_port_location(port)
+            port['speed'] = speed_type[port['speed']]
+            port['api_server_ip'] = tbinfo['ptf_ip']
+        multidut_snappi_ports = multidut_snappi_ports + snappi_ports
+    return multidut_snappi_ports
