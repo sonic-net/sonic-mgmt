@@ -68,8 +68,7 @@ type Backend interface {
 	DialConsole(ctx context.Context, dut *binding.AbstractDUT) (binding.ConsoleClient, error)
 	// GNMIClient wraps the grpc connection under gnmi client.
 	GNMIClient(ctx context.Context, dut *binding.AbstractDUT, conn *grpc.ClientConn) (gpb.GNMIClient, error)
-	// GNSIClient wraps the grpc connection under gnsi client.
-	GNSIClient(ctx context.Context, dut *binding.AbstractDUT, conn *grpc.ClientConn) (binding.GNSIClients, error)
+
 	// Close closes backend's internal objects.
 	Close() error
 }

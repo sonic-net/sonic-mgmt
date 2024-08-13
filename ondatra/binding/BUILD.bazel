@@ -9,8 +9,6 @@ go_library(
     name = "pinsbind",
     testonly = True,
     srcs = ["pins_binding.go"],
-    data = [
-    ],
     importpath = "github.com/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind",
     deps = [
         ":bindingbackend",

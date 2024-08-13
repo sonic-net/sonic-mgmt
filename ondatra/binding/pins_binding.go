@@ -97,12 +97,12 @@ func CloseBackend() {
 }
 
 // Reserve returns a testbed meeting requirements of testbed proto.
-func (b *Binding) Reserve(ctx context.Context, tb *opb.Testbed, runtime, waittime time.Duration, partial map[string]string) (*binding.Reservation, error) {
+func (b *Binding) Reserve(ctx context.Context, tb *opb.Testbed, runtime, waitTime time.Duration, partial map[string]string) (*binding.Reservation, error) {
 	if backend == nil {
 		return nil, fmt.Errorf("backend is not set")
 	}
 
-	reservedtopology, err := backend.ReserveTopology(ctx, tb, runtime, waittime, partial)
+	reservedtopology, err := backend.ReserveTopology(ctx, tb, runtime, waitTime, partial)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reserve topology: %v", err)
 	}
@@ -372,11 +372,20 @@ func (b *Binding) resolveDUT(key string, d *pinsDUT) (*rpb.ResolvedDevice, error
 		ports[k] = resolvePort(k, p)
 	}
 	services := map[string]*rpb.Service{
-		"grpc": &rpb.Service{
-			Id: "grpc",
+		"gnmi.gNMI": &rpb.Service{
+			Id: "gnmi.gNMI",
 			Endpoint: &rpb.Service_ProxiedGrpc{
 				ProxiedGrpc: &rpb.ProxiedGRPCEndpoint{
-					Address: d.grpc.GRPCAddr,
+					Address: d.grpc.GNMIAddr,
+					Proxy:   nil,
+				},
+			},
+		},
+		"p4.v1.P4Runtime": &rpb.Service{
+			Id: "p4.v1.P4Runtime",
+			Endpoint: &rpb.Service_ProxiedGrpc{
+				ProxiedGrpc: &rpb.ProxiedGRPCEndpoint{
+					Address: d.grpc.P4RTAddr,
 					Proxy:   nil,
 				},
 			},
