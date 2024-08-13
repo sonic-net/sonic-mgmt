@@ -31,7 +31,7 @@
         "recent_failure_tolerance_day": 3,
         "icm_number_threshold": 9,
         "fuzzy_rate": 95,
-        "summary_expiration_days": 7
+        "summary_expiration_days": 3
     },
     "icm_limitation": {
         "setup_error_limit": 10,
