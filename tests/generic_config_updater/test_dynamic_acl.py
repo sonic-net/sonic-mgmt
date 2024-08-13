@@ -35,7 +35,8 @@ from tests.generic_config_updater.gu_utils import expect_acl_table_match_multipl
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor # noqa F401
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
-
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -847,7 +848,8 @@ def dynamic_acl_create_dhcp_forward_rule(duthost, setup):
     expect_acl_rule_match(duthost, "DHCPV6_RULE", expected_v6_rule_content, setup)
 
 
-def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_port=None):
+def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_port=None,
+                               skip_traffic_test=False):        # noqa F811
     """Verify that the given packets are either dropped/forwarded correctly
 
     Args:
@@ -862,6 +864,9 @@ def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_
     if src_port is None:
         src_port = setup["blocked_src_port_indice"]
 
+    if skip_traffic_test is True:
+        logger.info("Skipping traffic test")
+        return
     for rule, pkt in list(packets.items()):
         logger.info("Testing that {} packets are correctly {}".format(rule, action_type))
         exp_pkt = build_exp_pkt(pkt)
@@ -1066,7 +1071,8 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
                                    setup,
                                    dynamic_acl_create_table,
                                    prepare_ptf_intf_and_ip,
-                                   toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                   toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
+                                   skip_traffic_test):  # noqa F811
     """Test that we can create a blanket ARP/NDP packet forwarding rule with GCU, and that ARP/NDP packets
     are correctly forwarded while all others are dropped."""
 
@@ -1101,7 +1107,8 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
                                ptfadapter,
                                packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
                                packets_dropped=True,
-                               src_port=ptf_intf_index)
+                               src_port=ptf_intf_index,
+                               skip_traffic_test=skip_traffic_test)
 
 
 def test_gcu_acl_dhcp_rule_creation(rand_selected_dut,
@@ -1109,8 +1116,9 @@ def test_gcu_acl_dhcp_rule_creation(rand_selected_dut,
                                     ptfadapter,
                                     setup,
                                     dynamic_acl_create_table,
-                                    toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
-                                    setup_standby_ports_on_rand_unselected_tor):  # noqa F811
+                                    toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
+                                    setup_standby_ports_on_rand_unselected_tor,         # noqa F811
+                                    skip_traffic_test):  # noqa F811
     """Verify that DHCP and DHCPv6 forwarding rules can be created, and that dhcp packets are properly forwarded
     whereas others are dropped"""
 
@@ -1125,7 +1133,8 @@ def test_gcu_acl_dhcp_rule_creation(rand_selected_dut,
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
                                packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
-                               packets_dropped=True)
+                               packets_dropped=True,
+                               skip_traffic_test=skip_traffic_test)
 
 
 def test_gcu_acl_drop_rule_creation(rand_selected_dut,
@@ -1133,7 +1142,8 @@ def test_gcu_acl_drop_rule_creation(rand_selected_dut,
                                     ptfadapter,
                                     setup,
                                     dynamic_acl_create_table,
-                                    toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                    toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
+                                    skip_traffic_test):  # noqa F811
     """Test that we can create a drop rule via GCU, and that once this drop rule is in place packets
     that match the drop rule are dropped and packets that do not match the drop rule are forwarded"""
 
@@ -1142,12 +1152,14 @@ def test_gcu_acl_drop_rule_creation(rand_selected_dut,
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
                                packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
-                               packets_dropped=True)
+                               packets_dropped=True,
+                               skip_traffic_test=skip_traffic_test)
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
                                packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
                                packets_dropped=False,
-                               src_port=setup["unblocked_src_port_indice"])
+                               src_port=setup["unblocked_src_port_indice"],
+                               skip_traffic_test=skip_traffic_test)
 
 
 def test_gcu_acl_drop_rule_removal(rand_selected_dut,
@@ -1155,7 +1167,8 @@ def test_gcu_acl_drop_rule_removal(rand_selected_dut,
                                    ptfadapter,
                                    setup,
                                    dynamic_acl_create_table,
-                                   toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                   toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
+                                   skip_traffic_test):  # noqa F811
     """Test that once a drop rule is removed, packets that were previously being dropped are now forwarded"""
 
     dynamic_acl_create_three_drop_rules(rand_selected_dut, setup)
@@ -1165,7 +1178,8 @@ def test_gcu_acl_drop_rule_removal(rand_selected_dut,
                                ptfadapter,
                                packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
                                packets_dropped=False,
-                               src_port=setup["scale_port_indices"][2])
+                               src_port=setup["scale_port_indices"][2],
+                               skip_traffic_test=skip_traffic_test)
 
 
 def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut,
@@ -1173,7 +1187,8 @@ def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut,
                                                  ptfadapter,
                                                  setup,
                                                  dynamic_acl_create_table,
-                                                 toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                                 toggle_all_simulator_ports_to_rand_selected_tor,   # noqa F811
+                                                 skip_traffic_test):  # noqa F811
     """Test that forward rules and drop rules can be created at the same time, with the forward rules having
     higher priority than drop.  Then, perform a traffic test to confirm that packets that match both the forward
     and drop rules are correctly forwarded, as the forwarding rules have higher priority"""
@@ -1181,10 +1196,11 @@ def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut,
     dynamic_acl_create_forward_rules(rand_selected_dut, setup)
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
 
-    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup), packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup),
+                               packets_dropped=False, skip_traffic_test=skip_traffic_test)
     dynamic_acl_verify_packets(setup, ptfadapter,
                                packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
-                               packets_dropped=True)
+                               packets_dropped=True, skip_traffic_test=skip_traffic_test)
 
 
 def test_gcu_acl_forward_rule_replacement(rand_selected_dut,
@@ -1192,7 +1208,8 @@ def test_gcu_acl_forward_rule_replacement(rand_selected_dut,
                                           ptfadapter,
                                           setup,
                                           dynamic_acl_create_table,
-                                          toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                          toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
+                                          skip_traffic_test):  # noqa F811
     """Test that forward rules can be created, and then afterwards can have their match pattern updated to a new value.
     Confirm that packets sent that match this new value are correctly forwarded, and that packets that are sent that
     match the old, replaced value are correctly dropped."""
@@ -1206,8 +1223,10 @@ def test_gcu_acl_forward_rule_replacement(rand_selected_dut,
                                packets=generate_packets(setup,
                                                         DST_IP_FORWARDED_REPLACEMENT,
                                                         DST_IPV6_FORWARDED_REPLACEMENT),
-                               packets_dropped=False)
-    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup), packets_dropped=True)
+                               packets_dropped=False,
+                               skip_traffic_test=skip_traffic_test)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup), packets_dropped=True,
+                               skip_traffic_test=skip_traffic_test)
 
 
 @pytest.mark.parametrize("ip_type", ["IPV4", "IPV6"])
@@ -1217,7 +1236,8 @@ def test_gcu_acl_forward_rule_removal(rand_selected_dut,
                                       setup,
                                       ip_type,
                                       dynamic_acl_create_table,
-                                      toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                      toggle_all_simulator_ports_to_rand_selected_tor,          # noqa F811
+                                      skip_traffic_test):  # noqa F811
     """Test that if a forward rule is created, and then removed, that packets associated with that rule are properly
     no longer forwarded, and packets associated with the remaining rule are forwarded"""
 
@@ -1234,12 +1254,15 @@ def test_gcu_acl_forward_rule_removal(rand_selected_dut,
     # generate_packets returns ipv4 and ipv6 packets. remove vals from two dicts so that only correct packets remain
     drop_packets.pop(other_type)
     forward_packets.pop(ip_type)
-    dynamic_acl_verify_packets(setup, ptfadapter, drop_packets, packets_dropped=True)
-    dynamic_acl_verify_packets(setup, ptfadapter, forward_packets, packets_dropped=False)
+    dynamic_acl_verify_packets(setup, ptfadapter, drop_packets, packets_dropped=True,
+                               skip_traffic_test=skip_traffic_test)
+    dynamic_acl_verify_packets(setup, ptfadapter, forward_packets, packets_dropped=False,
+                               skip_traffic_test=skip_traffic_test)
 
 
 def test_gcu_acl_scale_rules(rand_selected_dut, rand_unselected_dut, ptfadapter, setup, dynamic_acl_create_table,
-                             toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                             toggle_all_simulator_ports_to_rand_selected_tor,       # noqa F811
+                             skip_traffic_test):  # noqa F811
     """Perform a scale test, creating 150 forward rules with top priority,
     and then creating a drop rule for every single VLAN port on our device.
     Select any one of our blocked ports, as well as the ips for two of our forward rules,
@@ -1259,23 +1282,27 @@ def test_gcu_acl_scale_rules(rand_selected_dut, rand_unselected_dut, ptfadapter,
                                ptfadapter,
                                generate_packets(setup, v4_dest, v6_dest),
                                packets_dropped=False,
-                               src_port=blocked_scale_port)
+                               src_port=blocked_scale_port,
+                               skip_traffic_test=skip_traffic_test)
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
                                generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
                                packets_dropped=True,
-                               src_port=blocked_scale_port)
+                               src_port=blocked_scale_port,
+                               skip_traffic_test=skip_traffic_test)
 
 
 def test_gcu_acl_nonexistent_rule_replacement(rand_selected_dut,
                                               toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
-                                              setup):
+                                              setup,
+                                              skip_traffic_test):   # noqa F811
     """Confirm that replacing a nonexistent rule results in operation failure"""
     dynamic_acl_replace_nonexistent_rule(rand_selected_dut, setup)
 
 
 def test_gcu_acl_nonexistent_table_removal(rand_selected_dut,
                                            toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
-                                           setup):
+                                           setup,
+                                           skip_traffic_test):      # noqa F811
     """Confirm that removing a nonexistent table results in operation failure"""
     dynamic_acl_remove_nonexistent_table(rand_selected_dut, setup)
