@@ -1,0 +1,3 @@
+cisco/platform_tests/test_serviceability_basic.py
+cisco/platform_tests/test_serviceability_pfc.py
+cisco/platform_tests/test_serviceability_packet_capture.py
