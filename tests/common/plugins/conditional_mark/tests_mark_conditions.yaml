@@ -745,21 +745,27 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash:
 
 hash/test_generic_hash.py::test_lag_member_flap:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm, for other platforms, skipping due to missing object in SonicHost'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
+      - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm, for other platforms, skipping due to missing object in SonicHost'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
+      - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm, for other platforms, skipping due to missing object in SonicHost'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
+      - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
 hash/test_generic_hash.py::test_reboot:
   skip:

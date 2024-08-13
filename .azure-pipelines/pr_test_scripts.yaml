@@ -448,8 +448,6 @@ onboarding_t0:
   - hash/test_generic_hash.py
   - span/test_port_mirroring.py
   - drop_packets/test_drop_counters.py
-  - vrf/test_vrf.py
-  - vrf/test_vrf_attr.py
 
 onboarding_t1:
   - generic_config_updater/test_cacl.py
