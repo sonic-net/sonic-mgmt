@@ -2,6 +2,7 @@ import os
 import time
 import random
 import ipaddress
+import logging
 
 from collections import OrderedDict
 
@@ -20,6 +21,7 @@ from tests.common.utilities import wait_until
 from tests.common.pkt_filter.filter_pkt_in_buffer import FilterPktBuffer
 from tests.common import constants
 
+logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -84,7 +86,7 @@ def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_v
 
 def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ptfhost=None, ip_src='', ip_dst='',
                                 pkt_action=None, type_of_traffic='ICMP', ttl=64, pktlen=100, ip_tunnel=None,
-                                **kwargs):
+                                skip_traffic_test=False, **kwargs):
     """
     Send packet from PTF to DUT and
     verify that DUT sends/doesn't packet to PTF.
@@ -103,6 +105,9 @@ def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ptfhost
         pktlen: packet length
         ip_tunnel: Tunnel IP address of DUT
     """
+    if skip_traffic_test is True:
+        logger.info("Skipping traffic test")
+        return
     type_of_traffic = [type_of_traffic] if not isinstance(type_of_traffic, list) else type_of_traffic
 
     for tr_type in type_of_traffic:
