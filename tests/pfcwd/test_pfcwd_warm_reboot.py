@@ -18,6 +18,7 @@ from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
 from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
 from .files.pfcwd_helper import send_background_traffic
+from .files.pfcwd_helper import has_neighbor_device
 from tests.common.utilities import wait_until
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
@@ -440,14 +441,21 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.traffic_inst.verify_wd_func(self.dut, detect=detect)
 
     @pytest.fixture(autouse=True)
-    def pfcwd_wb_test_cleanup(self):
+    def pfcwd_wb_test_cleanup(self, setup_pfc_test):
         """
         Cleanup method
+
+        Args:
+            setup_pfc_test(fixture): module scoped autouse fixture
         """
         yield
 
         # stop all threads that might stuck in wait
         DUT_ACTIVE.set()
+        # if there are no neighbor devices detected, exit the cleanup function early
+        if not has_neighbor_device(setup_pfc_test):
+            return
+
         for thread in self.storm_threads:
             thread_exception = thread.join(timeout=0.1,
                                            suppress_exception=True)
@@ -610,6 +618,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
             localhost(AnsibleHost) : localhost instance
             fanouthosts(AnsibleHost): fanout instance
         """
+        # skip the pytest when the device does not have neighbors
+        # 'rx_port_id' being None indicates there are no ports available to receive frames for the fake storm
+        if not has_neighbor_device(setup_pfc_test):
+            pytest.skip("Test skipped: No neighbors detected as 'rx_port_id' is None for selected test ports,"
+                        " which is necessary for PFCwd test setup.")
+
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
