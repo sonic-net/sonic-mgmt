@@ -20,6 +20,9 @@ and public [sonicdev Docker registry](https://sonicdev-microsoft.azurecr.io/).
   - Update `[ntp,syslog,dns]_servers` with a list of your server IPs for these services.
   - Update APT repository if you are using private repo.
   - Update Docker [registry](/ansible/vars/docker_registry.yml/) if you are using private registry.
+  
+  **NOTE:** for more information about credentials variables, see: [credentials management configuration](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#credentials-management).
+
 - Update management IP of switch1
   - Find the ManagementIPInterfaces xml block in [minigraph/switch1.xml](/ansible/minigraph/switch1.xml/) and change both IP addresses.
 

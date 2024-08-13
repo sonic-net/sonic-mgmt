@@ -225,7 +225,8 @@ Once you are in the docker container, you need to modify the testbed configurati
     - Update /ansible/group_vars/vm_host/main.yml with the location of the veos files or veos file name if you downloaded a different version
     - Update the VM IP addresses in the [`ansible/veos`](/ansible/veos) inventory file. These IP addresses should be in the management subnet defined above.
 
-    - Update the VM credentials in `ansible/group_vars/eos/creds.yml`.
+    - Update the VM credentials in `ansible/group_vars/eos/creds.yml`. For more information on how to configure credentials, see [credentials management configuration](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#credentials-management).
+
     ```
     cat <<EOT >> /data/sonic-mgmt/ansible/group_vars/eos/creds.yml
     ---
@@ -233,7 +234,7 @@ Once you are in the docker container, you need to modify the testbed configurati
     ansible_user: admin
     EOT
     ```
-    -update the cEOS vars in [`ansible/group_vars/all/ceos.ymal`](/ansible/group_vars/all/ceos.yml).
+    - Update the cEOS vars in [`ansible/group_vars/all/ceos.ymal`](/ansible/group_vars/all/ceos.yml).
     ```
     ceos_image_filename: cEOS64-lab-4.25.10M.tar
     ceos_image_orig: ceosimage:4.25.10M
@@ -251,7 +252,7 @@ Please follow the "Testbed Physical Topology" section of the [Configuration Guid
 
 We are using Arista switches as the fanout switches in our lab. So, the playbook under `roles/fanout` is for deploying fanout (leaf) switch Vlan configurations on Arista devices only. If you are using other types of fanout switches, you can manually configure the Vlan configurations on the switch, or you can deploy a regular Layer-2 switch configuration.
 
-Our fanout switches deploy using the Arista switch's eosadmin shell login. If you have an Arista switch as your fanout and you want to run `fanout/tasks/main.yml` to deploy the switch, please `scp` the `roles/fanout/template/rc.eos` file to the Arista switch flash, and make sure that you can login to the shell with `fanout_admin_user/fanout_admin_password`.
+Our fanout switches deploy using the Arista switch's eosadmin shell login. If you have an Arista switch as your fanout and you want to run `fanout/tasks/main.yml` to deploy the switch, please `scp` the `roles/fanout/template/rc.eos` file to the Arista switch flash, and make sure that you can login to the shell with `fanout_admin_user/fanout_admin_password`. For more information regarding credentials management for fanout, see: [fanout management configuration](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#fanout).
 
 **`TODO:`**
 - Improve testbed root fanout switch configuration method.
