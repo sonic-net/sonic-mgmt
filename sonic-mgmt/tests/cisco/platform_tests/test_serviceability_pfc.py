@@ -21,16 +21,23 @@ pytestmark = [
 
 chosen_duthost = None
 
+@pytest.fixture(scope="module")
+def cached_asic_facts(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    return get_asic_facts(duthost)
+
+
 @pytest.fixture(autouse=True)
-def run_around_tests(duthosts, enum_rand_one_per_hwsku_hostname):
+def run_around_tests(duthosts, enum_rand_one_per_hwsku_hostname, cached_asic_facts):
     """
     @summary: ensure that dshell_client is running
     """
     global chosen_duthost
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     chosen_duthost = duthost
+    asic_facts = cached_asic_facts
     if duthost.is_multi_asic:
-        asics = [asic.remove("asic") for asic in list(asic_facts.keys())]
+        asics = [asic.replace("asic","") for asic in list(asic_facts.keys())]
     else:
         asics = ['']
     for asic in asics:
@@ -74,13 +81,13 @@ def get_asic_facts(duthost):
         assert up_ports, "No ports with Admin, Open state UP found"
     return asic_ports_dict
 
-def test_show_platform_npu_tx(duthosts, enum_rand_one_per_hwsku_hostname, request):
+def test_show_platform_npu_tx(duthosts, enum_rand_one_per_hwsku_hostname, request, cached_asic_facts):
     """
     @summary: Verify output of `show platform npu tx`
     """
     global chosen_duthost
     duthost = chosen_duthost
-    asic_facts = get_asic_facts(duthost)
+    asic_facts = cached_asic_facts
     asic_namespace_string = ""
     asics = []
     if duthost.is_multi_asic:
@@ -128,13 +135,13 @@ def test_show_platform_npu_tx(duthosts, enum_rand_one_per_hwsku_hostname, reques
                     assert not traceback_found, "Traceback found in show platform npu tx for DOWN Port"
                     assert result["stdout"], "No output for this CLI"
 
-def test_show_platform_npu_rx(enum_rand_one_per_hwsku_hostname, request):
+def test_show_platform_npu_rx(enum_rand_one_per_hwsku_hostname, request, cached_asic_facts):
     """
     @summary: Verify output of `show platform npu rx`
     """
     global chosen_duthost
     duthost = chosen_duthost
-    asic_facts = get_asic_facts(duthost)
+    asic_facts = cached_asic_facts
     asic_namespace_string = ""
     asics = []
     if duthost.is_multi_asic:
@@ -183,13 +190,13 @@ def test_show_platform_npu_rx(enum_rand_one_per_hwsku_hostname, request):
                         assert not traceback_found, "Traceback found in show platform npu rx for DOWN Port"
                         assert result["stdout"], "No output for this CLI"
 
-def test_show_platform_npu_voq(duthosts, enum_rand_one_per_hwsku_hostname, request):
+def test_show_platform_npu_voq(duthosts, enum_rand_one_per_hwsku_hostname, request, cached_asic_facts):
     """
     @summary: Verify output of `show platform npu voq`
     """
     global chosen_duthost
     duthost = chosen_duthost
-    asic_facts = get_asic_facts(duthost)
+    asic_facts = cached_asic_facts
     asic_namespace_string = ""
     asics = []
     if duthost.is_multi_asic:
@@ -248,8 +255,11 @@ def test_show_platform_npu_global(duthosts, enum_rand_one_per_hwsku_hostname, re
     """
     global chosen_duthost
     duthost = chosen_duthost
-    result = duthost.command("sudo show platform npu global")
-    logging.info(result)
-    traceback_found = "Traceback" in result["stdout"]
-    assert not traceback_found, "Traceback found in show platform npu global"
-    assert result["stdout"], "No output for this CLI"
+    namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']   
+    for namespace in  namespace_list:
+        show_command = "sudo show platform npu global -n '{}'"
+        result = duthost.command(show_command.format(namespace))
+        logging.info(result)
+        traceback_found = "Traceback" in result["stdout"]
+        assert not traceback_found, "Traceback found in show platform npu global"
+        assert result["stdout"], "No output for this CLI"
