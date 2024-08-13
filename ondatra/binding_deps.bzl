@@ -121,6 +121,15 @@ def binding_deps():
     )
 
     go_repository(
+        name = "com_github_openconfig_ygnmi",
+        importpath = "github.com/openconfig/ygnmi",
+        build_file_proto_mode = "disable",
+        commit = "09b506cc94e5c0d69208991b54fbf30de05a13ff",  #v0.8.7
+        patches = ["//:bazel/patches/ondatra/ygnmi.patch"],
+        patch_args = ["-p1"],
+    )
+
+    go_repository(
         name = "com_github_openconfig_gnoi",
         build_file_proto_mode = "disable",
         importpath = "github.com/openconfig/gnoi",
@@ -266,4 +275,25 @@ def binding_deps():
         remote = "https://github.com/googleapis/googleapis",
         commit = "9fe00a1330817b5ce00919bf2861cd8a9cea1a00",
         shallow_since = "1642638275 -0800",
+    )
+
+    go_repository(
+        name = "com_github_jstemmer_go_junit_report_v2",
+        importpath = "github.com/jstemmer/go-junit-report/v2",
+        sum = "h1:BVBb1o0TfOuRCMykVAYJ1r2yoZ+ByE0f19QNF4ngQ0M=",
+        version = "v2.0.1-0.20220823220451-7b10b4285462",
+    )
+
+    go_repository(
+        name = "com_github_patrickmn_go_cache",
+        importpath = "github.com/patrickmn/go-cache",
+        sum = "h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=",
+        version = "v2.1.0+incompatible",
+    )
+
+    go_repository(
+        name = "com_github_pkg_errors",
+        importpath = "github.com/pkg/errors",
+        sum = "h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=",
+        version = "v0.9.1",
     )

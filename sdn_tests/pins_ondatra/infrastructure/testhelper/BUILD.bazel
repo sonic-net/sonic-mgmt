@@ -7,10 +7,10 @@ package(
 
 go_library(
     name = "testhelper",
-    testonly = 1,
+    testonly = True,
     srcs = [
         "augment.go",
-	      "gnmi.go",
+        "gnmi.go",
         "gnoi.go",
         "lacp.go",
         "p4rt.go",
@@ -21,9 +21,6 @@ go_library(
 	      "results.go",
       	"ssh.go",
         "//infrastructure/testhelper/platform_info:platform_info",
-    ],
-    data = [
-        "//infrastructure/data",
     ],
     importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper",
     deps = [

@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -17,7 +16,6 @@ import (
 	"github.com/openconfig/ondatra/gnmi"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/protobuf/encoding/prototext"
 
 	p4infopb "github.com/p4lang/p4runtime/go/p4/config/v1"
 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
@@ -138,14 +136,6 @@ type P4InfoDetails interface {
 func (p *P4RTClient) P4Info() (*p4infopb.P4Info, error) {
 	var p4Info *p4infopb.P4Info
 	err := fmt.Errorf("P4Info is not implemented")
-
-	// Read P4Info from file.
-	p4Info = &p4infopb.P4Info{}
-	data, err := os.ReadFile("ondatra/data/p4rtconfig.prototext")
-	if err != nil {
-		return nil, err
-	}
-	err = prototext.Unmarshal(data, p4Info)
 
 	return p4Info, err
 }
