@@ -26,6 +26,21 @@ def fanout_graph_facts(localhost, duthosts, rand_one_tgen_dut_hostname, conn_gra
 
 
 @pytest.fixture(scope="module")
+def fanout_graph_facts_multidut(localhost, duthosts, conn_graph_facts):
+    facts = dict()
+    dev_conn = conn_graph_facts.get('device_conn', {})
+    if not dev_conn:
+        return facts
+
+    for duthost in duthosts:
+        for _, val in list(dev_conn[duthost.hostname].items()):
+            fanout = val["peerdevice"]
+            if fanout not in facts:
+                facts[fanout] = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
+    return facts
+
+
+@pytest.fixture(scope="module")
 def enum_fanout_graph_facts(localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, conn_graph_facts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     facts = dict()
