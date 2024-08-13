@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t0', 't1')
 ]
 
 stop_threads = False
@@ -149,7 +149,6 @@ def flap_neighbor_interface(neighbor, neighbor_port):
         neighbor_flap_count += 1
 
 
-@pytest.mark.platform('physical')
 @pytest.mark.parametrize("interface", ["dut", "fanout", "neighbor", "all"])
 def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, fanouthosts, interface):
     global stop_threads
