@@ -62,6 +62,15 @@ decap/test_decap.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####         drop_packets        #####
+#######################################
+drop_packets/test_drop_counters.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####           dualtor           #####
 #######################################
 dualtor/test_ipinip.py:
