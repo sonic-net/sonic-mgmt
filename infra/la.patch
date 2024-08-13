@@ -1,8 +1,8 @@
 diff --git a/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt b/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
-index 3c0ed7801a..719a11ad9b 100644
+index 70e2c7a229..4b9a26687e 100644
 --- a/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
 +++ b/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
-@@ -69,6 +69,13 @@ r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Fail
+@@ -69,6 +69,14 @@ r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Fail
  r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
  r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
  
@@ -12,6 +12,7 @@ index 3c0ed7801a..719a11ad9b 100644
 +r, ".* ERR pmon#xcvrd.*CMIS.* FAILED .*"
 +r, ".* ERR swss#orchagent:.* doCfgSensorsTableTask: ASIC sensors : unsupported operation for poller state.*"
 +r, ".* ERR monit.* 'routeCheck' status failed.*”
++r, ".*-E-COUNTERS-0- dispatch_read_counter_command: read_register cpu_read timeout: 0.*"
 +
  # White list below messages found on KVM for now. Need to address them later.
  r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
