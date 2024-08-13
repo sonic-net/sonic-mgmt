@@ -118,6 +118,7 @@ t0:
   - platform_tests/test_platform_info.py
   - platform_tests/test_port_toggle.py
   - platform_tests/test_power_off_reboot.py
+  - platform_tests/test_reboot.py
   - platform_tests/test_secure_upgrade.py
   - platform_tests/test_sensors.py
   - platform_tests/test_sequential_restart.py
@@ -440,7 +441,6 @@ onboarding_t0:
   - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
-  - platform_tests/test_reboot.py
   - platform_tests/test_reload_config.py
   - route/test_route_bgp_ecmp.py
   - snmp/test_snmp_link_local.py
