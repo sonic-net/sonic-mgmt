@@ -14,7 +14,8 @@ Step 3: Verify macsec connection is re-established after reboot
 
 import logging
 import pytest
-# from time import sleep
+import re
+import time
 from tests.common import reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -26,46 +27,79 @@ pytestmark = [
 ]
 
 
+def get_macsec_sessions(dut, space_var):
+    out = dut.shell("show macsec{}".format(space_var))['stdout']
+    sess_list = []
+    regex = re.compile(r"\s*MACsec port\((.+)\)")
+    for line in out.splitlines():
+        if "MACsec port" in line:
+            sess_list.append(regex.match(line).group(1))
+    logger.info("macsec sessions: " + str(sess_list))
+    return sess_list.sort()
+
+
 @pytest.mark.reboot
-def test_lc_reboot(duthost, localhost):
-    # duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+def test_lc_reboot(duthosts, localhost, enum_frontend_dut_hostname):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    if not duthost.is_macsec_capable_node():
+        pytest.skip("DUT must be a MACSec enabled device.")
     dut_lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")
     dut_to_neigh_int = dut_lldp_table[3].split()[0]
     if duthost.is_multi_asic:
         asic_index = duthost.get_port_asic_instance(dut_to_neigh_int).asic_index
+        space_var = " -n {}".format(asic_index)
     else:
         asic_index = None
-    space_var = ""
-    if asic_index is not None:
-        space_var = "-n {} ".format(asic_index)
+        space_var = ""
     duthost.command("config save -y")
+    pre_list = get_macsec_sessions(duthost, space_var)
     reboot(duthost, localhost, wait=240)
-    # sleep(60)  # wait extra for macsec to establish
-    wait_until(120, 5, 0, lambda: duthost.iface_macsec_ok(dut_to_neigh_int))
-    logger.info(f"iface macsec: {duthost.iface_macsec_ok(dut_to_neigh_int)}")
-    macsec_status = duthost.shell("show macsec {} {}".format(space_var, dut_to_neigh_int))['stdout'].splitlines()
-    logger.info(f"macsec status {macsec_status}")
+
+    # wait extra for macsec to establish
+    wait_until(120, 10, 0, lambda: duthost.iface_macsec_ok(dut_to_neigh_int))
+    logger.debug(f"iface macsec: {duthost.iface_macsec_ok(dut_to_neigh_int)}")
+    time.sleep(30)
+
+    out = duthost.shell("show macsec{}".format(space_var))['stdout']
+    logger.debug(f"full macsec status: {out}")
+
+    macsec_status = duthost.shell("show macsec{} {}".format(space_var, dut_to_neigh_int))['stdout'].splitlines()
+    logger.debug(f"macsec status {macsec_status}")
+    assert macsec_status
     assert dut_to_neigh_int in macsec_status[0]
     assert "true" in macsec_status[3]
 
+    # Ensure all sessions came back after reboot
+    post_list = get_macsec_sessions(duthost, space_var)
+    assert pre_list == post_list
+
 
 @pytest.mark.reboot
-def test_chassis_reboot(duthosts, localhost, enum_supervisor_dut_hostname,
-                        duthost):
+def test_chassis_reboot(duthosts, localhost, enum_supervisor_dut_hostname, duthost):
     rphost = duthosts[enum_supervisor_dut_hostname]
+    if not duthost.is_macsec_capable_node():
+        pytest.skip("DUT must be a MACSec enabled device.")
     dut_lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
     dut_to_neigh_int = dut_lldp_table[0]
     if duthost.is_multi_asic:
         asic_index = duthost.get_port_asic_instance(dut_to_neigh_int).asic_index
+        space_var = " -n {}".format(asic_index)
     else:
         asic_index = None
+        space_var = ""
     rphost.shell("config save -y")
+    pre_list = get_macsec_sessions(duthost, space_var)
     reboot(rphost, localhost, wait=240)
-    # sleep(60)  # wait extra for macsec to establish
-    wait_until(120, 5, 0, lambda: duthost.iface_macsec_ok(dut_to_neigh_int))
-    space_var = ""
-    if asic_index is not None:
-        space_var = "-n {} ".format(asic_index)
-    macsec_status = duthost.shell("show macsec {} {}".format(space_var, dut_to_neigh_int))['stdout'].splitlines()
+
+    # wait extra for macsec to establish
+    wait_until(120, 10, 0, lambda: duthost.iface_macsec_ok(dut_to_neigh_int))
+    logger.debug(f"iface macsec: {duthost.iface_macsec_ok(dut_to_neigh_int)}")
+    time.sleep(30)
+    macsec_status = duthost.shell("show macsec{} {}".format(space_var, dut_to_neigh_int))['stdout'].splitlines()
+    logger.debug(f"macsec status {macsec_status}")
     pytest_assert(dut_to_neigh_int in macsec_status[0])
     pytest_assert("enable" in macsec_status[3])
+
+    # Ensure all sessions came back after reboot
+    post_list = get_macsec_sessions(duthost, space_var)
+    assert pre_list == post_list
