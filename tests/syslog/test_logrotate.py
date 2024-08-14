@@ -6,6 +6,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronCon
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.conftest import tbinfo
 
 logger = logging.getLogger(__name__)
 
