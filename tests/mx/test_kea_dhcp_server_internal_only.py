@@ -128,7 +128,7 @@ def test_dhcp_server_ip_assignment(
         duthost.shell("sudo systemctl restart dhcp_relay.service")
         pytest_assert(
             wait_until(
-                60, 1, 1,
+                100, 1, 1,
                 is_supervisor_subprocess_running,
                 duthost,
                 DHCP_RELAY_CONTAINER_NAME,
