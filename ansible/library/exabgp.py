@@ -92,8 +92,8 @@ dump_config_tmpl = '''\
     }
 '''
 
-# exabgp v3 configuration file format
-exabgp_conf_tmpl = '''\
+# ExaBGP Version 3 configuration file format
+exabgp3_config_template = '''\
 group exabgp {
 {{ dump_config }}
 
@@ -116,13 +116,13 @@ group exabgp {
 }
 '''
 
-# exabgp v4 for py3 uses a different configuration file
+# ExaBGP Version 4 uses a different configuration file
 # format. The dump_config would come from the user. The caller
-# must pass v4 compatible config.
+# must pass Version 4 compatible configuration.
 # Example configs are available here
 # https://github.com/Exa-Networks/exabgp/tree/master/etc/exabgp
 # Look for sample for a given section for details
-exabgp_v4_conf_tmpl = '''\
+exabgp4_config_template = '''\
 {{ dump_config }}
 process http-api {
    run /usr/bin/python /usr/share/exabgp/http_api.py {{ port }};
@@ -225,9 +225,9 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
     # backport friendly checking; not required if everything is Py3
     t = None
     if six.PY2:
-        t = jinja2.Template(exabgp_conf_tmpl)
+        t = jinja2.Template(exabgp3_config_template)
     else:
-        t = jinja2.Template(exabgp_v4_conf_tmpl)
+        t = jinja2.Template(exabgp4_config_template)
     data = t.render(name=name,
                     router_id=router_id,
                     local_ip=local_ip,
