@@ -887,6 +887,12 @@ ip/test_mgmt_ipv6_only.py:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
+ip/test_mgmt_ipv6_only.py::test_image_download_ipv6_only:
+  skip:
+    reason: "Skip image download in such devices because lab environment issue"
+    conditions:
+      - "testbed in ['tbtk5-t0-2700-4', 'tbtk5-t0-2700-1', 'tbtk5-t0-s6100-2', 'vms68-t1-s6100-1', 'tbtk5-t1-s6100-5']"
+
 ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
   xfail:
     reason: "iburst not enabled by default on 202311 and newer images"
