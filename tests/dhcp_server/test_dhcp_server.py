@@ -498,7 +498,7 @@ def test_dhcp_server_port_based_customize_options(
             pkts_validator_kwargs=pkts_validator_kwargs,
             refresh_fdb_ptf_port='eth'+str(ptf_port_index)
         )
-        send_release_packet(ptfadapter, ptf_port_index, client_mac, gateway, test_xid, expected_assigned_ip)
+        send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, gateway)
 
 
 def test_dhcp_server_config_change_dhcp_interface(
@@ -741,7 +741,7 @@ def test_dhcp_server_lease_config_change(
     apply_dhcp_server_config_gcu(duthost, change_to_apply)
     client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
     verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip, DHCP_DEFAULT_LEASE_TIME)
-    send_release_packet(ptfadapter, ptf_port_index, client_mac, gateway, test_xid, expected_assigned_ip)
+    send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, gateway)
 
 
 def test_dhcp_server_config_vlan_intf_change(
