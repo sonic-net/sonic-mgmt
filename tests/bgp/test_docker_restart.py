@@ -55,4 +55,5 @@ def test_docker_restart(duthosts, enum_frontend_dut_hostname, enum_rand_one_fron
     extra = set(test_neighs) - set(baseline_neighs)
     message = f"Lacks elements {lacks} " if lacks else ''
     message += f"Extra elements {extra}" if extra else ''
+    logger.debug(f"Differential message: {message}")
     assert not message
