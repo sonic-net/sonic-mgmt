@@ -238,3 +238,40 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         # Wait for 70s to 80s  such that Monit has a chance to write alerting message into syslog.
         logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
         time.sleep(sleep_time)
+
+
+def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
+    """Tests the feature of container checker.
+
+    This function will verify container checker for telemetry.
+
+    Args:
+        duthosts: list of DUTs.
+        rand_one_dut_hostname: Fixture returning dut hostname.
+
+    Returns:
+        None.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    container_name = "telemetry"
+
+    # Skip test if telemetry is disabled by other test
+    dut_command = r"docker inspect -f \{\{.State.Running\}\} %s" % container_name
+    result = duthost.command(dut_command, module_ignore_errors=True)
+    if result['stdout'] == "false":
+        pytest.skip("Telemetry is disabled")
+
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
+    sleep_time = 70
+
+    # Enable telemetry in FEATURE table
+    dut_command = "sonic-db-cli CONFIG_DB hset \"FEATURE|{}\" state enabled".format(container_name)
+    duthost.command(dut_command, module_ignore_errors=True)
+
+    loganalyzer.expect_regex = get_expected_alerting_message(container_name)
+    marker = loganalyzer.init()
+    # Wait for 70s such that Monit has a chance to write alerting message into syslog.
+    logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
+    time.sleep(sleep_time)
+    analysis = loganalyzer.analyze(marker, fail=False)
+    pytest_assert(analysis['total']['expected_match'] == 0, 'Monit error: {}'.format(analysis['expect_messages']))
