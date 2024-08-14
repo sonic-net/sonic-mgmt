@@ -3,7 +3,6 @@ import contextlib
 from datetime import datetime
 import json
 import logging
-import time
 import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
