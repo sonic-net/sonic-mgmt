@@ -3,6 +3,7 @@ import contextlib
 from datetime import datetime
 import json
 import logging
+import time
 import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
@@ -472,8 +473,7 @@ def send_release_packet(
     xid,
     client_mac,
     ip_assigned,
-    gateway,
-    count=3
+    gateway
 ):
     release_pkt = create_dhcp_client_packet(
         src_mac=client_mac,
@@ -482,5 +482,5 @@ def send_release_packet(
         xid=xid,
         ciaddr=ip_assigned
     )
-    for _ in range(count):
-        testutils.send_packet(ptfadapter, ptf_port_index, release_pkt)
+    testutils.send_packet(ptfadapter, ptf_port_index, release_pkt)
+    time.sleep(1)  # give server some time to update lease file
