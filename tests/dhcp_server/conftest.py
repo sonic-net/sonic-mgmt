@@ -48,6 +48,7 @@ def dhcp_server_setup_teardown(duthost):
 
 @pytest.fixture(scope="function", autouse=True)
 def clean_dhcp_server_config_after_test(duthost):
+    clean_dhcp_server_config(duthost)
 
     yield
 
