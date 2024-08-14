@@ -9,6 +9,7 @@ from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsm
                       in6_getnsma, inet_pton, inet_ntop, socket
 from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test   # noqa F401
 
 ARP_BASE_IP = "172.16.0.1/16"
 ARP_SRC_MAC = "00:00:01:02:03:04"
@@ -56,7 +57,7 @@ def genrate_ipv4_ip():
 
 
 def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
-                  ptfadapter, get_function_conpleteness_level):
+                  ptfadapter, get_function_conpleteness_level, skip_traffic_test):  # noqa F811
     """
     Send gratuitous ARP (GARP) packet sfrom the PTF to the DUT
 
@@ -85,9 +86,14 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
         loop_times -= 1
         try:
             add_arp(ptf_intf_ipv4_hosts, intf1_index, ptfadapter)
-
-            pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= arp_avaliable),
-                          "ARP Table Add failed")
+            if not skip_traffic_test:
+                # There is a certain probability of hash collision, we set the percentage as 1% here
+                # The entries we add will not exceed 10000, so the number we tolerate is 100
+                logger.debug("Expected route number: {}, real route number {}"
+                             .format(arp_avaliable, get_fdb_dynamic_mac_count(duthost)))
+                pytest_assert(wait_until(20, 1, 0,
+                                         lambda: abs(arp_avaliable - get_fdb_dynamic_mac_count(duthost)) < 100),
+                              "ARP Table Add failed")
         finally:
             clear_dut_arp_cache(duthost)
             fdb_cleanup(duthost)
@@ -136,7 +142,7 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
 
 
 def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
-                 ptfadapter, get_function_conpleteness_level, proxy_arp_enabled):
+                 ptfadapter, get_function_conpleteness_level, proxy_arp_enabled, skip_traffic_test):    # noqa F811
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
@@ -159,9 +165,14 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
         loop_times -= 1
         try:
             add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable)
-
-            pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= nd_avaliable),
-                          "Neighbor Table Add failed")
+            if not skip_traffic_test:
+                # There is a certain probability of hash collision, we set the percentage as 1% here
+                # The entries we add will not exceed 10000, so the number we tolerate is 100
+                logger.debug("Expected route number: {}, real route number {}"
+                             .format(nd_avaliable, get_fdb_dynamic_mac_count(duthost)))
+                pytest_assert(wait_until(20, 1, 0,
+                                         lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 100),
+                              "Neighbor Table Add failed")
         finally:
             clear_dut_arp_cache(duthost)
             fdb_cleanup(duthost)

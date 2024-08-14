@@ -3,7 +3,7 @@ jobs:
   displayName: "kvmtest-t0 by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -21,7 +21,7 @@ jobs:
   displayName: "kvmtest-t0-2vlans by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -41,7 +41,7 @@ jobs:
   displayName: "kvmtest-t1-lag by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -59,7 +59,7 @@ jobs:
   displayName: "kvmtest-dualtor-t0 by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -78,7 +78,7 @@ jobs:
   displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -98,7 +98,7 @@ jobs:
   displayName: "kvmtest-t0-sonic by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -119,7 +119,7 @@ jobs:
   displayName: "kvmtest-dpu by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
-  pool: ubuntu-20.04
+  pool: sonic-ubuntu-1c
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:

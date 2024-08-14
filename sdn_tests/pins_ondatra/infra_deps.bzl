@@ -310,6 +310,20 @@ def binding_deps():
 
 
     go_repository(
+        name = "com_github_jstemmer_go_junit_report_v2",
+        importpath = "github.com/jstemmer/go-junit-report/v2",
+        sum = "h1:BVBb1o0TfOuRCMykVAYJ1r2yoZ+ByE0f19QNF4ngQ0M=",
+        version = "v2.0.1-0.20220823220451-7b10b4285462",
+    )
+
+    go_repository(
+        name = "com_github_patrickmn_go_cache",
+        importpath = "github.com/patrickmn/go-cache",
+        sum = "h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=",
+        version = "v2.1.0+incompatible",
+    )
+
+    go_repository(
         name = "com_github_pkg_errors",
         importpath = "github.com/pkg/errors",
         sum = "h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=",

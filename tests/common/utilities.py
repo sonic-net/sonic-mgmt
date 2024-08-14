@@ -38,6 +38,8 @@ from netaddr import valid_ipv6
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+LA_START_MARKER_SCRIPT = "scripts/find_la_start_marker.sh"
+FIND_SYSLOG_MSG_SCRIPT = "scripts/find_log_msg.sh"
 
 
 def check_skip_release(duthost, release_list):
@@ -758,6 +760,29 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     return reboot_dict
 
 
+def pdu_reboot(pdu_controller):
+    """Power-cycle the DUT by turning off and on the PDU outlets.
+
+    Args:
+        pdu_controller: PDU controller object implementing the BasePduController interface.
+            User can acquire pdu_controller object from fixture tests.common.plugins.pdu_controller.pdu_controller
+
+    Returns: True if the PDU reboot is successful, False otherwise.
+    """
+    if not pdu_controller:
+        logging.warning("pdu_controller is None, skip PDU reboot")
+        return False
+    hostname = pdu_controller.dut_hostname
+    if not pdu_controller.turn_off_outlet():
+        logging.error("Turn off the PDU outlets of {} failed".format(hostname))
+        return False
+    time.sleep(10)  # sleep 10 second to ensure there is gap between power off and on
+    if not pdu_controller.turn_on_outlet():
+        logging.error("Turn on the PDU outlets of {} failed".format(hostname))
+        return False
+    return True
+
+
 def get_image_type(duthost):
     """get the SONiC image type
         It might be public/microsoft/...or any other type.
@@ -1178,3 +1203,31 @@ def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     except Exception:
         _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
     return passwd
+
+
+def check_msg_in_syslog(duthost, log_msg):
+    """
+    Checks for a given log message after the last start-LogAnalyzer message in syslog
+
+    Args:
+        duthost: Device under test.
+        log_msg: Log message to be searched
+
+    Yields:
+        True if log message is present or returns False
+    """
+    la_output = duthost.script(LA_START_MARKER_SCRIPT)["stdout"]
+    if not la_output:
+        return False
+    else:
+        output = la_output.replace('\r', '').replace('\n', '')
+
+    try:
+        log_msg = f"\"{log_msg}\""
+        log_output = duthost.script("%s %s %s" % (FIND_SYSLOG_MSG_SCRIPT, output, log_msg))
+        if log_output:
+            return True
+        else:
+            return False
+    except Exception:
+        return False
