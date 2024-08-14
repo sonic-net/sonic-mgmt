@@ -116,6 +116,17 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     logger.info('Test file path {}, in py3: {}'.format(test_fpath, in_py3))
     is_python3 = is_py3_compat(test_fpath)
 
+    # The logic below automatically chooses the PTF binary to execute a test script
+    # based on the container type "mixed" vs. "py3only".
+    #
+    # For "mixed" type PTF image the global environment has Python 2 and Python 2 compatible
+    # ptf binary. Python 3 is part of a virtual environment under "/root/env-python3". All
+    # packages and Python 3 compatible ptf binary is in the virtual environment.
+    #
+    # For "py3only" type PTF image the global environment has Python 3 only in the global
+    # environment. Python 2 does not exist on this image and attempt to execute any
+    # Python 2 PTF tests raises an exception.
+
     ptf_cmd = None
     if ptf_img_type == "mixed":
         if is_python3:
