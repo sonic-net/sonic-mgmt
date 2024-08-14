@@ -147,7 +147,7 @@ def _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_
         restore_telemetry_forpyclient(duthost, default_client_auth)
         raise e
 
-    yield duthost
+    yield
     restore_telemetry_forpyclient(duthost, default_client_auth)
     if not has_gnmi_config:
         delete_gnmi_config(duthost)

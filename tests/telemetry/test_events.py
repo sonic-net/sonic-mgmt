@@ -41,7 +41,7 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
                 test_eventd_healthy):
     """ Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema"""
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info("Start events testing")
 
     skip_201911_and_older(duthost)
@@ -59,7 +59,7 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
 def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, gnxi_path):
     """Create expected o/p file of events with N events. Call event-publisher tool to publish M events (M<N). Publish
     remainder of events. Verify o/p file that N events were received"""
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info("Start events cache testing")
 
     skip_201911_and_older(duthost)
@@ -98,7 +98,7 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup
 def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry,
                                gnxi_path):
     """ Published events till cache overflow, stats should read events missed_to_cache"""
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info("Start events cache overflow testing")
 
     skip_201911_and_older(duthost)

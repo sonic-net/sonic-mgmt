@@ -110,7 +110,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                          setup_streaming_telemetry, gnxi_path):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     if duthost.is_supervisor_node():
         pytest.skip(
@@ -144,7 +144,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     buffer queue" will break SNMP'
     https://github.com/sonic-net/sonic-buildimage/issues/17448
     """
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     if duthost.is_supervisor_node():
         pytest.skip(
@@ -181,7 +181,7 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                          setup_streaming_telemetry, gnxi_path):
     """ Test osbuild/version query.
     """
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path,
                               method=METHOD_GET, target="OTHERS", xpath="osversion/build")
@@ -202,7 +202,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
               updated correctly.
     """
     logger.info("start test the dataset 'system uptime'")
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
@@ -251,7 +251,7 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
     """
     logger.info('start virtual db sample streaming testing')
 
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_supervisor_node():
         pytest.skip(
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
@@ -280,7 +280,7 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
                            setup_streaming_telemetry):
     logger.info("Testing on change update notifications")
 
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     skip_201911_and_older(duthost)
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
@@ -319,7 +319,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path, setup_st
     """
     logger.info("Starting to test the memory spike issue of telemetry container")
 
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[rand_one_dut_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,

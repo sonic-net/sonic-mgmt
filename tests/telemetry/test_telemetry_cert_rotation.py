@@ -35,7 +35,7 @@ def test_telemetry_not_exit(duthosts, rand_one_dut_hostname, setup_streaming_tel
     """
     logger.info("Testing telemetry server will startup without certs")
 
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[rand_one_dut_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     # Shutting down telemetry
@@ -68,7 +68,7 @@ def test_telemetry_post_cert_del(duthosts, rand_one_dut_hostname, ptfhost, gnxi_
     """
     logger.info("Testing telemetry server post cert add")
 
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[rand_one_dut_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     # Initial request should pass with certs
@@ -102,7 +102,7 @@ def test_telemetry_post_cert_add(duthosts, rand_one_dut_hostname, ptfhost, gnxi_
     """
     logger.info("Testing telemetry server post cert add")
 
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[rand_one_dut_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     # Remove certs
@@ -136,7 +136,7 @@ def test_telemetry_cert_rotate(duthosts, rand_one_dut_hostname, ptfhost, gnxi_pa
     """
     logger.info("Testing telemetry server cert rotate")
 
-    duthost = setup_streaming_telemetry
+    duthost = duthosts[rand_one_dut_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     # Initial request should complete with certs
