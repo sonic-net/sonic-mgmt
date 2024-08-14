@@ -21,11 +21,13 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import delete_neighbor
 from tests.common.helpers.dut_utils import get_program_info
-from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder    # noqa F401
+# from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder    # noqa F401
 # Temporary work around to add skip_traffic_test fixture from duthost_utils
 from tests.common.fixtures.duthost_utils import skip_traffic_test                       # noqa F401
 from tests.common.utilities import wait_until
+from ipaddress import ip_interface
 
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -35,6 +37,25 @@ PACKET_COUNT = 1000
 # It's normal to see the mem usage increased a little bit
 # set threshold buffer to 0.03%
 MEM_THRESHOLD_BUFFER = 0.03
+
+
+@pytest.fixture
+def stop_arp_services(ptfhost):
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+    ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
+
+
+@pytest.fixture(params=["ipv4", "ipv6"])
+def ip_version(request):
+    if request.param == "ipv4":
+        return 4
+    else:
+        return 6
+
+
+@pytest.fixture(autouse=True)
+def clear_tph_counter(duthost):
+    duthost.shell("sonic-db-cli COUNTERS_DB del 'COUNTERS:IPINIP_TUNNEL'")
 
 
 def validate_neighbor_entry_exist(duthost, neighbor_addr):
@@ -207,3 +228,63 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
         check_result = check_memory_leak(upper_tor_host, float(origin_mem_percent.strip('%')) + MEM_THRESHOLD_BUFFER)
         pytest_assert(check_result is False, "Test failed because there is memory leak on {}"
                       .format(upper_tor_host.hostname))
+
+
+def check_tph_counter_increased(duthost):
+    try:
+        counter_val = int(
+            duthost.shell(
+                "sonic-db-cli COUNTERS_DB hget 'COUNTERS:IPINIP_TUNNEL' 'RX_COUNT'"
+            )["stdout"].strip()
+        )
+    except TypeError:
+        counter_val = 0
+    logger.info("TPH counter value: {}".format(counter_val))
+    return counter_val > 0
+
+
+def test_tph_counter(
+    toggle_all_simulator_ports_to_upper_tor,  # noqa F811
+    upper_tor_host,  # noqa F811
+    lower_tor_host,  # noqa F811
+    ptfadapter,
+    tbinfo,
+    stop_arp_services,
+    ip_version,
+):
+
+    ptf_t1_intf = random.choice(get_t1_ptf_ports(lower_tor_host, tbinfo))
+
+    config = lower_tor_host.config_facts(
+        host=lower_tor_host.hostname, source="running"
+    )["ansible_facts"]
+    vlan = list(config["VLAN_INTERFACE"].keys())[0]
+    for key in config["VLAN_INTERFACE"][vlan]:
+        try:
+            vlan_intf = ip_interface(key)
+            if vlan_intf.version == ip_version:
+                break
+        except ValueError:
+            continue
+
+    # exclude network address and VLAN interface address, then take the next 100 IPs
+    pkts = []
+    for ip in vlan_intf.network:
+        if ip == vlan_intf.ip or ip == vlan_intf.network.network_address:
+            continue
+        pkts.append(build_packet_to_server(lower_tor_host, ptfadapter, str(ip))[0])
+        if len(pkts) >= 100:
+            break
+
+    upper_tor_host.shell("ip -{} neigh flush all".format(ip_version))
+
+    for pkt in pkts:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=1)
+        time.sleep(1)
+
+    # Tunnel packet handler is implemented with scapy, which will miss packets under heavy load.
+    # 100% accuracy is not required, so pass the test as long as some packets are counted.
+    pytest_assert(
+        wait_until(60, 5, 0, check_tph_counter_increased, upper_tor_host),
+        "TPH counter does not match expected value of {}".format(len(pkts)),
+    )
