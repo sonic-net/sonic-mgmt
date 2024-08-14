@@ -544,12 +544,12 @@
         become: true
         shell: config load_minigraph --override_config -y
         register: load_minigraph_rc
-        ignore_errors: yes
+        failed_when: load_minigraph_rc.rc != 0 and load_minigraph_rc.rc != 2
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
-        when: load_minigraph_rc.rc != 0
+        when: load_minigraph_rc.rc == 2
 
       - name: Wait for switch to become reachable again
         become: false
