@@ -32,13 +32,32 @@ def ptf_collect(host, log_file, skip_pcap=False):
         allure.attach.file(filename_pcap, 'ptf_pcap: ' + filename_pcap, allure.attachment_type.PCAP)
 
 
+def get_dut_type(host):
+    dut_type_stat = host.stat(path="/sonic/dut_type.txt")
+    if dut_type_stat["stat"]["exists"]:
+        dut_type = host.shell("cat /sonic/dut_type.txt")["stdout"]
+        if dut_type:
+            logger.info("DUT type is {}".format(dut_type))
+            return dut_type.lower()
+        else:
+            logger.warning("DUT type file is empty.")
+    else:
+        logger.warning("DUT type file doesn't exist.")
+    return "Unknown"
+
+
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
                socket_recv_size=None, log_file=None, device_sockets=[], timeout=0, custom_options="",
-               module_ignore_errors=False, is_python3=False):
+               module_ignore_errors=False, is_python3=False, async_mode=False, pdb=False):
     # Call virtual env ptf for migrated py3 scripts.
     # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
     # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
+    dut_type = get_dut_type(host)
+    if dut_type == "kvm" and params.get("kvm_support", True) is False:
+        logger.info("Skip test case {} for not support on KVM DUT".format(testname))
+        return True
+
     if is_python3:
         path_exists = host.stat(path="/root/env-python3/bin/ptf")
         if path_exists["stat"]["exists"]:
@@ -79,7 +98,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if device_sockets:
         cmd += " ".join(map(" --device-socket {}".format, device_sockets))
 
-    if timeout:
+    if timeout and not pdb:
         cmd += " --test-case-timeout {}".format(int(timeout))
 
     if custom_options:
@@ -92,12 +111,21 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         host.create_macsec_info()
 
     try:
-        result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors)
-        if log_file:
-            # when ptf cmd execution result is 0 (success), we need to skip collecting pcap file
-            ptf_collect(host, log_file, result is not None and result.get("rc", -1) == 0)
-        if result:
-            allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
+        if pdb:
+            # Write command to file. Use short test name for simpler launch in ptf container.
+            script_name = "/tmp/" + testname.split(".")[-1] + ".sh"
+            with open(script_name, 'w') as f:
+                f.write(cmd)
+            host.copy(src=script_name, dest="/root/")
+            print("Run command from ptf: sh {}".format(script_name))
+            import pdb
+            pdb.set_trace()
+        result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors, module_async=async_mode)
+        if not async_mode:
+            if log_file:
+                ptf_collect(host, log_file)
+            if result:
+                allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
         if module_ignore_errors:
             if result["rc"] != 0:
                 return result

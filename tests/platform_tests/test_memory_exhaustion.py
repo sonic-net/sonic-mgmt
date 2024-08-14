@@ -64,6 +64,12 @@ class TestMemoryExhaustion:
         #    background process.
         #  * Some DUTs with few free memory may reboot before ansible receive the result of shell
         #    command, so we add `sleep 5` to ensure ansible receive the result first.
+        # Swapping is turned off so the OOM is triggered in a shorter time.
+
+        res = duthost.command("sudo swapoff -a")
+        if res['rc']:
+            logging.error("Swapoff command failed: {}".format(res))
+
         cmd = 'nohup bash -c "sleep 5 && tail /dev/zero" &'
         res = duthost.shell(cmd)
         if not res.is_successful:

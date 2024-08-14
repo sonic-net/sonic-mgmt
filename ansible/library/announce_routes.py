@@ -10,8 +10,11 @@ import json
 import sys
 import socket
 import random
+import logging
+import time
 from multiprocessing.pool import ThreadPool
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.debug_utils import config_module_logging
 
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
@@ -149,8 +152,22 @@ def change_routes(action, ptf_ip, port, routes):
     wait_for_http(ptf_ip, port, timeout=60)
     url = "http://%s:%d" % (ptf_ip, port)
     data = {"commands": ";".join(messages)}
+
     # nosemgrep-next-line
-    r = requests.post(url, data=data, timeout=360, proxies={"http": None, "https": None})
+    # Flaky error `ConnectionResetError(104, 'Connection reset by peer')` may happen while using `requests.post`
+    # To avoid this error, we add sleep time before sending request.
+    # We use a "backoff" algorithm here, the maximum retry times is five.
+    # If one retry fails, we increase the waiting time.
+    for i in range(0, 5):
+        try:
+            r = requests.post(url, data=data, timeout=360, proxies={"http": None, "https": None})
+            break
+        except Exception as e:
+            logging.debug("Got exception {}, will try to connect again".format(e))
+            time.sleep(0.01 * (i+1))
+            if i == 4:
+                raise e
+
     if r.status_code != 200:
         raise Exception(
             "Change routes failed: url={}, data={}, r.status_code={}, r.reason={}, r.headers={}, r.text={}".format(
@@ -1023,9 +1040,13 @@ def main():
             ptf_ip=dict(required=True, type='str'),
             action=dict(required=False, type='str',
                         default='announce', choices=["announce", "withdraw"]),
-            path=dict(required=False, type='str', default='')
+            path=dict(required=False, type='str', default=''),
+            log_path=dict(required=False, type='str', default='')
         ),
         supports_check_mode=False)
+
+    if module.params['log_path']:
+        config_module_logging("announce_routes", log_path=module.params['log_path'])
 
     topo_name = module.params['topo_name']
     ptf_ip = module.params['ptf_ip']

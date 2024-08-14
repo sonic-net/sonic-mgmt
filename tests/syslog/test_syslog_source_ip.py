@@ -252,9 +252,9 @@ class TestSSIP:
             logger.info("Create mgmt vrf")
             create_vrf(self.duthost, VRF_LIST[2])
             # when create mgmt vrf, dut connection will be lost for a while
-            localhost.wait_for(host=self.duthost.hostname, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
+            localhost.wait_for(host=self.duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
                                state='absent', delay=1, timeout=30)
-            localhost.wait_for(host=self.duthost.hostname, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
+            localhost.wait_for(host=self.duthost.mgmt_ip, port=SONIC_SSH_PORT, search_regex=SONIC_SSH_REGEX,
                                state='started', delay=2, timeout=180)
 
         for k, v in list(MGMT_IP_ADDRESSES.items()):
@@ -351,11 +351,13 @@ class TestSSIP:
                               "Syslog config: server_ip {}, source_ip {}, vrf {}, port {} still exist".format(
                                   v["syslog_server_ip"], source_ip, vrf, port))
 
-    def check_syslog_msg_is_sent(self, routed_interfaces, mgmt_interface, port, vrf_list, is_set_source):
+    def check_syslog_msg_is_sent(self, routed_interfaces, mgmt_interface, port, vrf_list, is_set_source,
+                                 logger_flags='', logger_msg=''):
         thread_pool = []
         for vrf in vrf_list:
             def check_syslog_one_vrf(routed_interfaces, port, vrf):
-                tcpdump_file = self.gen_tcpdump_cmd_and_capture_syslog_packets(routed_interfaces, port, vrf)
+                tcpdump_file = self.gen_tcpdump_cmd_and_capture_syslog_packets(routed_interfaces, port, vrf,
+                                                                               logger_flags, logger_msg)
                 for k, v in list(SYSLOG_TEST_DATA[vrf].items()):
                     if self.is_link_local_ip(v["source_ip"]):
                         continue
@@ -383,11 +385,13 @@ class TestSSIP:
             return True
         return False
 
-    def check_syslog_msg_is_stopped(self, routed_interfaces, mgmt_interface, port, vrf_list, is_set_source):
+    def check_syslog_msg_is_stopped(self, routed_interfaces, mgmt_interface, port, vrf_list, is_set_source,
+                                    logger_flags='', logger_msg=''):
         thread_pool = []
         for vrf in vrf_list:
             def check_no_syslog_one_vrf(routed_interfaces, port, vrf):
-                tcpdump_file = self.gen_tcpdump_cmd_and_capture_syslog_packets(routed_interfaces, port, vrf)
+                tcpdump_file = self.gen_tcpdump_cmd_and_capture_syslog_packets(routed_interfaces, port, vrf,
+                                                                               logger_flags, logger_msg)
                 for k, v in list(SYSLOG_TEST_DATA[vrf].items()):
                     source_ip = v["source_ip"].split("/")[0] if is_set_source else None
                     pytest_assert(
@@ -407,7 +411,7 @@ class TestSSIP:
         for thread in thread_pool:
             thread.join(60)
 
-    def gen_tcpdump_cmd_and_capture_syslog_packets(self, routed_interfaces, port, vrf):
+    def gen_tcpdump_cmd_and_capture_syslog_packets(self, routed_interfaces, port, vrf, logger_flags='', logger_msg=''):
         if vrf == VRF_LIST[0]:
             tcpdump_interface = routed_interfaces[0]
         else:
@@ -416,7 +420,7 @@ class TestSSIP:
             .format(tcpdump_capture_time=TCPDUMP_CAPTURE_TIME, interface=tcpdump_interface,
                     port=port if port else SYSLOG_DEFAULT_PORT,
                     dut_pcap_file=DUT_PCAP_FILEPATH.format(vrf=vrf))
-        tcpdump_file = capture_syslog_packets(self.duthost, tcpdump_cmd)
+        tcpdump_file = capture_syslog_packets(self.duthost, tcpdump_cmd, logger_flags, logger_msg)
         return tcpdump_file
 
     @pytest.mark.parametrize("syslog_config_combination_case", SYSLOG_CONFIG_COMBINATION_CASE)
@@ -595,3 +599,112 @@ class TestSSIP:
             logger.info("Check there is an error prompt:{}".format(err_msg))
             pytest_assert(re.search(expected_msg, err_msg),
                           "Error msg is not correct: Expectd msg:{}, actual msg:{}".format(expected_msg, err_msg))
+
+    def test_syslog_protocol_filter_severity(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                             enum_frontend_asic_index, routed_interfaces, mgmt_interface):
+        """
+        Validates syslog protocol, filter and severity work
+
+        1. Add syslog config
+        2. Check adding syslog config succeeds
+        3. Add protocol tcp and verify changes
+        4. Send message with tcp protocol and verify packet send
+        5. Send message with udp protocol and verify packet not send
+        6. Configure include filter
+        7. Send message with include filter and verify packet send
+        8. Send message without include filter and verify packet not send
+        9. Remove include filter
+        10. Configure exclude filter
+        11. Send message with exclude regex and verify packet not send
+        12. Send message without exclude filter and verify packet send
+        13. Remove exclude filter
+        14. Send message with not default syslog severity and verify it not sent
+        """
+        syslog_config = {"is_set_vrf": False, "is_set_source": True, "port": 650, "vrf_list": 'default'}
+        default_vrf_rsyslog_ip = '100.100.100.1'
+        self.duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        self.asichost = self.duthost.asic_instance(enum_frontend_asic_index)
+        port = syslog_config["port"]
+        vrf_list = syslog_config["vrf_list"].split()
+        is_set_source = syslog_config["is_set_source"]
+        is_set_vrf = syslog_config["is_set_vrf"]
+
+        with allure.step("Add syslog config"):
+            self.add_syslog_config(port, vrf_list=vrf_list, is_set_source=is_set_source, is_set_vrf=is_set_vrf)
+
+        with allure.step("Check syslog config is configured successfully"):
+            self.check_syslog_config_exist(
+                port, vrf_list=vrf_list, is_set_source=is_set_source, is_set_vrf=is_set_vrf)
+
+        with allure.step("Configure protocol and verify"):
+            self.duthost.shell('sonic-db-cli CONFIG_DB hset "SYSLOG_SERVER|{0}" "protocol" "tcp"'
+                               .format(default_vrf_rsyslog_ip))
+
+        with allure.step("Check interface of {} send syslog msg ".format(routed_interfaces[0])):
+            logger_flags = '--protocol tcp'
+            self.check_syslog_msg_is_sent(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
+                                          is_set_source=is_set_source, logger_flags=logger_flags)
+
+        with allure.step("Check interface of {} will not send syslog msg ".format(routed_interfaces[0])):
+            logger_flags = '--protocol udp'
+            self.check_syslog_msg_is_stopped(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
+                                             is_set_source=is_set_source, logger_flags=logger_flags)
+
+        with allure.step("Configure include filter and verify"):
+            filter_regex = 'sonic'
+            self.duthost.shell('sonic-db-cli CONFIG_DB hset "SYSLOG_SERVER|{0}" '
+                               '"filter_type" "include" "filter_regex" {1}'.format(
+                                default_vrf_rsyslog_ip, filter_regex))
+
+        with allure.step("Check interface of {} send syslog msg with include regex".format(routed_interfaces[0])):
+            self.check_syslog_msg_is_sent(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
+                                          is_set_source=is_set_source, logger_flags=logger_flags,
+                                          logger_msg=filter_regex)
+
+        with allure.step("Check interface of {} will not send without include msg ".format(routed_interfaces[0])):
+            self.check_syslog_msg_is_stopped(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
+                                             is_set_source=is_set_source, logger_flags=logger_flags)
+
+        with allure.step("Remove include filter and verify"):
+            self.duthost.shell('sonic-db-cli CONFIG_DB hdel '
+                               '"SYSLOG_SERVER|{0}" "filter_type"'.format(default_vrf_rsyslog_ip))
+
+        with allure.step("Configure exclude filter and verify"):
+            filter_regex = 'aa'
+            self.duthost.shell('sonic-db-cli CONFIG_DB hset'
+                               ' "SYSLOG_SERVER|{0}" "filter_type" "exclude" "filter_regex" {1}'.format(
+                                default_vrf_rsyslog_ip, filter_regex))
+
+        with allure.step("Check interface of {} will not send syslog msg with exclude".format(routed_interfaces[0])):
+            self.check_syslog_msg_is_stopped(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
+                                             is_set_source=is_set_source, logger_flags=logger_flags,
+                                             logger_msg=filter_regex)
+
+        with allure.step("Check interface of {} send syslog msg without exclude filter".format(routed_interfaces[0])):
+            self.check_syslog_msg_is_sent(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
+                                          is_set_source=is_set_source, logger_flags=logger_flags,
+                                          logger_msg=filter_regex)
+
+        with allure.step("Remove exclude filter and verify"):
+            self.duthost.shell('sonic-db-cli CONFIG_DB hdel '
+                               '"SYSLOG_SERVER|{0}" "filter_type"'.format(default_vrf_rsyslog_ip))
+
+        with allure.step("Change severity level to notice"):
+            self.duthost.shell('sonic-db-cli CONFIG_DB hset'
+                               ' "SYSLOG_SERVER|{0}" "severity" "notice"'.format(default_vrf_rsyslog_ip))
+
+        with allure.step("Check interface of {} will not send syslog msg due to severity level".format(
+                         routed_interfaces[0])):
+            self.check_syslog_msg_is_stopped(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
+                                             is_set_source=is_set_source, logger_flags=logger_flags)
+
+        with allure.step("Remove syslog config"):
+            self.remove_syslog_config(vrf_list=vrf_list)
+
+        with allure.step("Check syslog config is removed"):
+            self.check_syslog_config_nonexist(port, vrf_list=vrf_list, is_set_source=is_set_source,
+                                              is_set_vrf=is_set_vrf)
+
+        with allure.step("Check interface of {} will not send syslog msg ".format(routed_interfaces[0])):
+            self.check_syslog_msg_is_stopped(routed_interfaces, mgmt_interface, port, vrf_list=vrf_list,
+                                             is_set_source=is_set_source)

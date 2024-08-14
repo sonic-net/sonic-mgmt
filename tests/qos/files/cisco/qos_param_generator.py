@@ -65,12 +65,19 @@ class QosParamCisco(object):
             # Tune thresholds with padding for precise testing
             self.pause_thr = pre_pad_pause + (8 * self.buffer_size)
             self.drop_thr = pre_pad_drop + (12 * self.buffer_size)
+            if self.is_deep_buffer:
+                self.reduced_pause_thr = 10 * (1024 ** 2) * (2 ** dynamic_th)
+            elif self.is_large_sms:
+                self.reduced_pause_thr = 3 * (1024 ** 2)
+            else:
+                self.reduced_pause_thr = 2.25 * (1024 ** 2)
             self.log("Max pause thr bytes:       {}".format(max_pause))
             self.log("Attempted pause thr bytes: {}".format(attempted_pause))
             self.log("Pre-pad pause thr bytes:   {}".format(pre_pad_pause))
             self.log("Pause thr bytes:           {}".format(self.pause_thr))
             self.log("Pre-pad drop thr bytes:    {}".format(pre_pad_drop))
             self.log("Drop thr bytes:            {}".format(self.drop_thr))
+            self.log("Reduced pause thr bytes:   {}".format(self.reduced_pause_thr))
 
     def run(self):
         '''
@@ -99,12 +106,12 @@ class QosParamCisco(object):
         found = False
         exp = 1
         mantissa = 0
-        reduced_thr = thr >> 4
-        further_reduced_thr = thr >> 5
+        reduced_thr = int(thr) >> 4
+        further_reduced_thr = int(thr) >> 5
         for i in range(32):
             ith_bit = 1 << i
             if further_reduced_thr < ith_bit <= reduced_thr:
-                mantissa = thr // ith_bit
+                mantissa = int(thr) // ith_bit
                 exp = i
                 found = True
                 break
@@ -156,6 +163,7 @@ class QosParamCisco(object):
         return autogen
 
     def __mark_skip(self, testcase, reason):
+        self.qos_params[testcase] = {}
         self.qos_params[testcase]["skip"] = reason
 
     def __define_shared_reservation_size(self):
@@ -213,8 +221,13 @@ class QosParamCisco(object):
                      "dst_port_i": [7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13],
                      "pkt_counts": [3527, 3527, 3527, 3527, 3527, 3527, 1798, 1798, 846, 687, 687, 328, 1],
                      "shared_limit_bytes": 41943552}
-        self.qos_params["shared_res_size_1"].update(res_1)
-        self.qos_params["shared_res_size_2"].update(res_2)
+        try:
+            self.qos_params["shared_res_size_1"].update(res_1)
+            self.qos_params["shared_res_size_2"].update(res_2)
+        except KeyError:
+            skip_reason = "Shared Res Size Keys are not found, will be skipping test."
+            self.__mark_skip("shared_res_size_1", skip_reason)
+            self.__mark_skip("shared_res_size_2", skip_reason)
 
     def __define_pfc_xoff_limit(self):
         if not self.should_autogen(["xoff_1", "xoff_2"]):
@@ -240,6 +253,8 @@ class QosParamCisco(object):
                       "ecn": 1,
                       "pg": dscp_pg,
                       "pkts_num_trig_pfc": (self.pause_thr // self.buffer_size // packet_buffs) - 1,
+                      "pkts_num_hysteresis": int(((self.pause_thr - self.reduced_pause_thr)
+                                                  // self.buffer_size // packet_buffs) - 2),
                       "pkts_num_dismiss_pfc": 2,
                       "packet_size": packet_size}
             self.write_params("xon_{}".format(param_i), params)
