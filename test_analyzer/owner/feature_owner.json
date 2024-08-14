@@ -141,6 +141,13 @@
                 ],
                 "owner": "Storm Liang",
                 "email": "stormliang@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "bgp.test_bgp_bbr_default_state"
+                ],
+                "owner": "Shahzad Iqbal",
+                "email": "shahzadiqbal@microsoft.com"
             }
         ]
     },
@@ -636,6 +643,20 @@
                 ],
                 "owner": "Gang lv",
                 "email": "ganglv@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "hash",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "hash.test_generic_hash"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
             }
         ]
     },
