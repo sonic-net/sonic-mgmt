@@ -49,12 +49,13 @@ Please be noted that the number of test servers, fanout switches and SONiC DUTs 
 
 ## Logical topologies
 
-Mainly 4 types of testbed topologies can be simulated based on the physical topology.
+Mainly 5 types of testbed topologies can be simulated based on the physical topology.
 
 * T0
 * T1
 * T2
 * PTF
+* Point-to-point
 
 Details of the logical topologies are defined in `ansible/vars/topo_*.yml` files.
 
@@ -219,6 +220,19 @@ The PTF type topology does not have VMs. All the DUT ports are connected to a PT
 * The DUT has 64 ports.
 * Requires no VM.
 * All the DUT ports are connected to the PTF docker.
+
+### Point-to-point type topology
+This topology is used to validate transceivers and their link stability over L2 control traffic such as LLDP. It does not involve ports connected to PTF docker or VMs. Instead, both SONiC DUTs are connected through multiple ports.
+
+```text
++-----------------+     +-----------------+
+|           Port 1|<--->|Port 1           |
+|           Port 2|<--->|Port 2           |
+|    Device 1     |     |     Device 2    |
+|                 |     |                 |
+|           Port N|<--->|Port N           |
++-----------------+     +-----------------+
+```
 
 ## Build testbed
 
