@@ -1109,9 +1109,9 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2."
+     reason: "Warm Reboot is not supported in T2 or currently for TH5."
      conditions:
-        - "'t2' in topo_name"
+        - "'t2' in topo_name or asic_gen in ['th5']"
    xfail:
      reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
      conditions:
