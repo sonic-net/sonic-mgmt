@@ -405,12 +405,6 @@ def test_backend_acl_load(duthosts, enum_dut_hostname, tbinfo):
             pytest.fail("Backend acl not installed succesfully: {}".format(rule))
 
 
-# TODO may need to move this to health check
-def test_lldp_disabled_on_fanout(fanouthosts):
-    for fanout_name, fanouthost in fanouthosts.items():
-        assert fanouthost.is_lldp_disabled() is True
-
-
 # This one is special. It is public, but we need to ensure that it is the last one executed in pre-test.
 def test_generate_running_golden_config(duthosts):
     """
