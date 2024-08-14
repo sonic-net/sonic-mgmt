@@ -95,6 +95,15 @@ def check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list):
                     "Expected field %s is not found in %s while checking %s" % (field, port_xcvr_info["stdout"], intf)
 
 
+def is_flat_memory_transceiver(dut, interface):
+    output = dut.shell(
+        f'sudo sfputil show eeprom -d -p {interface} | grep "flat memory"', module_ignore_errors=True)['stdout']
+    if "DOM values not supported for flat memory module" in output:
+        return True
+    else:
+        return False
+
+
 def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list):
     """
     @summary: Check whether all the specified interface are in TRANSCEIVER_DOM_SENSOR redis DB.
@@ -108,7 +117,7 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_li
     xcvr_dom_sensor = dut.command(docker_cmd)
     parsed_xcvr_dom_sensor = parse_transceiver_dom_sensor(xcvr_dom_sensor["stdout_lines"])
     for intf in interfaces:
-        if intf not in xcvr_skip_list[dut.hostname]:
+        if intf not in xcvr_skip_list[dut.hostname] and not is_flat_memory_transceiver(dut, intf):
             assert intf in parsed_xcvr_dom_sensor, "TRANSCEIVER_DOM_SENSOR of %s is not found in DB" % intf
 
 
@@ -123,7 +132,7 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_
     expected_fields = ["temperature", "voltage", "rx1power", "rx2power", "rx3power", "rx4power", "tx1bias",
                        "tx2bias", "tx3bias", "tx4bias", "tx1power", "tx2power", "tx3power", "tx4power"]
     for intf in interfaces:
-        if intf not in xcvr_skip_list[dut.hostname]:
+        if intf not in xcvr_skip_list[dut.hostname] and not is_flat_memory_transceiver(dut, intf):
             cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_DOM_SENSOR|%s"' % intf
             docker_cmd = asichost.get_docker_cmd(cmd, "database")
             port_xcvr_dom_sensor = dut.command(docker_cmd)
