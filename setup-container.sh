@@ -389,7 +389,7 @@ if [[ $# -eq 0 ]]; then
     show_help_and_exit "${EXIT_SUCCESS}"
 fi
 
-while getopts "n:i:d:m:p:fvxhs" opt; do
+while getopts "n:i:d:m:p:fvxh" opt; do
     case "${opt}" in
         n )
             CONTAINER_NAME="${OPTARG}"
