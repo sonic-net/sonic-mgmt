@@ -498,6 +498,7 @@ def test_dhcp_server_port_based_customize_options(
             pkts_validator_kwargs=pkts_validator_kwargs,
             refresh_fdb_ptf_port='eth'+str(ptf_port_index)
         )
+        verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip)
         send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, gateway)
 
 
