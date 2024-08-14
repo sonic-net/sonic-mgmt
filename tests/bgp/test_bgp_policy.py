@@ -16,7 +16,6 @@ Configure loopback interfaces to advertise.
 
 '''
 import logging
-
 import pytest
 import time
 
@@ -29,48 +28,6 @@ bgp_id_textfsm = "./bgp/templates/bgp_id.template"
 pytestmark = [
     pytest.mark.topology('t2')
 ]
-
-
-@pytest.fixture(scope='session')
-def get_test_routes(gather_info):
-    # gather IPv4 routes
-    cmd = 'vtysh{} -c "show ip bgp neighbors {} advertised-routes"'.format(gather_info['cli_options'],
-                                                                           gather_info['neigh_ip_v4'])
-    output = gather_info['duthost'].shell(cmd, module_ignore_errors=True)['stdout']
-    split_out = output.split("\n")
-    list_route_v4 = []
-    test_route_v4 = []
-    i = 0
-    for line in split_out:
-        if str(gather_info['neigh_asn']) in line:
-            list_route_v4.append(line)
-            i = i + 1
-            if i > 3:
-                break
-    for line in list_route_v4:
-        temp = line.split()
-        test_route_v4.append(temp[1])
-
-    # gather IPv6 routes
-    cmd = 'vtysh{} -c "show bgp ipv6 neighbors {} advertised-routes"'.format(gather_info['cli_options'],
-                                                                             gather_info['neigh_ip_v6'])
-    output = gather_info['duthost'].shell(cmd, module_ignore_errors=True)['stdout']
-    split_out = output.split("\n")
-    logger.info(output)
-    list_route_v6 = []
-    test_route_v6 = []
-    i = 0
-    for line in split_out:
-        if str(gather_info['neigh_asn']) in line:
-            logger.info(line)
-            list_route_v6.append(line)
-            i = i + 1
-            if i > 3:
-                break
-    for line in list_route_v6:
-        temp = line.split()
-        test_route_v6.append(temp[1])
-    return test_route_v4, test_route_v6
 
 
 def verify_rm(dut, nei_ip, cli_options, ipX, route_map, prefix_list, route_count):
@@ -92,7 +49,6 @@ def verify_rm(dut, nei_ip, cli_options, ipX, route_map, prefix_list, route_count
         assert output == ""
     else:
         assert route_count == output
-        # assert match_prefix in output
 
 
 def check_baseline(dut, neigh_ip_v4, neigh_ip_v6, base_v4, base_v6):
@@ -157,12 +113,8 @@ def test_policy(gather_info):
     out_num = len(output)
     assert 5 == out_num
     logger.debug("out split: {}\nbase: {} num: {}".format(output, num_v6_routes, out_num))
-    output = gather_info['duthost'].shell('show ip bgp neighbors {} advertised-routes | grep -c "*>"'.format(
-        gather_info['neigh_ip_v4']), module_ignore_errors=True)['stdout']
-    assert 5 + int(num_v4_routes) == int(output)
-    output = gather_info['duthost'].shell('show ipv6 bgp neighbors {} advertised-routes | grep -c "*>"'.format(
-        gather_info['neigh_ip_v6']), module_ignore_errors=True)['stdout']
-    assert 5 + int(num_v6_routes) == int(output)
+    check_baseline(gather_info['duthost'], gather_info['neigh_ip_v4'], gather_info['neigh_ip_v6'], num_v4_routes,
+                   num_v6_routes)
 
     # Create default prefix lists to be used
     cmd = 'vtysh{} -c "config" -c "ip prefix-list DEFAULT_V4 permit 0.0.0.0/0" \
@@ -477,8 +429,8 @@ def test_policy(gather_info):
     assert "Displayed  2 routes and " in output
 
     cmd = 'vtysh{} -c "config" -c "router bgp {}" \
-           -c "bgp community-list expanded MATCH_COMMUNITY_RGX_1 permit .*.*.*.*1:1" -c \
-            "bgp community-list expanded MATCH_COMMUNITY_RGX_2 permit .*.*.*.*2:2"' \
+           -c "bgp community-list expanded MATCH_COMMUNITY_RGX_1 permit .*1:1" -c \
+            "bgp community-list expanded MATCH_COMMUNITY_RGX_2 permit .*2:2"' \
           .format(gather_info['cli_options'], gather_info['dut_asn'])
     logger.debug(gather_info['duthost'].shell(cmd, module_ignore_errors=True))
     cmd = 'vtysh{} -c "config" -c "router bgp {}" \
