@@ -159,9 +159,6 @@ devices:
     xr_port_redir:
       - 22
       - 23
-    vxr_sim_config:
-        shelf:
-           ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60010]
     cli_commands: |
       sudo config hostname tortuga-1x3-leaf0
@@ -200,9 +197,6 @@ devices:
     xr_port_redir:
       - 22
       - 23
-    vxr_sim_config:
-        shelf:
-           ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60011]
     cli_commands: |
       sudo config hostname tortuga-1x3-leaf1
@@ -241,9 +235,6 @@ devices:
     xr_port_redir:
       - 22
       - 23
-    vxr_sim_config:
-        shelf:
-           ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60012]
     cli_commands: |
       sudo config hostname tortuga-1x3-leaf2
@@ -282,9 +273,6 @@ devices:
     xr_port_redir:
       - 22
       - 23
-    vxr_sim_config:
-        shelf:
-           ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60020]
     cli_commands: |
       sudo config hostname tortuga-1x3-spine0
