@@ -227,11 +227,11 @@ def test_policy(gather_info):
               "TWO_PREFIX_RM_V6", "TWO_PREFIX_V6", "2")
 
     # verify '12345' in AS Path
-    output = gather_info['duthost'].shell('show ip bgp neighbors {} advertised-routes'.format(
+    output = gather_info['duthost'].shell('show ip bgp neighbors {} advertised-routes | grep 11111'.format(
         gather_info['neigh_ip_v4']))['stdout']
     logger.debug(output)
     assert '12345' in output
-    output = gather_info['duthost'].shell('show ipv6 bgp neighbors {} advertised-routes'.format(
+    output = gather_info['duthost'].shell('show ipv6 bgp neighbors {} advertised-routes | grep 11111'.format(
         gather_info['neigh_ip_v6']))['stdout']
     logger.debug(output)
     assert '12345' in output
