@@ -464,7 +464,7 @@ def verify_discover_and_request_then_release(
     )
     if expected_assigned_ip and release_needed:
         verify_lease(duthost, dhcp_interface, client_mac, expected_assigned_ip, exp_lease_time)
-        send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, exp_gateway)
+        send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, server_id)
 
 
 def send_release_packet(
@@ -473,14 +473,13 @@ def send_release_packet(
     xid,
     client_mac,
     ip_assigned,
-    gateway
+    server_id
 ):
     release_pkt = create_dhcp_client_packet(
         src_mac=client_mac,
         message_type=DHCP_MESSAGE_TYPE_RELEASE_NUM,
-        client_options=[("server_id", gateway)],
+        client_options=[("server_id", server_id)],
         xid=xid,
         ciaddr=ip_assigned
     )
     testutils.send_packet(ptfadapter, ptf_port_index, release_pkt)
-    time.sleep(1)  # give server some time to update lease file
