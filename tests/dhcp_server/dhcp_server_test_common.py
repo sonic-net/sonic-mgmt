@@ -472,7 +472,8 @@ def send_release_packet(
     xid,
     client_mac,
     ip_assigned,
-    gateway
+    gateway,
+    count=3
 ):
     release_pkt = create_dhcp_client_packet(
         src_mac=client_mac,
@@ -481,4 +482,5 @@ def send_release_packet(
         xid=xid,
         ciaddr=ip_assigned
     )
-    testutils.send_packet(ptfadapter, ptf_port_index, release_pkt)
+    for _ in range(count):
+        testutils.send_packet(ptfadapter, ptf_port_index, release_pkt)
