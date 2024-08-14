@@ -34,8 +34,7 @@ declare -r VERBOSE_INFO="4"
 declare -r VERBOSE_MAX="${VERBOSE_INFO}"
 declare -r VERBOSE_MIN="${VERBOSE_ERROR}"
 
-declare -ri CREATE_NEW_CONTAINER=1
-declare -ri START_EXISTING_CONTAINER=2
+declare EXISTING_CONTAINER_NAME=""
 
 #
 # Arguments -----------------------------------------------------------------------------------------------------------
@@ -108,7 +107,6 @@ function show_help_and_exit() {
     echo "  -m <mount_point>     specify directory to bind mount to container"
     echo "  -p <port>            publish container port to the host"
     echo "  -f                   automatically remove the container when it exits"
-    echo "  -s                   start existing container"
     echo "  -v                   explain what is being done"
     echo "  -x                   show execution details"
     echo "  -h                   display this help and exit"
@@ -119,7 +117,6 @@ function show_help_and_exit() {
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -d /var/src"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -m /my/working/dir"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -p 192.0.2.1:8080:80/tcp"
-    echo "  ./${SCRIPT_NAME} -i docker-sonic-mgmt-username:master -s"
     echo "  ./${SCRIPT_NAME} -h"
     echo
     exit ${1}
@@ -300,11 +297,46 @@ EOF
     fi
 }
 
+function container_exists() {
+    container_id=`docker ps --all --filter=name=$CONTAINER_NAME --format '{{.ID}}'`
+    count=`echo $container_id | wc -w`
+    return $count
+}
+
+function get_existing_container() {
+    img_id=${IMAGE_ID}
+    if [ -z ${img_id} ]
+    then
+        img_id=${LOCAL_IMAGE}
+    fi
+    container_id=`docker container ls --all --filter=ancestor=${img_id} --format '{{.ID}}'`
+    count=`echo $container_id | wc -w`
+    case $count in
+        0)
+            EXISTING_CONTAINER_NAME=""
+            ;;
+        1)
+            container_name=`docker inspect $container_id --format '{{.Name}}'`
+            if [[ $container_name == /* ]]
+            then
+                container_name="${container_name:1}"
+            fi
+            EXISTING_CONTAINER_NAME=${container_name}
+            ;;
+        *)
+            echo "Multiple container IDs found: ${container_id}"
+            EXISTING_CONTAINER_NAME=""
+            ;;
+    esac
+}
+
 function start_local_container() {
 
-    if [ $1 -eq ${START_EXISTING_CONTAINER} ]
+    container_exists
+    local exists=$?
+    if [ $exists -eq 1 ]
     then
-        log_info "starting existing container: ${CONTAINER_NAME} ..."
+        log_info "starting existing container ${CONTAINER_NAME} ..."
         docker start ${CONTAINER_NAME}
     else
         log_info "creating a container: ${CONTAINER_NAME} ..."
@@ -332,43 +364,20 @@ function start_local_container() {
 }
 
 function parse_arguments() {
+
     if [[ -z "${CONTAINER_NAME}" ]]; then
-        exit_failure "container name is not set"
+        get_existing_container
+        if [ -z $EXISTING_CONTAINER_NAME ]
+        then
+            exit_failure "container name is not set."
+        else
+            exit_failure "found existing container (\"docker start $EXISTING_CONTAINER_NAME\")"
+        fi
     fi
 
     if [[ -z "${LINK_DIR}" ]]; then
         LINK_DIR="/var/src"
         log_notice "using default bind mount directory: ${LINK_DIR}"
-    fi
-}
-
-function start_existing_container() {
-    if [ -z ${IMAGE_ID} ]
-    then
-        echo "Missing required argument -i IMAGE_ID to start the container"
-        exit 1
-    fi
-    container_id=`docker container ls --all --filter=ancestor=${IMAGE_ID} --format '{{.ID}}'`
-    count=`echo $container_id | wc -w`
-    if [ $count -eq 0 ]
-    then
-        echo "No containers found for image ${IMAGE_ID}"
-        exit 0
-    fi
-    if [ $count -eq 1 ]
-    then
-        container_name=`docker inspect $container_id --format '{{.Name}}'`
-        CONTAINER_NAME=${container_name}
-        if [[ $container_name == /* ]]
-        then
-            CONTAINER_NAME="${container_name:1}"
-        fi
-        start_local_container ${START_EXISTING_CONTAINER}
-    fi
-    if [ $count -gt 1 ]
-    then
-        echo "There are more than one containers for this image"
-        exit 1
     fi
 }
 
@@ -410,9 +419,6 @@ while getopts "n:i:d:m:p:fvxhs" opt; do
         h )
             show_help_and_exit "${EXIT_SUCCESS}"
             ;;
-        s )
-            start_existing_container
-            ;;
         * )
             show_help_and_exit "${EXIT_FAILURE}"
             ;;
@@ -445,7 +451,7 @@ fi
 
 pull_sonic_mgmt_docker_image
 setup_local_image
-start_local_container ${CREATE_NEW_CONTAINER}
+start_local_container
 show_local_container_login
 
 exit_success "sonic-mgmt configuration is done!"
