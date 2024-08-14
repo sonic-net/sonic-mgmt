@@ -13,8 +13,11 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 def binding_deps():
     """Sets up 3rd party workspaces needed to build ondatra infrastructure."""
+
+    # repo_map maps repo to alternate repo names. Add mapping to resolve gazelle repo name conflicts.
     repo_map = {
         "@com_github_p4lang_p4runtime": "@com_github_p4lang_golang_p4runtime",
+        "@go_googleapis": "@com_google_googleapis",
     }
 
     build_directives = [
@@ -23,15 +26,16 @@ def binding_deps():
         "gazelle:resolve go github.com/openconfig/gnoi/cert @com_github_openconfig_gnoi//cert:cert_go_proto",
         "gazelle:resolve go github.com/openconfig/gnoi/diag @com_github_openconfig_gnoi//diag:diag_go_proto",
         "gazelle:resolve go github.com/openconfig/gnoi/factory_reset @com_github_openconfig_gnoi//factory_reset:factory_reset_go_proto",
-        "gazelle:resolve go github.com/openconfig/gnoi/file @com_github_openconfig_gnoi//file:file_go_proto",
         "gazelle:resolve go github.com/openconfig/gnoi/healthz @com_github_openconfig_gnoi//healthz:healthz_go_proto",
         "gazelle:resolve go github.com/openconfig/gnoi/layer2 @com_github_openconfig_gnoi//layer2:layer2_go_proto",
-        "gazelle:resolve go github.com/openconfig/gnoi/mpls @com_github_openconfig_gnoi//mpls:mpls_go_proto",
         "gazelle:resolve go github.com/openconfig/gnoi/os @com_github_openconfig_gnoi//os:os_go_proto",
+        "gazelle:resolve go github.com/openconfig/gnoi/file @com_github_openconfig_gnoi//file:file_go_proto",
+        "gazelle:resolve go github.com/openconfig/gnoi/mpls @com_github_openconfig_gnoi//mpls:mpls_go_proto",
         "gazelle:resolve go github.com/openconfig/gnoi/otdr @com_github_openconfig_gnoi//otdr:otdr_go_proto",
         "gazelle:resolve go github.com/openconfig/gnoi/system @com_github_openconfig_gnoi//system:system_go_proto",
         "gazelle:resolve go github.com/openconfig/gnoi/wavelength_router @com_github_openconfig_gnoi//wavelength_router:wavelength_router_go_proto",
         "gazelle:resolve go github.com/openconfig/gnoi/packet_link_qualification @com_github_openconfig_gnoi//packet_link_qualification:linkqual_go_proto",
+        "gazelle:resolve go github.com/openconfig/gnoi/linkqual @com_github_openconfig_gnoi//packet_link_qualification:linkqual_go_proto",
         "gazelle:resolve go github.com/openconfig/gnsi/acctz @com_github_openconfig_gnsi//acctz:acctz_go_proto",
         "gazelle:resolve go github.com/openconfig/gnsi/pathz @com_github_openconfig_gnsi//pathz:pathz_go_proto",
         "gazelle:resolve go github.com/openconfig/gnsi/credentialz @com_github_openconfig_gnsi//credentialz:credentialz",
@@ -124,7 +128,7 @@ def binding_deps():
         name = "com_github_openconfig_ygnmi",
         importpath = "github.com/openconfig/ygnmi",
         build_file_proto_mode = "disable",
-        commit = "09b506cc94e5c0d69208991b54fbf30de05a13ff",  #v0.8.7
+        commit = "c72751e145e6b9359e2a538f89ac929d6a04d452",  #main as of 10/27/2023
         patches = ["//:bazel/patches/ondatra/ygnmi.patch"],
         patch_args = ["-p1"],
     )
@@ -137,7 +141,18 @@ def binding_deps():
         sum = "h1:7Odq6UyieHuXW3PYfDBj/dUWgFrL9KVMm0iooQoFLdw=",
         version = "v0.1.0",
         patches = ["//:bazel/patches/ondatra/gnoi.patch"],
-        patch_args = ["-p1", "--verbose"],
+        patch_args = ["-p1"],
+    )
+
+    go_repository(
+        name = "com_github_openconfig_gnoigo",
+        build_file_proto_mode = "disable",
+        importpath = "github.com/openconfig/gnoigo",
+        repo_mapping = repo_map,
+        build_directives = build_directives,
+        commit = "87413fdb22e732d9935c0b2de0567e3e09d5318b",  #main as of 10/27/2023
+        patches = ["@com_github_google_pins_infra//:bazel/patches/ondatra/gnoigo.patch"],
+        patch_args = ["-p1"],
     )
 
     go_repository(
@@ -266,14 +281,14 @@ def binding_deps():
         build_file_proto_mode = "disable",
         build_directives = build_directives,
         patches = ["//:bazel/patches/ondatra/ondatra.patch"],
-        patch_args = ["-p1", "--verbose"],
-        commit = "699d044932bdfbd1c28750221cb475a44a5bc8fe",  #main as of 09/07/2023
+        patch_args = ["-p1"],
+        commit = "3233494f31925ed4d9dfc04645f2ae1050620200", #main as of 10/27/2023
     )
 
     git_repository(
         name = "com_google_googleapis",
         remote = "https://github.com/googleapis/googleapis",
-        commit = "9fe00a1330817b5ce00919bf2861cd8a9cea1a00",
+        commit = "c4915db59896a1da45b55507ece2ebc1d53ef6f5",
         shallow_since = "1642638275 -0800",
     )
 

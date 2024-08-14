@@ -1,8 +1,8 @@
 diff --git a/binding/abstract.go b/binding/abstract.go
-index 9e54e9a..643dbc6 100644
+index d6ff71c..f4713a9 100644
 --- a/binding/abstract.go
 +++ b/binding/abstract.go
-@@ -36,18 +36,18 @@ import (
+@@ -37,7 +37,7 @@ import (
 	mpb "github.com/openconfig/gnoi/mpls"
 	ospb "github.com/openconfig/gnoi/os"
 	otpb "github.com/openconfig/gnoi/otdr"
@@ -11,6 +11,7 @@ index 9e54e9a..643dbc6 100644
 	spb "github.com/openconfig/gnoi/system"
 	wpb "github.com/openconfig/gnoi/wavelength_router"
 	acctzpb "github.com/openconfig/gnsi/acctz"
+@@ -46,7 +46,7 @@ import (
 	authzpb "github.com/openconfig/gnsi/authz"
 	certzpb "github.com/openconfig/gnsi/certz"
 	credzpb "github.com/openconfig/gnsi/credentialz"
@@ -24,27 +25,19 @@ index 9e54e9a..643dbc6 100644
 
 
 diff --git a/binding/binding.go b/binding/binding.go
-index ccc3601..175efee 100644
+index 5285cda..a906d6f 100644
 --- a/binding/binding.go
 +++ b/binding/binding.go
-@@ -37,18 +37,18 @@ import (
-	mpb "github.com/openconfig/gnoi/mpls"
-	ospb "github.com/openconfig/gnoi/os"
-	otpb "github.com/openconfig/gnoi/otdr"
--	plqpb "github.com/openconfig/gnoi/packet_link_qualification"
-+	plqpb "github.com/openconfig/gnoi/linkqual"
-	spb "github.com/openconfig/gnoi/system"
-	wpb "github.com/openconfig/gnoi/wavelength_router"
-	acctzpb "github.com/openconfig/gnsi/acctz"
-	authzpb "github.com/openconfig/gnsi/authz"
-	certzpb "github.com/openconfig/gnsi/certz"
-	credzpb "github.com/openconfig/gnsi/credentialz"
-	pathzpb "github.com/openconfig/gnsi/pathz"
+@@ -33,7 +33,7 @@ import (
+ 	certzpb "github.com/openconfig/gnsi/certz"
+ 	credzpb "github.com/openconfig/gnsi/credentialz"
+ 	pathzpb "github.com/openconfig/gnsi/pathz"
 -	grpb "github.com/openconfig/gribi/v1/proto/service"
 +	grpb "github.com/openconfig/gribi/proto/service"
-	opb "github.com/openconfig/ondatra/proto"
-	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+ 	opb "github.com/openconfig/ondatra/proto"
+ 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
  )
+
 
 
 

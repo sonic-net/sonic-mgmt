@@ -10,6 +10,7 @@ import (
 
 	log "github.com/golang/glog"
 
+	"github.com/openconfig/gnoigo"
 	"github.com/openconfig/ondatra/binding"
 	"github.com/openconfig/ondatra/binding/grpcutil"
 	"google.golang.org/grpc"
@@ -19,10 +20,6 @@ import (
         "github.com/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
-	filepb "github.com/openconfig/gnoi/file"
-	healthzpb "github.com/openconfig/gnoi/healthz"
-	ospb "github.com/openconfig/gnoi/os"
-	syspb "github.com/openconfig/gnoi/system"
 
 	rpb "github.com/openconfig/ondatra/proxy/proto/reservation"
 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
@@ -262,7 +259,7 @@ func (c *clientWrap) Capabilities(ctx context.Context, in *gpb.CapabilityRequest
 }
 
 // DialGNOI connects directly to the switch's proxy.
-func (d *pinsDUT) DialGNOI(ctx context.Context, opts ...grpc.DialOption) (binding.GNOIClients, error) {
+func (d *pinsDUT) DialGNOI(ctx context.Context, opts ...grpc.DialOption) (gnoigo.Clients, error) {
 	if d.grpc.GNOIAddr == "" {
 		return nil, fmt.Errorf("service gnoi not registered on DUT %q", d.Name())
 	}
@@ -275,40 +272,13 @@ func (d *pinsDUT) DialGNOI(ctx context.Context, opts ...grpc.DialOption) (bindin
 
 	log.Infof("GNOI dial success Address:%s, Switch:%s", conn.Target(), d.Name())
 	return &GNOIClients{
-		os:      ospb.NewOSClient(conn),
-		system:  syspb.NewSystemClient(conn),
-		healthz: healthzpb.NewHealthzClient(conn),
-		file:    filepb.NewFileClient(conn),
+                Clients: gnoigo.NewClients(conn),
 	}, nil
 }
 
 // GNOIClients consist of the GNOI clients supported by GPINs.
 type GNOIClients struct {
-	*binding.AbstractGNOIClients
-	os      ospb.OSClient
-	system  syspb.SystemClient
-	healthz healthzpb.HealthzClient
-	file    filepb.FileClient
-}
-
-// OS returns OS gNOI client.
-func (g *GNOIClients) OS() ospb.OSClient {
-	return g.os
-}
-
-// System returns system gNOI client.
-func (g *GNOIClients) System() syspb.SystemClient {
-	return g.system
-}
-
-// Healthz returns healthz gNOI client.
-func (g *GNOIClients) Healthz() healthzpb.HealthzClient {
-	return g.healthz
-}
-
-// File returns file gNOI client.
-func (g *GNOIClients) File() filepb.FileClient {
-	return g.file
+	gnoigo.Clients
 }
 
 // DialP4RT connects directly to the switch's proxy.
