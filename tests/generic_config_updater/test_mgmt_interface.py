@@ -3,7 +3,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch
+from tests.generic_config_updater.gu_utils import apply_patch, create_path
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.route.test_forced_mgmt_route import FORCED_MGMT_ROUTE_PRIORITY, wait_for_file_changed
@@ -34,7 +34,7 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
-def update_forced_mgmt_route(duthost, routes):
+def update_forced_mgmt_route(duthost, interface_address, interface_key, routes):
     # Escape '/' in interface key
     json_patch = [
         {
@@ -65,23 +65,25 @@ def update_forced_mgmt_route(duthost, routes):
         delete_tmpfile(duthost, tmpfile)
 
 
-def update_and_check_forced_mgmt_routes(duthost, forced_mgmt_routes, ip_type, test_route, expect_exist):
-        # Update forced mgmt routes with new route address
-        wait_for_file_changed(
-                            duthost,
-                            "/etc/network/interfaces",
-                            update_forced_mgmt_route,
-                            duthost,
-                            forced_mgmt_routes)
+def update_and_check_forced_mgmt_routes(duthost, forced_mgmt_routes, interface_address, interface_key, ip_type, test_route, expect_exist):
+    # Update forced mgmt routes with new route address
+    wait_for_file_changed(
+                        duthost,
+                        "/etc/network/interfaces",
+                        update_forced_mgmt_route,
+                        duthost,
+                        interface_address,
+                        interface_key,
+                        forced_mgmt_routes)
 
-        # Check /etc/network/interfaces generate correct
-        interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
-        logging.debug("interfaces: {}".format(interfaces))
+    # Check /etc/network/interfaces generate correct
+    interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
+    logging.debug("interfaces: {}".format(interfaces))
 
-        pytest_assert("up ip {} rule add pref {} to {} table default"
-                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces == expect_exist)
-        pytest_assert("pre-down ip {} rule delete pref {} to {} table default"
-                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces == expect_exist)
+    pytest_assert("up ip {} rule add pref {} to {} table default"
+                  .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces == expect_exist)
+    pytest_assert("pre-down ip {} rule delete pref {} to {} table default"
+                  .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces == expect_exist)
 
 
 def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):
@@ -114,7 +116,19 @@ def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):
                       .format(interface_address, original_forced_mgmt_routes, updated_forced_mgmt_routes))
 
         # Update forced mgmt routes with new route address
-        update_and_check_forced_mgmt_routes(duthost, updated_forced_mgmt_routes, ip_type, test_route, true)
+        update_and_check_forced_mgmt_routes(duthost,
+                                            updated_forced_mgmt_routes,
+                                            interface_address,
+                                            interface_key,
+                                            ip_type,
+                                            test_route,
+                                            True)
 
         # Revert change and check again
-        update_and_check_forced_mgmt_routes(duthost, original_forced_mgmt_routes, ip_type, test_route, false)
+        update_and_check_forced_mgmt_routes(duthost,
+                                            original_forced_mgmt_routes,
+                                            interface_address,
+                                            interface_key,
+                                            ip_type,
+                                            test_route,
+                                            False)
