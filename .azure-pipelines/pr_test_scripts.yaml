@@ -204,6 +204,7 @@ t0:
   - snmp/test_snmp_psu.py
   - platform_tests/cli/test_show_platform.py
   - snmp/test_snmp_queue_counters.py
+  - platform_tests/test_reload_config.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -385,6 +386,7 @@ t1-lag:
   - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
   - test_procdockerstatsd.py
+  - platform_tests/test_reload_config.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -463,7 +465,6 @@ onboarding_t1:
   - bgp/test_bgp_sentinel.py
   - bgp/test_bgp_suppress_fib.py
   - hash/test_generic_hash.py
-  - platform_tests/test_reload_config.py
   - show_techsupport/test_auto_techsupport.py
   - snmp/test_snmp_link_local.py
   - sub_port_interfaces/test_sub_port_interfaces.py

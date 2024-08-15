@@ -890,12 +890,21 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
 #######################################
 #####   test_reload_config.py     #####
 #######################################
-platform_tests/test_reload_config.py:
+platform_tests/test_reload_config.py::test_reload_configuration:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
 
+platform_tests/test_reload_config.py::test_reload_configuration_checks:
+  skip:
+    reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed."
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['barefoot'] and hwsku in ['newport']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
 
 #######################################
 ######  test_secure_upgrade.py  #######
