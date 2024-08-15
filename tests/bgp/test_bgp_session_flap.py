@@ -10,7 +10,6 @@ import logging
 import pytest
 import time
 from tests.common.utilities import InterruptableThread
-from tests.common.devices.eos import EosHost
 import textfsm
 import traceback
 
@@ -91,13 +90,9 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         'namespace': namespace
     }
 
-    logger.info("DUT BGP Config: {}".format(duthost.shell("vtysh -n {} -c \"show run bgp\"".format(namespace),
+    logger.info("DUT BGP Config: {}".format(duthost.shell("vtysh -n {} -c \"show run bgp\"".format(asic_index),
                                                           module_ignore_errors=True)))
-    if isinstance(nbrhosts[tor1]['host'], EosHost):
-        logger.info("Neighbor BGP Config: {}".format(
-            nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
-    else:
-        logger.info("Neighbor BGP Config: {}".format(nbrhosts[tor1]["host"].shell("show run bgp")))
+    logger.info("Neighbor BGP Config: {}".format(nbrhosts[tor1]["host"].get_nbrhost_bgp_run_config()))
     logger.info('Setup_info: {}'.format(setup_info))
 
     #  get baseline BGP CPU and Memory Utilization

@@ -1378,6 +1378,13 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         addr = self.shell(cmd)["stdout"]
         return addr
 
+    def get_nbrhost_bgp_run_config(self):
+        """
+        @summary: Returns the current running bgp config of sonic neighbor host
+        """
+        cmd = "show run bgp"
+        return self.shell(cmd)["stdout"]
+
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info
