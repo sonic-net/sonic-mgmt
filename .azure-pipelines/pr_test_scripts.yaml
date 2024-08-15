@@ -204,6 +204,7 @@ t0:
   - snmp/test_snmp_psu.py
   - platform_tests/cli/test_show_platform.py
   - snmp/test_snmp_queue_counters.py
+  - platform_tests/test_reload_config.py
   - generic_config_updater/test_dynamic_acl.py
   - sub_port_interfaces/test_sub_port_interfaces.py
   - hash/test_generic_hash.py
@@ -391,6 +392,7 @@ t1-lag:
   - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
   - test_procdockerstatsd.py
+  - platform_tests/test_reload_config.py
   - hash/test_generic_hash.py
   - sub_port_interfaces/test_sub_port_interfaces.py
 
@@ -449,7 +451,6 @@ onboarding_t0:
   - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
-  - platform_tests/test_reload_config.py
   - route/test_route_bgp_ecmp.py
   - snmp/test_snmp_link_local.py
   - drop_packets/test_drop_counters.py
@@ -464,7 +465,6 @@ onboarding_t1:
   - drop_packets/test_drop_counters.py
   - bgp/test_bgp_sentinel.py
   - bgp/test_bgp_suppress_fib.py
-  - platform_tests/test_reload_config.py
   - show_techsupport/test_auto_techsupport.py
   - snmp/test_snmp_link_local.py
   - telemetry/test_events.py
