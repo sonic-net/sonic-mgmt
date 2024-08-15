@@ -20,6 +20,7 @@ t0:
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_session.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
@@ -248,6 +249,7 @@ t1-lag:
   - bgp/test_bgp_multipath_relax.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_session.py
   - bgp/test_traffic_shift.py
   - configlet/test_add_rack.py
