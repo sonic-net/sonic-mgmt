@@ -171,7 +171,7 @@ def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, set
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    if duthost.is_multi_asic;
+    if duthost.is_multi_asic:
         pytest.skip("Skip eventd testing on multi-asic")
 
     features_dict, succeeded = duthost.get_feature_status()
