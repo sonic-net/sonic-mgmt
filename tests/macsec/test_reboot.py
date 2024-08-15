@@ -31,9 +31,15 @@ def get_macsec_sessions(dut, space_var):
     out = dut.shell("show macsec{}".format(space_var))['stdout']
     sess_list = []
     regex = re.compile(r"\s*MACsec port\((.+)\)")
+    count = 0
     for line in out.splitlines():
         if "MACsec port" in line:
-            sess_list.append(regex.match(line).group(1))
+            temp_sess = regex.match(line).group(1)
+            count = 0
+        elif count == 3:
+            if "true" in line:
+                sess_list.append(temp_sess)
+        count = count + 1
     logger.info("macsec sessions: " + str(sess_list))
     return sess_list.sort()
 
@@ -98,7 +104,8 @@ def test_chassis_reboot(duthosts, localhost, enum_supervisor_dut_hostname, dutho
     macsec_status = duthost.shell("show macsec{} {}".format(space_var, dut_to_neigh_int))['stdout'].splitlines()
     logger.debug(f"macsec status {macsec_status}")
     pytest_assert(dut_to_neigh_int in macsec_status[0])
-    pytest_assert("enable" in macsec_status[3])
+    logger.debug(f"enabled line {macsec_status[3]}")
+    pytest_assert("true" in macsec_status[3])
 
     # Ensure all sessions came back after reboot
     post_list = get_macsec_sessions(duthost, space_var)
