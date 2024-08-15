@@ -41,8 +41,18 @@
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
         <EndPort>{{ vlan_intfs[host_index] }}</EndPort>
+{% if 'point-to-point' in topo %}
+{% if device_conn[inventory_hostname][port_alias_map[vlan_intfs[host_index]]] is defined %}
+        <StartDevice>{{ device_conn[inventory_hostname][port_alias_map[vlan_intfs[host_index]]]['peerdevice'] }}</StartDevice>
+        <StartPort>{{ device_conn[inventory_hostname][port_alias_map[vlan_intfs[host_index]]]['peerport'] }}</StartPort>
+{% else %}
+        <StartDevice>Unknown Device</StartDevice>
+        <StartPort>Unknown Port</StartPort>
+{% endif %}
+{% else %}
         <StartDevice>Servers{{ host_index }}</StartDevice>
         <StartPort>eth0</StartPort>
+{% endif %}
       </DeviceLinkBase>
 {% endfor %}
 {% if 'dualtor' in topo %}
