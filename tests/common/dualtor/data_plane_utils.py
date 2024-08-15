@@ -200,8 +200,8 @@ def run_test(
             tor_IO.stop_early = True
     # Wait for the IO to complete before doing checks
     send_and_sniff.join()
+    # Skip flow examination for VS platform
     if activehost.facts["asic_type"] != "vs":
-        logger.info("Collecting pcap from PTF for {}".format(activehost.facts["asic_type"]))
         tor_IO.examine_flow()
     return tor_IO
 
