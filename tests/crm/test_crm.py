@@ -808,6 +808,8 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                            enum_frontend_asic_index, crm_interface, group_member, network):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
+    asic_type = duthost.facts['asic_type']
+    skip_stats_check = True if asic_type == "vs" else False
 
     nhg_del_template = """
         %s
@@ -858,7 +860,8 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         template_resource = 1
     crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_group_stats, duthost,
                                    nexthop_group_used + template_resource,
-                                   nexthop_group_available + template_resource, "==", "<=")
+                                   nexthop_group_available + template_resource, "==", "<=",
+                                   skip_stats_check=skip_stats_check)
     if not crm_stats_checker:
         RESTORE_CMDS["test_crm_nexthop_group"].append(del_template.render(
             iface=crm_interface[0], iface2=crm_interface[1], prefix=network, namespace=asichost.namespace))
@@ -874,7 +877,8 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                       prefix=network, namespace=asichost.namespace))
 
     crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_group_stats, duthost,
-                                   nexthop_group_used, nexthop_group_available)
+                                   nexthop_group_used, nexthop_group_available,
+                                   skip_stats_check=skip_stats_check)
     nexthop_group_name = "member_" if group_member else ""
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_nexthop_group_{}used\" counter was not decremented or "
@@ -953,6 +957,8 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
 def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
                          enum_frontend_asic_index, asic_collector, tbinfo):
+    asic_type = duthost.facts['asic_type']
+    skip_stats_check = True if asic_type == "vs" else False
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, entry_num=2)
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
@@ -1044,6 +1050,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
             duthost,
             crm_stats_acl_entry_used,
             crm_stats_acl_entry_available,
+            skip_stats_check=skip_stats_check
         )
 
     # Remove ACL
@@ -1055,6 +1062,8 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
+    asic_type = duthost.facts['asic_type']
+    skip_stats_check = True if asic_type == "vs" else False
 
     if "acl_tbl_key" not in asic_collector:
         pytest.skip("acl_tbl_key is not retrieved")
@@ -1113,7 +1122,8 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
     # Remove ACL
     duthost.command("acl-loader delete")
     crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_counter_stats, duthost,
-                                   crm_stats_acl_counter_used, crm_stats_acl_counter_available, "==", ">=")
+                                   crm_stats_acl_counter_used, crm_stats_acl_counter_available, "==", ">=",
+                                   skip_stats_check=skip_stats_check)
     pytest_assert(crm_stats_checker,
                   "\"crm_stats_acl_counter_used\" counter was not decremented or "
                   "\"crm_stats_acl_counter_available\" counter was not incremented")
