@@ -40,7 +40,7 @@ def get_macsec_sessions(dut, space_var):
             if "true" in line:
                 sess_list.append(temp_sess)
         count = count + 1
-    logger.info("macsec sessions: " + str(sess_list))
+    logger.debug("macsec sessions: " + str(sess_list))
     return sess_list.sort()
 
 
