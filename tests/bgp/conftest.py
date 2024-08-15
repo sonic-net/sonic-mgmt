@@ -708,8 +708,9 @@ def set_timeout_for_bgpmon(duthost):
         MAX_TIME_FOR_BGPMON = plt_reboot_ctrl.get('timeout', 180)
 
 
-@pytest.fixture(scope='session')
-def gather_info(tbinfo, duthost, nbrhosts):
+@pytest.fixture(scope='module')
+def gather_info(tbinfo, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts, duthosts):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_index = random.choice(duthost.get_frontend_asic_ids())
     logger.debug(f"ASIC index: {asic_index}")
     if duthost.is_multi_asic:
