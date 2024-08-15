@@ -543,13 +543,15 @@
       - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
         become: true
         shell: config load_minigraph --override_config -y
-        register: load_minigraph_rc
-        failed_when: load_minigraph_rc.rc != 0 and load_minigraph_rc.rc != 2
+        register: load_minigraph_result
+        failed_when:
+          - load_minigraph_result.rc != 0
+          - "'no such option: --override_config' not in load_minigraph_result.stderr"
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
-        when: load_minigraph_rc.rc == 2
+        when: "'no such option: --override_config' in load_minigraph_result.stderr"
 
       - name: Wait for switch to become reachable again
         become: false
