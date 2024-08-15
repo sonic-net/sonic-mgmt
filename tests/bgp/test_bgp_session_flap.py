@@ -10,7 +10,6 @@ import logging
 import pytest
 import time
 from tests.common.utilities import InterruptableThread
-from tests.common.devices.eos import EosHost
 import textfsm
 import traceback
 from tests.common.devices.sonic import SonicHost
@@ -93,7 +92,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         'namespace': namespace
     }
 
-    logger.info("DUT BGP Config: {}".format(duthost.shell("vtysh -n {} -c \"show run bgp\"".format(namespace),
+    logger.info("DUT BGP Config: {}".format(duthost.shell("vtysh -n {} -c \"show run bgp\"".format(asic_index),
                                                           module_ignore_errors=True)))
     # If host it sonic use 'show runningconfig bgp'
     if isinstance(nbrhosts[tor1]["host"], SonicHost):
