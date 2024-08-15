@@ -20,6 +20,7 @@ t0:
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - bgp/test_bgp_session.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - console/test_console_availability.py
@@ -230,7 +231,6 @@ dualtor:
   - dualtor_io/test_link_drop.py
   - dualtor_io/test_normal_op.py
   - dualtor_io/test_tor_bgp_failure.py
-  - dualtor_io/test_tor_failure.py
   - dualtor_mgmt/test_grpc_periodical_sync.py
   - dualtor_mgmt/test_server_failure.py
   - dualtor_mgmt/test_toggle_mux.py
@@ -247,6 +247,7 @@ t1-lag:
   - bgp/test_bgp_multipath_relax.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - bgp/test_bgp_session.py
   - bgp/test_traffic_shift.py
   - configlet/test_add_rack.py
   - container_checker/test_container_checker.py
