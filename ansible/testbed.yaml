@@ -2105,6 +2105,21 @@
   auto_recover: 'True'
   comment: riffjiang
 
+- conf-name: p2p-7060x6-1
+  group-name:
+  topo: point-to-point-256
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str3-7060x6-64pe-3
+  inv_name: str3
+  auto_recover: 'True'
+  comment: patelmi
+
 - conf-name: tbtk5-ptf32-s6000-9
   group-name: tk5-3-0
   topo: ptf32
