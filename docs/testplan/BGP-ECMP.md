@@ -48,13 +48,13 @@ ECMP is enabled on the ToR switch.
 #### Test Steps:
 On Leaf Switch 1:
 
-a. Configure BGP to advertise a test route (e.g., 20.0.0.1/32) using the network command.
+a. Configure BGP to advertise a test route (e.g., 20.0.0.1/32) using HTTP POST method to PTF IP address, the POST data is: "announce route 20.0.0.1/32 next-hop a.b.c.d as-path [ 65000 ]"
 
 b. Verify the route is in the BGP table and marked for advertisement.
 
 On Leaf Switch 2:
 
-a. Configure BGP to advertise the same test route (20.0.0.1/32) using the network command.
+a. Configure BGP to advertise the same test route (20.0.0.1/32) using the same method as above.
 
 b. Verify the route is in the BGP table and marked for advertisement.
 
