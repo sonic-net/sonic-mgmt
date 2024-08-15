@@ -51,7 +51,7 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
 
 
-pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 @pytest.mark.disable_loganalyzer
 def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry,
                                gnxi_path):
