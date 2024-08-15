@@ -65,7 +65,8 @@ def update_forced_mgmt_route(duthost, interface_address, interface_key, routes):
         delete_tmpfile(duthost, tmpfile)
 
 
-def update_and_check_forced_mgmt_routes(duthost, forced_mgmt_routes, interface_address, interface_key, ip_type, test_route, expect_exist):
+def update_and_check_forced_mgmt_routes(duthost, forced_mgmt_routes, interface_address, interface_key,
+                                        ip_type, test_route, expect_exist):
     # Update forced mgmt routes with new route address
     wait_for_file_changed(
                         duthost,
