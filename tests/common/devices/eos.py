@@ -237,6 +237,13 @@ class EosHost(AnsibleHostBase):
         logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
         return out
 
+    def get_nbrhost_bgp_run_config(self):
+        """
+        @summary: Returns the current running bgp config of EOS neighbor host
+        """
+        out = self.eos_command(commands=["show run | section bgp"])['stdout']
+        return out
+
     def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
         """
         @summary: check if current bgp session equals to the target state
