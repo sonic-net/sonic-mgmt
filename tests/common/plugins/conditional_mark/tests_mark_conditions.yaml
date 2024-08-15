@@ -747,11 +747,32 @@ generic_config_updater/test_pg_headroom_update.py:
 #######################################
 #####           hash              #####
 #######################################
+hash/test_generic_hash.py::test_algorithm_config:
+  xfail:
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/14109
+
+hash/test_generic_hash.py::test_backend_error_messages:
+  xfail:
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/14109
+
 hash/test_generic_hash.py::test_ecmp_and_lag_hash:
   skip:
     reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
     conditions:
       - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_hash_capability:
+  xfail:
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
 hash/test_generic_hash.py::test_lag_member_flap:
   skip:
