@@ -337,7 +337,7 @@ sonic_arista_720dt:
       serial: WTW23380751
       base_mac: c0:69:11:c9:1e:0e
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2"
+        "0x21": "CCS-720DT-48S-2F"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380751"
         "0x24": "c0:69:11:c9:1e:0e"
@@ -359,7 +359,7 @@ sonic_arista_720dt:
       serial: WTW23380597
       base_mac: c0:69:11:c8:fd:92
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2"
+        "0x21": "CCS-720DT-48S-2F"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380597"
         "0x24": "c0:69:11:c8:fd:92"
@@ -381,7 +381,7 @@ sonic_arista_720dt:
       serial: WTW23380772
       base_mac: c0:69:11:c9:22:7c
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2"
+        "0x21": "CCS-720DT-48S-2F"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380772"
         "0x24": "c0:69:11:c9:22:7c"
@@ -403,7 +403,7 @@ sonic_arista_720dt:
       serial: WTW23380687
       base_mac: c0:69:11:c9:10:8e
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2"
+        "0x21": "CCS-720DT-48S-2F"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380687"
         "0x24": "c0:69:11:c9:10:8e"
@@ -425,7 +425,7 @@ sonic_arista_720dt:
       serial: WTW23380766
       base_mac: c0:69:11:c9:21:38
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2"
+        "0x21": "CCS-720DT-48S-2F"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380766"
         "0x24": "c0:69:11:c9:21:38"
@@ -447,7 +447,7 @@ sonic_arista_720dt:
       serial: WTW23380775
       base_mac: c0:69:11:c9:23:1e
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2"
+        "0x21": "CCS-720DT-48S-2F"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380775"
         "0x24": "c0:69:11:c9:23:1e"
@@ -469,7 +469,7 @@ sonic_arista_720dt:
       serial: WTW23380571
       base_mac: c0:69:11:c8:f8:16
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2"
+        "0x21": "CCS-720DT-48S-2F"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380571"
         "0x24": "c0:69:11:c8:f8:16"
@@ -491,7 +491,7 @@ sonic_arista_720dt:
       serial: WTW23380749
       base_mac: c0:69:11:c9:1d:a2
       syseeprom_info:
-        "0x21": "CCS-720DT-48S-2"
+        "0x21": "CCS-720DT-48S-2F"
         "0x22": "ASY0624304A0"
         "0x23": "WTW23380749"
         "0x24": "c0:69:11:c9:1d:a2"
