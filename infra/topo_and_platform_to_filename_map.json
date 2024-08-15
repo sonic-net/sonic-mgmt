@@ -27,6 +27,12 @@
             "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4D_ixia_mathilda.yaml"
         }
     },
+    "t0-t1-5d-ixia_evpn_mh": {
+        "churchill-mono": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_cmono.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_EVPN_MH.yaml"
+        },
+    },
     "4d-ixia-HW": {
         "churchill-mono": {
             "topo_file": "../spytest_tb_files/tortuga_cicd_2S2L_ixia.yaml"

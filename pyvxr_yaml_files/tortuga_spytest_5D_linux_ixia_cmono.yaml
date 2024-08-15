@@ -32,7 +32,6 @@ devices:
         sudo systemctl disable lira
         sudo systemctl disable azimuth
 
-
   SD2:
       <<: *sonic_router
 
@@ -82,5 +81,11 @@ connections:
       - SD3.Ethernet[8..11]
       - ixia.data[0..3]
     hub5:
-      - SD4.Ethernet[8..11]
-      - ixia.data[4..7]
+      - SD4.Ethernet[8..9]
+      - ixia.data[4..5]
+    hub6:
+      - SD1.Ethernet[8..11]
+      - SD2.Ethernet[8..11]
+    hub7:
+      - SD2.Ethernet[12..13]
+      - ixia.data[6..7]
