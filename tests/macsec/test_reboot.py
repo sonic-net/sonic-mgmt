@@ -71,13 +71,13 @@ def test_lc_reboot(duthosts, localhost, enum_frontend_dut_hostname):
 
     macsec_status = duthost.shell("show macsec{} {}".format(space_var, dut_to_neigh_int))['stdout'].splitlines()
     logger.debug(f"macsec status {macsec_status}")
-    assert macsec_status
-    assert dut_to_neigh_int in macsec_status[0]
-    assert "true" in macsec_status[3]
+    pytest_assert(macsec_status)
+    pytest_assert(dut_to_neigh_int in macsec_status[0])
+    pytest_assert("true" in macsec_status[3])
 
     # Ensure all sessions came back after reboot
     post_list = get_macsec_sessions(duthost, space_var)
-    assert pre_list == post_list
+    pytest_assert(pre_list == post_list)
 
 
 @pytest.mark.reboot
@@ -109,4 +109,4 @@ def test_chassis_reboot(duthosts, localhost, enum_supervisor_dut_hostname, dutho
 
     # Ensure all sessions came back after reboot
     post_list = get_macsec_sessions(duthost, space_var)
-    assert pre_list == post_list
+    pytest_assert(pre_list == post_list)
