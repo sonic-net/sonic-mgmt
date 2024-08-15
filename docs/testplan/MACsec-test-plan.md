@@ -505,3 +505,10 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 #### Macsec enabled on all interfaces and the DUT is rebooted
 
 - Check the macsec docker comes up and macsec sessions are established.
+
+#### Verify mismatched primary Macsec key reboot behavior
+
+- Configure Macsec between neighbor and DUT with a mismatched CAK
+- Save config on DUT and reboot
+- Verify macsec connection is not re-established after reboot
+- Remove mismatched CAK
