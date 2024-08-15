@@ -34,6 +34,56 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
+def update_forced_mgmt_route(duthost, routes):
+    # Escape '/' in interface key
+    json_patch = [
+        {
+            "path": create_path(["MGMT_INTERFACE",
+                                 "eth0|{}".format(interface_address.replace("/", "~1"),
+                                 "forced_mgmt_routes"])
+        }
+    ]
+
+    if len(routes) == 0:
+        json_patch[0]["op"] = "remove"
+    else:
+        json_patch[0]["value"] = routes
+        # Replace if forced_mgmt_routes already exist
+        current_config = duthost.command("sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@"
+                                         .format(interface_key))['stdout']
+        if current_config != "":
+            json_patch[0]["op"] = "replace"
+        else:
+            json_patch[0]["op"] = "add"
+
+    tmpfile = generate_tmpfile(duthost)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        logging.debug("json_patch: {}".format(json_patch))
+        logging.debug("apply_patch result: {}".format(output))
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def update_and_check_forced_mgmt_routes(duthost, forced_mgmt_routes, ip_type, test_route, expect_exist):
+        # Update forced mgmt routes with new route address
+        wait_for_file_changed(
+                            duthost,
+                            "/etc/network/interfaces",
+                            update_forced_mgmt_route,
+                            duthost,
+                            forced_mgmt_routes)
+
+        # Check /etc/network/interfaces generate correct
+        interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
+        logging.debug("interfaces: {}".format(interfaces))
+
+        pytest_assert("up ip {} rule add pref {} to {} table default"
+                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces == expect_exist)
+        pytest_assert("pre-down ip {} rule delete pref {} to {} table default"
+                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces == expect_exist)
+
+
 def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):
     # Get interface and check config generate correct
     mgmt_interface_keys = duthost.command("sonic-db-cli  CONFIG_DB keys 'MGMT_INTERFACE|eth0|*'")['stdout']
@@ -63,64 +113,8 @@ def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):
         logging.debug("interface address: {}, original_forced_mgmt_routes: {}, updated_forced_mgmt_routes: {}"
                       .format(interface_address, original_forced_mgmt_routes, updated_forced_mgmt_routes))
 
-        def update_forced_mgmt_route(duthost, routes):
-            # Escape '/' in interface key
-            json_patch = [
-                {
-                    "path": "/MGMT_INTERFACE/eth0|{}/forced_mgmt_routes".format(interface_address.replace("/", "~1"))
-                }
-            ]
-
-            if len(routes) == 0:
-                json_patch[0]["op"] = "remove"
-            else:
-                json_patch[0]["value"] = routes
-                # Replace if forced_mgmt_routes already exist
-                current_config = duthost.command("sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@"
-                                                 .format(interface_key))['stdout']
-                if current_config != "":
-                    json_patch[0]["op"] = "replace"
-                else:
-                    json_patch[0]["op"] = "add"
-
-            tmpfile = generate_tmpfile(duthost)
-            try:
-                output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-                logging.debug("json_patch: {}".format(json_patch))
-                logging.debug("apply_patch result: {}".format(output))
-            finally:
-                delete_tmpfile(duthost, tmpfile)
-
         # Update forced mgmt routes with new route address
-        wait_for_file_changed(
-                            duthost,
-                            "/etc/network/interfaces",
-                            update_forced_mgmt_route,
-                            duthost,
-                            updated_forced_mgmt_routes)
-
-        # Check /etc/network/interfaces generate correct
-        interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
-        logging.debug("interfaces: {}".format(interfaces))
-
-        pytest_assert("up ip {} rule add pref {} to {} table default"
-                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces)
-        pytest_assert("pre-down ip {} rule delete pref {} to {} table default"
-                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces)
+        update_and_check_forced_mgmt_routes(duthost, updated_forced_mgmt_routes, ip_type, test_route, true)
 
         # Revert change and check again
-        wait_for_file_changed(
-                            duthost,
-                            "/etc/network/interfaces",
-                            update_forced_mgmt_route,
-                            duthost,
-                            original_forced_mgmt_routes)
-
-        # Check /etc/network/interfaces generate correct
-        interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
-        logging.debug("interfaces: {}".format(interfaces))
-
-        pytest_assert("up ip {} rule add pref {} to {} table default"
-                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) not in interfaces)
-        pytest_assert("pre-down ip {} rule delete pref {} to {} table default"
-                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) not in interfaces)
+        update_and_check_forced_mgmt_routes(duthost, original_forced_mgmt_routes, ip_type, test_route, false)
