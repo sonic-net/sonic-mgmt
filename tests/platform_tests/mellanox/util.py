@@ -1,6 +1,7 @@
 import re
 import logging
 import ast
+from tests.common.platform.transceiver_utils import get_map_port_to_start_and_end_line_number_for_sfp_eeporm
 
 pattern_top_layer_key_value = r"^(?P<key>Ethernet\d+):(?P<value>.*)"
 pattern_second_layer_key_value = r"(^\s{8}|\t{1})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s\/\(\)-]+):(?P<value>.*)"
@@ -9,7 +10,7 @@ pattern_third_layer_key_value = r"(^\s{16}|\t{2})(?P<key>[a-zA-Z0-9][a-zA-Z0-9\s
 pattern_digit_unit = r"^(?P<digit>-[0-9\.]+|[0-9.]+)(?P<unit>dBm|mA|C|c|Volts)"
 
 
-def parse_one_sfp_eeprom_info(sfp_eeprom_info):
+def parse_one_sfp_eeprom_info(sfp_eeprom_info, start, end):
     """
     Parse the one sfp eeprom info, return top_key, sfp_eeprom_info_dict
     e.g
@@ -148,7 +149,7 @@ def parse_one_sfp_eeprom_info(sfp_eeprom_info):
     second_layer_dict = {}
     previous_key = ""
     top_key = ""
-    for line in sfp_eeprom_info.split("\n"):
+    for line in sfp_eeprom_info[start:end+1]:
         res1 = re.match(pattern_top_layer_key_value, line)
         if res1:
             top_key = res1.groupdict()["key"].strip()
@@ -178,14 +179,16 @@ def parse_sfp_eeprom_infos(eeprom_infos):
     """
     This method is to pares sfp eeprom infos, and return sfp_eeprom_info_dict
     """
+    map_port_to_start_and_end_line_nubmer, sfp_eeprom_list = get_map_port_to_start_and_end_line_number_for_sfp_eeporm(
+        eeprom_infos)
     sfp_eeprom_info_dict = {}
-    for sfp_info in eeprom_infos.split("\n\n"):
-        intf, eeprom_info = parse_one_sfp_eeprom_info(sfp_info)
-        sfp_eeprom_info_dict[intf] = eeprom_info
+    for port_name, line_number_section in map_port_to_start_and_end_line_nubmer.items():
+        _, eeprom_info = parse_one_sfp_eeprom_info(sfp_eeprom_list, line_number_section[0], line_number_section[1])
+        sfp_eeprom_info_dict[port_name] = eeprom_info
     return sfp_eeprom_info_dict
 
 
-def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_cmd):
+def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_cmd, is_flat_memory):
     """
     This method is check sfp info is correct or not.
     1. Check if all expected keys exist in the sfp_eeprom_info
@@ -220,6 +223,12 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
                                          "ModuleThresholdValues"}
         expected_keys = (expected_keys | {
                          "MonitorData", "ThresholdData"}) - excluded_keys
+
+    if is_flat_memory and show_eeprom_cmd == "sudo sfputil show eeprom -d":
+        logging.info("SKip dom parameters check due to port with flat memory")
+        excluded_keys = excluded_keys | {"ChannelMonitorValues", "ChannelThresholdValues", "ModuleMonitorValues",
+                                         "ModuleThresholdValues"}
+        expected_keys = expected_keys - excluded_keys
 
     for key in expected_keys:
         assert key in sfp_eeprom_info, "key {} doesn't exist in {}".format(

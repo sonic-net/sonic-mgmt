@@ -95,7 +95,7 @@ def check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list):
                     "Expected field %s is not found in %s while checking %s" % (field, port_xcvr_info["stdout"], intf)
 
 
-def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list):
+def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory):
     """
     @summary: Check whether all the specified interface are in TRANSCEIVER_DOM_SENSOR redis DB.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
@@ -108,11 +108,11 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_li
     xcvr_dom_sensor = dut.command(docker_cmd)
     parsed_xcvr_dom_sensor = parse_transceiver_dom_sensor(xcvr_dom_sensor["stdout_lines"])
     for intf in interfaces:
-        if intf not in xcvr_skip_list[dut.hostname]:
+        if intf not in xcvr_skip_list[dut.hostname] + port_list_with_flat_memory[dut.hostname]:
             assert intf in parsed_xcvr_dom_sensor, "TRANSCEIVER_DOM_SENSOR of %s is not found in DB" % intf
 
 
-def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list):
+def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory):
     """
     @summary: Check the detailed TRANSCEIVER_DOM_SENSOR content of all the specified interfaces.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
@@ -123,7 +123,7 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_
     expected_fields = ["temperature", "voltage", "rx1power", "rx2power", "rx3power", "rx4power", "tx1bias",
                        "tx2bias", "tx3bias", "tx4bias", "tx1power", "tx2power", "tx3power", "tx4power"]
     for intf in interfaces:
-        if intf not in xcvr_skip_list[dut.hostname]:
+        if intf not in xcvr_skip_list[dut.hostname] + port_list_with_flat_memory[dut.hostname]:
             cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_DOM_SENSOR|%s"' % intf
             docker_cmd = asichost.get_docker_cmd(cmd, "database")
             port_xcvr_dom_sensor = dut.command(docker_cmd)
@@ -133,7 +133,7 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_
                     field, port_xcvr_dom_sensor["stdout"], intf)
 
 
-def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list):
+def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory):
     """
     @summary: Check transceiver information of all the specified interfaces in redis DB.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
@@ -141,5 +141,45 @@ def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list):
     """
     check_transceiver_basic(dut, asic_index, interfaces, xcvr_skip_list)
     check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list)
-    check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list)
-    check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list)
+    check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory)
+    check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory)
+
+
+def get_map_port_to_start_and_end_line_number_for_sfp_eeporm(eeprom_infos):
+    sfp_eeprom_list = eeprom_infos.split("\n")
+    regex_port_name = r"^(?P<key>Ethernet\d+):(?P<value>.*)"
+    line_start_num_list_per_port = []
+    for index, line in enumerate(sfp_eeprom_list):
+        res_port_name = re.search(regex_port_name, line)
+        if res_port_name:
+            port_name = res_port_name.groupdict()["key"].strip()
+            line_start_num_list_per_port.append([port_name, index])
+    logging.info(f"line_start_num_list_per_port :{line_start_num_list_per_port}")
+
+    map_port_to_start_and_end_line_number = {}
+    for index in range(len(line_start_num_list_per_port)):
+        if index == len(line_start_num_list_per_port) - 1:
+            line_start_num_for_current_port = line_start_num_list_per_port[index][1]
+            line_end_num_for_current_port = len(sfp_eeprom_list) - 1
+        else:
+            line_start_num_for_current_port = line_start_num_list_per_port[index][1]
+            line_end_num_for_current_port = line_start_num_list_per_port[index + 1][1] - 1
+        map_port_to_start_and_end_line_number.update(
+            {line_start_num_list_per_port[index][0]: [line_start_num_for_current_port, line_end_num_for_current_port]})
+    logging.info(f"line_start_num and line_end_number per port :{map_port_to_start_and_end_line_number}")
+
+    return map_port_to_start_and_end_line_number, sfp_eeprom_list
+
+
+def get_ports_with_flat_memory(dut):
+    ports_with_flat_memory = []
+    cmd_show_eeprom = "sudo sfputil show eeprom -d"
+    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
+    map_port_to_start_and_end_line_number, sfp_eeprom_list = get_map_port_to_start_and_end_line_number_for_sfp_eeporm(
+        eeprom_infos)
+    for port_name, line_number_section in map_port_to_start_and_end_line_number.items():
+        if "DOM values not supported for flat memory module" in " ".join(
+                sfp_eeprom_list[line_number_section[0]: line_number_section[1]+1]):
+            ports_with_flat_memory.append(port_name)
+    logging.info(f"Ports with flat memory: {ports_with_flat_memory}")
+    return ports_with_flat_memory

@@ -15,6 +15,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from .mellanox.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
+from tests.common.platform.transceiver_utils import get_ports_with_flat_memory
 
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(
@@ -787,3 +788,12 @@ def dpu_npu_port_list(duthosts):
                     dpu_npu_port_list[dut.hostname].append(port_key.split("|")[-1])
     logging.info(f"dpu npu port list: {dpu_npu_port_list}")
     return dpu_npu_port_list
+
+
+@pytest.fixture(scope="module")
+def port_list_with_flat_memory(duthosts):
+    ports_with_flat_memory = {}
+    for dut in duthosts:
+        ports_with_flat_memory.update({dut.hostname: get_ports_with_flat_memory(dut)})
+    logging.info(f"port list with flat memory: {ports_with_flat_memory}")
+    return ports_with_flat_memory
