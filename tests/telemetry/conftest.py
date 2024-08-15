@@ -175,6 +175,9 @@ def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, set
     if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
         pytest.skip("eventd is disabled on the system")
 
+    if duthost.is_multi_asic:
+        pytest.skip("multi_asic devices are not supported")
+
     do_init(duthost)
 
     module = __import__("eventd_events")

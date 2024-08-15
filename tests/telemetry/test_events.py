@@ -3,11 +3,8 @@ import pytest
 import os
 import sys
 
-from tests.common.utilities import InterruptableThread
-from telemetry_utils import listen_for_events
 from telemetry_utils import skip_201911_and_older
-from events.event_utils import create_ip_file
-from events.event_utils import event_publish_tool, verify_received_output
+from events.event_utils import event_publish_tool
 from events.event_utils import reset_event_counters, read_event_counters
 from events.event_utils import verify_counter_increase, restart_eventd
 
