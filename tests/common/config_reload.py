@@ -105,6 +105,12 @@ def config_reload_minigraph_with_rendered_golden_config_override(
                   override_config=True, golden_config_path=golden_config_path, is_dut=is_dut)
 
 
+def pfcwd_feature_enabled():
+    localhost_config = duthost.shell('sonic-db-dump -n CONFIG_DB -y -k \"DEVICE_METADATA|localhost\"')
+    meta_data = json.loads(localhost_config["stdout"])
+    pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
+    return pfc_status == 'enable'
+
 @ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
@@ -195,7 +201,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
                       "All critical services should be fully started!")
         wait_critical_processes(sonic_host)
-        if config_source == 'minigraph':
+        # PFCWD feature does not enable on some topology, for example M0
+        if config_source == 'minigraph' && pfcwd_feature_enabled():
             pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, sonic_host),
                           "PFC_WD is missing in CONFIG-DB")
 
