@@ -447,6 +447,14 @@ class SonicHost(AnsibleHostBase):
         """
         return self.shell(r'docker ps --format \{\{.Names\}\}')['stdout_lines']
 
+    def get_all_containers(self):
+        """
+        Get all containers names
+        :param duthost:  DUT host object
+        :return: Running container name list
+        """
+        return self.shell(r'docker ps -a --format \{\{.Names\}\}')['stdout_lines']
+
     def is_container_running(self, service):
         """
         Checks where a container exits.
