@@ -355,12 +355,18 @@ def swap_syncd(request, rand_selected_dut, creds):
         else:
             new_creds = creds
         # Swap syncd container
-        docker.swap_syncd(rand_selected_dut, new_creds)
+        if rand_selected_dut.facts["asic_type"] == 'cisco-8000':
+            docker.cisco_swap_syncd(rand_selected_dut)
+        else:
+            docker.swap_syncd(rand_selected_dut, new_creds)
         _create_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
     yield
     if request.config.getoption("--qos_swap_syncd"):
         # Restore syncd container
-        docker.restore_default_syncd(rand_selected_dut, new_creds)
+        if rand_selected_dut.facts["asic_type"] == 'cisco-8000':
+            docker.cisco_swap_syncd(rand_selected_dut, restore = True)
+        else:
+            docker.restore_default_syncd(rand_selected_dut, new_creds)
         _remove_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
 
 
