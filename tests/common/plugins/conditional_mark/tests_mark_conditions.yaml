@@ -464,6 +464,10 @@ dualtor_io/test_link_failure.py::test_active_link_down_downstream_active:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8272
       - "asic_type in ['mellanox']"
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active_soc:
   xfail:
@@ -471,6 +475,10 @@ dualtor_io/test_link_failure.py::test_active_link_down_downstream_active_soc:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8272
       - "asic_type in ['mellanox']"
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_standby:
   xfail:
@@ -478,6 +486,40 @@ dualtor_io/test_link_failure.py::test_active_link_down_downstream_standby:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8272
       - "asic_type in ['mellanox']"
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py::test_active_link_down_upstream:
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py::test_active_link_down_upstream_soc:
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py::test_standby_link_down_downstream_active:
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py::test_standby_link_down_downstream_standby:
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py::test_standby_link_down_upstream:
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
 
 dualtor_io/test_normal_op.py::test_upper_tor_config_reload_upstream[active-active]:
   xfail:
