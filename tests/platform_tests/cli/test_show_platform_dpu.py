@@ -12,7 +12,7 @@ from . import util
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.device_utils_dpu import *
 from tests.common.helpers.platform_api import chassis, module
-from tests.platform_tests.api.conftest import *
+from tests.platform_tests.api.conftest import platform_api_conn
 from tests.common.devices.sonic import *
 
 pytestmark = [

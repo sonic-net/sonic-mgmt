@@ -14,7 +14,7 @@ from tests.common.reboot import reboot,wait_for_startup,REBOOT_TYPE_COLD
 from tests.common.config_reload import config_force_option_supported, config_system_checks_passed
 from tests.common.platform.device_utils_dpu import *
 from tests.common.helpers.platform_api import chassis, module
-from tests.platform_tests.api.conftest import *
+from tests.platform_tests.api.conftest import platform_api_conn
 
 pytestmark = [
     pytest.mark.topology('t1')

@@ -6,8 +6,8 @@ import time
 import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.platform_api import chassis, module
-from tests.platform_tests.api.conftest import *
-from tests.common.devices.sonic import *
+from tests.platform_tests.api.conftest import platform_api_conn
+from tests.common.devices.sonic import * #noqa
 from tests.common.helpers.assertions import pytest_assert
 
 @pytest.fixture(scope='function', autouse=True)
