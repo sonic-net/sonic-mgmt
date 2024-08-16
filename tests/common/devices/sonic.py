@@ -1158,6 +1158,22 @@ class SonicHost(AnsibleHostBase):
             intf_str = ','.join(ifnames)
             return self.no_shutdown(intf_str)
 
+    def is_lldp_disabled(self):
+        """
+        Checks LLDP feature status
+        Returns True if disabled
+        Returns False if enabled
+        """
+        # get lldp status without table header
+        lldp_status_output = self.command('show feature status lldp | tail -n +3')["stdout_lines"][0]
+        if lldp_status_output is not None:
+            fields = lldp_status_output.split()
+            # State is the second field
+            state = fields[1]
+            if state == "enabled":
+                return False
+            return True
+
     def get_ip_route_info(self, dstip, ns=""):
         """
         @summary: return route information for a destionation. The destination could an ip address or ip prefix.
