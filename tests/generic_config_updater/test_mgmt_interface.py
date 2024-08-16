@@ -39,7 +39,7 @@ def update_forced_mgmt_route(duthost, interface_address, interface_key, routes):
     json_patch = [
         {
             "path": create_path(["MGMT_INTERFACE",
-                                 "eth0|{}".format(interface_address.replace("/", "~1")),
+                                 "eth0|{}".format(interface_address),
                                  "forced_mgmt_routes"])
         }
     ]
