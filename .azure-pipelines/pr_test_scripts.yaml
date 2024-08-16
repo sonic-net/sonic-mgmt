@@ -206,6 +206,10 @@ t0:
   - platform_tests/cli/test_show_platform.py
   - snmp/test_snmp_queue_counters.py
   - platform_tests/test_reload_config.py
+  - generic_config_updater/test_dynamic_acl.py
+  - sub_port_interfaces/test_sub_port_interfaces.py
+  - hash/test_generic_hash.py
+  - span/test_port_mirroring.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -224,6 +228,7 @@ t0-sonic:
   - platform_tests/test_advanced_reboot.py::test_warm_reboot
 
 dualtor:
+  - arp/test_arp_dualtor.py
   - arp/test_arp_extended.py
   - dualtor/test_ipinip.py
   - dualtor/test_switchover_failure.py
@@ -233,6 +238,7 @@ dualtor:
   - dualtor_io/test_link_drop.py
   - dualtor_io/test_tor_bgp_failure.py
   - dualtor_mgmt/test_grpc_periodical_sync.py
+  - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_server_failure.py
   - dualtor_mgmt/test_toggle_mux.py
 
@@ -388,6 +394,8 @@ t1-lag:
   - test_features.py
   - test_procdockerstatsd.py
   - platform_tests/test_reload_config.py
+  - hash/test_generic_hash.py
+  - sub_port_interfaces/test_sub_port_interfaces.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -440,47 +448,35 @@ onboarding_t0:
   - copp/test_copp.py
   - crm/test_crm.py
   # We will add a batch of T0 control plane cases and fix the failed cases later
-  - generic_config_updater/test_dynamic_acl.py
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
-  - platform_tests/test_reload_config.py
   - route/test_route_bgp_ecmp.py
   - snmp/test_snmp_link_local.py
-  - sub_port_interfaces/test_sub_port_interfaces.py
-  - hash/test_generic_hash.py
-  - span/test_port_mirroring.py
   - drop_packets/test_drop_counters.py
 
 onboarding_t1:
   - copp/test_copp.py
   - crm/test_crm.py
   - generic_config_updater/test_cacl.py
-  - hash/test_generic_hash.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
   - vxlan/test_vxlan_bfd_tsa.py
   - vxlan/test_vxlan_ecmp_switchover.py
   - stress/test_stress_routes.py
   - drop_packets/test_drop_counters.py
-  - sub_port_interfaces/test_sub_port_interfaces.py
   - bgp/test_bgp_sentinel.py
   - bgp/test_bgp_suppress_fib.py
-  - hash/test_generic_hash.py
   - show_techsupport/test_auto_techsupport.py
   - snmp/test_snmp_link_local.py
-  - sub_port_interfaces/test_sub_port_interfaces.py
   - telemetry/test_events.py
 
-
 onboarding_dualtor:
-  - arp/test_arp_dualtor.py
   - dualtor/test_orchagent_slb.py
   - dualtor_io/test_link_failure.py
-  - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
 
 specific_param:
