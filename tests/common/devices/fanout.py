@@ -43,6 +43,8 @@ class FanoutHost(object):
             self.os = 'eos'
             self.host = EosHost(ansible_adhoc, hostname, user, passwd,
                                 shell_user=eos_shell_user, shell_passwd=eos_shell_passwd)
+            # Check eos fanout reachability by running show command
+            self.host.get_version()
 
     def __getattr__(self, module_name):
         return getattr(self.host, module_name)
@@ -208,3 +210,11 @@ class FanoutHost(object):
 
     def set_port_fec(self, interface_name, mode):
         self.host.set_port_fec(interface_name, mode)
+
+    def is_lldp_disabled(self):
+        """Check global LLDP status on the device
+        Returns:
+            True: if LLDP is disabled
+            False: if LLDP is enabled
+        """
+        return self.host.is_lldp_disabled()

@@ -16,6 +16,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
+from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 
@@ -450,7 +451,12 @@ def stop_critical_processes(duthost, containers_in_namespaces):
             container_name_in_namespace = container_name
             if namespace_id != DEFAULT_ASIC_ID:
                 container_name_in_namespace += namespace_id
-
+            if 'lldp' in container_name:
+                # Killing lldpd may impact lldp-syncd process, the next around check for lldp-syncd will probably fail
+                # move lldpd to the end of the list to avoid this issue
+                critical_process_list.append(critical_process_list.pop(critical_process_list.index('lldpd')))
+                logger.info("Critical process list for {} after moving lldpd to the end: {}".format(
+                    container_name_in_namespace, critical_process_list))
             for critical_process in critical_process_list:
                 # Skip 'dsserve' process since it was not managed by supervisord
                 # TODO: Should remove the following two lines once the issue was solved in the image.
@@ -480,6 +486,10 @@ def ensure_process_is_running(duthost, container_name, critical_process):
     Returns:
         None.
     """
+    if critical_process in ["dhcp6relay", "dhcprelayd"]:
+        # For dhcp-relay container, the process name in supervisord started 'dhcp-relay: + the process name'
+        critical_process = "dhcp-relay" + ":" + critical_process
+
     logger.info("Checking whether process '{}' in container '{}' is running..."
                 .format(critical_process, container_name))
     program_status, program_pid = get_program_info(duthost, container_name, critical_process)
@@ -609,3 +619,41 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the process monitoring!")
     logger.info("Post-checking status of critical processes and BGP sessions was done!")
+
+
+def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+    """Tests orchagent heartbeat after warm-restart
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # t1 lag does not have swss container
+    swss_running = is_container_running(duthost, 'swss')
+    if not swss_running:
+        logger.info("swss container not running.")
+        return
+
+    # initialize LogAnalyzer for check stuck warning message
+    marker_prefix = "test_orchagent_heartbeat_checker"
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
+    loganalyzer.expect_regex = ["Process \'orchagent\' is stuck in namespace"]
+    marker = loganalyzer.init()
+
+    # freeze orchagent for warm-reboot
+    command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
+    exit_code = command_output["rc"]
+    logger.warning("command_output: {}".format(command_output))
+    pytest_assert(exit_code == 0, "Failed to freeze orchagen for warm reboot")
+
+    # stuck alert will be trigger after 60s, wait 120s to make sure no any alert send
+    time.sleep(120)
+
+    analysis = loganalyzer.analyze(marker, fail=False)
+    logger.warning("latest_stuck: {}".format(analysis['total']['expected_match']))
+
+    # restart orchagent by reload config
+    logger.info("Executing the config reload...")
+    config_reload(duthost)
+    logger.info("Executing the config reload was done!")
+
+    # assert after config reload, make sure orchange recovered after test
+    pytest_assert(not analysis['total']['expected_match'], "Orchagent not stuck after frozen for warm-reboot.")

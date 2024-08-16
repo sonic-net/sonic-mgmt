@@ -12,8 +12,7 @@ from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.topology('any'),
-    pytest.mark.device_type('physical'),
+    pytest.mark.topology('any')
 ]
 
 
@@ -39,7 +38,7 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0', 'x86_64-arista_7050_qx32s',
                                      'x86_64-cel_e1031-r0', 'x86_64-arista_7800r3a_36dm2_lc') or is_asan:
         memory_threshold = 90
-    if duthost.facts['platform'] in ('x86_64-mlnx_msn4600c-r0'):
+    if duthost.facts['platform'] in ('x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn3800-r0'):
         memory_threshold = 65
     if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64'):
         high_cpu_consume_procs['syncd'] = 80

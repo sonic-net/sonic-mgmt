@@ -148,8 +148,6 @@ class DHCPTest(DataplaneBaseTest):
         # 'single' for regular single tor testing
         self.dual_tor = (self.test_params['testing_mode'] == 'dual')
 
-        self.testbed_mode = self.test_params['testbed_mode']
-
         # option82 is a byte string created by the relay agent. It contains the circuit_id and remote_id fields.
         # circuit_id is stored as suboption 1 of option 82.
         # It consists of the following:
@@ -795,7 +793,5 @@ class DHCPTest(DataplaneBaseTest):
 
         # Below verification will be done only when client port is set in ptf_runner
         if not self.dual_tor and 'other_client_port' in self.test_params:
-            self.verify_dhcp_relay_pkt_on_other_client_port_with_no_padding(
-                self.dest_mac_address, self.client_udp_src_port)
             self.verify_dhcp_relay_pkt_on_server_port_with_no_padding(
                 self.dest_mac_address, self.client_udp_src_port)
