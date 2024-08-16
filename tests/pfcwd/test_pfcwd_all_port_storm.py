@@ -88,7 +88,8 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 @pytest.fixture(scope='class', autouse=True)
 def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,     # noqa F811
-                             enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+                             enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+                             request):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
 
@@ -106,7 +107,7 @@ def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, 
     neighbors = setup_info['neighbors']
     port_list = setup_info['port_list']
     ports = (" ").join(port_list)
-    pfc_queue_index = 3
+    pfc_queue_index = request.param
     pfc_frames_number = 10000000
     pfc_wd_detect_time = 200
     pfc_wd_restore_time = 200
@@ -168,6 +169,7 @@ def set_storm_params(duthost, fanout_graph, fanouthosts, peer_params):
 
 
 @pytest.mark.usefixtures('degrade_pfcwd_detection', 'stop_pfcwd', 'storm_test_setup_restore', 'start_background_traffic') # noqa E501
+@pytest.mark.parametrize('storm_test_setup_restore', [[3, 4]], indirect=True)
 class TestPfcwdAllPortStorm(object):
     """ PFC storm test class """
     def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action):
