@@ -7,22 +7,23 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp_map                # noqa: F401
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test                      # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO
+from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_global_pause(snappi_api,                                   # noqa: F811
                       conn_graph_facts,                             # noqa: F811
-                      fanout_graph_facts_multidut,         # noqa: F811
-                      get_snappi_ports,    # noqa: F811
+                      fanout_graph_facts_multidut,                # noqa: F811
+                      get_snappi_ports,                           # noqa: F811
                       duthosts,
                       prio_dscp_map,                                # noqa: F811
                       lossless_prio_list,                           # noqa: F811
-                      tbinfo,       # noqa: F811
-                      ):
+                      tbinfo,                                      # noqa: F811
+                      multidut_port_info):
     """
     Test if IEEE 802.3X pause (a.k.a., global pause) will impact any priority
 
@@ -39,25 +40,30 @@ def test_global_pause(snappi_api,                                   # noqa: F811
     Returns:
         N/A
     """
-    MULTIDUT_TESTBED = tbinfo['conf-name']
-    tx_port_count = 1
-    rx_port_count = 1
-    snappi_port_list = get_snappi_ports
-    pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                  "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
+        tx_port_count = 1
+        rx_port_count = 1
+        snappi_port_list = get_snappi_ports
+        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
+                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
+        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                      "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
-    pytest_assert(len(MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]['Tx Ports']) >= tx_port_count,
-                  'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for testbed {}'.
-                  format(MULTIDUT_TESTBED))
-    pytest_assert(len(MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]['Rx Ports']) >= rx_port_count,
-                  'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for testbed {}'.
-                  format(MULTIDUT_TESTBED))
+        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
 
-    snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
-                                                                            snappi_ports,
-                                                                            snappi_api)
+        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
+        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
+        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
+                                                                                snappi_ports,
+                                                                                snappi_api)
     all_prio_list = prio_dscp_map.keys()
     test_prio_list = lossless_prio_list
     bg_prio_list = [x for x in all_prio_list if x not in test_prio_list]

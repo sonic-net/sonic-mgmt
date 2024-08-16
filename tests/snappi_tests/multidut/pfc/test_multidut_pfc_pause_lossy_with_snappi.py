@@ -7,7 +7,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports                                         # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list                         # noqa F401
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO
+from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
@@ -19,16 +19,18 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
                                      conn_graph_facts,          # noqa: F811
                                      fanout_graph_facts_multidut,        # noqa: F811
                                      duthosts,
-                                     enum_dut_lossy_prio,           # noqa: F811
+                                     enum_dut_lossy_prio,
                                      prio_dscp_map,                   # noqa: F811
                                      lossy_prio_list,              # noqa: F811
                                      all_prio_list,                   # noqa: F811
                                      get_snappi_ports,             # noqa: F811
-                                     tbinfo):        # noqa: F811
+                                     tbinfo,           # noqa: F811
+                                     multidut_port_info):        # noqa: F811
     """
     Test if PFC will impact a single lossy priority in multidut setup
 
@@ -47,24 +49,30 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     Returns:
         N/A
     """
-    MULTIDUT_TESTBED = tbinfo['conf-name']
-    tx_port_count = 1
-    rx_port_count = 1
-    snappi_port_list = get_snappi_ports
-    pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                  "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
+        tx_port_count = 1
+        rx_port_count = 1
+        snappi_port_list = get_snappi_ports
+        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
+                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
+        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                      "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
-    pytest_assert(len(MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]['Tx Ports']) >= tx_port_count,
-                  'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for testbed {}'.
-                  format(MULTIDUT_TESTBED))
-    pytest_assert(len(MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]['Rx Ports']) >= rx_port_count,
-                  'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for testbed {}'.
-                  format(MULTIDUT_TESTBED))
+        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
 
-    snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
-                                                                            snappi_ports,
-                                                                            snappi_api)
+        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
+        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
+        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
+                                                                                snappi_ports,
+                                                                                snappi_api)
 
     _, lossy_prio = enum_dut_lossy_prio.split('|')
     lossy_prio = int(lossy_prio)
@@ -91,6 +99,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     cleanup_config(duthosts, snappi_ports)
 
 
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
                                     conn_graph_facts,       # noqa: F811
                                     fanout_graph_facts,     # noqa: F811
@@ -99,7 +108,8 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
                                     lossy_prio_list,              # noqa: F811
                                     lossless_prio_list,              # noqa: F811
                                     get_snappi_ports,         # noqa: F811
-                                    tbinfo):                 # noqa: F811
+                                    tbinfo,                # noqa: F811
+                                    multidut_port_info):                 # noqa: F811
     """
     Test if PFC will impact multiple lossy priorities in multidut setup
 
@@ -116,24 +126,30 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
     Returns:
         N/A
     """
-    MULTIDUT_TESTBED = tbinfo['conf-name']
-    tx_port_count = 1
-    rx_port_count = 1
-    snappi_port_list = get_snappi_ports
-    pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                  "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
+        tx_port_count = 1
+        rx_port_count = 1
+        snappi_port_list = get_snappi_ports
+        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
+                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
+        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                      "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
-    pytest_assert(len(MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]['Tx Ports']) >= tx_port_count,
-                  'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for testbed {}'.
-                  format(MULTIDUT_TESTBED))
-    pytest_assert(len(MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]['Rx Ports']) >= rx_port_count,
-                  'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for testbed {}'.
-                  format(MULTIDUT_TESTBED))
+        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
 
-    snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
-                                                                            snappi_ports,
-                                                                            snappi_api)
+        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
+        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
+        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
+                                                                                snappi_ports,
+                                                                                snappi_api)
 
     pause_prio_list = lossy_prio_list
     test_prio_list = lossy_prio_list
@@ -159,18 +175,20 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                                             conn_graph_facts,       # noqa: F811
                                             fanout_graph_facts_multidut,     # noqa: F811
                                             duthosts,
                                             localhost,
-                                            enum_dut_lossy_prio,          # noqa: F811
+                                            enum_dut_lossy_prio,
                                             prio_dscp_map,                   # noqa: F811
                                             lossy_prio_list,              # noqa: F811
                                             all_prio_list,                   # noqa: F811
                                             get_snappi_ports,         # noqa: F811
                                             tbinfo,                 # noqa: F811
-                                            reboot_type):
+                                            reboot_type,
+                                            multidut_port_info):
     """
     Test if PFC will impact a single lossy priority after various kinds of reboots in multidut setup
 
@@ -190,24 +208,30 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     Returns:
         N/A
     """
-    MULTIDUT_TESTBED = tbinfo['conf-name']
-    tx_port_count = 1
-    rx_port_count = 1
-    snappi_port_list = get_snappi_ports
-    pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                  "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
+        tx_port_count = 1
+        rx_port_count = 1
+        snappi_port_list = get_snappi_ports
+        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
+                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
+        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                      "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
-    pytest_assert(len(MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]['Tx Ports']) >= tx_port_count,
-                  'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for testbed {}'.
-                  format(MULTIDUT_TESTBED))
-    pytest_assert(len(MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]['Rx Ports']) >= rx_port_count,
-                  'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for testbed {}'.
-                  format(MULTIDUT_TESTBED))
+        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
 
-    snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
-                                                                            snappi_ports,
-                                                                            snappi_api)
+        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
+        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
+        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
+                                                                                snappi_ports,
+                                                                                snappi_api)
 
     skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
@@ -220,7 +244,6 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     bg_prio_list.remove(lossy_prio)
 
     for duthost in [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]:
-        duthost.shell("sudo config save -y")
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
         reboot(duthost, localhost, reboot_type=reboot_type)
         logger.info("Wait until the system is stable")
@@ -246,6 +269,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
                                            conn_graph_facts,    # noqa: F811
                                            fanout_graph_facts,  # noqa: F811
@@ -254,9 +278,10 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
                                            prio_dscp_map,       # noqa: F811
                                            lossy_prio_list,     # noqa: F811
                                            lossless_prio_list,  # noqa: F811
-                                           get_snappi_ports,    # noqa: F811
+                                           get_snappi_ports,     # noqa: F811
                                            tbinfo,              # noqa: F811
-                                           reboot_type):
+                                           reboot_type,
+                                           multidut_port_info):
     """
     Test if PFC will impact multiple lossy priorities after various kinds of reboots
 
@@ -276,24 +301,30 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     Returns:
         N/A
     """
-    MULTIDUT_TESTBED = tbinfo['conf-name']
-    tx_port_count = 1
-    rx_port_count = 1
-    snappi_port_list = get_snappi_ports
-    pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                  "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
+        tx_port_count = 1
+        rx_port_count = 1
+        snappi_port_list = get_snappi_ports
+        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
+                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
+        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                      "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
-    pytest_assert(len(MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]['Tx Ports']) >= tx_port_count,
-                  'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for testbed {}'.
-                  format(MULTIDUT_TESTBED))
-    pytest_assert(len(MULTIDUT_PORT_INFO[MULTIDUT_TESTBED]['Rx Ports']) >= rx_port_count,
-                  'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for testbed {}'.
-                  format(MULTIDUT_TESTBED))
+        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
 
-    snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
-                                                                            snappi_ports,
-                                                                            snappi_api)
+        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
+        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
+        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
+                                                                                snappi_ports,
+                                                                                snappi_api)
     skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
 
@@ -302,7 +333,6 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     bg_prio_list = lossless_prio_list
 
     for duthost in [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]:
-        duthost.shell("sudo config save -y")
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
         reboot(duthost, localhost, reboot_type=reboot_type)
         logger.info("Wait until the system is stable")

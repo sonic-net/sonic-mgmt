@@ -1031,10 +1031,10 @@ def multidut_snappi_ports_for_bgp(duthosts,                                # noq
 
 @pytest.fixture(scope="module")
 def get_snappi_ports(duthosts,                                # noqa: F811
-                    tbinfo,                                  # noqa: F811
-                    conn_graph_facts,                        # noqa: F811
-                    fanout_graph_facts_multidut,
-                    ):                                      # noqa: F811
+                     tbinfo,                                  # noqa: F811
+                     conn_graph_facts,                        # noqa: F811
+                     fanout_graph_facts_multidut,
+                     ):                                      # noqa: F811
     """
     Populate snappi ports and connected DUT ports info of T1 and T2 testbed and returns as a list
     Args:
@@ -1114,19 +1114,20 @@ def get_snappi_ports(duthosts,                                # noqa: F811
     return multidut_snappi_ports
 
 
-def get_snappi_ports_for_rdma(snappi_port_list, tx_port_count, rx_port_count, testbed):
+def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_port_count, testbed):
     """
     Returns the required tx and rx ports for the rdma test
     Args:
         snappi_port_list (list): List of snappi ports and connected DUT ports info of T1 and T2 testbed
+        rdma_ports (dict): RDMA port info for testbed subtype
         tx_port_count (int): Number of Tx ports required for the test
         rx_port_count (int): Number of Rx ports required for the test
     Return: (list)
     """
     tx_snappi_ports = []
     rx_snappi_ports = []
-    var_tx_ports = random.sample(MULTIDUT_PORT_INFO[testbed]['Tx Ports'], tx_port_count)
-    var_rx_ports = random.sample(MULTIDUT_PORT_INFO[testbed]['Rx Ports'], rx_port_count)
+    var_tx_ports = random.sample(rdma_ports['tx_ports'], tx_port_count)
+    var_rx_ports = random.sample(rdma_ports['rx_ports'], rx_port_count)
     for port in snappi_port_list:
         for var_rx_port in var_rx_ports:
             if port['peer_port'] == var_rx_port['port_name'] and port['peer_device'] == var_rx_port['hostname']:
