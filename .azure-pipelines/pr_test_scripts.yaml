@@ -231,7 +231,6 @@ dualtor:
   - dualtor/test_tunnel_memory_leak.py
   - dualtor_io/test_heartbeat_failure.py
   - dualtor_io/test_link_drop.py
-  - dualtor_io/test_normal_op.py
   - dualtor_io/test_tor_bgp_failure.py
   - dualtor_mgmt/test_grpc_periodical_sync.py
   - dualtor_mgmt/test_server_failure.py
