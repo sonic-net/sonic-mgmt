@@ -60,7 +60,7 @@ def test_corrupt_primary_key_reboot(enum_frontend_dut_hostname, localhost, ctrl_
     # To check whether the MKA establishment did not happened within 90 seconds
     pytest_assert(not wait_until(90, 1, 12, check_mka_establishment))
 
-    # Teardown of mismatch
+    # Teardown of mismatch config
     disable_macsec_port(duthost, port_name)
     disable_macsec_port(nbr["host"], nbr["port"])
     delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
