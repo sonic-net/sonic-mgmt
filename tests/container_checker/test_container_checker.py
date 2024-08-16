@@ -267,7 +267,7 @@ def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
                                CONTAINER_CHECK_INTERVAL_SECS,
                                0,
                                check_container_state, duthost, container_name, True)
-        pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
+        pytest_assert(restarted, "Failed to restart container '{}'".format(container_name))
 
     # Enable LogAnalyzer
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
