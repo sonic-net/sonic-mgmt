@@ -117,7 +117,7 @@ class LacpTimingTest(BaseTest, RouterUtility):
 
         # Get the median
         intervals.sort()
-        current_pkt_timing = intervals[self.interval_count / 2]
+        current_pkt_timing = intervals[int(self.interval_count / 2)]
         return current_pkt_timing
 
     def runTest(self):
