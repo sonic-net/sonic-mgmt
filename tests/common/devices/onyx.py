@@ -309,3 +309,13 @@ class OnyxHost(AnsibleHostBase):
             is not supported or failed.
         """
         return self.fanout_helper.restore_drop_counter_config()
+
+    def is_lldp_disabled(self):
+        """
+        TODO: Add support for Onyx device when access to
+        Onyx fanout becomes available.
+
+        Return False always. If Onyx device is found as a
+        fanout the pretest will fail until this check is implemented.
+        """
+        return False

@@ -57,3 +57,13 @@ class IxiaHost (AnsibleHostBase):
         """
         if (self.os == 'ixia'):
             eval(cmd)
+
+    def is_lldp_disabled(self):
+        """
+        TODO: Add support for IXIA device when access to
+        IXIA fanout becomes available.
+
+        Return False always. If IXIA device is found as a
+        fanout the pretest will fail until this check is implemented.
+        """
+        return False
