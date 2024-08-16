@@ -204,7 +204,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                       "All critical services should be fully started!")
         wait_critical_processes(sonic_host)
         # PFCWD feature does not enable on some topology, for example M0
-        if config_source == 'minigraph' && pfcwd_feature_enabled(sonic_host):
+        if config_source == 'minigraph' and pfcwd_feature_enabled(sonic_host):
             pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, sonic_host),
                           "PFC_WD is missing in CONFIG-DB")
 
