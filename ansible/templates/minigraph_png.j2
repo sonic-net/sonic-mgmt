@@ -103,7 +103,17 @@
 {% endif %}
     </DeviceInterfaceLinks>
     <Devices>
+{% if enable_compute_ai_deployment|default('false')|bool %}
+    {% if vm_topo_config['dut_type'] | lower == 'torrouter' %}
+      <Device i:type="BackEndToRRouter">
+    {% elif vm_topo_config['dut_type'] | lower == 'leafrouter' %}
+      <Device i:type="BackEndLeafRouter">
+    {% else %}
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
+    {% endif %}
+{% else %}
+      <Device i:type="{{ vm_topo_config['dut_type'] }}">
+{% endif %}
         <Hostname>{{ inventory_hostname }}</Hostname>
         <HwSku>{{ hwsku }}</HwSku>
 {% if 'loopback' in dual_tor_facts %}
@@ -179,6 +189,8 @@
 {% if vm_topo_config['vm'][dev]['intfs'][dut_index|int]|length %}
 {% if 'properties' in vm_topo_config['vm'][dev] and 'device_type' in vm_topo_config['vm'][dev]['properties'] %}
 {% set dev_type = vm_topo_config['vm'][dev]['properties']['device_type'] %}
+{% elif ('T1' in dev) and (enable_compute_ai_deployment|default('false')|bool) %}
+{% set dev_type = 'BackEndLeafRouter' %}
 {% elif 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
 {% elif 'T2' in dev %}
@@ -189,6 +201,8 @@
 {% else %}
 {% set dev_type = 'AZNGHub' %}
 {% endif %}
+{% elif ('T0' in dev) and (enable_compute_ai_deployment|default('false')|bool) %}
+{% set dev_type = 'BackEndToRRouter' %}
 {% elif 'T0' in dev %}
 {% set dev_type = 'ToRRouter' %}
 {% elif 'M1' in dev %}
