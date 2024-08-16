@@ -12,7 +12,7 @@ index 70e2c7a229..4b9a26687e 100644
 +r, ".* ERR pmon#xcvrd.*CMIS.* FAILED .*"
 +r, ".* ERR swss#orchagent:.* doCfgSensorsTableTask: ASIC sensors : unsupported operation for poller state.*"
 +r, ".* ERR monit.* 'routeCheck' status failed.*”
-+r, ".*-E-COUNTERS-0- dispatch_read_counter_command: read_register cpu_read timeout: 0.*"
++r, ".* ERR .*dispatch_read_counter_command: read_register cpu_read timeout: 0.*"
 +
  # White list below messages found on KVM for now. Need to address them later.
  r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
