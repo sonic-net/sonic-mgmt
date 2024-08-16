@@ -178,3 +178,5 @@ pdu-126,44,str3-8800-sup-1,PSU6
 pdu-125,44,str3-8800-sup-1,PSU7
 pdu-124,48,str3-8800-sup-1,PSU8
 pdu-126,24,str3-8800-sup-1,PSU9
+pdu-105,22,str3-7060x6-64pe-3,PSU1
+pdu-106,22,str3-7060x6-64pe-3,PSU2
