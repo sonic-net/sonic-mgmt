@@ -41,7 +41,7 @@ def get_macsec_sessions(dut, space_var):
             en = True
         elif en and "MACsec Egress SA" in line:
             sess_list.append(temp_sess)
-    logger.info("macsec sessions: " + str(sess_list))
+    logger.debug("macsec sessions: " + str(sess_list))
     return sess_list.sort()
 
 
