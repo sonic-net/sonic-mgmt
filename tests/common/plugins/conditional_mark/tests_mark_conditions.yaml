@@ -192,6 +192,11 @@ configlet/test_add_rack.py:
     reason: "AddRack is not yet supported on multi-ASIC platform"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "AddRack failed in KVM test for image issue"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/19942
 
 container_hardening/test_container_hardening.py::test_container_privileged:
   skip:
