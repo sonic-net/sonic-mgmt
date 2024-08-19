@@ -1,6 +1,8 @@
 t0:
   # KVM do not support drop reason in testcase, and testcase would set drop reason in setup stage, can't do more test
   - drop_packets/test_configurable_drop_counters.py
+  # KVM do not support dualtor tunnel functionality, verify DB status would fail
+  - dualtor_io/test_normal_op.py
   # This script would toggle PDU, which is not supported on KVM
   - dualtor_io/test_tor_failure.py
   # This script only supported on Mellanox
