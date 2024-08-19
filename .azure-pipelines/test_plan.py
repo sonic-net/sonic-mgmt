@@ -422,9 +422,25 @@ class TestPlanManager(object):
                             if step.get("step") == expected_state:
                                 step_status = step.get("status")
                                 break
+
+                    # Print test summary
+                    test_summary = resp_data.get("runtime", {}).get("test_summary", None)
+                    if test_summary:
+                        print("Test summary:\n{}".format(json.dumps(test_summary, indent=4)))
+
                     # We fail the step only if the step_status is "FAILED".
                     # Other status such as "SKIPPED", "CANCELED" are considered successful.
                     if step_status == "FAILED":
+
+                        # Print error type and message
+                        err_code = resp_data.get("runtime", {}).get("err_code", None)
+                        if err_code:
+                            print("Error type: {}".format(err_code))
+
+                        err_msg = resp_data.get("runtime", {}).get("message", None)
+                        if err_msg:
+                            print("Error message: {}".format(err_msg))
+
                         raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. "
                                         "Check {}/scheduler/testplan/{} for test plan status"
                                         .format(test_plan_id, step_status, result, time.time() - start_time,
