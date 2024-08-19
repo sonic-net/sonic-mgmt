@@ -751,9 +751,9 @@ platform_tests/mellanox:
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
-    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py"
+    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios"
     conditions:
-      - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
+      - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0', 'x86_64-nvidia_sn4280-r0']"
 
 #######################################
 ####    test_advanced_reboot      #####
@@ -890,12 +890,21 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
 #######################################
 #####   test_reload_config.py     #####
 #######################################
-platform_tests/test_reload_config.py:
+platform_tests/test_reload_config.py::test_reload_configuration:
   skip:
-    reason: "Unsupported platform API"
+    reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
 
+platform_tests/test_reload_config.py::test_reload_configuration_checks:
+  skip:
+    reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed."
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['barefoot'] and hwsku in ['newport']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
 
 #######################################
 ######  test_secure_upgrade.py  #######

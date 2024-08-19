@@ -1,6 +1,8 @@
 import logging
 import pytest
+
 from pytest_ansible.errors import AnsibleConnectionFailure
+from tests.common.helpers.assertions import pytest_assert
 from tests.tacacs.utils import setup_tacacs_client, setup_tacacs_server, load_tacacs_creds,\
                     cleanup_tacacs, restore_tacacs_servers
 
@@ -79,3 +81,16 @@ def setup_tacacs(ptfhost, duthosts, selected_dut, selected_rand_dut, tacacs_cred
 
     if request.session.testsfailed:
         collect_artifact(duthost, request.module.__name__)
+
+
+def get_aaa_sub_options_value(duthost, aaa_type, option):
+    r""" Verify if AAA sub type's options match with expected value
+
+    Sample output:
+    admin@vlab-01:~$ show aaa | grep -Po "AAA authentication login \K.*"
+    local (default)
+    """
+    output = duthost.shell(r'show aaa | grep -Po "AAA {} {} \K.*"'.format(aaa_type, option))
+
+    pytest_assert(not output['rc'], "Failed to grep AAA {}".format(option))
+    return output['stdout']

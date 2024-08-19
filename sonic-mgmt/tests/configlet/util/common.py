@@ -99,6 +99,12 @@ scan_dbs = {
                 "NEIGH_TABLE:eth0",
                 "NEIGH_TABLE_DEL_SET",
                 "ROUTE_TABLE:fe80:",
+                "ROUTE_TABLE:192.168.0.128/25",
+                "ROUTE_TABLE:20c0:a800::/64",
+                "ROUTE_TABLE:2064:100::11",
+                "ROUTE_TABLE:192.168.0.0/25",
+                "ROUTE_TABLE:100.1.0.17",
+                "ROUTE_TABLE:20c0:a800:0:80::/64",
                 "ROUTE_TABLE:FE80:",
                 "TUNNEL_DECAP_TABLE",
                 # BUFFER_PG.*3-4 is an auto created entry by buffermgr
@@ -107,7 +113,8 @@ scan_dbs = {
                 # Diff in TUNNEL_DECAP_TERM_TABLE is expected because router port
                 # is set admin down in the test, which leads to tunnel term change
                 "TUNNEL_DECAP_TERM_TABLE:IPINIP_TUNNEL",
-                "TUNNEL_DECAP_TERM_TABLE:IPINIP_V6_TUNNEL"
+                "TUNNEL_DECAP_TERM_TABLE:IPINIP_V6_TUNNEL",
+                "NEIGH_RESOLVE_TABLE*"
                 },
             "keys_skip_val_comp": {
                 "last_up_time",

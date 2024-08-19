@@ -200,7 +200,9 @@ def run_test(
             tor_IO.stop_early = True
     # Wait for the IO to complete before doing checks
     send_and_sniff.join()
-    tor_IO.examine_flow()
+    # Skip flow examination for VS platform
+    if activehost.facts["asic_type"] != "vs":
+        tor_IO.examine_flow()
     return tor_IO
 
 

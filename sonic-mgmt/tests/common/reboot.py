@@ -344,7 +344,9 @@ def get_reboot_cause(dut):
     # is such like "User issued 'xxx' command [User: admin, Time: Sun Aug  4 06:43:19 PM UTC 2024]"
     # So, use the above pattern to get real reboot cause
     if dut.facts["asic_type"] == "vs":
-        cause = re.search("User issued '(.*)' command", cause).groups()[0]
+        match = re.search("User issued '(.*)' command", cause)
+        if match:
+            cause = match.groups()[0]
 
     for type, ctrl in list(reboot_ctrl_dict.items()):
         if re.search(ctrl['cause'], cause):

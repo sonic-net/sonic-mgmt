@@ -71,7 +71,7 @@ VARS['udp_sport'] = 1234
 Logger = logging.getLogger(__name__)
 
 # Some constants used in this code
-MIN_PACKET_COUNT = 4
+MIN_PACKET_COUNT = 10
 MINIMUM_PACKETS_FOR_ECMP_VALIDATION = 300
 TEST_ECN = True
 

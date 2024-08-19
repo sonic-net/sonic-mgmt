@@ -22,7 +22,8 @@ def test_snmp_link_local_ip(duthosts,
                             nbrhosts, tbinfo, localhost, creds_all_duts):
     """
     Test SNMP query to DUT over link local IP
-      - Send SNMP query over link local IP from one of the BGP Neighbors
+      - configure eth0's link local IP as snmpagentaddress
+      - Query over linklocal IP from within snmp docker
       - Get SysDescr from snmpfacts
       - compare result from snmp query over link local IP and snmpfacts
     """
@@ -44,13 +45,9 @@ def test_snmp_link_local_ip(duthosts,
             link_local_ip = ip.split()[1]
             break
     # configure link local IP in config_db
-    duthost.shell(
-            'sonic-db-cli CONFIG_DB hset "MGMT_INTERFACE|eth0|{}" \
-            "gwaddr" "fe80::1"'
-            .format(link_local_ip))
     # Restart snmp service to regenerate snmpd.conf with
     # link local IP configured in MGMT_INTERFACE
-    duthost.shell("systemctl restart snmp")
+    duthost.shell("config snmpagentaddress add {}%eth0".format(link_local_ip))
     stdout_lines = duthost.shell("docker exec snmp snmpget \
                                  -v2c -c {} {}%eth0 {}"
                                  .format(creds_all_duts[duthost.hostname]

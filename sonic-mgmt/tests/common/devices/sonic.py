@@ -447,6 +447,14 @@ class SonicHost(AnsibleHostBase):
         """
         return self.shell(r'docker ps --format \{\{.Names\}\}')['stdout_lines']
 
+    def get_all_containers(self):
+        """
+        Get all containers names
+        :param duthost:  DUT host object
+        :return: Running container name list
+        """
+        return self.shell(r'docker ps -a --format \{\{.Names\}\}')['stdout_lines']
+
     def is_container_running(self, service):
         """
         Checks where a container exits.
@@ -1149,6 +1157,22 @@ class SonicHost(AnsibleHostBase):
         else:
             intf_str = ','.join(ifnames)
             return self.no_shutdown(intf_str)
+
+    def is_lldp_disabled(self):
+        """
+        Checks LLDP feature status
+        Returns True if disabled
+        Returns False if enabled
+        """
+        # get lldp status without table header
+        lldp_status_output = self.command('show feature status lldp | tail -n +3')["stdout_lines"][0]
+        if lldp_status_output is not None:
+            fields = lldp_status_output.split()
+            # State is the second field
+            state = fields[1]
+            if state == "enabled":
+                return False
+            return True
 
     def get_ip_route_info(self, dstip, ns=""):
         """

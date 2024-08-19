@@ -610,7 +610,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
             # NOTE: Let's probe here to see if those inconsistent mux ports could be
             # restored before using the recovery method.
             port_index_map = duts_minigraph_facts[duthosts[0].hostname][0][1]['minigraph_port_indices']
-            dut_wrong_mux_status_ports = set(dut_wrong_mux_status_ports)
+            dut_wrong_mux_status_ports = list(set(dut_wrong_mux_status_ports))
             inconsistent_mux_ports = [port for port, port_index in port_index_map.items()
                                       if port_index in dut_wrong_mux_status_ports]
             _probe_mux_ports(duthosts, inconsistent_mux_ports)

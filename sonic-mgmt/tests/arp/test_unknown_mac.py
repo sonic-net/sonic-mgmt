@@ -43,6 +43,25 @@ def initClassVars(func):
 
 
 @pytest.fixture(autouse=True, scope="module")
+def dut_disable_arp_update(rand_selected_dut):
+    """
+    Fixture to disable arp update before the test and re-enable it afterwards
+
+    Args:
+        rand_selected_dut(AnsibleHost) : dut instance
+    """
+    duthost = rand_selected_dut
+    if duthost.shell("docker exec -t swss supervisorctl stop arp_update")['stdout_lines'][0] \
+            == 'arp_update: ERROR (not running)':
+        logger.warning("arp_update not running, already disabled")
+
+    yield
+
+    assert duthost.shell("docker exec -t swss supervisorctl start arp_update")['stdout_lines'][0] \
+        == 'arp_update: started'
+
+
+@pytest.fixture(autouse=True, scope="module")
 def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Fixture to populate all the parameters needed for the test

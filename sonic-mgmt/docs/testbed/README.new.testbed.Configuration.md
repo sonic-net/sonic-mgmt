@@ -89,7 +89,7 @@ For each device that you add, add the following:
 - hwsku - this is the look up value for credentials in /group_vars/all/labinfo.json. Without this section, things will fail. Make sure this field is filled out and verify labinfo.json is accurate.
 - device type - the type of device. If you only have 4 devices, you can leave the provided labels alone
 
-The lab server section requires different fields to be entered: ansible_become_pass, sonicadmin_user, sonicadmin_password, sonicadmin_initial_password. Sonicadmin_user is still just the username. The other fields is the password. These fields were selected because they are variables taken directly group_var/lab/secrets.yml. So for convenience, this section of the config file takes a copy of the variable labels.
+The lab server section requires different fields to be entered: ansible_become_pass, sonicadmin_user, sonicadmin_password, sonicadmin_initial_password. Sonicadmin_user is still just the username. The other fields is the password. These fields were selected because they are variables taken directly group_var/lab/secrets.yml. For more information related to authentication, take a look at the [credentials section below](#credentials-management). So for convenience, this section of the config file takes a copy of the variable labels.
 
 ### host_vars section:
 **USAGE**: all host_var values
@@ -323,6 +323,93 @@ In `ptf` section the `ansible_ssh_user` and `ansible_ssh_pass` variables specify
 ```
 
 Ensure that these configurations are correct to facilitate proper communication and testing within the testbed environment.
+
+
+# Credentials management
+
+This section briefly describes how sonic-mgmt manages credentials for authentication purposes. `Pytest` will also use these variables to execute tests. 
+
+
+Variables are stored in [`ansible/group_vars/<group_name>/*.(yml|json)`](https://github.com/sonic-net/sonic-mgmt/tree/master/ansible/group_vars) where `<group_name>` is the name of the group declared in your inventory files. 
+
+The default ansible group name `all` refers to all the groups. Therefore, we store the shared configs in `ansible/group_vars/all` folder.
+For more information related to variable encryptions and how to use, please refer to [official Ansible variable documentation](https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_variables.html) and [official Ansible encryption and decryption guide](https://docs.ansible.com/ansible/latest/vault_guide/vault_encrypting_content.html#encrypting-individual-variables-with-ansible-vault).
+
+Currently, the variables that we're using to authenticate are:
+
+## Fanout
+
+For explanations on how sonic-mgmt works with these variables, refer to [Fanout Credentials documentation](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Fanout.md).
+
+
+### EOS (Arista)
+- `fanout_admin_user`
+- `fanout_admin_password`
+
+### Melanox
+- `fanout_mlnx_user`
+- `fanout_mlnx_password`
+
+### Sonic devices
+- `fanout_sonic_user`
+- `fanout_sonic_password`
+
+### Tacas credentials
+- `fanout_tacacs_user`
+- `fanout_tacacs_password`
+
+**Note:** when TACACS is enabled but different devices have different credentials, do not set `fanout_tacacs_user` and `fanout_tacacs_password` but do set `fanout_tacac_OS_user/password`, for example:
+- `fanout_tacacs_mlnx_user`
+- `fanout_tacacs_mlnx_password`
+- `fanout_tacacs_eos_user`
+- `fanout_tacacs_eos_password`
+- `fanout_tacacs_sonic_user`
+- `fanout_tacacs_sonic_password`
+
+### Local credentials
+These local credentials can be used in substitution of TACACS account. 
+
+#### Network credential
+- `fanout_network_user`
+- `fanout_network_password`
+
+#### Shell credential
+- `fanout_shell_user`
+- `fanout_shell_password`
+
+
+## DUT credentails
+- `sonicadmin_user`: os user for SONiC image
+- `sonicadmin_password`: password for os user for SONiC image
+- `sonicadmin_initial_password`: password you built into baseimage
+
+- `eos_default_login`: default credential for Eos
+- `eos_default_password`: default credential for Eos
+- `eos_login`: credential for eos
+- `eos_password`: credential for eos
+
+- `junos_default_login`: default credential for Junos
+- `junos_default_password`: default credential for Junos
+
+- `junos_login`: credential for Junos
+- `junos_password`: credential for Junos
+
+- `cisco_login`: credential for Cisco
+- `cisco_password`: credential for Cisco
+
+- `sonic_login`: credential for SONiC
+- `sonic_password`: credential for SONiC
+- `sonic_default_passwords`: default password for SONiC
+
+- `k8s_master_login`: credential for k8s
+- `k8s_master_password`: credential for k8s
+
+- `ptf_host_user`: credential for PTF
+- `ptf_host_pass`: credential for PTF
+
+- `vm_host_user`: credential for VM
+- `vm_host_password`: credential for VM
+- `vm_host_become_password`: root password for VM
 
 
 # Testbed Processing Script
