@@ -1,0 +1,22 @@
+# Created by Henry-Nicolas Tourneur(henry.nicolas@tourneur.be)
+# See man(5) tac_plus.conf for more details
+
+# Define where to log accounting data, this is the default.
+
+accounting file = /var/log/tac_plus_daily.acct
+
+# This is the key that clients have to use to access Tacacs+
+
+key = {{ tacacs_passkey }}
+
+group = netadmin {
+    default service = permit
+    service = exec {
+        priv-lvl = 15
+    }
+}
+
+user = {{ dut_host_user }} {
+    login = des {{ tacacs_user_passwd }}
+    member = netadmin
+}
