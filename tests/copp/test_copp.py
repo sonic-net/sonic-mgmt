@@ -93,7 +93,7 @@ class TestCOPP(object):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         # Skip LLDP/UDLD on Cisco platform(till queue4_group3 issue is fixed)
         if protocol in ["LLDP", "UDLD"]:
-            skip_release_for_platform(duthost, ["202311"], ["8101", "8102", "8111"])
+            skip_release_for_platform(duthost, ["202311"], ["8101", "8111"])
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
