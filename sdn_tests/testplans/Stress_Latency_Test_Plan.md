@@ -48,7 +48,7 @@ The expectation is for the gNMI server to process the valid delete request and r
 
 ### Expectation
 
-The GET response should contain the value of the request nodes. The expectation is for the gNMI server to process the valid get request and should send a valid response containing the values of the request nodes. Only the PROTO and JSON encodings are currently supported.
+The GET response should contain the value of the request nodes. The expectation is for the gNMI server to process the valid get request and should send a valid response containing the values of the request nodes.
 
 ## Subscribe operation
 
