@@ -31,8 +31,18 @@ def set_polling_interval(duthost):
     time.sleep(wait_time)
 
 
+@pytest.fixture(scope="module")
+def cleanup_neighbors_dualtor(duthosts, ptfhost, tbinfo):
+    """Cleanup neighbors on dualtor testbed."""
+    if "dualtor" in tbinfo["topo"]["name"]:
+        ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
+        ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+        duthosts.shell("sonic-clear arp")
+        duthosts.shell("sonic-clear ndp")
+
+
 @pytest.fixture(scope='module')
-def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo):
+def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo, cleanup_neighbors_dualtor):   # noqa F811
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
 
