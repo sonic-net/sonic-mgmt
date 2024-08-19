@@ -132,13 +132,6 @@ All the below tests will do the global set replace with a sanitized configuratio
     -   Validation:
          Verify that the client closes the connection and gracefully exits.
 
--   Send a valid request for a single leaf multiple times from a single client
-    -   Condition to test:
-         Set the incremental value for a single leaf over 100 times from single client
-
-    -   Validation:
-         Verify that each request has been fully processed and expected response is received, verify that the state leaf also reflect the configured value
-
 -   Send a valid get requests for a single leaf multiple times from a single client
     -   Condition to test:
          Set the incremental value for a single leaf over the 30 minutes period from single client
@@ -148,7 +141,7 @@ All the below tests will do the global set replace with a sanitized configuratio
 
 # E2E Latency Test Cases
 
-The purpose of the gNMI latency testing is to produce a latency report for various types of the gNMI operations. The latency report can be viewed through a dashboard. The latency will be measured in milliseconds. The latency measurement will be an internal clock on the test server rather than relying on the gNMI response timestamp. All the Latency measurement tests will use only one guitar cluster( the one which is closest to the DUT )
+The purpose of the gNMI latency testing is to produce a latency report for various types of the gNMI operations. The latency report can be viewed through a dashboard. The latency will be measured in milliseconds. The latency measurement will be an internal clock on the test server rather than relying on the gNMI response timestamp.
 
 The end to end latency is measured from the test server in the place where we invoke the gNMI request. The latency measurement will be implemented as a text fixture. All the gNMI based E2E tests will use the latency test fixture in their test cases to measure the latency for that tests. The fixture measures the latency of the gNMI server end to end irrespective of the test validation of the functionality or the feature under test.
 
