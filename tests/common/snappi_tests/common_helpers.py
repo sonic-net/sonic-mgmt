@@ -105,7 +105,8 @@ def get_lossless_buffer_size(host_ans):
     Returns:
         total switch buffer size in byte (int)
     """
-    config_facts = host_ans.config_facts(host=host_ans.hostname,
+    dut_asic = host_ans.asic_instance()
+    config_facts = dut_asic.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
 
     is_cisco8000_platform = True if 'cisco-8000' in host_ans.facts['platform_asic'] else False
