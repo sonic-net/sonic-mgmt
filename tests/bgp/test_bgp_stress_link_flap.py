@@ -150,7 +150,7 @@ def flap_neighbor_interface(neighbor, neighbor_port):
 
 
 @pytest.mark.parametrize("interface", ["dut", "fanout", "neighbor", "all"])
-def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, fanouthosts, interface):
+def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, interface):
     global stop_threads
 
     duthost = duthosts[rand_one_dut_hostname]
@@ -187,12 +187,14 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, fanouthost
             flap_threads.append(thread)
     elif interface == "neighbor":
         for interface in interface_list:
-            neighbor = eth_nbrs[interface]["name"]
+            neighbor_name = eth_nbrs[interface]["name"]
             neighbor_port = eth_nbrs[interface]["port"]
-            logger.info("shutdown interface neighbor {} port {}".format(neighbor, neighbor_port))
+            neighbor_host = nbrhosts[neighbor_name]['host']
+
+            logger.info("shutdown interface neighbor {} port {}".format(neighbor_name, neighbor_port))
             thread = InterruptableThread(
                 target=flap_neighbor_interface,
-                args=(neighbor, neighbor_port)
+                args=(neighbor_host, neighbor_port)
             )
             thread.daemon = True
             thread.start()
