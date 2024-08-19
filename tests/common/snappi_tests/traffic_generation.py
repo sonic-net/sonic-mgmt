@@ -1,7 +1,6 @@
 """
 This module allows various snappi based tests to generate various traffic configurations.
 """
-import math
 import time
 import logging
 from tests.common.helpers.assertions import pytest_assert

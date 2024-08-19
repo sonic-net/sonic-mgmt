@@ -12,7 +12,6 @@ from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossless_helper imp
      run_m2o_oversubscribe_lossless_test
     )
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
