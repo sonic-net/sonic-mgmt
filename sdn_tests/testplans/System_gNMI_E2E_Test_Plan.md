@@ -147,8 +147,6 @@ Config paths can be read or written.  Writing a config path indicates a desired 
   </tbody>
 </table>
 
-
-
 ## Tests
 
 <table>
@@ -235,7 +233,6 @@ Config paths can be read or written.  Writing a config path indicates a desired 
     </tr>
   </tbody>
 </table>
-
 
 ## Tests
 **Test**: Perform a gNMI get on the following 6 openconfig paths:<br>
@@ -383,35 +380,26 @@ Config paths can be read or written.  Writing a config path indicates a desired 
   </tbody>
 </table>
 
- 
 OpenConfig Definition: 
-
 
     enabled 	boolean
 
-
     stratum 	uint8
-
 
     root_delay 	uint32		milliseconds
 
-
     offset		uint64		milliseconds
-
 
     poll-interval	uint32		seconds
 
-
     root-disperson uint64		milliseconds
-
 
     refid is not defined in openconfig-system.yang: but reference ids are defined in RFC5905 as 4 byte ascii strings and are commonly handled as a uint32.
 
-
     reach is not defined in openconfig-system.yang, but reach is defined as an 8 bit integer shift register in RF5905. (note that “ntpq -p” returns ‘reach’ in octal)
 
-
-    peertype is not defined in openconfig-system.yang. ntpq lists peer type as one of (local, unicast, multicast or broadcast) and display the type as a single char (lumb). I presume this will be defined as 
+    peertype is not defined in openconfig-system.yang. ntpq lists peer type as one of (local, unicast, multicast or broadcast) and display the type as a single char (lumb). I presume this will be 
+    defined as 
 
 ## Tests
 **Test**: Perform a gNMI get on: <br />
@@ -527,7 +515,7 @@ Telemetry</td>
 boot-time is of type uint64 in units of seconds since Unix Epoch.  
 hostname (cardData.hostname in cmal) is of type string with max length of 253 bytes conforming to a regex pattern defined in [openconfig-inet-types.yang]
 
-config-meta-data is defined as a string in [google-pins-system.yang](https://source.corp.google.com/gpins/third_party/sonic-buildimage/src/sonic-mgmt-common/models/yang/google-pins-system.yang):
+config-meta-data is defined as a string in [google-system.yang](https://source.corp.google.com/gpins/third_party/sonic-buildimage/src/sonic-mgmt-common/models/yang/google-pins-system.yang):
 
 ```
      description
