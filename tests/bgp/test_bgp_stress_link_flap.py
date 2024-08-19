@@ -218,11 +218,12 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             thread_fanout.start()
             flap_threads.append(thread_fanout)
 
-            neighbor = eth_nbrs[interface]["name"]
+            neighbor_name = eth_nbrs[interface]["name"]
             neighbor_port = eth_nbrs[interface]["port"]
+            neighbor_host = nbrhosts[neighbor_name]['host']
             thread_neighbor = InterruptableThread(
                 target=flap_neighbor_interface,
-                args=(neighbor, neighbor_port)
+                args=(neighbor_host, neighbor_port)
             )
             thread_neighbor.daemon = True
             thread_neighbor.start()
@@ -235,7 +236,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
     for thread in flap_threads:
         try:
-            thread.join(timeout=30)
+            thread.join(timeout=1)
             logger.info("thread {} joined".format(thread))
         except Exception as e:
             logger.debug("Exception occurred in thread %r:", thread)
