@@ -32,20 +32,16 @@ def get_macsec_sessions(dut, space_var):
     logger.debug(f"status {out}")
     sess_list = []
     regex = re.compile(r"\s*MACsec port\((.+)\)")
-    count = 0
     en = False
     for line in out.splitlines():
         if "MACsec port" in line:
             temp_sess = regex.match(line).group(1)
-            count = 0
-        elif count == 3:
-            if "true" in line:
-                en = True
-        elif count == 15 and en:
-            if "MACsec Egress SA" in line:
-                sess_list.append(temp_sess)
-        count = count + 1
-    logger.debug("macsec sessions: " + str(sess_list))
+            en = False
+        elif "enable " in line and "true" in line:
+            en = True
+        elif en and "MACsec Egress SA" in line:
+            sess_list.append(temp_sess)
+    logger.info("macsec sessions: " + str(sess_list))
     return sess_list.sort()
 
 
@@ -63,6 +59,12 @@ def test_lc_reboot(duthosts, localhost, enum_frontend_dut_hostname):
         asic_index = None
         space_var = ""
     duthost.command("config save -y")
+
+    # wait extra for macsec to establish
+    wait_until(120, 10, 0, lambda: duthost.iface_macsec_ok(dut_to_neigh_int))
+    logger.debug(f"iface macsec: {duthost.iface_macsec_ok(dut_to_neigh_int)}")
+    time.sleep(30)
+
     pre_list = get_macsec_sessions(duthost, space_var)
     reboot(duthost, localhost, wait=240)
 
