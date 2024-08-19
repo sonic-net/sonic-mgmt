@@ -34,9 +34,19 @@ def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     time.sleep(wait_time)
 
 
+@pytest.fixture(scope="module")
+def cleanup_neighbors_dualtor(duthosts, ptfhost, tbinfo):
+    """Cleanup neighbors on dualtor testbed."""
+    if "dualtor" in tbinfo["topo"]["name"]:
+        ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
+        ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+        duthosts.shell("sonic-clear arp")
+        duthosts.shell("sonic-clear ndp")
+
+
 @pytest.fixture(scope='module')
 def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
-                                          enum_rand_one_frontend_asic_index):
+                                          enum_rand_one_frontend_asic_index, cleanup_neighbors_dualtor):            # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     namespace = asichost.namespace
