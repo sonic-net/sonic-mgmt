@@ -24,6 +24,15 @@ class SnappiPortConfig:
         self.type = port_type
         self.peer_port = peer_port
 
+    def __str__(self):
+        return "<SnappiPortConfig id: {}, ip: {}, mac: {}, gw: {}, gw_mac: {}, \
+                prefix_len: {}, type: {}, peer_port: {}>".format(
+                self.id, self.ip, self.mac, self.gateway, self.gateway_mac,
+                self.prefix_len, self.type, self.peer_port)
+
+    def __repr__(self):
+        return self.__str__()
+
 
 def select_ports(port_config_list, pattern, rx_port_id):
     """

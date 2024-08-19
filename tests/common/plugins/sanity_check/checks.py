@@ -14,6 +14,7 @@ from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_PO
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.dualtor.mux_simulator_control import _probe_mux_ports
 from tests.common.fixtures.duthost_utils import check_bgp_router_id
+from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -29,6 +30,7 @@ CHECK_ITEMS = [
     'check_monit',
     'check_secureboot',
     'check_neighbor_macsec_empty',
+    'check_ipv6_mgmt',
     'check_mux_simulator']
 
 __all__ = CHECK_ITEMS
@@ -255,17 +257,20 @@ def _is_db_omem_over_threshold(command_output):
     total_omem = 0
     re_omem = re.compile(r"omem=(\d+)")
     result = False
+    non_zero_output = []
 
     for line in command_output:
         m = re_omem.search(line)
         if m:
             omem = int(m.group(1))
             total_omem += omem
+            if omem > 0:
+                non_zero_output.append(line)
     logger.debug('total_omen={}, OMEM_THRESHOLD_BYTES={}'.format(total_omem, OMEM_THRESHOLD_BYTES))
     if total_omem > OMEM_THRESHOLD_BYTES:
         result = True
 
-    return result, total_omem
+    return result, total_omem, non_zero_output
 
 
 @pytest.fixture(scope="module")
@@ -286,11 +291,13 @@ def check_dbmemory(duthosts):
         # check the db memory on the redis instance running on each instance
         for asic in dut.asics:
             res = asic.run_redis_cli_cmd(redis_cmd)['stdout_lines']
-            result, total_omem = _is_db_omem_over_threshold(res)
+            result, total_omem, non_zero_output = _is_db_omem_over_threshold(res)
             check_result["total_omem"] = total_omem
             if result:
                 check_result["failed"] = True
                 logging.info("{} db memory over the threshold ".format(str(asic.namespace or '')))
+                logging.info("{} db memory omem non-zero output: \n{}"
+                             .format(str(asic.namespace or ''), "\n".join(non_zero_output)))
                 break
         logger.info("Done checking database memory on %s" % dut.hostname)
         results[dut.hostname] = check_result
@@ -599,10 +606,14 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
             return False, err_msg, {}
 
     if not check_success:
-        if len(dut_wrong_mux_status_ports) == 0:
+        if len(dut_wrong_mux_status_ports) != 0:
             # NOTE: Let's probe here to see if those inconsistent mux ports could be
             # restored before using the recovery method.
-            _probe_mux_ports(duthosts, dut_wrong_mux_status_ports)
+            port_index_map = duts_minigraph_facts[duthosts[0].hostname][0][1]['minigraph_port_indices']
+            dut_wrong_mux_status_ports = list(set(dut_wrong_mux_status_ports))
+            inconsistent_mux_ports = [port for port, port_index in port_index_map.items()
+                                      if port_index in dut_wrong_mux_status_ports]
+            _probe_mux_ports(duthosts, inconsistent_mux_ports)
         if not wait_until(60, 10, 0, _check_mux_status_helper):
             if err_msg_from_mux_status:
                 err_msg = err_msg_from_mux_status[-1]
@@ -977,4 +988,37 @@ def check_neighbor_macsec_empty(ctrl_links):
             init_check_result["hosts"] = list(unhealthy_dut)
         return init_check_result
 
+    return _check
+
+
+# check ipv6 neighbor reachability
+@pytest.fixture(scope="module")
+def check_ipv6_mgmt(duthosts, localhost):
+    # check ipv6 mgmt interface reachability for debugging purpose only.
+    # No failure will be trigger for this sanity check.
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "ipv6_mgmt"}
+        result = parallel_run(_check_ipv6_mgmt_to_dut, args, kwargs, duthosts, timeout=30, init_result=init_result)
+        return list(result.values())
+
+    def _check_ipv6_mgmt_to_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+
+        logger.info("Checking ipv6 mgmt interface reachability on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "ipv6_mgmt", "host": dut.hostname}
+
+        # most of the testbed should reply within 10 ms, Set the timeout to 2 seconds to reduce the impact of delay.
+        try:
+            shell_result = localhost.shell("ping6 -c 2 -W 2 " + dut.mgmt_ipv6)
+            logging.info("ping6 output: %s" % shell_result["stdout"])
+        except RunAnsibleModuleFail as e:
+            # set to False for now to avoid blocking the test
+            check_result["failed"] = False
+            logging.info("Failed to ping ipv6 mgmt interface on %s, exception: %s" % (dut.hostname, repr(e)))
+        except Exception as e:
+            logger.info("Exception while checking ipv6_mgmt reachability for %s: %s" % (dut.hostname, repr(e)))
+        finally:
+            logger.info("Done checking ipv6 management reachability on %s" % dut.hostname)
+            results[dut.hostname] = check_result
     return _check

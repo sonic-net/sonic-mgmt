@@ -3,6 +3,7 @@ import pytest
 import time
 import logging
 
+from tests.common.fixtures.ptfhost_utils import copy_acstests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
@@ -21,9 +22,6 @@ pytestmark = [
     pytest.mark.topology('any'),
 ]
 
-# The dir will be deleted from host, so be sure not to use system dir
-TEST_DIR = "/tmp/acstests/"
-
 
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
@@ -40,20 +38,12 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(ptfhost, duthosts):
-    logger.info("########### Setup for lag testing ###########")
+def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfhost, duthosts): # noqa F811
 
-    ptfhost.shell("mkdir -p {}".format(TEST_DIR))
-    # Copy PTF test into PTF-docker for test LACP DU
-    test_files = ['lag_test.py', 'acs_base_test.py', 'router_utils.py']
-    for test_file in test_files:
-        src = "../ansible/roles/test/files/acstests/%s" % test_file
-        dst = TEST_DIR + test_file
-        ptfhost.copy(src=src, dest=dst)
+    logger.info("########### Setup for lag testing ###########")
 
     yield ptfhost
 
-    ptfhost.file(path=TEST_DIR, state="absent")
     # NOTE: As test_lag always causes the route_check to fail and route_check
     # takes more than 3 cycles(15mins) to alert, the testcase in the nightly after
     # the test_lag will suffer from the monit alert, so let's config reload the
@@ -126,7 +116,8 @@ class LagTest:
             'ether_type': 0x8809,
             'interval_count': 3
         }
-        ptf_runner(self.ptfhost, TEST_DIR, "lag_test.LacpTimingTest", '/root/ptftests', params=params)
+        ptf_runner(self.ptfhost, 'acstests', "lag_test.LacpTimingTest",
+                   '/root/ptftests', params=params, is_python3=True)
 
     def __verify_lag_minlink(self, host, lag_name, lag_facts,
                              neighbor_intf, deselect_time, wait_timeout=30):
@@ -385,6 +376,7 @@ def ignore_expected_loganalyzer_exceptions_lag2(duthosts, rand_one_dut_hostname,
         ignoreRegex = [
             # Valid test_lag_db_status and test_lag_db_status_with_po_update
             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
+            r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 

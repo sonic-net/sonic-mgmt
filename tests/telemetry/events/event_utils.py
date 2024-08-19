@@ -1,5 +1,6 @@
 import logging
 import os
+import pytest
 import json
 import re
 
@@ -10,6 +11,21 @@ logger = logging.getLogger(__name__)
 
 EVENT_COUNTER_KEYS = ["missed_to_cache", "published"]
 PUBLISHED = 1
+
+
+def add_test_watchdog_timeout_service(duthost):
+    logger.info("Adding mock watchdog.service to systemd")
+    duthost.copy(src="telemetry/events/events_data/test-watchdog-timeout.service", dest="/etc/systemd/system/")
+    duthost.shell("systemctl daemon-reload")
+    duthost.shell("systemctl start test-watchdog-timeout.service")
+
+
+def delete_test_watchdog_timeout_service(duthost):
+    logger.info("Deleting mock test-watchdog-timeout.service")
+    duthost.shell("systemctl stop test-watchdog-timeout.service", module_ignore_errors=True)
+    duthost.shell("rm /etc/systemd/system/test-watchdog-timeout.service", module_ignore_errors=True)
+    duthost.shell("systemctl daemon-reload")
+    duthost.shell("systemctl reset-failed")
 
 
 def backup_monit_config(duthost):
@@ -86,6 +102,10 @@ def verify_received_output(received_file, N):
 
 
 def restart_eventd(duthost):
+    features_dict, succeeded = duthost.get_feature_status()
+    if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
+        pytest.skip("eventd is disabled on the system")
+
     duthost.shell("systemctl reset-failed eventd")
     duthost.service(name="eventd", state="restarted")
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started")

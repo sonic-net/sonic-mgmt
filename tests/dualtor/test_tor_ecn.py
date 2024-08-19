@@ -28,12 +28,13 @@ from tests.common.utilities import is_ipv4_address
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder              # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test               # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp, derive_out_dscp_from_inner_dscp
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby      # noqa F401
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup             # noqa F401
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -276,7 +277,7 @@ def test_dscp_to_queue_during_decap_on_active(
     inner_dscp, ptfhost, setup_dualtor_tor_active,
     request, rand_selected_interface, ptfadapter,           # noqa F811
     tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa F811
-    duthosts, rand_one_dut_hostname
+    duthosts, rand_one_dut_hostname, skip_traffic_test      # noqa F811
 ):
     """
     Test if DSCP to Q mapping for inner header is matching with outer header during decap on active
@@ -296,6 +297,9 @@ def test_dscp_to_queue_during_decap_on_active(
     duthost.shell('sonic-clear queuecounters')
     logging.info("Clearing queue counters before starting traffic")
 
+    if skip_traffic_test is True:
+        logging.info("Skip following test due traffic test skipped")
+        return
     with stop_garp(ptfhost):
         ptfadapter.dataplane.flush()
         ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
@@ -347,7 +351,8 @@ def test_dscp_to_queue_during_encap_on_standby(
     duthosts,
     rand_one_dut_hostname,
     write_standby,
-    setup_standby_ports_on_rand_selected_tor        # noqa F811
+    setup_standby_ports_on_rand_selected_tor,       # noqa F811
+    skip_traffic_test                               # noqa F811
 ):
     """
     Test if DSCP to Q mapping for outer header is matching with inner header during encap on standby
@@ -368,6 +373,9 @@ def test_dscp_to_queue_during_encap_on_standby(
     ptfadapter.dataplane.flush()
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send IP packet from ptf t1 interface %s", ptf_t1_intf)
+    if skip_traffic_test is True:
+        logging.info("Skip following test due traffic test skipped")
+        return
     with tunnel_traffic_monitor(tor, existing=True, packet_count=PACKET_NUM):
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=PACKET_NUM)
 
@@ -376,7 +384,8 @@ def test_dscp_to_queue_during_encap_on_standby(
 def test_ecn_during_decap_on_active(
     inner_dscp, ptfhost, setup_dualtor_tor_active,
     request, rand_selected_interface, ptfadapter,           # noqa F811
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor       # noqa F811
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa F811
+    skip_traffic_test                                       # noqa F811
 ):
     """
     Test if the ECN stamping on inner header is matching with outer during decap on active
@@ -396,6 +405,10 @@ def test_ecn_during_decap_on_active(
 
     exp_tos = encapsulated_packet[IP].payload[IP].tos
     exp_ecn = exp_tos & 3
+
+    if skip_traffic_test is True:
+        logging.info("Skip following test due traffic test skipped")
+        return
     with stop_garp(ptfhost):
         tor.shell("portstat -c")
         tor.shell("show arp")
@@ -412,7 +425,8 @@ def test_ecn_during_encap_on_standby(
     rand_selected_interface, ptfadapter,                    # noqa F811
     tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa F811
     write_standby,
-    setup_standby_ports_on_rand_selected_tor                # noqa F811
+    setup_standby_ports_on_rand_selected_tor,               # noqa F811
+    skip_traffic_test                                       # noqa F811
 ):
     """
     Test if the ECN stamping on outer header is matching with inner during encap on standby
@@ -427,5 +441,8 @@ def test_ecn_during_encap_on_standby(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send IP packet from ptf t1 interface %s", ptf_t1_intf)
+    if skip_traffic_test is True:
+        logging.info("Skip following test due traffic test skipped")
+        return
     with tunnel_traffic_monitor(tor, existing=True, packet_count=PACKET_NUM):
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), non_encapsulated_packet, count=PACKET_NUM)

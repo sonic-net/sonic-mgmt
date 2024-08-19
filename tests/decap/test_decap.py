@@ -21,7 +21,10 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # no
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
+# from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
 from tests.common.fixtures.fib_utils import fib_info_files                  # noqa F401
 from tests.common.fixtures.fib_utils import single_fib_for_duts             # noqa F401
 from tests.ptf_runner import ptf_runner
@@ -33,7 +36,6 @@ from tests.common.dualtor.dual_tor_common import mux_config                     
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side    # noqa F401
 from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator                # noqa F401
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,20 @@ PTFRUNNER_QLEN = 1000
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*unknown decap tunnel table attribute 'dst_ip'.*",
+        ".*Tunnel TEST_IPINIP_V4_TUNNEL cannot be removed since it doesn't exist.*",
+        ".*Tunnel TEST_IPINIP_V6_TUNNEL cannot be removed since it doesn't exist.*",
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
 
 
 def remove_default_decap_cfg(duthosts):
@@ -179,7 +195,8 @@ def simulate_vxlan_teardown(duthosts, ptfhost, tbinfo):
 
 def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,                                   # noqa F811
                toggle_all_simulator_ports_to_random_side, supported_ttl_dscp_params, ip_ver, loopback_ips,  # noqa F811
-               duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator):             # noqa F811
+               duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator,              # noqa F811
+               skip_traffic_test):                                                                          # noqa F811
     setup_info = setup_teardown
     asic_type = duthosts[0].facts["asic_type"]
     ecn_mode = "copy_from_outer"
@@ -198,6 +215,9 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
             simulate_vxlan_teardown(duthosts, ptfhost, tbinfo)
         else:
             apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
+
+        if skip_traffic_test:
+            return
 
         if 'dualtor' in tbinfo['topo']['name']:
             wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')

@@ -340,6 +340,12 @@ def get_reboot_cause(dut):
     output = dut.shell('show reboot-cause')
     cause = output['stdout']
 
+    # For kvm testbed, the expected output of command `show reboot-cause`
+    # is such like "User issued 'xxx' command [User: admin, Time: Sun Aug  4 06:43:19 PM UTC 2024]"
+    # So, use the above pattern to get real reboot cause
+    if dut.facts["asic_type"] == "vs":
+        cause = re.search("User issued '(.*)' command", cause).groups()[0]
+
     for type, ctrl in list(reboot_ctrl_dict.items()):
         if re.search(ctrl['cause'], cause):
             return type
@@ -451,6 +457,11 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     reboot_cause_history_got = dut.show_and_parse("show reboot-cause history")
     logger.debug("dut {} reboot-cause history {}. reboot type history queue is {}".format(
         dut.hostname, reboot_cause_history_got, reboot_type_history_queue))
+
+    # For kvm testbed, command `show reboot-cause history` will return None
+    # So, return in advance if this check is running on kvm.
+    if dut.facts["asic_type"] == "vs":
+        return True
 
     logger.info("Verify reboot-cause history title")
     if reboot_cause_history_got:

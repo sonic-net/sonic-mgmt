@@ -12,7 +12,6 @@ import time
 from tests.common.utilities import InterruptableThread
 import textfsm
 import traceback
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 from natsort import natsorted
 
@@ -29,7 +28,7 @@ cpuSpike = 10
 memSpike = 1.3
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1', 't2')
 ]
 
 
@@ -57,23 +56,26 @@ def get_cpu_stats(dut):
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_frontend_asic_index):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index):
+    duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
     namespace = duthost.get_namespace_from_asic_id(asic_index)
 
+    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    neigh_keys = []
     tor_neighbors = dict()
-    tor1 = natsorted(nbrhosts.keys())[0]
-
-    skip_hosts = duthost.get_asic_namespace_list()
-
-    bgp_facts = duthost.bgp_facts(instance_id=enum_rand_one_frontend_asic_index)['ansible_facts']
     neigh_asn = dict()
     for k, v in bgp_facts['bgp_neighbors'].items():
-        if v['description'].lower() not in skip_hosts:
+        if 'asic' not in v['description'].lower():
+            neigh_keys.append(v['description'])
             neigh_asn[v['description']] = v['remote AS']
             tor_neighbors[v['description']] = nbrhosts[v['description']]["host"]
             assert v['state'] == 'established'
+
+    if not neigh_keys:
+        pytest.skip("No BGP neighbors found on ASIC {} of DUT {}".format(asic_index, duthost.hostname))
+
+    tor1 = natsorted(neigh_keys)[0]
 
     # verify sessions are established
     logger.info(duthost.shell('show ip bgp summary'))
