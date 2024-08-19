@@ -7,7 +7,7 @@ from ipaddress import ip_address, IPv4Address, IPv6Address
 MULTIDUT_TESTBED = 'vms-snappi-sonic-multidut'
 MULTIDUT_PORT_INFO = {MULTIDUT_TESTBED: (
     ({
-        'cross_dut': {
+        'multi-dut-single-asic': {
             'rx_ports': [
                 {'port_name': 'Ethernet72', 'hostname': "sonic-s6100-dut1"},
                 {'port_name': 'Ethernet76', 'hostname': "sonic-s6100-dut1"}
@@ -19,7 +19,7 @@ MULTIDUT_PORT_INFO = {MULTIDUT_TESTBED: (
         }
     }),
     ({
-        'cross_asic': {
+        'single-dut-single-asic': {
             'rx_ports': [
                 {'port_name': 'Ethernet72', 'hostname': "sonic-s6100-dut1"},
                 {'port_name': 'Ethernet76', 'hostname': "sonic-s6100-dut1"}
