@@ -14,7 +14,6 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
-from tests.common import config_reload
 
 from tests.copp import copp_utils
 from tests.common import config_reload
