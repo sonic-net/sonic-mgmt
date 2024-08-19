@@ -183,10 +183,15 @@ def test_check_apply_patch_negative_case(duthost):
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        output = apply_patch(duthost, json_data=json.loads(json_patch), dest_file=tmpfile)
+        output = apply_patch(
+            duthost, json_data=json.loads(json_patch), dest_file=tmpfile
+        )
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-    pytest_assert(output['rc'] != 0 and "Failed to apply patch" in output['stderr'],
-              "Expected failure did not occur as expected. Output: {}".format(output['stderr']))
-
+    pytest_assert(
+        output["rc"] != 0 and "Failed to apply patch" in output["stderr"],
+        "Expected failure did not occur as expected. Output: {}".format(
+            output["stderr"]
+        ),
+    )
