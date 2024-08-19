@@ -16,7 +16,7 @@ from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.snappi_tests.variables import dut_ip_start, snappi_ip_start, prefix_length, \
     dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, pfcQueueGroupSize, \
-    pfcQueueValueDict, MULTIDUT_PORT_INFO
+    pfcQueueValueDict          # noqa: F401
 logger = logging.getLogger(__name__)
 
 
@@ -1119,7 +1119,7 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
     Returns the required tx and rx ports for the rdma test
     Args:
         snappi_port_list (list): List of snappi ports and connected DUT ports info of T1 and T2 testbed
-        rdma_ports (dict): RDMA port info for testbed subtype
+        rdma_ports (dict): RDMA port info for testbed subtype defined in variables.py
         tx_port_count (int): Number of Tx ports required for the test
         rx_port_count (int): Number of Rx ports required for the test
     Return: (list)
