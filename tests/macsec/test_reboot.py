@@ -29,15 +29,20 @@ pytestmark = [
 
 def get_macsec_sessions(dut, space_var):
     out = dut.shell("show macsec{}".format(space_var))['stdout']
+    logger.debug(f"status {out}")
     sess_list = []
     regex = re.compile(r"\s*MACsec port\((.+)\)")
     count = 0
+    en = False
     for line in out.splitlines():
         if "MACsec port" in line:
             temp_sess = regex.match(line).group(1)
             count = 0
         elif count == 3:
             if "true" in line:
+                en = True
+        elif count == 15 and en:
+            if "MACsec Egress SA" in line:
                 sess_list.append(temp_sess)
         count = count + 1
     logger.debug("macsec sessions: " + str(sess_list))
