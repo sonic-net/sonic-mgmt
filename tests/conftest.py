@@ -112,6 +112,12 @@ def pytest_addoption(parser):
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
 
+    # copp options
+    parser.addoption("--copp_swap_syncd", action="store_true", default=False,
+                     help="Swap syncd container with syncd-rpc container")
+    parser.addoption("--send_rate_limit", action="store", default=2000,
+                     help="Set custom server send rate limit")
+
     ############################
     # pfc_asym options         #
     ############################
