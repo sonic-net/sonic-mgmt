@@ -515,28 +515,10 @@ Telemetry</td>
 boot-time is of type uint64 in units of seconds since Unix Epoch.  
 hostname (cardData.hostname in cmal) is of type string with max length of 253 bytes conforming to a regex pattern defined in [openconfig-inet-types.yang]
 
-config-meta-data is defined as a string in [google-system.yang](https://source.corp.google.com/gpins/third_party/sonic-buildimage/src/sonic-mgmt-common/models/yang/google-pins-system.yang):
 
-```
-     description
-       "SMA generates a new config metadata for every new version
-       of config that is pushed to the switch. The switch stores
-       the meta data. When SMA wants to check if there is a need
-       to re-push the configuration to the switch, it does a gNMI
-       GET on the metadata from the switch and compares it with
-       the meta data for the configuration returned by the config
-       generator and if there is mismatch it initiates a new
-       config push to the switch.";
-     reference
-       "TextProto representation of ConfigVersionMeta defined
-       in config_meta.proto file:
-         message ConfigVersionMeta {
-           // The ModelSetId used to generate the config.
-           optional platforms_model.ModelSetId msid = 1;
-           // The config generator mpm version used to generate the config.
-           optional GeneratorMpmVersion generator_mpm_version = 2;
-         }";
-```
+## Description
+SMA creates new metadata each time an updated configuration is sent to the switch. The switch keeps this metadata. To determine if the configuration needs to be resent, SMA retrieves the metadata from the switch and compares it to the metadata for the configuration. If there's a mismatch, a new configuration is sent.
+
 
 ## Tests
 **Test**:
