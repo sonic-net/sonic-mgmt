@@ -6,6 +6,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.tacacs.conftest import tacacs_creds      # noqa F401
 from tests.tacacs.utils import setup_local_user
 from tests.common.utilities import paramiko_ssh
+from tests.common.fixtures.tacacs import get_aaa_sub_options_value
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -101,7 +102,13 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):      # no
     # if template file not exist on duthost, ignore this UT
     # However still need yield, if not yield, UT will failed with StopIteration error.
     template_file_exist = limit_template_exist(duthost)
+    aaa_login_disabled = False
     if template_file_exist:
+        # If AAA authentication enabled, disable it to allow local user login
+        if get_aaa_sub_options_value(duthost, "authentication", "login") == "tacacs+":
+            duthost.shell("sudo config aaa authentication login default")
+            aaa_login_disabled = True
+
         setup_local_user(duthost, tacacs_creds)
 
         # Modify templates and restart hostcfgd to render config files
@@ -111,6 +118,9 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):      # no
     yield
 
     if template_file_exist:
+        if aaa_login_disabled:
+            duthost.shell("sudo config aaa authentication login tacacs+")
+
         # Restore SSH session limit
         restore_templates(duthost)
         restart_hostcfgd(duthost)

@@ -413,11 +413,26 @@
     become: true
     when: proxy_env is defined and deploy is defined and deploy|bool == true
 
+  - name: Enable PTF tacacs server by default
+    set_fact:
+        use_ptf_tacacs_server: true
+        tacacs_enabled_by_default: true
+    when: use_ptf_tacacs_server is not defined
+
+  - debug: msg="use_ptf_tacacs_server {{ use_ptf_tacacs_server }}"
+
   - block:
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
         ignore_errors: true
+
+      - name: Update TACACS server address to PTF IP
+        set_fact:
+            tacacs_servers: ["{{ testbed_facts['ptf_ip'] }}"]
+        when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+
+      - debug: msg="tacacs_servers {{ tacacs_servers }}"
 
       - name: create new minigraph file for SONiC device
         template: src=templates/minigraph_template.j2
@@ -605,6 +620,24 @@
           loop_var: tacacs_config_cmd
         ignore_errors: true
         when: tacacs_enabled_by_default is defined and tacacs_enabled_by_default|bool == true
+
+      - block:
+          - name: Configure TACACS with PTF TACACS server
+            become: true
+            shell: "{{ tacacs_config_cmd }}"
+            loop:
+              - config tacacs authtype login
+              - config aaa authorization tacacs+
+              - config aaa accounting "tacacs+ local"
+            loop_control:
+              loop_var: tacacs_config_cmd
+            ignore_errors: true
+
+          - name: Configure TACACS with PTF TACACS server for MX
+            become: true
+            shell: config aaa authorization "tacacs+ local"
+            when: topo == "mx"
+        when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
 
       - name: execute configlet application script, which applies configlets in strict order.
         become: true
