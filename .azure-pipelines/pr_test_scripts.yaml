@@ -20,7 +20,6 @@ t0:
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
-  - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_session.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
@@ -254,7 +253,6 @@ t1-lag:
   - bgp/test_bgp_multipath_relax.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
-  - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_session.py
   - bgp/test_traffic_shift.py
   - configlet/test_add_rack.py
@@ -445,6 +443,7 @@ dpu:
   - dash/test_dash_vnet.py
 
 onboarding_t0:
+  - bgp/test_bgp_stress_link_flap.py
   - copp/test_copp.py
   - crm/test_crm.py
   # We will add a batch of T0 control plane cases and fix the failed cases later
@@ -459,6 +458,7 @@ onboarding_t0:
   - drop_packets/test_drop_counters.py
 
 onboarding_t1:
+  - bgp/test_bgp_stress_link_flap.py
   - copp/test_copp.py
   - crm/test_crm.py
   - generic_config_updater/test_cacl.py
