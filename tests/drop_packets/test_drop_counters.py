@@ -47,6 +47,18 @@ COMBINED_L2L3_DROP_COUNTER = False
 COMBINED_ACL_DROP_COUNTER = False
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*ERR kernel.*Reset adapter.*",
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+
+
 @pytest.fixture(autouse=True, scope="module")
 def enable_counters(duthosts):
     """ Fixture which enables RIF and L2 counters """
