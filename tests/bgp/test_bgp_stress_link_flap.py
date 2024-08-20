@@ -154,15 +154,15 @@ def flap_neighbor_interface(neighbor, neighbor_port):
         neighbor_flap_count += 1
 
 
-@pytest.mark.parametrize("interface", ["dut", "fanout", "neighbor", "all"])
-def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, interface):
+@pytest.mark.parametrize("test_type", ["dut", "fanout", "neighbor", "all"])
+def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, test_type):
     global stop_threads
 
     duthost = duthosts[rand_one_dut_hostname]
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
-    if asic_type == "vs" and (interface == "fanout" or interface == "all"):
+    if asic_type == "vs" and (test_type == "fanout" or test_type == "all"):
         pytest.skip("Stress link flap test is not supported on Virtual Switch")
 
     eth_nbrs = setup.get('eth_nbrs', {})
@@ -172,7 +172,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
     stop_threads = False
     flap_threads = []
 
-    if interface == "dut":
+    if test_type == "dut":
         for interface in interface_list:
             thread = InterruptableThread(
                 target=flap_dut_interface,
@@ -182,7 +182,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             thread.daemon = True
             thread.start()
             flap_threads.append(thread)
-    elif interface == "fanout":
+    elif test_type == "fanout":
         thread = InterruptableThread(
             target=flap_fanout_interface,
             args=(interface_list, fanouthosts, duthost)
@@ -191,20 +191,23 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
         thread.daemon = True
         thread.start()
         flap_threads.append(thread)
-    elif interface == "neighbor":
+    elif test_type == "neighbor":
         for interface in interface_list:
             neighbor_name = eth_nbrs[interface]["name"]
             neighbor_port = eth_nbrs[interface]["port"]
-            neighbor_host = nbrhosts[neighbor_name]['host']
-            thread = InterruptableThread(
-                target=flap_neighbor_interface,
-                args=(neighbor_host, neighbor_port)
-            )
-            logger.info("Start flap thread {} neighbor {} port {}".format(thread, neighbor_host, neighbor_port))
-            thread.daemon = True
-            thread.start()
-            flap_threads.append(thread)
-    elif interface == "all":
+            neighbor_host = nbrhosts.get(neighbor_name, {}).get('host', None)
+            if not neighbor_host:
+                thread = InterruptableThread(
+                    target=flap_neighbor_interface,
+                    args=(neighbor_host, neighbor_port)
+                )
+                logger.info("Start flap thread {} neighbor {} port {}".format(thread, neighbor_host, neighbor_port))
+                thread.daemon = True
+                thread.start()
+                flap_threads.append(thread)
+            else:
+                logger.debug("neighbor host not found for {} port {}".format(neighbor_name, neighbor_port))
+    elif test_type == "all":
         for interface in interface_list:
             logger.info("shutdown all interface {} ".format(interface))
             thread_dut = InterruptableThread(
@@ -218,16 +221,19 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
             neighbor_name = eth_nbrs[interface]["name"]
             neighbor_port = eth_nbrs[interface]["port"]
-            neighbor_host = nbrhosts[neighbor_name]['host']
-            thread_neighbor = InterruptableThread(
-                target=flap_neighbor_interface,
-                args=(neighbor_host, neighbor_port)
-            )
-            logger.info("Start flap thread {} neighbor {} port {}".format(
-                thread_neighbor, neighbor_host, neighbor_port))
-            thread_neighbor.daemon = True
-            thread_neighbor.start()
-            flap_threads.append(thread_neighbor)
+            neighbor_host = nbrhosts.get(neighbor_name, {}).get('host', None)
+            if not neighbor_host:
+                thread_neighbor = InterruptableThread(
+                    target=flap_neighbor_interface,
+                    args=(neighbor_host, neighbor_port)
+                )
+                logger.info("Start flap thread {} neighbor {} port {}".format(
+                    thread_neighbor, neighbor_host, neighbor_port))
+                thread_neighbor.daemon = True
+                thread_neighbor.start()
+                flap_threads.append(thread_neighbor)
+            else:
+                logger.debug("neighbor host not found for {} port {}".format(neighbor_name, neighbor_port))
 
         thread_fanout = InterruptableThread(
             target=flap_fanout_interface,
