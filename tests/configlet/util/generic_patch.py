@@ -135,6 +135,8 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
         duthost.copy(src=os.path.join(no_t0_db_dir, "config_db.json"),
                      dest="/etc/sonic/config_db.json")
         config_reload(duthost, wait=RELOAD_WAIT_TIME, start_bgp=True)
+        assert wait_until(600, 20, 30, duthost.critical_services_fully_started), \
+            "##### All critical services should fully started!"
 
     if hack_apply:
         # Hack: TODO: Before adding port, patch updater need to ensure
@@ -148,6 +150,7 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
     patch_files = _list_patch_files(patch_add_t0_dir)
 
     CMD = CMD_APPLY_HACK if hack_apply else CMD_APPLY
+    do_pause(PAUSE_INTF_DOWN, "wait before add patch {}".format(CMD))
 
     for fl in patch_files:
         sonic_fl = os.path.join("/etc/sonic", fl)
