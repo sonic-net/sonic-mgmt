@@ -4,13 +4,6 @@ trigger: none
 pr: none
 
 # run on internal or private image
-schedules:
-  - cron: "0 2 * * 3"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal-202205
-    always: true
 
 variables:
   - group: SONIC_IMAGE_URLS
