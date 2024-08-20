@@ -21,7 +21,7 @@ pass_config_test = True
 
 
 def is_sonic_console(conn_graph_facts, dut_hostname):
-    return conn_graph_facts['device_console_info'][dut_hostname]["Os"] == "sonic"
+    return conn_graph_facts['device_console_info'][dut_hostname].get("Os", "") == "sonic"
 
 
 def test_console_baud_rate_config(duthost):
