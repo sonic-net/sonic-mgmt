@@ -37,9 +37,9 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
     interface_list = dev_nbrs.keys()
     logger.debug('interface_list: {}'.format(interface_list))
 
-    # # verify sessions are established
-    # pytest_assert(wait_until(30, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
-    #               "Not all BGP sessions are established on DUT")
+    # verify sessions are established
+    pytest_assert(wait_until(30, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
+                  "Not all BGP sessions are established on DUT")
 
     ip_intfs = duthost.show_and_parse('show ip interface')
     logger.debug("setup ip_intfs {}".format(ip_intfs))
