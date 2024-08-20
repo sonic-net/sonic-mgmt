@@ -9,6 +9,7 @@ Parameters:
 import logging
 import pytest
 import time
+import math
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
@@ -148,7 +149,14 @@ class TestContLinkFlap(object):
 
         # Check the FRR daemons memory usage at end
         end_time_frr_daemon_memory = {}
-        incr_frr_daemon_memory_threshold = 10 if tbinfo["topo"]["type"] in ["m0", "mx"] else 5
+        incr_frr_daemon_memory_threshold = {}
+        for daemon in frr_demons_to_check:
+            incr_frr_daemon_memory_threshold[daemon] = 10 if tbinfo["topo"]["type"] in ["m0", "mx"] else 5
+            min_threshold_percent = 1 / float(start_time_frr_daemon_memory[daemon]) * 100
+            if min_threshold_percent > incr_frr_daemon_memory_threshold[daemon]:
+                incr_frr_daemon_memory_threshold[daemon] = math.ceil(min_threshold_percent)
+            logging.info(f"The memory increment threshold for frr daemon {daemon} "
+                         f"is {incr_frr_daemon_memory_threshold[daemon]}%")
         for daemon in frr_demons_to_check:
             # Record FRR daemon memory status at end
             end_time_frr_daemon_memory[daemon] = self.get_frr_daemon_memory_usage(duthost, daemon)
@@ -164,8 +172,9 @@ class TestContLinkFlap(object):
                 percent_incr_frr_daemon_memory = \
                     (incr_frr_daemon_memory / float(start_time_frr_daemon_memory[daemon])) * 100
                 logging.info(f"{daemon} memory percentage increase: %d", percent_incr_frr_daemon_memory)
-                pytest_assert(percent_incr_frr_daemon_memory < incr_frr_daemon_memory_threshold,
-                              f"{daemon} memory increase more than expected: {incr_frr_daemon_memory_threshold}")
+                pytest_assert(percent_incr_frr_daemon_memory < incr_frr_daemon_memory_threshold[daemon],
+                              f"{daemon} memory increase more than expected: "
+                              f"{incr_frr_daemon_memory_threshold[daemon]}%")
 
         # Record orchagent CPU utilization at end
         orch_cpu = duthost.shell(
