@@ -475,7 +475,6 @@ onboarding_t1:
   - telemetry/test_events.py
 
 onboarding_dualtor:
-  - dualtor/test_orchagent_slb.py
   - dualtor_io/test_link_failure.py
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
 
