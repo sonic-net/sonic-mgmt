@@ -20,12 +20,14 @@ TEST_NAME="${1}"
 
 # Vrf40000 is automatically created by Tortuga when a L2VNI + SAG
 # is added to the fabric.
-SUBINFS1x3="Vrf40000|Ethernet1_10#1"
-SUBINFS1x3="*"
+SUBINFS1x3="Vrf40000|*|Ethernet1_9|eth1|lo|0"
 RELAYS1x3="Vrf40000|relay1|5.1.30.1|5010#5020"
 RELAYS1x3="*"
 BGPPEERS1x3="Vrf40000|bgp1#5.1.30.1#4000#65200"
 BGPPEERS1x3="*"
+ROUTES1x3="Vrf40000|5.1.1.0/24|41.220.1.1|leaf1|Ethernet1_32_1"
+#ROUTES1x3="${ROUTES1x3},Vrf40000|6.6.6.0/24|blackhole"
+PORTS1x3="leaf1|Ethernet1_32_1#41.220.1.2/24#Vrf40000"
 
 CONFIG_GEN=./config-gen
 os=$(uname)
@@ -37,6 +39,7 @@ CLOUD_URL=https://tortuga-k8s-a.cisco.com:32398
 START_TIME=$(date +%s)
 TEST_TAGS=sonic-test
 CGEN_TEST=extended
+ORG_NAME="Test"
 
 # Disable SSH based pre/post checks in prod mode.
 if [[ "${TEST_NAME}" == "prod" ]]; then
@@ -47,9 +50,7 @@ fi
 set -euo pipefail
 
 function cleanup() {
-  "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}"
-  sleep 20
-  "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}"
+  "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}" --orgName "${ORG_NAME}" --timeout "90s"
   echo
   echo "-------------------------Running ${1}-------------------------"
   echo
@@ -70,6 +71,7 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
     --lldp \
     --auto \
     --prefix \
+    --orgName "${ORG_NAME}" \
     --test "${CGEN_TEST}" \
     --cloud "${CLOUD_URL}" \
     --fabric "${FABRIC_NAME}" \
@@ -80,6 +82,8 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
     --dhcpRelays "${RELAYS1x3}" \
     --bgpPeers "${BGPPEERS1x3}" \
     --subInterfaces "${SUBINFS1x3}" \
+    --ports "${PORTS1x3}" \
+    --routes "${ROUTES1x3}" \
     --tags "${TEST_TAGS},add-sag,ipv4,ipv6,l3vni,loopback"
 fi
 
@@ -94,6 +98,7 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "l3vni" ]]; then
     --lldp \
     --auto \
     --prefix \
+    --orgName "${ORG_NAME}" \
     --cloud "${CLOUD_URL}" \
     --fabric "${FABRIC_NAME}" \
     --pyvxr "${PYVXR_HOST}" \
