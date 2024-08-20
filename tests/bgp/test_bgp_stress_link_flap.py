@@ -196,7 +196,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             neighbor_name = eth_nbrs[interface]["name"]
             neighbor_port = eth_nbrs[interface]["port"]
             neighbor_host = nbrhosts.get(neighbor_name, {}).get('host', None)
-            if not neighbor_host:
+            if neighbor_host:
                 thread = InterruptableThread(
                     target=flap_neighbor_interface,
                     args=(neighbor_host, neighbor_port)
@@ -222,7 +222,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             neighbor_name = eth_nbrs[interface]["name"]
             neighbor_port = eth_nbrs[interface]["port"]
             neighbor_host = nbrhosts.get(neighbor_name, {}).get('host', None)
-            if not neighbor_host:
+            if neighbor_host:
                 thread_neighbor = InterruptableThread(
                     target=flap_neighbor_interface,
                     args=(neighbor_host, neighbor_port)
