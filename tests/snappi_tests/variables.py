@@ -1,6 +1,36 @@
 import sys
 import ipaddress
 from ipaddress import ip_address, IPv4Address, IPv6Address
+
+# NOTE: Ensure the ports are mapped correctly to the respective duts in ansible/files/*links.csv
+# NOTE: The MULTIDUT_TESTBED must match with the conf-name defined in testbed.yml/testbed.csv file
+MULTIDUT_TESTBED = 'vms-snappi-sonic-multidut'
+MULTIDUT_PORT_INFO = {MULTIDUT_TESTBED: (
+    ({
+        'multi-dut-single-asic': {
+            'rx_ports': [
+                {'port_name': 'Ethernet72', 'hostname': "sonic-s6100-dut1"},
+                {'port_name': 'Ethernet76', 'hostname': "sonic-s6100-dut1"}
+            ],
+            'tx_ports': [
+                {'port_name': 'Ethernet64', 'hostname': "sonic-s6100-dut2"},
+                {'port_name': 'Ethernet68', 'hostname': "sonic-s6100-dut2"}
+            ]
+        }
+    }),
+    ({
+        'single-dut-single-asic': {
+            'rx_ports': [
+                {'port_name': 'Ethernet72', 'hostname': "sonic-s6100-dut1"},
+                {'port_name': 'Ethernet76', 'hostname': "sonic-s6100-dut1"}
+            ],
+            'tx_ports': [
+                {'port_name': 'Ethernet64', 'hostname': "sonic-s6100-dut1"},
+                {'port_name': 'Ethernet68', 'hostname': "sonic-s6100-dut1"}
+            ]
+        }
+    })
+)}
 '''
 In this file user can modify the line_card_choice and it chooses the corresponding hostname
 and asic values from the config_set hostnames can be modified according to the dut hostname mentioned
