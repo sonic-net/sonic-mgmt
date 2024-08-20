@@ -132,9 +132,9 @@ def restore_orig_minigraph(duthost, skip_load=False):
 def load_minigraph(duthost):
     log_info("Loading minigraph")
     config_reload(duthost, config_source="minigraph", wait=RELOAD_WAIT_TIME, start_bgp=True)
-    assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
+    assert wait_until(300, 20, 30, duthost.critical_services_fully_started), \
         "All critical services should fully started!"
-    assert wait_until(300, 20, 0, chk_for_pfc_wd, duthost), \
+    assert wait_until(300, 20, 30, chk_for_pfc_wd, duthost), \
         "PFC_WD is missing in CONFIG-DB"
 
 
