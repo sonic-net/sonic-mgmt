@@ -1,7 +1,6 @@
 [program:icmp_responder]
 command=/root/env-python3/bin/python /opt/icmp_responder.py {{ icmp_responder_args }}
 process_name=icmp_responder
-environment=PATH="/root/env-python3/bin"
 stdout_logfile=/tmp/icmp_responder.out.log
 stderr_logfile=/tmp/icmp_responder.err.log
 redirect_stderr=false

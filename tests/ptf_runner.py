@@ -1,9 +1,13 @@
+import ast
+import pathlib
 import pipes
 import traceback
 import logging
 import allure
 import json
 from datetime import datetime
+import os
+import six
 
 logger = logging.getLogger(__name__)
 
@@ -46,29 +50,101 @@ def get_dut_type(host):
     return "Unknown"
 
 
+def get_ptf_image_type(host):
+    """
+    The function queries the PTF image to determine
+    if the image is of type 'mixed' or 'py3only'
+    """
+    pyvenv = host.stat(path="/root/env-python3/pyvenv.cfg")
+    if pyvenv["stat"]["exists"]:
+        return "mixed"
+    return "py3only"
+
+
+def get_test_path(testdir, testname):
+    """
+    Returns two values
+    - first: the complete path of the test based on testdir and testname.
+    - second: True if file is in 'py3' False otherwise
+    Raises FileNotFoundError if file is not found
+    """
+    curr_path = os.path.dirname(os.path.abspath(__file__))
+    base_path = pathlib.Path(curr_path).joinpath('..').joinpath('ansible/roles/test/files').joinpath(testdir)
+    idx = testname.find('.')
+    test_fname = testname + '.py' if idx == -1 else testname[:idx] + '.py'
+    chk_path = base_path.joinpath('py3').joinpath(test_fname)
+    if chk_path.exists():
+        return chk_path, True
+    chk_path = base_path.joinpath(test_fname)
+    if chk_path.exists():
+        return chk_path, False
+    raise FileNotFoundError("Testdir: {} Testname: {} File: {} not found".format(testdir, testname, chk_path))
+
+
+def is_py3_compat(test_fpath):
+    """
+    Returns True if the test can be run in a Python 3 environment
+    False otherwise.
+    """
+    if six.PY2:
+        raise Exception("must run in a Python 3 runtime")
+    with open(test_fpath, 'rb') as f:
+        code = f.read()
+        try:
+            ast.parse(code)
+        except SyntaxError:
+            return False
+        return True
+    # shouldn't get here
+    return False
+
+
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                platform="remote", qlen=0, relax=True, debug_level="info",
                socket_recv_size=None, log_file=None, device_sockets=[], timeout=0, custom_options="",
-               module_ignore_errors=False, is_python3=False, async_mode=False, pdb=False):
-    # Call virtual env ptf for migrated py3 scripts.
-    # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
-    # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
+               module_ignore_errors=False, is_python3=None, async_mode=False, pdb=False):
+
     dut_type = get_dut_type(host)
     if dut_type == "kvm" and params.get("kvm_support", True) is False:
         logger.info("Skip test case {} for not support on KVM DUT".format(testname))
         return True
 
-    if is_python3:
-        path_exists = host.stat(path="/root/env-python3/bin/ptf")
-        if path_exists["stat"]["exists"]:
-            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir + '/py3', testname)
+    cmd = ""
+    ptf_img_type = get_ptf_image_type(host)
+    logger.info('PTF image type: {}'.format(ptf_img_type))
+    test_fpath, in_py3 = get_test_path(testdir, testname)
+    logger.info('Test file path {}, in py3: {}'.format(test_fpath, in_py3))
+    is_python3 = is_py3_compat(test_fpath)
+
+    # The logic below automatically chooses the PTF binary to execute a test script
+    # based on the container type "mixed" vs. "py3only".
+    #
+    # For "mixed" type PTF image the global environment has Python 2 and Python 2 compatible
+    # ptf binary. Python 3 is part of a virtual environment under "/root/env-python3". All
+    # packages and Python 3 compatible ptf binary is in the virtual environment.
+    #
+    # For "py3only" type PTF image the global environment has Python 3 only in the global
+    # environment. Python 2 does not exist on this image and attempt to execute any
+    # Python 2 PTF tests raises an exception.
+
+    ptf_cmd = None
+    if ptf_img_type == "mixed":
+        if is_python3:
+            ptf_cmd = '/root/env-python3/bin/ptf'
         else:
-            error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\n" \
-                        "Please check and update docker-ptf image, make sure to use the correct one."
-            logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, error_msg))
-            raise Exception(error_msg)
+            ptf_cmd = '/usr/bin/ptf'
     else:
-        cmd = "ptf --test-dir {} {}".format(testdir, testname)
+        if is_python3:
+            ptf_cmd = '/usr/local/bin/ptf'
+        else:
+            err_msg = 'cannot run Python 2 test in a Python 3 only {} {}'.format(testdir, testname)
+            raise Exception(err_msg)
+
+    if in_py3:
+        tdir = pathlib.Path(testdir).joinpath('py3')
+        cmd = "{} --test-dir {} {}".format(ptf_cmd, tdir, testname)
+    else:
+        cmd = "{} --test-dir {} {}".format(ptf_cmd, testdir, testname)
 
     if platform_dir:
         cmd += " --platform-dir {}".format(platform_dir)
@@ -120,6 +196,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
             print("Run command from ptf: sh {}".format(script_name))
             import pdb
             pdb.set_trace()
+        logger.info('ptf command: {}'.format(cmd))
         result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors, module_async=async_mode)
         if not async_mode:
             if log_file:
