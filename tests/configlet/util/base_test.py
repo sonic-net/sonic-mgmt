@@ -130,12 +130,62 @@ def restore_orig_minigraph(duthost, skip_load=False):
 
 
 def load_minigraph(duthost):
-    log_info("Loading minigraph")
+    log_info("##### Loading minigraph")
+
+    cmd = "docker ps -a"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "sudo systemctl status bgp.service"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp summary"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip interfaces"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp neighbors 10.0.0.13"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp neighbors 10.0.0.17"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
     config_reload(duthost, config_source="minigraph", wait=RELOAD_WAIT_TIME, start_bgp=True)
     assert wait_until(300, 20, 30, duthost.critical_services_fully_started), \
         "All critical services should fully started!"
     assert wait_until(300, 20, 30, chk_for_pfc_wd, duthost), \
         "PFC_WD is missing in CONFIG-DB"
+
+    log_info("##### After Loading minigraph")
+    cmd = "docker ps -a"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "sudo systemctl status bgp.service"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp summary"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip interfaces"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp neighbors 10.0.0.13"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp neighbors 10.0.0.17"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
 
 
 def prepare_for_test(duthost):
