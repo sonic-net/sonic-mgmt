@@ -14,7 +14,8 @@ The goal of this test is to verify that the macsec neighbor relationship is esta
 
 ### Scope
 
-The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to test when a neighbor reboots while Macsec is Active.
+The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to verify
+the behavior of a link when a neighbor reboots while Macsec is Active and ensure the link returns to functioning state.
 
 ### Related DUT CLI commands
 
