@@ -5,6 +5,7 @@ logger = logging.getLogger(__name__)
 class QosParamCisco(object):
     SMALL_SMS_PLATFORMS = ["x86_64-8102_64h_o-r0"]
     DEEP_BUFFER_PLATFORMS = ["x86_64-8111_32eh_o-r0"]
+    BACKEND_DEVICE_TYPES = ['BackEndToRRouter', 'BackEndLeafRouter']
     LOG_PREFIX = "QosParamCisco: "
 
     def __init__(self, qos_params, duthost, dutAsic, topo, bufferConfig, portSpeedCableLength):
@@ -30,6 +31,14 @@ class QosParamCisco(object):
         # Find SMS size
         self.is_large_sms = duthost.facts['platform'] not in self.SMALL_SMS_PLATFORMS
         self.is_deep_buffer = duthost.facts['platform'] in self.DEEP_BUFFER_PLATFORMS
+        config_facts = duthost.get_running_config_facts()
+        # print("config_facts:")
+        # print(config_facts)
+        # self.is_compute_ai = True
+        metadata_table = config_facts['DEVICE_METADATA']['localhost']
+        self.is_compute_ai = (metadata_table['type'] in self.BACKEND_DEVICE_TYPES
+                              and 'resource_type' in metadata_table
+                              and metadata_table['resource_type'] == 'ComputeAI')
         self.buffer_size = 384
         # Lossless profile attributes
         lossless_prof_name = "pg_lossless_{}_profile".format(self.portSpeedCableLength)
@@ -71,6 +80,8 @@ class QosParamCisco(object):
                 self.reduced_pause_thr = 3 * (1024 ** 2)
             else:
                 self.reduced_pause_thr = 2.25 * (1024 ** 2)
+            if dutAsic == "gr":
+                self.reduced_pause_thr = self.gr_get_hw_thr_buffs(self.reduced_pause_thr // self.buffer_size) * self.buffer_size
             self.log("Max pause thr bytes:       {}".format(max_pause))
             self.log("Attempted pause thr bytes: {}".format(attempted_pause))
             self.log("Pre-pad pause thr bytes:   {}".format(pre_pad_pause))
@@ -78,6 +89,13 @@ class QosParamCisco(object):
             self.log("Pre-pad drop thr bytes:    {}".format(pre_pad_drop))
             self.log("Drop thr bytes:            {}".format(self.drop_thr))
             self.log("Reduced pause thr bytes:   {}".format(self.reduced_pause_thr))
+        # dscp value for lossy
+        if self.is_compute_ai:
+            self.dscp_queue0 = 48
+            self.dscp_queue1 = 46
+        else:
+            self.dscp_queue0 = 8
+            self.dscp_queue1 = 0
 
     def run(self):
         '''
@@ -174,20 +192,20 @@ class QosParamCisco(object):
             return
         if self.is_large_sms:
             if self.is_deep_buffer:
-                res_1 = {"dscps": [8, 8, 1, 1, 3, 4, 3, 4, 3, 4, 3],
-                         "pgs": [0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3],
-                         "queues": [0, 0, 1, 1, 3, 4, 3, 4, 3, 4, 3],
-                         "src_port_i": [0, 1, 0, 1, 0, 0, 1, 1, 2, 2, 4],
-                         "dst_port_i": [5, 6, 7, 8, 5, 5, 6, 6, 7, 7, 8],
-                         "pkt_counts": [9728, 9728, 9728, 9728, 3583, 6646, 6646, 1654, 1654, 979, 1],
-                         "shared_limit_bytes": 92274816}
+                res_1 = {"dscps": [self.dscp_queue0, self.dscp_queue0, self.dscp_queue1, self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3],
+                        "pgs": [0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3],
+                        "queues": [0, 0, 1, 1, 3, 4, 3, 4, 3, 4, 3],
+                        "src_port_i": [0, 1, 0, 1, 0, 0, 1, 1, 2, 2, 4],
+                        "dst_port_i": [5, 6, 7, 8, 5, 5, 6, 6, 7, 7, 8],
+                        "pkt_counts": [9728, 9728, 9728, 9728, 3583, 6646, 6646, 1654, 1654, 979, 1],
+                        "shared_limit_bytes": 92274816}
                 res_2 = {"dscps": [3, 4, 3, 4, 3, 4, 3, 4],
-                         "pgs": [3, 4, 3, 4, 3, 4, 3, 4],
-                         "queues": [3, 4, 3, 4, 3, 4, 3, 4],
-                         "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3],
-                         "dst_port_i": [4, 4, 5, 5, 6, 6, 7, 7],
-                         "pkt_counts": [11946, 11946, 11946, 11946, 2561, 2561, 1707, 1],
-                         "shared_limit_bytes": 83886720}
+                        "pgs": [3, 4, 3, 4, 3, 4, 3, 4],
+                        "queues": [3, 4, 3, 4, 3, 4, 3, 4],
+                        "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3],
+                        "dst_port_i": [4, 4, 5, 5, 6, 6, 7, 7],
+                        "pkt_counts": [11946, 11946, 11946, 11946, 2561, 2561, 1707, 1],
+                        "shared_limit_bytes": 83886720}
             else:
                 res_1 = {"dscps": [8, 8, 8, 8, 1, 1, 1, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                          "pgs": [0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
@@ -276,7 +294,7 @@ class QosParamCisco(object):
             self.write_params("wm_pg_shared_lossless", lossless_params)
         if self.should_autogen(["wm_pg_shared_lossy"]):
             lossy_params = common_params.copy()
-            lossy_params.update({"dscp": 8,
+            lossy_params.update({"dscp": self.dscp_queue0,
                                  "pg": 0,
                                  "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size})
             self.write_params("wm_pg_shared_lossy", lossy_params)
@@ -295,7 +313,7 @@ class QosParamCisco(object):
                                "packet_size": packet_size}
             self.write_params("wm_buf_pool_lossless", lossless_params)
         if self.should_autogen(["wm_buf_pool_lossy"]):
-            lossy_params = {"dscp": 8,
+            lossy_params = {"dscp": self.dscp_queue0,
                             "ecn": 1,
                             "pg": 0,
                             "queue": 0,
@@ -316,7 +334,7 @@ class QosParamCisco(object):
                                "cell_size": self.buffer_size}
             self.write_params("wm_q_shared_lossless", lossless_params)
         if self.should_autogen(["wm_q_shared_lossy"]):
-            lossy_params = {"dscp": 8,
+            lossy_params = {"dscp": self.dscp_queue0,
                             "ecn": 1,
                             "queue": 0,
                             "pkts_num_fill_min": 0,
@@ -327,7 +345,7 @@ class QosParamCisco(object):
 
     def __define_lossy_queue_voq(self):
         if self.should_autogen(["lossy_queue_voq_1"]):
-            params = {"dscp": 8,
+            params = {"dscp": self.dscp_queue0,
                       "ecn": 1,
                       "pg": 0,
                       "flow_config": self.flow_config,
@@ -337,7 +355,7 @@ class QosParamCisco(object):
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_1", params)
         if self.should_autogen(["lossy_queue_voq_2"]):
-            params = {"dscp": 8,
+            params = {"dscp": self.dscp_queue0,
                       "ecn": 1,
                       "pg": 0,
                       "flow_config": "shared",
@@ -347,7 +365,7 @@ class QosParamCisco(object):
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_2", params)
         if self.should_autogen(["lossy_queue_voq_3"]):
-            params = {"dscp": 8,
+            params = {"dscp": self.dscp_queue0,
                       "ecn": 1,
                       "pg": 0,
                       "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
@@ -358,7 +376,7 @@ class QosParamCisco(object):
 
     def __define_lossy_queue(self):
         if self.should_autogen(["lossy_queue_1"]):
-            params = {"dscp": 8,
+            params = {"dscp": self.dscp_queue0,
                       "ecn": 1,
                       "pg": 0,
                       "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
