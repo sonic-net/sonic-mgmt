@@ -90,9 +90,12 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
 
             neighbor = dev_nbrs[port]["name"]
             neighbor_port = dev_nbrs[port]["port"]
-
-            logger.info("no shutdown neighbor interface, neighbor {} port {}".format(neighbor, neighbor_port))
-            nbrhosts[neighbor]['host'].no_shutdown(neighbor_port)
+            neighbor_host = nbrhosts.get(neighbor, {}).get('host', None)
+            if neighbor_host:
+                neighbor_host.no_shutdown(neighbor_port)
+                logger.info("no shutdown neighbor interface, neighbor {} port {}".format(neighbor, neighbor_port))
+            else:
+                logger.debug("neighbor host not found for {} port {}".format(neighbor, neighbor_port))
 
             time.sleep(1)
 
