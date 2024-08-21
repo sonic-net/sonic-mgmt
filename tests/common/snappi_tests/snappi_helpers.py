@@ -147,7 +147,7 @@ class SnappiFanoutManager():
         Returns:
             Details of the chassis connection as dictionary format.
         """
-        return(self.last_device_connection_details)
+        return (self.last_device_connection_details)
 
     def get_chassis_ip(self):
         """This function returns IP address of a particular chassis
@@ -172,6 +172,9 @@ class SnappiFanoutManager():
         Note: If you have not used get_fanout_device_details(), by default 0th
             (first) chassis remains selected. If you do not specify peer_device,
             this function will return all the ports of the chassis.
+
+            For Breakout ports in single appliance , the ports will be in dotted notation,
+            for example: in links.csv file the numbering will be like Port1.1, Port1.2
 
         Args:
             peer_device (str): hostname of the peer device
@@ -234,6 +237,7 @@ def get_snappi_port_location(intf):
         return "{};{};{}".format(intf['ip'], intf['card_id'], intf['port_id'])
     else:
         return "{}/{}".format(intf['ip'], intf['port_id'])
+
 
 def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
     snappi_fanout = get_peer_snappi_chassis(conn_data=conn_data,
