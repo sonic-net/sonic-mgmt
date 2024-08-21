@@ -1,6 +1,6 @@
 '''
 
-The test case will verify a neighbor reboot while Macsec is Active.
+The test case will verify the behavior when a neighbor reboots while Macsec is Active.
 
 Step 1: Configure Macsec between neighbor and DUT
 Step 2: Save config on neighbor and reboot
@@ -8,9 +8,10 @@ Step 3: Verify macsec connection is re-established after reboot
 
 '''
 
-from time import sleep
 import pytest
 import logging
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 
 logger = logging.getLogger(__name__)
@@ -21,21 +22,26 @@ pytestmark = [
 ]
 
 
-def test_neighbor_reboot(duthost, nbrhosts, request, enum_rand_one_frontend_asic_index):
+def test_neighbor_reboot(duthosts, request, enum_frontend_dut_hostname, ctrl_links):
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Neighbor type must be sonic")
-    asic_index = enum_rand_one_frontend_asic_index
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    dut_lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
-    dut_to_neigh_int = dut_lldp_table[0]
-    neighhost = nbrhosts[dut_lldp_table[1]]["host"]
-    neighhost.shell("config save -y")
-    neighhost.shell("sudo reboot")
-    sleep(240)
+    duthost = duthosts[enum_frontend_dut_hostname]
+    if not duthost.is_macsec_capable_node():
+        pytest.skip("DUT must be a MACSec enabled device.")
+    pytest_assert(ctrl_links)
+    dut_to_neigh_int, nbr = list(ctrl_links.items())[0]
+    wait_until(120, 3, 0, lambda: duthost.iface_macsec_ok(dut_to_neigh_int) and
+               nbr["host"].iface_macsec_ok(nbr["port"]))
+    nbr["host"].shell("config save -y")
+    nbr["host"].shell("sudo reboot")
 
-    space_var = ""
-    if namespace is not None:
-        space_var = "-n {} ".format(namespace)
-    macsec_status = duthost.shell("show macsec {}{}".format(space_var, dut_to_neigh_int))['stdout'].splitlines()
-    assert dut_to_neigh_int in macsec_status[0]
-    assert "enable" in macsec_status[3]
+    # macsec should be down on neighbor right after reboot
+    wait_until(240, 3, 0, lambda: not nbr["host"].iface_macsec_ok(nbr["port"]))
+    pytest_assert(not nbr["host"].iface_macsec_ok(nbr["port"]))
+
+    # wait for macsec to come back up
+    wait_until(240, 3, 0, lambda: duthost.iface_macsec_ok(dut_to_neigh_int) and
+               nbr["host"].iface_macsec_ok(nbr["port"]))
+
+    pytest_assert(duthost.iface_macsec_ok(dut_to_neigh_int))
+    pytest_assert(nbr["host"].iface_macsec_ok(nbr["port"]))

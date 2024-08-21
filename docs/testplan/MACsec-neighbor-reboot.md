@@ -6,11 +6,11 @@
 
 # Test name
 
-BGP Session Flaps
+Macsec Neighbor Reboot
 
 ## Overview
 
-The goal of this test is to verify that the CPU and memory do not spike during cycles of BGP sessions flapping.
+The goal of this test is to verify that the macsec neighbor relationship is established after the neighbor is rebooted.
 
 ### Scope
 
