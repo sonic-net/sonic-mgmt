@@ -804,6 +804,10 @@ def creds_on_dut(duthost):
 
     creds["ansible_altpasswords"] = []
 
+    # If ansible_altpasswords is empty, add ansible_altpassword to it
+    if len(creds["ansible_altpasswords"]) == 0:
+        creds["ansible_altpasswords"].append(hostvars["ansible_altpassword"])
+
     passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
     creds['sonicadmin_password'] = get_dut_current_passwd(
         duthost.mgmt_ip,
