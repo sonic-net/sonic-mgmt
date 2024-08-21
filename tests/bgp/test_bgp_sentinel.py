@@ -394,9 +394,15 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
             announce_route(ptfip, lo_ipv6_addr, route, ptf_bp_v6, BGP_SENTINEL_PORT_V6, community)
 
     time.sleep(10)
+
     # Check if the routes are not announced to ebgp peers with no-export community
     # or w/o no-export, routes announced to ebgp peers
     for route in ipv4_routes + ipv6_routes:
+        # Check if DUT receives the routes that announced from ptf
+        cmd = "vtysh -c \'show ip bgp neighbors {} received-routes json\'".format(route)
+        output = json.loads(duthost.shell(cmd)['stdout'])
+        logger.debug(output)
+
         if 'no-export' in community:
             pytest_assert(not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
                           "Route {} should not be advertised to bgp peers".format(route))
