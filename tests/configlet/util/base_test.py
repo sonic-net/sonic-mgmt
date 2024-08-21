@@ -152,7 +152,23 @@ def load_minigraph(duthost):
     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
     log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
 
+    cmd = "show ip bgp neighbors 10.0.0.13 received-routes"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp neighbors 10.0.0.13 advertised-routes"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
     cmd = "show ip bgp neighbors 10.0.0.17"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp neighbors 10.0.0.17 received-routes"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp neighbors 10.0.0.17 advertised-routes"
     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
     log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
 
@@ -183,7 +199,23 @@ def load_minigraph(duthost):
     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
     log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
 
+    cmd = "show ip bgp neighbors 10.0.0.13 received-routes"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp neighbors 10.0.0.13 advertised-routes"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
     cmd = "show ip bgp neighbors 10.0.0.17"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp neighbors 10.0.0.17 received-routes"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+
+    cmd = "show ip bgp neighbors 10.0.0.17 advertised-routes"
     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
     log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
 
