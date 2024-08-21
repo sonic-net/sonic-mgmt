@@ -2,6 +2,7 @@ test_features.py
 test_interfaces.py
 test_nbr_health.py
 test_pretest.py
+lldp/test_lldp.py::test_lldp
 test_posttest.py
 arp/test_arpall.py::test_arp_no_reply_src_out_range
 arp/test_neighbor_mac_noptf.py::testNeighborMacNoPtf
