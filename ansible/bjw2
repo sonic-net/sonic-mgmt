@@ -953,9 +953,9 @@ sonic_arista_7260cx3:
       syseeprom_info:
 
 
-sonic_cisco_8101_O8C48:
+sonic_cisco_8101:
   vars:
-    hwsku: Cisco-8101-O8C48
+    hwsku: Cisco-8101-O32
     iface_speed: 100000
   hosts:
     bjw2-can-8101-1:
@@ -1000,6 +1000,13 @@ sonic_cisco_8101_O8C48:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+
+
+sonic_cisco_8101_O8C48:
+  vars:
+    hwsku: Cisco-8101-O8C48
+    iface_speed: 100000
+  hosts:
     bjw2-can-8101-3:
       ansible_host: 10.150.22.59
       ansible_hostv6: 2404:f801:10:2200::a96:163b

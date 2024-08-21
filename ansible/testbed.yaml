@@ -3039,7 +3039,7 @@
 
 - conf-name: testbed-bjw2-can-t1-8101-1
   group-name: bjw2-2-9
-  topo: t1-56-lag
+  topo: t1-lag
   ptf_image_name: docker-ptf
   ptf: bjw2-2-9
   ptf_ip: 10.150.23.102/23
@@ -3055,7 +3055,7 @@
 
 - conf-name: testbed-bjw2-can-t1-8101-2
   group-name: bjw2-3-1
-  topo: t1-56-lag
+  topo: t1-lag
   ptf_image_name: docker-ptf
   ptf: bjw2-3-1
   ptf_ip: 10.150.23.103/23
