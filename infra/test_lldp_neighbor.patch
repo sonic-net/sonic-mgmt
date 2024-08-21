@@ -22,7 +22,7 @@ index 0306763a16..02a4fa3d9f 100644
      res = duthost.shell(
 -        "docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
 +        "docker exec -i lldp{} lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'".format(
-+            asic))
++            asic if asic else ''))
      dut_system_description = res['stdout']
      lldpctl_facts = duthost.lldpctl_facts(
 -        asic_instance_id=enum_frontend_asic_index,
