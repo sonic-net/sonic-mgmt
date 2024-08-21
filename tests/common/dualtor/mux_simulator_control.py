@@ -585,8 +585,7 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
             data['active_side']
         ))
         _post(mux_server_url, data)
-        time.sleep(5)
-        if _check_toggle_done(duthosts, target_dut_hostname):
+        if utilities.wait_until(15, 5, 0, _check_toggle_done, duthosts, target_dut_hostname, probe=True):
             is_toggle_done = True
             break
 
