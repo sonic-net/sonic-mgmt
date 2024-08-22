@@ -354,9 +354,15 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
 
 
 @pytest.fixture(params=["port_channel_members", "vlan_members", "rif_members"])
-def tx_dut_ports(request, setup):
+def tx_dut_ports(request, setup, tbinfo):
     """ Fixture for getting port members of specific port group """
-    return setup[request.param] if setup[request.param] else pytest.skip("No {} available".format(request.param))
+    if not setup[request.param]:
+        reason = "No {} available".format(request.param)
+        if tbinfo["topo"]["type"] != "t0" and request.param == "vlan_members":
+            reason = "Test case is only suitable for t0 type topology since it requires vlan interfaces"
+        pytest.skip(reason)
+    else:
+        return setup[request.param]
 
 
 @pytest.fixture
