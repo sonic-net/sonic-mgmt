@@ -1714,6 +1714,11 @@ telemetry/test_events.py:
     reason: "Skip telemetry test events for 202211 and older branches"
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211']"
+  xfail:
+    reason: "Test events is flaky in PR test, xfail until issue resolved"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/19943
 
 telemetry/test_telemetry.py:
   skip:
