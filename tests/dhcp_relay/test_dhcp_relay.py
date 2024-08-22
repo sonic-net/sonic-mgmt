@@ -16,6 +16,9 @@ from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports   # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -270,9 +273,29 @@ def start_dhcp_monitor_debug_counter(duthost):
         assert False, "Failed to start dhcpmon in debug counter mode\n"
 
 
+@pytest.fixture
+def setup_active_active_as_active_standby(
+    active_active_ports, rand_selected_dut, rand_unselected_dut, tbinfo,                # noqa F811
+    config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup): # noqa F811
+    if 'dualtor' not in tbinfo['topo']['name']:
+        logger.info("Skipping toggle on non-dualtor testbed")
+
+    if active_active_ports:
+        # The traffic from active-active mux ports are ECMPed so the DHCP Request
+        # May land to any TOR.
+        # So let's configure the active-active mux ports, to let them work in active-standby mode.
+        logger.info("Configuring {} as active".format(rand_selected_dut.hostname))
+        logger.info("Configuring {} as standby".format(rand_unselected_dut.hostname))
+        config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports)
+
+    return
+
+
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                             setup_standby_ports_on_rand_unselected_tor,												# noqa F811
-                            rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
+                            active_active_ports,                                                    # noqa F811
+                            rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
+                            setup_active_active_as_active_standby):                                 # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
@@ -460,7 +483,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                                 setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
-                                toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
+                                toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
+                                setup_active_active_as_active_standby):            # noqa F811
     """Test DHCP relay functionality on T0 topology with unicast mac
        Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
     """
@@ -495,7 +519,8 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                                  setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
-                                 toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
+                                 toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
+                                 setup_active_active_as_active_standby):            # noqa F811
     """Test DHCP relay functionality on T0 topology with random source port (sport)
        If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68).
        Verify that DHCP relay works with random high sport.
