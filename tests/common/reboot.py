@@ -11,7 +11,9 @@ from .helpers.assertions import pytest_assert
 from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
 from .utilities import wait_until, get_plt_reboot_ctrl
-from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
+from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
+from tests.common.fixtures.conn_graph_facts import get_graph_facts
+
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +190,8 @@ def wait_for_startup(duthost, localhost, delay, timeout):
                              timeout=timeout,
                              module_ignore_errors=True)
     if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        raise Exception('DUT {} did not startup'.format(hostname))
+        collect_mgmt_config_by_console(duthost, localhost)
+        raise Exception(f'DUT {hostname} did not startup. res:{res}')
 
     logger.info('ssh has started up on {}'.format(hostname))
 
@@ -265,7 +268,10 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # Create a temporary file in tmpfs before reboot
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
-
+    wait_conlsole_connection = 5
+    console_thread_res = pool.apply_async(
+        collect_console_log, args=(duthost, localhost, timeout + wait_conlsole_connection))
+    time.sleep(wait_conlsole_connection)
     reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
 
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
@@ -276,7 +282,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # if wait_for_ssh flag is False, do not wait for dut to boot up
     if not wait_for_ssh:
         return
-    wait_for_startup(duthost, localhost, delay, timeout)
+    try:
+        wait_for_startup(duthost, localhost, delay, timeout)
+    except Exception as err:
+        logger.error('collecting console log thread result: {} on {}'.format(console_thread_res.get(), hostname))
+        pool.terminate()
+        raise Exception(f"dut not start:{err}")
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
     if safe_reboot:
@@ -495,3 +506,44 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     logger.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
         reboot_type_history_len, len(reboot_type_history_queue)))
     return False
+
+
+def try_create_dut_console(duthost, localhost, conn_graph_facts, creds):
+    try:
+        dut_sonsole = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+    except Exception as err:
+        logger.warning(f"Fail to create dut console. Please check console config or if console works ro not. {err}")
+        return None
+    logger.info("creating dut console succeeds")
+    return dut_sonsole
+
+
+def collect_console_log(duthost, localhost, timeout):
+    logger.info("start: collect console log")
+    creds = creds_on_dut(duthost)
+    conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
+    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
+    if dut_console:
+        logger.info(f"sleep {timeout} to collect console log....")
+        time.sleep(timeout)
+        dut_console.disconnect()
+        logger.info('end: collect console log')
+    else:
+        logger.warning("dut console is not ready, we can get log by console")
+
+
+def collect_mgmt_config_by_console(duthost, localhost):
+    logger.info("check if dut is pingable")
+    localhost.shell(f"ping -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
+
+    logger.info("Start: collect mgmt config by console")
+    creds = creds_on_dut(duthost)
+    conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
+    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
+    if dut_console:
+        dut_console.send_command("ip a s eth0")
+        dut_console.send_command("show ip int")
+        dut_console.disconnect()
+        logger.info('End: collect mgmt config by  console  ...')
+    else:
+        logger.warning("dut console is not ready, we can get mgmt config by console")
