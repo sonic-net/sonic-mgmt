@@ -1,16 +1,13 @@
 import concurrent.futures
 import os
-import glob
 import json
 import logging
 import getpass
 import random
-import re
 from concurrent.futures import as_completed
 
 import pytest
 import yaml
-import jinja2
 import copy
 import time
 import subprocess
@@ -18,11 +15,6 @@ import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
-from tests.common.connections.base_console_conn import (
-    CONSOLE_SSH_CISCO_CONFIG,
-    CONSOLE_SSH_DIGI_CONFIG,
-    CONSOLE_SSH_SONIC_CONFIG
-)
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
@@ -58,12 +50,10 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
-from tests.common.utilities import get_dut_current_passwd
 from tests.common.utilities import get_duts_from_host_pattern
-from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
+from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
-from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
@@ -851,77 +841,6 @@ def pdu():
     with open('../ansible/group_vars/pdu/pdu.yml') as stream:
         pdu = yaml.safe_load(stream)
         return pdu
-
-
-def creds_on_dut(duthost):
-    """ read credential information according to the dut inventory """
-    groups = duthost.host.options['inventory_manager'].get_host(duthost.hostname).get_vars()['group_names']
-    groups.append("fanout")
-    logger.info("dut {} belongs to groups {}".format(duthost.hostname, groups))
-    exclude_regex_patterns = [
-        r'topo_.*\.yml',
-        r'breakout_speed\.yml',
-        r'lag_fanout_ports_test_vars\.yml',
-        r'qos\.yml',
-        r'sku-sensors-data\.yml',
-        r'mux_simulator_http_port_map\.yml'
-        ]
-    files = glob.glob("../ansible/group_vars/all/*.yml")
-    files += glob.glob("../ansible/vars/*.yml")
-    for group in groups:
-        files += glob.glob("../ansible/group_vars/{}/*.yml".format(group))
-    filtered_files = [
-        f for f in files if not re.search('|'.join(exclude_regex_patterns), f)
-    ]
-
-    creds = {}
-    for f in filtered_files:
-        with open(f) as stream:
-            v = yaml.safe_load(stream)
-            if v is not None:
-                creds.update(v)
-            else:
-                logging.info("skip empty var file {}".format(f))
-
-    cred_vars = [
-        "sonicadmin_user",
-        "sonicadmin_password",
-        "docker_registry_host",
-        "docker_registry_username",
-        "docker_registry_password",
-        "public_docker_registry_host"
-    ]
-    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-    for cred_var in cred_vars:
-        if cred_var in creds:
-            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
-    # load creds for console
-    if "console_login" not in list(hostvars.keys()):
-        console_login_creds = {}
-    else:
-        console_login_creds = hostvars["console_login"]
-    creds["console_user"] = {}
-    creds["console_password"] = {}
-
-    creds["ansible_altpasswords"] = []
-
-    # If ansible_altpasswords is empty, add ansible_altpassword to it
-    if len(creds["ansible_altpasswords"]) == 0:
-        creds["ansible_altpasswords"].append(hostvars["ansible_altpassword"])
-
-    passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
-    creds['sonicadmin_password'] = get_dut_current_passwd(
-        duthost.mgmt_ip,
-        duthost.mgmt_ipv6,
-        creds['sonicadmin_user'],
-        passwords
-    )
-
-    for k, v in list(console_login_creds.items()):
-        creds["console_user"][k] = v["user"]
-        creds["console_password"][k] = v["passwd"]
-
-    return creds
 
 
 @pytest.fixture(scope="session")
@@ -1901,116 +1820,10 @@ def enum_upstream_dut_hostname(duthosts, tbinfo):
 @pytest.fixture(scope="module")
 def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_graph_facts, creds):   # noqa F811
     duthost = duthosts[enum_supervisor_dut_hostname]
-    dut_hostname = duthost.hostname
-    console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
-    if "/" in console_host:
-        console_host = console_host.split("/")[0]
-    console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
-    console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
-    console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
-    console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
-
-    console_type = f"console_{console_type}"
-    console_menu_type = f"{console_type}_{console_menu_type}"
-
-    # console password and sonic_password are lists, which may contain more than one password
-    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
-        "ansible_altpassword")
-    sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
-
-    # Attempt to clear the console port
-    try:
-        duthost_clear_console_port(
-            menu_type=console_menu_type,
-            console_host=console_host,
-            console_port=console_port,
-            console_username=console_username,
-            console_password=creds['console_password'][console_type]
-        )
-    except Exception as e:
-        logger.warning(f"Issue trying to clear console port: {e}")
-
-    # Set up console host
-    host = None
-    for attempt in range(1, 4):
-        try:
-            host = ConsoleHost(console_type=console_type,
-                               console_host=console_host,
-                               console_port=console_port,
-                               sonic_username=creds['sonicadmin_user'],
-                               sonic_password=sonic_password,
-                               console_username=console_username,
-                               console_password=creds['console_password'][console_type])
-            break
-        except Exception as e:
-            logger.warning(f"Attempt {attempt}/3 failed: {e}")
-            continue
-    else:
-        raise Exception("Failed to set up connection to console port. See warning logs for details.")
+    host = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
 
     yield host
     host.disconnect()
-
-
-def duthost_clear_console_port(
-        menu_type: str,
-        console_host: str,
-        console_port: str,
-        console_username: str,
-        console_password: str
-):
-    """
-    Helper function to clear the console port for a given DUT.
-    Useful when a device has an occupied console port, preventing dut_console tests from running.
-
-    Parameters:
-        menu_type: Connection type for the console's config menu (as expected by the ConsoleTypeMapper)
-        console_host: DUT host's console IP address
-        console_port: DUT host's console port, to be cleared
-        console_username: Username for the console account (overridden for Digi console)
-        console_password: Password for the console account
-    """
-    if menu_type == "console_ssh_":
-        raise Exception("Device does not have a defined Console_menu_type.")
-
-    # Override console user if the configuration menu is Digi, as this requires admin login
-    console_user = 'admin' if menu_type == CONSOLE_SSH_DIGI_CONFIG else console_username
-
-    duthost_config_menu = ConsoleHost(
-        console_type=menu_type,
-        console_host=console_host,
-        console_port=console_port,
-        console_username=console_user,
-        console_password=console_password,
-        sonic_username=None,
-        sonic_password=None
-    )
-
-    # Command lists for each config menu type
-    # List of tuples, containing a command to execute, and an optional pattern to wait for
-    command_list = {
-        CONSOLE_SSH_DIGI_CONFIG: [
-            ('2', None),                                                    # Enter serial port config
-            (console_port, None),                                           # Choose DUT console port
-            ('a', None),                                                    # Enter port management
-            ('1', f'Port #{console_port} has been reset successfully.')     # Reset chosen port
-        ],
-        CONSOLE_SSH_SONIC_CONFIG: [
-            (f'sudo sonic-clear line {console_port}', None)     # Clear DUT console port (requires sudo)
-        ],
-        CONSOLE_SSH_CISCO_CONFIG: [
-            (f'clear line tty {console_port}', '[confirm]'),    # Clear DUT console port
-            ('', '[OK]')                                        # Confirm selection
-        ],
-    }
-
-    for command, wait_for_pattern in command_list[menu_type]:
-        duthost_config_menu.write_channel(command + duthost_config_menu.RETURN)
-        duthost_config_menu.read_until_prompt_or_pattern(wait_for_pattern)
-
-    duthost_config_menu.disconnect()
-    logger.info(f"Successfully cleared console port {console_port}, sleeping for 5 seconds")
-    time.sleep(5)
 
 
 @pytest.fixture(scope='session')
