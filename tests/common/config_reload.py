@@ -107,7 +107,7 @@ def config_reload_minigraph_with_rendered_golden_config_override(
 
 @ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
-                  safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
+                  safe_reload=True, wait_before_force_reload=0, wait_for_bgp=False,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False,
                   golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True):
     """

@@ -118,7 +118,7 @@ def default_port_toggle_wait_time(duthost, port_count):
     Returns
         (int, int): timeout for shutting down ports, and timeout for bringing up ports
     """
-    port_down_wait_time, port_up_wait_time = 120, 180
+    port_down_wait_time, port_up_wait_time = 300, 600
     asic_type = duthost.facts["asic_type"]
 
     if asic_type == "mellanox":
