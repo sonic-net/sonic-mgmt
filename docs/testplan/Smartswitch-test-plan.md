@@ -321,7 +321,7 @@ root@sonic:/home/cisco#
 ### 1.5 Check midplane ip address between NPU and DPU 
 
 #### Steps 
- * Get the number of DPU modules from PMON APIs - get_num_modules().
+ * Get the number of DPU modules from from ansible inventory file for the testbed.
  * Get mid plane ip address for each DPU module from ansible inventory file for the testbed.
 
 #### Verify in
