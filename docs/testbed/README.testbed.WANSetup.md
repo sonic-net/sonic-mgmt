@@ -34,7 +34,7 @@ We currently support IOS-XR-based, EOS-based or SONiC VMs to simulate neighborin
 
 1. **Prepare folder for image files on test server**
 
-    Create subfolder `images` under `root_path` defined in the `ansible/group_vars/vm_host/main.yml` file. Assume `root_path` is `veos-vm`:
+    Create a subfolder called `images` inside the `root_path` directory defined in `ansible/group_vars/vm_host/main.yml` file. For instance, if `root_path` is set to `veos-vm`, you should run the following command:
 
     ```bash
     mkdir -p ~/veos-vm/images
@@ -45,9 +45,9 @@ We currently support IOS-XR-based, EOS-based or SONiC VMs to simulate neighborin
    #### Option 1.1: Manually download cEOS image
 
    1. Obtain the cEOS image from [Arista's software download page](https://www.arista.com/en/support/software-download).
-   2. Place the image file under subfolder `images` of the location determined by `root_path` variable in `ansible/group_vars/vm_host/main.yml`:
+   2. Place the image file in the `images` subfolder located within the directory specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file.
 
-      Assume `root_path` is `veos-vm`:
+      Assuming you set `root_path` to `veos-vm`, you should run the following command:
 
       ```bash
       cp cEOS64-lab-4.29.3M.tar ~/veos-vm/images/
@@ -83,11 +83,10 @@ We currently support IOS-XR-based, EOS-based or SONiC VMs to simulate neighborin
       skip_ceos_image_downloading: false
       ```
 
-**Note**: *For time being, the image might be updated, in that case you can't download the same version of image as in the instruction,
-please download the corresponding version(following [Arista recommended release](https://www.arista.com/en/support/software-download#datatab300)) of image and import it to your local docker repository.
+**Note** When downloading, the version specified above might be outdated or unavailable. Please check the [Arista recommended release](https://www.arista.com/en/support/software-download#datatab300) to obtain the latest recommended image and import it into your local Docker registry.
 The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), make sure you modify locally to keep it up with the image version you imported.*
 
-**Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
+**Note**: Please be aware of the image's CPU architecture (32 vs 64-bit). In the example above, it is a standard 64-bit cEOS image. Ensure you import the correct image according to your requirements.
 
 ### Option 2: Use Cisco image as neighboring devices
 You need to prepare a Cisco IOS-XR image `cisco-vs.img` in `~/veos-vm/images/`.The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/vm_host/main.yml:cisco_image_filename](../../ansible/group_vars/vm_host/main.yml). We don't support to download cisco image automatically, you can download an available image from [Download Cisco image](https://software.cisco.com/download/home/282414851/type/280805694/release/7.6.2) and put it into the directory `~/veos-vm/images`

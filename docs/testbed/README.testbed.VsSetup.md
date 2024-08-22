@@ -40,7 +40,8 @@ We currently support EOS-based or SONiC VMs to simulate neighboring devices in t
 
 **Prepare folder for image files on testbed host**
 
-Location for storing image files on testbed host is defined by variable `root_path` in the `ansible/group_vars/vm_host/main.yml` file. Please update this variable to the location you planned on testbed host. It can be absolute path or relative path. If use relative path, it will be relative to the home folder of the user will be used for accessing testbed host.
+The location for storing image files on the testbed host is specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file. Please update this variable to reflect the location you have planned for the testbed host. You can use
+either an absolute path or a relative path. If you choose a relative path, it will be relative to the home directory of the user accessing the testbed host.
 
 For example, if `root_path` is set to `veos-vm`, the image location would be `/home/$USER/veos-vm/images/`. If `root_path` is set to `/data/veos-vm`, the image location would be `/data/veos-vm/images`.
 
@@ -66,7 +67,7 @@ root_path: /data/veos-vm
 
 1. **Prepare folder for image files on test server**
 
-    Create subfolder `images` under `root_path` defined in the `ansible/group_vars/vm_host/main.yml` file. Assume `root_path` is `veos-vm`:
+    Create a subfolder called `images` inside the `root_path` directory defined in `ansible/group_vars/vm_host/main.yml` file. For instance, if `root_path` is set to `veos-vm`, you should run the following command:
 
     ```bash
     mkdir -p ~/veos-vm/images
@@ -74,19 +75,19 @@ root_path: /data/veos-vm
 
 2. **Prepare the cEOS image file**
 
-   #### Option 1.1: Manually download cEOS image
+   #### Option 2.1: Manually download cEOS image
 
    1. Obtain the cEOS image from [Arista's software download page](https://www.arista.com/en/support/software-download).
-   2. Place the image file under subfolder `images` of the location determined by `root_path` variable in `ansible/group_vars/vm_host/main.yml`:
+   2. Place the image file in the `images` subfolder located within the directory specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file.
 
-      Assume `root_path` is `veos-vm`:
+      Assuming you set `root_path` to `veos-vm`, you should run the following command:
 
       ```bash
       cp cEOS64-lab-4.29.3M.tar ~/veos-vm/images/
       ```
       The Ansible playbook for deploying testbed topology will automatically use the manually prepared image file from this location.
 
-   #### Option 1.2: Host the cEOS image file on a HTTP server
+   #### Option 2.2: Host the cEOS image file on a HTTP server
    If you need to deploy VS setup on multiple testbed hosts, this option is more recommended.
 
    1. **Download the cEOS Image**
@@ -116,7 +117,7 @@ root_path: /data/veos-vm
       ```
 
 ### Option 3: Use SONiC image as neighboring devices
-You need to prepare a sound SONiC image `sonic-vs.img` in `~/veos-vm/images/`. We don't support to download sound sonic image right now, but for testing, you can also follow the section [Download the sonic-vs image](##download-the-sonic-vs-image) to download an available image and put it into the directory `~/veos-vm/images`
+You need to create a valid SONiC image named `sonic-vs.img` in the `~/veos-vm/images/` directory. Currently, we don’t support downloading a pre-built SONiC image. However, for testing purposes, you can refer to the section Download the sonic-vs image to obtain an available image and place it in the `~/veos-vm/images/` directory.
 
 ## Download the sonic-vs image
 To run the tests with a virtual SONiC device, we need a virtual SONiC image. The simplest way to do so is to download the latest succesful build.
