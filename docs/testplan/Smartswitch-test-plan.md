@@ -70,7 +70,7 @@ General convention of DPU0, DPU1, DPU2 and DPUX has been followed to represent D
 
 #### Steps
  * Use command `show chassis modules status` to get DPU status 
- * Get the number of DPU modules from PMON APIs - get_num_modules()
+ * Get the number of DPU modules from ansible inventory file for the testbed.
 
 #### Verify in
  * Switch
@@ -87,7 +87,7 @@ root@sonic:/home/cisco# show chassis modules status
   DPUX  Data Processing Unit              N/A         Online              up 154226463179184
 ```
 #### Pass/Fail Criteria
- *  Verify number of DPUs from api and number of DPUs shown in the cli output.
+ *  Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
 
 
 ### 1.2 Check platform voltage
@@ -232,7 +232,7 @@ MB_TMP421_Local          26.25      135.0      -5.0           140.0          -10
 #### Steps
  * Use serial port utility to access console for given DPU.
  * Get the mapping of serial port to DPU number from platform.json file. 
- * Get the number of DPU modules from PMON APIs - get_num_modules(). Test is to check for console access for all DPUs.
+ * Get the number of DPU modules from ansible inventory file for the testbed. Test is to check for console access for all DPUs.
 
 #### Verify in
  * Switch
@@ -321,8 +321,8 @@ root@sonic:/home/cisco#
 ### 1.5 Check midplane ip address between NPU and DPU 
 
 #### Steps 
- * Get the number of DPU modules from PMON APIs - get_num_modules()
- * Get mid plane ip address for each DPU module from PMON APIs - get_midplane_ip()
+ * Get the number of DPU modules from PMON APIs - get_num_modules().
+ * Get mid plane ip address for each DPU module from ansible inventory file for the testbed.
 
 #### Verify in
  * Switch
@@ -340,13 +340,13 @@ root@sonic:/home/cisco#
       root@sonic:/home/cisco# 
 ```
 #### Pass/Fail Criteria
- * Verify Ping works to all the mid plane ip listed in the api output
+ * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
    
 ### 1.6 Check DPU shutdown and power up individually
 
 #### Steps
- * Get the number of DPU modules from PMON APIs - get_num_modules()
+ * Get the number of DPU modules from Ansible inventory file for the testbed.
  * Use command `config chassis modules shutdown <DPU_Number>` to shut down individual DPU
  * Use command `show chassis modules status` to show DPU status
  * Use command `config chassis modules startup <DPU_Number>` to power up individual DPU
@@ -618,7 +618,7 @@ Reboot Test Case for DPU:
  * Power on all the DPUs that were powered on before reboot using `config chassis modules startup <DPU_Number>`
  * Wait for DPUs to be up
  * Use command `show chassis modules status` to get DPU status
- * Get the number of DPU modules from PMON APIs - get_num_modules()
+ * Get the number of DPU modules from ansible inventory file for the testbed.
    
 #### Verify in
  * Switch
@@ -642,7 +642,7 @@ root@sonic:/home/cisco# show chassis modules status
 ```
 
 #### Pass/Fail Criteria 
- *  Verify number of DPUs from api and number of DPUs shown in the cli output.
+ *  Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
 
 
 ## Objectives of API Test Cases
