@@ -15,7 +15,8 @@ The goal of this test is to verify that the macsec neighbor relationship is esta
 ### Scope
 
 The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to verify
-the behavior of a link when a neighbor reboots while Macsec is Active and ensure the link returns to functioning state.
+the behavior of a pair of Macsec peers when a neighbor reboots while Macsec is Active and ensure the peer session
+returns to functioning state.
 
 ### Related DUT CLI commands
 
