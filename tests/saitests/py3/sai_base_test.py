@@ -206,9 +206,9 @@ class ThriftInterface(BaseTest):
                 self.src_asic_index, self.src_server_ip, retValue)
 
     def sai_thrift_port_tx_disable(self, client, asic_type, port_list, target='dst', disable_port_by_block_queue=True,
-                                   wd_diable=True):
+                                   wd_disable=True):
         count = 0
-        if self.platform_asic and self.platform_asic == "broadcom-dnx" and wd_diable:
+        if self.platform_asic and self.platform_asic == "broadcom-dnx" and wd_disable:
             # need to disable watchdog on the source asic
             # max 3 retries
             while count < 3:

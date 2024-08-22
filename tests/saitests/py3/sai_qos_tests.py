@@ -6095,7 +6095,7 @@ class VOQ_drop_Countertest(sai_base_test.ThriftInterfaceDataPlane):
         )
         log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
 
-        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], wd_diable=False)
+        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], wd_disable=False)
 
         try:
 
