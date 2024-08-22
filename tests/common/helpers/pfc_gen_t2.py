@@ -261,13 +261,13 @@ def main():
                 num_sent = _sendmmsg(s.fileno(), m_msghdr[0], num_to_send, 0)   # direct to c library api
                 if num_sent < 0:
                     errno = get_errno()
-                    fo_logger.debug(fo_str + ' sendmmsg got errno ' + str(errno) + ' for socket ' + s.getsockname())
+                    fo_logger.debug(fo_str + ' sendmmsg got errno ' + str(errno) + ' for socket ' + str(s.getsockname()))
                     break
                 else:
                     if num_sent != num_to_send:
                         fo_logger.debug(fo_str + ' sendmmsg iteration ' + str(iters) + ' only sent ' +
                                         str(num_sent) + ' out of requested ' + str(num_to_send) +
-                                        ' for socket ' + s.getsockname())
+                                        ' for socket ' + str(s.getsockname()))
                 # Count across all sockets
                 total_num_sent += num_sent
             iters += 1
@@ -302,14 +302,14 @@ def main():
                 num_sent = _sendmmsg(s.fileno(), m_msghdr[0], num_to_send, 0)
                 if num_sent < 0:
                     errno = get_errno()
-                    fo_logger.debug(fo_str + ' sendmmsg got errno ' + str(errno) + ' for socket ' + s.getsockname())
+                    fo_logger.debug(fo_str + ' sendmmsg got errno ' + str(errno) + ' for socket ' + str(s.getsockname()))
                     test_failed = True
                     break
                 else:
                     if num_sent != num_to_send:
                         fo_logger.debug(fo_str + ' sendmmsg iteration ' + str(iters) +
                                         ' only sent ' + str(num_sent) +
-                                        ' out of requested ' + str(num_to_send) + ' for socket ' + s.getsockname())
+                                        ' out of requested ' + str(num_to_send) + ' for socket ' + str(s.getsockname()))
                 total_pkts_remaining[index] -= num_sent
                 total_pkts_sent[index] += num_sent
                 if total_pkts_remaining[index] <= 0:
