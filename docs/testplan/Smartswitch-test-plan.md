@@ -79,12 +79,12 @@ General convention of DPU0, DPU1, DPU2 and DPUX has been followed to represent D
 ```
 On Switch:
 root@sonic:/home/cisco# show chassis modules status
-  Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
-------  -------------  ---------------  -------------  --------------  --------
-  DPU0            N/A               -1         Online              up       N/A
-  DPU1            N/A               -1         Online              up       N/A
-  DPU2            N/A               -1         Online              up       N/A
-  DPUX            N/A               -1         Online              up       N/A
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status          Serial
+------  --------------------  ---------------  -------------  --------------  --------------
+  DPU0  Data Processing Unit              N/A         Online              up 154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up 154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up 154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up 154226463179184
 ```
 #### Pass/Fail Criteria
  *  Verify number of DPUs from api and number of DPUs shown in the cli output.
@@ -362,21 +362,21 @@ On Switch:
 root@sonic:/home/cisco# config chassis modules shutdown DPU3
 root@sonic:/home/cisco#
 root@sonic:/home/cisco# show chassis modules status
-  Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
-------  -------------  ---------------  -------------  --------------  --------
-  DPU0            N/A               -1         Online              up       N/A
-  DPU1            N/A               -1         Online              up       N/A
-  DPU2            N/A               -1         Online              up       N/A
-  DPU3            N/A               -1        Offline            down       N/A
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status            Serial
+------  --------------------  ---------------  -------------  --------------  ----------------
+  DPU0 Data Processing Unit               N/A         Online               up  154226463179136
+  DPU1 Data Processing Unit               N/A         Online               up  154226463179152
+  DPU2 Data Processing Unit               N/A         Online               up  154226463179168
+  DPU3 Data Processing Unit               N/A        Offline             down  154226463179184
 
 root@sonic:/home/cisco# config chassis modules startup DPU3
 root@sonic:/home/cisco# show chassis modules status
-  Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
-------  -------------  ---------------  -------------  --------------  --------
-  DPU0            N/A               -1         Online              up       N/A
-  DPU1            N/A               -1         Online              up       N/A
-  DPU2            N/A               -1         Online              up       N/A
-  DPU3            N/A               -1         Online              up       N/A
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------   -------------------  ---------------  -------------  --------------  ----------------
+  DPU0  Data Processing Unit              N/A         Online              up   154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up   154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up   154226463179168
+  DPU3  Data Processing Unit              N/A         Online              up   154226463179184
 
 ```
 #### Pass/Fail Criteria
@@ -633,12 +633,12 @@ root@sonic:/home/cisco# config chassis modules startup <DPU_Number>
 root@sonic:/home/cisco#
 root@sonic:/home/cisco#
 root@sonic:/home/cisco# show chassis modules status
-  Name    Description    Physical-Slot    Oper-Status    Admin-Status    Serial
-------  -------------  ---------------  -------------  --------------  --------
-  DPU0            N/A               -1         Online              up       N/A
-  DPU1            N/A               -1         Online              up       N/A
-  DPU2            N/A               -1         Online              up       N/A
-  DPUX            N/A               -1         Online              up       N/A
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
 ```
 
 #### Pass/Fail Criteria 
