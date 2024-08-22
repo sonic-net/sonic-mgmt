@@ -16,6 +16,8 @@ pytestmark = [
 ]
 
 stop_threads = False
+SLEEP_DURATION = 0.1
+TEST_RUN_DURATION = 600
 
 
 @pytest.fixture(scope='module')
@@ -104,14 +106,16 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
                   "Not all BGP sessions are established on DUT")
 
 
-def flap_dut_interface(duthost, port, stop_event):
-    logger.info("flap dut {} interface {}".format(duthost, port))
+def flap_dut_interface(duthost, port, stop_event, sleep_duration, timeout):
+    logger.info("flap dut {} interface {} delay time {} timeout {}".format(duthost, port, sleep_duration, timeout))
+    start_time = time.time()  # Record the start time
+
     dut_flap_count = 0
-    while not stop_event.is_set():
+    while not stop_event.is_set() and time.time() - start_time < timeout:
         duthost.shutdown(port)
-        time.sleep(0.1)
+        time.sleep(sleep_duration)
         duthost.no_shutdown(port)
-        time.sleep(0.1)
+        time.sleep(sleep_duration)
         if stop_threads:
             logger.info("Stop flap thread, breaking dut flap dut {} interface {} flap count  {}".format(
                 duthost, port, dut_flap_count))
@@ -119,8 +123,9 @@ def flap_dut_interface(duthost, port, stop_event):
         dut_flap_count += 1
 
 
-def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event):
+def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event, sleep_duration, timeout):
     fanout_interfaces = {}
+
     for port in interface_list:
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
         if fanout and fanout_port:
@@ -130,15 +135,16 @@ def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event):
 
     logger.info("flap interface fanout port {}".format(fanout_interfaces))
 
+    start_time = time.time()  # Record the start time
     fanout_flap_count = 0
-    while not stop_event.is_set():
+    while not stop_event.is_set() and time.time() - start_time < timeout:
         for fanout_host, fanout_ports in fanout_interfaces.items():
             logger.info("flap interface fanout {} port {}".format(fanout_host, fanout_port))
 
             fanout_host.shutdown_multiple(fanout_ports)
-            time.sleep(0.1)
+            time.sleep(sleep_duration)
             fanout_host.no_shutdown_multiple(fanout_ports)
-            time.sleep(0.1)
+            time.sleep(sleep_duration)
 
         fanout_flap_count += 1
         if stop_threads:
@@ -147,9 +153,11 @@ def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event):
             break
 
 
-def flap_fanout_interface(interface_list, fanouthosts, duthost, stop_event):
+def flap_fanout_interface(interface_list, fanouthosts, duthost, stop_event, sleep_duration, timeout):
     fanout_flap_count = 0
-    while not stop_event.is_set():
+    start_time = time.time()  # Record the start time
+
+    while not stop_event.is_set() and time.time() - start_time < timeout:
         for port in interface_list:
             if stop_threads:
                 break
@@ -158,9 +166,9 @@ def flap_fanout_interface(interface_list, fanouthosts, duthost, stop_event):
             if fanout and fanout_port:
                 logger.info("flap interface fanout {} port {}".format(fanout, fanout_port))
                 fanout.shutdown(fanout_port)
-                time.sleep(0.1)
+                time.sleep(sleep_duration)
                 fanout.no_shutdown(fanout_port)
-                time.sleep(0.1)
+                time.sleep(sleep_duration)
             else:
                 logger.warning("fanout not found for {} port {}".format(duthost.hostname, port))
 
@@ -171,14 +179,16 @@ def flap_fanout_interface(interface_list, fanouthosts, duthost, stop_event):
             break
 
 
-def flap_neighbor_interface(neighbor, neighbor_port, stop_event):
+def flap_neighbor_interface(neighbor, neighbor_port, stop_event, sleep_duration, timeout):
     logger.info("flap neighbor {} interface {}".format(neighbor, neighbor_port))
     neighbor_flap_count = 0
-    while not stop_event.is_set():
+    start_time = time.time()  # Record the start time
+
+    while not stop_event.is_set() and time.time() - start_time < timeout:
         neighbor.shutdown(neighbor_port)
-        time.sleep(0.1)
+        time.sleep(sleep_duration)
         neighbor.no_shutdown(neighbor_port)
-        time.sleep(0.1)
+        time.sleep(sleep_duration)
         if stop_threads:
             logger.info("Stop flap thread, breaking flap neighbor {} interface {} flap count {}".format(
                 neighbor, neighbor_port, neighbor_flap_count))
@@ -197,6 +207,11 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
     if asic_type == "vs" and (test_type == "fanout" or test_type == "all"):
         pytest.skip("Stress link flap test is not supported on Virtual Switch")
 
+    if asic_type != "vs":
+        delay_time = SLEEP_DURATION
+    else:
+        delay_time = SLEEP_DURATION * 10
+
     eth_nbrs = setup.get('eth_nbrs', {})
     interface_list = eth_nbrs.keys()
     logger.debug('interface_list: {}'.format(interface_list))
@@ -211,7 +226,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
         for interface in interface_list:
             thread = InterruptableThread(
                 target=flap_dut_interface,
-                args=(duthost, interface, stop_event,)
+                args=(duthost, interface, stop_event, delay_time, TEST_RUN_DURATION,)
             )
             logger.info("Start flap thread {} dut {} interface {}".format(thread, duthost, interface))
             thread.daemon = True
@@ -220,7 +235,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
     elif test_type == "fanout":
         thread = InterruptableThread(
             target=flap_fanout_interface,
-            args=(interface_list, fanouthosts, duthost, stop_event,)
+            args=(interface_list, fanouthosts, duthost, stop_event, delay_time, TEST_RUN_DURATION,)
         )
         logger.info("Start flap thread {} fanout {} dut {}".format(thread, fanouthosts, duthost))
         thread.daemon = True
@@ -234,7 +249,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             if neighbor_host:
                 thread = InterruptableThread(
                     target=flap_neighbor_interface,
-                    args=(neighbor_host, neighbor_port, stop_event,)
+                    args=(neighbor_host, neighbor_port, stop_event, delay_time, TEST_RUN_DURATION,)
                 )
                 logger.info("Start flap thread {} neighbor {} port {}".format(thread, neighbor_host, neighbor_port))
                 thread.daemon = True
@@ -247,7 +262,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             logger.info("shutdown all interface {} ".format(interface))
             thread_dut = InterruptableThread(
                 target=flap_dut_interface,
-                args=(duthost, interface, stop_event,)
+                args=(duthost, interface, stop_event, delay_time, TEST_RUN_DURATION,)
             )
             logger.info("Start flap thread {} dut {} interface {}".format(thread_dut, duthost, interface))
             thread_dut.daemon = True
@@ -260,7 +275,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             if neighbor_host:
                 thread_neighbor = InterruptableThread(
                     target=flap_neighbor_interface,
-                    args=(neighbor_host, neighbor_port, stop_event,)
+                    args=(neighbor_host, neighbor_port, stop_event, delay_time, TEST_RUN_DURATION,)
                 )
                 logger.info("Start flap thread {} neighbor {} port {}".format(
                     thread_neighbor, neighbor_host, neighbor_port))
@@ -272,7 +287,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
         thread_fanout = InterruptableThread(
             target=flap_fanout_interface,
-            args=(interface_list, fanouthosts, duthost, stop_event,)
+            args=(interface_list, fanouthosts, duthost, stop_event, delay_time, TEST_RUN_DURATION,)
         )
         logger.info("Start flap thread {} fanout {} dut {} ".format(
             thread_fanout, fanouthosts, duthost))
@@ -281,7 +296,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
         flap_threads.append(thread_fanout)
 
     logger.info("flap_threads {} ".format(flap_threads))
-    time.sleep(600)
+    time.sleep(TEST_RUN_DURATION)
     stop_event.set()
     stop_threads = True
     logger.info("stop_threads {} ".format(flap_threads))
