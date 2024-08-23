@@ -10,6 +10,9 @@ from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 
 test_report = dict()
 
+MGFX_HWSKU = ["Arista-720DT-G48S4", "Nokia-7215", "Nokia-M0-7215", "Celestica-E1031-T48S4"]
+MGFX_XCVR_INTF = ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
+
 
 def handle_test_error(health_check):
     def _wrapper(*args, **kwargs):
@@ -74,11 +77,14 @@ def check_interfaces_and_transceivers(duthost, request):
     if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
         return
 
+    hwsku = duthost.facts['hwsku']
     logging.info(
         "Check whether transceiver information of all ports are in redis")
     xcvr_info = duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
     parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
     interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    if hwsku in MGFX_HWSKU:
+        interfaces = MGFX_XCVR_INTF
     for intf in interfaces:
         if intf not in parsed_xcvr_info:
             raise RebootHealthError(
