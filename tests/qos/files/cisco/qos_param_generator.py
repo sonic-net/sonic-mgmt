@@ -190,7 +190,9 @@ class QosParamCisco(object):
             return
         if self.is_large_sms:
             if self.is_deep_buffer:
-                res_1 = {"dscps": [self.dscp_queue0, self.dscp_queue0, self.dscp_queue1, self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3],
+                res_1 = {"dscps": [self.dscp_queue0, self.dscp_queue0,
+                                   self.dscp_queue1, self.dscp_queue1,
+                                   3, 4, 3, 4, 3, 4, 3],
                          "pgs": [0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3],
                          "queues": [0, 0, 1, 1, 3, 4, 3, 4, 3, 4, 3],
                          "src_port_i": [0, 1, 0, 1, 0, 0, 1, 1, 2, 2, 4],
