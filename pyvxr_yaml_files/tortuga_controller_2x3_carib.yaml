@@ -50,6 +50,48 @@ devices:
     xr_port_redir:
       - 22
     console_ports: [60003]
+  trex4:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60004]
+  trex5:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60005]
+  trex6:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60006]
 
   L0:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -62,16 +104,18 @@ devices:
     memory: 12GB
     platform: spitfire_f
     data_ports:
-      - Ethernet0
-      - Ethernet8
-      - Ethernet16
-      - Ethernet24
-      - Ethernet32
-      - Ethernet40
-      - Ethernet48
-      - Ethernet56
-      - Ethernet64
-      - Ethernet72
+      - Ethernet1_1
+      - Ethernet1_2
+      - Ethernet1_3
+      - Ethernet1_4
+      - Ethernet1_5
+      - Ethernet1_6
+      - Ethernet1_7
+      - Ethernet1_8
+      - Ethernet1_9
+      - Ethernet1_10
+      - Ethernet1_11
+      - Ethernet1_12
     xr_port_redir:
       - 22
       - 23
@@ -103,16 +147,18 @@ devices:
     memory: 12GB
     platform: spitfire_f
     data_ports:
-      - Ethernet0
-      - Ethernet8
-      - Ethernet16
-      - Ethernet24
-      - Ethernet32
-      - Ethernet40
-      - Ethernet48
-      - Ethernet56
-      - Ethernet64
-      - Ethernet72
+      - Ethernet1_1
+      - Ethernet1_2
+      - Ethernet1_3
+      - Ethernet1_4
+      - Ethernet1_5
+      - Ethernet1_6
+      - Ethernet1_7
+      - Ethernet1_8
+      - Ethernet1_9
+      - Ethernet1_10
+      - Ethernet1_11
+      - Ethernet1_12
     xr_port_redir:
       - 22
       - 23
@@ -144,16 +190,18 @@ devices:
     memory: 12GB
     platform: spitfire_f
     data_ports:
-      - Ethernet0
-      - Ethernet8
-      - Ethernet16
-      - Ethernet24
-      - Ethernet32
-      - Ethernet40
-      - Ethernet48
-      - Ethernet56
-      - Ethernet64
-      - Ethernet72
+      - Ethernet1_1
+      - Ethernet1_2
+      - Ethernet1_3
+      - Ethernet1_4
+      - Ethernet1_5
+      - Ethernet1_6
+      - Ethernet1_7
+      - Ethernet1_8
+      - Ethernet1_9
+      - Ethernet1_10
+      - Ethernet1_11
+      - Ethernet1_12
     xr_port_redir:
       - 22
       - 23
@@ -185,16 +233,18 @@ devices:
     memory: 12GB
     platform: spitfire_f
     data_ports:
-      - Ethernet0
-      - Ethernet8
-      - Ethernet16
-      - Ethernet24
-      - Ethernet32
-      - Ethernet40
-      - Ethernet48
-      - Ethernet56
-      - Ethernet64
-      - Ethernet72
+      - Ethernet1_1
+      - Ethernet1_2
+      - Ethernet1_3
+      - Ethernet1_4
+      - Ethernet1_5
+      - Ethernet1_6
+      - Ethernet1_7
+      - Ethernet1_8
+      - Ethernet1_9
+      - Ethernet1_10
+      - Ethernet1_11
+      - Ethernet1_12
     xr_port_redir:
       - 22
       - 23
@@ -226,16 +276,18 @@ devices:
     memory: 12GB
     platform: spitfire_f
     data_ports:
-      - Ethernet0
-      - Ethernet8
-      - Ethernet16
-      - Ethernet24
-      - Ethernet32
-      - Ethernet40
-      - Ethernet48
-      - Ethernet56
-      - Ethernet64
-      - Ethernet72
+      - Ethernet1_1
+      - Ethernet1_2
+      - Ethernet1_3
+      - Ethernet1_4
+      - Ethernet1_5
+      - Ethernet1_6
+      - Ethernet1_7
+      - Ethernet1_8
+      - Ethernet1_9
+      - Ethernet1_10
+      - Ethernet1_11
+      - Ethernet1_12
     xr_port_redir:
       - 22
       - 23
@@ -259,23 +311,32 @@ devices:
 connections:
   hubs:
     L0_trex1:
-      - L0.Ethernet48
+      - L0.Ethernet1_7
       - trex1.eth1
-    L1_trex2:
-      - L1.Ethernet48
+    L0_trex2:
+      - L0.Ethernet1_8
       - trex2.eth1
-    L2_trex3:
-      - L2.Ethernet48
+    L1_trex3:
+      - L1.Ethernet1_7
       - trex3.eth1
+    L1_trex4:
+      - L1.Ethernet1_8
+      - trex4.eth1
+    L2_trex5:
+      - L2.Ethernet1_7
+      - trex5.eth1
+    L2_trex6:
+      - L2.Ethernet1_8
+      - trex6.eth1
     S0_L0_conn1:
-      - S0.Ethernet0
-      - L0.Ethernet0
+      - S0.Ethernet1_1
+      - L0.Ethernet1_1
     S0_L1_conn1:
-      - S0.Ethernet8
-      - L1.Ethernet0
+      - S0.Ethernet1_2
+      - L1.Ethernet1_1
     S1_L1_conn1:
-      - S1.Ethernet0
-      - L1.Ethernet8
+      - S1.Ethernet1_1
+      - L1.Ethernet1_2
     S1_L2_conn1:
-      - S1.Ethernet8
-      - L2.Ethernet0
+      - S1.Ethernet1_2
+      - L2.Ethernet1_1
