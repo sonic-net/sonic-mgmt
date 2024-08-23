@@ -525,7 +525,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
     keys = redis_get_keys(duthost, STATE_DB, XCVR_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have interfaces (e.g Supervisor)
     if not keys:
-        pytest.skip('Fan information does not exist in DB, skipping this test')
+        pytest.skip('Transceiver information does not exist in DB, skipping this test')
     name_to_snmp_facts = {}
     for oid, values in list(snmp_physical_entity_info.items()):
         values['oid'] = oid
@@ -786,12 +786,22 @@ def redis_get_keys(duthost, db_id, pattern):
     :param pattern: Redis key pattern
     :return: A list of key name in string
     """
-    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
-    logging.debug('Getting keys from redis by command: {}'.format(cmd))
-    output = duthost.shell(cmd)
-    content = output['stdout'].strip()
-    return content.split('\n') if content else None
+    totalOutput=[]
+    def run_cmd_store_output(cmd):
+        logging.debug('Getting keys from redis by command: {}'.format(cmd))
+        output = duthost.shell(cmd)['stdout'].strip()
+        if output:
+            totalOutput.extend(output.split('\n'))
 
+    if duthost.is_multi_asic:
+        # Search the namespaces as well on LCs
+        for asic in duthost.frontend_asics:
+            cmd = 'sonic-db-cli -n {} {} KEYS \"{}\"'.format(asic.namespace, db_id, pattern)
+            run_cmd_store_output(cmd)
+
+    cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
+    run_cmd_store_output(cmd)
+    return totalOutput if totalOutput else None
 
 def redis_hgetall(duthost, db_id, key):
     """
@@ -801,15 +811,28 @@ def redis_hgetall(duthost, db_id, key):
     :param key: Redis Key
     :return: A dictionary, key is field name, value is field value
     """
-    cmd = 'sonic-db-cli {} HGETALL \"{}\"'.format(db_id, key)
-    output = duthost.shell(cmd)
-    content = output['stdout'].strip()
-    if not content:
-        return {}
-    # fix to make literal_eval() work with nested dictionaries
-    content = content.replace("'{", '"{').replace("}'", '}"')
-    return ast.literal_eval(content)
 
+    def run_cmd(cmd):
+        output = duthost.shell(cmd)['stdout'].strip()
+        if not output:
+            return {}
+        # fix to make literal_eval() work with nested dictionaries
+        content = output.replace("'{", '"{').replace("}'", '}"')
+        return ast.literal_eval(content)
+
+    if duthost.is_multi_asic:
+        # Search the namespaces as well on LCs
+        for asic in duthost.frontend_asics:
+            cmd = 'sonic-db-cli -n {} {} HGETALL \"{}\"'.format(asic.namespace, db_id, key)
+            output = run_cmd(cmd)
+            if output:
+                return output
+
+    cmd = 'sonic-db-cli {} HGETALL \"{}\"'.format(db_id, key)
+    output = run_cmd(cmd)
+    if output:
+        return output
+    return {}
 
 def is_null_str(value):
     """
