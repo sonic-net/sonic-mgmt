@@ -3,11 +3,9 @@ name: $(Build.DefinitionName)_${{ parameters.TEST_PLAN_ID }}_$(SourceBranchName)
 trigger: none
 pr: none
 
-pool:
-  vmImage: ubuntu-latest
+pool: nightly
 
 parameters:
-
   - name: TEST_PLAN_ID
     type: string
     default: ""
@@ -21,40 +19,30 @@ parameters:
       - prtest
     displayName: "Storage account container, 'nightlytest' for nightly test, 'prtest' for pr test"
 
+variables:
+  - group: SONiC-Elastictest
+
 steps:
-- task: AzureCLI@2
-  inputs:
-    azureSubscription: 'SONiC Elastictest'
-    scriptType: 'pscore'
-    scriptLocation: 'inlineScript'
-    inlineScript: 'az storage blob directory download -c ${{ parameters.CONTAINER }} --account-name sonicelastictestprodsa -s "${{ parameters.TEST_PLAN_ID }}" -d "artifacts" --recursive'
-  displayName: 'Download artificats'
+  - script: |
+      set -ex
+      pip install azure-identity azure-storage-blob
+    displayName: 'Install package'
 
-- script: |
-    echo -----------------------------------------------------------------------
-    echo "Change the '|||' to '_' for all filenames since '|' is illegal symbol of filename in Windows"
-    echo -----------------------------------------------------------------------
-    # specify the directory
-    dir="artifacts/${{ parameters.TEST_PLAN_ID }}"
-    # use find to loop through each file in the directory and its subdirectories
-    find "$dir" -type f -name "*|||*" | while read file; do
-        # get the base name of the file
-        base=$(basename "$file")
-        # replace '|||' with '_' in the filename
-        newname=${base//|||/_}
-        # if the new name is different from the original name, rename the file
-        if [ "$base" != "$newname" ]; then
-            mv -- "$file" "${file%$base}$newname"
-        fi
-    done
-  displayName: 'Change the "|||" to "_" for all filenames'
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: "SONiC-Automation"
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        pwd
+        python ./.azure-pipelines/elastictest/utils/package_download_test_plan_artifacts.py --container "${{ parameters.CONTAINER }}" --testplan-id "${{ parameters.TEST_PLAN_ID }}" --local-directory artifacts
+    displayName: 'Downloaded artifacts'
 
-- script: |
-    sudo apt install -y tree
-    tree artifacts/${{ parameters.TEST_PLAN_ID }}
-  displayName: 'Review downloaded artifacts'
 
-- publish: artifacts/${{ parameters.TEST_PLAN_ID }}
-  artifact: Elastictest.test_plan.${{ parameters.TEST_PLAN_ID }}.artifacts
-  condition: always()
-  displayName: "Archive artifacts"
+  - script: |
+      ls -R artifacts/${{ parameters.TEST_PLAN_ID }}
+    displayName: 'Review downloaded artifacts'
+
+  - publish: artifacts/${{ parameters.TEST_PLAN_ID }}
+    artifact: Elastictest.test_plan.${{ parameters.TEST_PLAN_ID }}.artifacts
+    displayName: "Archive artifacts"
