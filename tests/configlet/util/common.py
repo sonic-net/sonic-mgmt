@@ -271,31 +271,7 @@ def get_dump(duthost, db_name, db_info, dir_name, data_dir):
 
 
 def take_DB_dumps(duthost, dir_name, data_dir):
-    log_info("Taking DB dumps dir= {}".format(dir_name))
-
-    cmd = "docker ps -a"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
-
-    cmd = "sudo systemctl status bgp.service"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
-
-    cmd = "show ip bgp summary"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
-
-    cmd = "show ip interfaces"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
-
-    cmd = "show ip bgp neighbors 10.0.0.13"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
-
-    cmd = "show ip bgp neighbors 10.0.0.17"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    log_info("cmd {} rsp {}".format(cmd, cmd_response.get('stdout', None)))
+    log_info("Taking DB dumps dir= {}, data_dir {}".format(dir_name, data_dir))
 
     log_info("Taking DB dumps dir= {}".format(dir_name))
     for db_name, db_info in scan_dbs.items():
