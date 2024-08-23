@@ -10,6 +10,9 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # no
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active, ptf_test_port_map
+# from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa: F401
 
 from tests.ptf_runner import ptf_runner
 from tests.common.dualtor.mux_simulator_control import mux_server_url       # noqa F401
@@ -83,7 +86,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
                    mux_status_from_nic_simulator,
                    ignore_ttl, single_fib_for_duts,                     # noqa F401
                    duts_running_config_facts, duts_minigraph_facts,
-                   validate_active_active_dualtor_setup):               # noqa F401
+                   validate_active_active_dualtor_setup,                # noqa F401
+                   skip_traffic_test):                                  # noqa F811
 
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
@@ -103,6 +107,8 @@ def test_basic_fib(duthosts, ptfhost, ipv4, ipv6, mtu,
     log_file = "/tmp/fib_test.FibTest.ipv4.{}.ipv6.{}.{}.log".format(
         ipv4, ipv6, timestamp)
     logging.info("PTF log file: %s" % log_file)
+    if skip_traffic_test is True:
+        return
     ptf_runner(
         ptfhost,
         "ptftests",
@@ -315,7 +321,7 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
               hash_keys, ptfhost, ipver, toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
               updated_tbinfo, mux_server_url, mux_status_from_nic_simulator, ignore_ttl,        # noqa F811
               single_fib_for_duts, duts_running_config_facts, duts_minigraph_facts,             # noqa F811
-              setup_active_active_ports, active_active_ports):                                  # noqa F811
+              setup_active_active_ports, active_active_ports, skip_traffic_test):               # noqa F811
 
     if 'dualtor' in updated_tbinfo['topo']['name']:
         wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
@@ -331,6 +337,8 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+    if skip_traffic_test is True:
+        return
     ptf_runner(
         ptfhost,
         "ptftests",
@@ -365,7 +373,7 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
 def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_per_function,  # noqa F811
                      hash_keys, ptfhost, ipver, tbinfo, mux_server_url,             # noqa F811
                      ignore_ttl, single_fib_for_duts, duts_running_config_facts,    # noqa F811
-                     duts_minigraph_facts):
+                     duts_minigraph_facts, skip_traffic_test):                      # noqa F811
     # Skip test on none T1 testbed
     pytest_require('t1' == tbinfo['topo']['type'],
                    "The test case runs on T1 topology")
@@ -379,6 +387,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+    if skip_traffic_test is True:
+        return
     ptf_runner(ptfhost,
                "ptftests",
                "hash_test.IPinIPHashTest",
@@ -396,7 +406,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
-               socket_recv_size=16384)
+               socket_recv_size=16384,
+               is_python3=True)
 
 # The test is to verify the hashing logic is not using unexpected field as keys
 # Only inner frame length is tested at this moment
@@ -404,7 +415,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
 
 def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files_per_function,          # noqa F811
                               ptfhost, ipver, tbinfo, mux_server_url, ignore_ttl, single_fib_for_duts,  # noqa F811
-                              duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator):
+                              duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator,
+                              skip_traffic_test):                                                       # noqa F811
     hash_keys = ['inner_length']
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.IPinIPHashTest.{}.{}.log".format(
@@ -416,6 +428,8 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+    if skip_traffic_test is True:
+        return
     ptf_runner(ptfhost,
                "ptftests",
                "hash_test.IPinIPHashTest",
