@@ -175,3 +175,6 @@ radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag
 platform_tests.api/test_sfp.py::TestSfpApi::test_tx_disable
 test_procdockerstatsd.py::test_verify_redisexport
+cisco/platform_tests/test_serviceability_basic.py
+cisco/platform_tests/test_serviceability_pfc.py
+cisco/platform_tests/test_serviceability_packet_capture.py

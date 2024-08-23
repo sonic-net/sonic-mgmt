@@ -69,3 +69,6 @@ snmp/test_snmp_memory.py::test_snmp_swap
 snmp/test_snmp_loopback.py::test_snmp_loopback
 cisco/test_platform_faults.py::test_platform_overtemp_fault
 cisco/test_platform_faults.py::test_platform_undertemp_fault
+cisco/platform_tests/test_serviceability_basic.py
+cisco/platform_tests/test_serviceability_pfc.py
+cisco/platform_tests/test_serviceability_packet_capture.py
