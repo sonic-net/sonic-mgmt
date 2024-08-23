@@ -786,7 +786,8 @@ def redis_get_keys(duthost, db_id, pattern):
     :param pattern: Redis key pattern
     :return: A list of key name in string
     """
-    totalOutput=[]
+    totalOutput = []
+
     def run_cmd_store_output(cmd):
         logging.debug('Getting keys from redis by command: {}'.format(cmd))
         output = duthost.shell(cmd)['stdout'].strip()
@@ -802,6 +803,7 @@ def redis_get_keys(duthost, db_id, pattern):
     cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
     run_cmd_store_output(cmd)
     return totalOutput if totalOutput else None
+
 
 def redis_hgetall(duthost, db_id, key):
     """
@@ -833,6 +835,7 @@ def redis_hgetall(duthost, db_id, key):
     if output:
         return output
     return {}
+
 
 def is_null_str(value):
     """
