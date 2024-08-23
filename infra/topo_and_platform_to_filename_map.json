@@ -102,6 +102,9 @@
     "tortuga-controller-carib-1x3": {
         "churchill-mono": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_carib_1x3.yaml"
+        },
+        "carib": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_carib_1x3.yaml"
         }
     }
 }

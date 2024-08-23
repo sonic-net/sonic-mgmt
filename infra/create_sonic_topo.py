@@ -50,7 +50,8 @@ SFD_LC_TOPO_CODE = {
 # SIM workaround command files for Sonic master bringup.
 wa_file_map = { "sfd": "sfd_wa_cmd_list",
                 "mth64": "mth64_wa_cmd_list",
-                "churchill-mono": "cmono_wa_cmd_list"
+                "churchill-mono": "cmono_wa_cmd_list",
+                "carib": "cmono_wa_cmd_list"
               }
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
@@ -95,8 +96,8 @@ def _create_parser():
                       required=False,default="admin")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
-    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'churchill-mono'])
+    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono, carib',
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'churchill-mono', 'carib'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -576,6 +577,10 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
         ftp_client.put('lab_connection_graph_churchill_mono.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
         ftp_client.put('sonic_lab_devices_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
+    elif device_type == 'carib':
+        ftp_client.put('lab_connection_graph_churchill_mono.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+        ftp_client.put('sonic_lab_links_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
+        ftp_client.put('sonic_lab_devices_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'sfd' and topo_type == 't2-min':
         ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put(f'sonic_t2/topo_8800-LC-{lc_topo_code}.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-LC-48H-C48.yml')
@@ -781,6 +786,8 @@ def get_dut_platform(device_type):
         return 'crocodile'
     elif device_type == 'churchill-mono':
         return 'churchill-mono'
+    elif device_type == 'carib':
+        return 'carib'
     else:
         return "mathilda"
 
@@ -803,14 +810,14 @@ def determine_base_topo(topo_type, device_type):
             base_topo_file = 'testbed-sherman-t0.yaml'
         elif device_type == 'crocodile':
             base_topo_file = 'testbed-crocodile-t0.yaml'
-        elif device_type == 'churchill-mono':
+        elif device_type in ['churchill-mono','carib']:
             base_topo_file = 'testbed-churchill-mono-t0.yaml'
         else:
             base_topo_file = 'testbed-mth32-t0.yaml'
     elif topo_type == 't1':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1.yaml'
-        elif device_type == 'churchill-mono':
+        elif device_type in ['churchill-mono','carib']:
             base_topo_file = 'testbed-churchill-mono-t1.yaml'
         else:
             base_topo_file = 'testbed-mth32-t1.yaml'
@@ -857,7 +864,7 @@ def determine_base_topo(topo_type, device_type):
         ptf_intfcount = 64
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
-        elif device_type == 'churchill-mono':
+        elif device_type in ['churchill-mono','carib']:
             ptf_intfcount = 32
             base_topo_file = 'testbed-churchill-mono-t0.yaml'
         else:
@@ -957,7 +964,7 @@ def print_env_info(data, device_type, vEOS_count):
     elif device_type == 'crocodile':
         print("Device name is crocodile. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
-    elif device_type == 'churchill-mono':
+    elif device_type in ['churchill-mono','carib']:
         print("Device name is churchill-mono. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d churchill-mono-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type == 'sfd':
