@@ -37,17 +37,61 @@ Objective: Verify that the Storage Monitoring Daemon initializes correctly and l
 2024 May 28 17:51:04.821947 sonic-device INFO pmon#supervisord 2024-05-28 17:51:04,820 INFO success: stormond entered RUNNING state, process has stayed up for > than 10 seconds (startsecs)
 ``` 
 
-#### Test Case 4.1.1: Initialize stormond and verify the following:
+#### Test Case 4.1.1: Initialize stormond with default intervals and verify the following:
   1. Stormond is spawned with a valid process ID.
   2. The daemon starts without errors and logs the start-up message.
-  3. The polling interval and FSIO JSON file interval are set correctly.
-  4. `STATE_DB` Status: Empty
+  3. The polling interval is 3600s and FSIO JSON file interval is 86400s.
+  4. `STATE_DB` Status: Initial Values
   5. JSON File: Empty
   6. PROCFS Status: Initial Values
-  7. JSON File Synced With `STATE_DB`?: Yes
+  7. JSON File Synced With `STATE_DB`?: No
   8. `stormond` Restarted: Yes
 
-#### Test Case 4.1.2: Verify the running state of stormond:
+#### Test Case 4.1.2: Initialize stormond with custom intervals
+
+  1. Customize the intervals by adding the following config to CONFIG_DB:
+```
+127.0.0.1:6379[4]> HSET STORMOND_CONFIG|INTERVALS "daemon_polling_interval" "60" "fsstats_sync_interval" "360"
+(integer) 2
+127.0.0.1:6379[4]> HGETALL STORMOND_CONFIG|INTERVALS
+1) "daemon_polling_interval"
+2) "60"
+3) "fsstats_sync_interval"
+4) "360"
+127.0.0.1:6379[4]> exit
+```
+
+  2. Restart the daemon as follows:
+```
+admin@sonic-device:~$ docker exec -ti pmon supervisorctl restart stormond
+stormond: stopped
+stormond: started
+admin@sonic-device:~$
+```
+
+  3. verify the following: <br>
+    - Stormond is spawned with a valid process ID.<br>
+    - The daemon starts without errors and logs the start-up message.<br>
+    - The polling interval is now **60s** and FSIO JSON file sync interval is **360s**.<br>
+    - `STATE_DB`, JSON File, PROCFS and JSON File sync statuses same as **4.1.1**
+
+#### Test Case 4.1.2.1: Verify the latest JSON File sync time with lower custom file sync interval
+
+  1. With the above `fsstats_sync_interval` set to 360s, start the daemon and verify that the `STATE_DB` only has the following KEY:
+
+```
+root@sonic-device:/host/pmon/stormond# redis-cli -n 6  KEYS STORAGE_INFO*
+1) "STORAGE_INFO|<disk_device>"
+```
+
+  2. Wait 360s and then re-check the available keys with pattern `STORAGE_INFO*`, verify that the following key is present:
+```
+root@sonic-device:/host/pmon/stormond# sleep 360 ; redis-cli -n 6  KEYS STORAGE_INFO*
+1) "STORAGE_INFO|<disk_device>"
+2) "STORAGE_INFO|FSSTATS_SYNC"
+```
+
+#### Test Case 4.1.3: Verify the running state of stormond:
   1. The daemon logs the storage device attributes: health, temperature, FS IO Reads/Writes, Disk IO Reads/Writes and Reserved Blocks to `STATE_DB`.
   2. Ensure the latest FSIO Reads and Writes are updated correctly.
   3. `STATE_DB` Status: Initial values
