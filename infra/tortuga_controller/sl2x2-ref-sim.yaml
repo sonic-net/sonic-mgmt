@@ -44,16 +44,18 @@ devices:
     vcpu: 8
     platform: spitfire_f
     data_ports:
-      - Ethernet0
-      - Ethernet1
-      - Ethernet2
-      - Ethernet3
-      - Ethernet4
-      - Ethernet5
-      - Ethernet6
-      - Ethernet7
-      - Ethernet8
-      - Ethernet9
+      - Ethernet1_1
+      - Ethernet1_2
+      - Ethernet1_3
+      - Ethernet1_4
+      - Ethernet1_5
+      - Ethernet1_6
+      - Ethernet1_7
+      - Ethernet1_8
+      - Ethernet1_9
+      - Ethernet1_10
+      - Ethernet1_11
+      - Ethernet1_12
     xr_port_redir:
       - 22
 
@@ -64,6 +66,10 @@ devices:
   trex3:
     <<: *host
   trex4:
+    <<: *host
+  trex5:
+    <<: *host
+  trex6:
     <<: *host
 
   L0:
@@ -125,26 +131,32 @@ devices:
 connections:
   hubs:
     L0_trex1:
-      - L0.Ethernet6
+      - L0.Ethernet1_7
       - trex1.eth1
     L0_trex2:
-      - L0.Ethernet7
+      - L0.Ethernet1_8
       - trex2.eth1
-    L1_trex3:
-      - L1.Ethernet6
+    L0_trex3:
+      - L0.Ethernet1_9
       - trex3.eth1
     L1_trex4:
-      - L1.Ethernet7
+      - L1.Ethernet1_7
       - trex4.eth1
+    L1_trex5:
+      - L1.Ethernet1_8
+      - trex5.eth1
+    L1_trex6:
+      - L1.Ethernet1_9
+      - trex6.eth1
     S0_L0_conn1:
-      - S0.Ethernet0
-      - L0.Ethernet0
+      - S0.Ethernet1_1
+      - L0.Ethernet1_1
     S0_L1_conn1:
-      - S0.Ethernet1
-      - L1.Ethernet0
+      - S0.Ethernet1_2
+      - L1.Ethernet1_1
     S1_L0_conn1:
-      - S1.Ethernet0
-      - L0.Ethernet1
+      - S1.Ethernet1_1
+      - L0.Ethernet1_2
     S1_L1_conn1:
-      - S1.Ethernet1
-      - L1.Ethernet1
+      - S1.Ethernet1_2
+      - L1.Ethernet1_2

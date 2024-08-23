@@ -20,7 +20,7 @@ TEST_NAME="${1}"
 
 # Vrf40000 is automatically created by Tortuga when a L2VNI + SAG
 # is added to the fabric.
-SUBINFS1x3="Vrf40000|*|Ethernet1_9|eth1|lo|0"
+SUBINFS1x3="Vrf40000|*|Ethernet1_8|eth1|lo|0"
 RELAYS1x3="Vrf40000|relay1|5.1.30.1|5010#5020"
 RELAYS1x3="*"
 BGPPEERS1x3="Vrf40000|bgp1#5.1.30.1#4000#65200"
