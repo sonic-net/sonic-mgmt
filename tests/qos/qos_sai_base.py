@@ -2289,19 +2289,20 @@ class QosSaiBase(QosBase):
         return mapping
 
     @pytest.fixture(autouse=False)
-    def _check_ingress_speed_gte_400g(
+    def skip_400g_longlink(
             self,
             get_src_dst_asic_and_duts,
             dutQosConfig):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        m = re.search("([0-9]+)_([0-9]+m)", portSpeedCableLength)
+        m = re.search("([0-9]+)_([0-9]+)m", portSpeedCableLength)
         if not m:
             raise RuntimeError(
                 "Format error in portSpeedCableLength:{}".
                 format(portSpeedCableLength))
         speed = int(m.group(1))
-        if speed >= 400000:
-            pytest.skip("PGDrop test is not supported for 400G port speed.")
+        cable_length = int(m.group(2))
+        if speed >= 400000 and cable_length >= 120000:
+            pytest.skip("PGDrop test is not supported for 400G longlink.")
 
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds, dualtor_dut_ports=None):
         """
@@ -2475,5 +2476,18 @@ class QosSaiBase(QosBase):
         if match and int(match.group(1)) > 2000:
             pytest.skip(
                 "This test is skipped for longlink.")
+        yield
+        return
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_compute_ai(self, duthost):
+        BACKEND_DEVICE_TYPES = ['BackEndToRRouter', 'BackEndLeafRouter']
+        config_facts = duthost.get_running_config_facts()
+        metadata_table = config_facts['DEVICE_METADATA']['localhost']
+        is_compute_ai = (metadata_table['type'] in BACKEND_DEVICE_TYPES
+                         and 'resource_type' in metadata_table
+                         and metadata_table['resource_type'] == 'ComputeAI')
+        if is_compute_ai:
+            pytest.skip("This test is skipped for ComputeAI.")
         yield
         return

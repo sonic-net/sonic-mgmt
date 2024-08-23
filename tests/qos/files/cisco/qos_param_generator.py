@@ -32,9 +32,6 @@ class QosParamCisco(object):
         self.is_large_sms = duthost.facts['platform'] not in self.SMALL_SMS_PLATFORMS
         self.is_deep_buffer = duthost.facts['platform'] in self.DEEP_BUFFER_PLATFORMS
         config_facts = duthost.get_running_config_facts()
-        # print("config_facts:")
-        # print(config_facts)
-        # self.is_compute_ai = True
         metadata_table = config_facts['DEVICE_METADATA']['localhost']
         self.is_compute_ai = (metadata_table['type'] in self.BACKEND_DEVICE_TYPES
                               and 'resource_type' in metadata_table
@@ -90,8 +87,8 @@ class QosParamCisco(object):
             self.log("Pre-pad drop thr bytes:    {}".format(pre_pad_drop))
             self.log("Drop thr bytes:            {}".format(self.drop_thr))
             self.log("Reduced pause thr bytes:   {}".format(self.reduced_pause_thr))
-        # dscp value for lossy
-        if self.is_compute_ai:
+        # DSCP value for lossy
+        if self.is_compute_ai and dutAsic == "gr":
             self.dscp_queue0 = 48
             self.dscp_queue1 = 46
         else:
@@ -371,7 +368,7 @@ class QosParamCisco(object):
                       "pg": 0,
                       "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
                       "pkts_num_margin": 4,
-                      "packet_size": 64,
+                      "packet_size": 1350,
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_3", params)
 

@@ -1311,7 +1311,8 @@ class TestQosSai(QosSaiBase):
             raise
 
     def testQosSaiDscpQueueMapping(
-        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps # noqa F811
+        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
+        skip_compute_ai
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1499,7 +1500,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrr(
         self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed,
-        skip_src_dst_different_asic
+        skip_src_dst_different_asic, skip_compute_ai
     ):
         """
             Test QoS SAI DWRR
@@ -1723,8 +1724,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        _check_ingress_speed_gte_400g
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, skip_400g_longlink
     ):
         """
             Test QoS SAI PG drop counter
@@ -1906,7 +1906,8 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("decap_mode", ["uniform", "pipe"])
     def testIPIPQosSaiDscpToPgMapping(
-        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode  # noqa F811
+        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode,  # noqa F811
+        skip_compute_ai
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
@@ -2036,7 +2037,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrrWeightChange(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        updateSchedProfile, skip_src_dst_different_asic
+        updateSchedProfile, skip_src_dst_different_asic, skip_compute_ai
     ):
         """
             Test QoS SAI DWRR runtime weight change
