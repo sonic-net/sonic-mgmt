@@ -14,6 +14,8 @@ from tests.common.fixtures.ptfhost_utils \
     import copy_ptftests_directory     # noqa: F401
 from tests.ptf_runner import ptf_runner
 from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -41,19 +43,26 @@ def fixture_encap_type(request):
 
 
 @pytest.fixture(autouse=True)
-def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
+def _ignore_route_sync_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(
-            [
-                ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
-                ".*missed_in_asic_db_routes.*",
-                ".*Look at reported mismatches above.*",
-                ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
-                ".*'vnetRouteCheck' status failed.*",
-                ".*Vnet Route Mismatch reported.*",
-                ".*_M_construct null not valid.*",
-            ])
+        IgnoreRegex = [
+            ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
+            ".*missed_in_asic_db_routes.*",
+            ".*Look at reported mismatches above.*",
+            ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
+            ".*'vnetRouteCheck' status failed.*",
+            ".*Vnet Route Mismatch reported.*",
+            ".*_M_construct null not valid.*",
+        ]
+        # Ignore in KVM test
+        KVMIgnoreRegex = [
+            ".*doTask: Logic error: basic_string: construction from null is not valid.*",
+        ]
+        duthost = duthosts[rand_one_dut_hostname]
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(IgnoreRegex)
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[rand_one_dut_hostname].ignore_regex.extend(KVMIgnoreRegex)
     return
 
 
@@ -221,7 +230,8 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                    random_sport=False,
                                    random_src_ip=False,
                                    tolerance=None,
-                                   payload=None):
+                                   payload=None,
+                                   skip_traffic_test=False):    # noqa F811
         '''
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines
            everytime.
@@ -274,6 +284,9 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         Logger.info(
             "dest->nh mapping:%s", self.vxlan_test_setup[encap_type]['dest_to_nh_map'])
 
+        if skip_traffic_test is True:
+            Logger.info("Skipping traffic test.")
+            return
         ptf_runner(self.vxlan_test_setup['ptfhost'],
                    "ptftests",
                    "vxlan_traffic.VxLAN_in_VxLAN" if payload == 'vxlan'
@@ -287,7 +300,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                        datetime.now().strftime('%Y-%m-%d-%H:%M:%S')),
                    is_python3=True)
 
-    def test_vxlan_priority_single_pri_sec_switchover(self, setUp, encap_type):
+    def test_vxlan_priority_single_pri_sec_switchover(self, setUp, encap_type, skip_traffic_test):  # noqa F811
         '''
             tc1:create tunnel route 1 with two endpoints a = {a1, b1}. a1 is primary, b1 is secondary.
             1) both a1,b1 are UP.
@@ -364,7 +377,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                         ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)]))
             assert str(result['stdout']) == ecmp_utils.OVERLAY_DMAC
 
-            self.dump_self_info_and_run_ptf("test1", encap_type, True)
+            self.dump_self_info_and_run_ptf("test1", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Single primary-secondary switchover.
             # Endpoint list = [A, A`], Primary[A] | Active NH=[A] |
@@ -382,7 +395,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
                                               tc1_end_point_list[0], "down")
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test1", encap_type, True)
+            self.dump_self_info_and_run_ptf("test1", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Single primary recovery.
             # Endpoint list = [A, A`], Primary[A] | Active NH=[A`] |
@@ -400,7 +413,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
                                               tc1_end_point_list[0], "up")
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test1", encap_type, True)
+            self.dump_self_info_and_run_ptf("test1", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Single primary backup Failure.
             # Endpoint list = [A, A`]. Primary[A]| Active  NH=[A`]  A is DOWN  |
@@ -422,7 +435,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               tc1_end_point_list[0], "down")
 
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test1", encap_type, True)
+            self.dump_self_info_and_run_ptf("test1", encap_type, True, skip_traffic_test=skip_traffic_test)
             ecmp_utils.create_and_apply_priority_config(
                 self.vxlan_test_setup['duthost'],
                 vnet,
@@ -442,7 +455,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                 [tc1_end_point_list[0]],
                 "DEL")
 
-    def test_vxlan_priority_multi_pri_sec_switchover(self, setUp, encap_type):
+    def test_vxlan_priority_multi_pri_sec_switchover(self, setUp, encap_type, skip_traffic_test):   # noqa F811
         '''
             tc2:create tunnel route 1 with 6 endpoints a = {A, B, A`, B`}. A,B
             are primary, A`,B` are secondary.
@@ -540,7 +553,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
             self.vxlan_test_setup['list_of_downed_endpoints'] = set(inactive_list)
             time.sleep(10)
             # ensure that the traffic is distributed to all 3 primary Endpoints.
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Multiple primary backups. Single primary failure.
             # Endpoint list = [A, B, A`, B`], Primary = [A, B] | active NH = [A, B] |
@@ -558,7 +571,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
                                               primary_nhg[0], "down")
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Multiple primary backups.  All primary failure.
             # Endpoint list = [A, B, A`, B`] Primary = [A, B] | A is Down. active NH = [B] |
@@ -575,7 +588,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
                                               primary_nhg[1], "down")
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Multiple primary backups. Backup Failure.
             # Endpoint list = [A, B, A`, B`] Primary = [A, B] |
@@ -594,7 +607,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
                                               secondary_nhg[1], "down")
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Multiple primary backups. Single primary recovery.
             # Endpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A`] |
@@ -612,7 +625,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
                                               primary_nhg[0], "up")
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Multiple primary backups. Multiple primary & backup recovery.
             # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A] |
@@ -634,7 +647,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               secondary_nhg[1], "up")
 
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Multiple primary backups. Multiple primary & backup all failure.
             # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A,B] |
@@ -663,7 +676,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
                                               secondary_nhg[1], "down")
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Multiple primary backups. Multiple primary & backup recovery.
             # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [] |
@@ -693,7 +706,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               secondary_nhg[1], "up")
 
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Multiple primary backups. Multiple primary & backup all failure 2.
             # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A,B] |
@@ -722,7 +735,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
                                               secondary_nhg[1], "down")
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Multiple primary backups. Multiple primary & backup recovery of secondary.
             # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [] |
@@ -744,7 +757,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               secondary_nhg[1], "up")
 
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
 
             # Multiple primary backups. Multiple primary & backup recovery of primary after secondary.
             # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A`, B`] |
@@ -766,7 +779,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
                                               primary_nhg[1], "up")
 
             time.sleep(10)
-            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True, skip_traffic_test=skip_traffic_test)
             ecmp_utils.create_and_apply_priority_config(
                 self.vxlan_test_setup['duthost'],
                 vnet,
