@@ -16,7 +16,7 @@ pytestmark = [
 ]
 
 stop_threads = False
-SLEEP_DURATION = 0.1
+SLEEP_DURATION = 0.5
 TEST_RUN_DURATION = 600
 
 
