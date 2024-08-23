@@ -126,6 +126,12 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-src]:
       - "asic_type in ['broadcom', 'cisco-8000']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
+drop_packets/test_drop_counters.py::test_ip_pkt_with_expired_ttl:
+  skip:
+    reason: "Not supported on Mellanox devices"
+    conditions:
+      - "asic_type in ['mellanox']"
+
 drop_packets/test_drop_counters.py::test_loopback_filter:
   # Test case is skipped, because SONiC does not have a control to adjust loop-back filter settings.
   # Default SONiC behavior is to forward the traffic, so loop-back filter does not triggers for IP packets.
