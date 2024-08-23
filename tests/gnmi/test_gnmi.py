@@ -10,6 +10,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
+
 def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
     '''
     Verify GNMI capabilities
@@ -36,7 +37,10 @@ def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
 
 
-def test_gnmi_authorize_failed_with_invalid_cname(duthosts, rand_one_dut_hostname, localhost, setup_invalid_client_cert_cname):
+def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
+                                                  rand_one_dut_hostname,
+                                                  localhost,
+                                                  setup_invalid_client_cert_cname):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path

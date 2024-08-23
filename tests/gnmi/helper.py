@@ -55,7 +55,8 @@ def verify_tcp_port(localhost, ip, port):
 
 
 def add_gnmi_client_common_name(duthost, cname):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "role1"'.format(cname), module_ignore_errors=True)
+    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "role1"'.format(cname),
+                  module_ignore_errors=True)
 
 
 def del_gnmi_client_common_name(duthost, cname):
@@ -87,7 +88,7 @@ def apply_cert_config(duthost):
 
     # Setup gnmi client cert common name
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
-    
+
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
     output = duthost.shell(dut_command, module_ignore_errors=True)
