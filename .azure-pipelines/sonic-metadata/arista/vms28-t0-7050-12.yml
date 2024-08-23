@@ -65,7 +65,7 @@ parameters:
 - name: FROM_IMAGE_URL
   displayName: "Base image location"
   type: string
-  default: $(IMAGE_BRCM_ABOOT_202305)
+  default: $(IMAGE_BRCM_ABOOT_202311)
   values:
   - $(IMAGE_BRCM_ABOOT_201811)
   - $(IMAGE_BRCM_ABOOT_201911)
@@ -76,6 +76,8 @@ parameters:
   - $(IMAGE_BRCM_ABOOT_202205_SLIM)
   - $(IMAGE_BRCM_ABOOT_202305)
   - $(IMAGE_BRCM_ABOOT_202305_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202311)
+  - $(IMAGE_BRCM_ABOOT_202311_SLIM)
   - $(IMAGE_BRCM_ABOOT_INTERNAL)
   - $(IMAGE_BRCM_ABOOT_PUBLIC)
   - custom
@@ -88,7 +90,7 @@ parameters:
 - name: TO_IMAGE_URL
   displayName: "Target image location"
   type: string
-  default: $(IMAGE_BRCM_ABOOT_202305)
+  default: $(IMAGE_BRCM_ABOOT_202311)
   values:
   - $(IMAGE_BRCM_ABOOT_201811)
   - $(IMAGE_BRCM_ABOOT_201911)
@@ -99,6 +101,8 @@ parameters:
   - $(IMAGE_BRCM_ABOOT_202205_SLIM)
   - $(IMAGE_BRCM_ABOOT_202305)
   - $(IMAGE_BRCM_ABOOT_202305_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202311)
+  - $(IMAGE_BRCM_ABOOT_202311_SLIM)
   - $(IMAGE_BRCM_ABOOT_INTERNAL)
   - $(IMAGE_BRCM_ABOOT_PUBLIC)
   - custom
@@ -106,7 +110,7 @@ parameters:
 - name: VSONIC_NEIGHBOR_IMAGE_URL
   displayName: "SONiC image URL (used only for vsonic neighbors)"
   type: string
-  default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=202305&platform=vs&target=target%2Fsonic-vs.img.gz
+  default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=202311&platform=vs&target=target%2Fsonic-vs.img.gz
 
 - name: SKIP_REBOOT_CASES
   default: "test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path"
@@ -128,7 +132,7 @@ parameters:
 
 - name: ITERATIONS
   type: string
-  default: "18"
+  default: "22"
   values:
   - "1"
   - "10"
