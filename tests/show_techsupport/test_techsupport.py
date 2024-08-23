@@ -528,7 +528,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             )
     # Remove /proc/dma for armh
     elif duthost.facts["asic_type"] == "marvell":
-        if 'armhf-' in duthost.facts["platform"]:
+        if 'armhf-' in duthost.facts["platform"] or 'arm64-' in duthost.facts["platform"]:
             cmds.copy_proc_files.remove("/proc/dma")
 
     return cmds_to_check
