@@ -80,8 +80,8 @@ def _create_parser():
                       required=False,default="cisco")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
-    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'churchill-mono'])
+    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono, carib',
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'churchill-mono','carib'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -323,6 +323,10 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('lab_connection_graph_churchill_mono.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('sonic_lab_links_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
         ftp_client.put('sonic_lab_devices_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
+    elif device_type == 'carib':
+        ftp_client.put('lab_connection_graph_churchill_mono.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+        ftp_client.put('sonic_lab_links_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
+        ftp_client.put('sonic_lab_devices_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'sfd' and topo_type == 't2-min':
         ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('topo_Cisco-8800-LC-48H-C48.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-LC-48H-C48.yml')
@@ -362,6 +366,8 @@ def get_dut_platform(device_type):
         return 'crocodile'
     elif device_type == 'churchill-mono':
         return 'churchill-mono'
+    elif device_type == 'carib':
+        return 'carib'
     else:
         return "mathilda"
 
