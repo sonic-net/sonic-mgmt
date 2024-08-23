@@ -49,9 +49,7 @@ SFD_LC_TOPO_CODE = {
 
 # SIM workaround command files for Sonic master bringup.
 wa_file_map = { "sfd": "sfd_wa_cmd_list",
-                "mth64": "mth64_wa_cmd_list",
-                "churchill-mono": "cmono_wa_cmd_list",
-                "carib": "cmono_wa_cmd_list"
+                "churchill-mono": "cmono_wa_cmd_list"
               }
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
@@ -661,6 +659,14 @@ def run_sim_workaround(data, filename):
         run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
         print(f"***** copied {filename} to {dut_name} ******")
 
+def run_config_reload(data):
+    ssh = paramiko.SSHClient()
+    for dut_name in get_dut_names(data):
+        cmd_list = list()
+        cmd_list.append(f'sudo config reload -fy\n')
+        run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
+        print(f"******  Executed config reload on {dut_name} ******")
+
 def add_ptf_backplane_addr(data):
     cmd_list = list()
     cmd_list.append('ip address add 10.10.246.254/24 dev backplane')
@@ -934,6 +940,11 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
     print("********** Start docker container, deploy DUT minigraph ***********")
     deploy_mg(data,topo_type,base_topo_file, lc_topo_code)
 
+    if apply_wa and device_type in wa_file_map:
+        #sleep sometime to let deploy-mg load_minigraph complete
+        time.sleep(300)
+        run_config_reload(data)
+        
     # Add vEOS config
     print("********** Add vEOS config ***********")
     add_vEOS_cfg(data)

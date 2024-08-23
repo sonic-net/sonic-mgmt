@@ -3,11 +3,3 @@ set -x
 # Disable BFD
 sudo find /usr -name minigraph.py | xargs sed -i 's/"bfd":"true"/"bfd": "false"/g'
 
-# Remove qos config and disable pfc due to SIM PFC issue
-sudo find /usr/share/sonic/device/x86_64-88* -name qos* | xargs rm
-sudo find /usr/share/sonic/device/x86_64-88* -name device_proper*| xargs sed -i 's/ pfc_support: true/ pfc_support: false/g'
-sudo find /usr/share/sonic/device/x86_64-88* -name device_proper*| xargs sed -i '3i \ \ \ \ \ pfc_support: false'
-sudo find /usr/share/sonic/device/x86_64-88_lc0_36fh_m* -name device_proper*| xargs sed -i 's\     pfc_support: false\  pfc_support: false\g'
-
-# regen config
-/opt/cisco/tools/bin/asic_util.py dev_config
