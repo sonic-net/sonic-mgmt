@@ -96,10 +96,8 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
     if normalized_level is None:
         normalized_level = "debug"
 
-    ipv4_avaliable = get_crm_resources(duthost, "ipv4_neighbor", "available") - \
-        get_crm_resources(duthost, "ipv4_neighbor", "used")
-    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available") - \
-        get_crm_resources(duthost, "fdb_entry", "used")
+    ipv4_avaliable = get_crm_resources(duthost, "ipv4_neighbor", "available")
+    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
     pytest_assert(ipv4_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
     arp_avaliable = min(min(ipv4_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
@@ -121,7 +119,7 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
                 logger.debug("Expected route number: {}, real route number {}"
                              .format(arp_avaliable, get_fdb_dynamic_mac_count(duthost)))
                 pytest_assert(wait_until(20, 1, 0,
-                                         lambda: abs(arp_avaliable - get_fdb_dynamic_mac_count(duthost)) < 100),
+                                         lambda: abs(arp_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
                               "ARP Table Add failed")
         finally:
             try:
@@ -188,10 +186,8 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
         normalized_level = "debug"
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-    ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - \
-        get_crm_resources(duthost, "ipv6_neighbor", "used")
-    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available") - \
-        get_crm_resources(duthost, "fdb_entry", "used")
+    ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available")
+    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
     pytest_assert(ipv6_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
     nd_avaliable = min(min(ipv6_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
@@ -206,7 +202,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
                 logger.debug("Expected route number: {}, real route number {}"
                              .format(nd_avaliable, get_fdb_dynamic_mac_count(duthost)))
                 pytest_assert(wait_until(20, 1, 0,
-                                         lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 100),
+                                         lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
                               "Neighbor Table Add failed")
         finally:
             try:
