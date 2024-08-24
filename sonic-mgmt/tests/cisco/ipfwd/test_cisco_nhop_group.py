@@ -11,6 +11,7 @@ from collections import defaultdict
 from ptf.mask import Mask
 import ptf.packet as scapy
 import ptf.testutils as testutils
+import tests.cisco.common.utils as cmn_utils
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
@@ -135,7 +136,6 @@ class IPRoutes:
         except:
             pass
 
-
 class Arp:
     """
     Create IP interface and create a list of ARPs with given IP,
@@ -174,7 +174,6 @@ class Arp:
         logger.info("IF ADDR ADD {}".format(ip_iface))
         result = self.asic.command(ip_iface)
         pytest_assert(result["rc"] == 0, ip_iface)
-
         arp_cmd = "sudo {} arp -s {} {}"
         with open(self.filename, "w") as fn:
             for ip_mac in self.ip_mac_list:
@@ -447,11 +446,12 @@ def test_nhop_group_member_count(duthost, tbinfo):
 
     # list of all IPs available to generate a nexthop group
     ip_list = arplist.ip_mac_list
-
-
-
+    expected_mac_list = list()
+    expected_ip_list = list()
     logger.info("Adding {} next hops on {}".format(nhop_group_count, eth_if))
-
+    
+    #To Select first entry to program nhops and validate via show CLI
+    select = 0
     # create nexthop group
     nhop = IPRoutes(duthost, asic)
     try:
@@ -460,13 +460,23 @@ def test_nhop_group_member_count(duthost, tbinfo):
             ips = [arplist.ip_mac_list[x].ip for x in indx_list]
 
             ip_route = "{}/31".format(ip_prefix + (2*i))
-
+            
+            select += 1
+            if select == 1:
+                expected_prefix = ip_route
+                expected_mac_list = [(arplist.ip_mac_list[x].mac).lower() for x in indx_list]
+                expected_ip_list = [arplist.ip_mac_list[x].ip for x in indx_list]
             # add IP route with the next hop group created
             nhop.add_ip_route(ip_route, ips)
 
         nhop.program_routes()
         # wait for routes to be synced and programmed
         time.sleep(sleep_time)
+        
+        #Validate prefix via show CLI
+        pfx = cmn_utils.Prefix(duthost, asic)
+        expected_prefix_info = (expected_prefix, expected_mac_list)
+        pfx.verify_prefix_cmd_output(expected_prefix_info, "ipv4")
         crm_after = get_crm_info(duthost, asic)
 
     finally:

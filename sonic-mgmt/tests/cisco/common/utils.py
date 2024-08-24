@@ -282,6 +282,76 @@ class Arp:
         except:  # noqa: E722
             pass
 
+class Prefix:
+
+    def __init__(self, duthost, asic):
+        self.asic = asic
+        self.duthost = duthost
+
+    def get_prefix_output(self, prefix, addr_family):
+        '''
+        Sample output
+        IPv4 prefix: 193.0.0.0/25
+        +---------------------------------------------------------------------------+
+                                 Prefix ECMP/NextHop                            |
+        +-------------+--------------+---------+------------------+-----------------+
+        |   vrf oid   |    Prefix    | Is Host | Destination Type | Destination OID |
+        +-------------+--------------+---------+------------------+-----------------+
+        | la_vrf(172) | 193.0.0.0/25 |  False  |    ECMP_GROUP    |       2130      |
+        +-------------+--------------+---------+------------------+-----------------+
+        +--------------------------------------------------------------------------------------------------------------------------------+
+        |                                                        NextHop Members                                                         |
+        +--------------------+-------------+--------------------+-------------------+--------------+--------------------+----------------+
+        |      ecmp/oid      | member info | l3_destination/oid |    Nexthop MAC    | Nexthop Type |  router_port/oid   |     IfName     |
+        +--------------------+-------------+--------------------+-------------------+--------------+--------------------+----------------+
+        | la_ecmp_group/2130 |     0/4     |  la_next_hop/1892  | 52:54:00:5f:52:e2 |  NORMAL(0)   | la_l3_ac_port/2143 | PortChannel101 |
+        | la_ecmp_group/2130 |     1/4     |  la_next_hop/1894  | 52:54:00:85:a7:61 |  NORMAL(0)   | la_l3_ac_port/2148 | PortChannel102 |
+        | la_ecmp_group/2130 |     2/4     |  la_next_hop/1972  | 52:54:00:72:ab:a6 |  NORMAL(0)   | la_l3_ac_port/2153 | PortChannel103 |
+        | la_ecmp_group/2130 |     3/4     |  la_next_hop/1969  | 52:54:00:7b:8e:03 |  NORMAL(0)   | la_l3_ac_port/2158 | PortChannel104 |
+        +--------------------+-------------+--------------------+-------------------+--------------+--------------------+----------------+
+        ''' 
+        if addr_family == "ipv4":
+            if self.duthost.is_multi_asic:
+                cmd = "show platform npu prefix-map -ip {} -n asic{}".format(prefix, self.asic.asic_index)
+            else:
+                cmd = "show platform npu prefix-map -ip {}".format(prefix)
+        else:
+            if self.duthost.is_multi_asic:
+                cmd = "show platform npu prefix-map -ipv6 {} -n asic{}".format(prefix, self.asic.asic_index)
+            else:
+                cmd = "show platform npu prefix-map -ipv6 {}".format(prefix)
+
+        self.prefix_report = self.duthost.shell(cmd)["stdout_lines"]
+
+    def parse_verify_prefix_report(self, expected_mac_list):
+        expected_mem_cnt = len(expected_mac_list)
+        parsed_mac_list = list()
+        mem_info = ''
+        parsed_mem_cnt = 0
+
+        for line in self.prefix_report:
+            lines = line.split('|')
+            line = list(map(str.strip, lines))
+            if len(line) == 9:
+                if 'member info' not in line:
+                    mem_info = line[2]
+                    parsed_mac_list.append(line[4])
+
+        if mem_info:
+            parsed_mem_cnt = int(mem_info.split('/')[1])
+        
+        logger.info("Parsed member count: {} Parsed mac list: {}".format(parsed_mem_cnt, parsed_mac_list))
+        
+        pytest_assert(expected_mem_cnt == parsed_mem_cnt, "Expected member count: {} Parsed member count: {}".format(expected_mem_cnt, parsed_mem_cnt))
+        pytest_assert(expected_mac_list == parsed_mac_list, "Expected list: {} Parsed list: {}".format(expected_mac_list, parsed_mac_list))
+
+    def verify_prefix_cmd_output(self, expected_prefix_info, addr_family):
+        prefix = expected_prefix_info[0]
+        expected_prefix_mac_list = expected_prefix_info[1]
+        #Dump show CLI output
+        self.get_prefix_output(prefix, addr_family)
+        #Verify Output
+        self.parse_verify_prefix_report(expected_prefix_mac_list)
 
 def get_crm_info(duthost, asic):
     """
