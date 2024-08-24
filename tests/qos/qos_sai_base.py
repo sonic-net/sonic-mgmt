@@ -2479,15 +2479,18 @@ class QosSaiBase(QosBase):
         yield
         return
 
-    @pytest.fixture(scope="function", autouse=False)
-    def skip_compute_ai(self, duthost):
+    def is_compute_ai(self, duthost):
         BACKEND_DEVICE_TYPES = ['BackEndToRRouter', 'BackEndLeafRouter']
         config_facts = duthost.get_running_config_facts()
         metadata_table = config_facts['DEVICE_METADATA']['localhost']
-        is_compute_ai = (metadata_table['type'] in BACKEND_DEVICE_TYPES
-                         and 'resource_type' in metadata_table
-                         and metadata_table['resource_type'] == 'ComputeAI')
-        if is_compute_ai:
+        return ('type' in metadata_table
+                and metadata_table['type'] in BACKEND_DEVICE_TYPES
+                and 'resource_type' in metadata_table
+                and metadata_table['resource_type'] == 'ComputeAI')
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_compute_ai(self, duthost):
+        if self.is_compute_ai(duthost):
             pytest.skip("This test is skipped for ComputeAI.")
         yield
         return

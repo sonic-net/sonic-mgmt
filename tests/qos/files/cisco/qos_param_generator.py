@@ -5,8 +5,19 @@ logger = logging.getLogger(__name__)
 class QosParamCisco(object):
     SMALL_SMS_PLATFORMS = ["x86_64-8102_64h_o-r0"]
     DEEP_BUFFER_PLATFORMS = ["x86_64-8111_32eh_o-r0"]
-    BACKEND_DEVICE_TYPES = ['BackEndToRRouter', 'BackEndLeafRouter']
     LOG_PREFIX = "QosParamCisco: "
+
+    def get_dscp_from_queue(self, duthost, queue):
+        '''
+        Get dscp value which is mapped to given queue
+        '''
+        config_facts = duthost.get_running_config_facts()
+        dscp_to_tc_map = config_facts['DSCP_TO_TC_MAP']['AZURE']
+        tc_to_queue_map = config_facts['TC_TO_QUEUE_MAP']['AZURE']
+        queue = str(queue)
+        tc = list(tc_to_queue_map.keys())[list(tc_to_queue_map.values()).index(queue)]
+        dscp = list(dscp_to_tc_map.keys())[list(dscp_to_tc_map.values()).index(tc)]
+        return int(dscp)
 
     def __init__(self, qos_params, duthost, dutAsic, topo, bufferConfig, portSpeedCableLength):
         '''
@@ -31,11 +42,6 @@ class QosParamCisco(object):
         # Find SMS size
         self.is_large_sms = duthost.facts['platform'] not in self.SMALL_SMS_PLATFORMS
         self.is_deep_buffer = duthost.facts['platform'] in self.DEEP_BUFFER_PLATFORMS
-        config_facts = duthost.get_running_config_facts()
-        metadata_table = config_facts['DEVICE_METADATA']['localhost']
-        self.is_compute_ai = (metadata_table['type'] in self.BACKEND_DEVICE_TYPES
-                              and 'resource_type' in metadata_table
-                              and metadata_table['resource_type'] == 'ComputeAI')
         self.buffer_size = 384
         # Lossless profile attributes
         lossless_prof_name = "pg_lossless_{}_profile".format(self.portSpeedCableLength)
@@ -77,9 +83,6 @@ class QosParamCisco(object):
                 self.reduced_pause_thr = 3 * (1024 ** 2)
             else:
                 self.reduced_pause_thr = 2.25 * (1024 ** 2)
-            if dutAsic == "gr":
-                self.reduced_pause_thr = self.gr_get_hw_thr_buffs(self.reduced_pause_thr
-                                                                  // self.buffer_size) * self.buffer_size
             self.log("Max pause thr bytes:       {}".format(max_pause))
             self.log("Attempted pause thr bytes: {}".format(attempted_pause))
             self.log("Pre-pad pause thr bytes:   {}".format(pre_pad_pause))
@@ -88,12 +91,8 @@ class QosParamCisco(object):
             self.log("Drop thr bytes:            {}".format(self.drop_thr))
             self.log("Reduced pause thr bytes:   {}".format(self.reduced_pause_thr))
         # DSCP value for lossy
-        if self.is_compute_ai and dutAsic == "gr":
-            self.dscp_queue0 = 48
-            self.dscp_queue1 = 46
-        else:
-            self.dscp_queue0 = 8
-            self.dscp_queue1 = 0
+        self.dscp_queue0 = self.get_dscp_from_queue(duthost, 0)
+        self.dscp_queue1 = self.get_dscp_from_queue(duthost, 1)
 
     def run(self):
         '''
@@ -370,7 +369,7 @@ class QosParamCisco(object):
                       "pg": 0,
                       "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
                       "pkts_num_margin": 4,
-                      "packet_size": 1350,
+                      "packet_size": 64,
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_3", params)
 
