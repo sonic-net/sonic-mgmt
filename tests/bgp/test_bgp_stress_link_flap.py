@@ -16,7 +16,7 @@ pytestmark = [
 ]
 
 stop_threads = False
-SLEEP_DURATION = 0.5
+SLEEP_DURATION = 0.1
 TEST_RUN_DURATION = 600
 
 
@@ -296,7 +296,28 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
         flap_threads.append(thread_fanout)
 
     logger.info("flap_threads {} ".format(flap_threads))
-    time.sleep(TEST_RUN_DURATION)
+
+    end_time = time.time() + TEST_RUN_DURATION
+    while time.time() < end_time:
+        time.sleep(30)
+
+        cmd = "free -m"
+        cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+        logger.info("pfcwd_cmd {} response: {}".format(cmd, cmd_out))
+        lines = cmd_out.split('\n')
+        for line in lines:
+            if line.startswith("Mem:"):
+                fields = line.split()
+                avail_mem = int(fields[-1])
+                logger.info("Available memory: {}".format(avail_mem))
+                break
+
+        if avail_mem < 500:
+            logger.error("Available memory is less than 500 MB, stopping the test")
+            break
+
+    logger.info("Test running for {} seconds".format(time.time() + TEST_RUN_DURATION - end_time))
+    # time.sleep(TEST_RUN_DURATION)
     stop_event.set()
     stop_threads = True
     logger.info("stop_threads {} ".format(flap_threads))
@@ -306,7 +327,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
         logger.info("waiting thread {} done".format(thread))
         try:
             if thread.is_alive():
-                thread.join(timeout=5)
+                thread.join(timeout=30)
                 logger.info("thread {} joined".format(thread))
         except Exception as e:
             logger.debug("Exception occurred in thread %r:", thread)
