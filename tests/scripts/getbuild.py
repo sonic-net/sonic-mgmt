@@ -93,6 +93,18 @@ def get_download_url(buildid, artifact_name, url_prefix, access_token, token):
     return (download_url, artifact_size)
 
 
+def get_download_url_for_tagged_latest(branch):
+    # retrun download URL for tagged latest for sonic-metadata pipelines
+    if branch == 'internal-202305':
+        dl_url = 'https://sonic.packages.trafficmanager.net/pipelines/Networking-acs-buildimage-Official/vs/internal-202305/tagged/latest/target/'
+    elif branch == 'internal-202311':
+        dl_url = 'https://sonic.packages.trafficmanager.net/pipelines/Networking-acs-buildimage-Official/vs/internal-202311/tagged/latest/target/'
+    elif branch == 'internal-202405':
+        dl_url = 'https://sonic.packages.trafficmanager.net/pipelines/Networking-acs-buildimage-Official/vs/internal-202405/tagged/latest/target/'
+
+    return dl_url
+
+
 def download_artifacts(url, content_type, platform, buildid, num_asic, access_token, token):
     """find latest successful build id for a branch"""
 
@@ -195,6 +207,8 @@ def main():
                         help='Specifiy number of asics')
     parser.add_argument('--url_prefix', metavar='url_prefix',
                         type=str, default='mssonic/build', help='url prefix')
+    parser.add_argument('--source_repo', metavar='source_repo',
+                        type=str, default='', help='source repo')
     parser.add_argument('--access_token', metavar='access_token', type=str,
                         default='', nargs='?', const='', required=False, help='access token (PAT)')
     parser.add_argument('--token', metavar='token', type=str,
@@ -221,6 +235,9 @@ def main():
                                                url_prefix=args.url_prefix,
                                                access_token=args.access_token,
                                                token=args.token)
+
+    if args.source_repo == "sonic-metadata":
+        dl_url = get_download_url_for_tagged_latest(args.branch)
 
     download_artifacts(dl_url, args.content, args.platform,
                        buildid, args.num_asic, access_token=args.access_token, token=args.token)
