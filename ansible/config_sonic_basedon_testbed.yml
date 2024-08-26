@@ -205,7 +205,7 @@
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
-      hwsku_list_compute_ai: "['Cisco-8111-O64']"
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8122-O64', 'Cisco-8122-O128']"
 
   - name: enable ComputeAI deployment
     set_fact:
