@@ -54,6 +54,7 @@ from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.sonic_db import AsicDbCli
+from tests.common.helpers.inventory_utils import trim_inventory
 
 try:
     from tests.macsec import MacsecPluginT2, MacsecPluginT0
@@ -203,6 +204,11 @@ def pytest_addoption(parser):
     parser.addoption("--public_docker_registry", action="store_true", default=False,
                      help="To use public docker registry for syncd swap, by default is disabled (False)")
 
+    ##############################
+    #   ansible inventory option #
+    ##############################
+    parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -214,7 +220,7 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def enhance_inventory(request):
+def enhance_inventory(request, tbinfo):
     """
     This fixture is to enhance the capability of parsing the value of pytest cli argument '--inventory'.
     The pytest-ansible plugin always assumes that the value of cli argument '--inventory' is a single
@@ -231,7 +237,12 @@ def enhance_inventory(request):
     if isinstance(inv_opt, list):
         return
     inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
+
+    if request.config.getoption("trim_inv"):
+        trim_inventory(inv_files, tbinfo)
+
     try:
+        logger.info(f"Inventory file: {inv_files}")
         setattr(request.config.option, "ansible_inventory", inv_files)
     except AttributeError:
         logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
