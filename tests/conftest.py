@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 import glob
 import json
@@ -5,6 +6,7 @@ import logging
 import getpass
 import random
 import re
+from concurrent.futures import as_completed
 
 import pytest
 import yaml
@@ -568,7 +570,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
-
+    logger.info("Fixture nbrhosts started")
     devices = {}
     if (not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or 'ptf' in tbinfo['topo']['name']:
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
@@ -582,8 +584,8 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
 
-    for k, v in list(tbinfo['topo']['properties']['topology']['VMs'].items()):
-        vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
+    def initial_neighbor(neighbor_name, vm_name):
+        logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
         if neighbor_type == "eos":
             device = NeighborDevice(
                 {
@@ -595,7 +597,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
                         shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
         elif neighbor_type == "sonic":
@@ -607,7 +609,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
                         ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
         elif neighbor_type == "cisco":
@@ -619,12 +621,25 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         creds['cisco_login'],
                         creds['cisco_password'],
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
         else:
-            raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
-        devices[k] = device
+            raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
+        devices[neighbor_name] = device
+        logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+    futures = []
+    for neighbor_name, neighbor in list(tbinfo['topo']['properties']['topology']['VMs'].items()):
+        vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
+        futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
+
+    for future in as_completed(futures):
+        # if exception caught in the sub-thread, .result() will raise it in the main thread
+        _ = future.result()
+    executor.shutdown(wait=True)
+    logger.info("Fixture nbrhosts finished")
     return devices
 
 
