@@ -431,6 +431,13 @@ dualtor/test_standby_tor_upstream_mux_toggle.py:
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
+dualtor/test_switchover_failure.py:
+  skip:
+    reason: "Test in KVM has a high failure rate, skip with Github issue."
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/14247
+
 dualtor/test_tor_ecn.py::test_dscp_to_queue_during_encap_on_standby:
   xfail:
      reason: "Testcase ignored on dualtor-aa topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/8577"
