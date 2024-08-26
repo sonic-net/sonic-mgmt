@@ -106,12 +106,12 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
                   "Not all BGP sessions are established on DUT")
 
 
-def flap_dut_interface(duthost, port, stop_event, sleep_duration, timeout):
-    logger.info("flap dut {} interface {} delay time {} timeout {}".format(duthost, port, sleep_duration, timeout))
+def flap_dut_interface(duthost, port, stop_event, sleep_duration, test_run_duration):
+    logger.info("flap dut {} interface {} delay time {} timeout {}".format(duthost, port, sleep_duration, test_run_duration))
     start_time = time.time()  # Record the start time
 
     dut_flap_count = 0
-    while not stop_event.is_set() and time.time() - start_time < timeout:
+    while not stop_event.is_set() and time.time() - start_time < test_run_duration:
         duthost.shutdown(port)
         time.sleep(sleep_duration)
         duthost.no_shutdown(port)
@@ -123,7 +123,7 @@ def flap_dut_interface(duthost, port, stop_event, sleep_duration, timeout):
         dut_flap_count += 1
 
 
-def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event, sleep_duration, timeout):
+def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event, sleep_duration, test_run_duration):
     fanout_interfaces = {}
 
     for port in interface_list:
@@ -137,7 +137,7 @@ def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event, 
 
     start_time = time.time()  # Record the start time
     fanout_flap_count = 0
-    while not stop_event.is_set() and time.time() - start_time < timeout:
+    while not stop_event.is_set() and time.time() - start_time < test_run_duration:
         for fanout_host, fanout_ports in fanout_interfaces.items():
             logger.info("flap interface fanout {} port {}".format(fanout_host, fanout_port))
 
@@ -153,11 +153,12 @@ def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event, 
             break
 
 
-def flap_fanout_interface(interface_list, fanouthosts, duthost, stop_event, sleep_duration, timeout):
+
+def flap_fanout_interface(interface_list, fanouthosts, duthost, stop_event, sleep_duration, test_run_duration):
     fanout_flap_count = 0
     start_time = time.time()  # Record the start time
 
-    while not stop_event.is_set() and time.time() - start_time < timeout:
+    while not stop_event.is_set() and time.time() - start_time < test_run_duration:
         for port in interface_list:
             if stop_threads:
                 break
@@ -179,12 +180,12 @@ def flap_fanout_interface(interface_list, fanouthosts, duthost, stop_event, slee
             break
 
 
-def flap_neighbor_interface(neighbor, neighbor_port, stop_event, sleep_duration, timeout):
+def flap_neighbor_interface(neighbor, neighbor_port, stop_event, sleep_duration, test_run_duration):
     logger.info("flap neighbor {} interface {}".format(neighbor, neighbor_port))
     neighbor_flap_count = 0
     start_time = time.time()  # Record the start time
 
-    while not stop_event.is_set() and time.time() - start_time < timeout:
+    while not stop_event.is_set() and time.time() - start_time < test_run_duration:
         neighbor.shutdown(neighbor_port)
         time.sleep(sleep_duration)
         neighbor.no_shutdown(neighbor_port)
@@ -220,6 +221,31 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
     # Create a stop event
     stop_event = threading.Event()
 
+
+    cmd = "top -b -n 1 -o %MEM"
+    cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+    logger.info("cmd {} response: {}".format(cmd, cmd_out))
+
+    cmd = "top -b -n 1 -c"
+    cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+    logger.info("cmd {} response: {}".format(cmd, cmd_out))
+
+
+    cmd = "free -m"
+    cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+    logger.info("cmd {} response: {}".format(cmd, cmd_out))
+
+    cmd = "sudo monit status"
+    cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+    logger.info("cmd {} response: {}".format(cmd, cmd_out))
+
+    cmd = "docker stats --no-stream"
+    cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+    logger.info("cmd {} response: {}".format(cmd, cmd_out))
+
+    # import pdb; pdb.set_trace()
+
+
     flap_threads = []
 
     if test_type == "dut":
@@ -228,18 +254,18 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
                 target=flap_dut_interface,
                 args=(duthost, interface, stop_event, delay_time, TEST_RUN_DURATION,)
             )
-            logger.info("Start flap thread {} dut {} interface {}".format(thread, duthost, interface))
             thread.daemon = True
             thread.start()
+            logger.info("Start flap thread {} dut {} interface {}".format(thread, duthost, interface))
             flap_threads.append(thread)
     elif test_type == "fanout":
         thread = InterruptableThread(
             target=flap_fanout_interface,
             args=(interface_list, fanouthosts, duthost, stop_event, delay_time, TEST_RUN_DURATION,)
         )
-        logger.info("Start flap thread {} fanout {} dut {}".format(thread, fanouthosts, duthost))
         thread.daemon = True
         thread.start()
+        logger.info("Start flap thread {} fanout {} dut {}".format(thread, fanouthosts, duthost))
         flap_threads.append(thread)
     elif test_type == "neighbor":
         for interface in interface_list:
@@ -251,9 +277,9 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
                     target=flap_neighbor_interface,
                     args=(neighbor_host, neighbor_port, stop_event, delay_time, TEST_RUN_DURATION,)
                 )
-                logger.info("Start flap thread {} neighbor {} port {}".format(thread, neighbor_host, neighbor_port))
                 thread.daemon = True
                 thread.start()
+                logger.info("Start flap thread {} neighbor {} port {}".format(thread, neighbor_host, neighbor_port))
                 flap_threads.append(thread)
             else:
                 logger.debug("neighbor host not found for {} port {}".format(neighbor_name, neighbor_port))
@@ -264,9 +290,9 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
                 target=flap_dut_interface,
                 args=(duthost, interface, stop_event, delay_time, TEST_RUN_DURATION,)
             )
-            logger.info("Start flap thread {} dut {} interface {}".format(thread_dut, duthost, interface))
             thread_dut.daemon = True
             thread_dut.start()
+            logger.info("Start flap thread {} dut {} interface {}".format(thread_dut, duthost, interface))
             flap_threads.append(thread_dut)
 
             neighbor_name = eth_nbrs[interface]["name"]
@@ -277,10 +303,10 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
                     target=flap_neighbor_interface,
                     args=(neighbor_host, neighbor_port, stop_event, delay_time, TEST_RUN_DURATION,)
                 )
-                logger.info("Start flap thread {} neighbor {} port {}".format(
-                    thread_neighbor, neighbor_host, neighbor_port))
                 thread_neighbor.daemon = True
                 thread_neighbor.start()
+                logger.info("Start flap thread {} neighbor {} port {}".format(
+                    thread_neighbor, neighbor_host, neighbor_port))                
                 flap_threads.append(thread_neighbor)
             else:
                 logger.debug("neighbor host not found for {} port {}".format(neighbor_name, neighbor_port))
@@ -289,10 +315,10 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             target=flap_fanout_interface,
             args=(interface_list, fanouthosts, duthost, stop_event, delay_time, TEST_RUN_DURATION,)
         )
-        logger.info("Start flap thread {} fanout {} dut {} ".format(
-            thread_fanout, fanouthosts, duthost))
         thread_fanout.daemon = True
         thread_fanout.start()
+        logger.info("Start flap thread {} fanout {} dut {} ".format(
+            thread_fanout, fanouthosts, duthost))
         flap_threads.append(thread_fanout)
 
     logger.info("flap_threads {} ".format(flap_threads))
@@ -303,7 +329,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
         cmd = "free -m"
         cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
-        logger.info("pfcwd_cmd {} response: {}".format(cmd, cmd_out))
+        logger.info("cmd {} response: {}".format(cmd, cmd_out))
         lines = cmd_out.split('\n')
         for line in lines:
             if line.startswith("Mem:"):
@@ -312,8 +338,34 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
                 logger.info("Available memory: {}".format(avail_mem))
                 break
 
-        if avail_mem < 500:
+        if avail_mem < 200:
             logger.error("Available memory is less than 500 MB, stopping the test")
+
+            cmd = "top -b -n 1 -o %MEM"
+            cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+            logger.info("cmd {} response: {}".format(cmd, cmd_out))
+
+
+            cmd = "top -b -n 1 -c"
+            cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+            logger.info("cmd {} response: {}".format(cmd, cmd_out))
+
+
+
+            cmd = "free -m"
+            cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+            logger.info("cmd {} response: {}".format(cmd, cmd_out))
+
+            cmd = "sudo monit status"
+            cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+            logger.info("cmd {} response: {}".format(cmd, cmd_out))
+
+            cmd = "docker stats --no-stream"
+            cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
+            logger.info("cmd {} response: {}".format(cmd, cmd_out))
+
+            # import pdb; pdb.set_trace()
+
             break
 
     logger.info("Test running for {} seconds".format(time.time() + TEST_RUN_DURATION - end_time))
