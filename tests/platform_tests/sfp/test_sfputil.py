@@ -7,7 +7,7 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 import time
 import copy
-
+from natsort import natsorted
 import pytest
 
 from .util import parse_eeprom
@@ -15,7 +15,6 @@ from .util import parse_output
 from .util import get_dev_conn
 from tests.common.utilities import skip_release, wait_until
 from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa F401
-from tests.common.utilities import wait_until # noqa F811
 from tests.common.port_toggle import default_port_toggle_wait_time
 
 cmd_sfp_presence = "sudo sfputil show presence"
@@ -30,7 +29,7 @@ cmd_intf_shutdown = "shutdown"
 cmd_dom_disable = "disable"
 cmd_dom_enable = "enable"
 
-I2C_WAIT_TIME_AFTER_SFP_RESET = 3  # in seconds
+I2C_WAIT_TIME_AFTER_SFP_RESET = 5  # in seconds
 
 logger = logging.getLogger(__name__)
 
@@ -40,95 +39,142 @@ pytestmark = [
 ]
 
 
-class DisablePort:
+class LogicalInterfaceDisabler:
     """
-    Context manager to disable one port and restore it afterwards.
-
-    Disable/enable port includes:
-        * Disable/enable DOM polling
-        * Shutdown/startup port
-        * Check/restore lpmode
+    Disable the given logical interface and restore afterwards.
     """
-    def __init__(self, duthost, enum_frontend_asic_index, intf, phy_intf):
+    def __init__(self, duthost, enum_frontend_asic_index, logical_intf, phy_intf,
+                 skip_dom_polling_handle=False, skip_lpmode_handle=False):
         self.duthost = duthost
-        self.intf = intf
+        self.logical_intf = logical_intf
         self.phy_intf = phy_intf
         self.original_lpmode_state = None
+        self.skip_dom_polling_handle = skip_dom_polling_handle
+        self.skip_lpmode_handle = skip_lpmode_handle
         self.wait_after_dom_config = 1
         self.wait_after_lpmode_set = 1
 
         self.namespace_cmd_opt = get_namespace_cmd_option(duthost,
                                                           enum_frontend_asic_index)
         self.cmd_down = cmd_config_intf_action.format(self.namespace_cmd_opt,
-                                                      cmd_intf_shutdown, intf)
+                                                      cmd_intf_shutdown, logical_intf)
         self.cmd_up = cmd_config_intf_action.format(self.namespace_cmd_opt,
-                                                    cmd_intf_startup, intf)
+                                                    cmd_intf_startup, logical_intf)
         self.cmd_disable_dom = cmd_config_intf_dom.format(self.namespace_cmd_opt,
-                                                          intf, cmd_dom_disable)
+                                                          logical_intf, cmd_dom_disable)
         self.cmd_enable_dom = cmd_config_intf_dom.format(self.namespace_cmd_opt,
-                                                         intf, cmd_dom_enable)
-        self.cmd_sfp_show_lpmode = "{} -p {}".format(cmd_sfp_show_lpmode, intf)
-        self.cmd_sfp_presence = "{} -p {}".format(cmd_sfp_presence, intf)
+                                                         logical_intf, cmd_dom_enable)
+        self.cmd_sfp_show_lpmode = "{} -p {}".format(cmd_sfp_show_lpmode, logical_intf)
+        self.cmd_sfp_presence = "{} -p {}".format(cmd_sfp_presence, logical_intf)
 
-    def __enter__(self):
+    def disable(self):
         """
-        Disable a port by doing below:
+        Disable a logical interface by doing below:
             * Disable DOM polling
             * Shutdown port
             * Check and save lpmode
         """
-        logging.info("Disable DOM polling to avoid race condition during sfp reset"
-                     " for {}".format(self.intf))
-        disable_dom_result = self.duthost.command(self.cmd_disable_dom)
-        assert disable_dom_result["rc"] == 0, \
-               "Disable DOM polling failed for {}".format(self.intf)
-        time.sleep(self.wait_after_dom_config)
+        if not self.skip_dom_polling_handle:
+            logging.info("Disable DOM polling to avoid race condition during sfp reset"
+                         " for {}".format(self.logical_intf))
+            disable_dom_result = self.duthost.command(self.cmd_disable_dom)
+            assert disable_dom_result["rc"] == 0, \
+                "Disable DOM polling failed for {}".format(self.logical_intf)
+            time.sleep(self.wait_after_dom_config)
 
         # It's needed to shutdown ports before reset and startup ports after reset,
         # to get config/state machine/etc replayed, so that the modules can be fully
         # restored.
-        logging.info("Shutdown {} before sfp reset".format(self.intf))
+        logging.info("Shutdown {} before sfp reset".format(self.logical_intf))
         shutdown_result = self.duthost.command(self.cmd_down)
-        assert shutdown_result["rc"] == 0, "Shutdown {} failed".format(self.intf)
-        assert check_interface_status(self.duthost, [self.intf], expect_up=False)
+        assert shutdown_result["rc"] == 0, "Shutdown {} failed".format(self.logical_intf)
+        assert check_interface_status(self.duthost, [self.logical_intf], expect_up=False)
 
-        logging.info("Check output of '{}' before sfp reset".format(self.cmd_sfp_show_lpmode))
-        lpmode_show = self.duthost.command(self.cmd_sfp_show_lpmode)
-        self.original_lpmode_state = \
-            parse_output(lpmode_show["stdout_lines"][2:])[self.intf].lower()
+        if not self.skip_lpmode_handle:
+            logging.info("Check output of '{}' before sfp reset".format(self.cmd_sfp_show_lpmode))
+            lpmode_show = self.duthost.command(self.cmd_sfp_show_lpmode)
+            self.original_lpmode_state = \
+                parse_output(lpmode_show["stdout_lines"][2:])[self.logical_intf].lower()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def restore(self):
         """
-        Restore a port from disabled state by doing below:
+        Restore a logical interface from disabled state by doing below:
             * Check and restore lpmode if needed
             * Startup port
             * Enable DOM polling
         """
-        # Restore lpmode if needed, because sfp reset will reset lpmode to default
-        logging.info("Check output of '{}' after sfp reset".format(self.cmd_sfp_show_lpmode))
-        lpmode_show = self.duthost.command(self.cmd_sfp_show_lpmode)
-        after_lpmode_state = \
-            parse_output(lpmode_show["stdout_lines"][2:])[self.intf].lower()
-        if after_lpmode_state != self.original_lpmode_state:
-            logging.info("Restoring {} physical interface {} to lpmode {}".format(
-                self.intf, self.phy_intf, self.original_lpmode_state))
-            cmd_sfp_set_lpmode_to_original = "{} {} {}".format(cmd_sfp_set_lpmode,
-                                                               self.original_lpmode_state,
-                                                               self.intf)
-            lpmode_set_result = self.duthost.command(cmd_sfp_set_lpmode_to_original)
-            assert lpmode_set_result["rc"] == 0, \
-                "'{}' failed".format(cmd_sfp_set_lpmode_to_original)
-            time.sleep(self.wait_after_lpmode_set)
+        if not self.skip_lpmode_handle:
+            # Restore lpmode if needed, because sfp reset will reset lpmode to default
+            logging.info("Check output of '{}' after sfp reset".format(self.cmd_sfp_show_lpmode))
+            lpmode_show = self.duthost.command(self.cmd_sfp_show_lpmode)
+            after_lpmode_state = \
+                parse_output(lpmode_show["stdout_lines"][2:])[self.logical_intf].lower()
+            if after_lpmode_state != self.original_lpmode_state:
+                logging.info("Restoring {} physical interface {} to lpmode {}".format(
+                    self.logical_intf, self.phy_intf, self.original_lpmode_state))
+                cmd_sfp_set_lpmode_to_original = "{} {} {}".format(cmd_sfp_set_lpmode,
+                                                                   self.original_lpmode_state,
+                                                                   self.logical_intf)
+                lpmode_set_result = self.duthost.command(cmd_sfp_set_lpmode_to_original)
+                assert lpmode_set_result["rc"] == 0, \
+                    "'{}' failed".format(cmd_sfp_set_lpmode_to_original)
+                time.sleep(self.wait_after_lpmode_set)
 
-        logging.info("Startup {} after sfp reset to restore module".format(self.intf))
+        logging.info("Startup {} after sfp reset to restore module".format(self.logical_intf))
         startup_result = self.duthost.command(self.cmd_up)
-        assert startup_result["rc"] == 0, "Startup {} failed".format(self.intf)
-        assert check_interface_status(self.duthost, [self.intf], expect_up=True)
+        assert startup_result["rc"] == 0, "Startup {} failed".format(self.logical_intf)
+        assert check_interface_status(self.duthost, [self.logical_intf], expect_up=True)
 
-        logging.info("Restore DOM polling after sfp reset for {}".format(self.intf))
-        enable_dom_result = self.duthost.command(self.cmd_enable_dom)
-        assert enable_dom_result["rc"] == 0, "Enable DOM polling failed for {}".format(self.intf)
-        time.sleep(self.wait_after_dom_config)
+        if not self.skip_dom_polling_handle:
+            logging.info("Restore DOM polling after sfp reset for {}".format(self.logical_intf))
+            enable_dom_result = self.duthost.command(self.cmd_enable_dom)
+            assert enable_dom_result["rc"] == 0, "Enable DOM polling failed for {}".format(self.logical_intf)
+            time.sleep(self.wait_after_dom_config)
+
+
+class DisablePhysicalInterface:
+    """
+    Context manager to disable the given physical interface (as wells as its
+    logical interfaces if needed) and restore afterwards.
+
+    Disable/enable port includes:
+        * Disable/enable DOM polling
+        * Shutdown/startup port
+        * Check/restore lpmode
+    """
+    def __init__(self, duthost, enum_frontend_asic_index, phy_intf, logical_intfs_list):
+        self.duthost = duthost
+        self.phy_intf = phy_intf
+        self.original_lpmode_state = None
+        self.wait_after_dom_config = 1
+        self.wait_after_lpmode_set = 1
+        self.logical_intf_disablers = [LogicalInterfaceDisabler(duthost=duthost,
+                                                                enum_frontend_asic_index=enum_frontend_asic_index,
+                                                                logical_intf=logical_intf,
+                                                                phy_intf=phy_intf,
+                                                                skip_dom_polling_handle=(i != 0),
+                                                                skip_lpmode_handle=(i != 0))
+                                       for i, logical_intf in enumerate(logical_intfs_list)]
+
+    def __enter__(self):
+        """
+        Disable a physical port by doing below:
+            * Disable DOM polling
+            * Shutdown port
+            * Check and save lpmode
+        """
+        for logical_intf_disabler in self.logical_intf_disablers:
+            logical_intf_disabler.disable()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Restore a physical port from disabled state by doing below:
+            * Check and restore lpmode if needed
+            * Startup port
+            * Enable DOM polling
+        """
+        for logical_intf_disabler in self.logical_intf_disablers:
+            logical_intf_disabler.restore()
 
 
 def check_interfaces_up(duthost, namespace, up_ports):
@@ -199,49 +245,38 @@ def check_interface_status(duthost, ports, expect_up=True, wait_time=None):
     return is_ok, err_msg
 
 
-def get_intfs_to_test(duthost,
-                      conn_graph_facts,
-                      enum_frontend_asic_index,
-                      xcvr_skip_list):
+def get_phy_intfs_to_test_per_asic(duthost,
+                                   conn_graph_facts,
+                                   enum_frontend_asic_index,
+                                   xcvr_skip_list):
     """
-    Get the logical interfaces to test for given asic, excluding the skipped
-    ones and the ones with duplicate physical port index. Since sfputil takes
-    logic interface as argument but effects module at the granularity of
-    physical port, there's no need to test the interfaces with duplicate
-    physical port indx.
+    Get the interfaces to test for given asic, excluding the skipped ones.
 
     return:
-        intfs_to_test: dict of all interfaces to test (key: interface name,
-            value: physical port index)
-        intfs: list of all interfaces, including the ones with duplicate
-            physical port index (In the case of breakout, intfs can be
-            different from intfs_to_test)
+        phy_intfs_to_test_per_asic: dict of all physical interfaces to test (key: physical port number,
+                                    value: list of logical interfaces under this physical port)
     """
     portmap, dev_conn = get_dev_conn(duthost,
                                      conn_graph_facts,
                                      enum_frontend_asic_index)
     # dict of all interfaces to test, excluding the ones with duplicate physical
     # port index
-    intfs_to_test = {}
-    # list of all interfaces, including the ones with duplicate physical port
-    # index
-    intfs = []
-    physical_ports = set()
+    phy_intfs_to_test_per_asic = {}
+    tmp_dict = {}
 
-    for intf in dev_conn:
+    for logical_intf in dev_conn:
         # Skip the interfaces in the skip list
-        if intf in xcvr_skip_list[ans_host.hostname]:
+        if logical_intf in xcvr_skip_list[ans_host.hostname]:
             continue
-        intfs.append(intf)
-        physical_port_idx = portmap[intf][0]
-        # Skip the interfaces with duplicate physical port index
-        # e.g. breakout interfaces
-        if physical_port_idx in physical_ports:
-            continue
-        physical_ports.add(physical_port_idx)
-        intfs_to_test[intf] = physical_port_idx
-    logging.info("Interfaces to test: {}".format(intfs_to_test))
-    return intfs_to_test, intfs
+        physical_port_idx = portmap[logical_intf][0]
+        tmp_dict.setdefault(physical_port_idx, []).append(logical_intf)
+    # sort physical interfaces
+    for phy_intf, logical_intfs_list in sorted(tmp_dict.items()):
+        # sort logical interfaces within the same physical interface
+        phy_intfs_to_test_per_asic[phy_intf] = natsorted(logical_intfs_list)
+    logging.info("Interfaces to test for asic {}: {}".format(enum_frontend_asic_index,
+                                                             phy_intfs_to_test_per_asic))
+    return phy_intfs_to_test_per_asic
 
 
 def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -333,17 +368,17 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     global ans_host
     ans_host = duthost
-    intfs_to_test_per_asic, all_intfs_per_asic = get_intfs_to_test(duthost,
-                                                                   conn_graph_facts,
-                                                                   enum_frontend_asic_index,
-                                                                   xcvr_skip_list)
+    phy_intfs_to_test_per_asic = get_phy_intfs_to_test_per_asic(duthost,
+                                                                conn_graph_facts,
+                                                                enum_frontend_asic_index,
+                                                                xcvr_skip_list)
+    for phy_intf, logical_intfs_list in phy_intfs_to_test_per_asic.items():
+        logical_intf = logical_intfs_list[0]
+        with DisablePhysicalInterface(duthost, enum_frontend_asic_index, phy_intf, logical_intfs_list):
+            cmd_sfp_presence_per_intf = cmd_sfp_presence + " -p {}".format(logical_intf)
 
-    for intf, phy_intf in intfs_to_test_per_asic.items():
-        with DisablePort(duthost, enum_frontend_asic_index, intf, phy_intf):
-            cmd_sfp_presence_per_intf = cmd_sfp_presence + " -p {}".format(intf)
-
-            cmd_sfp_reset_intf = "{} {}".format(cmd_sfp_reset, intf)
-            logging.info("resetting {} physical interface {}".format(intf, phy_intf))
+            cmd_sfp_reset_intf = "{} {}".format(cmd_sfp_reset, logical_intf)
+            logging.info("resetting {} physical interface {}".format(logical_intf, phy_intf))
             reset_result = duthost.command(cmd_sfp_reset_intf)
             assert reset_result["rc"] == 0, "'{}' failed".format(cmd_sfp_reset_intf)
             time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
@@ -359,13 +394,17 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
                     "Run command '{}' failed".format(cmd_sfp_presence_per_intf)
 
             parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
-            assert intf in parsed_presence, \
+            assert logical_intf in parsed_presence, \
                 "Interface is not in output of '{}'".format(cmd_sfp_presence_per_intf)
-            assert parsed_presence[intf] == "Present", \
-                "Interface presence is not 'Present' for {}".format(intf)
+            assert parsed_presence[logical_intf] == "Present", \
+                "Interface presence is not 'Present' for {}".format(logical_intf)
 
     # Check interface status for all interfaces in the end just in case
-    assert check_interface_status(duthost, all_intfs_per_asic, expect_up=True)
+    assert check_interface_status(duthost,
+                                  [logical_intf
+                                   for logical_intfs_list in phy_intfs_to_test_per_asic.values()
+                                   for logical_intf in logical_intfs_list],
+                                  expect_up=True)
 
 
 def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
