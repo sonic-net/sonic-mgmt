@@ -38,39 +38,86 @@ sudo -H ./setup-management-network.sh
 ## Download an VM image
 We currently support EOS-based or SONiC VMs to simulate neighboring devices in the virtual testbed, much like we do for physical testbeds. To do so, we need to download the image to our testbed host.
 
+**Prepare folder for image files on testbed host**
+
+The location for storing image files on the testbed host is specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file. Please update this variable to reflect the location you have planned for the testbed host. You can use
+either an absolute path or a relative path. If you choose a relative path, it will be relative to the home directory of the user accessing the testbed host.
+
+For example, if `root_path` is set to `veos-vm`, the image location would be `/home/$USER/veos-vm/images/`. If `root_path` is set to `/data/veos-vm`, the image location would be `/data/veos-vm/images`.
+
+As you may have noticed, image files are usually stored under subfolder `images` of location determined by `root_path`.
+
+Example 1:
+``` yaml
+root_path: veos-vm
+```
+
+Example 2:
+```yaml
+root_path: /data/veos-vm
+```
+
 ### Option 1: vEOS (KVM-based) image
 1. Download the [vEOS image from Arista](https://www.arista.com/en/support/software-download)
-2. Copy below image files to `~/veos-vm/images` on your testbed host:
+2. Copy below image files to location determined by `root_path` on your testbed host:
    - `Aboot-veos-serial-8.0.0.iso`
    - `vEOS-lab-4.20.15M.vmdk`
-### Option 2: cEOS (container-based) image (experimental)
-#### Option 2.1: Download and import cEOS image manually
-1. Download the [cEOS image from Arista](https://www.arista.com/en/support/software-download)
-2. Import the cEOS image (it will take several minutes to import, so please be patient!)
 
-```
-docker import cEOS-lab-4.25.5.1M.tar.xz ceosimage:4.25.5.1M
-```
-After imported successfully, you can check it by 'docker images'
-```
-$ docker images
-REPOSITORY                                             TAG           IMAGE ID       CREATED         SIZE
-ceosimage                                              4.25.5.1M     fa0df4b01467   9 seconds ago   1.62GB
-```
-**Note**: *For time being, the image might be updated, in that case you can't download the same version of image as in the instruction,
-please download the corresponding version(following [Arista recommended release](https://www.arista.com/en/support/software-download#datatab300)) of image and import it to your local docker repository.
-The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), make sure you modify locally to keep it up with the image version you imported.*
+### Option 2: cEOS (container-based) image (recommended)
 
-**Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
-#### Option 2.2: Pull cEOS image automatically
-1. Alternatively, you can host the cEOS image on a http server. Specify `vm_images_url` for downloading the image [here](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/vm_host/main.yml#L2).
+1. **Prepare folder for image files on test server**
 
-2. If a SAS key is required for downloading the cEOS image, specify `ceosimage_saskey` in `sonic-mgmt/ansible/vars/azure_storage.yml`.
+    Create a subfolder called `images` inside the `root_path` directory defined in `ansible/group_vars/vm_host/main.yml` file. For instance, if `root_path` is set to `veos-vm`, you should run the following command:
 
-If you want to skip downloading the image when the cEOS image is not imported locally, set `skip_ceos_image_downloading` to `true` in `sonic-mgmt/ansible/group_vars/all/ceos.yml`. Then, when the cEOS image is not locally available, the scripts will not try to download it and will fail with an error message. Please use option 1 to download and import the cEOS image manually.
+    ```bash
+    mkdir -p ~/veos-vm/images
+    ```
+
+2. **Prepare the cEOS image file**
+
+   #### Option 2.1: Manually download cEOS image
+
+   1. Obtain the cEOS image from [Arista's software download page](https://www.arista.com/en/support/software-download).
+   2. Place the image file in the `images` subfolder located within the directory specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file.
+
+      Assuming you set `root_path` to `veos-vm`, you should run the following command:
+
+      ```bash
+      cp cEOS64-lab-4.29.3M.tar ~/veos-vm/images/
+      ```
+      The Ansible playbook for deploying testbed topology will automatically use the manually prepared image file from this location.
+
+   #### Option 2.2: Host the cEOS image file on a HTTP server
+   If you need to deploy VS setup on multiple testbed hosts, this option is more recommended.
+
+   1. **Download the cEOS Image**
+
+      Obtain the cEOS image from [Arista's software download page](https://www.arista.com/en/support/software-download).
+
+   2. **Host the cEOS Image**
+
+      Host the cEOS image file on an HTTP server. Ensure that the image file is accessible via HTTP from the `sonic-mgmt` container running the testbed deployment code. For example, the URL might look like `http://192.168.1.10/cEOS64-lab-4.29.3M.tar`.
+
+   3. **Update the Ansible Configuration**
+
+      Update the `ceos_image_url` variable in `ansible/group_vars/all/ceos.yml` with the URL of the cEOS image. This variable can be a single string for one URL or a list of strings for multiple URLs.
+
+      The Ansible playbook will attempt to download the image from each URL in the list until it succeeds. Downloaded file is stored to `images` subfolder of the location determined by `root_path` variable in `ansible/group_vars/vm_host/main.yml`. For example if `root_path` is `/data/veos-vm`, then the downloaded image file is put to `/data/veso-vm/images`
+
+      Variable `skip_ceos_image_downloading` in `ansible/group_vars/all/ceos.yml` also must be set to `false` if you wish ansible playbook to automatically try downloading cEOS image file. For example
+      ```yaml
+      ceos_image_url: http://192.168.1.10/cEOS64-lab-4.29.3M.tar
+      skip_ceos_image_downloading: false
+      ```
+      Or:
+      ```yaml
+      ceos_image_url:
+         - http://192.168.1.10/cEOS64-lab-4.29.3M.tar
+      skip_ceos_image_downloading: false
+      ```
 
 ### Option 3: Use SONiC image as neighboring devices
-You need to prepare a sound SONiC image `sonic-vs.img` in `~/veos-vm/images/`. We don't support to download sound sonic image right now, but for testing, you can also follow the section [Download the sonic-vs image](##download-the-sonic-vs-image) to download an available image and put it into the directory `~/veos-vm/images`
+You need to create a valid SONiC image named `sonic-vs.img` in the `~/veos-vm/images/` directory. Currently, we don’t support downloading a pre-built SONiC image. However, for testing purposes, you can refer to the section Download the sonic-vs image to obtain an available image and place it in the `~/veos-vm/images/` directory.
 
 ## Download the sonic-vs image
 To run the tests with a virtual SONiC device, we need a virtual SONiC image. The simplest way to do so is to download the latest succesful build.
@@ -96,10 +143,11 @@ All testbed configuration steps and tests are run from a `sonic-mgmt` docker con
 
 1. Run the `setup-container.sh` in the root directory of the sonic-mgmt repository:
 
-```
+```bash
 cd sonic-mgmt
 ./setup-container.sh -n <container name> -d /data
 ```
+
 
 2. (Required for IPv6 test cases): Follow the steps [IPv6 for docker default bridge](https://docs.docker.com/config/daemon/ipv6/#use-ipv6-for-the-default-bridge-network) to enable IPv6 for container. For example, edit the Docker daemon configuration file located at `/etc/docker/daemon.json` with the following parameters to use ULA address if no special requirement. Then restart docker daemon by running `sudo systemctl restart docker` to take effect.
 
@@ -111,6 +159,7 @@ cd sonic-mgmt
     "ip6tables": true
 }
 ```
+
 
 3. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
 
@@ -147,7 +196,7 @@ become_user='root'
 become_ask_pass=False
 ```
 
-3. Modify `/data/sonic-mgmt/ansible/group_vars/vm_host/creds.yml` to use the username (e.g. `foo`) and password (e.g. `foo123`) you want to use to login to the host machine (this can be your username and sudo password on the host)
+3. Modify `/data/sonic-mgmt/ansible/group_vars/vm_host/creds.yml` to use the username (e.g. `foo`) and password (e.g. `foo123`) you want to use to login to the host machine (this can be your username and sudo password on the host). For more information about credentials variables, see: [credentials management configuration](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#credentials-management).
 
 ```
 vm_host_user: foo
@@ -321,6 +370,8 @@ cd /data/sonic-mgmt/ansible
 ## Deploy minigraph on the DUT
 Once the topology has been created, we need to give the DUT an initial configuration.
 
+(Optional) The connectivity to the public internet is necessary during the setup, if the lab env of your organization requires http/https proxy server to reach out to the internet, you need to configure to use the proxy server. It will automatically be leveraged on required steps (e.g. Docker daemon config for image pulling, APT configuration for installing packages). You can configure it in [`ansible/group_vars/all/env.yml`](https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/group_vars/all/env.yml)
+
 1. Deploy the `minigraph.xml` to the DUT and save the configuration:
 
 ```
@@ -381,12 +432,12 @@ Peers 4, using 87264 KiB of memory
 Peer groups 4, using 256 bytes of memory
 
 
-Neighbor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down      State/PfxRcd  NeighborName
-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
-10.0.0.57     4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA01T1
-10.0.0.59     4  64600       3792       3795         0      0       0  00:29:24             6400  ARISTA02T1
-10.0.0.61     4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA03T1
-10.0.0.63     4  64600       3795       3796         0      0       0  00:29:24             6400  ARISTA04T1
+Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down      State/PfxRcd  NeighborName
+-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
+10.0.0.57      4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA01T1
+10.0.0.59      4  64600       3792       3795         0      0       0  00:29:24             6400  ARISTA02T1
+10.0.0.61      4  64600       3792       3792         0      0       0  00:29:24             6400  ARISTA03T1
+10.0.0.63      4  64600       3795       3796         0      0       0  00:29:24             6400  ARISTA04T1
 
 Total number of neighbors 4
 ```
@@ -404,12 +455,12 @@ Peers 4, using 83680 KiB of memory
 Peer groups 4, using 256 bytes of memory
 
 
-Neighbor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
-10.0.0.57     4  64600          8          8         0      0       0  00:00:10   3               ARISTA01T1
-10.0.0.59     4  64600          0          0         0      0       0  00:00:10   3               ARISTA02T1
-10.0.0.61     4  64600          0          0         0      0       0  00:00:11   3               ARISTA03T1
-10.0.0.63     4  64600          0          0         0      0       0  00:00:11   3               ARISTA04T1
+Neighbhor      V     AS    MsgRcvd    MsgSent    TblVer    InQ    OutQ  Up/Down    State/PfxRcd    NeighborName
+-----------  ---  -----  ---------  ---------  --------  -----  ------  ---------  --------------  --------------
+10.0.0.57      4  64600          8          8         0      0       0  00:00:10   3               ARISTA01T1
+10.0.0.59      4  64600          0          0         0      0       0  00:00:10   3               ARISTA02T1
+10.0.0.61      4  64600          0          0         0      0       0  00:00:11   3               ARISTA03T1
+10.0.0.63      4  64600          0          0         0      0       0  00:00:11   3               ARISTA04T1
 
 ```
 

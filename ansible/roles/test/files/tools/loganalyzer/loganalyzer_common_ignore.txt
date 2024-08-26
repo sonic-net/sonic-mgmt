@@ -68,7 +68,7 @@ r, ".* ERR bgp#bgpcfgd: .*BGPVac.*attribute is supported.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/14233938
 r, ".* ERR swss\d*#fdbsyncd: :- readData: netlink reports an error=-25 on reading a netlink socket.*"
-r, ".* ERR swss\d*#fdbsyncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
+r, ".* ERR swss\d*#.*syncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14213168
 r, ".* ERR /hostcfgd: sonic-kdump-config --disable - failed.*"
@@ -282,3 +282,7 @@ r, ".* INFO .*[duty_cycle_map]: illegal pwm value .*"
 r, ".* INFO .*command '/usr/sbin/smartctl' failed: [116] Stale file handle.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'high_threshold' unavailable in database 'STATE_DB'.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'temperature' unavailable in database 'STATE_DB'.*"
+
+# Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
+r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
+r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"

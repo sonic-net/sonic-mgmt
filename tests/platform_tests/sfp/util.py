@@ -50,9 +50,8 @@ def get_dev_conn(duthost, conn_graph_facts, asic_index):
 def validate_transceiver_lpmode(output):
     lines = output.strip().split('\n')
     # Check if the header is present
-    if lines[0].strip() != "Port         Low-power Mode":
-        logging.error("Invalid output format: Header missing. "
-                      "Current header is {}".format(lines[0].strip()))
+    if lines[0].replace(" ", "") != "Port        Low-power Mode".replace(" ", ""):
+        logging.error("Invalid output format: Header missing")
         return False
     for line in lines[2:]:
         port, lpmode = line.strip().split()

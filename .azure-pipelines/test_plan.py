@@ -27,6 +27,10 @@ TOKEN_EXPIRE_HOURS = 1
 MAX_GET_TOKEN_RETRY_TIMES = 3
 
 
+class PollTimeoutException(Exception):
+    pass
+
+
 class TestPlanStatus(Enum):
     INIT = 10
     LOCK_TESTBED = 20
@@ -131,18 +135,6 @@ class FinishStatus(AbstractStatus):
         super(FinishStatus, self).__init__(TestPlanStatus.FINISHED)
 
 
-# def get_scope(elastictest_url):
-#     scope = "api://sonic-testbed-tools-dev/.default"
-#     if elastictest_url in [
-#         "http://sonic-testbed2-scheduler-backend.azurewebsites.net",
-#         "https://sonic-testbed2-scheduler-backend.azurewebsites.net",
-#         "http://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net",
-#         "https://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net"
-#     ]:
-#         scope = "api://sonic-testbed-tools-prod/.default"
-#     return scope
-
-
 def parse_list_from_str(s):
     # Since Azure Pipeline doesn't support to receive an empty parameter,
     # We use ' ' as a magic code for empty parameter.
@@ -181,7 +173,14 @@ class TestPlanManager(object):
 
         return stdout, stderr, return_code
 
+    def az_run(self, cmd):
+        stdout, stderr, retcode = self.cmd(cmd.split())
+        if retcode != 0:
+            raise Exception(f'Command {cmd} execution failed, rc={retcode}, error={stderr}')
+        return stdout, stderr, retcode
+
     def get_token(self):
+
         token_is_valid = \
             self._token_expires_on is not None and \
             (self._token_expires_on - datetime.now()) > timedelta(hours=TOKEN_EXPIRE_HOURS)
@@ -192,10 +191,8 @@ class TestPlanManager(object):
         cmd = 'az account get-access-token --resource {}'.format(self.client_id)
         attempt = 0
         while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
-            stdout, stderr, return_code = self.cmd(cmd.split())
             try:
-                if return_code != 0:
-                    raise Exception("Failed to get token: rc: {}, error: {}".format(return_code, stderr))
+                stdout, _, _ = self.az_run(cmd)
 
                 token = json.loads(stdout.decode("utf-8"))
                 self._token = token.get("accessToken", None)
@@ -205,7 +202,7 @@ class TestPlanManager(object):
                 # Parse token expires time from string
                 token_expires_on = token.get("expiresOn", "")
                 self._token_expires_on = datetime.strptime(token_expires_on, "%Y-%m-%d %H:%M:%S.%f")
-
+                print("Get token successfully.")
                 return self._token
 
             except Exception as exception:
@@ -213,30 +210,6 @@ class TestPlanManager(object):
                 print("Failed to get token with exception: {}".format(repr(exception)))
 
         raise Exception("Failed to get token after {} attempts".format(MAX_GET_TOKEN_RETRY_TIMES))
-
-        # token_url = "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(self.tenant_id)
-        # headers = {
-        #     "Content-Type": "application/x-www-form-urlencoded"
-        # }
-
-        # payload = {
-        #     "grant_type": "client_credentials",
-        #     "client_id": self.client_id,
-        #     "client_secret": self.client_secret,
-        #     "scope": get_scope(self.url)
-        # }
-        # attempt = 0
-        # while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
-        #     try:
-        #         resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
-        #         self._token = resp["access_token"]
-        #         self._token_generate_time = datetime.utcnow()
-        #         return self._token
-        #     except Exception as exception:
-        #         attempt += 1
-        #         print("Get token failed with exception: {}. Retry {} times to get token."
-        #               .format(repr(exception), MAX_GET_TOKEN_RETRY_TIMES - attempt))
-        # raise Exception("Failed to get token after {} attempts".format(MAX_GET_TOKEN_RETRY_TIMES))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
                min_worker=None, max_worker=None, pr_id="unknown", output=None,
@@ -449,9 +422,25 @@ class TestPlanManager(object):
                             if step.get("step") == expected_state:
                                 step_status = step.get("status")
                                 break
+
+                    # Print test summary
+                    test_summary = resp_data.get("runtime", {}).get("test_summary", None)
+                    if test_summary:
+                        print("Test summary:\n{}".format(json.dumps(test_summary, indent=4)))
+
                     # We fail the step only if the step_status is "FAILED".
                     # Other status such as "SKIPPED", "CANCELED" are considered successful.
                     if step_status == "FAILED":
+
+                        # Print error type and message
+                        err_code = resp_data.get("runtime", {}).get("err_code", None)
+                        if err_code:
+                            print("Error type: {}".format(err_code))
+
+                        err_msg = resp_data.get("runtime", {}).get("message", None)
+                        if err_msg:
+                            print("Error message: {}".format(err_msg))
+
                         raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. "
                                         "Check {}/scheduler/testplan/{} for test plan status"
                                         .format(test_plan_id, step_status, result, time.time() - start_time,
@@ -475,8 +464,9 @@ class TestPlanManager(object):
                 time.sleep(interval)
 
         else:
-            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
-                            .format(poll_url))
+            raise PollTimeoutException(
+                "Max polling time reached, test plan at {} is not successfully finished or cancelled".format(poll_url)
+            )
 
 
 if __name__ == "__main__":
@@ -873,7 +863,7 @@ if __name__ == "__main__":
         required=False,
         default=-1,
         dest="timeout",
-        help="Max polling time. Default 36000 seconds (10 hours)."
+        help="Max polling time in seconds. Default -1, no timeout."
     )
 
     if len(sys.argv) == 1:
@@ -986,6 +976,9 @@ if __name__ == "__main__":
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)
+    except PollTimeoutException as e:
+        print("Polling test plan failed with exception: {}".format(repr(e)))
+        sys.exit(2)
     except Exception as e:
         print("Operation failed with exception: {}".format(repr(e)))
         sys.exit(3)

@@ -378,18 +378,6 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     time.sleep(60)
 
 
-# Currently, conditional mark would only match longest prefix,
-# so our mark in tests_mark_conditions_skip_traffic_test.yaml couldn't be matched.
-# Use a temporary work around to add skip_traffic_test fixture here,
-# once conditional mark support add all matches, will remove this code.
-@pytest.fixture(scope="module")
-def skip_traffic_test(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    if duthost.facts["asic_type"] == "vs":
-        return True
-    return False
-
-
 # TODO: This should be refactored to some common area of sonic-mgmt.
 def add_route(duthost, prefix, nexthop, namespace):
     """
@@ -872,9 +860,12 @@ class BaseEverflowTest(object):
                 payload = binascii.unhexlify("0" * 44) + str(payload)
             else:
                 payload = binascii.unhexlify("0" * 44) + bytes(payload)
-
-        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"] or duthost.facts.get(
-                "platform_asic") in ["broadcom-dnx"]:
+        if (
+            duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"]
+            or duthost.facts.get("platform_asic") in ["broadcom-dnx"]
+            or duthost.facts["hwsku"]
+            in ["rd98DX35xx", "rd98DX35xx_cn9131", "Nokia-7215-A1"]
+        ):
             if six.PY2:
                 payload = binascii.unhexlify("0" * 24) + str(payload)
             else:
@@ -900,6 +891,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
         if duthost.facts["asic_type"] == 'marvell':
             expected_packet.set_do_not_care_scapy(packet.IP, "id")
+            expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
         if duthost.facts["asic_type"] in ["cisco-8000", "innovium"] or \
                 duthost.facts.get("platform_asic") in ["broadcom-dnx"]:
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")

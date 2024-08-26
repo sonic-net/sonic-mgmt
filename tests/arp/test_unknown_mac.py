@@ -43,6 +43,25 @@ def initClassVars(func):
 
 
 @pytest.fixture(autouse=True, scope="module")
+def dut_disable_arp_update(rand_selected_dut):
+    """
+    Fixture to disable arp update before the test and re-enable it afterwards
+
+    Args:
+        rand_selected_dut(AnsibleHost) : dut instance
+    """
+    duthost = rand_selected_dut
+    if duthost.shell("docker exec -t swss supervisorctl stop arp_update")['stdout_lines'][0] \
+            == 'arp_update: ERROR (not running)':
+        logger.warning("arp_update not running, already disabled")
+
+    yield
+
+    assert duthost.shell("docker exec -t swss supervisorctl start arp_update")['stdout_lines'][0] \
+        == 'arp_update: started'
+
+
+@pytest.fixture(autouse=True, scope="module")
 def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Fixture to populate all the parameters needed for the test
@@ -69,6 +88,8 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
         servers = mux_cable_server_ip(duthost)
         for ips in list(servers.values()):
             server_ips.append(ips['server_ipv4'].split('/')[0])
+            if 'soc_ipv4' in ips:
+                server_ips.append(ips['soc_ipv4'].split('/')[0])
 
     # populate vlan info
     vlan = dict()
@@ -153,7 +174,8 @@ def flushArpFdb(duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(autouse=True)
 def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname,
-                toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
+                toggle_all_simulator_ports_to_rand_selected_tor_m,           # noqa F811
+                setup_standby_ports_on_rand_unselected_tor_unconditionally): # noqa F811
     """
     Fixture to populate ARP entry on the DUT for the traffic destination
 
