@@ -3,7 +3,7 @@ import re
 
 import yaml
 
-from tests.utils.yaml_utils import BlankNone
+from tests.common.helpers.yaml_utils import BlankNone
 
 logger = logging.getLogger(__name__)
 

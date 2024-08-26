@@ -52,7 +52,7 @@ from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.sonic_db import AsicDbCli
-from tests.utils.inventory_utils import trim_inventory
+from tests.common.helpers.inventory_utils import trim_inventory
 
 try:
     from tests.macsec import MacsecPluginT2, MacsecPluginT0
