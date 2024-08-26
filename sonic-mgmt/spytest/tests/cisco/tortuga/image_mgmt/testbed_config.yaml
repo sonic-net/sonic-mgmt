@@ -1,0 +1,6 @@
+ip_address: "1.75.44.16"
+port: "22"
+uname: "cisco"
+pw: "cisco123"
+img_path: "http://1.75.47.1/images/sonic-cisco-8000.bin"
+
