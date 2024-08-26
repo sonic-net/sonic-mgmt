@@ -174,7 +174,7 @@ def get_map_port_to_start_and_end_line_number_for_sfp_eeporm(eeprom_infos):
 def get_ports_with_flat_memory(dut):
     ports_with_flat_memory = []
     cmd_show_eeprom = "sudo sfputil show eeprom -d"
-    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
+    eeprom_infos = dut.command(cmd_show_eeprom, module_ignore_errors=True)['stdout']
     map_port_to_start_and_end_line_number, sfp_eeprom_list = get_map_port_to_start_and_end_line_number_for_sfp_eeporm(
         eeprom_infos)
     for port_name, line_number_section in map_port_to_start_and_end_line_number.items():
