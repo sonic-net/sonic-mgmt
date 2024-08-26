@@ -40,7 +40,7 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
     if not wait_time_getter:
         wait_time_getter = default_port_toggle_wait_time
 
-    port_down_wait_time, port_up_wait_time = wait_time_getter(duthost, len(ports), tbinfo['topo']['type'])
+    port_down_wait_time, port_up_wait_time = wait_time_getter(duthost, len(ports))
     logger.info("Toggling ports:\n%s", pprint.pformat(ports))
 
     cmds_down = []
@@ -105,7 +105,7 @@ def log_system_resources(duthost, logger):
     logger.info("Redis Memory: %s", redis_memory)
 
 
-def default_port_toggle_wait_time(duthost, port_count, topo_type):
+def default_port_toggle_wait_time(duthost, port_count):
     """Get the default timeout for shutting down/starting up a set of ports.
 
     Port toggle wait time can depend on many factors: port count, cpu type, etc. The callback allows
@@ -114,7 +114,6 @@ def default_port_toggle_wait_time(duthost, port_count, topo_type):
     Args:
         duthost: DUT host object
         port_count: total number of ports to toggle
-        topo_type: topology type
 
     Returns
         (int, int): timeout for shutting down ports, and timeout for bringing up ports
@@ -129,7 +128,7 @@ def default_port_toggle_wait_time(duthost, port_count, topo_type):
         port_count_factor = port_count / BASE_PORT_COUNT
         port_down_wait_time = int(port_down_wait_time * port_count_factor)
         port_up_wait_time = int(port_up_wait_time * port_count_factor)
-    elif asic_type == "cisco-8000" and topo_type == "t2":
+    elif duthost.get_facts().get("modular_chassis").lower() == "true":
         port_down_wait_time = 300
         port_up_wait_time = 300
 
