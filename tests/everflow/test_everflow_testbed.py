@@ -646,9 +646,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
             everflow_utils.remove_route(everflow_dut, self.DEFAULT_DST_IP + "/32", default_traffic_peer_ip,
                                         setup_info[default_tarffic_port_type]["remote_namespace"])
 
-    def test_everflow_frwd_with_bkg_trf(self, setup_info, setup_mirror_session,
+    def test_everflow_frwd_with_bkg_trf(self,
+                                        setup_info, # noqa F811
+                                        setup_mirror_session,
                                         dest_port_type, ptfadapter, tbinfo,
-                                        skip_traffic_test):
+                                        skip_traffic_test # noqa F811
+                                        ):
         """
         Verify basic forwarding scenarios for the Everflow feature with background traffic.
         Background Traffic PKT1 IP in IP with same ports & macs but with dummy ips
