@@ -84,7 +84,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.platform_tests.api',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark',
-                  'tests.common.plugins.random_seed')
+                  'tests.common.plugins.random_seed',
+                  'tests.common.plugins.memory_utilization')
 
 
 def pytest_addoption(parser):
@@ -515,6 +516,8 @@ def localhost(ansible_adhoc):
 
 @pytest.fixture(scope="session")
 def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
+    if 'point-to-point' in tbinfo['topo']['name']:
+        return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
@@ -717,6 +720,8 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
 
 @pytest.fixture(scope="session")
 def vmhost(enhance_inventory, ansible_adhoc, request, tbinfo):
+    if 'point-to-point' in tbinfo['topo']['name']:
+        return None
     server = tbinfo["server"]
     inv_files = get_inventory_files(request)
     vmhost = get_test_server_host(inv_files, server)
@@ -798,6 +803,10 @@ def creds_on_dut(duthost):
     creds["console_password"] = {}
 
     creds["ansible_altpasswords"] = []
+
+    # If ansible_altpasswords is empty, add ansible_altpassword to it
+    if len(creds["ansible_altpasswords"]) == 0:
+        creds["ansible_altpasswords"].append(hostvars["ansible_altpassword"])
 
     passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
     creds['sonicadmin_password'] = get_dut_current_passwd(
