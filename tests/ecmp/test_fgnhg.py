@@ -111,6 +111,9 @@ def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port):
 
 
 def setup_neighbors(duthost, ptfhost, ip_to_port):
+    duthost.command("sonic-clear fdb all")
+    duthost.command("sonic-clear arp")
+    duthost.command("sonic-clear ndp")
     vlan_name = "Vlan" + str(DEFAULT_VLAN_ID)
     neigh_entries = {}
     neigh_entries['NEIGH'] = {}
@@ -131,8 +134,6 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
     logger.info("neigh entries programmed to DUT " + str(neigh_entries))
     duthost.copy(content=json.dumps(neigh_entries, indent=2), dest="/tmp/neigh.json")
     duthost.shell("sonic-cfggen -j /tmp/neigh.json --write-to-db")
-    duthost.command("sonic-clear arp")
-    duthost.command("sonic-clear ndp")
 
 
 def setup_arpresponder(ptfhost, ip_to_port):
