@@ -4,8 +4,8 @@ import pytest
 
 from tests.bfd.bfd_helpers import ensure_interface_is_up, clear_bfd_configs
 from tests.common.config_reload import config_reload
-from tests.common.utilities import wait_until
-from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
+# from tests.common.utilities import wait_until
+# from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
 
 logger = logging.getLogger(__name__)
 
