@@ -35,12 +35,12 @@ LOOP_TIMES_LEVEL_MAP = {
 def arp_cache_fdb_cleanup(duthost):
     try:
         clear_dut_arp_cache(duthost)
+        fdb_cleanup(duthost)
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
-            logger.warning("Failed to clear arp cache, file may not exist yet")
+            logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
         else:
             raise e
-    fdb_cleanup(duthost)
 
     time.sleep(5)
 
@@ -49,12 +49,12 @@ def arp_cache_fdb_cleanup(duthost):
     # Ensure clean test environment even after failing
     try:
         clear_dut_arp_cache(duthost)
+        fdb_cleanup(duthost)
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
-            logger.warning("Failed to clear arp cache, file may not exist yet")
+            logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
         else:
             raise e
-    fdb_cleanup(duthost)
 
     time.sleep(10)
 
