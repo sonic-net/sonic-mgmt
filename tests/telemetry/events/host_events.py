@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 tag = "sonic-events-host"
 
 
-def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
+def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test host events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
              "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
