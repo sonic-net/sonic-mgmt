@@ -80,8 +80,6 @@ def restart_eventd(duthost):
     features_dict, succeeded = duthost.get_feature_status()
     if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
         pytest.skip("eventd is disabled on the system")
-    if duthost.is_multi_asic:
-        pytest.skip("multi_asic devices are not supported")
 
     duthost.shell("systemctl reset-failed eventd")
     duthost.service(name="eventd", state="restarted")

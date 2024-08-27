@@ -97,25 +97,17 @@ def fetch_json_ptf_output(regex, output, match_no):
     return match[:match_no+1]
 
 
-def listen_for_event(ptfhost, cmd, results):
-    ret = ptfhost.shell(cmd)
-    assert ret["rc"] == 0, "PTF docker was not able to query EVENTS path"
-    results[0] = ret["stdout"]
-
-
-def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout, update_count=1,
+def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, timeout, update_count=1,
                       match_number=0):
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=update_count, xpath="all[heartbeat=2]",
-                              target="EVENTS", filter_event_regex=filter_event_regex)
-    results = [""]
-    event_thread = InterruptableThread(target=listen_for_event, args=(ptfhost, cmd, results,))
-    event_thread.start()
-    event_thread.join(thread_timeout)  # close thread after 30 sec, was not able to find event within reasonable time
-    assert results[0] != "", "No output from PTF docker, thread timed out after {} seconds".format(thread_timeout)
+                              target="EVENTS", filter_event_regex=filter_event_regex, timeout=timeout)
+    result = ptfhost.shell(cmd)
+    assert result["rc"] == 0, "PTF command failed with non zero return code"
+    output = result["stdout"]
+    assert len(output) != 0, "No output from PTF docker, thread timed out after {} seconds".format(timeout)
     # regex logic and then to write to file
-    result = results[0]
-    event_strs = fetch_json_ptf_output(EVENT_REGEX, result, match_number)
+    event_strs = fetch_json_ptf_output(EVENT_REGEX, output, match_number)
     with open(op_file, "w") as f:
         f.write("[\n")
         for i in range(0, len(event_strs)):
@@ -139,7 +131,8 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
 
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
                         subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
-                        intervalms=0, update_count=3, create_connections=1, filter_event_regex=""):
+                        intervalms=0, update_count=3, create_connections=1, filter_event_regex="",
+                        timeout=-1):
     """ Generate the py_gnmicli command line based on the given params.
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
@@ -153,6 +146,8 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                 update_count, create_connections)
         if filter_event_regex != "":
             cmd += " --filter_event_regex {}".format(filter_event_regex)
+        if timeout > 0:
+            cmd += " --timeout {}".format(timeout)
     return cmd
 
 
