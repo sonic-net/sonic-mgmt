@@ -1435,7 +1435,7 @@ class TestAclWithReboot(TestBasicAcl):
 
         """
         dut.command("config save -y")
-        reboot(dut, localhost, wait=240)
+        reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True)
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
