@@ -16,8 +16,12 @@ pytestmark = [
 ]
 
 stop_threads = False
-SLEEP_DURATION = 0.1
+SLEEP_DURATION = 0.005
 TEST_RUN_DURATION = 600
+MEMORY_EXHAUST_THRESHOLD = 300
+dut_flap_count = 0
+fanout_flap_count = 0
+neighbor_flap_count = 0
 
 
 @pytest.fixture(scope='module')
@@ -107,10 +111,12 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
 
 
 def flap_dut_interface(duthost, port, stop_event, sleep_duration, test_run_duration):
-    logger.info("flap dut {} interface {} delay time {} timeout {}".format(duthost, port, sleep_duration, test_run_duration))
-    start_time = time.time()  # Record the start time
-
+    logger.info("flap dut {} interface {} delay time {} timeout {}".format(
+        duthost, port, sleep_duration, test_run_duration))
+    global dut_flap_count
     dut_flap_count = 0
+
+    start_time = time.time()  # Record the start time
     while not stop_event.is_set() and time.time() - start_time < test_run_duration:
         duthost.shutdown(port)
         time.sleep(sleep_duration)
@@ -124,6 +130,8 @@ def flap_dut_interface(duthost, port, stop_event, sleep_duration, test_run_durat
 
 
 def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event, sleep_duration, test_run_duration):
+    global fanout_flap_count
+    fanout_flap_count = 0
     fanout_interfaces = {}
 
     for port in interface_list:
@@ -136,7 +144,6 @@ def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event, 
     logger.info("flap interface fanout port {}".format(fanout_interfaces))
 
     start_time = time.time()  # Record the start time
-    fanout_flap_count = 0
     while not stop_event.is_set() and time.time() - start_time < test_run_duration:
         for fanout_host, fanout_ports in fanout_interfaces.items():
             logger.info("flap interface fanout {} port {}".format(fanout_host, fanout_port))
@@ -153,11 +160,11 @@ def flap_fanout_interface_all(interface_list, fanouthosts, duthost, stop_event, 
             break
 
 
-
 def flap_fanout_interface(interface_list, fanouthosts, duthost, stop_event, sleep_duration, test_run_duration):
+    global fanout_flap_count
     fanout_flap_count = 0
-    start_time = time.time()  # Record the start time
 
+    start_time = time.time()  # Record the start time
     while not stop_event.is_set() and time.time() - start_time < test_run_duration:
         for port in interface_list:
             if stop_threads:
@@ -182,9 +189,10 @@ def flap_fanout_interface(interface_list, fanouthosts, duthost, stop_event, slee
 
 def flap_neighbor_interface(neighbor, neighbor_port, stop_event, sleep_duration, test_run_duration):
     logger.info("flap neighbor {} interface {}".format(neighbor, neighbor_port))
+    global neighbor_flap_count
     neighbor_flap_count = 0
-    start_time = time.time()  # Record the start time
 
+    start_time = time.time()  # Record the start time
     while not stop_event.is_set() and time.time() - start_time < test_run_duration:
         neighbor.shutdown(neighbor_port)
         time.sleep(sleep_duration)
@@ -200,6 +208,9 @@ def flap_neighbor_interface(neighbor, neighbor_port, stop_event, sleep_duration,
 @pytest.mark.parametrize("test_type", ["dut", "fanout", "neighbor", "all"])
 def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, test_type):
     global stop_threads
+    global dut_flap_count
+    global fanout_flap_count
+    global neighbor_flap_count
 
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -211,40 +222,18 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
     if asic_type != "vs":
         delay_time = SLEEP_DURATION
     else:
-        delay_time = SLEEP_DURATION * 10
+        delay_time = SLEEP_DURATION * 100
 
     eth_nbrs = setup.get('eth_nbrs', {})
     interface_list = eth_nbrs.keys()
     logger.debug('interface_list: {}'.format(interface_list))
 
     stop_threads = False
+    dut_flap_count = 0
+    fanout_flap_count = 0
+    neighbor_flap_count = 0
     # Create a stop event
     stop_event = threading.Event()
-
-
-    cmd = "top -b -n 1 -o %MEM"
-    cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
-    logger.info("cmd {} response: {}".format(cmd, cmd_out))
-
-    cmd = "top -b -n 1 -c"
-    cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
-    logger.info("cmd {} response: {}".format(cmd, cmd_out))
-
-
-    cmd = "free -m"
-    cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
-    logger.info("cmd {} response: {}".format(cmd, cmd_out))
-
-    cmd = "sudo monit status"
-    cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
-    logger.info("cmd {} response: {}".format(cmd, cmd_out))
-
-    cmd = "docker stats --no-stream"
-    cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
-    logger.info("cmd {} response: {}".format(cmd, cmd_out))
-
-    # import pdb; pdb.set_trace()
-
 
     flap_threads = []
 
@@ -258,6 +247,9 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             thread.start()
             logger.info("Start flap thread {} dut {} interface {}".format(thread, duthost, interface))
             flap_threads.append(thread)
+            # create only one thread for vs due to memory resource limitation
+            if asic_type == "vs":
+                break
     elif test_type == "fanout":
         thread = InterruptableThread(
             target=flap_fanout_interface,
@@ -283,6 +275,9 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
                 flap_threads.append(thread)
             else:
                 logger.debug("neighbor host not found for {} port {}".format(neighbor_name, neighbor_port))
+            # create only one thread for vs due to memory resource limitation
+            if asic_type == "vs":
+                break
     elif test_type == "all":
         for interface in interface_list:
             logger.info("shutdown all interface {} ".format(interface))
@@ -306,7 +301,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
                 thread_neighbor.daemon = True
                 thread_neighbor.start()
                 logger.info("Start flap thread {} neighbor {} port {}".format(
-                    thread_neighbor, neighbor_host, neighbor_port))                
+                    thread_neighbor, neighbor_host, neighbor_port))
                 flap_threads.append(thread_neighbor)
             else:
                 logger.debug("neighbor host not found for {} port {}".format(neighbor_name, neighbor_port))
@@ -334,25 +329,15 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
         for line in lines:
             if line.startswith("Mem:"):
                 fields = line.split()
-                avail_mem = int(fields[-1])
-                logger.info("Available memory: {}".format(avail_mem))
+                total_mem, avail_mem = int(fields[1]), int(fields[-1])
+                logger.info("Total memory {} Available memory: {}".format(total_mem, avail_mem))
                 break
 
-        if avail_mem < 200:
-            logger.error("Available memory is less than 500 MB, stopping the test")
+        if avail_mem < MEMORY_EXHAUST_THRESHOLD:
+            logger.error("Available memory {} is less than {}, stopping the test".format(
+                avail_mem, MEMORY_EXHAUST_THRESHOLD))
 
-            cmd = "top -b -n 1 -o %MEM"
-            cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
-            logger.info("cmd {} response: {}".format(cmd, cmd_out))
-
-
-            cmd = "top -b -n 1 -c"
-            cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
-            logger.info("cmd {} response: {}".format(cmd, cmd_out))
-
-
-
-            cmd = "free -m"
+            cmd = "top -b -n 1"
             cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
             logger.info("cmd {} response: {}".format(cmd, cmd_out))
 
@@ -364,12 +349,11 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             cmd_out = duthost.shell(cmd, module_ignore_errors=True).get('stdout', None)
             logger.info("cmd {} response: {}".format(cmd, cmd_out))
 
-            # import pdb; pdb.set_trace()
-
             break
 
     logger.info("Test running for {} seconds".format(time.time() + TEST_RUN_DURATION - end_time))
-    # time.sleep(TEST_RUN_DURATION)
+    logger.info("Test run duration dut_flap_count {} fanout_flap_count {} neighbor_flap_count {}".format(
+        dut_flap_count, fanout_flap_count, neighbor_flap_count))
     stop_event.set()
     stop_threads = True
     logger.info("stop_threads {} ".format(flap_threads))
