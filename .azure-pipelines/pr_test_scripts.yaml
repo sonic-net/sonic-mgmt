@@ -395,6 +395,7 @@ t1-lag:
   - sub_port_interfaces/test_sub_port_interfaces.py
   - telemetry/test_events.py
   - show_techsupport/test_auto_techsupport.py
+  - bgp/test_bgp_suppress_fib.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -470,7 +471,6 @@ onboarding_t1:
   - stress/test_stress_routes.py
   - drop_packets/test_drop_counters.py
   - bgp/test_bgp_sentinel.py
-  - bgp/test_bgp_suppress_fib.py
   - snmp/test_snmp_link_local.py
 
 onboarding_dualtor:
