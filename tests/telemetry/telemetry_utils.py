@@ -5,7 +5,6 @@ import re
 
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import InterruptableThread
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 logger = logging.getLogger(__name__)
