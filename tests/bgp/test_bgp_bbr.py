@@ -447,5 +447,14 @@ def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, set
     duthost.shell('sudo config save -y')
     config_reload(duthost)
 
+    # Verify BBR status after config reload
     bbr_status_after_reload = duthost.shell('redis-cli -n 4 HGET "BGP_BBR|all" "status"')["stdout"]
     pytest_assert(bbr_status_after_reload == bbr_status, "BGP BBR status is not consistent after config reload")
+
+    # Check if BBR is enabled or disabled using the running configuration
+    bbr_status_running_config = duthost.shell("show runningconfiguration bgp | grep allowas", module_ignore_errors=True)\
+        ['stdout'] # noqa E211
+    if bbr_status == 'enabled':
+        pytest_assert('allowas-in' in bbr_status_running_config, "BGP BBR is not enabled in running configuration")
+    else:
+        pytest_assert('allowas-in' not in bbr_status_running_config, "BGP BBR is not disabled in running configuration")
