@@ -512,7 +512,8 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
         src_ips.append(selected_test_port_info["rx_neighbor_addr"])
 
     router_mac = duthost.get_dut_iface_mac(selected_test_ports[0])
-    pkt_count = 1000
+    # Send enough packets to make sure the background traffic is running during the test
+    pkt_count = 100000
 
     ptf_params = {'router_mac': router_mac,
                   'src_ports': src_ports,
@@ -539,3 +540,22 @@ def _stop_background_traffic(ptfhost, background_traffic_log):
     pids = ptfhost.shell(f"pgrep -f {background_traffic_log}")["stdout_lines"]
     for pid in pids:
         ptfhost.shell(f"kill -9 {pid}", module_ignore_errors=True)
+
+
+def has_neighbor_device(setup_pfc_test):
+    """
+    Check if there are neighbor devices present
+
+    Args:
+        setup_pfc_test (fixture): Module scoped autouse fixture for PFCwd
+
+    Returns:
+        bool: True if there are neighbor devices present, False otherwise
+    """
+    for _, details in setup_pfc_test['selected_test_ports'].items():
+        # 'rx_port' and 'rx_port_id' are expected to be conjugate attributes
+        # if one is unset or contains None, the other should be as well
+        if (not details.get('rx_port') or None in details['rx_port']) or \
+                (not details.get('rx_port_id') or None in details['rx_port_id']):
+            return False  # neighbor devices are not present
+    return True

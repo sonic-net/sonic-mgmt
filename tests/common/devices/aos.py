@@ -168,6 +168,16 @@ class AosHost(AnsibleHostBase):
                 parents='interface %s' % interface_name)
         return not self._has_cli_cmd_failed(out)
 
+    def is_lldp_disabled(self):
+        """
+        TODO: Add support for AOS device when access to
+        AOS fanout becomes available.
+
+        Return False always. If AOS device is found as a
+        fanout the pretest will fail until this check is implemented.
+        """
+        return False
+
 
 def speed_gb_to_mb(speed):
     res = re.search(r'(\d+)(\w)', speed)

@@ -144,11 +144,17 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "'backend' in topo_name"
 
+bgp/test_bgp_stress_link_flap.py:
+  skip:
+    reason: "Skip the case due to the known issue"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/6471
+
 bgp/test_bgp_suppress_fib.py:
   skip:
     reason: "Not supported before release 202405."
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311']"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', 'master']"
 
 bgp/test_bgpmon.py:
   skip:
@@ -192,6 +198,11 @@ configlet/test_add_rack.py:
     reason: "AddRack is not yet supported on multi-ASIC platform"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "AddRack failed in KVM test for image issue"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/19942
 
 container_hardening/test_container_hardening.py::test_container_privileged:
   skip:
@@ -420,6 +431,13 @@ dualtor/test_standby_tor_upstream_mux_toggle.py:
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
+dualtor/test_switchover_failure.py:
+  skip:
+    reason: "Test in KVM has a high failure rate, skip with Github issue."
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/14247
+
 dualtor/test_tor_ecn.py::test_dscp_to_queue_during_encap_on_standby:
   xfail:
      reason: "Testcase ignored on dualtor-aa topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/8577"
@@ -464,6 +482,10 @@ dualtor_io/test_link_failure.py::test_active_link_down_downstream_active:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8272
       - "asic_type in ['mellanox']"
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active_soc:
   xfail:
@@ -471,6 +493,10 @@ dualtor_io/test_link_failure.py::test_active_link_down_downstream_active_soc:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8272
       - "asic_type in ['mellanox']"
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_standby:
   xfail:
@@ -478,6 +504,40 @@ dualtor_io/test_link_failure.py::test_active_link_down_downstream_standby:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8272
       - "asic_type in ['mellanox']"
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py::test_active_link_down_upstream:
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py::test_active_link_down_upstream_soc:
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py::test_standby_link_down_downstream_active:
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py::test_standby_link_down_downstream_standby:
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py::test_standby_link_down_upstream:
+  skip:
+    reason: "KVM testbed do not support shutdown fanout interface action"
+    conditions:
+      - "asic_type in ['vs']"
 
 dualtor_io/test_normal_op.py::test_upper_tor_config_reload_upstream[active-active]:
   xfail:
@@ -737,29 +797,56 @@ generic_config_updater/test_pg_headroom_update.py:
 #######################################
 #####           hash              #####
 #######################################
+hash/test_generic_hash.py::test_algorithm_config:
+  xfail:
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/14109
+
+hash/test_generic_hash.py::test_backend_error_messages:
+  xfail:
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/14109
+
 hash/test_generic_hash.py::test_ecmp_and_lag_hash:
   skip:
     reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
     conditions:
       - "asic_gen == 'spc1'"
 
+hash/test_generic_hash.py::test_hash_capability:
+  xfail:
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    conditions:
+      - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/14109
+
 hash/test_generic_hash.py::test_lag_member_flap:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm, for other platforms, skipping due to missing object in SonicHost'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
+      - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm, for other platforms, skipping due to missing object in SonicHost'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
+      - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm, for other platforms, skipping due to missing object in SonicHost'
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
+      - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
 hash/test_generic_hash.py::test_reboot:
   skip:
@@ -1649,6 +1736,11 @@ telemetry/test_events.py:
     reason: "Skip telemetry test events for 202211 and older branches"
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211']"
+  xfail:
+    reason: "Test events is flaky in PR test, xfail until issue resolved"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/19943
 
 telemetry/test_telemetry.py:
   skip:
@@ -1767,15 +1859,39 @@ vxlan/test_vnet_vxlan.py:
 
 vxlan/test_vxlan_bfd_tsa.py:
   skip:
-    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
+
+vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case4:
+  skip:
+    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102. For KVM platform, this test is not supported due to system check not supported currently."
+    conditions_logical_operator: OR
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
+
+vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case5:
+  skip:
+    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102. For KVM platform, this test is not supported due to system check not supported currently."
+    conditions_logical_operator: OR
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
+
+vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case6:
+  skip:
+    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102. For KVM platform, this test is not supported due to system check not supported currently."
+    conditions_logical_operator: OR
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
 
 vxlan/test_vxlan_crm.py:
   skip:
-    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v4_in_v6]:
   skip:
@@ -1815,15 +1931,15 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
 
 vxlan/test_vxlan_ecmp.py:
   skip:
-    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
 
 vxlan/test_vxlan_ecmp_switchover.py:
   skip:
-    reason: "VxLAN ECMP switchover test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    reason: "VxLAN ECMP switchover test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
 
 #######################################
 #####           wan_lacp          #####
