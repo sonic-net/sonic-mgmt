@@ -38,6 +38,12 @@ def binding_deps():
         "gazelle:resolve go google.golang.org/genproto/googleapis/rpc/status @org_golang_google_genproto//googleapis/rpc/status:status",
     ]
 
+    git_repository(
+        name = "com_github_sonic_pins",
+        commit = "711679d7dcad31059a89eb359a44581b852e937e",
+        remote = "https://github.com/sonic-net/sonic-pins.git",
+    )
+
     go_repository(
         name = "com_github_ghodss_yaml",
         importpath = "github.com/ghodss/yaml",
