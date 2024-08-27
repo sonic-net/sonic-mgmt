@@ -124,12 +124,12 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
         finally:
             try:
                 clear_dut_arp_cache(duthost)
+                fdb_cleanup(duthost)
             except RunAnsibleModuleFail as e:
                 if 'Failed to send flush request: No such file or directory' in str(e):
                     logger.warning("Failed to clear arp cache, file may not exist yet")
                 else:
                     raise e
-            fdb_cleanup(duthost)
 
             time.sleep(5)
 
@@ -207,11 +207,11 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
         finally:
             try:
                 clear_dut_arp_cache(duthost)
+                fdb_cleanup(duthost)
             except RunAnsibleModuleFail as e:
                 if 'Failed to send flush request: No such file or directory' in str(e):
                     logger.warning("Failed to clear arp cache, file may not exist yet")
                 else:
                     raise e
-            fdb_cleanup(duthost)
             # Wait for 10 seconds before starting next loop
             time.sleep(10)
