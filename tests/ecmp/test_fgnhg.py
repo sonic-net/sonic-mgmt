@@ -111,6 +111,9 @@ def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port):
 
 
 def setup_neighbors(duthost, ptfhost, ip_to_port):
+    duthost.shell("sonic-clear fdb all")
+    duthost.shell("sonic-clear arp")
+    duthost.shell("sonic-clear ndp")
     vlan_name = "Vlan" + str(DEFAULT_VLAN_ID)
     neigh_entries = {}
     neigh_entries['NEIGH'] = {}
