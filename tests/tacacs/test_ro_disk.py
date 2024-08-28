@@ -155,6 +155,12 @@ def log_rotate(duthost):
         if "logrotate does not support parallel execution on the same set of logfiles" in e.message:
             # command will failed when log already in rotating
             logger.warning("logrotate command failed: {}".format(e))
+        elif "error: stat of /var/log/auth.log failed: Bad message" in e.message:
+            # command will failed because auth.log missing
+            logger.warning("logrotate command failed: {}".format(e))
+        elif "du: cannot access '/var/log/auth.log': Bad message" in e.message:
+            # command will failed because auth.log missing
+            logger.warning("logrotate command failed: {}".format(e))
         else:
             raise e
 
