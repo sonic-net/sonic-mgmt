@@ -1,0 +1,20 @@
+# Two image files required for vEOS VMs:
+# 1. cd file.
+# 2. hdd file.
+veos_cd_image_filename: Aboot-veos-serial-8.0.0.iso
+veos_hdd_image_filename: vEOS-lab-4.20.15M.vmdk
+
+# Please update url to the actual URL of the veos image files in your environment. If the image files
+# are not available on test server, the files will be downloaded from the URLs.
+# The url can be a string as single URL or a list of strings as multiple URLs. If it is a list, the code
+# logic will automatically try each URL in the list
+veos_cd_image_url:
+  - http://example1.com/Aboot-veos-serial-8.0.0.iso
+  - http://example2.com/Aboot-veos-serial-8.0.0.iso
+veos_hdd_image_url:
+  - http://example1.com/vEOS-lab-4.20.15M.vmdk
+  - http://example2.com/vEOS-lab-4.20.15M.vmdk
+
+# If the variable is set to true, the code logic will not try to download the image files from the URLs when the files
+# are not available on test server
+skip_veos_image_downloading: false
