@@ -106,7 +106,7 @@ def get_download_url_for_tagged_latest(branch):
     elif branch == 'internal-202405':
         dl_url = f'{base_url}internal-202405/{tagged_path}'
     else:
-        raise ValueError(f"Unknown branch: {branch}")
+        raise Exception(f"Unknown branch: {branch}")
 
     return dl_url
 
