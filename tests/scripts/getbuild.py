@@ -216,6 +216,12 @@ def main():
 
     args = parser.parse_args()
 
+    if args.source_repo == "sonic-metadata":
+        dl_url = get_download_url_for_tagged_latest(args.branch)
+        download_artifacts(dl_url, args.content, args.platform,
+                       -1, args.num_asic, access_token=args.access_token, token=args.token)
+        return
+
     if args.buildid is None:
         buildid_succ = find_latest_build_id(args.branch, "succeeded")
         buildid_partial = find_latest_build_id(
@@ -235,10 +241,6 @@ def main():
                                                url_prefix=args.url_prefix,
                                                access_token=args.access_token,
                                                token=args.token)
-
-    if args.source_repo == "sonic-metadata":
-        dl_url = get_download_url_for_tagged_latest(args.branch)
-
     download_artifacts(dl_url, args.content, args.platform,
                        buildid, args.num_asic, access_token=args.access_token, token=args.token)
 
