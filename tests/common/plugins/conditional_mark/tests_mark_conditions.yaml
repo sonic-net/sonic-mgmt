@@ -144,11 +144,17 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "'backend' in topo_name"
 
+bgp/test_bgp_stress_link_flap.py:
+  skip:
+    reason: "Skip the case due to the known issue"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/6471
+
 bgp/test_bgp_suppress_fib.py:
   skip:
     reason: "Not supported before release 202405."
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311']"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', 'master']"
 
 bgp/test_bgpmon.py:
   skip:
@@ -424,6 +430,13 @@ dualtor/test_standby_tor_upstream_mux_toggle.py:
     reason: "This testcase is designed for single tor testbed with mock dualtor config."
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+
+dualtor/test_switchover_failure.py:
+  skip:
+    reason: "Test in KVM has a high failure rate, skip with Github issue."
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/14247
 
 dualtor/test_tor_ecn.py::test_dscp_to_queue_during_encap_on_standby:
   xfail:
@@ -1714,6 +1727,11 @@ telemetry/test_events.py:
     reason: "Skip telemetry test events for 202211 and older branches"
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211']"
+  xfail:
+    reason: "Test events is flaky in PR test, xfail until issue resolved"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/19943
 
 telemetry/test_telemetry.py:
   skip:
@@ -1832,15 +1850,39 @@ vxlan/test_vnet_vxlan.py:
 
 vxlan/test_vxlan_bfd_tsa.py:
   skip:
-    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
+
+vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case4:
+  skip:
+    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102. For KVM platform, this test is not supported due to system check not supported currently."
+    conditions_logical_operator: OR
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
+
+vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case5:
+  skip:
+    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102. For KVM platform, this test is not supported due to system check not supported currently."
+    conditions_logical_operator: OR
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
+
+vxlan/test_vxlan_bfd_tsa.py::Test_VxLAN_BFD_TSA::test_tsa_case6:
+  skip:
+    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102. For KVM platform, this test is not supported due to system check not supported currently."
+    conditions_logical_operator: OR
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/19879"
 
 vxlan/test_vxlan_crm.py:
   skip:
-    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v4_in_v6]:
   skip:
@@ -1880,15 +1922,15 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
 
 vxlan/test_vxlan_ecmp.py:
   skip:
-    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
 
 vxlan/test_vxlan_ecmp_switchover.py:
   skip:
-    reason: "VxLAN ECMP switchover test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    reason: "VxLAN ECMP switchover test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
 
 #######################################
 #####           wan_lacp          #####

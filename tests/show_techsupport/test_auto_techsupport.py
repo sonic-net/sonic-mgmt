@@ -12,6 +12,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.multibranch.cli import SonicCli
 from dateutil.parser import ParserError
+from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 
 try:
     import allure
@@ -288,8 +289,9 @@ class TestAutoTechSupport:
         Force log rotate - because in some cases, when there's no file older than since, there will be
         no syslog file in techsupport dump
         """
-        with allure.step('Rotate logs'):
-            self.duthost.shell('/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1')
+        with DisableLogrotateCronContext(self.duthost):
+            with allure.step('Rotate logs'):
+                self.duthost.shell('/usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1')
 
         with allure.step('Validate since value: {}'.format(since_value)):
             with allure.step('Set since value to: {}'.format(since_value)):
