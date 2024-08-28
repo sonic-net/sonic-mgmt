@@ -95,6 +95,14 @@ parameters:
     default: "--topology t2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405) --disable_loganalyzer"
     displayName: "Common test parameters"
 
+  - name: AFFINITY
+    type: string
+    # For bgp/test_bgp_peer_shutdown.py, it cannot pass on vmsvc5-t2-8800-1 due to incorrect system time.
+    default: '[
+      {"name": "bgp/test_bgp_peer_shutdown.py", "op": "NOT_ON", "value": ["vmsvc5-t2-8800-1"]}
+    ]'
+    displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
