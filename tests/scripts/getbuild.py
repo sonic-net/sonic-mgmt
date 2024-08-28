@@ -247,6 +247,7 @@ def main():
                                                url_prefix=args.url_prefix,
                                                access_token=args.access_token,
                                                token=args.token)
+
     download_artifacts(dl_url, args.content, args.platform,
                        buildid, args.num_asic, access_token=args.access_token, token=args.token)
 
