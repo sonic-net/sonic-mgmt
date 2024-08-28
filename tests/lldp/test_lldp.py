@@ -57,7 +57,7 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
 
     res = duthost.shell(
         "docker exec -i lldp{} lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'".format(
-            asic))
+            '' if asic is None else asic))
     dut_system_description = res['stdout']
     lldpctl_facts = duthost.lldpctl_facts(
         asic_instance_id=asic,
