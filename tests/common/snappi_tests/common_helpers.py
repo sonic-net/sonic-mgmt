@@ -18,6 +18,8 @@ from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
+from tests.common.portstat_utilities import parse_portstat
+from collections import defaultdict
 
 
 def increment_ip_address(ip, incr=1):
@@ -1066,64 +1068,64 @@ def clear_counters(duthost, port):
     Returns:
         None
     """
+
+    duthost.shell("sudo sonic-clear counters \n")
+    duthost.shell("sudo sonic-clear pfccounters \n")
+    duthost.shell("sudo sonic-clear priority-group drop counters \n")
+    duthost.shell("sonic-clear counters \n")
+    duthost.shell("sonic-clear pfccounters \n")
+
     if (duthost.is_multi_asic):
         asic = duthost.get_port_asic_instance(port).get_asic_namespace()
         duthost.shell("sudo ip netns exec {} sonic-clear queuecounters \n".format(asic))
         duthost.shell("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
-        duthost.shell("sudo sonic-clear counters \n")
-        duthost.shell("sudo sonic-clear pfccounters \n")
     else:
         duthost.shell("sonic-clear queuecounters \n")
         duthost.shell("sonic-clear dropcounters \n")
-        duthost.shell("sudo sonic-clear counters \n")
-        duthost.shell("sudo sonic-clear pfccounters \n")
 
 
-def interface_stats(duthost, port):
+def get_interface_stats(duthost, port):
     """
-    Get the Rx and Tx port utilization, throughput and pkts from SONiC CLI.
+    Get the Rx and Tx port failures, throughput and pkts from SONiC CLI.
     This is the equivalent of the "show interface counters" command.
     Args:
         duthost (Ansible host instance): device under test
         port (str): port name
     Returns:
-        i_stats (dict): key-value of various interface stats
+        i_stats (dict): Returns various parameters for given DUT and port.
     """
+    # Initializing nested dictionary i_stats
+    i_stats = defaultdict(dict)
+    i_stats[duthost.hostname][port] = {}
 
-    i_stats = {}
-    dut_key = (duthost.hostname+'_'+port).lower()
-
-    n_raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
-    raw_out_stripped = re.sub(r'^.*?\n', '', n_raw_out, count=1)
-    raw_json = json.loads(raw_out_stripped)
-
-    # Drops, error and over are combined together as failures.
-    rx_err = ['RX_DRP', 'RX_ERR', 'RX_OVR']
-    tx_err = ['TX_DRP', 'TX_ERR', 'TX_OVR']
+    n_out = parse_portstat(duthost.command('portstat -i {}'.format(port))['stdout_lines'])[port]
+    # rx_err, rx_ovr and rx_drp are counted in single counter rx_fail
+    # tx_err, tx_ovr and tx_drp are counted in single counter tx_fail
+    rx_err = ['rx_err', 'rx_ovr', 'rx_drp']
+    tx_err = ['tx_err', 'tx_ovr', 'tx_drp']
     rx_fail = 0
     tx_fail = 0
     for m in rx_err:
-        rx_fail = rx_fail + int(raw_json[port].get(m).replace(',', ''))
+        rx_fail = rx_fail + int(n_out[m].replace(',', ''))
     for m in tx_err:
-        tx_fail = tx_fail + int(raw_json[port].get(m).replace(',', ''))
+        tx_fail = tx_fail + int(n_out[m].replace(',', ''))
 
-    # Rx and Tx throughput.
-    thrput = raw_json[port].get('RX_BPS')
+    # Any throughput below 1MBps is measured as 0 for simplicity.
+    thrput = n_out['rx_bps']
     if thrput.split(' ')[1] == 'MB/s' and (thrput.split(' ')[0]) != '0.00':
-        i_stats[dut_key+'_rx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
+        i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
     else:
-        i_stats[dut_key+'_rx_thrput_Mbps'] = 0
-    thrput = raw_json[port].get('TX_BPS')
+        i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = 0
+    thrput = n_out['tx_bps']
     if thrput.split(' ')[1] == 'MB/s' and (thrput.split(' ')[0]) != '0.00':
-        i_stats[dut_key+'_tx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
+        i_stats[duthost.hostname][port]['tx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
     else:
-        i_stats[dut_key+'_tx_thrput_Mbps'] = 0
+        i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = 0
 
-    # Rx and Tx packets.
-    i_stats[dut_key+'_rx_pkts'] = int(raw_json[port].get('RX_OK').replace(',', ''))
-    i_stats[dut_key+'_tx_pkts'] = int(raw_json[port].get('TX_OK').replace(',', ''))
-    i_stats[dut_key+'_rx_fail'] = rx_fail
-    i_stats[dut_key+'_tx_fail'] = tx_fail
+    i_stats[duthost.hostname][port]['rx_pkts'] = int(n_out['rx_ok'].replace(',', ''))
+    i_stats[duthost.hostname][port]['tx_pkts'] = int(n_out['tx_ok'].replace(',', ''))
+    i_stats[duthost.hostname][port]['rx_fail'] = rx_fail
+    i_stats[duthost.hostname][port]['tx_fail'] = tx_fail
 
     return i_stats
 
@@ -1139,8 +1141,7 @@ def get_queue_count_all_prio(duthost, port):
         queue_dict (dict): key-value with key=dut+port+prio and value=queue count
     """
     queue_dict = {}
-
-    # Preparing the dictionary for all 7 priority queues.
+    # Capturing queue counts for all priorities.
     for priority in range(7):
         dut_key = (duthost.hostname+'_'+port+'_prio_'+str(priority)).lower()
         total_pkts, _ = get_egress_queue_count(duthost, port, priority)
@@ -1155,18 +1156,18 @@ def get_pfc_count(duthost, port):
         duthost (Ansible host instance): device under test
         port (str): port name
     Returns:
-        pfc_dict (dict): Returns Rx and Tx PFC for the given DUT and interface in dictionary format
+        pfc_dict (dict) : Returns Rx and Tx PFC for the given DUT and interface.
     """
-    dut_key = (duthost.hostname + '_' + port).lower()
-    pfc_dict = {}
+    pfc_dict = defaultdict(dict)
+    pfc_dict[duthost.hostname][port] = {}
     raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep '{} '".format(port))['stdout']
     pause_frame_count = raw_out.split()
     for m in range(1, len(pause_frame_count)):
-        pfc_dict[dut_key+'_tx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
+        pfc_dict[duthost.hostname][port]['tx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
 
     raw_out = duthost.shell("show pfc counters | sed -n '/Port Rx/,/^$/p' | grep '{} '".format(port))['stdout']
     pause_frame_count = raw_out.split()
     for m in range(1, len(pause_frame_count)):
-        pfc_dict[dut_key+'_rx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
+        pfc_dict[duthost.hostname][port]['rx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
 
     return pfc_dict
