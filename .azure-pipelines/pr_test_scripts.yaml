@@ -211,6 +211,7 @@ t0:
   - route/test_route_bgp_ecmp.py
   - drop_packets/test_drop_counters.py
   - copp/test_copp.py
+  - crm/test_crm.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -404,6 +405,7 @@ t1-lag:
   - copp/test_copp.py
   - stress/test_stress_routes.py
   - drop_packets/test_drop_counters.py
+  - crm/test_crm.py
   - bgp/test_bgp_suppress_fib.py
 
 multi-asic-t1-lag:
@@ -455,7 +457,6 @@ dpu:
 
 onboarding_t0:
   - bgp/test_bgp_stress_link_flap.py
-  - crm/test_crm.py
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
@@ -467,7 +468,6 @@ onboarding_t0:
 
 onboarding_t1:
   - bgp/test_bgp_stress_link_flap.py
-  - crm/test_crm.py
   - generic_config_updater/test_cacl.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
