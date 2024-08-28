@@ -1,17 +1,19 @@
 # This role creates a set of VM with veos or SONiC or Ubuntu for Kubernetes master
 # Input parameters for the role:
-# - action: 'start', 'stop' or 'renumber' for creating, removeing, or renumbering vm set respectively
+# - action: 'start', 'stop' or 'renumber' for creating, removing, or renumbering vm set respectively
 # - id: sequence number for vm set on the host.
 # - external_port: interface which will be used as parent for vlan interface creation
 # - vlan_base: first vlan id for the VMs
 # - VMs: a dictionary which contains hostnames of VMs as a key and a dictionary with parameters (num, memory, mgmt_ip) for every VM.
 # - topology: a dictionary which contains hostnames of VMs as a key and vlans value which define a topology (numbers of connected ports for every VM)
 # - mgmt_bridge: linux bridge which is used for management interface connections
-# - root_path: path where disk images for VMs are created
-# - hdd_image_filename: base hdd image for VMs
-# - cd_image_filename: base cd image for VMs
-# - vm_images_url: url where base images are located
-# - vmimages_saskey: a key for Azure download service. Could be set to ''
+
+# Variables used by the role are mostly defined in files under ansible/group_vars/vm_host directory.
+# Supported neighbor types are: veos, sonic, cisco, ubuntu, k8s
+# For each of the supported neighbor types, there is a file in ansible/group_vars/vm_host directory which defines the
+# the variables for the neighbor type. The neighbor VM image files usually can be manually prepared or automatically
+# downloaded from the URLs defined in the variables. Please update the URLs to the actual URLs of the image files in
+# your environment.
 
 # Need latest ubuntu 4.10 kernel to fix a openvswitch bug
 # https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1685742
