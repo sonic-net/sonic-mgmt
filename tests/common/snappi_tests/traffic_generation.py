@@ -11,7 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
     get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
-    traffic_flow_mode, get_pfc_count, clear_counters, interface_stats, get_queue_count_all_prio
+    traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
@@ -1044,9 +1044,9 @@ def run_sys_traffic(rx_duthost,
         f_stats[m]['tgen_rx_frames'] = rx_frame
         f_stats = update_dict(m, f_stats, tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names))
         for dut, port in dutport_list:
-            f_stats = update_dict(m, f_stats, interface_stats(dut, port))
-            f_stats = update_dict(m, f_stats, get_pfc_count(dut, port))
-            f_stats = update_dict(m, f_stats, get_queue_count_all_prio(dut, port))
+            f_stats = update_dict(m, f_stats, flatten_dict(get_interface_stats(dut, port)))
+            f_stats = update_dict(m, f_stats, flatten_dict(get_pfc_count(dut, port)))
+            f_stats = update_dict(m, f_stats, flatten_dict(get_queue_count_all_prio(dut, port)))
 
         logger.info("Polling DUT for Egress Queue statistics")
 
@@ -1117,9 +1117,9 @@ def run_sys_traffic(rx_duthost,
     f_stats[m]['tgen_rx_frames'] = rx_frame
     f_stats = update_dict(m, f_stats, tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names))
     for dut, port in dutport_list:
-        f_stats = update_dict(m, f_stats, interface_stats(dut, port))
-        f_stats = update_dict(m, f_stats, get_pfc_count(dut, port))
-        f_stats = update_dict(m, f_stats, get_queue_count_all_prio(dut, port))
+        f_stats = update_dict(m, f_stats, flatten_dict(get_interface_stats(dut, port)))
+        f_stats = update_dict(m, f_stats, flatten_dict(get_pfc_count(dut, port)))
+        f_stats = update_dict(m, f_stats, flatten_dict(get_queue_count_all_prio(dut, port)))
 
     for lossless_prio in switch_tx_lossless_prios:
         for dut, port in dutport_list:
@@ -1217,7 +1217,7 @@ def run_sys_traffic(rx_duthost,
                 for key in prio_key:
                     if (new_key in item and key in item.split(new_key)[1]):
                         prio_dict[item.split(new_key)[1]] = df_t[item].max()
-            f.write('for {} : \n'.format(new_key))
+            f.write('Egress Queue Count for {} : \n'.format(new_key))
             for key, val in prio_dict.items():
                 if val != 0:
                     if ('prio_3' in key) or ('prio_4' in key):
@@ -1229,7 +1229,7 @@ def run_sys_traffic(rx_duthost,
         test_stats['lossless_tx_pfc'] = 0
         test_stats['lossless_rx_pfc'] = 0
         test_stats['lossy_rx_tx_pfc'] = 0
-        f.write('Received or Transmitted PFC counts \n')
+        f.write('Received or Transmitted PFC counts: \n')
         for item in results:
             if ('egl-board' in item and 'pfc' in item):
                 if (df_t[item].max() != 0):
@@ -1547,3 +1547,14 @@ def new_base_traffic_config(testbed_config,
     base_flow_config["rx_port_name"] = testbed_config.ports[rx_port_id].name
 
     return base_flow_config
+
+
+def flatten_dict(d, parent_key='', sep='_'):
+    items = []
+    for k, v in d.items():
+        new_key = (str(parent_key) + sep + str(k)).lower() if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
