@@ -1,5 +1,4 @@
 import pytest
-import random
 import logging
 from tests.common.helpers.assertions import pytest_require, pytest_assert                               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut         # noqa: F401
