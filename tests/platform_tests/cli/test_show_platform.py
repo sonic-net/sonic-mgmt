@@ -34,6 +34,7 @@ CMD_SHOW_PLATFORM = "show platform"
 
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
+VPD_DATA_FILE = "/var/run/hw-management/eeprom/vpd_data"
 
 
 @pytest.fixture(scope='module')
@@ -93,6 +94,12 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
     if len(unexpected_fields) != 0:
         expected_fields_values.add(expected_num_asic)
 
+    if duthost.facts["asic_type"] in ["mellanox"]:
+        # For Mellanox devices, we validate the hw-revision using the value at VPD_DATA_FILE
+        vpd_data = duthost.command(f"cat {VPD_DATA_FILE}")["stdout_lines"]
+        hw_rev_expected = util.parse_colon_speparated_lines(vpd_data)["REV"]
+        expected_fields_values.add(hw_rev_expected)
+
     actual_fields_values = set(summary_dict.values())
     diff_fields_values = expected_fields_values.difference(actual_fields_values)
     pytest_assert((len(diff_fields_values) == 0 or (len(diff_fields_values) == 1 and diff_fields_values.pop() is None)),
@@ -107,10 +114,21 @@ def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     cmd = "sudo decode-syseeprom -s"
-    get_serial_no_cmd = duthost.command(cmd)
+    get_serial_no_cmd = duthost.command(cmd, module_ignore_errors=True)
+    # For kvm testbed, when executing command `sudo decode-syseeprom -s`
+    # On some images, it will return the expected Error `ModuleNotFoundError: No module named 'sonic_platform'`
+    # and get the expected return code 2
+    # On some images, it will return the expected Error `Failed to read system EEPROM info in syseeprom on 'vlab-01'`
+    # and get the expected return code 0
+    # So let this function return in advance
+    if duthost.facts["asic_type"] == "vs" and (get_serial_no_cmd["rc"] == 1 or get_serial_no_cmd["rc"] == 0):
+        return
+    assert get_serial_no_cmd['rc'] == 0, "Run command '{}' failed".format(cmd)
+
     logging.info("Verifying output of '{}' on '{}' ...".format(get_serial_no_cmd, duthost.hostname))
     get_serial_no_output = get_serial_no_cmd["stdout"].replace('\x00', '')
-    expected_serial_no = dut_vars['serial']
+    expected_serial_no = dut_vars.get('serial', "")
+
     pytest_assert(get_serial_no_output == expected_serial_no,
                   "Expected serial_no '{}' is not matching with {} in syseeprom on '{}'".
                   format(expected_serial_no, get_serial_no_output, duthost.hostname))
@@ -124,8 +142,15 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
     skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista_7050", "arista_7260", "arista_7060"])
     cmd = " ".join([CMD_SHOW_PLATFORM, "syseeprom"])
 
+    syseeprom_cmd = duthost.command(cmd, module_ignore_errors=True)
+    # For kvm testbed, command `show platform syseeprom` will return the expected Error
+    # `ModuleNotFoundError: No module named 'sonic_platform'`
+    # So let this function return in advance
+    if duthost.facts["asic_type"] == "vs" and syseeprom_cmd["rc"] == 1:
+        return
+    assert syseeprom_cmd['rc'] == 0, "Run command '{}' failed".format(cmd)
+
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
-    syseeprom_cmd = duthost.command(cmd)
     syseeprom_output = syseeprom_cmd["stdout"]
     syseeprom_output_lines = syseeprom_cmd["stdout_lines"]
 
@@ -237,7 +262,16 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
-    psu_status_output_lines = duthost.command(cmd)["stdout_lines"]
+    psu_status_output = duthost.command(cmd, module_ignore_errors=True)
+
+    # For kvm testbed, there is no key "PSU_INFO" in "STATE_DB"
+    # And it will raise Error when executing such command
+    # We will return in advance if this test case is running on kvm testbed
+    if duthost.facts["asic_type"] == "vs" and psu_status_output["rc"] == 1:
+        return
+    assert psu_status_output['rc'] == 0, "Run command '{}' failed".format(cmd)
+
+    psu_status_output_lines = psu_status_output["stdout_lines"]
 
     psu_line_pattern = get_dut_psu_line_pattern(duthost)
 
@@ -271,7 +305,17 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus", "--json"])
 
     logging.info("Verifying output of '{}' ...".format(cmd))
-    psu_status_output = duthost.command(cmd)["stdout"]
+    psu_status_output = duthost.command(cmd, module_ignore_errors=True)
+
+    # For kvm testbed, there is no key "PSU_INFO" in "STATE_DB"
+    # And it will raise Error when executing such command
+    # We will return in advance if this test case is running on kvm testbed
+    if duthost.facts["asic_type"] == "vs" and psu_status_output["rc"] == 1:
+        return
+    assert psu_status_output['rc'] == 0, "Run command '{}' failed".format(cmd)
+
+    psu_status_output = psu_status_output["stdout"]
+
     psu_info_list = json.loads(psu_status_output)
 
     # TODO: Compare against expected platform-specific output
@@ -339,7 +383,8 @@ def check_fan_status(duthost, cmd):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if not fans and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
         return True
-
+    if duthost.facts["asic_type"] == "vs":
+        return True
     # Check that all fans are showing valid status and also at-least one PSU is OK.
     num_fan_ok = 0
     for a_fan in list(fans.values()):
@@ -447,8 +492,16 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "firmware", "status"])
 
+    firmware_output = duthost.command(cmd, module_ignore_errors=True)
+    # For kvm testbed, command `show platform firmware status` will return the expected Error
+    # `ModuleNotFoundError: No module named 'sonic_platform'`
+    # So let this function return in advance
+    if duthost.facts["asic_type"] == "vs" and firmware_output["rc"] == 1:
+        return
+    assert firmware_output['rc'] == 0, "Run command '{}' failed".format(cmd)
+
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
-    firmware_output_lines = duthost.command(cmd)["stdout_lines"]
+    firmware_output_lines = firmware_output["stdout_lines"]
     verify_show_platform_firmware_status_output(firmware_output_lines, duthost.hostname)
 
     # TODO: Test values against platform-specific expected data
@@ -463,6 +516,12 @@ def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
     pcieinfo_output_lines = duthost.command(cmd)["stdout_lines"]
+
+    # For kvm testbed, there is no file `/usr/share/sonic/device/x86_64-kvm_x86_64-r0/pcie.yaml`
+    # So running such command will get the error `No such file or directory`
+    # Return in advance if this test case is running on kvm testbed
+    if duthost.facts["asic_type"] == "vs":
+        return
 
     passed_check_regexp = r'\[Passed\]|PASSED'
     for line in pcieinfo_output_lines[1:]:

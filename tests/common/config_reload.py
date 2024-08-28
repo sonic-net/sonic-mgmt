@@ -1,5 +1,6 @@
 import time
 import logging
+import os
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.utils import ignore_loganalyzer
@@ -12,6 +13,11 @@ from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
+
+BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
+GOLDEN_CONFIG_TEMPLATE = os.path.join(TEMPLATE_DIR, 'golden_config_db.j2')
+DEFAULT_GOLDEN_CONFIG_PATH = '/etc/sonic/golden_config_db.json'
 
 
 def config_system_checks_passed(duthost, delayed_services=[]):
@@ -61,10 +67,49 @@ def config_force_option_supported(duthost):
     return False
 
 
+def config_reload_minigraph_with_rendered_golden_config_override(
+        sonic_host, wait=120, start_bgp=True, start_dynamic_buffer=True,
+        safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
+        check_intf_up_ports=False, traffic_shift_away=False,
+        golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH,
+        local_golden_config_template=GOLDEN_CONFIG_TEMPLATE,
+        dut_golden_config_template=None, remote_src=False, is_dut=True):
+    """
+    This function facilitates new feature table testing without minigraph parser modification. It
+    reloads the minigraph using a j2 file to render Golden Config, which overrides the ConfigDB.
+    This function includes all parameters from config_reload() with the restraint parameters
+    listed below:
+    :param config_source: Always set to 'minigraph' cuz Golden Config override are embeded in
+                          load_minigraph
+    :param override_config: Always True as it needs Golden Config to override
+    :param golden_config_path: Path of Golden Config on DUT
+    :param local_golden_config_template: template in sonic-mgmt repo and will be copy to DUT to parse
+    :param dut_golden_config_template: template that located in remote DUT if there is any.
+    :param remote_src: Whether `src` is on the remote host or on the calling device.
+    """
+    # If dut_template_path is being set, we can directly generate Golden Config from there.
+    # Otherwise, we can copy and parse the template in sonic-mgmt repo
+    if dut_golden_config_template:
+        sonic_host.shell("sonic-cfggen -d -t {} > {}".format(dut_golden_config_template, golden_config_path))
+    else:
+        dut_golden_config_template = '/tmp/golden_config_db.j2'
+        # default src: tests/common/templates/golden_config_db.j2
+        # The src could be specified in the template dir under your test.
+        # Check test_config_reload_with_rendered_golden_config.py
+        sonic_host.copy(src=local_golden_config_template, dest=dut_golden_config_template, remote_src=remote_src)
+        # run sonic-cfggen to generate golden_config_db.json with existing config.
+        sonic_host.shell("sonic-cfggen -d -t {} > {}".format(dut_golden_config_template, golden_config_path))
+
+    config_reload(sonic_host, 'minigraph', wait, start_bgp, start_dynamic_buffer, safe_reload,
+                  wait_before_force_reload, wait_for_bgp, check_intf_up_ports, traffic_shift_away,
+                  override_config=True, golden_config_path=golden_config_path, is_dut=is_dut)
+
+
 @ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
-                  check_intf_up_ports=False, traffic_shift_away=False, override_config=False, is_dut=True):
+                  check_intf_up_ports=False, traffic_shift_away=False, override_config=False,
+                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True):
     """
     reload SONiC configuration
     :param sonic_host: SONiC host object
@@ -108,6 +153,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             cmd += ' -t'
         if override_config:
             cmd += ' -o'
+        if golden_config_path:
+            cmd += ' -p {} '.format(golden_config_path)
         sonic_host.shell(cmd, executable="/bin/bash")
         time.sleep(60)
         if start_bgp:
@@ -124,6 +171,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                 reloading = wait_until(wait_before_force_reload, 10, 0, _config_reload_cmd_wrapper, cmd, "/bin/bash")
             cmd = 'config reload -y -f &>/dev/null'
         if not reloading:
+            time.sleep(30)
             sonic_host.shell(cmd, executable="/bin/bash")
 
     elif config_source == 'running_golden_config':
@@ -158,6 +206,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         time.sleep(wait)
 
     if wait_for_bgp:
-        bgp_neighbors = sonic_host.get_bgp_neighbors().keys()
-        pytest_assert(wait_until(120, 10, 0, sonic_host.check_bgp_session_state, bgp_neighbors),
-                      "Not all bgp sessions are established after config reload")
+        bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic()
+        pytest_assert(
+            wait_until(120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
+            "Not all bgp sessions are established after config reload",
+        )

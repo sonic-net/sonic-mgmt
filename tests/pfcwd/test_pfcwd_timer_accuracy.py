@@ -184,7 +184,7 @@ class TestPfcwdAllTimer(object):
         with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info):
             self.storm_handle.start_storm()
             logger.info("Wait for queue to recover from PFC storm")
-            time.sleep(8)
+            time.sleep(32)
             self.storm_handle.stop_storm()
             time.sleep(16)
 
@@ -218,6 +218,8 @@ class TestPfcwdAllTimer(object):
         self.all_detect_time.sort()
         self.all_restore_time.sort()
         logger.info("Verify that real detection time is not greater than configured")
+        logger.info("all detect time {}".format(self.all_detect_time))
+        logger.info("all restore time {}".format(self.all_restore_time))
         config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
                    "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[9],

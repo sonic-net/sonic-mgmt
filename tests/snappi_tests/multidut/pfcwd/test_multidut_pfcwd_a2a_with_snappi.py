@@ -36,7 +36,7 @@ def test_multidut_pfcwd_all_to_all(snappi_api,                  # noqa: F811
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
-        duthosts (pytest fixture): list of DUTs
+        frontend_duthosts (pytest fixture): list of frontend DUTs.
         rand_one_dut_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
         lossy_prio_list (pytest fixture): list of lossy priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
@@ -46,14 +46,15 @@ def test_multidut_pfcwd_all_to_all(snappi_api,                  # noqa: F811
     Returns:
         N/A
     """
+
     if line_card_choice not in linecard_configuration_set.keys():
         pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts if
+        dut_list = [dut for dut in duthosts.frontend_nodes if
                     linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:

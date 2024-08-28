@@ -7,11 +7,10 @@ from tests.common.dualtor.dual_tor_common import active_standby_ports           
 from tests.common.dualtor.mux_simulator_control import check_mux_status, validate_check_result
 from tests.common.dualtor.dual_tor_utils import recover_linkmgrd_probe_interval, update_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)
@@ -37,8 +36,9 @@ def restore_mux_auto_mode(duthosts):
 def get_interval_v4(duthosts):
     mux_linkmgr_output = duthosts.shell('sonic-cfggen -d --var-json MUX_LINKMGR')
     mux_linkmgr = list(mux_linkmgr_output.values())[0]['stdout']
-    if len(mux_linkmgr) != 0:
-        cur_interval_v4 = json.loads(mux_linkmgr)['LINK_PROBER']['interval_v4']
+    mux_linkmgr_json = json.loads(mux_linkmgr)
+    if len(mux_linkmgr) != 0 and 'LINK_PROBER' in mux_linkmgr_json:
+        cur_interval_v4 = mux_linkmgr_json['LINK_PROBER']['interval_v4']
         return cur_interval_v4
     else:
         return None

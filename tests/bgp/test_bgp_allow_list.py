@@ -11,7 +11,6 @@ from bgp_helpers import apply_allow_list, remove_allow_list, check_routes_on_fro
 from bgp_helpers import check_routes_on_neighbors_empty_allow_list, checkout_bgp_mon_routes, check_routes_on_neighbors
 # Fixtures
 from bgp_helpers import bgp_allow_list_setup, prepare_eos_routes    # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t1'),

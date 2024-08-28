@@ -13,8 +13,10 @@ from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder              # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
+# from tests.common.fixtures.ptfhost_utils import skip_traffic_test               # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test               # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -85,7 +87,7 @@ def test_mac_move(
     announce_new_neighbor, apply_active_state_to_orchagent,
     conn_graph_facts, ptfadapter, ptfhost,
     rand_selected_dut, set_crm_polling_interval,
-    tbinfo, tunnel_traffic_monitor, vmhost          # noqa F811
+    tbinfo, tunnel_traffic_monitor, vmhost, skip_traffic_test          # noqa F811
 ):
     tor = rand_selected_dut
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
@@ -96,10 +98,10 @@ def test_mac_move(
     announce_new_neighbor.send(None)
     logging.info("let new neighbor learnt on active port %s", test_port)
     pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
-    tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
+    tunnel_monitor = tunnel_traffic_monitor(tor, existing=False, skip_traffic_test=skip_traffic_test)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)   # noqa F405
+        tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+        existing=True, is_mocked=is_mocked_dualtor(tbinfo), skip_traffic_test=skip_traffic_test   # noqa F405
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -109,10 +111,10 @@ def test_mac_move(
     announce_new_neighbor.send(lambda iface: set_dual_tor_state_to_orchagent(tor, "standby", [iface]))  # noqa F405
     logging.info("mac move to a standby port %s", test_port)
     pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
-    tunnel_monitor = tunnel_traffic_monitor(tor, existing=True)
+    tunnel_monitor = tunnel_traffic_monitor(tor, existing=True, skip_traffic_test=skip_traffic_test)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)  # noqa F405
+        tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+        existing=False, is_mocked=is_mocked_dualtor(tbinfo), skip_traffic_test=skip_traffic_test  # noqa F405
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -120,8 +122,8 @@ def test_mac_move(
     # standby forwarding check after fdb ageout/flush
     tor.shell("fdbclear")
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)  # noqa F405
+        tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+        existing=False, is_mocked=is_mocked_dualtor(tbinfo), skip_traffic_test=skip_traffic_test  # noqa F405
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -131,10 +133,10 @@ def test_mac_move(
     announce_new_neighbor.send(None)
     logging.info("mac move to another active port %s", test_port)
     pkt, exp_pkt = build_packet_to_server(tor, ptfadapter, NEW_NEIGHBOR_IPV4_ADDR)
-    tunnel_monitor = tunnel_traffic_monitor(tor, existing=False)
+    tunnel_monitor = tunnel_traffic_monitor(tor, existing=False, skip_traffic_test=skip_traffic_test)
     server_traffic_monitor = ServerTrafficMonitor(
-        tor, ptfhost, vmhost, tbinfo, test_port,
-        conn_graph_facts, exp_pkt, existing=True, is_mocked=is_mocked_dualtor(tbinfo)   # noqa F405
+        tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+        existing=True, is_mocked=is_mocked_dualtor(tbinfo), skip_traffic_test=skip_traffic_test   # noqa F405
     )
     with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
         testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
@@ -144,8 +146,8 @@ def test_mac_move(
     if not (tor.facts['asic_type'] == 'mellanox' or tor.facts['asic_type'] == 'cisco-8000'):
         tor.shell("fdbclear")
         server_traffic_monitor = ServerTrafficMonitor(
-            tor, ptfhost, vmhost, tbinfo, test_port,
-            conn_graph_facts, exp_pkt, existing=False, is_mocked=is_mocked_dualtor(tbinfo)  # noqa F405
+            tor, ptfhost, vmhost, tbinfo, test_port, conn_graph_facts, exp_pkt,
+            existing=False, is_mocked=is_mocked_dualtor(tbinfo), skip_traffic_test=skip_traffic_test  # noqa F405
         )
         with crm_neighbor_checker(tor), tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)

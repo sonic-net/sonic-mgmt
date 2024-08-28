@@ -93,6 +93,7 @@ qos_params:
                     ecn: 1
                     pg: 3
                     pkts_num_trig_pfc: 2561
+                    pkts_num_hysteresis: 1024
                     pkts_num_dismiss_pfc: 2
                     packet_size: 1350
                 xon_2:
@@ -100,6 +101,7 @@ qos_params:
                     ecn: 1
                     pg: 4
                     pkts_num_trig_pfc: 2561
+                    pkts_num_hysteresis: 1024
                     pkts_num_dismiss_pfc: 2
                     packet_size: 1350
                 lossless_voq_1:
@@ -226,6 +228,7 @@ qos_params:
                     ecn: 1
                     pg: 3
                     pkts_num_trig_pfc: 2562
+                    pkts_num_hysteresis: 1024
                     pkts_num_dismiss_pfc: 21
                     packet_size: 1350
                 xon_2:
@@ -233,6 +236,7 @@ qos_params:
                     ecn: 1
                     pg: 4
                     pkts_num_trig_pfc: 2562
+                    pkts_num_hysteresis: 1024
                     pkts_num_dismiss_pfc: 21
                     packet_size: 1350
                 lossless_voq_1:

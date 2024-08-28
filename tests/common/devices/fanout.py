@@ -210,3 +210,11 @@ class FanoutHost(object):
 
     def set_port_fec(self, interface_name, mode):
         self.host.set_port_fec(interface_name, mode)
+
+    def is_lldp_disabled(self):
+        """Check global LLDP status on the device
+        Returns:
+            True: if LLDP is disabled
+            False: if LLDP is enabled
+        """
+        return self.host.is_lldp_disabled()

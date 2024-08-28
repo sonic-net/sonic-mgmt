@@ -120,6 +120,7 @@ def is_route_flow_counter_supported(duthosts, tbinfo, enum_rand_one_per_hwsku_ho
     if rand_selected_dut.facts['asic_type'] == 'vs':
         # vs platform always set SAI capability to enabled, however, it does not really support all SAI atrributes.
         # Currently, vs platform does not support route flow counter.
+        logger.info('Route flow counter is not supported on vs platform')
         return False
     skip, _ = check_skip_release(rand_selected_dut, skip_versions)
     if skip:

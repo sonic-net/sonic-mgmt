@@ -11,7 +11,9 @@ from tests.common.config_reload import config_reload
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 run_icmp_responder                  # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
+# from tests.common.fixtures.ptfhost_utils import skip_traffic_test                   # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test                   # noqa F401
 
 logger = logging.getLogger(__file__)
 
@@ -34,8 +36,8 @@ def test_cleanup(rand_selected_dut):
 
 
 def test_standby_tor_upstream_mux_toggle(
-    rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,     # noqa F811
-    toggle_all_simulator_ports, set_crm_polling_interval):              # noqa F811
+    rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,                     # noqa F811
+    toggle_all_simulator_ports, set_crm_polling_interval, skip_traffic_test):           # noqa F811
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented
@@ -50,7 +52,8 @@ def test_standby_tor_upstream_mux_toggle(
                             itfs=itfs,
                             server_ip=ip['server_ipv4'].split('/')[0],
                             pkt_num=PKT_NUM,
-                            drop=True)
+                            drop=True,
+                            skip_traffic_test=skip_traffic_test)
 
     time.sleep(5)
     # Step 2. Toggle mux state to active, and verify traffic is not dropped by ACL and fwd-ed to uplinks;
@@ -65,7 +68,8 @@ def test_standby_tor_upstream_mux_toggle(
                             itfs=itfs,
                             server_ip=ip['server_ipv4'].split('/')[0],
                             pkt_num=PKT_NUM,
-                            drop=False)
+                            drop=False,
+                            skip_traffic_test=skip_traffic_test)
 
     # Step 3. Toggle mux state to standby, and verify traffic is dropped by ACL;
     # verify CRM show and no nexthop objects are stale
@@ -79,7 +83,8 @@ def test_standby_tor_upstream_mux_toggle(
                             itfs=itfs,
                             server_ip=ip['server_ipv4'].split('/')[0],
                             pkt_num=PKT_NUM,
-                            drop=True)
+                            drop=True,
+                            skip_traffic_test=skip_traffic_test)
     crm_facts1 = rand_selected_dut.get_crm_facts()
     unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
     pt_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'

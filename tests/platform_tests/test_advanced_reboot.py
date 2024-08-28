@@ -29,9 +29,28 @@ DUAL_TOR_MODE = 'dual'
 logger = logging.getLogger()
 
 
+def check_if_ssd(duthost):
+    try:
+        output = duthost.command("lsblk -d -o NAME,ROTA")
+        lines = output['stdout'].strip().split('\n')
+        for line in lines[1:]:
+            name, rota = line.split()
+            if name.startswith('sd') and int(rota) == 0:
+                return True
+        return False
+    except Exception as e:
+        logger.error(f"Error while checking SSD: {e}")
+        return False
+
+
 @pytest.fixture(scope="module", params=[SINGLE_TOR_MODE, DUAL_TOR_MODE])
-def testing_config(request, tbinfo):
+def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
     testing_mode = request.param
+    duthost = duthosts[rand_one_dut_hostname]
+    is_ssd = check_if_ssd(duthost)
+    neighbor_type = request.config.getoption("--neighbor_type")
+    if duthost.facts['platform'] == 'x86_64-arista_7050cx3_32s' and not is_ssd and neighbor_type == 'eos':
+        pytest.skip("skip advanced reboot tests on 7050 devices without SSD")
     if 'dualtor' in tbinfo['topo']['name']:
         if testing_mode == SINGLE_TOR_MODE:
             pytest.skip("skip SINGLE_TOR_MODE tests on Dual ToR testbeds")

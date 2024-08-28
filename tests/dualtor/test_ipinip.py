@@ -28,13 +28,14 @@ from tests.common.utilities import is_ipv4_address, wait_until
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ def build_expected_packet_to_server(encapsulated_packet, decrease_ttl=False):
 def test_decap_active_tor(
     build_encapsulated_packet, request, ptfhost,
     rand_selected_interface, ptfadapter,                    # noqa F401
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor):     # noqa F401
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor, skip_traffic_test):  # noqa F811
 
     @contextlib.contextmanager
     def stop_garp(ptfhost):
@@ -129,6 +130,9 @@ def test_decap_active_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
+    if skip_traffic_test is True:
+        logging.info("Skip following traffic test")
+        return
     with stop_garp(ptfhost):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
@@ -138,7 +142,7 @@ def test_decap_active_tor(
 def test_decap_standby_tor(
     build_encapsulated_packet, request,
     rand_selected_interface, ptfadapter,                    # noqa F401
-    tbinfo, rand_selected_dut, tunnel_traffic_monitor       # noqa F401
+    tbinfo, rand_selected_dut, tunnel_traffic_monitor, skip_traffic_test       # noqa F401
 ):
 
     def verify_downstream_packet_to_server(ptfadapter, port, exp_pkt):
@@ -167,6 +171,9 @@ def test_decap_standby_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
+    if skip_traffic_test is True:
+        logging.info("Skip following traffic test")
+        return
     with tunnel_traffic_monitor(tor, existing=False):
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet, count=10)
         time.sleep(2)
@@ -296,7 +303,7 @@ def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unsel
 def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface,              # noqa F811
                                    ptfadapter, tbinfo, setup_mirror_session,
                                    toggle_all_simulator_ports_to_rand_unselected_tor,       # noqa F811
-                                   tunnel_traffic_monitor,                                  # noqa F811
+                                   tunnel_traffic_monitor, skip_traffic_test,               # noqa F811
                                    setup_standby_ports_on_rand_selected_tor):               # noqa F811
     """
     A test case to verify the bounced back packet from Standby ToR to T1 doesn't have an unexpected vlan id (4095)
@@ -315,5 +322,8 @@ def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface,  
     logging.info("Sending packet from ptf t1 interface {}".format(src_port_id))
     inner_packet = pkt_to_server[scapy.all.IP].copy()
     inner_packet[IP].ttl -= 1
+    if skip_traffic_test is True:
+        logging.info("Skip following traffic test")
+        return
     with tunnel_traffic_monitor(rand_selected_dut, inner_packet=inner_packet, check_items=()):
         testutils.send(ptfadapter, src_port_id, pkt_to_server)

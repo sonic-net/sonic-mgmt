@@ -17,11 +17,10 @@ from tests.common.dualtor.nic_simulator_control import simulator_server_down_act
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 run_icmp_responder                                      # noqa: F401
 from tests.common.utilities import wait_until
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('dualtor'),
     pytest.mark.usefixtures('run_garp_service', 'run_icmp_responder')
 ]
 

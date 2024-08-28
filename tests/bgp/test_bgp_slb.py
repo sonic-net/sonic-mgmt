@@ -6,7 +6,6 @@ from tests.common.dualtor.mux_simulator_control import \
     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa F401
 from tests.common.utilities import wait_until, delete_running_config
 from tests.common.helpers.assertions import pytest_require
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [

@@ -1,4 +1,5 @@
 import pytest
+import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 
@@ -21,7 +22,13 @@ def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_al
     snmp_facts = get_snmp_facts(
         localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
-    res = duthost.shell("psuutil numpsus")
+    res = duthost.shell("psuutil numpsus", module_ignore_errors=True)
+
+    # For kvm testbed, we will get the expected return code 2 because of no chassis
+    if duthost.facts["asic_type"] == "vs" and res['rc'] == 2:
+        logging.info("Get expected return code 2 on kvm testbed.")
+        return
+
     assert int(res['rc']) == 0, "Failed to get number of PSUs"
 
     numpsus = int(res['stdout'])
@@ -39,6 +46,11 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, localhost, cred
 
     psus_on = 0
     msg = "Unexpected operstatus results {} != {} for PSU {}"
+
+    # For kvm testbed, there is no snmp psu info
+    if duthost.facts["asic_type"] == "vs":
+        logging.info("No snmp psu info on kvm testbed.")
+        return
 
     for psu_indx, operstatus in list(snmp_facts['snmp_psu'].items()):
         get_presence = duthost.shell(

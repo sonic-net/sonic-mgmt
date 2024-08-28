@@ -3,8 +3,8 @@ from tests.common.helpers.assertions import pytest_require
 
 
 @pytest.fixture(scope="function")
-def check_dut_asic_type(request, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def check_dut_asic_type(request, duthosts, rand_one_dut_front_end_hostname):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_marks = [mark for mark in request.node.iter_markers(name="asic")]
     if not asic_marks:
         return

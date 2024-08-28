@@ -22,7 +22,6 @@ from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_s
 from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [

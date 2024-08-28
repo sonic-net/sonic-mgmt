@@ -269,8 +269,8 @@ func TestGetChassisDefaultInformation(t *testing.T) {
 		t.Errorf("Chassis component part-no length validation failed! got:%v, want:%v(atmost)", len(partNo), maxLength)
 	}
 
-	if platform := testhelper.ComponentChassisPlatform(t, dut, name); platform != "BRIXIA" {
-		t.Errorf("Chassis component platform match failed! got:%v, want:BRIXIA", platform)
+	if platform := testhelper.ComponentChassisPlatform(t, dut, name); platform != "experimental" {
+		t.Errorf("Chassis component platform match failed! got:%v, want:experimental", platform)
 	}
 
 	serialNo := gnmi.Get(t, dut, componentPath.SerialNo().State())
@@ -296,9 +296,9 @@ func TestSetChassisNamePaths(t *testing.T) {
 	componentPath := gnmi.OC().Component(key)
 
 	testStrings := []string{
-		"ju09u1m1.sqs99.net.google.com",
-		"df50f001.mtv16.net.google.com",
-		"mn120ab012.xyz16.prod.google.com",
+                  "abc.s1.test.com",
+                  "def.s2.test.com",
+                  "xyz.xyz16.test.com",
 	}
 
 	for _, fqdn := range testStrings {
@@ -357,7 +357,7 @@ func TestChassisInfoPersistsAfterReboot(t *testing.T) {
 	key := "chassis"
 
 	// Configure fully-qualified-name on the chassis.
-	fqdn := "mn120ab012.xyz16.prod.google.com"
+	fqdn := "xy120ab012.xyz.test.com"
 	testhelper.ReplaceFullyQualifiedName(t, dut, key, fqdn)
 	testhelper.AwaitFullyQualifiedName(t, dut, key, 5*time.Second, fqdn)
 

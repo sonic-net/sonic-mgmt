@@ -831,7 +831,7 @@ def mux_cable_server_ip(dut):
 def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
                          standby_tor_ip, selected_port, target_server_ip,
                          target_server_ipv6, target_server_port, ptf_portchannel_indices,
-                         completeness_level, check_ipv6=False):
+                         completeness_level, check_ipv6=False, skip_traffic_test=False):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
@@ -849,7 +849,9 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
     Returns:
         None.
     """
-
+    if skip_traffic_test is True:
+        logging.info("Skip checking tunnel balance due to traffic test was skipped")
+        return
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     params = {
         "server_ip": target_server_ip,
@@ -1104,7 +1106,7 @@ def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
                     pc))
 
 
-def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num):
+def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num, skip_traffic_test=False):
     for pc, intfs in portchannel_ports.items():
         count = 0
         # Collect the packets count within a single portchannel
@@ -1113,13 +1115,16 @@ def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_pa
             count = count + port_packet_count.get(uplink_int, 0)
         logging.info("Packets received on portchannel {}: {}".format(pc, count))
 
+        if skip_traffic_test is True:
+            logging.info("Skip checking single uplink balance due to traffic test was skipped")
+            continue
         if count > 0 and count != expect_packet_num:
             pytest.fail("Packets not sent up single standby port {}".format(pc))
 
 
 # verify nexthops are only sent to single active or standby mux
 def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
-                                   tbinfo, downlink_ints):
+                                   tbinfo, downlink_ints, skip_traffic_test=False):
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     expect_packet_num = 1000
     expect_packet_num_high = expect_packet_num * (0.90)
@@ -1134,6 +1139,9 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
     port_packet_count = dict()
     packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr,
                                                        expect_packet_num)
+    if skip_traffic_test is True:
+        logging.info("Skip checking single downlink balance due to traffic test was skipped")
+        return
     for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect multi-mux nexthops to focus packets to one downlink
@@ -1155,10 +1163,11 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
     if len(downlink_ints) == 0:
         # All nexthops are now connected to standby mux, and the packets will be sent towards a single portchanel int
         # Check if uplink distribution is towards a single portchannel
-        check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num)
+        check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num, skip_traffic_test)
 
 
-def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num=100, drop=False):
+def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip,
+                            pkt_num=100, drop=False, skip_traffic_test=False):
     """
     @summary: Helper function for verifying upstream packets
     @param host: The dut host
@@ -1211,6 +1220,9 @@ def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num=1
 
     logger.info("Verifying upstream traffic. packet number = {} interface = {} \
                 server_ip = {} expect_drop = {}".format(pkt_num, itfs, server_ip, drop))
+    if skip_traffic_test is True:
+        logger.info("Skip verifying upstream traffic due to traffic test was skipped")
+        return
     for i in range(0, pkt_num):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, tx_port, pkt, count=1)

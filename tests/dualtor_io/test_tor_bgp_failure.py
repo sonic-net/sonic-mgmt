@@ -11,11 +11,12 @@ from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions        
 from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions_on_duthost
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
                                                 copy_ptftests_directory, change_mac_addresses       # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test                                   # noqa F401
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -76,7 +77,7 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
 def test_active_tor_kill_bgpd_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor, kill_bgpd):                # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, kill_bgpd, skip_traffic_test):                # noqa F811
     '''
     Case: Server -> ToR -> T1 (Active ToR BGP Down)
     Action: Shutdown all BGP sessions on the active ToR
@@ -88,7 +89,8 @@ def test_active_tor_kill_bgpd_upstream(
     '''
     send_server_to_t1_with_action(
         upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=lambda: kill_bgpd(upper_tor_host)
+        action=lambda: kill_bgpd(upper_tor_host),
+        skip_traffic_test=skip_traffic_test
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -98,7 +100,7 @@ def test_active_tor_kill_bgpd_upstream(
 
 def test_standby_tor_kill_bgpd_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    toggle_all_simulator_ports_to_upper_tor, kill_bgpd):                # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, kill_bgpd, skip_traffic_test):                # noqa F811
     '''
     Case: Server -> ToR -> T1 (Standby ToR BGP Down)
     Action: Shutdown all BGP sessions on the standby ToR
@@ -109,7 +111,8 @@ def test_standby_tor_kill_bgpd_upstream(
     '''
     send_server_to_t1_with_action(
         upper_tor_host, verify=True,
-        action=lambda: kill_bgpd(lower_tor_host)
+        action=lambda: kill_bgpd(lower_tor_host),
+        skip_traffic_test=skip_traffic_test
     )
     verify_tor_states(
         expected_active_host=upper_tor_host,
@@ -120,7 +123,7 @@ def test_standby_tor_kill_bgpd_upstream(
 def test_standby_tor_kill_bgpd_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
     toggle_all_simulator_ports_to_upper_tor, kill_bgpd,                 # noqa F811
-    tunnel_traffic_monitor):                                            # noqa F811
+    tunnel_traffic_monitor, skip_traffic_test):                         # noqa F811
     '''
     Case: T1 -> Active ToR -> Server (Standby ToR BGP Down)
     Action: Shutdown all BGP sessions on the standby ToR
@@ -131,7 +134,8 @@ def test_standby_tor_kill_bgpd_downstream_active(
     with tunnel_traffic_monitor(lower_tor_host, existing=False):
         send_t1_to_server_with_action(
             upper_tor_host, verify=True,
-            action=lambda: kill_bgpd(lower_tor_host)
+            action=lambda: kill_bgpd(lower_tor_host),
+            skip_traffic_test=skip_traffic_test
         )
     verify_tor_states(
         expected_active_host=upper_tor_host,
@@ -142,7 +146,7 @@ def test_standby_tor_kill_bgpd_downstream_active(
 def test_active_tor_kill_bgpd_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
     toggle_all_simulator_ports_to_upper_tor, kill_bgpd,                 # noqa F811
-    tunnel_traffic_monitor):                                            # noqa F811
+    tunnel_traffic_monitor, skip_traffic_test):                         # noqa F811
     '''
     Case: T1 -> Standby ToR -> Server (Active ToR BGP Down)
     Action: Shutdown all BGP sessions on the active ToR
@@ -153,7 +157,8 @@ def test_active_tor_kill_bgpd_downstream_standby(
     '''
     send_t1_to_server_with_action(
         lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-        action=lambda: kill_bgpd(upper_tor_host)
+        action=lambda: kill_bgpd(upper_tor_host),
+        skip_traffic_test=skip_traffic_test
     )
     verify_tor_states(
         expected_active_host=lower_tor_host,
@@ -165,7 +170,7 @@ def test_active_tor_kill_bgpd_downstream_standby(
 def test_active_tor_shutdown_bgp_sessions_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
     toggle_all_simulator_ports_to_upper_tor,                            # noqa F811
-    shutdown_bgp_sessions, cable_type                                   # noqa F811
+    shutdown_bgp_sessions, cable_type, skip_traffic_test                # noqa F811
 ):
     """
     Case: Server -> ToR -> T1 (Active ToR BGP Down)
@@ -179,13 +184,15 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=lambda: shutdown_bgp_sessions(upper_tor_host)
+            action=lambda: shutdown_bgp_sessions(upper_tor_host),
+            skip_traffic_test=skip_traffic_test
         )
 
     if cable_type == CableType.active_active:
         send_server_to_t1_with_action(
             upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-            action=lambda: shutdown_bgp_sessions(upper_tor_host)
+            action=lambda: shutdown_bgp_sessions(upper_tor_host),
+            skip_traffic_test=skip_traffic_test
         )
 
     if cable_type == CableType.active_active:

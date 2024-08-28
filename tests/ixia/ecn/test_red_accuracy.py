@@ -12,6 +12,7 @@ from tests.common.cisco_data import get_markings_dut, setup_markings_dut
 
 pytestmark = [pytest.mark.topology('tgen')]
 
+
 def test_red_accuracy(request, ixia_api, ixia_testbed_config, conn_graph_facts,             # noqa F811
                       fanout_graph_facts, duthosts, localhost,                              # noqa F811
                       rand_one_dut_hostname, rand_one_dut_portname_oper_up,

@@ -13,7 +13,6 @@ from bgp_helpers import CONSTANTS_FILE, BGPSENTINEL_CONFIG_FILE
 from bgp_helpers import BGP_SENTINEL_PORT_V4, BGP_SENTINEL_NAME_V4
 from bgp_helpers import BGP_SENTINEL_PORT_V6, BGP_SENTINEL_NAME_V6
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -395,9 +394,27 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
             announce_route(ptfip, lo_ipv6_addr, route, ptf_bp_v6, BGP_SENTINEL_PORT_V6, community)
 
     time.sleep(10)
+
+    # Check if DUT receives the routes that announced from ptf
+    for ibgp_session in ibgp_sessions:
+        if request.param == "IPv4":
+            cmd = "vtysh -c \'show bgp ipv4 neighbors {} received-routes json\'".format(ptf_bp_v4)
+        else:
+            cmd = "vtysh -c \'show bgp ipv6 neighbors {} received-routes json\'".format(ptf_bp_v6)
+        output = json.loads(duthost.shell(cmd)['stdout'])
+        logger.debug("ibgp_session: {}, neighbors: {}".format(ibgp_session, output))
+
     # Check if the routes are not announced to ebgp peers with no-export community
     # or w/o no-export, routes announced to ebgp peers
     for route in ipv4_routes + ipv6_routes:
+        # Check the status of signal routes
+        if route in ipv4_routes:
+            cmd = "vtysh -c \'show bgp ipv4 {} json\'".format(route)
+        else:
+            cmd = "vtysh -c \'show bgp ipv6 {} json\'".format(route)
+        output = json.loads(duthost.shell(cmd)['stdout'])
+        logger.debug("route: {}, status: {}".format(route, output))
+
         if 'no-export' in community:
             pytest_assert(not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
                           "Route {} should not be advertised to bgp peers".format(route))

@@ -11,6 +11,7 @@ from tests.override_config_table.utilities import backup_config, restore_config,
 from tests.syslog.syslog_utils import is_mgmt_vrf_enabled
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0'),
     pytest.mark.device_type('vs')
 ]
@@ -127,9 +128,14 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     config_db_mgmt_interface = config_db_json["MGMT_INTERFACE"]
     config_db_port = config_db_json["MGMT_PORT"]
 
-    # Skip multi-asic because override_config format are different.
+    # Skip if port does not exist
+    output = duthost.command("ip link show eth1", module_ignore_errors=True)
+    if output["failed"]:
+        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status, port does not exist")
+
+    # Skip if port is already in use
     if 'eth1' in config_db_port:
-        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status for multi-mgmt device")
+        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status, port in use")
 
     # Add eth1 to mgmt interface and port
     ipv4_forced_mgmt_address = "172.17.1.1/24"
@@ -160,7 +166,13 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
                         "/etc/network/interfaces",
                         reload_minigraph_with_golden_config,
                         duthost,
-                        override_config)
+                        override_config,
+                        False)
+
+    # for device can't config eth1, ignore this test case
+    eth1_status = duthost.command("sudo ifconfig eth1")['stdout']
+    if "Device not found" in eth1_status:
+        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status because hardware can't config eth1")
 
     # Get interface and check config generate correct
     interfaces = duthost.command("cat /etc/network/interfaces")['stdout']

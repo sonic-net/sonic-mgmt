@@ -62,19 +62,30 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    # initialize the (duthost, port) set.
+    dut_asics_to_be_configured = set()
+
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     rx_port_id_list = [rx_port["port_id"]]
-    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    egress_duthost = rx_port['duthost']
+    dut_asics_to_be_configured.add((egress_duthost, rx_port['asic_value']))
+
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+    # add ingress DUT into the set
+    dut_asics_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
+    dut_asics_to_be_configured.add((tx_port[1]['duthost'], tx_port[1]['asic_value']))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
-    stop_pfcwd(duthost1, rx_port['asic_value'])
-    disable_packet_aging(duthost1)
-    stop_pfcwd(duthost2, tx_port[0]['asic_value'])
-    disable_packet_aging(duthost2)
+
+    # Disable PFC watchdog on the rx side and tx side of the DUT
+    for duthost, asic in dut_asics_to_be_configured:
+        stop_pfcwd(duthost, asic)
+        disable_packet_aging(duthost)
 
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT)
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT)
@@ -112,7 +123,7 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
                 },
            }
     """ Run traffic """
-    flow_stats, switch_flow_stats, _ = run_traffic(duthost=duthost1,
+    flow_stats, switch_flow_stats, _ = run_traffic(duthost=egress_duthost,
                                                    api=api,
                                                    config=testbed_config,
                                                    data_flow_names=data_flow_names,

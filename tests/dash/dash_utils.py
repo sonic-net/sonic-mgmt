@@ -5,7 +5,6 @@ from time import sleep
 from jinja2 import Template
 
 from constants import TEMPLATE_DIR
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 

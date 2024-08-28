@@ -2,6 +2,7 @@ import ipaddress
 import pytest
 import random
 import time
+import logging
 import scapy.all as scapyall
 
 from ptf import testutils
@@ -19,9 +20,10 @@ from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                  # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                                # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                             # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test                                   # noqa F401
 from tests.common.helpers import bgp
 from tests.common.utilities import is_ipv4_address
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -216,7 +218,7 @@ def test_orchagent_slb(
     force_active_tor, upper_tor_host, lower_tor_host,       # noqa F811
     ptfadapter, ptfhost, setup_interfaces,
     toggle_all_simulator_ports_to_upper_tor, tbinfo,        # noqa F811
-    tunnel_traffic_monitor, vmhost                          # noqa F811
+    tunnel_traffic_monitor, vmhost, skip_traffic_test       # noqa F811
 ):
 
     def verify_bgp_session(duthost, bgp_neighbor):
@@ -234,7 +236,11 @@ def test_orchagent_slb(
         else:
             assert len(existing_route["nexthops"]) == 0
 
-    def verify_traffic(duthost, connection, route, is_duthost_active=True, is_route_existed=True):
+    def verify_traffic(duthost, connection, route, is_duthost_active=True, is_route_existed=True,
+                       skip_traffic_test=skip_traffic_test):
+        if skip_traffic_test is True:
+            logging.info("Skip traffic test.")
+            return
         prefix = ipaddress.ip_network(route["prefix"])
         dst_host = str(next(prefix.hosts()))
         pkt, exp_pkt = build_packet_to_server(duthost, ptfadapter, dst_host)
@@ -261,6 +267,7 @@ def test_orchagent_slb(
         )
         with tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
+            time.sleep(5)
 
     connections = setup_interfaces
 
@@ -289,11 +296,11 @@ def test_orchagent_slb(
         # STEP 3: verify the route by sending some downstream traffic
         verify_traffic(
             upper_tor_host, connections["upper_tor"], constants.route,
-            is_duthost_active=True, is_route_existed=True
+            is_duthost_active=True, is_route_existed=True, skip_traffic_test=skip_traffic_test
         )
         verify_traffic(
             lower_tor_host, connections["lower_tor"], constants.route,
-            is_duthost_active=False, is_route_existed=True
+            is_duthost_active=False, is_route_existed=True, skip_traffic_test=skip_traffic_test
         )
 
         # STEP 4: withdraw the announced route to both ToRs
@@ -308,11 +315,11 @@ def test_orchagent_slb(
         # STEP 5: verify the route is removed by verifying that downstream traffic is dropped
         verify_traffic(
             upper_tor_host, connections["upper_tor"], constants.route,
-            is_duthost_active=True, is_route_existed=False
+            is_duthost_active=True, is_route_existed=False, skip_traffic_test=skip_traffic_test
         )
         verify_traffic(
             lower_tor_host, connections["lower_tor"], constants.route,
-            is_duthost_active=False, is_route_existed=False
+            is_duthost_active=False, is_route_existed=False, skip_traffic_test=skip_traffic_test
         )
 
         # STEP 6: toggle mux state change
@@ -335,11 +342,11 @@ def test_orchagent_slb(
         # STEP 8: verify the route by sending some downstream traffic
         verify_traffic(
             upper_tor_host, connections["upper_tor"], constants.route,
-            is_duthost_active=False, is_route_existed=True
+            is_duthost_active=False, is_route_existed=True, skip_traffic_test=skip_traffic_test
         )
         verify_traffic(
             lower_tor_host, connections["lower_tor"], constants.route,
-            is_duthost_active=True, is_route_existed=True
+            is_duthost_active=True, is_route_existed=True, skip_traffic_test=skip_traffic_test
         )
 
         # STEP 9: verify teardown

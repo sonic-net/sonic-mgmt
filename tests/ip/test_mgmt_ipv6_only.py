@@ -62,6 +62,28 @@ def log_eth0_interface_info(duthosts):
         logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}] after fixture")
 
 
+def log_tacacs(duthosts, ptfhost):
+    for duthost in duthosts:
+        # Print debug info for ipv6 pingability
+        ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
+        if 'ansible_hostv6' in ptfhost_vars:
+            tacacs_server_ip = ptfhost_vars['ansible_hostv6']
+            ping_result = duthost.shell(f"ping {tacacs_server_ip} -c 1 -W 3", module_ignore_errors=True)["stdout"]
+            logging.debug(f"Checking ping_result [{ping_result}]")
+
+        # Print debug info for mgmt interfaces and forced mgmt routes
+        mgmt_interface_keys = duthost.command("sonic-db-cli CONFIG_DB keys 'MGMT_INTERFACE|*'")['stdout']
+        logging.debug(f"mgmt_interface_keys: {mgmt_interface_keys}")
+        for intf_key in mgmt_interface_keys.split('\n'):
+            logging.debug(f"interface key: {intf_key}")
+            intf_values = intf_key.split('|')
+            if len(intf_values) != 3:
+                logging.debug(f"Unexpected interface key: {intf_key}")
+                continue
+            forced_mgmt_rte = duthost.command(f"sonic-db-cli CONFIG_DB HGET '{intf_key}' forced_mgmt_routes@")['stdout']
+            logging.debug(f"forced_mgmt_routes: {forced_mgmt_rte}, interface address: {intf_values[2]}")
+
+
 def test_bgp_facts_ipv6_only(duthosts, enum_frontend_dut_hostname, enum_asic_index,
                              convert_and_restore_config_db_to_ipv6_only): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
@@ -134,6 +156,7 @@ def test_ro_user_ipv6_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku
     log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
+    log_tacacs(duthosts, ptfhost)
 
     res = ssh_remote_run_retry(localhost, dutipv6, ptfhost, tacacs_creds['tacacs_ro_user'],
                                tacacs_creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
@@ -148,6 +171,7 @@ def test_rw_user_ipv6_only(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku
     log_eth0_interface_info(duthosts)
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
+    log_tacacs(duthosts, ptfhost)
 
     res = ssh_remote_run_retry(localhost, dutipv6, ptfhost, tacacs_creds['tacacs_rw_user'],
                                tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")

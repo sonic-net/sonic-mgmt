@@ -147,7 +147,31 @@ def test_ser(duthosts, rand_one_dut_hostname, enum_asic_index):
     else:
         logger.info('Test complete failed with timeout')
 
+    pattern_asic = re.compile(r'SER test on ASIC :(.*)')
+    match_asic = pattern_asic.search(get_log_cmd_stdout)
+    result_asic = match_asic.group(0) if match_asic else None
+
+    pattern_failed = re.compile(r'SER Test failed for memories (.*)')
+    match_failed_memories = pattern_failed.search(get_log_cmd_stdout)
+    result_failed_memories = match_failed_memories.group(0) if match_failed_memories else None
+
+    pattern_timeout = re.compile(r'SER Test timed out for memories (.*)')
+    match_timed_out_memories = pattern_timeout.search(get_log_cmd_stdout)
+    result_timed_out_memories = match_timed_out_memories.group(0) if match_timed_out_memories else None
+    logger.info('result_asic {}; \n'
+                'result_failed_memories {}; \n'
+                'result_timed_out_memories {}'.format(
+                    result_asic, result_failed_memories, result_timed_out_memories)
+                )
+
     logger.debug("test ser script output: \n {}".format(get_log_cmd_response['stdout_lines']))
     time.sleep(5)
     assert not_timeout, 'ser_injector scirpt timeout'
-    assert False, 'ser_injector scirpt failed '
+    assert False, (
+        'ser_injector script failed; \n'
+        'result_asic {}; \n'
+        'result_failed_memories {}; \n'
+        'result_timed_out_memories {}'.format(
+            result_asic, result_failed_memories, result_timed_out_memories
+        )
+    )
