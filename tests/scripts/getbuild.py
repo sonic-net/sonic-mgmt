@@ -94,13 +94,19 @@ def get_download_url(buildid, artifact_name, url_prefix, access_token, token):
 
 
 def get_download_url_for_tagged_latest(branch):
-    # retrun download URL for tagged latest for sonic-metadata pipelines
+    # Return download URL for tagged latest for sonic-metadata pipelines
+    base_url = 'https://sonic.packages.trafficmanager.net/pipelines/' \
+               'Networking-acs-buildimage-Official/vs/'
+    tagged_path = 'tagged/latest/target/'
+
     if branch == 'internal-202305':
-        dl_url = 'https://sonic.packages.trafficmanager.net/pipelines/Networking-acs-buildimage-Official/vs/internal-202305/tagged/latest/target/'
+        dl_url = f'{base_url}internal-202305/{tagged_path}'
     elif branch == 'internal-202311':
-        dl_url = 'https://sonic.packages.trafficmanager.net/pipelines/Networking-acs-buildimage-Official/vs/internal-202311/tagged/latest/target/'
+        dl_url = f'{base_url}internal-202311/{tagged_path}'
     elif branch == 'internal-202405':
-        dl_url = 'https://sonic.packages.trafficmanager.net/pipelines/Networking-acs-buildimage-Official/vs/internal-202405/tagged/latest/target/'
+        dl_url = f'{base_url}internal-202405/{tagged_path}'
+    else:
+        raise ValueError(f"Unknown branch: {branch}")
 
     return dl_url
 
@@ -219,7 +225,7 @@ def main():
     if args.source_repo == "sonic-metadata":
         dl_url = get_download_url_for_tagged_latest(args.branch)
         download_artifacts(dl_url, args.content, args.platform,
-                       -1, args.num_asic, access_token=args.access_token, token=args.token)
+                           -1, args.num_asic, access_token=args.access_token, token=args.token)
         return
 
     if args.buildid is None:
