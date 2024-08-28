@@ -27,7 +27,7 @@ from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa: F401
 from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions            # noqa: F401
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, wait
 
 
 pytestmark = [
@@ -368,7 +368,7 @@ def test_downstream_standby_mux_toggle_active(
     logger.info("Step 1.1: Add route to a nexthop which is a standby Neighbor")
     set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
     add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthops=[target_server])
-    time.sleep(30)
+    wait(60, 'wait for config push/mux state change on mocked dualtor')
     logger.info("Step 1.2: Verify traffic to this route dst is forwarded to Active ToR and equally distributed")
     check_tunnel_balance(**test_params)
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=False,
@@ -377,7 +377,7 @@ def test_downstream_standby_mux_toggle_active(
     logger.info("Stage 2: Verify Active Forwarding")
     logger.info("Step 2.1: Simulate Mux state change to active")
     set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
-    time.sleep(30)
+    wait(60, 'wait for config push/mux state change on mocked dualtor')
     logger.info("Step 2.2: Verify traffic to this route dst is forwarded directly to server")
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=True,
                                       expect_tunnel_traffic=False, skip_traffic_test=skip_traffic_test)
@@ -385,7 +385,7 @@ def test_downstream_standby_mux_toggle_active(
     logger.info("Stage 3: Verify Standby Forwarding Again")
     logger.info("Step 3.1: Simulate Mux state change to standby")
     set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
-    time.sleep(30)
+    wait(60, 'wait for config push/mux state change on mocked dualtor')
     logger.info("Step 3.2: Verify traffic to this route dst \
                 is now redirected back to Active ToR and equally distributed")
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=False,

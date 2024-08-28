@@ -24,7 +24,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa F401
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa F401
 from tests.common.helpers.assertions import pytest_require
-from tests.common.utilities import is_ipv4_address, wait_until
+from tests.common.utilities import is_ipv4_address, wait_until, wait
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
@@ -117,7 +117,7 @@ def test_decap_active_tor(
 
     if is_t0_mocked_dualtor(tbinfo):        # noqa F405
         request.getfixturevalue('apply_active_state_to_orchagent')
-        time.sleep(30)
+        wait(60, 'wait for config push/mux state change on mocked dualtor')
     else:
         request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
 
