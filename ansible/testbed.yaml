@@ -1287,8 +1287,8 @@
   topo: t2
   ptf_image_name: docker-ptf
   ptf: svc5-1
-  ptf_ip: 10.206.144.253/24
-  ptf_ipv6: 2a01:111:e205:100::ace:90fd/64
+  ptf_ip: 10.206.144.80/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9050/64
   server: server_svc_5
   vm_base: VM50000
   dut:
@@ -1306,8 +1306,8 @@
   topo: t2
   ptf_image_name: docker-ptf
   ptf: svc5-1
-  ptf_ip: 10.206.144.253/24
-  ptf_ipv6: 2a01:111:e205:100::ace:90fd/64
+  ptf_ip: 10.206.144.80/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9050/64
   server: server_svc_5
   vm_base: VM50000
   dut:
