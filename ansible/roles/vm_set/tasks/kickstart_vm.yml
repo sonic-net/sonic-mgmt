@@ -17,14 +17,14 @@
 - block:
   - name: Wait until vm {{ vm_name }} is loaded
     kickstart: telnet_port={{ serial_port }}
-              login={{ eos_default_login }}
-              password={{ eos_default_password }}
-              hostname={{ hostname }}
+              login="{{ eos_default_login }}"
+              password="{{ eos_default_password }}"
+              hostname="{{ hostname }}"
               mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
-              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
-              new_login={{ eos_login }}
-              new_password={{ eos_password }}
-              new_root_password={{ eos_root_password }}
+              mgmt_gw="{{ vm_mgmt_gw | default(mgmt_gw) }}"
+              new_login="{{ eos_login }}"
+              new_password="{{ eos_password }}"
+              new_root_password="{{ eos_root_password }}"
     register: kickstart_output
     until: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code == 0'
     retries: 5
@@ -135,7 +135,7 @@
   - name: Respin vm {{ vm_name }}
     include_tasks: respin_cisco_vm.yml
     vars:
-      src_disk_image: "{{ root_path }}/images/{{ cisco_image_filename }}"
+      src_disk_image: "{{ root_path }}/images/{{ vcisco_image_filename }}"
       disk_image: "{{ root_path }}/disks/{{ vm_name }}.img"
     when: vm_name in respin_vms
 
@@ -167,7 +167,7 @@
     - name: Respin failed vm {{ vm_name }}
       include_tasks: respin_cisco_vm.yml
       vars:
-        src_disk_image: "{{ root_path }}/images/{{ cisco_image_filename }}"
+        src_disk_image: "{{ root_path }}/images/{{ vcisco_image_filename }}"
         disk_image: "{{ root_path }}/disks/{{ vm_name }}.img"
 
     - name: Check failed cisco {{ vm_name }} reachablity
