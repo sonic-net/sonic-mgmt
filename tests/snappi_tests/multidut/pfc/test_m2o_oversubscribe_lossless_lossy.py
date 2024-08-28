@@ -1,6 +1,6 @@
 import pytest
 import logging
-from tests.common.helpers.assertions import pytest_assert   
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts_multidut                                                                          # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -10,8 +10,8 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossless_lossy_helper import (
      run_pfc_m2o_oversubscribe_lossless_lossy_test
-    )
-from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+    )                                                             # noqa: F401
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams            # noqa: F401
 from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict        # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
