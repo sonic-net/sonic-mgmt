@@ -189,7 +189,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     assert result and "Retry later" in out['stdout']
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
-
+    # Wait untill all critical processes come up so that it doesnt interfere with swss stop job
+    wait_critical_processes(duthost)
     logging.info("Stopping swss docker and checking config reload")
     if duthost.is_multi_asic:
         for asic in duthost.asics:
