@@ -1140,12 +1140,15 @@ def get_queue_count_all_prio(duthost, port):
     Returns:
         queue_dict (dict): key-value with key=dut+port+prio and value=queue count
     """
-    queue_dict = {}
-    # Capturing queue counts for all priorities.
+    # Initializing nested dictionary queue_dict
+    queue_dict = defaultdict(dict)
+    queue_dict[duthost.hostname][port] = {}
+
+    # Preparing the dictionary for all 7 priority queues.
     for priority in range(7):
-        dut_key = (duthost.hostname+'_'+port+'_prio_'+str(priority)).lower()
         total_pkts, _ = get_egress_queue_count(duthost, port, priority)
-        queue_dict.update({dut_key: total_pkts})
+        queue_dict[duthost.hostname][port]['prio_' + str(priority)] = total_pkts
+
     return queue_dict
 
 
