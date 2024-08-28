@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 import glob
 import json
@@ -5,6 +6,7 @@ import logging
 import getpass
 import random
 import re
+from concurrent.futures import as_completed
 
 import pytest
 import yaml
@@ -51,6 +53,8 @@ from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.helpers.sonic_db import AsicDbCli
+from tests.common.helpers.inventory_utils import trim_inventory
 
 try:
     from tests.macsec import MacsecPluginT2, MacsecPluginT0
@@ -83,7 +87,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.platform_tests.api',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark',
-                  'tests.common.plugins.random_seed')
+                  'tests.common.plugins.random_seed',
+                  'tests.common.plugins.memory_utilization')
 
 
 def pytest_addoption(parser):
@@ -199,6 +204,11 @@ def pytest_addoption(parser):
     parser.addoption("--public_docker_registry", action="store_true", default=False,
                      help="To use public docker registry for syncd swap, by default is disabled (False)")
 
+    ##############################
+    #   ansible inventory option #
+    ##############################
+    parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -210,7 +220,7 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def enhance_inventory(request):
+def enhance_inventory(request, tbinfo):
     """
     This fixture is to enhance the capability of parsing the value of pytest cli argument '--inventory'.
     The pytest-ansible plugin always assumes that the value of cli argument '--inventory' is a single
@@ -227,7 +237,12 @@ def enhance_inventory(request):
     if isinstance(inv_opt, list):
         return
     inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
+
+    if request.config.getoption("trim_inv"):
+        trim_inventory(inv_files, tbinfo)
+
     try:
+        logger.info(f"Inventory file: {inv_files}")
         setattr(request.config.option, "ansible_inventory", inv_files)
     except AttributeError:
         logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
@@ -437,6 +452,17 @@ def rand_one_dut_front_end_hostname(request):
 
 
 @pytest.fixture(scope="module")
+def rand_one_tgen_dut_hostname(request, tbinfo, rand_one_dut_front_end_hostname, rand_one_dut_hostname):
+    """
+    Return the randomly selected duthost for TGEN test cases
+    """
+    # For T2, we need to skip supervisor, only use linecards.
+    if 't2' in tbinfo['topo']['name']:
+        return rand_one_dut_front_end_hostname
+    return rand_one_dut_hostname
+
+
+@pytest.fixture(scope="module")
 def rand_selected_front_end_dut(duthosts, rand_one_dut_front_end_hostname):
     """
     Return the randomly selected duthost
@@ -503,6 +529,8 @@ def localhost(ansible_adhoc):
 
 @pytest.fixture(scope="session")
 def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
+    if 'point-to-point' in tbinfo['topo']['name']:
+        return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
@@ -553,7 +581,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
-
+    logger.info("Fixture nbrhosts started")
     devices = {}
     if (not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or 'ptf' in tbinfo['topo']['name']:
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
@@ -567,8 +595,8 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
 
-    for k, v in list(tbinfo['topo']['properties']['topology']['VMs'].items()):
-        vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
+    def initial_neighbor(neighbor_name, vm_name):
+        logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
         if neighbor_type == "eos":
             device = NeighborDevice(
                 {
@@ -580,7 +608,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
                         shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
         elif neighbor_type == "sonic":
@@ -592,7 +620,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
                         ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
         elif neighbor_type == "cisco":
@@ -604,12 +632,25 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         creds['cisco_login'],
                         creds['cisco_password'],
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
         else:
-            raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
-        devices[k] = device
+            raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
+        devices[neighbor_name] = device
+        logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+    futures = []
+    for neighbor_name, neighbor in list(tbinfo['topo']['properties']['topology']['VMs'].items()):
+        vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
+        futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
+
+    for future in as_completed(futures):
+        # if exception caught in the sub-thread, .result() will raise it in the main thread
+        _ = future.result()
+    executor.shutdown(wait=True)
+    logger.info("Fixture nbrhosts finished")
     return devices
 
 
@@ -705,6 +746,8 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
 
 @pytest.fixture(scope="session")
 def vmhost(enhance_inventory, ansible_adhoc, request, tbinfo):
+    if 'point-to-point' in tbinfo['topo']['name']:
+        return None
     server = tbinfo["server"]
     inv_files = get_inventory_files(request)
     vmhost = get_test_server_host(inv_files, server)
@@ -786,6 +829,10 @@ def creds_on_dut(duthost):
     creds["console_password"] = {}
 
     creds["ansible_altpasswords"] = []
+
+    # If ansible_altpasswords is empty, add ansible_altpassword to it
+    if len(creds["ansible_altpasswords"]) == 0:
+        creds["ansible_altpasswords"].append(hostvars["ansible_altpassword"])
 
     passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
     creds['sonicadmin_password'] = get_dut_current_passwd(
@@ -2317,6 +2364,7 @@ def on_exit():
     Utility to register callbacks for cleanup. Runs callbacks despite assertion
     failures. Callbacks are executed in reverse order of registration.
     '''
+
     class OnExit():
         def __init__(self):
             self.cbs = []
@@ -2341,6 +2389,27 @@ def add_mgmt_test_mark(duthosts):
     '''
     mark_file = "/etc/sonic/mgmt_test_mark"
     duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def asic_db_dut(request, duthosts, enum_frontend_dut_hostname):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asic_db = AsicDbCli(duthost)
+    yield asic_db
+
+
+@pytest.fixture(scope="module")
+def asic_db_dut_rand(request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    asic_db = AsicDbCli(duthost)
+    yield asic_db
+
+
+@pytest.fixture(scope="module")
+def asic_db_dut_supervisor(request, duthosts, enum_supervisor_dut_hostname):
+    duthost = duthosts[enum_supervisor_dut_hostname]
+    asic_db = AsicDbCli(duthost)
+    yield asic_db
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):

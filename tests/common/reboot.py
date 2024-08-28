@@ -340,6 +340,14 @@ def get_reboot_cause(dut):
     output = dut.shell('show reboot-cause')
     cause = output['stdout']
 
+    # For kvm testbed, the expected output of command `show reboot-cause`
+    # is such like "User issued 'xxx' command [User: admin, Time: Sun Aug  4 06:43:19 PM UTC 2024]"
+    # So, use the above pattern to get real reboot cause
+    if dut.facts["asic_type"] == "vs":
+        match = re.search("User issued '(.*)' command", cause)
+        if match:
+            cause = match.groups()[0]
+
     for type, ctrl in list(reboot_ctrl_dict.items()):
         if re.search(ctrl['cause'], cause):
             return type
@@ -353,11 +361,6 @@ def check_reboot_cause(dut, reboot_cause_expected):
     @param dut: The AnsibleHost object of DUT.
     @param reboot_cause_expected: The expected reboot cause.
     """
-    # For kvm testbed, command `show reboot-cause` will return Unknown.
-    # So, overwrite the reboot_cause_expected as `Unknown`
-    if dut.facts["asic_type"] == "vs":
-        reboot_cause_expected = "Unknown"
-
     reboot_cause_got = get_reboot_cause(dut)
     logger.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
     return reboot_cause_got == reboot_cause_expected

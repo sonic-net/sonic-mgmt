@@ -22,6 +22,8 @@ from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_U
     test_acl_egress_drop  # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -43,6 +45,18 @@ LOG_EXPECT_PORT_ADMIN_UP_RE = ".*Port {} oper state set from down to up.*"
 
 COMBINED_L2L3_DROP_COUNTER = False
 COMBINED_ACL_DROP_COUNTER = False
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*ERR kernel.*Reset adapter.*",
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -116,8 +130,9 @@ def handle_backend_acl(duthost, tbinfo):
         duthost.shell('systemctl restart backend-acl')
 
 
-def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,   # noqa F811
-                      tx_dut_ports=None, skip_counter_check=False, drop_information=None):  # noqa F811
+def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,     # noqa F811
+                      tx_dut_ports=None, skip_counter_check=False, drop_information=None,   # noqa F811
+                      skip_traffic_test=False):  # noqa F811
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -136,6 +151,9 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
     # Some test cases will not increase the drop counter consistently on certain platforms
     if skip_counter_check:
         logger.info("Skipping counter check")
+        return None
+    if skip_traffic_test is True:
+        logger.info("Skipping traffic test")
         return None
 
     if discard_group == "L2":
@@ -269,7 +287,8 @@ def check_if_skip():
 @pytest.fixture(scope='module')
 def do_test(duthosts):
     def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None,    # noqa F811
-                         comparable_pkt=None, skip_counter_check=False, drop_information=None, ip_ver='ipv4'):
+                         comparable_pkt=None, skip_counter_check=False, drop_information=None, ip_ver='ipv4',
+                         skip_traffic_test=False):      # noqa F811
         """
         Execute test - send packet, check that expected discard counters were incremented and packet was dropped
         @param discard_group: Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
@@ -283,18 +302,22 @@ def do_test(duthosts):
         check_if_skip()
         asic_index = ports_info["asic_index"]
         base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports,
-                          skip_counter_check=skip_counter_check, drop_information=drop_information)
+                          skip_counter_check=skip_counter_check, drop_information=drop_information,
+                          skip_traffic_test=skip_traffic_test)
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
             exp_pkt = expected_packet_mask(pkt, ip_ver=ip_ver)
+            if skip_traffic_test is True:
+                logger.info("Skipping traffic test")
+                return
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=sniff_ports)
 
     return do_counters_test
 
 
 def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                            setup, fanouthost, pkt_fields, ports_info):  # noqa F811
+                            setup, fanouthost, pkt_fields, ports_info, skip_traffic_test):  # noqa F811
     """
     @summary: Verify that packet with reserved DMAC is dropped and L2 drop counter incremented
     @used_mac_address:
@@ -328,10 +351,12 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
         )
 
         group = "L2"
-        do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+        do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+                skip_traffic_test=skip_traffic_test)
 
 
-def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, rif_port_down, ports_info):  # noqa F811
+def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports,                      # noqa F811
+                                     pkt_fields, rif_port_down, ports_info, skip_traffic_test):     # noqa F811
     """
     @summary: Verify that packets on ingress port are not dropped
               when egress RIF link is down and check that drop counters not incremented
@@ -349,11 +374,12 @@ def test_no_egress_drop_on_down_link(do_test, ptfadapter, setup, tx_dut_ports, p
         tcp_dport=pkt_fields["tcp_dport"]
         )
 
-    do_test("NO_DROPS", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    do_test("NO_DROPS", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+            tx_dut_ports, skip_traffic_test=skip_traffic_test)
 
 
 def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           setup, tx_dut_ports, pkt_fields, ports_info):  # noqa F811
+                           setup, tx_dut_ports, pkt_fields, ports_info, skip_traffic_test):  # noqa F811
     """
     @summary: Verify that packet with link-local address "169.254.0.0/16" is dropped and L3 drop counter incremented
     """
@@ -376,10 +402,12 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsk
     pkt = testutils.simple_tcp_packet(**pkt_params)
 
     logger.info(pkt_params)
-    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+            tx_dut_ports, skip_traffic_test=skip_traffic_test)
 
 
-def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, mtu_config, ports_info):  # noqa F811
+def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,                 # noqa F811
+                                  pkt_fields, mtu_config, ports_info, skip_traffic_test):   # noqa F811
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """
@@ -409,6 +437,7 @@ def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports, pkt_
     )
     L2_COL_KEY = RX_ERR
     try:
-        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+                skip_traffic_test=skip_traffic_test)
     finally:
         L2_COL_KEY = RX_DRP

@@ -6,8 +6,7 @@ import logging
 import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
-import time
-from tests.common.utilities import capture_and_check_packet_on_dut
+from tests.common.utilities import capture_and_check_packet_on_dut, wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 
@@ -75,7 +74,20 @@ def clean_dhcp_server_config(duthost):
 
 
 def verify_lease(duthost, dhcp_interface, client_mac, exp_ip, exp_lease_time):
-    time.sleep(5)  # wait for dhcp server to update lease info
+    pytest_assert(
+        wait_until(
+            11,  # it's by design that there is a latency around 0~11 seconds for updating state db
+            1,
+            3,
+            lambda _dh, _di, _cm: len(_dh.shell(
+                    "sonic-db-cli STATE_DB KEYS 'DHCP_SERVER_IPV4_LEASE|{}|{}'".format(_di, _cm)
+                )['stdout']) > 0,
+            duthost,
+            dhcp_interface,
+            client_mac
+        ),
+        'state db doesnt have lease info for client {}'.format(client_mac)
+    )
     lease_start = duthost.shell("sonic-db-cli STATE_DB HGET 'DHCP_SERVER_IPV4_LEASE|{}|{}' '{}'"
                                 .format(dhcp_interface, client_mac, STATE_DB_KEY_LEASE_START))['stdout']
     lease_end = duthost.shell("sonic-db-cli STATE_DB HGET 'DHCP_SERVER_IPV4_LEASE|{}|{}' '{}'"
@@ -451,11 +463,22 @@ def verify_discover_and_request_then_release(
     )
     if expected_assigned_ip and release_needed:
         verify_lease(duthost, dhcp_interface, client_mac, expected_assigned_ip, exp_lease_time)
-        release_pkt = create_dhcp_client_packet(
-            src_mac=client_mac,
-            message_type=DHCP_MESSAGE_TYPE_RELEASE_NUM,
-            client_options=[("server_id", exp_gateway)],
-            xid=test_xid,
-            ciaddr=expected_assigned_ip
-        )
-        testutils.send_packet(ptfadapter, ptf_port_index, release_pkt)
+        send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, server_id)
+
+
+def send_release_packet(
+    ptfadapter,
+    ptf_port_index,
+    xid,
+    client_mac,
+    ip_assigned,
+    server_id
+):
+    release_pkt = create_dhcp_client_packet(
+        src_mac=client_mac,
+        message_type=DHCP_MESSAGE_TYPE_RELEASE_NUM,
+        client_options=[("server_id", server_id)],
+        xid=xid,
+        ciaddr=ip_assigned
+    )
+    testutils.send_packet(ptfadapter, ptf_port_index, release_pkt)
