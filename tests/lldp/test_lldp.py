@@ -70,7 +70,7 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
 
     res = duthost.shell(
         "docker exec -i lldp{} lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'".format(
-            asic))
+            '' if asic is None else asic))
     dut_system_description = res['stdout']
     internal_port_list = get_dpu_npu_ports_from_hwsku(duthost)
     lldpctl_facts = duthost.lldpctl_facts(
