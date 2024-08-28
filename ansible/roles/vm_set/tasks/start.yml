@@ -20,68 +20,231 @@
 - block:
 
     - name: Check hdd image
-      stat: path={{ root_path }}/images/{{ hdd_image_filename }}
-      register: hdd_stat
+      stat: path={{ root_path }}/images/{{ veos_hdd_image_filename }}
+      register: veos_hdd_image_file_stat
 
-    - name: Fail if there are no hdd image and skip image downloading is active
-      fail: msg="Please put {{ hdd_image_filename }} to {{ root_path }}/images"
-      when: not hdd_stat.stat.exists and skip_image_downloading
+    - name: Download veos hdd image if no local file exists
+      block:
 
-    - name: Download hdd image
-      get_url: url="{{ vm_images_url }}/{{ hdd_image_filename }}?{{ vmimage_saskey }}" dest="{{ root_path }}/images/{{ hdd_image_filename }}"
-      environment: "{{ proxy_env | default({}) }}"
-      when: not hdd_stat.stat.exists and not skip_image_downloading
+      - name: Fail if skip_veos_image_downloading is true
+        fail:
+          msg: "Failed, no local veos hdd image and skip_veos_image_downloading is true"
+        when: skip_veos_image_downloading
+
+      - name: Init veos_hdd_image_urls when veos_hdd_image_url value type is string
+        set_fact:
+          veos_hdd_image_urls:
+            - "{{ veos_hdd_image_url }}"
+        when: veos_hdd_image_url | type_debug == 'string'
+
+      - name: Init veos_hdd_image_urls when veos_hdd_image_url value type is list
+        set_fact:
+          veos_hdd_image_urls: "{{ veos_hdd_image_url }}"
+        when: veos_hdd_image_url | type_debug == 'list'
+
+      - name: Init working_image_urls list
+        set_fact:
+          working_image_urls: []
+
+      - name: Loop veos_hdd_image_urls to find out working URLs
+        include_tasks: probe_image_url.yml
+        loop: "{{ veos_hdd_image_urls }}"
+
+      - name: Fail if no working veos hdd image download url is found
+        fail:
+          msg: [
+            "Failed, no working veos hdd image download URL is found. There are 2 options to fix it:",
+            "  1. Fix veos_hdd_image_url defined in ansible/group_vars/vm_host/veos.yml",
+            "  2. Manually put veos hdd image to {{ root_path }}/images/{{ veos_hdd_image_filename }}",
+          ]
+        when: working_image_urls | length == 0
+
+      - name: Download veos hdd image from the first URL in working_image_urls
+        get_url:
+          url: "{{ working_image_urls[0] }}"
+          dest: "{{ root_path }}/images/{{ veos_hdd_image_filename }}"
+        environment: "{{ proxy_env | default({}) }}"
+
+      when: not veos_hdd_image_file_stat.stat.exists
 
     - name: Check cd image
-      stat: path={{ root_path }}/images/{{ cd_image_filename }}
-      register: cd_stat
+      stat: path={{ root_path }}/images/{{ veos_cd_image_filename }}
+      register: veos_cd_image_file_stat
 
-    - name: Fail if there are no cd image and skip image downloading is active
-      fail: msg="Please put {{ cd_image_filename }} to {{ root_path }}/images"
-      when: not cd_stat.stat.exists and skip_image_downloading
+    - name: Download veos cd image if no local file exists
+      block:
 
-    - name: Download cd image
-      get_url: url="{{ vm_images_url }}/{{ cd_image_filename }}?{{ cdimage_saskey }}" dest="{{ root_path }}/images/{{ cd_image_filename }}"
-      environment: "{{ proxy_env | default({}) }}"
-      when: not cd_stat.stat.exists and not skip_image_downloading
+      - name: Fail if skip_veos_image_downloading is true
+        fail:
+          msg: "Failed, no local veos cd image and skip_veos_image_downloading is true"
+        when: skip_veos_image_downloading
+
+      - name: Init veos_cd_image_urls when veos_cd_image_url value type is string
+        set_fact:
+          veos_cd_image_urls:
+            - "{{ veos_cd_image_url }}"
+        when: veos_cd_image_url | type_debug == 'string'
+
+      - name: Init veos_cd_image_urls when veos_cd_image_url value type is list
+        set_fact:
+          veos_cd_image_urls: "{{ veos_cd_image_url }}"
+        when: veos_cd_image_url | type_debug == 'list'
+
+      - name: Init working_image_urls list
+        set_fact:
+          working_image_urls: []
+
+      - name: Loop veos_cd_image_urls to find out working URLs
+        include_tasks: probe_image_url.yml
+        loop: "{{ veos_cd_image_urls }}"
+
+      - name: Fail if no working veos cd image download url is found
+        fail:
+          msg: [
+            "Failed, no working veos cd image download URL is found. There are 2 options to fix it:",
+            "  1. Fix veos_cd_image_url defined in ansible/group_vars/vm_host/veos.yml",
+            "  2. Manually put veos cd image to {{ root_path }}/images/{{ veos_cd_image_filename }}",
+          ]
+        when: working_image_urls | length == 0
+
+      - name: Download veos cd image from the first URL in working_image_urls
+        get_url:
+          url: "{{ working_image_urls[0] }}"
+          dest: "{{ root_path }}/images/{{ veos_cd_image_filename }}"
+        environment: "{{ proxy_env | default({}) }}"
+
+      when: not veos_cd_image_file_stat.stat.exists
 
     - set_fact:
-        src_image_name: "{{ hdd_image_filename }}"
+        src_image_name: "{{ veos_hdd_image_filename }}"
 
   when: (vm_type | lower) == "veos"
 
 - block:
 
     - name: Check SONiC image
-      stat: path={{ root_path }}/images/{{ sonic_image_filename }}
-      register: img_stat
+      stat: path={{ root_path }}/images/{{ vsonic_image_filename }}
+      register: sonic_img_stat
 
-    - name: Fail if there are no SONiC image and skip image downloading is active
-      fail: msg="Please put {{ sonic_image_filename }} to {{ root_path }}/images"
-      when: not img_stat.stat.exists
+    - name: Download SONiC image if no local file exists
+      block:
+
+      - name: Fail if skip_vsonic_image_downloading is true
+        fail:
+          msg: "Failed, no local SONiC image and skip_vsonic_image_downloading is true"
+        when: skip_vsonic_image_downloading
+
+      - name: Init vsonic_image_urls when vsonic_image_url value type is string
+        set_fact:
+          vsonic_image_urls:
+            - "{{ vsonic_image_url }}"
+        when: vsonic_image_url | type_debug == 'string'
+
+      - name: Init vsonic_image_urls when vsonic_image_url value type is list
+        set_fact:
+          vsonic_image_urls: "{{ vsonic_image_url }}"
+        when: vsonic_image_url | type_debug == 'list'
+
+      - name: Init working_image_urls list
+        set_fact:
+          working_image_urls: []
+
+      - name: Loop vsonic_image_urls to find out working URLs
+        include_tasks: probe_image_url.yml
+        loop: "{{ vsonic_image_urls }}"
+
+      - name: Fail if no working SONiC image download url is found
+        fail:
+          msg: [
+            "Failed, no working SONiC image download URL is found. There are 2 options to fix it:",
+            "  1. Fix vsonic_image_url defined in ansible/group_vars/vm_host/sonic.yml",
+            "  2. Manually put SONiC image to {{ root_path }}/images/{{ vsonic_image_filename }}",
+          ]
+        when: working_image_urls | length == 0
+
+      - name: Download SONiC image from the first URL in working_image_urls
+        get_url:
+          url: "{{ working_image_urls[0] }}"
+          dest: "{{ root_path }}/images/{{ vsonic_image_filename }}"
+        environment: "{{ proxy_env | default({}) }}"
+
+      - name: Get downloaded SONiC image info
+        stat: path={{ root_path }}/images/{{ vsonic_image_filename }}
+        register: img_stat
+
+      when: not sonic_img_stat.stat.exists
+
+    - name: Get downloaded SONiC image info
+      stat: path={{ root_path }}/images/{{ vsonic_image_filename }}
+      register: downloaded_sonic_img_stat
+
+    - block:
+
+        - name: Rename file to have a .gz suffix
+          command: mv {{ root_path }}/images/{{ vsonic_image_filename }} {{ root_path }}/images/{{ vsonic_image_filename }}.gz
+
+        - name: Decompress file
+          command: gunzip {{ root_path }}/images/{{ vsonic_image_filename }}.gz
+
+      when: '"application/gzip" in downloaded_sonic_img_stat.stat.mimetype'
 
     - set_fact:
-        src_image_name: "{{ sonic_image_filename }}"
+        src_image_name: "{{ vsonic_image_filename }}"
 
   when: (vm_type | lower) == "vsonic"
 
 - block:
 
     - name: Check cisco image
-      stat: path={{ root_path }}/images/{{ cisco_image_filename }}
-      register: img_stat
+      stat: path={{ root_path }}/images/{{ vcisco_image_filename }}
+      register: cisco_img_stat
 
-    - name: Fail if there are no cisco image and skip image downloading is active
-      fail: msg="Please put {{ cisco_image_filename }} to {{ root_path }}/images"
-      when: not img_stat.stat.exists and skip_image_downloading
+    - name: Download cisco image if no local file exists
+      block:
 
-    - name: Download cisco image
-      get_url: url="{{ vm_images_url }}/{{ cisco_image_filename }}?{{ vciscoimage_saskey }}" dest="{{ root_path }}/images/{{ cisco_image_filename }}"
-      environment: "{{ proxy_env | default({}) }}"
-      when: not img_stat.stat.exists and not skip_image_downloading
+      - name: Fail if skip_vcisco_image_downloading is true
+        fail:
+          msg: "Failed, no local cisco image and skip_vcisco_image_downloading is true"
+        when: skip_vcisco_image_downloading
+
+      - name: Init vcisco_image_urls when vcisco_image_url value type is string
+        set_fact:
+          vcisco_image_urls:
+            - "{{ vcisco_image_url }}"
+        when: vcisco_image_url | type_debug == 'string'
+
+      - name: Init vcisco_image_urls when vcisco_image_url value type is list
+        set_fact:
+          vcisco_image_urls: "{{ vcisco_image_url }}"
+        when: vcisco_image_url | type_debug == 'list'
+
+      - name: Init working_image_urls list
+        set_fact:
+          working_image_urls: []
+
+      - name: Loop vcisco_image_urls to find out working URLs
+        include_tasks: probe_image_url.yml
+        loop: "{{ vcisco_image_urls }}"
+
+      - name: Fail if no working cisco image download url is found
+        fail:
+          msg: [
+            "Failed, no working cisco image download URL is found. There are 2 options to fix it:",
+            "  1. Fix vcisco_image_url defined in ansible/group_vars/vm_host/cisco.yml",
+            "  2. Manually put cisco image to {{ root_path }}/images/{{ vcisco_image_filename }}",
+          ]
+        when: working_image_urls | length == 0
+
+      - name: Download cisco image from the first URL in working_image_urls
+        get_url:
+          url: "{{ working_image_urls[0] }}"
+          dest: "{{ root_path }}/images/{{ vcisco_image_filename }}"
+          environment: "{{ proxy_env | default({}) }}"
+
+      when: not cisco_img_stat.stat.exists
 
     - set_fact:
-        src_image_name: "{{ cisco_image_filename }}"
+        src_image_name: "{{ vcisco_image_filename }}"
 
   when: (vm_type | lower) == "vcisco"
 
@@ -117,7 +280,7 @@
     serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
     src_disk_image: "{{ root_path }}/images/{{ src_image_name }}"
     disk_image_dir: "{{ root_path }}/disks"
-    cdrom_image: "{{ root_path }}/images/{{ cd_image_filename }}"
+    cdrom_image: "{{ root_path }}/images/{{ veos_cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
     backplane_tap: "{{ vm_name }}-back"
   with_items: "{{ VM_hosts }}"
@@ -134,7 +297,7 @@
     serial_port: "{{ vm_console_base|int + vm_name[4:]|int }}"
     src_disk_image: "{{ root_path }}/images/{{ src_image_name }}"
     disk_image_dir: "{{ root_path }}/disks"
-    cdrom_image: "{{ root_path }}/images/{{ cd_image_filename }}"
+    cdrom_image: "{{ root_path }}/images/{{ veos_cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
     backplane_tap: "{{ vm_name }}-back"
   with_items: "{{ VM_hosts }}"
