@@ -232,46 +232,8 @@ def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinf
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
-                try:
-                    dut_failed_results = defaultdict(list)
-                    infra_recovery_actions = []
-                    for failed_result in failed_results:
-                        if 'host' in failed_result:
-                            dut_failed_results[failed_result['host']].append(failed_result)
-                        if 'hosts' in failed_result:
-                            for hostname in failed_result['hosts']:
-                                dut_failed_results[hostname].append(failed_result)
-                        if failed_result['check_item'] in constants.INFRA_CHECK_ITEMS:
-                            if 'action' in failed_result and failed_result['action'] is not None \
-                                    and callable(failed_result['action']):
-                                infra_recovery_actions.append(failed_result['action'])
-                    for action in infra_recovery_actions:
-                        action()
-                    for dut_name, dut_results in list(dut_failed_results.items()):
-                        # Attempt to restore DUT state
-                        recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
-                                recover_method)
-
-                except BaseException as e:
-                    request.config.cache.set("pre_sanity_check_failed", True)
-                    logger.error("Recovery of sanity check failed with exception: ")
-                    pt_assert(
-                        False,
-                        "!!!!!!!!!!!!!!!! Recovery of sanity check failed !!!!!!!!!!!!!!!!"
-                        "Exception: {}".format(repr(e))
-                    )
-
-                logger.info("Run sanity check again after recovery")
-                new_check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST, after_recovery=True)
-                logger.debug("Pre-test sanity check after recovery results:\n%s" %
-                             json.dumps(new_check_results, indent=4, default=fallback_serializer))
-
-                new_failed_results = [result for result in new_check_results if result['failed']]
-                if new_failed_results:
-                    request.config.cache.set("pre_sanity_check_failed", True)
-                    pt_assert(False,
-                              "!!!!!!!!!!!!!!!! Pre-test sanity check after recovery failed: !!!!!!!!!!!!!!!!\n{}"
-                              .format(json.dumps(new_failed_results, indent=4, default=fallback_serializer)))
+                recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, localhost, nbrhosts,
+                                                pre_check_items, recover_method, request, tbinfo, STAGE_PRE_TEST)
 
         logger.info("Done pre-test sanity check")
     else:
@@ -291,13 +253,64 @@ def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinf
 
         post_failed_results = [result for result in post_check_results if result['failed']]
         if post_failed_results:
-            request.config.cache.set("post_sanity_check_failed", True)
-            pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
-                      .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
+            if not allow_recover:
+                request.config.cache.set("post_sanity_check_failed", True)
+                pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
+                          .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
+            else:
+                recover_on_sanity_check_failure(duthosts, post_failed_results, fanouthosts, localhost, nbrhosts,
+                                                post_check_items, recover_method, request, tbinfo, STAGE_POST_TEST)
 
         logger.info("Done post-test sanity check")
     else:
         logger.info('No post-test sanity check item, skip post-test sanity check.')
+
+
+def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
+                                    recover_method, request, tbinfo, sanity_check_stage: str):
+    cache_key = "pre_sanity_check_failed"
+    if sanity_check_stage == STAGE_POST_TEST:
+        cache_key = "post_sanity_check_failed"
+
+    try:
+        dut_failed_results = defaultdict(list)
+        infra_recovery_actions = []
+        for failed_result in failed_results:
+            if 'host' in failed_result:
+                dut_failed_results[failed_result['host']].append(failed_result)
+            if 'hosts' in failed_result:
+                for hostname in failed_result['hosts']:
+                    dut_failed_results[hostname].append(failed_result)
+            if failed_result['check_item'] in constants.INFRA_CHECK_ITEMS:
+                if 'action' in failed_result and failed_result['action'] is not None \
+                        and callable(failed_result['action']):
+                    infra_recovery_actions.append(failed_result['action'])
+        for action in infra_recovery_actions:
+            action()
+        for dut_name, dut_results in list(dut_failed_results.items()):
+            # Attempt to restore DUT state
+            recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
+                    recover_method)
+
+    except BaseException as e:
+        request.config.cache.set(cache_key, True)
+
+        logger.error(f"Recovery of sanity check failed with exception: {repr(e)}")
+        pt_assert(
+            False,
+            f"!!!!!!!!!!!!!!!! Recovery of sanity check failed !!!!!!!!!!!!!!!!"
+            f"Exception: {repr(e)}"
+        )
+    logger.info("Run sanity check again after recovery")
+    new_check_results = do_checks(request, check_items, stage=sanity_check_stage, after_recovery=True)
+    logger.debug(f"{sanity_check_stage} sanity check after recovery results: \n%s" %
+                 json.dumps(new_check_results, indent=4, default=fallback_serializer))
+    new_failed_results = [result for result in new_check_results if result['failed']]
+    if new_failed_results:
+        request.config.cache.set(cache_key, True)
+        pt_assert(False,
+                  f"!!!!!!!!!!!!!!!! {sanity_check_stage} sanity check after recovery failed: !!!!!!!!!!!!!!!!\n"
+                  f"{json.dumps(new_failed_results, indent=4, default=fallback_serializer)}")
 
 
 @pytest.fixture(scope="module", autouse=True)
