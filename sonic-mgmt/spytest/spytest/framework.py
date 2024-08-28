@@ -4360,6 +4360,9 @@ class WorkArea(object):
     def do_ssh_disconnect(self, dut, conn_index):
         return self.net.do_ssh_disconnect(dut, conn_index)
 
+    def login_again(self, dut):
+        return self._context.net.connect_to_device_current(dut)
+
     def get_current_testid(self):
         return get_current_nodeid()
 

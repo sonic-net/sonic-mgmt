@@ -857,3 +857,6 @@ def abort_module(msgid, *args, **kwargs):
 def fetch_and_get_mgmt_ip(dut, try_again=3, wait_for_ip=0, wait_for_ready=None):
     return getwa().fetch_and_get_mgmt_ip(dut, try_again=try_again,
                                          wait_for_ip=wait_for_ip, wait_for_ready=wait_for_ready)
+
+def login_again(dut):
+    return getwa().login_again(dut)
