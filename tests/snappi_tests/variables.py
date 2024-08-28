@@ -1,7 +1,3 @@
-import sys
-import ipaddress
-from ipaddress import ip_address, IPv4Address, IPv6Address
-
 # NOTE: Ensure the ports are mapped correctly to the respective duts in ansible/files/*links.csv
 # NOTE: The MULTIDUT_TESTBED must match with the conf-name defined in testbed.yml/testbed.csv file
 MULTIDUT_TESTBED = 'vms-snappi-sonic-multidut'
