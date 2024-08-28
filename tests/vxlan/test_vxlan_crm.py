@@ -21,6 +21,18 @@ Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*'vnetRouteCheck' status failed.*",
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+
+
 def uniq(lst):
     last = object()
     for item in sorted(lst):
