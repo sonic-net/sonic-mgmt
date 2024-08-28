@@ -135,6 +135,14 @@ def execute_config_reload_cmd(duthost, timeout=120, check_interval=5):
         return False, None
 
 
+def check_docker_status(duthost):
+    containers = duthost.get_all_containers()
+    for container in containers:
+        if not duthost.is_service_fully_started(container):
+            return False
+    return True
+
+
 def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname, delayed_services,
                                      localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     """
@@ -162,8 +170,13 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     # config reload command shouldn't work immediately after system reboot
     assert result and "Retry later" in out['stdout']
-
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
+
+    # Check if all containers have started
+    assert wait_until(300, 10, 0, check_docker_status, duthost)
+
+    # To ensure the system is stable enough, wait for another 30s
+    time.sleep(30)
 
     # After the system checks succeed the config reload command should not throw error
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
@@ -176,7 +189,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     assert result and "Retry later" in out['stdout']
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
-
+    # Wait untill all critical processes come up so that it doesnt interfere with swss stop job
+    wait_critical_processes(duthost)
     logging.info("Stopping swss docker and checking config reload")
     if duthost.is_multi_asic:
         for asic in duthost.asics:
