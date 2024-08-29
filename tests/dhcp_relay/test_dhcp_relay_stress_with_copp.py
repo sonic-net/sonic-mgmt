@@ -14,9 +14,11 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
+from tests.common.utilities import find_duthost_on_role
+from tests.common.utilities import get_upstream_neigh_type
 
 from tests.copp import copp_utils
-from tests.common import config_reload
+from tests.common import config_reload, constants
 from tests.common.system_utils import docker
 
 pytestmark = [
@@ -323,7 +325,8 @@ def copp_testbed(
     ptfhost,
     tbinfo,
     duts_minigraph_facts,
-    request
+    request,
+    is_backend_topology
 ):
     """
         Pytest fixture to handle setup and cleanup for the COPP tests.
@@ -332,16 +335,17 @@ def copp_testbed(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts)
 
-    # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
-    # upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+    if not is_backend_topology:
+        # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
+        upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
 
     try:
         _setup_multi_asic_proxy(duthost, creds, test_params, tbinfo)
-        _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost)
+        _setup_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost, is_backend_topology)
         yield test_params
     finally:
         _teardown_multi_asic_proxy(duthost, creds, test_params, tbinfo)
-        _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost)
+        _teardown_testbed(duthost, creds, ptfhost, test_params, tbinfo, upStreamDuthost, is_backend_topology)
 
 
 def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
@@ -385,6 +389,10 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                 myip = bgp_peer["addr"]
                 peerip = bgp_peer["peer_addr"]
                 nn_target_namespace = mg_facts["minigraph_neighbors"][nn_target_interface]['namespace']
+                is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
+                if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
+                    nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
+                break
 
     logger.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}"
                 .format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
@@ -400,12 +408,12 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                                nn_target_vlanid=nn_target_vlanid)
 
 
-def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
+def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_backend_topology):
     """
         Sets up the testbed to run the COPP tests.
     """
     logger.info("Set up the PTF for COPP tests")
-    copp_utils.configure_ptf(ptf, test_params, False)
+    copp_utils.configure_ptf(ptf, test_params, is_backend_topology)
 
     rate_limit = _TEST_RATE_LIMIT_DEFAULT
     if dut.facts["asic_type"] == "marvell":
@@ -430,9 +438,10 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
         logger.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
-    # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
-    # upStreamDuthost.command("sudo config bgp shutdown all")
-    # time.sleep(30)
+    if not is_backend_topology:
+        # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
+        upStreamDuthost.command("sudo config bgp shutdown all")
+        time.sleep(30)
 
     logger.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
@@ -440,7 +449,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
                                test_params.swap_syncd, creds)
 
 
-def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
+def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_backend_topology):
     """
         Tears down the testbed, returning it to its initial state.
     """
@@ -458,8 +467,9 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
         logger.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
-    # Testbed is not a T1 backend device, so bring up bgp session to upstream device
-    # upStreamDuthost.command("sudo config bgp startup all")
+    if not is_backend_topology:
+        # Testbed is not a T1 backend device, so bring up bgp session to upstream device
+        upStreamDuthost.command("sudo config bgp startup all")
 
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
@@ -504,9 +514,7 @@ def _teardown_multi_asic_proxy(dut, creds, test_params, tbinfo):
 # end copp policy
 
 
-def test_dhcp_relay_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, copp_testbed,
-                                setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
-                                toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
+def test_dhcp_relay_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, copp_testbed):
     """Test DHCP relay functionality on T0 topology with unicast mac
        Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
     """
@@ -520,7 +528,6 @@ def test_dhcp_relay_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exi
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Run the DHCP relay test on the PTF host
-        breakpoint()
         ptf_runner(ptfhost,
                    "ptftests",
                    "dhcp_relay_stress_test.DHCPTest",
@@ -541,7 +548,7 @@ def test_dhcp_relay_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exi
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testbed_mode": testbed_mode,
                            "testing_mode": testing_mode},
-                   log_file="/tmp/dhcp_relay_stress_test_yw.DHCPTest.log",
+                   log_file="/tmp/dhcp_relay_stress_test_with_copp.DHCPTest.log",
                    qlen=100000,
                    is_python3=True)
 
