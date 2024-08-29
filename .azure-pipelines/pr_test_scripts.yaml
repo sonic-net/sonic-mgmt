@@ -159,10 +159,6 @@ t0:
   - test_procdockerstatsd.py
   - testbed_setup/test_populate_fdb.py
   - upgrade_path/test_upgrade_path.py
-  - vlan/test_autostate_disabled.py
-  - vlan/test_host_vlan.py
-  - vlan/test_vlan.py
-  - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
   - ip/test_mgmt_ipv6_only.py
 
