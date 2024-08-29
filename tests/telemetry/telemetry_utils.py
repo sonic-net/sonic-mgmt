@@ -133,6 +133,19 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                         intervalms=0, update_count=3, create_connections=1, filter_event_regex="",
                         timeout=-1):
     """ Generate the py_gnmicli command line based on the given params.
+    t                      --target: gNMI target; required
+    p                      --port: port of target; required
+    m                      --mode: get/susbcribe; default get
+    x                      --xpath: gnmi path, table name; required
+    xt                     --xpath_target: gnmi path prefix, db name
+    o                      --host_override, targets hostname for certificate CN
+    subscribe_mode:        0=STREAM, 1=ONCE, 2=POLL; default 0
+    submode:               0=TARGET_DEFINED, 1=ON_CHANGE, 2=SAMPLE; default 2
+    interval:              sample interval in milliseconds, default 10000ms
+    update_count:          Max number of streaming updates to receive. 0 means no limit. default 0
+    create_connections:    Creates TCP connections with gNMI server; default 1; -1 for infinite connections
+    filter_event_regex:    Regex to filter event when querying events path
+    timeout:               Subscription duration in seconds; After X seconds, request terminates; default none
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
