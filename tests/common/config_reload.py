@@ -107,7 +107,7 @@ def config_reload_minigraph_with_rendered_golden_config_override(
 
 def pfcwd_feature_enabled(duthost):
     device_metadata = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']
-    pfc_status = device_metadata['localhost']["default_pfcwd_status"].decode("utf-8")
+    pfc_status = device_metadata['localhost']["default_pfcwd_status"]
     return pfc_status == 'enable'
 
 
