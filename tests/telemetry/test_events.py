@@ -35,8 +35,9 @@ def validate_yang(duthost, op_file="", yang_file=""):
     assert ret["rc"] == 0, "Yang validation failed for {}".format(yang_file)
 
 
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 @pytest.mark.disable_loganalyzer
-def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter, gnxi_path,
+def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, gnxi_path,
                 test_eventd_healthy):
     """ Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema"""
@@ -49,12 +50,13 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter,
     for file in os.listdir(EVENTS_TESTS_PATH):
         if file.endswith("_events.py") and not file.endswith("eventd_events.py"):
             module = __import__(file[:len(file)-3])
-            module.test_event(duthost, gnxi_path, ptfhost, ptfadapter, DATA_DIR, validate_yang)
+            module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
 
 
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 @pytest.mark.disable_loganalyzer
-def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
+def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, gnxi_path):
     """Create expected o/p file of events with N events. Call event-publisher tool to publish M events (M<N). Publish
     remainder of events. Verify o/p file that N events were received"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -91,8 +93,9 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
     verify_counter_increase(duthost, current_published_counter, N, PUBLISHED)
 
 
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 @pytest.mark.disable_loganalyzer
-def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
+def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry,
                                gnxi_path):
     """ Published events till cache overflow, stats should read events missed_to_cache"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]

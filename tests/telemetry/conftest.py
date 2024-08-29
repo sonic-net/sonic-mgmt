@@ -86,7 +86,7 @@ def delete_gnmi_config(duthost):
     duthost.shell(cmd, module_ignore_errors=True)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, ptfhost, gnxi_path):
     with _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname,
                                                 localhost, ptfhost, gnxi_path) as result:
