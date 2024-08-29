@@ -182,6 +182,8 @@ class TestPfcwdAllTimer(object):
         queues = [self.storm_handle.pfc_queue_idx]
 
         with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info):
+            # Ensure the background traffic is running
+            time.sleep(1)
             self.storm_handle.start_storm()
             logger.info("Wait for queue to recover from PFC storm")
             time.sleep(32)
@@ -206,6 +208,9 @@ class TestPfcwdAllTimer(object):
             self.all_restore_time.append(real_restore_time)
 
         dut_detect_restore_time = storm_restore_ms - storm_detect_ms
+        logger.info(
+            "Iteration all_dut_detect_time list {} and length {}".format(
+                ",".join(str(i) for i in self.all_detect_time), len(self.all_detect_time)))
         self.all_dut_detect_restore_time.append(dut_detect_restore_time)
         logger.info(
             "Iteration all_dut_detect_restore_time list {} and length {}".format(
