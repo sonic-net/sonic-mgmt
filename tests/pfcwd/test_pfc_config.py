@@ -2,7 +2,7 @@ import json
 import os
 import pytest
 import logging
-import time
+# import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
