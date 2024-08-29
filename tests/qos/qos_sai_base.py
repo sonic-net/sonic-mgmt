@@ -2071,14 +2071,21 @@ class QosSaiBase(QosBase):
                     ]
                 )
 
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"]
+        if "wrr_chg" in qosConfig[portSpeedCableLength]:
+            qosConfigWrrChg = qosConfig[portSpeedCableLength]["wrr_chg"]
+        else:
+            qosConfigWrrChg = qosConfig["wrr_chg"]
+
         wrrSchedParams = [
             {
                 "profile": lossySchedProfile["schedProfile"],
-                "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossy_weight"]
+                "qosConfig": qosConfigWrrChg["lossy_weight"]
             },
             {
                 "profile": losslessSchedProfile["schedProfile"],
-                "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossless_weight"]
+                "qosConfig": qosConfigWrrChg["lossless_weight"]
             },
         ]
 
@@ -2479,18 +2486,14 @@ class QosSaiBase(QosBase):
         yield
         return
 
-    def is_compute_ai(self, duthost):
-        BACKEND_DEVICE_TYPES = ['BackEndToRRouter', 'BackEndLeafRouter']
+    @pytest.fixture(scope="class", autouse=False)
+    def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
+        duthost = get_src_dst_asic_and_duts['src_dut']
+        tc_to_dscp_count_map = {}
+        for tc in range(8):
+            tc_to_dscp_count_map[tc] = 0
         config_facts = duthost.get_running_config_facts()
-        metadata_table = config_facts['DEVICE_METADATA']['localhost']
-        return ('type' in metadata_table
-                and metadata_table['type'] in BACKEND_DEVICE_TYPES
-                and 'resource_type' in metadata_table
-                and metadata_table['resource_type'] == 'ComputeAI')
-
-    @pytest.fixture(scope="function", autouse=False)
-    def skip_compute_ai(self, duthost):
-        if self.is_compute_ai(duthost):
-            pytest.skip("This test is skipped for ComputeAI.")
-        yield
-        return
+        dscp_to_tc_map = config_facts['DSCP_TO_TC_MAP']['AZURE']
+        for dscp, tc in dscp_to_tc_map.items():
+            tc_to_dscp_count_map[int(tc)] += 1
+        yield tc_to_dscp_count_map

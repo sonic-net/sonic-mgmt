@@ -1312,7 +1312,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDscpQueueMapping(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
-        skip_compute_ai
+        tc_to_dscp_count
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1324,6 +1324,7 @@ class TestQosSai(QosSaiBase):
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
                 dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
+                tc_to_dscp_count(Fixture): A fixture, return tc to dscp_count map on DUT host
             Returns:
                 None
 
@@ -1347,7 +1348,8 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "hwsku": dutTestParams['hwsku'],
             "dual_tor": dutConfig['dualTor'],
-            "dual_tor_scenario": dutConfig['dualTorScenario']
+            "dual_tor_scenario": dutConfig['dualTorScenario'],
+            "tc_to_dscp_count_map": tc_to_dscp_count
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1500,7 +1502,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrr(
         self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed,
-        skip_src_dst_different_asic, skip_compute_ai
+        skip_src_dst_different_asic
     ):
         """
             Test QoS SAI DWRR
@@ -1906,8 +1908,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("decap_mode", ["uniform", "pipe"])
     def testIPIPQosSaiDscpToPgMapping(
-        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode,  # noqa F811
-        skip_compute_ai
+        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode  # noqa F811
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
@@ -2037,7 +2038,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrrWeightChange(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        updateSchedProfile, skip_src_dst_different_asic, skip_compute_ai
+        updateSchedProfile, skip_src_dst_different_asic
     ):
         """
             Test QoS SAI DWRR runtime weight change
