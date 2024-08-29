@@ -1,4 +1,3 @@
-import json
 import time
 import logging
 import os
@@ -107,8 +106,8 @@ def config_reload_minigraph_with_rendered_golden_config_override(
 
 
 def pfcwd_feature_enabled(duthost):
-    localhost_config = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']['localhost']
-    pfc_status = localhost_config["default_pfcwd_status"].decode("utf-8")
+    device_metadata = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']
+    pfc_status = device_metadata['localhost']["default_pfcwd_status"].decode("utf-8")
     return pfc_status == 'enable'
 
 
