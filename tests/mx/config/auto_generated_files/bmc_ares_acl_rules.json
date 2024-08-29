@@ -16,26 +16,6 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "10.1.0.32/32"
-                                    }
-                                },
-                                "l2": {
-                                    "config": {
-                                        "ethertype": 2048
-                                    }
-                                }
-                            },
-                            "0106_IP2ME": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 106
-                                },
-                                "ip": {
-                                    "config": {
                                         "destination-ip-address": "172.17.0.62/32"
                                     }
                                 },
@@ -45,7 +25,7 @@
                                     }
                                 }
                             },
-                            "0501_ALLOW_DHCP": {
+                            "0501_DHCP_BROADCAST": {
                                 "actions": {
                                     "config": {
                                         "forwarding-action": "ACCEPT"
@@ -929,145 +909,6 @@
                 "BMC_ARES_ACL_NORTHBOUND_V6": {
                     "acl-entries": {
                         "acl-entry": {
-                            "0101_IP2ME": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 101
-                                },
-                                "ip": {
-                                    "config": {
-                                        "destination-ip-address": "fc00:1::32/128"
-                                    }
-                                },
-                                "l2": {
-                                    "config": {
-                                        "ethertype": 34525
-                                    }
-                                }
-                            },
-                            "0106_IP2ME": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 106
-                                },
-                                "ip": {
-                                    "config": {
-                                        "destination-ip-address": "fc02::abcd/128"
-                                    }
-                                },
-                                "l2": {
-                                    "config": {
-                                        "ethertype": 34525
-                                    }
-                                }
-                            },
-                            "9001_ALLOW_NDP": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 9001
-                                },
-                                "icmp": {
-                                    "config": {
-                                        "code": 0,
-                                        "type": 133
-                                    }
-                                },
-                                "ip": {
-                                    "config": {
-                                        "protocol": "58"
-                                    }
-                                },
-                                "l2": {
-                                    "config": {
-                                        "ethertype": 34525
-                                    }
-                                }
-                            },
-                            "9002_ALLOW_NDP": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 9002
-                                },
-                                "icmp": {
-                                    "config": {
-                                        "code": 0,
-                                        "type": 135
-                                    }
-                                },
-                                "ip": {
-                                    "config": {
-                                        "protocol": "58"
-                                    }
-                                },
-                                "l2": {
-                                    "config": {
-                                        "ethertype": 34525
-                                    }
-                                }
-                            },
-                            "9003_ALLOW_NDP": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 9003
-                                },
-                                "icmp": {
-                                    "config": {
-                                        "code": 0,
-                                        "type": 136
-                                    }
-                                },
-                                "ip": {
-                                    "config": {
-                                        "protocol": "58"
-                                    }
-                                },
-                                "l2": {
-                                    "config": {
-                                        "ethertype": 34525
-                                    }
-                                }
-                            },
-                            "9011_ALLOW_DHCPv6": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 9011
-                                },
-                                "ip": {
-                                    "config": {
-                                        "destination-ip-address": "ff02::1:2/128",
-                                        "protocol": "17"
-                                    }
-                                },
-                                "l2": {
-                                    "config": {
-                                        "ethertype": 34525
-                                    }
-                                }
-                            },
                             "9990_DROP_ALL": {
                                 "actions": {
                                     "config": {
@@ -1169,14 +1010,14 @@
                                     }
                                 }
                             },
-                            "9001_ALLOW_NDP": {
+                            "0201_ICMPV6_NEIGHBOR_SOLICITATION": {
                                 "actions": {
                                     "config": {
                                         "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
-                                    "sequence-id": 9001
+                                    "sequence-id": 201
                                 },
                                 "icmp": {
                                     "config": {
@@ -1195,14 +1036,14 @@
                                     }
                                 }
                             },
-                            "9002_ALLOW_NDP": {
+                            "0202_ICMPV6_NEIGHBOR_ADVERTISEMENT": {
                                 "actions": {
                                     "config": {
                                         "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
-                                    "sequence-id": 9002
+                                    "sequence-id": 202
                                 },
                                 "icmp": {
                                     "config": {
