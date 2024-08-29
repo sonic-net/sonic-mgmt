@@ -25,7 +25,7 @@ ecmp_utils = Ecmp_Utils()
 def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
     # Ignore in KVM test
     KVMIgnoreRegex = [
-        ".*'vnetRouteCheck' status failed.*",
+        ".*'vnetRouteCheck' status failed.*missed_in_asic_db_routes.*",
     ]
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is disabled
