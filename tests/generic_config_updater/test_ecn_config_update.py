@@ -47,6 +47,8 @@ def ensure_dut_readiness(duthost):
     finally:
         delete_checkpoint(duthost)
 
+    duthost.shell('sonic-db-cli CONFIG_DB del "WRED_PROFILE|AZURE_LOSSLESS"')
+
 
 def ensure_application_of_updated_config(duthost, configdb_field, values):
     """
