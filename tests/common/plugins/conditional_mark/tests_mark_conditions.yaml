@@ -795,6 +795,16 @@ generic_config_updater/test_pg_headroom_update.py:
       - "topo_type in ['m0', 'mx']"
 
 #######################################
+#####     golden_config_infra     #####
+#######################################
+golden_config_infra/test_config_reload_with_rendered_golden_config.py:
+  skip:
+    reason: 'Skipping test on mellanox platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/14327'
+    conditions:
+      - "asic_type in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/14327
+
+#######################################
 #####           hash              #####
 #######################################
 hash/test_generic_hash.py::test_algorithm_config:
