@@ -18,6 +18,23 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
+
+    ignore_errors = [
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_tnl_route_event_add:\d+ ecmp table entry lookup "
+        "failed with error.*",
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_process_route_add_mode_default_and_host:\d+ "
+        "_brcm_sai_mptnl_tnl_route_event_add failed with error.*"
+    ]
+
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+
+    return None
+
+
 def get_upstream_neigh(tb, device_neigh_metadata):
     """
     Get the information for upstream neighbors present in the testbed
