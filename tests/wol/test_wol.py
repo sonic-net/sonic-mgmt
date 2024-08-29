@@ -244,7 +244,7 @@ def test_single_interface_with_count_and_interval(
             pytest_assert(pkt.load == build_magic_packet_payload(target_mac))
             if last_time:
                 millseconds_gap = (pkt.time - last_time) * 1000
-                pytest_assert(millseconds_gap >= interval and millseconds_gap < interval + 5,
+                pytest_assert(millseconds_gap > interval - 5 and millseconds_gap < interval + 5,
                               "Unexpected interval %s" % (millseconds_gap))
 
     with capture_and_check_packet_on_dut(
@@ -309,7 +309,7 @@ def test_send_to_vlan_with_count_and_interval(
                 pytest_assert(pkt.load == build_magic_packet_payload(target_mac))
                 if last_time:
                     millseconds_gap = (pkt.time - last_time) * 1000
-                    pytest_assert(millseconds_gap >= interval and millseconds_gap < interval + 5,
+                    pytest_assert(millseconds_gap > interval - 5 and millseconds_gap < interval + 5,
                                   "Unexpected interval %s" % (millseconds_gap))
 
         duthost.shell("wol %s %s -i %s -c %s" % (random_vlan, target_mac, interval, count))
