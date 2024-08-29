@@ -107,9 +107,8 @@ def config_reload_minigraph_with_rendered_golden_config_override(
 
 
 def pfcwd_feature_enabled(duthost):
-    localhost_config = duthost.shell('sonic-db-dump -n CONFIG_DB -y -k \"DEVICE_METADATA|localhost\"')
-    meta_data = json.loads(localhost_config["stdout"])
-    pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
+    localhost_config = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']['localhost']
+    pfc_status = localhost_config["default_pfcwd_status"].decode("utf-8")
     return pfc_status == 'enable'
 
 
