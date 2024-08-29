@@ -73,10 +73,10 @@ def test_send_to_single_specific_interface(
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f0"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, randon_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, randon_ptf_port))
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
 
-    def validate_wol_broadcast_port(pkts):
+    def validate_wol_packets(pkts):
         pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
         pkt = pkts[0]
         pytest_assert(pkt.dst == target_mac, "Unexpected dst mac %s" % pkt.dst)
@@ -86,11 +86,11 @@ def test_send_to_single_specific_interface(
 
     with capture_and_check_packet_on_dut(
         duthost=ptfhost,
-        interface='eth'+str(randon_ptf_port),
+        interface='eth'+str(random_ptf_port),
         pkts_filter=WOL_ETHER_PKT_FILTER,
-        pkts_validator=validate_wol_broadcast_port
+        pkts_validator=validate_wol_packets
     ):
-        duthost.shell("sudo wol %s %s" % (random_dut_port, target_mac))
+        duthost.shell("wol %s %s" % (random_dut_port, target_mac))
 
 
 def test_send_to_vlan(
@@ -132,7 +132,7 @@ def test_send_to_vlan(
                 ptfhost.shell('killall tcpdump', module_ignore_errors=True)
                 pytest.fail("Failed to start tcpdump on %s" % member)
 
-        def validate_wol_packet(pkts):
+        def validate_wol_packets(pkts):
             pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
             pkt = pkts[0]
             pytest_assert(pkt.dst == target_mac, "Unexpected dst mac %s" % pkt.dst)
@@ -140,7 +140,7 @@ def test_send_to_vlan(
             pytest_assert(pkt.type == ETHER_TYPE_WOL_DEC)
             pytest_assert(pkt.load == build_magic_packet_payload(target_mac))
 
-        duthost.shell("sudo wol %s %s" % (random_vlan, target_mac))
+        duthost.shell("wol %s %s" % (random_vlan, target_mac))
 
         time.sleep(1)
         ptfhost.shell('killall tcpdump')
@@ -155,7 +155,7 @@ def test_send_to_vlan(
             ptf_int = 'eth' + str(dut_ptf_int_map[member])
             with tempfile.NamedTemporaryFile() as temp_pcap:
                 ptfhost.fetch(src=generate_pcap_file_path(ptf_int), dest=temp_pcap.name, flat=True)
-                validate_wol_packet(scapy_sniff(offline=temp_pcap.name))
+                validate_wol_packets(scapy_sniff(offline=temp_pcap.name))
 
     finally:
         duthost.add_member_to_vlan(vlan_n2i(random_vlan), random_member_to_remove, False)
@@ -169,10 +169,10 @@ def test_send_broadcast_to_single_interface(
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f2"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, randon_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, randon_ptf_port))
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
 
-    def validate_wol_broadcast_port(pkts):
+    def validate_wol_packets(pkts):
         pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
         pkt = pkts[0]
         pytest_assert(pkt.dst == BROADCAST_MAC, "Unexpected dst mac %s" % pkt.dst)
@@ -182,11 +182,11 @@ def test_send_broadcast_to_single_interface(
 
     with capture_and_check_packet_on_dut(
         duthost=ptfhost,
-        interface='eth'+str(randon_ptf_port),
+        interface='eth'+str(random_ptf_port),
         pkts_filter=WOL_ETHER_PKT_FILTER,
-        pkts_validator=validate_wol_broadcast_port
+        pkts_validator=validate_wol_packets
     ):
-        duthost.shell("sudo wol %s %s -b" % (random_dut_port, target_mac))
+        duthost.shell("wol %s %s -b" % (random_dut_port, target_mac))
 
 
 @pytest.mark.parametrize("password", ["11:22:33:44:55:66", "192.168.0.1"])
@@ -199,10 +199,10 @@ def test_send_with_password(
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f3"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, randon_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, randon_ptf_port))
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
 
-    def validate_wol_broadcast_port(pkts):
+    def validate_wol_packets(pkts):
         pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
         pkt = pkts[0]
         pytest_assert(pkt.dst == target_mac, "Unexpected dst mac %s" % pkt.dst)
@@ -212,11 +212,11 @@ def test_send_with_password(
 
     with capture_and_check_packet_on_dut(
         duthost=ptfhost,
-        interface='eth'+str(randon_ptf_port),
+        interface='eth'+str(random_ptf_port),
         pkts_filter=WOL_ETHER_PKT_FILTER,
-        pkts_validator=validate_wol_broadcast_port
+        pkts_validator=validate_wol_packets
     ):
-        duthost.shell("sudo wol %s %s -p %s" % (random_dut_port, target_mac, password))
+        duthost.shell("wol %s %s -p %s" % (random_dut_port, target_mac, password))
 
 
 @pytest.mark.parametrize("interval", [0, 2000])
@@ -231,10 +231,10 @@ def test_single_interface_with_count_and_interval(
     dut_mac = duthost.facts['router_mac']
     target_mac = "1a:2b:3c:d1:e2:f4"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, randon_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, randon_ptf_port))
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
 
-    def validate_wol_pkts(pkts):
+    def validate_wol_packets(pkts):
         pytest_assert(len(pkts) == count, "Unexpected pkts count %s" % len(pkts))
         last_time = None
         for pkt in pkts:
@@ -249,11 +249,11 @@ def test_single_interface_with_count_and_interval(
 
     with capture_and_check_packet_on_dut(
         duthost=ptfhost,
-        interface='eth'+str(randon_ptf_port),
+        interface='eth'+str(random_ptf_port),
         pkts_filter=WOL_ETHER_PKT_FILTER,
-        pkts_validator=validate_wol_pkts
+        pkts_validator=validate_wol_packets
     ):
-        duthost.shell("sudo wol %s %s -i %s -c %s" % (random_dut_port, target_mac, interval, count))
+        duthost.shell("wol %s %s -i %s -c %s" % (random_dut_port, target_mac, interval, count))
 
 
 @pytest.mark.parametrize("interval", [0, 2000])
@@ -299,7 +299,7 @@ def test_send_to_vlan_with_count_and_interval(
                 ptfhost.shell('killall tcpdump', module_ignore_errors=True)
                 pytest.fail("Failed to start tcpdump on %s" % member)
 
-        def validate_wol_pkts(pkts):
+        def validate_wol_packets(pkts):
             pytest_assert(len(pkts) == count, "Unexpected pkts count %s" % len(pkts))
             last_time = None
             for pkt in pkts:
@@ -312,7 +312,7 @@ def test_send_to_vlan_with_count_and_interval(
                     pytest_assert(millseconds_gap >= interval and millseconds_gap < interval + 5,
                                   "Unexpected interval %s" % (millseconds_gap))
 
-        duthost.shell("sudo wol %s %s -i %s -c %s" % (random_vlan, target_mac, interval, count))
+        duthost.shell("wol %s %s -i %s -c %s" % (random_vlan, target_mac, interval, count))
 
         time.sleep(1)
         ptfhost.shell('killall tcpdump')
@@ -327,7 +327,7 @@ def test_send_to_vlan_with_count_and_interval(
             ptf_int = 'eth' + str(dut_ptf_int_map[member])
             with tempfile.NamedTemporaryFile() as temp_pcap:
                 ptfhost.fetch(src=generate_pcap_file_path(ptf_int), dest=temp_pcap.name, flat=True)
-                validate_wol_pkts(scapy_sniff(offline=temp_pcap.name))
+                validate_wol_packets(scapy_sniff(offline=temp_pcap.name))
 
     finally:
         duthost.add_member_to_vlan(vlan_n2i(random_vlan), random_member_to_remove, False)
@@ -340,10 +340,10 @@ def test_unicast_port(
 ):
     target_mac = "1a:2b:3c:d1:e2:f6"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, randon_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, randon_ptf_port))
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
 
-    def validate_wol_broadcast_port(pkts):
+    def validate_wol_packets(pkts):
         pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
         pkt = pkts[0]
         pytest_assert(pkt.lladdrtype == LINK_LAYER_TYPE_ETHER, "Unexpected link layer type %s" % pkt.lladdrtype)
@@ -355,9 +355,9 @@ def test_unicast_port(
         duthost=ptfhost,
         interface='any',
         pkts_filter=WOL_SLL_PKT_FILTER,
-        pkts_validator=validate_wol_broadcast_port
+        pkts_validator=validate_wol_packets
     ):
-        duthost.shell("sudo wol %s %s" % (random_dut_port, target_mac))
+        duthost.shell("wol %s %s" % (random_dut_port, target_mac))
 
 
 def test_broadcast_port(
@@ -367,10 +367,10 @@ def test_broadcast_port(
 ):
     target_mac = "1a:2b:3c:d1:e2:f7"
     connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
-    random_dut_port, randon_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
-    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, randon_ptf_port))
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
 
-    def validate_wol_broadcast_port(pkts):
+    def validate_wol_packets(pkts):
         pytest_assert(len(pkts) == 1, "Unexpected pkts count %s" % len(pkts))
         pkt = pkts[0]
         pytest_assert(pkt.lladdrtype == LINK_LAYER_TYPE_ETHER, "Unexpected link layer type %s" % pkt.lladdrtype)
@@ -382,6 +382,6 @@ def test_broadcast_port(
         duthost=ptfhost,
         interface='any',
         pkts_filter=WOL_SLL_PKT_FILTER,
-        pkts_validator=validate_wol_broadcast_port
+        pkts_validator=validate_wol_packets
     ):
-        duthost.shell("sudo wol %s %s -b" % (random_dut_port, target_mac))
+        duthost.shell("wol %s %s -b" % (random_dut_port, target_mac))
