@@ -1024,15 +1024,6 @@ nat:
       - "'nat' not in feature_status"
 
 #######################################
-#####           ntp               #####
-#######################################
-ntp/test_ntp.py::test_ntp:
-  xfail:
-    reason: "iburst not enabled by default on 202311 and newer images"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/19425
-
-#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
