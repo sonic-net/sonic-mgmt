@@ -12,6 +12,7 @@ import pytest
 import yaml
 import jinja2
 import copy
+import time
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -2455,3 +2456,65 @@ testutils.verify_packets_any = verify_packets_any_fixed
 # HACK: We are using set_do_not_care_scapy but it will be deprecated.
 if not hasattr(Mask, "set_do_not_care_scapy"):
     Mask.set_do_not_care_scapy = Mask.set_do_not_care_packet
+
+
+def modify_rsyslog_severity_level(dut):
+    logger.info('Modify rsyslog severity level to error on dut: {}'.format(dut.hostname))
+    dut.shell("sudo mv /etc/rsyslog.d /etc/rsyslog.d.bak")
+    dut.shell("sudo mkdir /etc/rsyslog.d")
+    dut.shell("sudo echo '*.err    /var/log/syslog' > /etc/rsyslog.d/50_debug.conf")
+    dut.shell("sudo systemctl restart rsyslog")
+    time.sleep(5)
+
+
+def revert_rsyslog_severity_level(dut):
+    logger.info('Revert rsyslog severity level to error on dut: {}'.format(dut.hostname))
+    dut.shell("sudo rm -rf /etc/rsyslog.d")
+    dut.shell("sudo mv /etc/rsyslog.d.bak /etc/rsyslog.d")
+    dut.shell("sudo systemctl restart rsyslog")
+    time.sleep(5)
+
+
+def update_logrotate_compression(dut):
+    logger.info('Update logrotate compression on dut: {}'.format(dut.hostname))
+    dut.shell("sudo cp /etc/logrotate.d/rsyslog /etc/logrotate.d/rsyslog.bak")
+    dut.shell("sudo sed -i '/delaycompress/d' /etc/logrotate.d/rsyslog")
+    dut.shell("sudo logrotate -f /etc/logrotate.conf")
+    time.sleep(5)
+
+
+def revert_logrotate_compression(dut):
+    logger.info('Revert logrotate compression on dut: {}'.format(dut.hostname))
+    dut.shell("sudo mv /etc/logrotate.d/rsyslog.bak /etc/logrotate.d/rsyslog")
+    dut.shell("sudo rm -f /etc/logrotate.d/rsyslog.bak")
+    dut.shell("sudo logrotate -f /etc/logrotate.conf")
+    time.sleep(5)
+
+
+@pytest.fixture(scope="function")
+def fixture_rsyslog_conf_setup_teardown(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # workaround for small disk devices which also has limitation on /var/log size
+    cmd = "df -m"
+    cmd_response_lines = duthost.shell(cmd, module_ignore_errors=True).get('stdout_lines', [])
+    logger.debug("cmd {} rsp {}".format(cmd, cmd_response_lines))
+
+    available_size = 0
+    for line in cmd_response_lines:
+        if "/var/log" in line:
+            available_size = int(line.split()[3])
+            break
+
+    if available_size < 400:
+        modify_rsyslog_severity_level(duthost)
+        update_logrotate_compression(duthost)
+        rsyslog_severity_level_modified = True
+    else:
+        rsyslog_severity_level_modified = False
+
+    yield
+
+    if rsyslog_severity_level_modified:
+        revert_rsyslog_severity_level(duthost)
+        revert_logrotate_compression(duthost)
