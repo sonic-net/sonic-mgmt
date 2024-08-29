@@ -38,9 +38,9 @@ def pins_deps():
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            url = "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v25.1.zip",
-            strip_prefix = "protobuf-25.1",
-            sha256 = "eaafa4e19a6619c15df4c30d7213efbfd0f33ad16021cc5f72bbc5d0877346b5",
+            url = "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v23.1.zip",
+            strip_prefix = "protobuf-23.1",
+            sha256 = "c0ea9f4d75b37ea8e9d78ce4c670d066bcb7cebdba190fa5fc8c57b1f00c0c2c",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(
