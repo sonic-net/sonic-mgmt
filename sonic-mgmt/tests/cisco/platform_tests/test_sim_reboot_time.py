@@ -10,6 +10,7 @@ from tests.common.utilities import wait_until
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.assertions import pytest_assert
+from tests.cisco.common.utils import CheckEnvironment
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -23,6 +24,9 @@ def test_sim_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     @summary: This test case is to perform cold reboot and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not CheckEnvironment.is_sim(duthost):
+        pytest.skip("Test only supported in SIM environment")
+
     logging.info("Run cold reboot on DUT")
     #It takes ~80-90s for switch init to complete in SIM, if this time increases in
     #future, we need to increase the timeout here as well.

@@ -14,6 +14,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.drop_packets.drop_packets import setup, tx_dut_ports, pkt_fields, ports_info, log_pkt_params
 from tests.drop_packets.test_drop_counters import do_test
+from tests.cisco.common.utils import CheckEnvironment
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
@@ -50,6 +51,8 @@ def test_packet_capture(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ena
     """
     # 1. Enable packet-debug drops capture
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if CheckEnvironment.is_sim(duthost):
+        pytest.skip("Test not supported in SIM environment")
     result = duthost.command("sudo config platform cisco packet-debug drops enable")
     logging.info(result)
     time.sleep(10)
