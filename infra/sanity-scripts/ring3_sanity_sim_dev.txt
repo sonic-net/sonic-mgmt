@@ -219,6 +219,3 @@ vlan/test_autostate_disabled.py
 vlan/test_host_vlan.py
 vlan/test_vlan_ping.py
 vlan/test_vlan.py
-cisco/platform_tests/test_serviceability_basic.py
-cisco/platform_tests/test_serviceability_pfc.py
-cisco/platform_tests/test_serviceability_packet_capture.py
