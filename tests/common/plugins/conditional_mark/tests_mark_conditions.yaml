@@ -1635,6 +1635,11 @@ telemetry/test_events.py:
     conditions:
       - https://github.com/sonic-net/sonic-buildimage/issues/17654
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305']"
+  xfail:
+    reason: "Test events is flaky in PR test, xfail until issue resolved"
+    conditions:
+      - "asic_type in ['vs']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/19943
 
 telemetry/test_telemetry.py:
   skip:
