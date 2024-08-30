@@ -182,8 +182,6 @@ class TestPfcwdAllTimer(object):
         queues = [self.storm_handle.pfc_queue_idx]
 
         with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info):
-            # Ensure the background traffic is running
-            time.sleep(1)
             self.storm_handle.start_storm()
             logger.info("Wait for queue to recover from PFC storm")
             time.sleep(32)
