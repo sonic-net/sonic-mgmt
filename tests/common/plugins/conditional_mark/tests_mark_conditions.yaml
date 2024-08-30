@@ -1325,6 +1325,12 @@ restapi/test_restapi.py:
     conditions:
       - "asic_type not in ['mellanox']"
 
+restapi/test_restapi.py::test_create_vrf:
+  skip:
+    reason: "Only supported on Mellanox T1"
+    conditions:
+      - "'t1' not in topo_type"
+
 restapi/test_restapi_vxlan_ecmp.py:
   skip:
     reason: "Only supported on cisco 8102 T1"
