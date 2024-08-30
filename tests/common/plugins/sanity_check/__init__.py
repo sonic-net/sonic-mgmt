@@ -119,7 +119,7 @@ def do_checks(request, check_items, *args, **kwargs):
     return check_results
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
     logger.info("Prepare sanity check")
 
@@ -313,7 +313,7 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
                   f"{json.dumps(new_failed_results, indent=4, default=fallback_serializer)}")
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def sanity_check(request):
     if request.config.option.skip_sanity:
         logger.info("Skip sanity check according to command line argument")
