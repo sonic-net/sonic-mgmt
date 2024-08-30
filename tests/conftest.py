@@ -418,7 +418,7 @@ def set_rand_one_dut_hostname(request):
         logger.info("Randomly select dut {} for testing".format(rand_one_dut_hostname_var))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def rand_one_dut_hostname(request):
     """
     """
@@ -440,7 +440,7 @@ def selected_rand_dut(request):
     return rand_one_dut_hostname_var
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def rand_one_dut_front_end_hostname(request):
     """
     """
@@ -451,7 +451,7 @@ def rand_one_dut_front_end_hostname(request):
     return dut_hostnames[0]
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def rand_one_tgen_dut_hostname(request, tbinfo, rand_one_dut_front_end_hostname, rand_one_dut_hostname):
     """
     Return the randomly selected duthost for TGEN test cases

@@ -5,13 +5,13 @@ import yaml
 import copy
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def conn_graph_facts(duthosts, localhost):
     return get_graph_facts(duthosts[0], localhost,
                            [dh.hostname for dh in duthosts])
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def fanout_graph_facts(localhost, duthosts, rand_one_tgen_dut_hostname, conn_graph_facts):
     duthost = duthosts[rand_one_tgen_dut_hostname]
     facts = dict()
