@@ -85,7 +85,7 @@ def _find_down_ports(dut, phy_interfaces, ip_interfaces):
     return down_ports
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def check_interfaces(duthosts):
     init_result = {"failed": False, "check_item": "interfaces"}
 
@@ -149,7 +149,7 @@ def check_interfaces(duthosts):
     return _check
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def check_bgp(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "bgp"}
 
@@ -274,7 +274,7 @@ def _is_db_omem_over_threshold(command_output):
     return result, total_omem, non_zero_output
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def check_dbmemory(duthosts):
     def _check(*args, **kwargs):
         init_result = {"failed": False, "check_item": "dbmemory"}
@@ -698,7 +698,7 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
     return _check
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def check_monit(duthosts):
     """
     @summary: Check whether the Monit is running and whether the services which were monitored by Monit are
@@ -769,7 +769,7 @@ def check_monit(duthosts):
     return _check
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def check_processes(duthosts):
     def _check(*args, **kwargs):
         init_result = {"failed": False, "check_item": "processes"}
@@ -837,7 +837,7 @@ def check_processes(duthosts):
     return _check
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def check_secureboot(duthosts, request):
     """
     Check if the file change in rw folder is as expected when secureboot feature enabled
@@ -956,7 +956,7 @@ def check_secureboot(duthosts, request):
     return _check
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def check_neighbor_macsec_empty(ctrl_links):
     nodes = []
     nodes_name = set()
@@ -993,7 +993,7 @@ def check_neighbor_macsec_empty(ctrl_links):
 
 
 # check ipv6 neighbor reachability
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def check_ipv6_mgmt(duthosts, localhost):
     # check ipv6 mgmt interface reachability for debugging purpose only.
     # No failure will be trigger for this sanity check.
@@ -1025,7 +1025,7 @@ def check_ipv6_mgmt(duthosts, localhost):
     return _check
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def check_orchagent_usage(duthosts):
     def _check(*args, **kwargs):
         init_result = {"failed": False, "check_item": "orchagent_usage"}

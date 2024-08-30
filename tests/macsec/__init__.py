@@ -120,7 +120,7 @@ class MacsecPlugin(object):
     def macsec_nbrhosts(self, ctrl_links):
         return {nbr["name"]: nbr for nbr in list(ctrl_links.values())}
 
-    @pytest.fixture(scope="module")
+    @pytest.fixture(scope="session")
     def ctrl_links(self, macsec_duthost, tbinfo, nbrhosts):
 
         if not nbrhosts:
