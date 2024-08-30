@@ -13,6 +13,8 @@ import yaml
 import jinja2
 import copy
 import time
+import subprocess
+import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -56,6 +58,7 @@ from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.sonic_db import AsicDbCli
 from tests.common.helpers.inventory_utils import trim_inventory
+from tests.common.utilities import InterruptableThread
 
 try:
     from tests.macsec import MacsecPluginT2, MacsecPluginT0
@@ -2458,63 +2461,37 @@ if not hasattr(Mask, "set_do_not_care_scapy"):
     Mask.set_do_not_care_scapy = Mask.set_do_not_care_packet
 
 
-def modify_rsyslog_severity_level(dut):
-    logger.info('Modify rsyslog severity level to error on dut: {}'.format(dut.hostname))
-    dut.shell("sudo mv /etc/rsyslog.d /etc/rsyslog.d.bak")
-    dut.shell("sudo mkdir /etc/rsyslog.d")
-    dut.shell("sudo echo '*.err    /var/log/syslog' > /etc/rsyslog.d/50_debug.conf")
-    dut.shell("sudo systemctl restart rsyslog")
-    time.sleep(5)
-
-
-def revert_rsyslog_severity_level(dut):
-    logger.info('Revert rsyslog severity level to error on dut: {}'.format(dut.hostname))
-    dut.shell("sudo rm -rf /etc/rsyslog.d")
-    dut.shell("sudo mv /etc/rsyslog.d.bak /etc/rsyslog.d")
-    dut.shell("sudo systemctl restart rsyslog")
-    time.sleep(5)
-
-
-def update_logrotate_compression(dut):
-    logger.info('Update logrotate compression on dut: {}'.format(dut.hostname))
-    dut.shell("sudo cp /etc/logrotate.d/rsyslog /etc/logrotate.d/rsyslog.bak")
-    dut.shell("sudo sed -i '/delaycompress/d' /etc/logrotate.d/rsyslog")
-    dut.shell("sudo logrotate -f /etc/logrotate.conf")
-    time.sleep(5)
-
-
-def revert_logrotate_compression(dut):
-    logger.info('Revert logrotate compression on dut: {}'.format(dut.hostname))
-    dut.shell("sudo mv /etc/logrotate.d/rsyslog.bak /etc/logrotate.d/rsyslog")
-    dut.shell("sudo rm -f /etc/logrotate.d/rsyslog.bak")
-    dut.shell("sudo logrotate -f /etc/logrotate.conf")
-    time.sleep(5)
+def run_logrotate(duthost, stop_event):
+    logger.info("Start rotate_syslog on {}".format(duthost))
+    while not stop_event.is_set():
+        try:
+            # Run logrotate for rsyslog
+            duthost.shell("logrotate -f /etc/logrotate.conf", module_ignore_errors=True)
+        except subprocess.CalledProcessError as e:
+            logger.error("Error: {}".format(str(e)))
+        # Wait for 60 seconds before the next rotation
+        time.sleep(60)
 
 
 @pytest.fixture(scope="function")
-def fixture_rsyslog_conf_setup_teardown(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
+def rotate_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    # workaround for small disk devices which also has limitation on /var/log size
-    cmd = "df -m"
-    cmd_response_lines = duthost.shell(cmd, module_ignore_errors=True).get('stdout_lines', [])
-    logger.debug("cmd {} rsp {}".format(cmd, cmd_response_lines))
-
-    available_size = 0
-    for line in cmd_response_lines:
-        if "/var/log" in line:
-            available_size = int(line.split()[3])
-            break
-
-    if available_size < 400:
-        modify_rsyslog_severity_level(duthost)
-        update_logrotate_compression(duthost)
-        rsyslog_severity_level_modified = True
-    else:
-        rsyslog_severity_level_modified = False
+    stop_event = threading.Event()
+    thread = InterruptableThread(
+        target=run_logrotate,
+        args=(duthost, stop_event,)
+    )
+    thread.daemon = True
+    thread.start()
 
     yield
+    stop_event.set()
+    try:
+        if thread.is_alive():
+            thread.join(timeout=30)
+            logger.info("thread {} joined".format(thread))
+    except Exception as e:
+        logger.debug("Exception occurred in thread {}".format(str(e)))
 
-    if rsyslog_severity_level_modified:
-        revert_rsyslog_severity_level(duthost)
-        revert_logrotate_compression(duthost)
+    logger.info("rotate_syslog exit {}".format(thread))

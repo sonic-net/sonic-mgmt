@@ -11,7 +11,6 @@ import threading
 from tests.common.utilities import wait_until
 from utils import get_crm_resources, check_queue_status, sleep_to_wait
 from tests.common import config_reload
-from tests.common.utilities import InterruptableThread
 
 CRM_POLLING_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
@@ -98,41 +97,3 @@ def check_system_memmory(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     logger.debug("CMD {}: after test {}".format(cmd, cmd_response.get('stdout', None)))
 
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-
-
-def run_logrotate(duthost, stop_event):
-    logger.info("Start rotate_syslog on {}".format(duthost))
-    while not stop_event.is_set():
-        try:
-            # rm swss logs
-            duthost.shell("rm -rf /var/log/swss/sairedis.rec*.gz /var/log/swss/swss.rec*.gz", module_ignore_errors=True)
-            # Run logrotate for rsyslog
-            duthost.shell("logrotate -f /etc/logrotate.conf", module_ignore_errors=True)
-        except subprocess.CalledProcessError as e:
-            logger.error("Error: {}".format(str(e)))
-        # Wait for 30 seconds before the next rotation
-        time.sleep(30)
-
-
-@pytest.fixture(scope="function")
-def rotate_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-    stop_event = threading.Event()
-    thread = InterruptableThread(
-        target=run_logrotate,
-        args=(duthost, stop_event,)
-    )
-    thread.daemon = True
-    thread.start()
-
-    yield
-    stop_event.set()
-    try:
-        if thread.is_alive():
-            thread.join(timeout=30)
-            logger.info("thread {} joined".format(thread))
-    except Exception as e:
-        logger.debug("Exception occurred in thread {}".format(str(e)))
-
-    logger.info("rotate_syslog exit {}".format(thread))

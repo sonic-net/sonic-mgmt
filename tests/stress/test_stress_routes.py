@@ -43,7 +43,7 @@ def announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name):
 def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_conpleteness_level,
                                  withdraw_and_announce_existing_routes, loganalyzer,
                                  enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
-                                 fixture_rsyslog_conf_setup_teardown, rotate_syslog):
+                                 rotate_syslog):
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
