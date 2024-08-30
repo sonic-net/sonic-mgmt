@@ -65,7 +65,7 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
                 assert "No Such Object currently exists" not in v[oid]
 
     # Check if lldpLocManAddrTable is present
-    if duthost.facts['modular_chassis'] == "False":
+    if not duthost.facts['modular_chassis']:
         # Modular Chassis LCs do not run global lldp service
         for k in ['lldpLocManAddrLen',
                   'lldpLocManAddrIfSubtype',
