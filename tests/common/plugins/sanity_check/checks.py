@@ -846,7 +846,7 @@ def check_secureboot(duthosts, request):
 
     default_allowlist = [r".*\.pyc"]
     cache_location = 'secureboot_sanity_check'
-    module = request.module.__name__
+    key = "check_secureboot_key"
 
     def _read_config_by_dut(duthost):
         results = {}
@@ -910,11 +910,11 @@ def check_secureboot(duthosts, request):
 
     def _pre_check():
         configs = _read_configs()
-        cache.write(cache_location, module, configs)
+        cache.write(cache_location, key, configs)
 
     def _post_check():
         check_results = []
-        old_configs = cache.read(cache_location, module)
+        old_configs = cache.read(cache_location, key)
         if not old_configs:
             old_configs = {}
         new_configs = _read_configs()
