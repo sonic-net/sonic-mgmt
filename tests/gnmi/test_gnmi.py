@@ -39,7 +39,7 @@ def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
 
 def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
                                                   rand_one_dut_hostname,
-                                                  localhost,
+                                                  ptfhost,
                                                   setup_invalid_client_cert_cname):
     '''
     Verify GNMI native write, incremental config for configDB
@@ -53,7 +53,7 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
         file.write(text)
     # Add DASH_VNET_TABLE
     update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@./%s" % (file_name)]
-    ret, msg = gnmi_set(duthost, localhost, [], update_list, [])
+    ret, msg = gnmi_set(duthost, ptfhost, [], update_list, [])
 
     assert ret != 0
     assert "rpc error: code = Unauthenticated" in msg
