@@ -128,7 +128,7 @@ def default_port_toggle_wait_time(duthost, port_count):
         port_count_factor = port_count / BASE_PORT_COUNT
         port_down_wait_time = int(port_down_wait_time * port_count_factor)
         port_up_wait_time = int(port_up_wait_time * port_count_factor)
-    elif duthost.get_facts().get("modular_chassis").lower() == "true":
+    elif duthost.get_facts().get("modular_chassis"):
         port_down_wait_time = 300
         port_up_wait_time = 300
 
