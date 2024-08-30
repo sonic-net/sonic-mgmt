@@ -38,6 +38,45 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+TABLE_NAME = "pbh_table"
+TABLE_DESCRIPTION = "NVGRE-ST/NVGRE and VxLAN"
+HASH_NAME = "inner_hash"
+VXLAN_RULE_PRIO = "1"
+NVGRE_RULE_PRIO = "2"
+NVGRE_ST_PRIO = "3"
+ECMP_PACKET_ACTION = "SET_ECMP_HASH"
+V4_ETHER_TYPE = "0x0800"
+V6_ETHER_TYPE = "0x86dd"
+VXLAN_IP_PROTOCOL = "0x11"
+NVGRE_IP_PROTOCOL = "0x2f"
+GRE_KEY = "0x6400"
+GRE_MASK = "0xffffff00"
+IPV4_OPTION = " --ip-protocol {}"
+IPV6_OPTION = " --ipv6-next-header {}"
+VXLAN_L4_DST_PORT = hex(VXLAN_PORT)
+VXLAN_L4_DST_PORT_OPTION = " --l4-dst-port {}".format(VXLAN_L4_DST_PORT)
+NVGRE_GRE_KEY_OPTION = " --gre-key {}/{}".format(GRE_KEY, GRE_MASK)
+ADD_PBH_TABLE_CMD = "sudo config pbh table add '{}' --interface-list '{}' --description '{}'"
+ADD_PBH_RULE_BASE_CMD = "sudo config pbh rule add '{}' '{}' --priority '{}' --ether-type {}" \
+                        " --inner-ether-type '{}' --hash '{}' --packet-action '{}' --flow-counter 'DISABLED'"
+ADD_PBH_HASH_CMD = "sudo config pbh hash add '{}' --hash-field-list '{}'"
+ADD_PBH_HASH_FIELD_CMD = "sudo config pbh hash-field add '{}' --hash-field '{}' --sequence-id '{}'"
+
+PBH_HASH_FIELD_LIST = "inner_ip_proto," \
+                      "inner_l4_dst_port,inner_l4_src_port," \
+                      "inner_dst_ipv4,inner_src_ipv4," \
+                      "inner_dst_ipv6,inner_src_ipv6"
+HASH_FIELD_CONFIG = {
+    "inner_dst_ipv4": {"field": "INNER_DST_IPV4", "sequence": "1", "mask": "255.255.255.255"},
+    "inner_src_ipv4": {"field": "INNER_SRC_IPV4", "sequence": "1", "mask": "255.255.255.255"},
+    "inner_src_ipv6": {"field": "INNER_SRC_IPV6", "sequence": "2", "mask": "::ffff:ffff"},
+    "inner_dst_ipv6": {"field": "INNER_DST_IPV6", "sequence": "2", "mask": "::ffff:ffff"},
+    "inner_l4_dst_port": {"field": "INNER_L4_DST_PORT", "sequence": "3"},
+    "inner_l4_src_port": {"field": "INNER_L4_SRC_PORT", "sequence": "3"},
+    "inner_ip_proto": {"field": "INNER_IP_PROTOCOL", "sequence": "4"},
+}
+
+
 def configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip):
     config_port_indices = cfg_facts['port_index_map']
     port_list = []
@@ -74,7 +113,7 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip):
             break
         ip_to_port[str(ip)] = port_list[index]
 
-    return port_list, ip_to_port, bank_0_port, bank_1_port
+    return port_list, ip_to_port, bank_0_port, bank_1_port, eth_port_list
 
 
 def configure_switch_vxlan_cfg(duthost):
@@ -146,7 +185,7 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
 
     for ip, port in ip_to_port.items():
 
-        if isinstance(ipaddress.ip_address(ip.decode('utf8')), ipaddress.IPv4Address):
+        if isinstance(ipaddress.ip_address(ip), ipaddress.IPv4Address):
             neigh_entries['NEIGH'][vlan_name + "|" + ip] = {
                 "neigh": ptfhost.shell("cat /sys/class/net/eth" + str(port) + "/address")["stdout_lines"][0],
                 "family": "IPv4"
@@ -176,18 +215,73 @@ def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_por
     ptfhost.copy(content=json.dumps(fg_ecmp, indent=2), dest=FG_ECMP_CFG)
 
 
-def setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, vlan_ip, prefix):
-    port_list, ip_to_port, bank_0_port, bank_1_port = configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip)
+def configure_fgnhg(duthost, ptfhost, cfg_facts, router_mac, net_ports, vlan_ip, prefix):
+    port_list, ip_to_port, bank_0_port, bank_1_port, eth_port_list = configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip)
     generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port, prefix)
     time.sleep(60)
     setup_neighbors(duthost, ptfhost, ip_to_port)
     create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports, prefix)
-    return port_list, ip_to_port, bank_0_port, bank_1_port
+    return port_list, ip_to_port, bank_0_port, bank_1_port, eth_port_list
 
 
 def cleanup(duthost):
     logger.info("Cleanup after test...")
     config_reload(duthost, config_source='minigraph', safe_reload=True)
+
+
+def config_pbh(duthost, intf_list):
+    config_hash_fields(duthost)
+    config_hash(duthost)
+    config_pbh_table(duthost, intf_list)
+    config_rules(duthost)
+
+
+def config_hash_fields(duthost):
+    logging.info("Create PBH hash-fields")
+    for hash_field, hash_field_params_dict in list(HASH_FIELD_CONFIG.items()):
+        cmd = get_hash_field_add_cmd(hash_field, hash_field_params_dict)
+        duthost.command(cmd)
+
+
+def get_hash_field_add_cmd(hash_field_name, hash_field_params_dict):
+    cmd = ADD_PBH_HASH_FIELD_CMD.format(hash_field_name,
+                                        hash_field_params_dict["field"],
+                                        hash_field_params_dict["sequence"])
+    if "mask" in hash_field_params_dict:
+        cmd += " --ip-mask '{}'".format(hash_field_params_dict["mask"])
+    return cmd
+
+
+def config_hash(duthost):
+    logging.info("Create PBH hash: {}".format(HASH_NAME))
+    duthost.command(ADD_PBH_HASH_CMD.format(HASH_NAME, PBH_HASH_FIELD_LIST))
+
+
+def config_pbh_table(duthost, intf_list):
+    logging.info("Create PBH table: {}".format(TABLE_NAME))
+    duthost.command(ADD_PBH_TABLE_CMD.format(TABLE_NAME,
+                                             ",".join(intf_list),
+                                             TABLE_DESCRIPTION))
+
+def config_rules(duthost):
+    logging.info("Create PBH rules")
+    config_rule(duthost, "nvgre_st", NVGRE_ST_PRIO, V4_ETHER_TYPE, IPV4_OPTION, NVGRE_IP_PROTOCOL, V6_ETHER_TYPE, NVGRE_GRE_KEY_OPTION)
+    config_rule(duthost, "nvgre_v4", NVGRE_RULE_PRIO, V4_ETHER_TYPE, IPV4_OPTION, NVGRE_IP_PROTOCOL, V4_ETHER_TYPE)
+    config_rule(duthost, "nvgre_v6", NVGRE_RULE_PRIO, V6_ETHER_TYPE, IPV6_OPTION, NVGRE_IP_PROTOCOL, V4_ETHER_TYPE)
+    config_rule(duthost, "vxlan_v4", VXLAN_RULE_PRIO, V4_ETHER_TYPE, IPV4_OPTION, VXLAN_IP_PROTOCOL, V4_ETHER_TYPE, VXLAN_L4_DST_PORT_OPTION)
+    config_rule(duthost, "vxlan_v6", VXLAN_RULE_PRIO, V6_ETHER_TYPE, IPV6_OPTION, VXLAN_IP_PROTOCOL, V4_ETHER_TYPE, VXLAN_L4_DST_PORT_OPTION)
+
+def config_rule(duthost, rule_name, rule_priority, ether_type, ip_ver_option, ip_ver_value, inner_ether_type, hash_option=""):
+    logging.info("Create PBH rule: {}".format(rule_name))
+    duthost.command((ADD_PBH_RULE_BASE_CMD + ip_ver_option + hash_option)
+                    .format(TABLE_NAME,
+                            rule_name,
+                            rule_priority,
+                            ether_type,
+                            inner_ether_type,
+                            HASH_NAME,
+                            ECMP_PACKET_ACTION,
+                            ip_ver_value))
 
 
 @pytest.fixture(scope="module")
@@ -199,21 +293,35 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
         router_mac = duthost.facts['router_mac']
         net_ports = []
+        port_channels = []
+
         for name, val in mg_facts['minigraph_portchannels'].items():
+            #add name into port_channels
+            port_channels.append(name)
             members = [mg_facts['minigraph_ptf_indices'][member] for member in val['members']]
             net_ports.extend(members)
-
-        # configure Static PBH
-        configure_static_pbh(duthost)
 
         # configure vxlan
         configure_switch_vxlan_cfg(duthost)
 
         # IPv4 config
-        port_list, ipv4_to_port, _, _ = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv4, PREFIX_IPv4)
+        port_list, ipv4_to_port, _, _, eth_port_list = configure_fgnhg(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv4, PREFIX_IPv4)
 
         # IPv6 config
-        port_list, ipv6_to_port, _, _ = setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6, PREFIX_IPv6)
+        port_list, ipv6_to_port, _, _, _, = configure_fgnhg(duthost, ptfhost, cfg_facts, router_mac, net_ports, DEFAULT_VLAN_IPv6, PREFIX_IPv6)
+
+        #log combine of eth_port_list and port_channels which are interfaces to be used for dynamic pbh
+        logger.info("Interfaces to be used for dynamic pbh: " + str(eth_port_list + port_channels))
+
+        release = duthost.os_version
+        if release is not None and release < '202205':
+            logger.info("release version does not support dynamic pbh, configure static pbh")
+            # configure Static PBH
+            configure_static_pbh(duthost)
+        else:
+            # configure Dynamic PBH
+            logger.info("release version supports dynamic pbh, configure dynamic pbh")
+            config_pbh(duthost, eth_port_list + port_channels)
 
         yield duthost, port_list, ipv4_to_port, ipv6_to_port
 

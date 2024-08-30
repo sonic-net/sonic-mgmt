@@ -26,15 +26,42 @@ ACL_TABLE_BMC_SOUTHBOUND_V6 = "bmc_acl_southbound_v6"
 ETHERTYPE_IPV4 = 0x0800
 ETHERTYPE_IPV6 = 0x86DD
 
+ICMP_TYPE_ECHO_REQUEST = 8
+ICMP_TYPE_ECHO_REPLY = 0
+ICMP_CODE_ECHO_REQUEST = 0
+ICMP_CODE_ECHO_REPLY = 0
+
+ICMPV6_TYPE_ECHO_REQUEST = 128
+ICMPV6_TYPE_ECHO_REPLY = 129
+ICMPV6_TYPE_ROUTER_SOLICITATION = 133
+ICMPV6_TYPE_ROUTER_ADVERTISEMENT = 134
+ICMPV6_TYPE_NEIGHBOR_SOLICITATION = 135
+ICMPV6_TYPE_NEIGHBOR_ADVERTISEMENT = 136
+ICMPV6_CODE_ECHO_REQUEST = 0
+ICMPV6_CODE_ECHO_REPLY = 0
+ICMPV6_CODE_ROUTER_SOLICITATION = 0
+ICMPV6_CODE_ROUTER_ADVERTISEMENT = 0
+ICMPV6_CODE_NEIGHBOR_SOLICITATION = 0
+ICMPV6_CODE_NEIGHBOR_ADVERTISEMENT = 0
+
+DHCP_CLIENT_PORT = 68
+DHCP_SERVER_PORT = 67
+
+DHCPV6_CLIENT_PORT = 546
+DHCPV6_SERVER_PORT = 547
+DHCPV6_MULTICAST_IP = "ff02::1:2/128"
+
 IP2ME_TYPE_IP_INTF = "IPInterface"
 IP2ME_TYPE_LO_IP_INTF = "LoopbackIPInterface"
 IP2ME_TYPE_MGMT_IP_INTF = "ManagementIPInterface"
 IP2ME_TYPE_VLAN_INTF = "VlanInterface"
 
+IP_PROTOCOL_ICMP = "IP_ICMP"
 IP_PROTOCOL_ICMPV6 = "IP_ICMPV6"
 IP_PROTOCOL_TCP = "IP_TCP"
 IP_PROTOCOL_UDP = "IP_UDP"
 IP_PROTOCOL_MAP = {
+    IP_PROTOCOL_ICMP: 1,
     IP_PROTOCOL_TCP: 6,
     IP_PROTOCOL_UDP: 17,
     IP_PROTOCOL_ICMPV6: 58,
@@ -116,8 +143,8 @@ def acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=None, interfaces=None,
 
 def ip2me_list(vlan_count):
     # Loopback0 or MGMT
-    ipv4_list = [IP2ME(ipaddress.ip_network('10.1.0.32'), IP2ME_TYPE_MGMT_IP_INTF)]
-    ipv6_list = [IP2ME(ipaddress.ip_network('fc00:1::32'), IP2ME_TYPE_MGMT_IP_INTF)]
+    ipv4_list = [IP2ME(ipaddress.ip_network('10.1.0.32'), IP2ME_TYPE_LO_IP_INTF)]
+    ipv6_list = [IP2ME(ipaddress.ip_network('fc00:1::32'), IP2ME_TYPE_LO_IP_INTF)]
     # VLAN Interface
     with open(MX_VLAN_CONFIG) as f:
         vlan_config = json.load(f)[str(vlan_count)]
@@ -152,18 +179,21 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
 
     acl_entries = {}
 
-    # IP2ME Rules
+    # Allow ICMP Echo Request and Reply packet from BMC to Mx VLAN interface,
+    # so that BMC and Mx can ping each other.
     ipv4_list, _ = ip2me_list(rack_topo['config']['vlan_count'])
     sequence_id = 101
-    for ip2me in ipv4_list:
-        if ip2me.type != IP2ME_TYPE_IP_INTF:  # P2P IP not needed in northbound
-            acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr), ethertype=ETHERTYPE_IPV4)
-            sequence_id += 5
+    for ip2me in filter(lambda x: x.type == IP2ME_TYPE_VLAN_INTF, ipv4_list):
+        acl_entries["{:04d}_IP2ME".format(sequence_id)] = \
+            acl_entry(sequence_id, ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV4, dst_ip=format(ip2me.addr))
+        sequence_id += 5
 
-    # Allow DHCP packets from BMC to Mx
+    # Allow DHCP broadcast packets from BMC to Mx
     sequence_id = 501
-    acl_entries["{:04d}_ALLOW_DHCP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, src_ip="0.0.0.0/32", dst_ip="255.255.255.255/32", ip_protocol=IP_PROTOCOL_UDP, l4_dst_port=67, ethertype=ETHERTYPE_IPV4)
+    acl_entries["{:04d}_DHCP_BROADCAST".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV4,
+                  ip_protocol=IP_PROTOCOL_UDP, l4_dst_port=DHCP_SERVER_PORT,
+                  src_ip="0.0.0.0/32", dst_ip="255.255.255.255/32")
 
     # IN_PORTS = BMC, DST_IP = BMC => DROP
     sequence_id = 1001
@@ -237,6 +267,7 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
 
     acl_entries = {}
 
+    '''
     # IP2Me Rules
     sequence_id = 101
     _, ipv6_list = ip2me_list(rack_topo['config']['vlan_count'])
@@ -244,6 +275,7 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
         if ip2me.type != IP2ME_TYPE_IP_INTF:  # P2P IP not needed in northbound
             acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr), ethertype=ETHERTYPE_IPV6)
             sequence_id += 5
+    '''
 
     # If IPv6 is supported on any RM
     sequence_id = 1001
@@ -294,6 +326,7 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
                             acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip), ethertype=ETHERTYPE_IPV6)
                         sequence_id += 5
 
+    '''
     # Allow NDP between Mx and BMC
     sequence_id = 9001  # icmp_type = 133: Router Solicitation
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
@@ -309,6 +342,7 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
     sequence_id = 9011
     acl_entries["{:04d}_ALLOW_DHCPv6".format(sequence_id)] = \
         acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, dst_ip="ff02::1:2/128", ip_protocol=IP_PROTOCOL_UDP, ethertype=ETHERTYPE_IPV6)
+    '''
 
     # All other ipv6 packets => DROP
     # (Prevent BMC send package to upstream)
@@ -331,12 +365,14 @@ def gen_southbound_acl_entries_v6(rack_topo, hwsku):
         sequence_id += 5
 
     # Allow NDP between Mx and M0
-    sequence_id = 9001  # icmp_type = 135: Neighbor Solicitation
-    acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=135, icmp_code=0, ethertype=ETHERTYPE_IPV6)
-    sequence_id = 9002  # icmp_type = 136: Neighbor Advertisement
-    acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0, ethertype=ETHERTYPE_IPV6)
+    sequence_id = 201  # icmp_type = 135: Neighbor Solicitation
+    acl_entries["{:04d}_ICMPV6_NEIGHBOR_SOLICITATION".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, ethertype=ETHERTYPE_IPV6,
+                  icmp_type=ICMPV6_TYPE_NEIGHBOR_SOLICITATION, icmp_code=ICMPV6_CODE_NEIGHBOR_SOLICITATION)
+    sequence_id = 202  # icmp_type = 136: Neighbor Advertisement
+    acl_entries["{:04d}_ICMPV6_NEIGHBOR_ADVERTISEMENT".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, ethertype=ETHERTYPE_IPV6,
+                  icmp_type=ICMPV6_TYPE_NEIGHBOR_ADVERTISEMENT, icmp_code=ICMPV6_CODE_NEIGHBOR_ADVERTISEMENT)
 
     # By default, drop all the southbound traffic:
     # MARCH_ALL => DROP

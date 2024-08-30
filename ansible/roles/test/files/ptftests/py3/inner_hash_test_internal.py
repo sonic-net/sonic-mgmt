@@ -242,9 +242,11 @@ class InnerHashTestInternal(BaseTest):
         default_dst_port = random.randint(2, 30000)
 
         inner_tuples = [SRC_IP, DST_IP, SRC_PORT, DST_PORT]
-        inner_protos = ['tcp', 'udp']
+        inner_protos = ['tcp', 'udp', 'icmp']
         for inner_l4_proto in inner_protos:
             for tuple in inner_tuples:
+                if inner_l4_proto == 'icmp' and (tuple == SRC_PORT or tuple == DST_PORT):
+                    continue
                 # Keep mac learning active
                 self.trigger_mac_learning(self.exp_ports)
 
