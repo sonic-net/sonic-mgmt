@@ -260,9 +260,9 @@ cloud_advanced/show_tam_tail_stamping.tmpl, .*, sonic, show tam tail-stamping
 
 ztp_status_v.tmpl, .*, sonic, sudo ztp status -v
 ps_aux.tmpl, .*, sonic, sudo ps aux.*
-show_spanning_tree_root_guard.tmpl, .*, sonic, show spanning_tree root_guard
+show_spanning_tree_root_guard.tmpl, .*, sonic, show spanning-tree root_guard
 show_spanning_tree_root_guard.tmpl, .*, sonic, show spanning-tree inconsistentports
-show_spanning_tree_bpdu_guard.tmpl, .*, sonic, show spanning_tree bpdu_guard
+show_spanning_tree_bpdu_guard.tmpl, .*, sonic, show spanning-tree bpdu_guard
 show_spanning_tree_bpdu_guard.tmpl, .*, sonic, show spanning-tree bpdu-guard
 stpctl_port.tmpl, .*, sonic, stpctl\s+port\s+\d+\s+\w+
 route_n.tmpl, .*, sonic, sudo route -n
