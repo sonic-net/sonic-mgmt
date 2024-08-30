@@ -11,7 +11,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms29-t2-8800-3
+    default: vms25-t2-8800-3
     displayName: "Testbed Name"
 
   # Upgrade parameters
