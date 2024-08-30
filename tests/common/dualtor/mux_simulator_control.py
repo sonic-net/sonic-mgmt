@@ -107,7 +107,7 @@ def mux_server_url(mux_server_info):
     return ""
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def url(mux_server_url, duthost, tbinfo):
     """
     A helper function is returned to make fixture accept arguments
@@ -851,7 +851,7 @@ def simulator_clear_flap_counters(url):
     pytest_assert(_post(server_url, data), "Failed to clear flap counter for all ports")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def reset_simulator_port(url):
 
     def _reset_simulator_port(interface_name=None):
@@ -869,7 +869,7 @@ def reset_all_simulator_ports(url):
     pytest_assert(_post(server_url, {}))
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def get_mux_status(url):
 
     def _get_mux_status(interface_name=None):

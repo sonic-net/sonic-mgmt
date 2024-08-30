@@ -632,7 +632,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
     return True, "", duts_parsed_mux_status
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status,     # noqa F811
                         reset_simulator_port, restart_nic_simulator,                # noqa F811
                         active_standby_ports):                                      # noqa F811

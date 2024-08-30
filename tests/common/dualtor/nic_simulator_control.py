@@ -111,7 +111,7 @@ def restart_nic_simulator_session(nic_simulator_info, vmhost):
     _restart_nic_simulator(vmhost, vmset_name)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def restart_nic_simulator(nic_simulator_info, vmhost):
     """Fixture to restart nic_simulator service on the VM server host."""
     _, _, vmset_name = nic_simulator_info

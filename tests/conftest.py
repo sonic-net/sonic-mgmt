@@ -1971,7 +1971,7 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
     yield rtn_dict
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def duts_minigraph_facts(duthosts, tbinfo):
     """Return minigraph facts for all DUT hosts
 
