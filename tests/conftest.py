@@ -654,7 +654,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     return devices
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F811
     """
     Shortcut fixture for getting Fanout hosts
