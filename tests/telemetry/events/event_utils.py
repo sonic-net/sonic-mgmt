@@ -105,6 +105,8 @@ def verify_received_output(received_file, N):
 
 
 def restart_eventd(duthost):
+    if duthost.is_multi_asic:
+        pytest.skip("Skip eventd testing on multi-asic")
     features_dict, succeeded = duthost.get_feature_status()
     if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
         pytest.skip("eventd is disabled on the system")
