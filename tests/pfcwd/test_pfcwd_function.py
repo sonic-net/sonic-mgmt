@@ -435,6 +435,8 @@ class SetupPfcwdFunc(object):
                 ptf_port += (constants.VLAN_SUB_INTERFACE_SEPARATOR + self.pfc_wd['test_port_vlan_id'])
             self.ptf.command("ip neigh flush all")
             self.ptf.command("ip -6 neigh flush all")
+            self.dut.command("ip neigh flush all")
+            self.dut.command("ip -6 neigh flush all")
             self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
             self.ptf.command("ping {} -c 10".format(vlan['addr']))
 
