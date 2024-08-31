@@ -59,22 +59,34 @@ def setup_vnet_ping_responder(ptfhost):
         )
 
 
-def block_reply_for_vip(ptfhost, vip_to_block):
+def block_reply_for_vip(ptfhost, vip_to_block, nh_to_block=None):
     """
     Block reply for a VIP on ptf container.
     """
-    logger.info("Block reply for VIP {} on ptf container".format(vip_to_block))
-    vip_to_block = ipaddress.ip_network(vip_to_block, strict=False).network_address
-    ptfhost.shell("echo {} >> {}".format(vip_to_block, VIP_BLOCK_LIST))
+    if nh_to_block:
+        logger.info("Block reply for VIP {} and nexthop {} on ptf container".format(vip_to_block, nh_to_block))
+        vip_to_block = ipaddress.ip_network(vip_to_block, strict=False).network_address
+        nh_to_block = ipaddress.ip_network(nh_to_block, strict=False).network_address
+        ptfhost.shell("echo {},{} >> {}".format(vip_to_block, nh_to_block, VIP_BLOCK_LIST))
+    else:
+        logger.info("Block reply for VIP {} on ptf container".format(vip_to_block))
+        vip_to_block = ipaddress.ip_network(vip_to_block, strict=False).network_address
+        ptfhost.shell("echo {} >> {}".format(vip_to_block, VIP_BLOCK_LIST))
 
 
-def unblock_reply_for_vip(ptfhost, vip_to_unblock):
+def unblock_reply_for_vip(ptfhost, vip_to_unblock, nh_to_block=None):
     """
     Unblock reply for a VIP on ptf container.
     """
-    logger.info("Unblock reply for VIP {} on ptf container".format(vip_to_unblock))
-    vip_to_unblock = ipaddress.ip_network(vip_to_unblock, strict=False).network_address
-    ptfhost.shell("sed -i '/{}/d' {}".format(vip_to_unblock, VIP_BLOCK_LIST))
+    if nh_to_block:
+        logger.info("Unblock reply for VIP {} and nexthop {} on ptf container".format(vip_to_unblock, nh_to_block))
+        vip_to_unblock = ipaddress.ip_network(vip_to_unblock, strict=False).network_address
+        nh_to_block = ipaddress.ip_network(nh_to_block, strict=False).network_address
+        ptfhost.shell("sed -i '/{},{}/d' {}".format(vip_to_unblock, nh_to_block, VIP_BLOCK_LIST))
+    else:
+        logger.info("Unblock reply for VIP {} on ptf container".format(vip_to_unblock))
+        vip_to_unblock = ipaddress.ip_network(vip_to_unblock, strict=False).network_address
+        ptfhost.shell("sed -i '/{}/d' {}".format(vip_to_unblock, VIP_BLOCK_LIST))
 
 
 @pytest.fixture(scope="module")

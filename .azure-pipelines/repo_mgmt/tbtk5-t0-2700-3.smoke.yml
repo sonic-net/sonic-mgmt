@@ -43,6 +43,12 @@ parameters:
     default: $(SAITHRIFT_MLNX_INTERNAL)
     displayName: "py_saithrift URL"
 
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-S "bfd dualtor_io dualtor_mgmt ixia mx snappi_tests test_vs_chassis_setup testbed_setup voq wan"'
+    displayName: Testbed specific
+
   # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
@@ -107,6 +113,7 @@ stages:
       ALWAYS_POWER_CYCLE_DUTS: ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       SKIP_RUNNING_TEST: ${{ parameters.SKIP_RUNNING_TEST }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}

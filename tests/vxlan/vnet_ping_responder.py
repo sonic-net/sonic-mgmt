@@ -25,6 +25,8 @@ DEFAULT_VXLAN_PORT = 65330
 
 # The IP address in this list will not get response
 blocked_list = set()
+# The VIP and NH combination will get blocked if they are present in the format <VIP>,<NH>
+vip_nh_blocked_list = {}
 
 
 class Interface(object):
@@ -81,9 +83,28 @@ class Poller(object):
     def action(self):
         while self.working and self.interface.handler():
             data = self.interface.recv()
-            reply = self.generate_vnet_ping_reply(data, self.src_mac)
-            if reply:
-                self.interface.send(reply)
+            if not self.check_vip_nh_blocked(data):
+                reply = self.generate_vnet_ping_reply(data, self.src_mac)
+                if reply:
+                    self.interface.send(reply)
+
+    def check_vip_nh_blocked(self, data):
+        pkt = scapy2.Ether(data)
+        global vip_nh_blocked_list
+        try:
+            vxlan_layer_1 = scapy2.VXLAN(bytes(pkt['Raw']))
+            if 'IP' in vxlan_layer_1:
+                ip_dst = vxlan_layer_1['IP'].dst
+            else:
+                ip_dst = vxlan_layer_1['IPv6'].dst
+
+            if ip_dst in vip_nh_blocked_list:
+                ip_dstnh = pkt['IP'].dst
+                if ip_dstnh in vip_nh_blocked_list[ip_dst]:
+                    return True
+            return False
+        except Exception:
+            return False
 
     def generate_vnet_ping_reply(self, data, src_mac):
         pkt = scapy2.Ether(data)
@@ -130,13 +151,22 @@ class Poller(object):
 
 def read_block_file():
     blocked_list.clear()
+    global vip_nh_blocked_list
+    vip_nh_blocked_list = {}
     with open(BLOCK_FILE) as f:
         lines = f.readlines()
     for line in lines:
         if line.startswith('#'):
             continue
-        blocked_list.add(line.strip())
-    print("Add IP {} to block list".format(blocked_list))
+        if ',' in line:
+            vip, nh = line.split(',')
+            if vip not in vip_nh_blocked_list:
+                vip_nh_blocked_list[vip] = set()
+            vip_nh_blocked_list[vip].add(nh.strip())
+            print("Add VIP/nexthop {}/{} to block list".format(vip, nh.strip()))
+        else:
+            blocked_list.add(line.strip())
+            print("Add IP {} to block list".format(line.strip()))
 
 
 def watch_block_file():
