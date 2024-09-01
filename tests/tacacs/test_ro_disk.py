@@ -4,6 +4,7 @@ import os
 import time
 
 from ansible.errors import AnsibleConnectionFailure
+from pytest_ansible.errors import AnsibleConnectionFailure as PytestAnsibleConnectionFailure
 from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
@@ -82,7 +83,7 @@ def do_reboot(duthost, localhost, duthosts):
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5, timeout=60)
             rebooted = True
             break
-        except AnsibleConnectionFailure as e:
+        except (AnsibleConnectionFailure, PytestAnsibleConnectionFailure) as e:
             logger.error("DUT not reachable, exception: {} attempt:{}/{}".
                          format(repr(e), i, retries))
         except RunAnsibleModuleFail as e:
@@ -264,9 +265,14 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
-        if not do_reboot(duthost, localhost, duthosts):
-            logger.warning("Failed to reboot {}, try PDU reboot to restore disk RW state".
-                           format(enum_rand_one_per_hwsku_hostname))
+        try:
+            if not do_reboot(duthost, localhost, duthosts):
+                logger.warning("Failed to reboot {}, try PDU reboot to restore disk RW state".
+                               format(enum_rand_one_per_hwsku_hostname))
+                do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
+        except Exception as e:
+            logger.warning("Failed to reboot {}, got exception {}, try PDU reboot to restore disk RW state".
+                           format(enum_rand_one_per_hwsku_hostname, e))
             do_pdu_reboot(duthost, localhost, duthosts, pdu_controller)
         logger.debug("  END: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
