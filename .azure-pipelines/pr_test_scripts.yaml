@@ -407,6 +407,7 @@ t1-lag:
   - drop_packets/test_drop_counters.py
   - crm/test_crm.py
   - bgp/test_bgp_suppress_fib.py
+  - bgp/test_bgp_sentinel.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -471,7 +472,6 @@ onboarding_t1:
   - generic_config_updater/test_cacl.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
-  - bgp/test_bgp_sentinel.py
   - snmp/test_snmp_link_local.py
 
 onboarding_dualtor:
