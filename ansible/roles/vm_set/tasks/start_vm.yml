@@ -79,5 +79,5 @@
 - name: "Pause after started every {{ batch_size }} VMs"
   pause: seconds="{{ interval }}"
   when:
-    - "{{ vm_index }} % {{ batch_size }} == 0"
-    - "{{ interval }} > 0"
+    - (vm_index|int % batch_size|int) == 0
+    - interval|int > 0
