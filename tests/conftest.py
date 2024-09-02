@@ -10,6 +10,9 @@ import pytest
 import yaml
 import jinja2
 import copy
+import time
+import subprocess
+import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -51,6 +54,7 @@ from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.utilities import InterruptableThread
 
 try:
     from tests.macsec import MacsecPlugin
@@ -2313,3 +2317,39 @@ testutils.verify_packets_any = verify_packets_any_fixed
 # HACK: We are using set_do_not_care_scapy but it will be deprecated.
 if not hasattr(Mask, "set_do_not_care_scapy"):
     Mask.set_do_not_care_scapy = Mask.set_do_not_care_packet
+
+
+def run_logrotate(duthost, stop_event):
+    logger.info("Start rotate_syslog on {}".format(duthost))
+    while not stop_event.is_set():
+        try:
+            # Run logrotate for rsyslog
+            duthost.shell("logrotate -f /etc/logrotate.conf", module_ignore_errors=True)
+        except subprocess.CalledProcessError as e:
+            logger.error("Error: {}".format(str(e)))
+        # Wait for 60 seconds before the next rotation
+        time.sleep(60)
+
+
+@pytest.fixture(scope="function")
+def rotate_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    stop_event = threading.Event()
+    thread = InterruptableThread(
+        target=run_logrotate,
+        args=(duthost, stop_event,)
+    )
+    thread.daemon = True
+    thread.start()
+
+    yield
+    stop_event.set()
+    try:
+        if thread.is_alive():
+            thread.join(timeout=30)
+            logger.info("thread {} joined".format(thread))
+    except Exception as e:
+        logger.debug("Exception occurred in thread {}".format(str(e)))
+
+    logger.info("rotate_syslog exit {}".format(thread))
