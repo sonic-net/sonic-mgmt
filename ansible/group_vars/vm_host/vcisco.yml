@@ -6,5 +6,5 @@ skip_vcisco_image_downloading: false
 # The url can be a string as single URL or a list of strings as multiple URLs. If it is a list, the code
 # logic will automatically try each URL in the list
 vcisco_image_url:
-  - http://example1.com/vIOS-xrv9k-goldenk9-x-7.3.4-20.qcow2
-  - http://example2.com/vIOS-xrv9k-goldenk9-x-7.3.4-20.qcow2
+  - http://10.201.148.43/vIOS-xrv9k-goldenk9-x-7.3.4-20.qcow2
+  - http://10.150.22.222/vIOS-xrv9k-goldenk9-x-7.3.4-20.qcow2
