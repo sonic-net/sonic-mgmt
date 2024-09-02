@@ -22,7 +22,7 @@ pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: F811
-                                        snappi_testbed_config,
+                                        snappi_testbed_config,          # noqa: F811
                                         conn_graph_facts,               # noqa: F811
                                         fanout_graph_facts_multidut,             # noqa: F811
                                         duthosts,

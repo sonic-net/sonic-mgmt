@@ -4,8 +4,9 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert       
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-     get_snappi_ports_single_dut, get_snappi_ports, snappi_testbed_config, is_snappi_multidut, get_snappi_ports_multi_dut, \
-     snappi_api, snappi_dut_base_config, cleanup_config,  get_snappi_ports_for_rdma   # noqa: F401
+    snappi_api, get_snappi_ports, is_snappi_multidut, \
+    get_snappi_ports_single_dut, snappi_testbed_config, \
+    get_snappi_ports_multi_dut, snappi_dut_base_config, cleanup_config, get_snappi_ports_for_rdma  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp_map                # noqa: F401
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test                      # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -18,7 +19,7 @@ pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_global_pause(snappi_api,                                   # noqa: F811
-                      snappi_testbed_config,
+                      snappi_testbed_config,                        # noqa: F811
                       conn_graph_facts,                             # noqa: F811
                       fanout_graph_facts_multidut,                # noqa: F811
                       get_snappi_ports,                           # noqa: F811

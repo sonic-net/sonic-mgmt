@@ -1036,15 +1036,16 @@ def multidut_snappi_ports_for_bgp(duthosts,                                # noq
         multidut_snappi_ports = multidut_snappi_ports + snappi_ports
     return multidut_snappi_ports
 
+
 @pytest.fixture(scope="module")
-def get_snappi_ports_single_dut(duthosts,                                # noqa: F811
-                     conn_graph_facts,                        # noqa: F811
-                     fanout_graph_facts,
-                     tbinfo,
-                     snappi_api_serv_ip,
-                     rand_one_dut_hostname,
-                     rand_one_dut_portname_oper_up
-                     ):                                      # noqa: F811
+def get_snappi_ports_single_dut(duthosts,  # noqa: F811
+                                conn_graph_facts,  # noqa: F811
+                                fanout_graph_facts,  # noqa: F811
+                                tbinfo,
+                                snappi_api_serv_ip,
+                                rand_one_dut_hostname,
+                                rand_one_dut_portname_oper_up
+                                ):  # noqa: F811
     speed_type = {
                   '10000': 'speed_10_gbps',
                   '25000': 'speed_25_gbps',
@@ -1097,12 +1098,13 @@ def get_snappi_ports_single_dut(duthosts,                                # noqa:
             tx_ports.append(port)
     return rx_ports + tx_ports
 
+
 @pytest.fixture(scope="module")
-def get_snappi_ports_multi_dut(duthosts,                                # noqa: F811
-                     tbinfo,                                  # noqa: F811
-                     conn_graph_facts,                        # noqa: F811
-                     fanout_graph_facts_multidut,
-                     ):                                      # noqa: F811
+def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
+                               tbinfo,  # noqa: F811
+                               conn_graph_facts,  # noqa: F811
+                               fanout_graph_facts_multidut,
+                               ):  # noqa: F811
     """
     Populate snappi ports and connected DUT ports info of T1 and T2 testbed and returns as a list
     Args:
@@ -1185,11 +1187,13 @@ def get_snappi_ports_multi_dut(duthosts,                                # noqa: 
         multidut_snappi_ports = multidut_snappi_ports + snappi_ports
     return multidut_snappi_ports
 
+
 def is_snappi_multidut(duthosts):
     if duthosts is None or len(duthosts) == 0:
         return False
 
     return duthosts[0].get_facts().get("modular_chassis")
+
 
 @pytest.fixture(scope="module")
 def get_snappi_ports(duthosts, request):
@@ -1207,6 +1211,7 @@ def get_snappi_ports(duthosts, request):
     else:
         snappi_ports = request.getfixturevalue("get_snappi_ports_single_dut")
     return snappi_ports
+
 
 def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_port_count, testbed):
     """
