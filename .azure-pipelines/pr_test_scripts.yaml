@@ -172,8 +172,7 @@ t0:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
-  # Temporarily skip test_events due to test issue with high failure rate
-  # - telemetry/test_events.py
+  - telemetry/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
@@ -209,6 +208,10 @@ t0:
   - sub_port_interfaces/test_sub_port_interfaces.py
   - hash/test_generic_hash.py
   - span/test_port_mirroring.py
+  - route/test_route_bgp_ecmp.py
+  - drop_packets/test_drop_counters.py
+  - copp/test_copp.py
+  - crm/test_crm.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -235,6 +238,7 @@ dualtor:
   - dualtor/test_tunnel_memory_leak.py
   - dualtor_io/test_heartbeat_failure.py
   - dualtor_io/test_link_drop.py
+  - dualtor_io/test_link_failure.py
   - dualtor_io/test_tor_bgp_failure.py
   - dualtor_mgmt/test_grpc_periodical_sync.py
   - dualtor_mgmt/test_ingress_drop.py
@@ -394,7 +398,15 @@ t1-lag:
   - platform_tests/test_reload_config.py
   - hash/test_generic_hash.py
   - sub_port_interfaces/test_sub_port_interfaces.py
+  - telemetry/test_events.py
   - show_techsupport/test_auto_techsupport.py
+  - vxlan/test_vxlan_bfd_tsa.py
+  - vxlan/test_vxlan_ecmp_switchover.py
+  - copp/test_copp.py
+  - stress/test_stress_routes.py
+  - drop_packets/test_drop_counters.py
+  - crm/test_crm.py
+  - bgp/test_bgp_suppress_fib.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -445,8 +457,6 @@ dpu:
 
 onboarding_t0:
   - bgp/test_bgp_stress_link_flap.py
-  - copp/test_copp.py
-  - crm/test_crm.py
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
@@ -454,28 +464,17 @@ onboarding_t0:
   - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
-  - route/test_route_bgp_ecmp.py
   - snmp/test_snmp_link_local.py
-  - drop_packets/test_drop_counters.py
 
 onboarding_t1:
   - bgp/test_bgp_stress_link_flap.py
-  - copp/test_copp.py
-  - crm/test_crm.py
   - generic_config_updater/test_cacl.py
   - gnmi/test_gnmi_countersdb.py
   - platform_tests/test_link_down.py
-  - vxlan/test_vxlan_bfd_tsa.py
-  - vxlan/test_vxlan_ecmp_switchover.py
-  - stress/test_stress_routes.py
-  - drop_packets/test_drop_counters.py
   - bgp/test_bgp_sentinel.py
-  - bgp/test_bgp_suppress_fib.py
   - snmp/test_snmp_link_local.py
-  - telemetry/test_events.py
 
 onboarding_dualtor:
-  - dualtor_io/test_link_failure.py
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
 
 specific_param:

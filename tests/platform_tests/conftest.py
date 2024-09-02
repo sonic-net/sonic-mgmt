@@ -44,7 +44,11 @@ def _parse_timestamp(timestamp):
             return time
         except ValueError:
             continue
-    raise ValueError("Unable to parse {} with any known format".format(timestamp))
+    # Handling leap year FEB29 case, where year not provided causing exception
+    # if strptime fails for all format, check if its leap year
+    # ValueError exception will be raised for invalid cases for strptime
+    time = datetime.strptime(str(datetime.now().year) + " " + timestamp, FMT_YEAR)
+    return time
 
 
 @pytest.fixture(autouse=True, scope="module")

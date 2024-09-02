@@ -108,6 +108,15 @@ def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
                 ".*'vnetRouteCheck' status failed.*",
                 ".*Vnet Route Mismatch reported.*",
                 ".*_M_construct null not valid.*",
+                ".*Failed to bind BFD socket to local_addr.*-98.*",
+                ".*Failed to create TX socket for session.*-5.*",
+                ".*Parsing BFD command.*-5.*",
+                ".*[BFD.ERR] ioctl failed.*",
+                ".*[CORE_API.ERR] Failed in bfd_offload_set.*",
+                ".*mlnx_set_offload_bfd_tx_session.*",
+                ".*api SAI_COMMON_API_CREATE failed in syncd mode.*",
+                ".*ERR syncd.*SAI_BFD_SESSION_ATTR_.*",
+                ".*ERR swss.*SAI_STATUS_FAILURE.*",
             ])
     return
 
