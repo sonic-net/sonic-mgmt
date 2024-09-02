@@ -2180,8 +2180,8 @@ class ReloadTest(BaseTest):
                 up_time = None
 
             if elapsed > warm_up_timeout_secs:
-                raise Exception("IO didn't come up within warm up timeout. Control plane: {}, Data plane: {}".format(
-                    ctrlplane, dataplane))
+                raise Exception("IO didn't come up within warm up timeout. Control plane: {}, Data plane: {}."
+                                "Actual warm up time {}".format(ctrlplane, dataplane, elapsed))
             time.sleep(1)
 
         # check until flooding is over. Flooding happens when FDB entry of
