@@ -146,12 +146,6 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "'backend' in topo_name"
 
-bgp/test_bgp_stress_link_flap.py:
-  skip:
-    reason: "Skip the case due to the known issue"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/6471
-
 bgp/test_bgp_suppress_fib.py:
   skip:
     reason: "Not supported before release 202405."
