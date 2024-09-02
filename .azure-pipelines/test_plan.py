@@ -74,7 +74,7 @@ def test_plan_status_factory(status):
     raise Exception("The status is not correct.")
 
 
-class AbstractStatus():
+class AbstractStatus:
     def __init__(self, status):
         self.status = status
 
@@ -409,7 +409,7 @@ class TestPlanManager(object):
                 current_status = test_plan_status_factory(status)
                 expected_status = test_plan_status_factory(expected_state)
 
-                print("current status: {}, expected status: {}".format(current_status, expected_status))
+                print("current status: {}, expected status: {}".format(status, expected_state))
 
                 if expected_status.get_status() == current_status.get_status():
                     current_status.print_logs(test_plan_id, resp_data, start_time)
@@ -432,7 +432,13 @@ class TestPlanManager(object):
 
                     # We fail the step only if the step_status is "FAILED".
                     # Other status such as "SKIPPED", "CANCELED" are considered successful.
-                    if step_status == "FAILED":
+                    """
+                    If step_status is None, means that current step was not executed but current status is in a post
+                    status. For example: current is Failed, expect is Executing, and after prepare tb it went to fail,
+                    so executing not started. In this scenario, step_status is None but current status is Failed.
+                    So, return to failure. Otherwise, it will return to pass and cause inconsistency issues.
+                    """
+                    if step_status == "FAILED" or (step_status is None and current_status is FailedStatus):
 
                         # Print error type and message
                         err_code = resp_data.get("runtime", {}).get("err_code", None)
