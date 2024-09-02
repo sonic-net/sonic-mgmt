@@ -192,7 +192,16 @@ steps:
 
         rm -f new_test_plan_id.txt
 
-        if [ "${{ parameters.MGMT_BRANCH }}" == "master" ] || [ "${{ parameters.MGMT_BRANCH }}" == "feat/ptf-py3-tests-verification" ]
+        # all feature branches branched out from master can use py3only image
+        parent_commit=$(git rev-parse HEAD^1)
+        master_commit=$(git rev-parse master)
+        branch_from_master=0
+        if [ "$parent_commit" == "$master_commit" ]
+        then
+          branch_from_master=1
+        fi
+
+        if [ "${{ parameters.MGMT_BRANCH }}" == "master" ] || [ $branch_from_master -eq 1 ]
         then
           PTF_IMAGETAG="-e ptf_imagetag=py3only"
         else
