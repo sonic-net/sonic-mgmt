@@ -538,7 +538,10 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
 
 
 @pytest.fixture(scope="module")
-def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo):
+def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo,
+              # make sure the tear down of core_dump_and_config_check happened after acl_table
+              core_dump_and_config_check
+              ):
     """Apply ACL table configuration and remove after tests.
 
     Args:
@@ -586,12 +589,13 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo)
             create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
             raise err
 
-    yield acl_table_config
-
-    for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
-        loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
-        with loganalyzer:
-            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
+    try:
+        yield acl_table_config
+    finally:
+        for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
+            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
+            with loganalyzer:
+                create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
 
 
 class BaseAclTest(six.with_metaclass(ABCMeta, object)):
