@@ -23,6 +23,13 @@ dut_flap_count = 0
 fanout_flap_count = 0
 neighbor_flap_count = 0
 
+LOOP_TIMES_LEVEL_MAP = {
+    'debug': 60,
+    'basic': 600,
+    'confident': 3600,
+    'thorough': 21600
+}
+
 
 @pytest.fixture(scope='module')
 def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
@@ -206,13 +213,21 @@ def flap_neighbor_interface(neighbor, neighbor_port, stop_event, sleep_duration,
 
 
 @pytest.mark.parametrize("test_type", ["dut", "fanout", "neighbor", "all"])
-def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, test_type):
+def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, test_type,
+                              get_function_completeness_level):
     global stop_threads
     global dut_flap_count
     global fanout_flap_count
     global neighbor_flap_count
+    global TEST_RUN_DURATION
 
     duthost = duthosts[rand_one_dut_hostname]
+
+    normalized_level = get_function_completeness_level
+    if normalized_level is None:
+        normalized_level = 'basic'
+    TEST_RUN_DURATION = LOOP_TIMES_LEVEL_MAP[normalized_level]
+    logger.debug('normalized_level {}, set test run duration {}'.format(normalized_level, TEST_RUN_DURATION))
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
@@ -318,6 +333,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
     logger.info("flap_threads {} ".format(flap_threads))
 
+    avail_mem_list = []
     end_time = time.time() + TEST_RUN_DURATION
     while time.time() < end_time:
         time.sleep(30)
@@ -331,6 +347,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
                 fields = line.split()
                 total_mem, avail_mem = int(fields[1]), int(fields[-1])
                 logger.info("Total memory {} Available memory: {}".format(total_mem, avail_mem))
+                avail_mem_list.append(avail_mem)
                 break
 
         if avail_mem < MEMORY_EXHAUST_THRESHOLD:
@@ -372,5 +389,6 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
     # Clean up the thread list after joining all threads
     logger.info("clear threads {} ".format(flap_threads))
     flap_threads.clear()
+    logger.debug("avail_mem history {} ".format(avail_mem_list))
 
     return
