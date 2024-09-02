@@ -272,7 +272,8 @@ def orch_logrotate_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
     duthost.shell('sudo ip neigh flush {}'.format(FAKE_IP))
     if duthost.sonichost.is_multi_asic:
         target_asic = duthost.asics[enum_rand_one_frontend_asic_index]
-        target_port = next(iter(target_asic.get_active_ip_interfaces(tbinfo)))
+        testbed_info = tbinfo
+        target_port = next(iter(target_asic.get_active_ip_interfaces(testbed_info)))
     else:
         target_port = duthost.get_up_ip_ports()[0]
 
