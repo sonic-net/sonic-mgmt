@@ -55,7 +55,7 @@ Note: The scale, convergence, performance related test cases would be covered in
 
 ## Enhance sonic-mgmt Test Infra
 ### Use vSONiC with NPU simulated data plane
-We aim to set up two types of testbeds. One is with 5 vSONiC instances which mimics topo_to.yml for running SONiC existing test cases. The other one is a 7-node PTF testbed using a total of 7 vSONiC instances for SRv6 testing. Currently, we utilize vSONiC instances with the hardware SKU as "cisco-8101-p4-32x100-vs". This type of vSONiC instance enables us not only to validate control plane programming, but also to handle high throughput data plane SRv6 traffic, which effectively simulates the behavior of a forwarding chip.
+We aim to set up two types of testbeds. One is with 5 vSONiC instances which mimics topo_t0.yml for running SONiC existing test cases. The other one is a 7-node PTF testbed using a total of 7 vSONiC instances for SRv6 testing. Currently, we utilize vSONiC instances with the hardware SKU as "cisco-8101-p4-32x100-vs". This type of vSONiC instance enables us not only to validate control plane programming, but also to handle high throughput data plane SRv6 traffic, which effectively simulates the behavior of a forwarding chip.
 
 #### 5-node Testbed
 This testbed's topology file is located at ansible/vars/topo_ciscovs-5nodes.yml. It mimics topo_t0.yml except it uses  "cisco-8101-p4-32x100-vs" as vsonic instance for all 5 nodes. The purpose for this testbed is to secure exsiting SONiC code sanity via running existing SONiC Test cases. Since all test cases are existing codes, we don't need to discuss them in this document. 
@@ -175,7 +175,7 @@ ubuntu@ubuntu:~$ sudo ovs-ofctl dump-flows br_ovs6
  ...
 ```
 ### Setup configuration files
-Instead of using mininet xml, we want to use configdb json files to apply initial underlay configuraiton to each device. dut_cfg_file_loc is used in the topology file to provide the path for DUT's configdb json file and use cfg_file_loc under each VM to provide each VM's configdb json file. 
+Instead of using minigraph xml, we want to use configdb json files to apply initial underlay configuraiton to each device. dut_cfg_file_loc is used in the topology file to provide the path for DUT's configdb json file and use cfg_file_loc under each VM to provide each VM's configdb json file. 
 
 ```
 dut_cfg_file_loc : ../tests/srv6/7nodes_cisco/P1.json
@@ -199,7 +199,7 @@ Use the exsiting testbed-cli.sh's option start-topo-vms to start helper VMs base
 cd /data/sonic-mgmt/ansible;  export PACKAGE_INSTALLATION=false; ./testbed-cli.sh -t vtestbed.csv -m veos_vtb  -k vsonic  start-topo-vms vms-kvm-ciscovs-7nodes password.txt'
 ```
 
-Note: PACKAGE_INSTALLATION is set to let phytest skip package installation. The default behavior is always to install packages which include docker. This docker installation causes the problem since the command needs to be executed inside docker sonic-mgmt-test.
+Note: PACKAGE_INSTALLATION is set to let pytest skip package installation. The default behavior is always to install packages which include docker. This docker installation causes the problem since the command needs to be executed inside docker sonic-mgmt-test.
 
 #### Start DUT VM and bind all VMs based on the defined topology file
 Use the exsiting testbed-cli.sh's option add-topo to start DUT VM, a.k.a P1 in this topology. This step would also set up needed links among 7 VMs and apply configurations to previous launched helper VMs
@@ -215,7 +215,7 @@ cd /data/sonic-mgmt/ansible;  export PACKAGE_INSTALLATION=false; ./testbed-cli.s
 We use the following command to run test cases on this 7-node testbed. Some options used are highlighted below
 
 * "-c" is used to specify test cases.
-* "-u" is used to skip pretest and posttest, since we don't use mininet configurations.
+* "-u" is used to skip pretest and posttest, since we don't use minigraph configurations.
 * "-e  --neighbor_type=sonic" is to tell pytest that all nodes are vSONiC, so use pick up sonic defined user name and password.
 * "-n" is to identify topology
 * "-d" is to specify the DUT node name
