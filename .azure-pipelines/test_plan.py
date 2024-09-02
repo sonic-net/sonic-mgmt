@@ -402,14 +402,14 @@ class TestPlanManager(object):
             if not resp_data:
                 raise Exception("No valid data in response: {}".format(str(resp)))
 
-            status = resp_data.get("status", None)
-            result = resp_data.get("result", None)
+            current_tp_status = resp_data.get("status", None)
+            current_tp_result = resp_data.get("result", None)
 
             if expected_state:
-                current_status = test_plan_status_factory(status)
+                current_status = test_plan_status_factory(current_tp_status)
                 expected_status = test_plan_status_factory(expected_state)
 
-                print("current status: {}, expected status: {}".format(status, expected_state))
+                print("current status: {}, expected status: {}".format(current_tp_status, expected_state))
 
                 if expected_status.get_status() == current_status.get_status():
                     current_status.print_logs(test_plan_id, resp_data, start_time)
@@ -438,7 +438,7 @@ class TestPlanManager(object):
                     so executing not started. In this scenario, step_status is None but current status is Failed.
                     So, return to failure. Otherwise, it will return to pass and cause inconsistency issues.
                     """
-                    if step_status == "FAILED" or (step_status is None and current_status is FailedStatus):
+                    if step_status == "FAILED" or (step_status is None and current_tp_status == "FAILED"):
 
                         # Print error type and message
                         err_code = resp_data.get("runtime", {}).get("err_code", None)
@@ -451,23 +451,23 @@ class TestPlanManager(object):
 
                         raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. "
                                         "Check {}/scheduler/testplan/{} for test plan status"
-                                        .format(test_plan_id, step_status, result, time.time() - start_time,
+                                        .format(test_plan_id, step_status, current_tp_result, time.time() - start_time,
                                                 self.frontend_url,
                                                 test_plan_id))
                     if expected_result:
-                        if result != expected_result:
+                        if current_tp_result != expected_result:
                             raise Exception("Test plan id: {}, status: {}, result: {} not match expected result: {}, "
                                             "Elapsed {:.0f} seconds. "
                                             "Check {}/scheduler/testplan/{} for test plan status"
-                                            .format(test_plan_id, step_status, result,
+                                            .format(test_plan_id, step_status, current_tp_result,
                                                     expected_result, time.time() - start_time,
                                                     self.frontend_url,
                                                     test_plan_id))
 
-                    print("Current status is {}".format(step_status))
+                    print("Current step status is {}".format(step_status))
                     return
                 else:
-                    print("Current state is {}, waiting for the state {}".format(status, expected_state))
+                    print("Current state is {}, waiting for the state {}".format(current_tp_status, expected_state))
 
                 time.sleep(interval)
 
