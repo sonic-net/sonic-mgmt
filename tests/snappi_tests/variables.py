@@ -4,32 +4,20 @@ from ipaddress import ip_address, IPv4Address, IPv6Address
 
 # NOTE: Ensure the ports are mapped correctly to the respective duts in ansible/files/*links.csv
 # NOTE: The MULTIDUT_TESTBED must match with the conf-name defined in testbed.yml/testbed.csv file
-MULTIDUT_TESTBED = 'vms-snappi-sonic-multidut'
-MULTIDUT_PORT_INFO = {MULTIDUT_TESTBED: (
+MULTIDUT_TESTBED = 'vmsvc5-t2-8800-ixia'
+MULTIDUT_PORT_INFO = {'vmsvc5-t2-8800-ixia': (
     ({
-        'multi-dut-single-asic': {
+        'multi-dut-multi-asic': {
             'rx_ports': [
-                {'port_name': 'Ethernet72', 'hostname': "sonic-s6100-dut1"},
-                {'port_name': 'Ethernet76', 'hostname': "sonic-s6100-dut1"}
+                {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
             ],
             'tx_ports': [
-                {'port_name': 'Ethernet64', 'hostname': "sonic-s6100-dut2"},
-                {'port_name': 'Ethernet68', 'hostname': "sonic-s6100-dut2"}
+                {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
+                {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc4-1"},
+                {'port_name': 'Ethernet264', 'hostname': "svcstr2-8800-lc4-1"}
             ]
         }
     }),
-    ({
-        'single-dut-single-asic': {
-            'rx_ports': [
-                {'port_name': 'Ethernet72', 'hostname': "sonic-s6100-dut1"},
-                {'port_name': 'Ethernet76', 'hostname': "sonic-s6100-dut1"}
-            ],
-            'tx_ports': [
-                {'port_name': 'Ethernet64', 'hostname': "sonic-s6100-dut1"},
-                {'port_name': 'Ethernet68', 'hostname': "sonic-s6100-dut1"}
-            ]
-        }
-    })
 )}
 '''
 In this file user can modify the line_card_choice and it chooses the corresponding hostname
