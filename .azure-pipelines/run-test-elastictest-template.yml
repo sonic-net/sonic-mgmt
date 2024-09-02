@@ -205,20 +205,15 @@ steps:
         pip install PyYAML
 
         rm -f new_test_plan_id.txt
-        ptf_image_type="py3only"
+        PTF_IMAGETAG="--ptf_imagetag=py3only"
         for old_branch in ${{ parameters.MIXED_PTF_IMAGE_BRANCHES }}
         do
           if [ $old_branch == "${{ parameters.MGMT_BRANCH }}" ]
           then
-            ptf_image_type="mixed"
+            PTF_IMAGETAG="--ptf_imagetag=internal"
             break
           fi
         done
-        PTF_IMAGETAG="--ptf_imagetag=py3only"
-        if [ $ptf_image_type == "mixed" ]
-        then
-          PTF_IMAGETAG="--ptf_imagetag=internal"
-        fi
 
         python ./.azure-pipelines/test_plan.py create \
         -t ${{ parameters.TOPOLOGY }} \
