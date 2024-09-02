@@ -112,8 +112,8 @@ def get_lossless_buffer_size(host_ans):
 
     is_cisco8000_platform = True if 'cisco-8000' in host_ans.facts['platform_asic'] else False
 
-    # Checking if platform is Nokia-7250
-    is_nokia7250_platform = True if ('Nokia' or 'nokia') and '7250' in device_mtd else False
+    # Checking if platform is Broadcom-DNX.
+    is_broadcom_dnx = True if "platform_asic" in host_ans.facts and host_ans.facts["platform_asic"] == "broadcom-dnx" else False
 
     if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
@@ -123,7 +123,7 @@ def get_lossless_buffer_size(host_ans):
     # Added check to select ingress_lossles_pool for Nokia7250 platform.
     profile_name = (
             'ingress_lossless_pool'
-            if (is_cisco8000_platform or is_nokia7250_platform)
+            if (is_cisco8000_platform or is_broadcom_dnx)
             else 'egress_lossless_pool'
             )
 
