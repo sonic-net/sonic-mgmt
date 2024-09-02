@@ -114,7 +114,7 @@ class DecapPacketTest(BaseTest):
         self.max_internal_hops = self.test_params.get('max_internal_hops', 0)
         if self.max_internal_hops:
             self.TTL_RANGE = list(range(self.max_internal_hops + 1, 63))
-        if self.asic_type == "marvell":
+        if self.asic_type == "marvell-prestera":
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
         self.fibs = []
         for fib_info_file in self.test_params.get('fib_info_files'):

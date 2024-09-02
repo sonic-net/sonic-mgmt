@@ -650,7 +650,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
-    if duthost.facts["asic_type"] == "marvell":
+    if duthost.facts["asic_type"] == "marvell-prestera":
         if ip_ver == "4":
             ptfhost.add_ip_to_dev('eth1', nexthop+'/24')
             ptfhost.set_dev_up_or_down('eth1', 'is_up')
@@ -701,7 +701,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                   "\"crm_stats_ipv{}_nexthop_available\" counter was not decremented".format(ip_ver, ip_ver))
     # Remove nexthop
     asichost.shell(nexthop_del_cmd)
-    if duthost.facts["asic_type"] == "marvell":
+    if duthost.facts["asic_type"] == "marvell-prestera":
         asichost.shell(ip_remove_cmd)
         asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
         ptfhost.remove_ip_addresses()
@@ -925,7 +925,7 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
     try:
-        if duthost.facts["asic_type"] == "marvell":
+        if duthost.facts["asic_type"] == "marvell-prestera":
             # Remove DATA ACL Table and add it again with ports in same port group
             mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
             tmp_ports = sorted(mg_facts["minigraph_ports"], key=lambda x: int(x[8:]))
@@ -1027,7 +1027,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
                             .format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
 
     global crm_stats_checker
-    if duthost.facts["asic_type"] == "marvell":
+    if duthost.facts["asic_type"] == "marvell-prestera":
         crm_stats_checker = wait_until(
             30,
             5,

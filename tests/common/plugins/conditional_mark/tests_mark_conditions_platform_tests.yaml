@@ -660,7 +660,7 @@ platform_tests/broadcom:
   skip:
     reason: "Marvell devices does not support platform_tests/broadcom"
     conditions:
-      - "'marvell' in asic_type"
+      - "'marvell-prestera' in asic_type"
 
 platform_tests/broadcom/test_ser.py:
   skip:

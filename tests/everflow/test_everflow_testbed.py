@@ -553,7 +553,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             everflow_tolerance = 11
 
         rate_limit = 100
-        if vendor == "marvell":
+        if vendor == "marvell-prestera":
             rate_limit = rate_limit * 1.25
 
         send_time = "10"

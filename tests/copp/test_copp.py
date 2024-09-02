@@ -387,7 +387,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_bac
     copp_utils.configure_ptf(ptf, test_params, is_backend_topology)
 
     rate_limit = _TEST_RATE_LIMIT_DEFAULT
-    if dut.facts["asic_type"] == "marvell":
+    if dut.facts["asic_type"] == "marvell-prestera":
         rate_limit = _TEST_RATE_LIMIT_MARVELL
 
     logging.info("Update the rate limit for the COPP policer")

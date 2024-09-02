@@ -664,7 +664,7 @@ class TestIPPacket(object):
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(max(rx_drp, rx_err) >= self.PKT_NUM_MIN if asic_type not in ["marvell"] else True,
+        pytest_assert(max(rx_drp, rx_err) >= self.PKT_NUM_MIN if asic_type not in ["marvell-prestera"] else True,
                       "Dropped {} packets in rx, not in expected range".format(rx_err))
         pytest_assert(tx_ok <= self.PKT_NUM_ZERO,
                       "Forwarded {} packets in tx, not in expected range".format(tx_ok))
