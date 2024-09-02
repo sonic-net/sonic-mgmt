@@ -107,13 +107,15 @@ def get_lossless_buffer_size(host_ans):
     """
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
-    # Fetching device_metadata for HWSKU info.
-    device_mtd = config_facts['DEVICE_METADATA']['localhost']['hwsku']
 
     is_cisco8000_platform = True if 'cisco-8000' in host_ans.facts['platform_asic'] else False
 
     # Checking if platform is Broadcom-DNX.
-    is_broadcom_dnx = True if "platform_asic" in host_ans.facts and host_ans.facts["platform_asic"] == "broadcom-dnx" else False
+    is_broadcom_dnx = (
+            True
+            if "platform_asic" in host_ans.facts and host_ans.facts["platform_asic"] == "broadcom-dnx"
+            else False
+            )
 
     if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
