@@ -21,7 +21,7 @@ def test_global_pause(snappi_api,                                   # noqa: F811
                       snappi_testbed_config,
                       conn_graph_facts,                             # noqa: F811
                       fanout_graph_facts_multidut,                # noqa: F811
-                      get_snappi_ports,
+                      get_snappi_ports,                           # noqa: F811
                       duthosts,
                       prio_dscp_map,                                # noqa: F811
                       lossless_prio_list,                           # noqa: F811
