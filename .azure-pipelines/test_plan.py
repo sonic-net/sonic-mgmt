@@ -380,7 +380,7 @@ class TestPlanManager(object):
         }
         start_time = time.time()
         http_exception_times = 0
-        while (timeout < 0 or (time.time() - start_time) < timeout):
+        while timeout < 0 or (time.time() - start_time) < timeout:
             try:
                 if self.with_auth:
                     headers["Authorization"] = "Bearer {}".format(self.get_token())
@@ -408,6 +408,8 @@ class TestPlanManager(object):
             if expected_state:
                 current_status = test_plan_status_factory(status)
                 expected_status = test_plan_status_factory(expected_state)
+
+                print("current status: {}, expected status: {}".format(current_status, expected_status))
 
                 if expected_status.get_status() == current_status.get_status():
                     current_status.print_logs(test_plan_id, resp_data, start_time)
