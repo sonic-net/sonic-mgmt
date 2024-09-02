@@ -1894,50 +1894,30 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v6_in_v6]:
     reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions:
       - "asic_gen == 'spc1'"
-  xfail:
-    reason: "Vnet route missed in ASIC DB for KVM platform, xfail for unblocking PR test"
-    conditions:
-      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/14311"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v4_in_v6]:
   skip:
     reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions:
       - "asic_gen == 'spc1'"
-  xfail:
-    reason: "Vnet route missed in ASIC DB for KVM platform, xfail for unblocking PR test"
-    conditions:
-      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/14311"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v6_in_v6]:
   skip:
     reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions:
       - "asic_gen == 'spc1'"
-  xfail:
-    reason: "Vnet route missed in ASIC DB for KVM platform, xfail for unblocking PR test"
-    conditions:
-      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/14311"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v4_in_v6]:
   skip:
     reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions:
       - "asic_gen == 'spc1'"
-  xfail:
-    reason: "Vnet route missed in ASIC DB for KVM platform, xfail for unblocking PR test"
-    conditions:
-      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/14311"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
   skip:
     reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions:
       - "asic_gen == 'spc1'"
-  xfail:
-    reason: "Vnet route missed in ASIC DB for KVM platform, xfail for unblocking PR test"
-    conditions:
-      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/14311"
 
 vxlan/test_vxlan_ecmp.py:
   skip:

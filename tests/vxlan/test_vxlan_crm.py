@@ -21,6 +21,17 @@ Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
 
 
+@pytest.fixture(autouse=True)
+def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        IgnoreRegex = [
+            ".*missed_in_asic_db_routes.*",
+        ]
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(IgnoreRegex)
+    return
+
+
 def uniq(lst):
     last = object()
     for item in sorted(lst):
