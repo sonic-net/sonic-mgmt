@@ -14,7 +14,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.qos.qos_sai_base import QosSaiBase
 from tests.common import config_reload
-from tests.qos.conftest import combine_qos_parameter
+from tests.qos.conftest import combine_qos_parameter # noqa F401
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -47,7 +47,7 @@ def ignore_expected_loganalyzer_exception(duthosts, loganalyzer):
 
 
 @pytest.fixture(scope="module", autouse="True")
-def files_generation(combine_qos_parameter):
+def files_generation(combine_qos_parameter):  # noqa F811
     logger.debug("For creation of qos.yml file")
 
 
