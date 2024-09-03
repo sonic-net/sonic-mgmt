@@ -1,0 +1,30 @@
+#######################################
+#####           lldp              #####
+#######################################
+lldp/test_lldp.py::test_lldp:
+  skip:
+    reason: "Skipping LLDP test because the topology is standalone. No LLDP neighbors detected."
+    conditions:
+      - "'standalone' in topo_name"
+
+lldp/test_lldp.py::test_lldp_neighbor:
+  skip:
+    reason: "Skipping LLDP test because the topology is standalone. No LLDP neighbors detected."
+    conditions:
+      - "'standalone' in topo_name"
+
+#######################################
+#####           snmp              #####
+#######################################
+snmp/test_snmp_default_route.py::test_snmp_default_route:
+  skip:
+    reason: "Skipping LLDP test because standalone topology has no default routes."
+    conditions:
+      - "'standalone' in topo_name"
+
+snmp/test_snmp_loopback.py::test_snmp_loopback:
+  skip:
+    reason: "Skipping LLDP test because standalone topology has no neighbor VMs,
+            and SNMP queries will be executed from the neighbor VM."
+    conditions:
+      - "'standalone' in topo_name"
