@@ -154,11 +154,6 @@ def flat_test_port_ids(hierarchy):
             yield from flat_test_port_ids(value)
 
 
-def eprint(*args, **kwargs):
-    '''Print to stderr. Do not pass 'file' parameter to eprint'''
-    print(*args, **kwargs, file=sys.stderr)
-
-
 class CounterCollector:
     '''Collect, compare and display counters for test'''
 
@@ -3734,6 +3729,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], disable_port_by_block_queue=False)
 
         if 'cisco-8000' in asic_type:
+            # TODO: Obtain queue dynamically
             queue = 1  # Dscp 0 maps to queue 1
             assert (fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
         else:
@@ -5672,14 +5668,14 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
 
         try:
             for i in range(len(prio_list)):
-                eprint("DSCP index {}/{}".format(i + 1, len(prio_list)))
+                log_message("DSCP index {}/{}".format(i + 1, len(prio_list)))
                 queue = queue_list[i]
                 for p_cnt in range(len(dst_port_ids)):
                     dst_port = dst_port_ids[p_cnt]
                     self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port])
 
                     # leakout
-                    eprint("Sending {} leakout packets".format(pkts_num_leak_out))
+                    log_message("Sending {} leakout packets".format(pkts_num_leak_out))
                     send_packet(self, src_port_id, pkts[dst_port][i], pkts_num_leak_out)
                     if 'cisco-8000' in asic_type:
                         fill_leakout_plus_one(
@@ -5694,7 +5690,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
             # get all q_wm values for all port
             dst_q_wm_res_all_port = [sai_thrift_read_port_watermarks(
                 self.dst_client, port_list['dst'][sid])[0] for sid in dst_port_ids]
-            eprint("queue watermark for all port is {}".format(dst_q_wm_res_all_port))
+            log_message("queue watermark for all port is {}".format(dst_q_wm_res_all_port))
             expected_wm = pkt_count * cell_occupancy
 
             def offset_text(offset):
@@ -5710,10 +5706,10 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
                     upper = (expected_wm + margin) * cell_size
                     msg = "Queue: {}, lower {} {} = queue_wm {} = upper {} {}".format(
                         queue, lower, offset_text(qwm - lower), qwm, upper, offset_text(qwm - upper))
-                    eprint(msg)
+                    log_message(msg)
                     if not (lower <= qwm <= upper):
                         failures.append((dst_port_ids[dst_i], queue))
-                        eprint("Failed check")
+                        log_message("Failed check")
             assert len(failures) == 0, "Failed on (dst port id, queue) for the following: {}".format(failures)
 
         finally:
