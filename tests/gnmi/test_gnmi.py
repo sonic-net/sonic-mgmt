@@ -51,6 +51,7 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
     text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
     with open(file_name, 'w') as file:
         file.write(text)
+    ptfhost.copy(src=file_name, dest='/root')
     # Add DASH_VNET_TABLE
     update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@./%s" % (file_name)]
     ret, msg = gnmi_set(duthost, ptfhost, [], update_list, [])
