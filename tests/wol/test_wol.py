@@ -419,7 +419,7 @@ def test_invalid_mac(
         duthost.shell("wol %s %s -b" % (random_dut_port, invalid_mac))
     except Exception as e:
         exception_catched = True
-        pytest_assert(r'Invalid value for \"TARGET_MAC\": invalid MAC address 1a:2b:3c:d1:e2:fq' in e.results['stderr']
+        pytest_assert(r'Invalid value for "TARGET_MAC": invalid MAC address 1a:2b:3c:d1:e2:fq' in e.results['stderr']
                       or r'Invalid MAC address' in e.results['stderr'],
                       "Unexpected exception %s" % str(e))
     pytest_assert(exception_catched, "No exception catched")
@@ -478,8 +478,8 @@ def test_invalid_interval(
         duthost.shell("wol %s %s -b -i %s" % (random_dut_port, target_mac, invalid_interval))
     except Exception as e:
         exception_catched = True
-        pytest_assert(r'Invalid value for \"-i\": 2001 is not in the valid range of 0 to 2000.' in e.results['stderr']
-                      or r'Invalid value for \"INTERVAL\": interval must between 0 and 2000' in e.results['stderr'],
+        pytest_assert(r'Invalid value for "-i": 2001 is not in the valid range of 0 to 2000.' in e.results['stderr']
+                      or r'Invalid value for "INTERVAL": interval must between 0 and 2000' in e.results['stderr'],
                       "Unexpected exception %s" % str(e))
     pytest_assert(exception_catched, "No exception catched")
 
@@ -498,8 +498,8 @@ def test_invalid_count(
         duthost.shell("wol %s %s -b -c %s" % (random_dut_port, target_mac, invalid_count))
     except Exception as e:
         exception_catched = True
-        pytest_assert(r'Invalid value for \"-c\": 10 is not in the valid range of 1 to 5.' in e.results['stderr'] or
-                      r'Invalid value for \"COUNT\": count must between 1 and 5' in e.results['stderr'],
+        pytest_assert(r'Invalid value for "-c": 10 is not in the valid range of 1 to 5.' in e.results['stderr'] or
+                      r'Invalid value for "COUNT": count must between 1 and 5' in e.results['stderr'],
                       "Unexpected exception %s" % str(e))
     pytest_assert(exception_catched, "No exception catched")
 
