@@ -97,15 +97,19 @@ bfd/test_bfd_traffic.py:
 #######################################
 bgp/test_bgp_allow_list.py:
   skip:
-    reason: "Only supported on t1 topo."
+    reason: "Only supported on t1 topo. But Cisco 8111 T1(compute ai) platform is not supported."
+    conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
+      - "platform in ['x86_64-8111_32eh_o-r0']"
 
 bgp/test_bgp_bbr.py:
   skip:
-    reason: "Only supported on t1 topo."
+    reason: "Only supported on t1 topo. But Cisco 8111 T1(compute ai) platform is not supported."
+    conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
+      - "platform in ['x86_64-8111_32eh_o-r0']"
 
 bgp/test_bgp_gr_helper.py:
   skip:
@@ -143,12 +147,6 @@ bgp/test_bgp_speaker.py:
     reason: "Not supported on topology backend."
     conditions:
       - "'backend' in topo_name"
-
-bgp/test_bgp_stress_link_flap.py:
-  skip:
-    reason: "Skip the case due to the known issue"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/6471
 
 bgp/test_bgp_suppress_fib.py:
   skip:
@@ -1492,6 +1490,12 @@ restapi/test_restapi.py:
     conditions:
       - "asic_type not in ['mellanox']"
 
+restapi/test_restapi.py::test_create_vrf:
+  skip:
+    reason: "Only supported on Mellanox T1"
+    conditions:
+      - "'t1' not in topo_type"
+
 restapi/test_restapi_vxlan_ecmp.py:
   skip:
     reason: "Only supported on cisco 8102 T1"
@@ -1892,50 +1896,30 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v6_in_v6]:
     reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions:
       - "asic_gen == 'spc1'"
-  xfail:
-    reason: "Vnet route missed in ASIC DB for KVM platform, xfail for unblocking PR test"
-    conditions:
-      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/14311"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v4_in_v6]:
   skip:
     reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions:
       - "asic_gen == 'spc1'"
-  xfail:
-    reason: "Vnet route missed in ASIC DB for KVM platform, xfail for unblocking PR test"
-    conditions:
-      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/14311"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v6_in_v6]:
   skip:
     reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions:
       - "asic_gen == 'spc1'"
-  xfail:
-    reason: "Vnet route missed in ASIC DB for KVM platform, xfail for unblocking PR test"
-    conditions:
-      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/14311"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v4_in_v6]:
   skip:
     reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions:
       - "asic_gen == 'spc1'"
-  xfail:
-    reason: "Vnet route missed in ASIC DB for KVM platform, xfail for unblocking PR test"
-    conditions:
-      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/14311"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
   skip:
     reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions:
       - "asic_gen == 'spc1'"
-  xfail:
-    reason: "Vnet route missed in ASIC DB for KVM platform, xfail for unblocking PR test"
-    conditions:
-      - "(asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/14311"
 
 vxlan/test_vxlan_ecmp.py:
   skip:
