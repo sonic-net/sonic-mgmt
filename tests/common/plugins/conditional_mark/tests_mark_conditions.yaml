@@ -80,9 +80,11 @@ bfd/test_bfd.py::test_bfd_scale:
 #######################################
 bgp/test_bgp_allow_list.py:
   skip:
-    reason: "Only supported on t1 topo."
+    reason: "Only supported on t1 topo. But Cisco 8111 T1(compute ai) platform is not supported."
+    conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
+      - "platform in ['x86_64-8111_32eh_o-r0']"
 
 bgp/test_bgp_bbr.py:
   skip:
