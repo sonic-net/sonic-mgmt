@@ -413,11 +413,32 @@ def find_all_matches(nodeid, conditions):
         list: All match test case name or None if not found
     """
     all_matches = []
+    max_length = -1
+    conditional_marks = {}
+    ret = []
+
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
         if nodeid.startswith(list(condition.keys())[0]):
             all_matches.append(condition)
-    return all_matches
+
+    for match in all_matches:
+        test_case = list(match.keys())[0]
+        length = len(test_case)
+        marks = match[test_case].keys()
+        for mark in marks:
+            if conditional_marks.get(mark):
+                if length > max_length:
+                    conditional_marks.update({mark: match})
+                    max_length = length
+            else:
+                conditional_marks.update({mark: match})
+
+    for match in list(conditional_marks.values()):
+        if match not in ret:
+            ret.append(match)
+
+    return ret
 
 
 def update_issue_status(condition_str, session):
@@ -574,22 +595,6 @@ def pytest_collection_modifyitems(session, config, items):
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     for item in items:
         all_matches = find_all_matches(item.nodeid, conditions)
-
-        max_length = -1
-        conditional_marks = {}
-
-        for match in all_matches:
-            test_case = list(match.keys())[0]
-            length = len(test_case)
-            marks = match[test_case].keys()
-            for mark in marks:
-                if conditional_marks.get(mark):
-                    if length > max_length:
-                        conditional_marks[mark] = match
-                        max_length = length
-                else:
-                    conditional_marks[mark] = match
-        all_matches = list(conditional_marks.values())
 
         if all_matches:
             logger.debug('Found match "{}" for test case "{}"'.format(all_matches, item.nodeid))
