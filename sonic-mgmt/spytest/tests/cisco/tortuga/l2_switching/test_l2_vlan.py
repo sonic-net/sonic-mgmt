@@ -25,7 +25,56 @@ data.hosts_data = {
     "T1D4P2": {"ip_addr": "10.0.2.2", "mac_addr": "00:00:00:00:10:22"}
 }
 data.vlan_list = ["10","20","30","40","50"]
-# tgen Stream Config
+
+##Vlan id 10 stream config
+data_vid_10 = SpyTestDict()
+data_vid_10.my_dut_list = None
+data_vid_10.vlan = "10"
+data_vid_10.t1d3_ip_gateway = "10.0.1.10"
+data_vid_10.t1d4_ip_gateway = "10.0.1.10"
+
+data_vid_10.t1d3_ip_addr = "10.0.1.1"
+data_vid_10.t1d3_mac_addr = "00:0A:03:00:11:01"
+
+data_vid_10.t1d4_ip_addr = "10.0.1.2"
+data_vid_10.t1d4_mac_addr = "00:0A:04:00:12:01"
+
+data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
+data_vid_10.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr
+
+data_vid_10.transmit_mode = 'single_burst'
+data_vid_10.pkts_per_burst = "500"
+data_vid_10.tgen_stats_threshold = 20
+data_vid_10.tgen_rate_pps = '1000'
+data_vid_10.tgen_l3_len = '500'
+data_vid_10.traffic_run_time = 5
+##L2 stream config
+
+##Vlan id 20 stream config
+data_vid_20 = SpyTestDict()
+data_vid_20.my_dut_list = None
+data_vid_20.vlan = "20"
+data_vid_20.t1d3_ip_gateway = "10.0.2.20"
+data_vid_20.t1d4_ip_gateway = "10.0.2.20"
+
+data_vid_20.t1d3_ip_addr = "10.0.2.1"
+data_vid_20.t1d3_ipv6_addr = "10:0:2::1"
+data_vid_20.t1d3_mac_addr = "00:0A:05:00:11:01"
+
+data_vid_20.t1d4_ip_addr = "10.0.2.2"
+data_vid_20.t1d4_ipv6_addr = "10:0:2::2"
+data_vid_20.t1d4_mac_addr = "00:0A:06:00:12:01"
+
+data_vid_20.t1d3_dest_mac_addr = data_vid_20.t1d4_mac_addr
+data_vid_20.t1d4_dest_mac_addr = data_vid_20.t1d3_mac_addr
+
+data_vid_20.transmit_mode = 'single_burst'
+data_vid_20.pkts_per_burst = "500"
+data_vid_20.tgen_stats_threshold = 20
+data_vid_20.tgen_rate_pps = '1000'
+data_vid_20.tgen_l3_len = '500'
+data_vid_20.traffic_run_time = 5
+##L2 stream config
 
 # TODO: Parameterize the configs. For now, use static configs
 CONFIGS_FILE = 'l2_vlan_config.yaml'
@@ -50,8 +99,10 @@ CONFIGS_FILE = 'l2_vlan_config.yaml'
 
 @pytest.fixture(scope='module', autouse=True)
 def setup_teardown_l2_vlan_test():
+    global vars
     vars = st.get_testbed_vars()
 
+    global nodes
     nodes = {}
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
@@ -170,14 +221,6 @@ def test_l2_vlan_tagged_untagged_vlan_interface_untagged_ping(setup_teardown_l2_
                  and ping success for VLAN 10 case and fails for VLAN 20
     """
 
-    vars = st.get_testbed_vars()
-
-    nodes = {}
-    nodes['spine0'] = vars.D1
-    nodes['spine1'] = vars.D2
-    nodes['leaf0'] = vars.D3
-    nodes['leaf1'] = vars.D4
-
     # ping test
     ret_val1 = traffic_test_ping("T1D3P1", "T1D4P1")
     st.wait(1)
@@ -212,13 +255,6 @@ def test_l2_vlan_tagged_interface_access_and_trunk_tagged_ping(setup_teardown_l2
     expectation: out of range VLAN tagged packets (here 10) are dropped on trunk intf and same tagged VLAN 20 packets ping should pass
 
     """
-    vars = st.get_testbed_vars()
-
-    nodes = {}
-    nodes['spine0'] = vars.D1
-    nodes['spine1'] = vars.D2
-    nodes['leaf0'] = vars.D3
-    nodes['leaf1'] = vars.D4
 
     ################# access port #################
     #config
@@ -267,14 +303,6 @@ def test_l2_vlan_create_and_del_new_vlan_and_vlan_member_acess_and_trunk(setup_t
     verify VLAN is deleted in the DB (using show vlan config)
 
     """
-
-    vars = st.get_testbed_vars()
-
-    nodes = {}
-    nodes['spine0'] = vars.D1
-    nodes['spine1'] = vars.D2
-    nodes['leaf0'] = vars.D3
-    nodes['leaf1'] = vars.D4
 
     # VLAN member add and delete for VLAN 20 (untagged)
     vapi.add_vlan_member(vars.D3, "20", [vars.D3T1P2], tagging_mode=False)
@@ -356,14 +384,6 @@ def test_l2_vlan_mac_learning_and_mac_aging(setup_teardown_l2_vlan_test):
 
     """
 
-    vars = st.get_testbed_vars()
-
-    nodes = {}
-    nodes['spine0'] = vars.D1
-    nodes['spine1'] = vars.D2
-    nodes['leaf0'] = vars.D3
-    nodes['leaf1'] = vars.D4
-
     ret_val = traffic_test_ping("T1D3P1", "T1D4P1")
     st.wait(1)
     if(True == ret_val):
@@ -406,14 +426,17 @@ def test_l2_vlan_mac_learning_and_mac_aging(setup_teardown_l2_vlan_test):
 
     #MAC AGING to see if L2 entries are cleared
 
-    cmd = "show mac aging-time"
-    cmd_output = st.config(nodes['spine0'],cmd)
-    time_value = next((int(word) for word in cmd_output.split() if word.isdigit()), None)
+    mac_aging_time_orig = 600
+    mac_aging_time_new = 120
+    dut_list = [nodes['spine0'], nodes['leaf0'],nodes['leaf1']]
+    for dut in dut_list:
+        common_obj.update_mac_aging(dut, mac_aging_time_new, verify=True)
+
     #time_value = mac_obj.get_mac_agetime(vars.D1)#currently not supported can use this once this helper API is fixed
 
-    st.log("Aging time for switch: "+ str(time_value)+ " seconds")
-    time.sleep(time_value)
-    st.log("Finished sleeping for "+str(time_value)+" seconds")
+    st.log("Aging time for switch: "+ str(mac_aging_time_new)+ " seconds")
+    time.sleep(mac_aging_time_new)
+    st.log("Finished sleeping for "+str(mac_aging_time_new)+" seconds")
 
     cmd = "show mac"
     cmd_output_mac = st.config(nodes['spine0'],cmd)
@@ -426,7 +449,10 @@ def test_l2_vlan_mac_learning_and_mac_aging(setup_teardown_l2_vlan_test):
     target_mac_address_found_d3, target_mac_address_found_d3 = False, False
     target_mac_address_found_d3 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d3)
     target_mac_address_found_d4 = mac_obj.verify_mac_address(vars.D1, str(data.vlan_list[0]), target_mac_address_d4)
-    
+
+    for dut in dut_list:
+        common_obj.update_mac_aging(dut, mac_aging_time_orig, verify=True)
+
     if target_mac_address_found_d3 or target_mac_address_found_d4:
         st.log("FAIL: MAC Address still found after MAC AGING Timer")
         st.report_fail('msg', "FAIL: Testcase#9 The target MAC address d3:{} d4:{} is found in VLAN 10 in the cmd_output after MAC AGING timer".format(target_mac_address_d3, target_mac_address_d4))
@@ -444,15 +470,6 @@ def test_l2_vlan_untagged_ping_with_new_interface_add_delete(setup_teardown_l2_v
     #expectation: pings before and after adding new interface on the VLAN 10 should be successful on both the interfaces pasrt of VLAN 10
 
     """
-
-    vars = st.get_testbed_vars()
-
-    nodes = {}
-    nodes['spine0'] = vars.D1
-    nodes['spine1'] = vars.D2
-    nodes['leaf0'] = vars.D3
-    nodes['leaf1'] = vars.D4
-
 
     ret_val1 = traffic_test_ping("T1D3P1","T1D4P1")
     st.log("previous_ret_val1 : "+ str(ret_val1) )
@@ -479,3 +496,72 @@ def test_l2_vlan_untagged_ping_with_new_interface_add_delete(setup_teardown_l2_v
     else:
         st.report_fail('msg', "FAIL: Testcase#6 Ping between VLAN 10 hosts failed after new access port addition")
 
+#testcase 7
+def test_native_vlan(setup_teardown_l2_vlan_test):
+    '''
+    testcase 7 - Verify Native Vlan support.
+    Verify BUM Traffic for Native Vlan.
+    Verify unicast Traffic for Trunk Vlan.
+    Verify Inter Vlan traffic should fail without any BVI.
+    '''
+
+    st.log('Add D3T1P2 and D4T1P2 as access port in Vlan 20')
+    vapi.add_vlan_member(nodes['leaf0'], "20", [vars.D3T1P2], tagging_mode=False)
+    vapi.add_vlan_member(nodes['leaf1'], "20", [vars.D4T1P2], tagging_mode=False)
+
+    st.log('Update D1D3P1 & D3D1P1 as Native Vlan (Vlan 10) Ports on Trunk between Spine0 and Leaf0.')
+    vapi.delete_vlan_member(nodes['spine0'], "10", [vars.D1D3P1], tagging_mode=True)
+    vapi.delete_vlan_member(nodes['leaf0'], "10", [vars.D3D1P1], tagging_mode=True)
+    vapi.add_vlan_member(nodes['spine0'], "10", [vars.D1D3P1], tagging_mode=False)
+    vapi.add_vlan_member(nodes['leaf0'], "10", [vars.D3D1P1], tagging_mode=False)
+
+    traffic_types = ['unicast', 'multicast', 'broadcast']
+
+    st.log('Verify BUM traffic for Native VLAN')
+    for traffic_type in traffic_types:
+        handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, 'T1D3P1', 'T1D4P1', traffic_type, True, is_l2=True)
+        common_obj.traffic_start(handles, data_vid_10, data_vid_10)
+        common_obj.traffic_stop(handles, mode='burst')
+        if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
+            st.log("Traffic verification for Native Vlan for traffic type {} Passed".format(traffic_type))
+        else:
+            st.report_fail('failed_traffic_verification', "for Native Vlan for traffic type {} ".format(traffic_type))
+        common_obj.traffic_cleanup(handles)
+
+    st.log('Verify Trunk Vlan Unicast traffic.')
+    handles = common_obj.traffic_test_config(data_vid_20, data_vid_20, 'T1D3P2', 'T1D4P2', 'unicast', True, is_l2=True)
+    common_obj.traffic_start(handles, data_vid_20, data_vid_20)
+    common_obj.traffic_stop(handles, mode='burst')
+    if common_obj.traffic_test_check(handles, 'T1D3P2', 'T1D4P2', data_vid_20, data_vid_20):
+        st.log("Traffic verification for Trunk Vlan Passed")
+    else:
+        st.report_fail('failed_traffic_verification', "for Trunk Vlan")
+
+    #Set the Dest Mac for inter vlan communication
+    data_vid_10.t1d3_dest_mac_addr = data_vid_20.t1d4_mac_addr
+    data_vid_20.t1d4_dest_mac_addr = data_vid_10.t1d3_mac_addr
+
+    st.log('Verify Inter Vlan Traffic should fail.')
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_20, 'T1D3P1', 'T1D4P2', 'unicast', True, is_l2=True, verify_ping=False)
+    common_obj.traffic_start(handles, data_vid_10, data_vid_20)
+    common_obj.traffic_stop(handles, mode='burst')
+    if not common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_vid_20):
+        st.log("Traffic verification for Inter Vlan traffic Passed")
+    else:
+        st.report_fail('failed_traffic_verification', "for Inter Vlan traffic")
+
+    data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
+    data_vid_20.t1d4_dest_mac_addr = data_vid_20.t1d3_mac_addr
+
+    st.log('Cleanup')
+    st.log('Configure D1D3P1 & D3D1P1 as trunk in Vlan 10')
+    vapi.delete_vlan_member(nodes['spine0'], "10", [vars.D1D3P1], tagging_mode=False)
+    vapi.delete_vlan_member(nodes['leaf0'], "10", [vars.D3D1P1], tagging_mode=False)
+    vapi.add_vlan_member(nodes['spine0'], "10", [vars.D1D3P1], tagging_mode=True)
+    vapi.add_vlan_member(nodes['leaf0'], "10", [vars.D3D1P1], tagging_mode=True)
+
+    st.log('Remove D3T1P2 and D4T1P2 from Vlan 20')
+    vapi.delete_vlan_member(nodes['leaf0'], "20", [vars.D3T1P2], tagging_mode=False)
+    vapi.delete_vlan_member(nodes['leaf1'], "20", [vars.D4T1P2], tagging_mode=False)
+
+    st.report_pass('msg', 'test_case 7 : Native Vlan Support passed')
