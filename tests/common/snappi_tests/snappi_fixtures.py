@@ -16,7 +16,7 @@ from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.snappi_tests.variables import dut_ip_start, snappi_ip_start, prefix_length, \
     dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, pfcQueueGroupSize, \
-    pfcQueueValueDict
+    pfcQueueValueDict          # noqa: F401
 logger = logging.getLogger(__name__)
 
 
@@ -980,3 +980,166 @@ def pre_configure_dut_interface(duthost, snappi_ports):
         except Exception:
             pytest_assert(False, "Unable to configure ip on the interface {}".format(port['peer_port']))
     return snappi_ports_dut
+
+
+@pytest.fixture(scope="module")
+def multidut_snappi_ports_for_bgp(duthosts,                                # noqa: F811
+                                  tbinfo,                                  # noqa: F811
+                                  conn_graph_facts,                        # noqa: F811
+                                  fanout_graph_facts_multidut):            # noqa: F811
+    """
+    Populate snappi ports and connected DUT ports info of T1 and T2 testbed and returns as a list
+    Args:
+        duthost (pytest fixture): duthost fixture
+        tbinfo (pytest fixture): fixture provides information about testbed
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
+    Return:
+        return tuple of duts and snappi ports
+    """
+    speed_type = {'50000': 'speed_50_gbps',
+                  '100000': 'speed_100_gbps',
+                  '200000': 'speed_200_gbps',
+                  '400000': 'speed_400_gbps'}
+    multidut_snappi_ports = []
+
+    for duthost in duthosts:
+        snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                                dut_hostname=duthost.hostname)
+        if snappi_fanout is None:
+            continue
+        snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
+        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        port_speed = None
+        for i in range(len(snappi_ports)):
+            if port_speed is None:
+                port_speed = int(snappi_ports[i]['speed'])
+
+            elif port_speed != int(snappi_ports[i]['speed']):
+                """ All the ports should have the same bandwidth """
+                return None
+
+        for port in snappi_ports:
+            port['location'] = get_snappi_port_location(port)
+            port['speed'] = speed_type[port['speed']]
+            port['api_server_ip'] = tbinfo['ptf_ip']
+        multidut_snappi_ports = multidut_snappi_ports + snappi_ports
+    return multidut_snappi_ports
+
+
+@pytest.fixture(scope="module")
+def get_snappi_ports(duthosts,                                # noqa: F811
+                     tbinfo,                                  # noqa: F811
+                     conn_graph_facts,                        # noqa: F811
+                     fanout_graph_facts_multidut,
+                     ):                                      # noqa: F811
+    """
+    Populate snappi ports and connected DUT ports info of T1 and T2 testbed and returns as a list
+    Args:
+        duthost (pytest fixture): duthost fixture
+        tbinfo (pytest fixture): fixture provides information about testbed
+        conn_graph_facts (pytest fixture): connection graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
+    Return: (list)
+        [{  'api_server_ip': '10.36.78.59',
+            'asic_type': 'broadcom',
+            'asic_value': None,
+            'card_id': '4',
+            'duthost': <MultiAsicSonicHost sonic-s6100-dut2>,
+            'ip': '10.36.78.53',
+            'location': '10.36.78.53;4;7',
+            'peer_device': 'sonic-s6100-dut1',
+            'peer_port': 'Ethernet72',
+            'port_id': '7',
+            'snappi_speed_type': 'speed_100_gbps',
+            'speed': '100000'
+        },
+        {   'api_server_ip': '10.36.78.59',
+            'asic_type': 'broadcom',
+            'asic_value': 'asic0',
+            'card_id': '4',
+            'duthost': <MultiAsicSonicHost sonic-s6100-dut2>,
+            'ip': '10.36.78.53',
+            'location': '10.36.78.53;4;8',
+            'peer_device': 'sonic-s6100-dut2',
+            'peer_port': 'Ethernet76',
+            'port_id': '8',
+            'snappi_speed_type': 'speed_100_gbps',
+            'speed': '100000'
+        }]
+    """
+    speed_type = {
+                  '10000': 'speed_10_gbps',
+                  '25000': 'speed_25_gbps',
+                  '40000': 'speed_40_gbps',
+                  '50000': 'speed_50_gbps',
+                  '100000': 'speed_100_gbps',
+                  '200000': 'speed_200_gbps',
+                  '400000': 'speed_400_gbps',
+                  '800000': 'speed_800_gbps'}
+    multidut_snappi_ports = []
+
+    for duthost in duthosts:
+        snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                                dut_hostname=duthost.hostname)
+        if snappi_fanout is None:
+            continue
+        snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
+        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        port_speed = None
+        for i in range(len(snappi_ports)):
+            if port_speed is None:
+                port_speed = int(snappi_ports[i]['speed'])
+
+            elif port_speed != int(snappi_ports[i]['speed']):
+                """ All the ports should have the same bandwidth """
+                return None
+
+        for port in snappi_ports:
+            port['location'] = get_snappi_port_location(port)
+            port['speed'] = port['speed']
+            port['api_server_ip'] = tbinfo['ptf_ip']
+            port['asic_type'] = duthost.facts["asic_type"]
+            port['duthost'] = duthost
+            port['snappi_speed_type'] = speed_type[port['speed']]
+            if duthost.facts["num_asic"] > 1:
+                port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
+            else:
+                port['asic_value'] = None
+        multidut_snappi_ports = multidut_snappi_ports + snappi_ports
+    return multidut_snappi_ports
+
+
+def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_port_count, testbed):
+    """
+    Returns the required tx and rx ports for the rdma test
+    Args:
+        snappi_port_list (list): List of snappi ports and connected DUT ports info of T1 and T2 testbed
+        rdma_ports (dict): RDMA port info for testbed subtype defined in variables.py
+        tx_port_count (int): Number of Tx ports required for the test
+        rx_port_count (int): Number of Rx ports required for the test
+    Return: (list)
+    """
+    tx_snappi_ports = []
+    rx_snappi_ports = []
+    var_tx_ports = random.sample(rdma_ports['tx_ports'], tx_port_count)
+    var_rx_ports = random.sample(rdma_ports['rx_ports'], rx_port_count)
+    for port in snappi_port_list:
+        for var_rx_port in var_rx_ports:
+            if port['peer_port'] == var_rx_port['port_name'] and port['peer_device'] == var_rx_port['hostname']:
+                rx_snappi_ports.append(port)
+        for var_tx_port in var_tx_ports:
+            if port['peer_port'] == var_tx_port['port_name'] and port['peer_device'] == var_tx_port['hostname']:
+                tx_snappi_ports.append(port)
+
+    pytest_assert(len(rx_snappi_ports) == rx_port_count,
+                  'Rx Ports for {} in MULTIDUT_PORT_INFO doesn\'t match with ansible/files/*links.csv'.format(testbed))
+    pytest_assert(len(tx_snappi_ports) == tx_port_count,
+                  'Tx Ports for {} in MULTIDUT_PORT_INFO doesn\'t match with ansible/files/*links.csv'.format(testbed))
+
+    multidut_snappi_ports = rx_snappi_ports + tx_snappi_ports
+    return multidut_snappi_ports

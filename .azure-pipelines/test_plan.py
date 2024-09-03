@@ -27,6 +27,10 @@ TOKEN_EXPIRE_HOURS = 1
 MAX_GET_TOKEN_RETRY_TIMES = 3
 
 
+class PollTimeoutException(Exception):
+    pass
+
+
 class TestPlanStatus(Enum):
     INIT = 10
     LOCK_TESTBED = 20
@@ -70,7 +74,7 @@ def test_plan_status_factory(status):
     raise Exception("The status is not correct.")
 
 
-class AbstractStatus():
+class AbstractStatus:
     def __init__(self, status):
         self.status = status
 
@@ -147,7 +151,6 @@ def parse_list_from_str(s):
 class TestPlanManager(object):
 
     def __init__(self, url, frontend_url, client_id=None):
-        self.last_login_time = datetime.now()
         self.url = url
         self.frontend_url = frontend_url
         self.client_id = client_id
@@ -178,26 +181,6 @@ class TestPlanManager(object):
 
     def get_token(self):
 
-        # Success of "az account get-access-token" depends on "az login". However, the "az login" session may expire
-        # after 24 hours. So we re-login every 12 hours to ensure success of "az account get-access-token".
-        if datetime.now() - self.last_login_time > timedelta(hours=12):
-            cmd = "az login --service-principal -u {} --tenant {} --allow-no-subscriptions --federated-token {}"\
-                .format(
-                    os.environ.get("SONIC_AUTOMATION_SERVICE_PRINCIPAL"),
-                    os.environ.get("ELASTICTEST_MSAL_TENANT_ID"),
-                    os.environ.get("SYSTEM_ACCESS_TOKEN")
-                )
-            attempt = 0
-            while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
-                try:
-                    stdout, _, _ = self.az_run(cmd)
-                    self.last_login_time = datetime.now()
-                    break
-                except Exception as exception:
-                    attempt += 1
-                    print("Failed to login with exception: {}. Retry {} times to login."
-                          .format(repr(exception), MAX_GET_TOKEN_RETRY_TIMES - attempt))
-
         token_is_valid = \
             self._token_expires_on is not None and \
             (self._token_expires_on - datetime.now()) > timedelta(hours=TOKEN_EXPIRE_HOURS)
@@ -219,7 +202,7 @@ class TestPlanManager(object):
                 # Parse token expires time from string
                 token_expires_on = token.get("expiresOn", "")
                 self._token_expires_on = datetime.strptime(token_expires_on, "%Y-%m-%d %H:%M:%S.%f")
-
+                print("Get token successfully.")
                 return self._token
 
             except Exception as exception:
@@ -397,7 +380,7 @@ class TestPlanManager(object):
         }
         start_time = time.time()
         http_exception_times = 0
-        while (timeout < 0 or (time.time() - start_time) < timeout):
+        while timeout < 0 or (time.time() - start_time) < timeout:
             try:
                 if self.with_auth:
                     headers["Authorization"] = "Bearer {}".format(self.get_token())
@@ -419,12 +402,14 @@ class TestPlanManager(object):
             if not resp_data:
                 raise Exception("No valid data in response: {}".format(str(resp)))
 
-            status = resp_data.get("status", None)
-            result = resp_data.get("result", None)
+            current_tp_status = resp_data.get("status", None)
+            current_tp_result = resp_data.get("result", None)
 
             if expected_state:
-                current_status = test_plan_status_factory(status)
+                current_status = test_plan_status_factory(current_tp_status)
                 expected_status = test_plan_status_factory(expected_state)
+
+                print("current test plan status: {}, expected status: {}".format(current_tp_status, expected_state))
 
                 if expected_status.get_status() == current_status.get_status():
                     current_status.print_logs(test_plan_id, resp_data, start_time)
@@ -439,34 +424,59 @@ class TestPlanManager(object):
                             if step.get("step") == expected_state:
                                 step_status = step.get("status")
                                 break
+
+                    # Print test summary
+                    test_summary = resp_data.get("runtime", {}).get("test_summary", None)
+                    if test_summary:
+                        print("Test summary:\n{}".format(json.dumps(test_summary, indent=4)))
+
                     # We fail the step only if the step_status is "FAILED".
                     # Other status such as "SKIPPED", "CANCELED" are considered successful.
-                    if step_status == "FAILED":
+                    """
+                    If step_status is None, means that current step was not executed but current status is in a post
+                    status behind the step. For example: current is {Failed}, expect is {Executing}, and after prepare
+                    tb it went to fail(run test not executed), so executing not started. In this scenario, step_status
+                    is None but current status is Failed. So, should return to failure. Otherwise, it will return to
+                    pass and cause inconsistency issues between pipeline and test plan.
+                    """
+                    if step_status == "FAILED" or (step_status is None and current_tp_status == "FAILED"):
+
+                        # Print error type and message
+                        err_code = resp_data.get("runtime", {}).get("err_code", None)
+                        if err_code:
+                            print("Error type: {}".format(err_code))
+
+                        err_msg = resp_data.get("runtime", {}).get("message", None)
+                        if err_msg:
+                            print("Error message: {}".format(err_msg))
+
                         raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. "
                                         "Check {}/scheduler/testplan/{} for test plan status"
-                                        .format(test_plan_id, step_status, result, time.time() - start_time,
+                                        .format(test_plan_id, step_status, current_tp_result, time.time() - start_time,
                                                 self.frontend_url,
                                                 test_plan_id))
                     if expected_result:
-                        if result != expected_result:
+                        if current_tp_result != expected_result:
                             raise Exception("Test plan id: {}, status: {}, result: {} not match expected result: {}, "
                                             "Elapsed {:.0f} seconds. "
                                             "Check {}/scheduler/testplan/{} for test plan status"
-                                            .format(test_plan_id, step_status, result,
+                                            .format(test_plan_id, step_status, current_tp_result,
                                                     expected_result, time.time() - start_time,
                                                     self.frontend_url,
                                                     test_plan_id))
 
-                    print("Current status is {}".format(step_status))
+                    print("Current step status is {}".format(step_status))
                     return
                 else:
-                    print("Current state is {}, waiting for the state {}".format(status, expected_state))
+                    print("Current test plan state is {}, waiting for the expected state {}".format(current_tp_status,
+                                                                                                    expected_state))
 
                 time.sleep(interval)
 
         else:
-            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
-                            .format(poll_url))
+            raise PollTimeoutException(
+                "Max polling time reached, test plan at {} is not successfully finished or cancelled".format(poll_url)
+            )
 
 
 if __name__ == "__main__":
@@ -863,7 +873,7 @@ if __name__ == "__main__":
         required=False,
         default=-1,
         dest="timeout",
-        help="Max polling time. Default 36000 seconds (10 hours)."
+        help="Max polling time in seconds. Default -1, no timeout."
     )
 
     if len(sys.argv) == 1:
@@ -976,6 +986,9 @@ if __name__ == "__main__":
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)
+    except PollTimeoutException as e:
+        print("Polling test plan failed with exception: {}".format(repr(e)))
+        sys.exit(2)
     except Exception as e:
         print("Operation failed with exception: {}".format(repr(e)))
         sys.exit(3)

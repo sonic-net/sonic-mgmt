@@ -171,20 +171,21 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                 reloading = wait_until(wait_before_force_reload, 10, 0, _config_reload_cmd_wrapper, cmd, "/bin/bash")
             cmd = 'config reload -y -f &>/dev/null'
         if not reloading:
+            time.sleep(30)
             sonic_host.shell(cmd, executable="/bin/bash")
 
     elif config_source == 'running_golden_config':
         golden_path = '/etc/sonic/running_golden_config.json'
         if sonic_host.is_multi_asic:
             for asic in sonic_host.asics:
-                golden_path = f'{golden_path},/etc/sonic/running_golden_config{asic.asic_index}.json'
+                golden_path = f'{golden_path},/etc/sonic/running_golden_config{asic.asic_index}.json'  # noqa: E231
         cmd = f'config reload -y -l {golden_path} &>/dev/null'
         if config_force_option_supported(sonic_host):
             cmd = f'config reload -y -f -l {golden_path} &>/dev/null'
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
-    wait = max(wait, 240) if modular_chassis.lower() == 'true' else wait
+    wait = max(wait, 240) if modular_chassis else wait
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual
