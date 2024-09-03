@@ -1,5 +1,0 @@
-## saskey are treated as credential in Credscan
-vmimage_saskey: "{{ secret_vars['elastictest_storage']['vmimage_saskey'] }}"
-cdimage_saskey: "{{ secret_vars['elastictest_storage']['cdimage_saskey'] }}"
-k8s_vmimage_saskey: use_own_value
-vciscoimage_saskey: use_own_value
