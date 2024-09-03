@@ -288,7 +288,7 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
         for action in infra_recovery_actions:
             action()
 
-        is_modular_chassis = duthosts.nodes[0].get_facts().get("modular_chassis")
+        is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
         if is_modular_chassis:
             recover_chassis(duthosts)
         else:

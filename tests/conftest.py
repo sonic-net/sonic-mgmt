@@ -2349,7 +2349,7 @@ def core_dump_and_config_check(duthosts, tbinfo,
             logger.warning("Core dump or config check failed for {}, results: {}"
                            .format(module_name, json.dumps(check_result)))
 
-            is_modular_chassis = duthosts.nodes[0].get_facts().get("modular_chassis")
+            is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
             if is_modular_chassis:
                 results = recover_chassis(duthosts)
             else:
