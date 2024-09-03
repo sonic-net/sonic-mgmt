@@ -53,6 +53,16 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
     return rc, out, err
 
 
+def get_hwsku(module):
+    _, out, _ = exec_command(module, cmd="show platform summary | grep HwSKU:", msg="checking hwsku")
+    return out.split(":")[1].strip()
+
+
+def get_next_boot_sonic_image(module):
+    _, out, _ = exec_command(module, cmd="sonic_installer list | grep Next:", msg="checking next boot image")
+    return out.split(':')[1].strip()
+
+
 def get_disk_free_size(module, partition):
     """Return available disk size in MB
     """
@@ -266,6 +276,19 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
         )
 
 
+def work_around_for_nokia7215_fs_corruption(module):
+    # Work around for Nokia-7215 FS corruption issue
+    # Only required after install new image.
+    hwsku = get_hwsku(module)
+    if hwsku in ['Nokia-7215', 'Nokia-M0-7215']:
+        log("work around for Nokia-7215 FS corruption issue")
+        next_os_ver = get_next_boot_sonic_image(module)
+        next_os_ver = next_os_ver.split('-')[-1]
+        boot_folder = f"/host/image-{next_os_ver}/boot/"
+        exec_command(module, cmd=f"sudo e4defrag {boot_folder}")
+        log("Done work around for Nokia-7215 FS corruption issue")
+
+
 def work_around_for_slow_disks(module):
     # Increase hung task timeout to 600 seconds to avoid kernel panic
     # while writing lots of data to a slow disk.
@@ -410,6 +433,7 @@ def main():
             results["current_stage"] = "install"
 
             install_new_sonic_image(module, new_image_url, save_as, required_space)
+            work_around_for_nokia7215_fs_corruption(module)
             results["current_stage"] = "complete"
         else:
             reduce_installed_sonic_images(module)
