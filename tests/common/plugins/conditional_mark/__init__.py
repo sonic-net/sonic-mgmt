@@ -402,31 +402,22 @@ def load_basic_facts(session):
     return results
 
 
-def find_longest_matches(nodeid, conditions):
-    """Find the longest matches of the given test case name in the conditions list.
-
-    This is similar to longest prefix match in routing table. The longest match takes precedence.
+def find_all_matches(nodeid, conditions):
+    """Find all matches of the given test case name in the conditions list.
 
     Args:
         nodeid (str): Full test case name
         conditions (list): List of conditions
 
     Returns:
-        str: Longest match test case name or None if not found
+        list: All match test case name or None if not found
     """
-    longest_matches = []
-    max_length = -1
+    all_matches = []
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
         if nodeid.startswith(list(condition.keys())[0]):
-            length = len(list(condition.keys())[0])
-            if length > max_length:
-                max_length = length
-                longest_matches = []
-                longest_matches.append(condition)
-            elif length == max_length:
-                longest_matches.append(condition)
-    return longest_matches
+            all_matches.append(condition)
+    return all_matches
 
 
 def update_issue_status(condition_str, session):
@@ -582,12 +573,28 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     for item in items:
-        longest_matches = find_longest_matches(item.nodeid, conditions)
+        all_matches = find_all_matches(item.nodeid, conditions)
 
-        if longest_matches:
-            logger.debug('Found match "{}" for test case "{}"'.format(longest_matches, item.nodeid))
+        max_length = -1
+        conditional_marks = {}
 
-            for match in longest_matches:
+        for match in all_matches:
+            test_case = list(match.keys())[0]
+            length = len(test_case)
+            marks = match[test_case].keys()
+            for mark in marks:
+                if conditional_marks.get(mark):
+                    if length > max_length:
+                        conditional_marks[mark] = match
+                        max_length = length
+                else:
+                    conditional_marks[mark] = match
+        all_matches = list(conditional_marks.values())
+
+        if all_matches:
+            logger.debug('Found match "{}" for test case "{}"'.format(all_matches, item.nodeid))
+
+            for match in all_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
                 for mark_name, mark_details in list(list(match.values())[0].items()):
                     conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
