@@ -80,7 +80,7 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
         for path_name in args.path_list:
             try:
                 reboot_data_regex = re.compile(
-                    '.*test.*_(reboot|sad.*|upgrade_path)_(summary|report).json')
+                    '.*test.*_(reboot|sad|upgrade_path).*_(summary|report).json')
                 if reboot_data_regex.match(path_name):
                     kusto_db.upload_reboot_report(path_name, tracking_id, report_guid)
                 else:
