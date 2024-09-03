@@ -88,8 +88,9 @@ def build_arp_packet(vlan_id, neighbor_mac, dst_mac, neighbor_ip):
                                       ip_tgt=neighbor_ip)
     return pkt
 
+
 def _check_arp_entries(duthost, dummy_ips, dummy_macs, vlan_port_dev, permit_vlanid, error):
-    error["detail"] = None;
+    error["detail"] = None
     try:
         res = duthost.command('show arp')
         assert res['rc'] == 0
@@ -119,11 +120,12 @@ def _check_arp_entries(duthost, dummy_ips, dummy_macs, vlan_port_dev, permit_vla
                 assert ifname == vlan_port_dev
             assert vlan_id == permit_vlanid
         assert arp_cnt == DUMMY_ARP_COUNT, "Expect {} entries, but {} found".format(DUMMY_ARP_COUNT, arp_cnt)
-        return True;
+        return True
     except Exception as detail:
         error["detail"] = detail
         logger.error("Except: {}".format(error["detail"]))
         raise
+
 
 @pytest.mark.bsl
 @pytest.mark.po2vlan
@@ -156,7 +158,8 @@ def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
                 logger.info("Send tagged({}) packet from {} ...".format(permit_vlanid, port_index))
                 testutils.send(ptfadapter, port_index, pkt)
             error = {"detail": None}
-            wait_until(180, 60, 0, _check_arp_entries, duthost, dummy_ips, dummy_macs, vlan_port["dev"], permit_vlanid, error)
+            wait_until(180, 60, 0, _check_arp_entries, duthost, dummy_ips, dummy_macs, vlan_port["dev"], permit_vlanid,
+                       error)
             if error["detail"] is not None:
                 # Dump status for debug
                 import time
