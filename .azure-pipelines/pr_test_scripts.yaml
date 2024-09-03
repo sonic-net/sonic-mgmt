@@ -5,7 +5,6 @@ t0:
   - acl/test_acl_outer_vlan.py
   - acl/test_stress_acl.py
   - arp/test_arp_extended.py
-  - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
   - arp/test_stress_arp.py
   - arp/test_tagged_arp.py
@@ -249,6 +248,7 @@ t1-lag:
   - acl/test_acl.py
   - acl/test_stress_acl.py
   - arp/test_arpall.py
+  - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
   - bgp/test_bgp_allow_list.py
   - bgp/test_bgp_bbr.py
