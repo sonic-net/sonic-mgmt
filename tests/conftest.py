@@ -2100,7 +2100,7 @@ def __dut_reload(duts_data, node=None, results=None):
             node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
             os.remove(asic_cfg_file)
 
-    config_reload(node, wait_before_force_reload=300)
+    config_reload(node, wait_before_force_reload=300, safe_reload=True)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
@@ -2127,7 +2127,11 @@ def compare_running_config(pre_running_config, cur_running_config):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def core_dump_and_config_check(duthosts, tbinfo, request):
+def core_dump_and_config_check(duthosts, tbinfo,
+                               request,
+                               # make sure the tear down of sanity_check happened after core_dump_and_config_check
+                               sanity_check
+                               ):
     '''
     Check if there are new core dump files and if the running config is modified after the test case running.
     If so, we will reload the running config after test case running.
