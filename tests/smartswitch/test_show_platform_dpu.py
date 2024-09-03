@@ -69,7 +69,7 @@ def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname):
         interface = parse_output['interface']
 
         if interface != "eth0" and 'eth' in interface:
-            output_intf_down = duthost.shell("ifconfig %s down"%(interface))["stdout_lines"]
+            duthost.shell("ifconfig %s down"%(interface))["stdout_lines"]
             time.sleep(1)
 
     # Deleting the DB table entry after bringing down the interface
@@ -158,7 +158,7 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname):
 
     logging.info("Verifying output of '{}' on '{}'...".format(CMD_PCIE_INFO, duthost.hostname))
     output_pcie_info = duthost.command(CMD_PCIE_INFO)["stdout_lines"]
-    pytest_assert("PASSED" == output_pcie_info[-1], "PCIe Link is good'{}'".format(duthost.hostname))
+    pytest_assert(output_pcie_info[-1] == 'PCIe Device Checking All Test ----------->>> PASSED', "PCIe Link is good'{}'".format(duthost.hostname))
 
     num_modules = int(chassis.get_num_modules(platform_api_conn))
 

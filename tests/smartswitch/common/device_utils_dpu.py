@@ -11,7 +11,7 @@ from tests.common.devices.sonic import * #noqa
 from tests.common.helpers.assertions import pytest_assert
 
 @pytest.fixture(scope='function', autouse=True)
-def dpu_poweron_fixture(duthosts, enum_rand_one_per_hwsku_hostname, request, platform_api_conn):
+def dpu_poweron(duthosts, enum_rand_one_per_hwsku_hostname, request, platform_api_conn):
     """
     Executes power on all DPUs
     Returns:
@@ -48,7 +48,7 @@ def check_dpu_ping_status(duthost, ip_address_list):
             if "0% packet loss" in output_ping[i]:
                 ping_count += 1
 
-    return (ping_count == len(ip_address_list))
+    return ping_count == len(ip_address_list)
 
 
 def check_dpu_module_status(duthost, num_modules, power_status):
@@ -79,7 +79,7 @@ def check_dpu_module_status(duthost, num_modules, power_status):
     elif power_status == "off":
         dpu_status_count = dpu_off_count
 
-    return (dpu_status_count == num_modules)
+    return dpu_status_count == num_modules
 
 
 def check_dpu_reboot_cause(duthost, num_modules):
@@ -101,7 +101,7 @@ def check_dpu_reboot_cause(duthost, num_modules):
         if 'DPU' in parse_output['device'] and parse_output['cause'] == 'Unknown':
             len_show_cmd += 1
 
-    return (num_modules == len_show_cmd)
+    return num_modules == len_show_cmd
 
 def count_dpu_modules_in_system_health_cli(duthost):
     """
