@@ -27,50 +27,6 @@ pytestmark = [
 ]
 
 
-def modify_rsyslog_severity_level(dut):
-    logger.info('Modify rsyslog severity level to error on dut: {}'.format(dut.hostname))
-    dut.shell("sudo mv /etc/rsyslog.d /etc/rsyslog.d.bak")
-    dut.shell("sudo mkdir /etc/rsyslog.d")
-    dut.shell("sudo echo '*.err    /var/log/syslog' > /etc/rsyslog.d/50_debug.conf")
-    dut.shell("sudo systemctl restart rsyslog")
-    time.sleep(5)
-
-
-def revert_rsyslog_severity_level(dut):
-    logger.info('Revert rsyslog severity level to error on dut: {}'.format(dut.hostname))
-    dut.shell("sudo rm -rf /etc/rsyslog.d")
-    dut.shell("sudo mv /etc/rsyslog.d.bak /etc/rsyslog.d")
-    dut.shell("sudo systemctl restart rsyslog")
-    time.sleep(5)
-
-
-@pytest.fixture(scope="function")
-def fixture_rsyslog_conf_setup_teardown(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-
-    # workaround for small disk devices which also has limitation on /var/log size
-    cmd = "df -m"
-    cmd_response_lines = duthost.shell(cmd, module_ignore_errors=True).get('stdout_lines', [])
-    logger.debug("cmd {} rsp {}".format(cmd, cmd_response_lines))
-
-    available_size = 0
-    for line in cmd_response_lines:
-        if "/var/log" in line:
-            available_size = int(line.split()[3])
-            break
-
-    if available_size < 400:
-        modify_rsyslog_severity_level(duthost)
-        rsyslog_severity_level_modified = True
-    else:
-        rsyslog_severity_level_modified = False
-
-    yield
-
-    if rsyslog_severity_level_modified:
-        revert_rsyslog_severity_level(duthost)
-
-
 def get_fdb_dict(ptfadapter, vlan_table, dummay_mac_count):
     """
     :param ptfadapter: PTF adapter object
@@ -101,7 +57,7 @@ def get_fdb_dict(ptfadapter, vlan_table, dummay_mac_count):
 
 
 def test_fdb_mac_move(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, get_function_completeness_level,
-                      fixture_rsyslog_conf_setup_teardown):
+                      rotate_syslog):
     # Perform FDB clean up before each test
     fdb_cleanup(duthosts, rand_one_dut_hostname)
 
