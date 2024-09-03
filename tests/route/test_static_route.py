@@ -205,8 +205,7 @@ def check_mux_status(duthost, expected_status):
 
 def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
                           prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces,
-                          is_route_flow_counter_supported, ipv6=False, # noqa F811
-                          config_reload_test=False): # noqa F811
+                          is_route_flow_counter_supported, ipv6=False, config_reload_test=False): # noqa F811
     is_dual_tor = False
     if 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None:
         is_dual_tor = True
