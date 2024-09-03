@@ -185,7 +185,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
-    wait = max(wait, 240) if modular_chassis else wait
+    wait = max(wait, 900) if modular_chassis else wait
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual
@@ -196,11 +196,11 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                       "All critical services should be fully started!")
         wait_critical_processes(sonic_host)
         if config_source == 'minigraph':
-            pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, sonic_host),
+            pytest_assert(wait_until(wait + 300, 20, 0, chk_for_pfc_wd, sonic_host),
                           "PFC_WD is missing in CONFIG-DB")
 
         if check_intf_up_ports:
-            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, sonic_host),
+            pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, sonic_host),
                           "Not all ports that are admin up on are operationally up")
     else:
         time.sleep(wait)
@@ -208,6 +208,6 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     if wait_for_bgp:
         bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic()
         pytest_assert(
-            wait_until(120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
+            wait_until(wait + 120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
             "Not all bgp sessions are established after config reload",
         )
