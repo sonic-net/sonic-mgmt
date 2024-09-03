@@ -392,18 +392,12 @@ def makeFanoutSecrets(data, outfile):
 
     for key, value in devices.items():
         if "fanout" in value.get("device_type").lower():
-            result.update({"ansible_ssh_user": value.get(
-                "ansible").get("ansible_ssh_user")})
-            result.update({"ansible_ssh_pass": value.get(
-                "ansible").get("ansible_ssh_pass")})
-            result.update({"fanout_network_user": value.get(
-               "ansible").get("fanout_network_user")})
-            result.update({"fanout_network_password": value.get(
-               "ansible").get("fanout_network_password")})
-            result.update({"fanout_shell_user": value.get
-               ("ansible").get("ansible_ssh_user")})
-            result.update({"fanout_shell_password": value.get
-               ("ansible").get("ansible_ssh_pass")})
+            result.update({"ansible_ssh_user": value.get("ansible").get("ansible_ssh_user")})
+            result.update({"ansible_ssh_pass": value.get("ansible").get("ansible_ssh_pass")})
+            result.update({"fanout_network_user": value.get("ansible").get("fanout_network_user")})
+            result.update({"fanout_network_password": value.get("ansible").get("fanout_network_password")})
+            result.update({"fanout_shell_user": value.get("ansible").get("ansible_ssh_user")})
+            result.update({"fanout_shell_password": value.get("ansible").get("ansible_ssh_pass")})
 
     with open(outfile, "w") as toWrite:
         yaml.dump(result, stream=toWrite, default_flow_style=False)
