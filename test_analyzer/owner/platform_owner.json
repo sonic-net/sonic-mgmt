@@ -154,24 +154,24 @@
     {
         "hwsku": "Cisco-8101-O32",
         "topo": "t1",
-        "owner": "Shiyang Wang",
-        "email": "shiyanwang@microsoft.com",
+        "owner": "Yawen Ni",
+        "email": "yawenni@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
     {
         "hwsku": "Cisco-8101-O8C48",
         "topo": "t1",
-        "owner": "Shiyang Wang",
-        "email": "shiyanwang@microsoft.com",
+        "owner": "Yawen Ni",
+        "email": "yawenni@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
     {
         "hwsku": "Cisco-8102-C64",
         "topo": "t1",
-        "owner": "Xu Chen",
-        "email": "xuchen3@microsoft.com",
+        "owner": "Yawen Ni",
+        "email": "yawenni@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
