@@ -311,7 +311,7 @@ error handling: checks if attribute values are None type or string "None"
 
 
 def makeSonicLabLinks(data, outfile):
-    csv_columns = "StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,SlotId"
+    csv_columns = "StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,Autoneg,SlotId"
     topology = data
     csv_file = outfile
 
@@ -331,6 +331,7 @@ def makeSonicLabLinks(data, outfile):
                     bandWidth = element.get("Bandwidth")
                     vlanID = element.get("VlanID")
                     vlanMode = element.get("VlanMode")
+                    AutoNeg = element.get("AutoNeg")
                     slotId = element.get("SlotId")
 
                     # catch empty values
