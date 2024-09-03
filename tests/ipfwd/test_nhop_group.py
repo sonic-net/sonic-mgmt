@@ -822,8 +822,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                       "Flow {} is not picking expected Neighbor".format(flow_count))
 
 
-def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
-                                   enum_rand_one_frontend_asic_index, fanouthosts):
+def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter,
+                                   gather_facts, enum_rand_one_frontend_asic_index, fanouthosts):
     """
     Test for packet drop when route is added with ECMP and all ECMP member's
     interfaces are down. Use kernel flag 'arp_evict_nocarrier' to disable ARP
@@ -832,6 +832,7 @@ def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
     Nexthop members. Without this kernel flag, static route addition fails when
     Nexthop ARP entries are not resolved.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     # Check Gather facts IP Interface is active one
@@ -891,7 +892,7 @@ def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
                                                             gather_facts['src_port'][i])
             logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
             fanout.no_shutdown(fanout_port)
-        time.sleep(10)
+        time.sleep(20)
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
