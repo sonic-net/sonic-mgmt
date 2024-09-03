@@ -11,7 +11,7 @@ resources:
     ref: master
 
 schedules:
-  - cron: "0 3 * * 0,1,2,4,5,6"
+  - cron: "0 3 * * 6"
     displayName: Nightly Scheduler
     branches:
       include:

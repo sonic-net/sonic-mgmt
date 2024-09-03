@@ -1,0 +1,60 @@
+name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
+schedules:
+  - cron: "0 3 * * 0-5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: vms20-rdma-t1-8102
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_CISCO_202311)
+    displayName: "Image URL"
+  
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "snappi_tests/pfc snappi_tests/pfcwd snappi_tests/qos snappi_tests/ecn"'
+    displayName: Testbed specific
+  
+  # Extra parameters to skip sanity since BGP connections are down
+  - name: EXTRA_PARAMS
+    type: string
+    default: "--skip_sanity --allow_recover --showlocals --assert plain -rav --collect_techsupport False"
+    displayName: "Extra parameters"
+
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 2880    # minutes, totally 48hours
+    displayName: "Nightly Test Timeout"
+
+stages:
+  - template: ../templates/nightly_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      EXTRA_PARAMS: ${{ parameters.EXTRA_PARAMS }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
