@@ -39,6 +39,7 @@ from tests.common.helpers.constants import (
 )
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
+from tests.common.plugins.sanity_check import recover_chassis
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
@@ -2330,7 +2331,13 @@ def core_dump_and_config_check(duthosts, tbinfo,
             }
             logger.warning("Core dump or config check failed for {}, results: {}"
                            .format(module_name, json.dumps(check_result)))
-            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
+
+            is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+            if is_modular_chassis:
+                results = recover_chassis(duthosts)
+            else:
+                results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
+
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
