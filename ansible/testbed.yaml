@@ -3100,3 +3100,85 @@
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t1-8102-1
+  group-name: bjw2-3-4
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw2-3-4
+  ptf_ip: 10.150.23.106/23
+  ptf_ipv6: 2404:f801:10:2200::a96:176a/52
+  ptf_extra_mgmt_ip: ["172.16.188.106/17"]
+  server: server_bjw2_3
+  vm_base: VM83083
+  dut:
+    - bjw2-can-8102-1
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t1-8102-2
+  group-name: bjw2-4-1
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw2-4-1
+  ptf_ip: 10.150.23.107/23
+  ptf_ipv6: 2404:f801:10:2200::a96:176b/52
+  ptf_extra_mgmt_ip: ["172.16.188.107/17"]
+  server: server_bjw2_4
+  vm_base: VM84011
+  dut:
+    - bjw2-can-8102-2
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t1-8102-3
+  group-name: bjw2-4-2
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw2-4-2
+  ptf_ip: 10.150.23.108/23
+  ptf_ipv6: 2404:f801:10:2200::a96:176c/52
+  ptf_extra_mgmt_ip: ["172.16.188.108/17"]
+  server: server_bjw2_4
+  vm_base: VM84035
+  dut:
+    - bjw2-can-8102-3
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t1-8102-4
+  group-name: bjw2-4-3
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw2-4-3
+  ptf_ip: 10.150.23.109/23
+  ptf_ipv6: 2404:f801:10:2200::a96:176d/52
+  ptf_extra_mgmt_ip: ["172.16.188.109/17"]
+  server: server_bjw2_4
+  vm_base: VM84059
+  dut:
+    - bjw2-can-8102-4
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-dual-t0-8102-1
+  group-name: bjw2-4-4
+  topo: dualtor-aa
+  ptf_image_name: docker-ptf
+  ptf: bjw2-4-4
+  ptf_ip: 10.150.22.110
+  ptf_ipv6: 2404:f801:10:2200::a96:176e/52
+  ptf_extra_mgmt_ip: ["172.16.188.110/17"]
+  netns_mgmt_ip: 10.150.23.47/23
+  server: server_bjw2_4
+  vm_base: VM84083
+  dut:
+    - bjw2-can-8102-5
+    - bjw2-can-8102-6
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
