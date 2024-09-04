@@ -1599,13 +1599,13 @@ snmp/test_snmp_link_local.py:
 
 snmp/test_snmp_loopback.py::test_snmp_loopback:
   skip:
-    - reason: "Not supported topology backend."
-      conditions:
-        - "'backend' in topo_name"
-    - reason: "Skipping SNMP test because standalone topology has no neighbor VMs,
-        and SNMP queries will be executed from the neighbor VM."
-      conditions:
-        - "'standalone' in topo_name"
+    reason: "1. Not supported topology backend.
+             2. Skipping SNMP test because standalone topology has no neighbor VMs,
+            and SNMP queries will be executed from the neighbor VM."
+    conditions_logical_operator: OR
+    conditions:
+      - "'backend' in topo_name"
+      - "'standalone' in topo_name"
 
 snmp/test_snmp_pfc_counters.py:
   skip:
