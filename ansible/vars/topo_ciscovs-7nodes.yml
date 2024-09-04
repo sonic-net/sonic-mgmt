@@ -54,40 +54,40 @@ topology:
         - 17
       vm_offset: 5
   VM_LINKs:
-    LINK1:
+    PE1P3:
       start_vm_offset: 0
       start_vm_port_idx: 1
       end_vm_offset: 3
       end_vm_port_idx: 1
-    LINK2:
+    PE1P3:
       start_vm_offset: 1
       start_vm_port_idx: 2
       end_vm_offset: 3
       end_vm_port_idx: 2
-    LINK3:
+    P3P2:
       start_vm_offset: 3
       start_vm_port_idx: 3
       end_vm_offset: 4
       end_vm_port_idx: 1
-    LINK4:
+    P3P4:
       start_vm_offset: 3
       start_vm_port_idx: 4
       end_vm_offset: 5
       end_vm_port_idx: 1
-    LINK5:
+    P2P4:
       start_vm_offset: 4
       start_vm_port_idx: 2
       end_vm_offset: 5
       end_vm_port_idx: 2
   OVS_LINKs:
-    OVS6:
+    P2PE3:
       vlans:
         - 39
       start_vm_offset: 4
       start_vm_port_idx: 3
       end_vm_offset: 2
       end_vm_port_idx: 1
-    OVS7:
+    P4PE3:
       vlans:
         - 40
       start_vm_offset: 5
@@ -160,11 +160,11 @@ configuration_properties:
     tor_asn_start: 65500
     failure_rate: 0
 
-dut_cfg_file_loc : ../tests/srv6/7nodes_cisco/P1.json
+dut_cfg_file_loc : vars/configdb_jsons/7nodes_cisco/P1.json
 
 configuration:
   PE1:
-    cfg_file_loc : ../tests/srv6/7nodes_cisco/PE1.json
+    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/PE1.json
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 64600
@@ -173,7 +173,7 @@ configuration:
       ipv6: fc0a::29/64
 
   PE2:
-    cfg_file_loc : ../tests/srv6/7nodes_cisco/PE2.json
+    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/PE2.json
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 64601
@@ -182,7 +182,7 @@ configuration:
       ipv6: fc0a::30/64
 
   PE3:
-    cfg_file_loc : ../tests/srv6/7nodes_cisco/PE3.json
+    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/PE3.json
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 64602
@@ -191,7 +191,7 @@ configuration:
       ipv6: fc0a::31/64
 
   P3:
-    cfg_file_loc : ../tests/srv6/7nodes_cisco/P3.json
+    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/P3.json
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 65101
@@ -200,7 +200,7 @@ configuration:
       ipv6: fc0a::20/64
 
   P2:
-    cfg_file_loc : ../tests/srv6/7nodes_cisco/P2.json
+    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/P2.json
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 65102
@@ -209,7 +209,7 @@ configuration:
       ipv6: fc0a::21/64
 
   P4:
-    cfg_file_loc : ../tests/srv6/7nodes_cisco/P4.json
+    cfg_file_loc : vars/configdb_jsons/7nodes_cisco/P4.json
     hwsku: cisco-8101-p4-32x100-vs
     bgp:
       asn: 65103
