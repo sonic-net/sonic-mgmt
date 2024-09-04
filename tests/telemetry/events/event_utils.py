@@ -1,8 +1,5 @@
 import logging
-import os
 import pytest
-import json
-import re
 
 import ptf.packet as scapy
 import ptf.testutils as testutils
@@ -72,17 +69,6 @@ def check_monit_running(duthost):
     return monit_services_status
 
 
-def create_ip_file(duthost, data_dir, json_file, start_idx, end_idx):
-    ip_file = os.path.join(data_dir, json_file)
-    with open(ip_file, "w") as f:
-        for i in range(start_idx, end_idx + 1):
-            json_string = f'{{"test-event-source:test": {{"test_key": "test_val_{i}"}}}}'
-            f.write(json_string + '\n')
-    dest = "~/" + json_file
-    duthost.copy(src=ip_file, dest=dest)
-    duthost.shell("docker cp {} eventd:/".format(dest))
-
-
 def event_publish_tool(duthost, json_file='', count=1):
     cmd = "docker exec eventd python /usr/bin/events_publish_tool.py"
     if json_file == '':
@@ -91,17 +77,6 @@ def event_publish_tool(duthost, json_file='', count=1):
         cmd += " -f /{}".format(json_file)
     ret = duthost.shell(cmd)
     assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
-
-
-def verify_received_output(received_file, N):
-    key = "test_key"
-    with open(received_file, 'r') as file:
-        json_array = json.load(file)
-        pytest_assert(len(json_array) == N, "Expected {} events, but found {}".format(N, len(json_array)))
-        for i in range(0, len(json_array)):
-            block = json_array[i]["test-event-source:test"]
-            pytest_assert(key in block and len(re.findall('test_val_{}'.format(i + 1), block[key])) > 0,
-                          "Missing key or incorrect value")
 
 
 def restart_eventd(duthost):
