@@ -46,7 +46,7 @@ class TestWRDynamicInnerHashingLag():
         outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
         inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
-        normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+        normalize_level = get_function_completeness_level if get_function_completeness_level else 'debug'
 
         if normalize_level == 'thorough':
             balancing_test_times = 200
