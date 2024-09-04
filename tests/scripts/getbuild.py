@@ -93,6 +93,15 @@ def get_download_url(buildid, artifact_name, url_prefix, access_token, token):
     return (download_url, artifact_size)
 
 
+def get_download_url_for_tagged_latest(branch):
+    # Return download URL for tagged latest for sonic-metadata pipelines
+    base_url = 'https://sonic.packages.trafficmanager.net/pipelines/' \
+               'Networking-acs-buildimage-Official/vs/'
+    tagged_path = 'tagged/latest/target/'
+    dl_url = f'{base_url}{branch}/{tagged_path}'
+
+    return dl_url
+
 def download_artifacts(url, content_type, platform, buildid, num_asic, access_token, token):
     """find latest successful build id for a branch"""
 
@@ -195,12 +204,20 @@ def main():
                         help='Specifiy number of asics')
     parser.add_argument('--url_prefix', metavar='url_prefix',
                         type=str, default='mssonic/build', help='url prefix')
+    parser.add_argument('--source_repo', metavar='source_repo',
+                        type=str, default='', help='source repo')
     parser.add_argument('--access_token', metavar='access_token', type=str,
                         default='', nargs='?', const='', required=False, help='access token (PAT)')
     parser.add_argument('--token', metavar='token', type=str,
                         default='', nargs='?', const='', required=False, help='bearer token')
 
     args = parser.parse_args()
+
+    if args.source_repo == "sonic-metadata":
+        dl_url = get_download_url_for_tagged_latest(args.branch)
+        download_artifacts(dl_url, args.content, args.platform,
+                           -1, args.num_asic, access_token=args.access_token, token=args.token)
+        return
 
     if args.buildid is None:
         buildid_succ = find_latest_build_id(args.branch, "succeeded")
