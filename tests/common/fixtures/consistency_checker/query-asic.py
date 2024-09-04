@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import ctypes
 import logging
 import sys
 import argparse
@@ -105,6 +106,16 @@ def map_sai_status_to_str(status_code) -> str:
     return f"UNKNOWN_SAI_STATUS"
 
 
+def mac_address_str_from_swig_uint8_t_arr(swig_uint8_p):
+    """
+    swig_uint8_p is a Swig pointer to a 6 element array of uint8_t
+    """
+    pointer = ctypes.cast(swig_uint8_p.__int__(), ctypes.POINTER(ctypes.c_uint8))
+    octets = [pointer[i] for i in range(6)]
+    fmtd_mac_address = ":".join([f"{octet:02X}" for octet in octets])
+    return fmtd_mac_address
+
+
 def _get_attribute_value_from_asic(oid, attribute_oid):
 
     oidType = pysairedis.sai_object_type_query(oid)
@@ -151,9 +162,7 @@ def _get_attribute_value_from_asic(oid, attribute_oid):
     elif attr_metadata.attrvaluetype == pysairedis.SAI_ATTR_VALUE_TYPE_UINT32_LIST:
         attr_value = attr.value.u32list
     elif attr_metadata.attrvaluetype == pysairedis.SAI_ATTR_VALUE_TYPE_MAC:
-        # The following mac address is a pointer to a 6 element array of uint8_t
-        # there doesn't seem to be a way to get the value from the pointer using pysairedis
-        attr_value = attr.value.mac
+        attr_value = mac_address_str_from_swig_uint8_t_arr(attr.value.mac)
     # ********* NOTE: GPT generated attributes below, likely to have errors ********* #
     elif attr_metadata.attrvaluetype == pysairedis.SAI_ATTR_VALUE_TYPE_IP_ADDRESS:
         attr_value = attr.value.ipaddr
