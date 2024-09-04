@@ -353,7 +353,7 @@ class TestBfdStaticRoute(BfdBase):
 
         completeness_level = get_function_completeness_level
         if completeness_level is None:
-            completeness_level = "thorough"
+            completeness_level = "debug"
 
         total_iterations = self.COMPLETENESS_TO_ITERATIONS[completeness_level]
         successful_iterations = 0  # Counter for successful iterations

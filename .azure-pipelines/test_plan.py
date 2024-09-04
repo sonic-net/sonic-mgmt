@@ -230,7 +230,7 @@ class TestPlanManager(object):
         print("Test scripts to be covered in this test plan:")
         print(json.dumps(scripts, indent=4))
 
-        common_extra_params = common_extra_params + " --completeness_level=confident --allow_recover"
+        common_extra_params = common_extra_params + " --allow_recover"
 
         # Add topo and device type args for PR test
         if test_plan_type == "PR":

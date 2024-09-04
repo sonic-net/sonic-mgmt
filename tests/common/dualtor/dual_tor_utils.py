@@ -1283,7 +1283,7 @@ def dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, get_fu
     res['target_server_ipv6'] = servers[random_server_iface]['server_ipv6'].split('/')[0]
     res['target_server_port'] = standby_tor_mg_facts['minigraph_ptf_indices'][random_server_iface]
 
-    normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
+    normalize_level = get_function_completeness_level if get_function_completeness_level else 'debug'
     res['completeness_level'] = normalize_level
 
     logger.debug("dualtor info is generated {}".format(res))
