@@ -423,22 +423,30 @@ def find_all_matches(nodeid, conditions):
             all_matches.append(condition)
 
     for match in all_matches:
-        test_case = list(match.keys())[0]
-        length = len(test_case)
-        marks = match[test_case].keys()
+        case_starting_substring = list(match.keys())[0]
+        length = len(case_starting_substring)
+        marks = match[case_starting_substring].keys()
         for mark in marks:
-            if conditional_marks.get(mark):
+            if mark in conditional_marks:
                 if length > max_length:
-                    conditional_marks.update({mark: match})
+                    conditional_marks.update({
+                        mark: {
+                            case_starting_substring: {
+                                mark: match[case_starting_substring][mark]}
+                        }})
                     max_length = length
             else:
-                conditional_marks.update({mark: match})
+                conditional_marks.update({
+                    mark: {
+                        case_starting_substring: {
+                            mark: match[case_starting_substring][mark]}
+                    }})
 
     # We may have the same matches of different marks
     # Need to remove duplicate here
-    for match in list(conditional_marks.values()):
-        if match not in matches:
-            matches.append(match)
+    for condition in list(conditional_marks.values()):
+        if condition not in matches:
+            matches.append(condition)
 
     return matches
 
