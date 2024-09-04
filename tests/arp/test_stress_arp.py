@@ -57,13 +57,13 @@ def genrate_ipv4_ip():
 
 
 def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
-                  ptfadapter, get_function_conpleteness_level, skip_traffic_test):  # noqa F811
+                  ptfadapter, get_function_completeness_level, skip_traffic_test):  # noqa F811
     """
     Send gratuitous ARP (GARP) packet sfrom the PTF to the DUT
 
     The DUT should learn the (previously unseen) ARP info from the packet
     """
-    normalized_level = get_function_conpleteness_level
+    normalized_level = get_function_completeness_level
     if normalized_level is None:
         normalized_level = "debug"
 
@@ -142,13 +142,13 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
 
 
 def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
-                 ptfadapter, get_function_conpleteness_level, proxy_arp_enabled, skip_traffic_test):    # noqa F811
+                 ptfadapter, get_function_completeness_level, proxy_arp_enabled, skip_traffic_test):    # noqa F811
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
-    normalized_level = get_function_conpleteness_level
+    normalized_level = get_function_completeness_level
     if normalized_level is None:
         normalized_level = "debug"
 
