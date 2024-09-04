@@ -148,7 +148,7 @@ def run_lossless_response_to_throttling_pause_storms_test(api,
     total_rx_pkts = rx_pkts_1 + rx_pkts_2
     # Calculate the drop percentage
     drop_percentage = 100 * pkt_drop / total_rx_pkts
-    pytest_assert(ceil(drop_percentage) == 0 , 'FAIL: There should be no packet drops in ingress dut counters')
+    pytest_assert(ceil(drop_percentage) == 0, 'FAIL: There should be no packet drops in ingress dut counters')
 
     """ Verify Results """
     verify_throttling_pause_storm_result(flow_stats,

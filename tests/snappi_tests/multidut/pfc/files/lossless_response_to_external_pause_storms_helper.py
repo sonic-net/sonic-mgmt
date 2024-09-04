@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require       
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts              # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                                 # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, stop_pfcwd, \
-    disable_packet_aging, sec_to_nanosec. get_interface_stats                                        # noqa: F401
+    disable_packet_aging, sec_to_nanosec, get_interface_stats                                        # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                              # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, verify_pause_flow, \
@@ -141,7 +141,7 @@ def run_lossless_response_to_external_pause_storms_test(api,
     total_rx_pkts = rx_pkts_1 + rx_pkts_2
     # Calculate the drop percentage
     drop_percentage = 100 * pkt_drop / total_rx_pkts
-    pytest_assert(ceil(drop_percentage) == 0 , 'FAIL: There should be no packet drops in ingress dut counters')
+    pytest_assert(ceil(drop_percentage) == 0, 'FAIL: There should be no packet drops in ingress dut counters')
 
     verify_external_pause_storm_result(flow_stats,
                                        tx_port,

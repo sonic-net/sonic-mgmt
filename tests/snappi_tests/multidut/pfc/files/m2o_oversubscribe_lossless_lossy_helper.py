@@ -137,7 +137,7 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
     total_rx_pkts = rx_pkts_1 + rx_pkts_2
     # Calculate the drop percentage
     drop_percentage = 100 * pkt_drop / total_rx_pkts
-    pytest_assert(ceil(drop_percentage) == 5 , 'FAIL: Drop packets must be around 5 percent')
+    pytest_assert(ceil(drop_percentage) == 5, 'FAIL: Drop packets must be around 5 percent')
 
     """ Verify Results """
     verify_m2o_oversubscribe_lossless_lossy_result(flow_stats,
