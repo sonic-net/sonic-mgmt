@@ -54,7 +54,11 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
     ptfhost.copy(src=file_name, dest='/root')
     # Add DASH_VNET_TABLE
     update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
-    ret, msg = gnmi_set(duthost, ptfhost, [], update_list, [])
+    msg = ""
+    try:
+        gnmi_set(duthost, ptfhost, [], update_list, [])
+    except Exception as e:
+        logger.info("Failed to set: " + str(e))
+        msg = str(e)
 
-    assert ret != 0
     assert "rpc error: code = Unauthenticated" in msg
