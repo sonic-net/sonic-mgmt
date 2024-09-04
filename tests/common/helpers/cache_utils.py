@@ -1,3 +1,10 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+SINGLE_ASIC_ZONE = "single_asic"
+
+
 def sonic_asic_zone_getter(function, func_args, func_kargs):
     """
         SonicAsic specific zone getter used for decorator cached.
@@ -6,11 +13,14 @@ def sonic_asic_zone_getter(function, func_args, func_kargs):
     """
 
     hostname = getattr(func_args[0], "hostname", None)
-    namespace = getattr(func_args[0], "namespace", None)
+    # For the SonicAsic obj of single asic DUT, the namespace is None
+    # give SINGLE_ASIC_ZONE as the part of the zone
+    namespace = getattr(func_args[0], "namespace", SINGLE_ASIC_ZONE)
 
-    successfully_get_hostname_namespace = hostname and namespace
+    if not hostname:
+        raise RuntimeError(f"[Cache] Can't get hostname[{hostname}] for asic[{namespace}]")
 
-    if not successfully_get_hostname_namespace:
-        raise RuntimeError(f"Can't extract hostname[{hostname}] or namespace[{namespace}]")
+    zone = f"{hostname}_{namespace}"
+    logger.info(f"[Cache] generate zone[{zone}] for asic[{namespace}]")
 
-    return f"{hostname}_{namespace}"
+    return zone
