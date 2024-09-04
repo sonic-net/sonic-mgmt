@@ -415,7 +415,7 @@ def find_all_matches(nodeid, conditions):
     all_matches = []
     max_length = -1
     conditional_marks = {}
-    ret = []
+    matches = []
 
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
@@ -434,11 +434,13 @@ def find_all_matches(nodeid, conditions):
             else:
                 conditional_marks.update({mark: match})
 
+    # We may have the same matches of different marks
+    # Need to remove duplicate here
     for match in list(conditional_marks.values()):
-        if match not in ret:
-            ret.append(match)
+        if match not in matches:
+            matches.append(match)
 
-    return ret
+    return matches
 
 
 def update_issue_status(condition_str, session):
