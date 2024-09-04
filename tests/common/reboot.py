@@ -289,7 +289,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     wait_for_startup(duthost, localhost, delay, timeout)
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
-
+    wait = max(wait, 900) if duthost.get_facts().get("modular_chassis") else wait
     if safe_reboot:
         # The wait time passed in might not be guaranteed to cover the actual
         # time it takes for containers to come back up. Therefore, add 5
@@ -300,7 +300,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         wait_critical_processes(duthost)
 
         if check_intf_up_ports:
-            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+            pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "Not all ports that are admin up on are operationally up")
     else:
         time.sleep(wait)
