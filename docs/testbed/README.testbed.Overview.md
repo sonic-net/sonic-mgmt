@@ -55,7 +55,7 @@ Mainly 5 types of testbed topologies can be simulated based on the physical topo
 * T1
 * T2
 * PTF
-* Ptp
+* PTP
 
 Details of the logical topologies are defined in `ansible/vars/topo_*.yml` files.
 
