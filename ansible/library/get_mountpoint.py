@@ -19,7 +19,7 @@ DOCUMENTATION = """
 module: get_mountpoint
 short_description: retrieve mountpoints on a device
 description:
-    - Retrieve mountpoint, fstype, opts, maxname and maxpath info
+    - Retrieve mountpoint, fstype
 version_added: "2.8"
 options:
     mountpoint:
@@ -30,7 +30,7 @@ options:
 
 def get_mounts(module, mountpoint):
 
-    partition = {'mountpoint': NOT_AVAILABLE, 'fstype': NOT_AVAILABLE, 'opts': NOT_AVAILABLE, 'maxfile': NOT_AVAILABLE, 'maxpath': NOT_AVAILABLE }
+    partition = {'mountpoint': NOT_AVAILABLE, 'fstype': NOT_AVAILABLE }
 
     def _get_mount_via_psutil(mountpoint):
 
@@ -41,9 +41,6 @@ def get_mounts(module, mountpoint):
 
         partition['mountpoint'] = part.mountpoint
         partition['fstype'] = part.fstype
-        partition['opts'] = part.opts
-        partition['maxfile'] = part.maxfile
-        partition['maxpath'] = part.maxpath
 
     def _get_mount_via_mount(module, mountpoint):
 
@@ -51,14 +48,11 @@ def get_mounts(module, mountpoint):
         rc, stdout, _ = module.run_command(args=cmd)
 
         if rc == 0:
-            mount_results = stdout.decode('utf-8').splitlines()
+            mount_results = stdout.splitlines()
             for line in mount_results:
                 if line.split()[2] == mountpoint:
                     partition['mountpoint'] = line.split()[2]
                     partition['fstype'] = line.split()[0]
-                    partition['opts'] = line.split()[-1][1:-1]
-                    partition['maxfile'] = os.pathconf(mountpoint, 'PC_NAME_MAX')
-                    partition['maxpath'] = os.pathconf(mountpoint, 'PC_PATH_MAX')
                     break
 
 
