@@ -290,8 +290,9 @@ class Arista(host_device.HostDevice):
             m = re_compiled.match(line)
             if not m:
                 continue
+            # add year to avoid ValueError exception for FEB29 during leap year
             raw_data.append((datetime.datetime.strptime(
-                m.group(1), "%b %d %X"), m.group(2), m.group(3)))
+                    str(datetime.datetime.now().year) + " " + m.group(1), "%Y %b %d %X"), m.group(2), m.group(3)))
 
         if len(raw_data) > 0:
             initial_time = raw_data[0][0]

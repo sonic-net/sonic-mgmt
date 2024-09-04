@@ -22,6 +22,20 @@ PREFIXES_V4_RE = r"ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V4 
 PREFIXES_V6_RE = r"ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V6 seq \d+ permit {}"
 
 
+@pytest.fixture(autouse=True)
+def _ignore_allow_list_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        IgnoreRegex = [
+            ".*ERR bgp#bgpcfgd: BGPAllowListMgr::Default action community value is not found.*",
+        ]
+        duthost = duthosts[rand_one_dut_hostname]
+        """Cisco 8111-O64 has different allow list config"""
+        if duthost.facts['hwsku'] == 'Cisco-8111-O64':
+            loganalyzer[rand_one_dut_hostname].ignore_regex.extend(IgnoreRegex)
+    return
+
+
 def get_bgp_prefix_runningconfig(duthost):
     """ Get bgp prefix config
     """
