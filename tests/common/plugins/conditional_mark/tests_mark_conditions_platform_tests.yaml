@@ -751,9 +751,9 @@ platform_tests/mellanox:
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
-    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py"
+    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios"
     conditions:
-      - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
+      - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0', 'x86_64-nvidia_sn4280-r0']"
 
 #######################################
 ####    test_advanced_reboot      #####

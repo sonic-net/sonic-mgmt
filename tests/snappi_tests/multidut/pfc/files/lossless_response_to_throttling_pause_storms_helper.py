@@ -13,14 +13,14 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, st
 from tests.common.snappi_tests.port import select_ports                                                    # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, verify_pause_flow, \
-     setup_base_traffic_config, verify_m2o_oversubscribtion_results                                      # noqa: F401
-
+     setup_base_traffic_config                                      # noqa: F401
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 30
+TEST_FLOW_AGGR_RATE_PERCENT = 25
 BG_FLOW_NAME = 'Background Flow'
 PAUSE_FLOW_NAME = 'PFC Traffic'
 BG_FLOW_AGGR_RATE_PERCENT = 25
@@ -132,19 +132,10 @@ def run_lossless_response_to_throttling_pause_storms_test(api,
                                                    all_flow_names=all_flow_names,
                                                    exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                    snappi_extra_params=snappi_extra_params)
-    flag = {
-        'Test Flow': {
-            'loss': '0'
-            },
-        'Background Flow': {
-            'loss': '0'
-            },
-        }
 
-    verify_m2o_oversubscribtion_results(rows=flow_stats,
-                                        test_flow_name=TEST_FLOW_NAME,
-                                        bg_flow_name=BG_FLOW_NAME,
-                                        flag=flag)
+    verify_throttling_pause_storm_result(flow_stats,
+                                         tx_port,
+                                         rx_port)
 
     # Verify pause flows
     verify_pause_flow(flow_metrics=flow_stats,
@@ -326,17 +317,24 @@ def __gen_data_flow(testbed_config,
         eth.src.value = tx_mac
         eth.dst.value = rx_mac
 
-        if 'Background Flow' in flow.name:
-            eth.pfc_queue.value = 0
-        elif 'Test Flow 1 -> 0 Prio [3, 4]' in flow.name:
-            eth.pfc_queue.value = 3
+        if pfcQueueGroupSize == 8:
+            if 'Background Flow' in flow.name:
+                eth.pfc_queue.value = 0
+            elif 'Test Flow 1 -> 0' in flow.name:
+                eth.pfc_queue.value = flow_prio[0]
+            elif 'Test Flow 2 -> 0' in flow.name:
+                eth.pfc_queue.value = flow_prio[1]
         else:
-            eth.pfc_queue.value = 4
+            if 'Background Flow' in flow.name:
+                eth.pfc_queue.value = pfcQueueValueDict[1]
+            elif 'Test Flow 1 -> 0' in flow.name:
+                eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
+            elif 'Test Flow 2 -> 0' in flow.name:
+                eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
         ipv4.src.value = tx_port_config.ip
         ipv4.dst.value = rx_port_config.ip
         ipv4.priority.choice = ipv4.priority.DSCP
-        flow_prio_dscp_list = []
         if 'Background Flow 1 -> 0' in flow.name:
             ipv4.priority.dscp.phb.values = [
                 ipv4.priority.dscp.phb.CS2,
@@ -344,11 +342,10 @@ def __gen_data_flow(testbed_config,
         elif 'Background Flow 2 -> 0' in flow.name:
             ipv4.priority.dscp.phb.value = ipv4.priority.dscp.phb.DEFAULT
             ipv4.priority.dscp.phb.value = 5
-        else:
-            for fp in flow_prio:
-                for val in prio_dscp_map[fp]:
-                    flow_prio_dscp_list.append(val)
-            ipv4.priority.dscp.phb.values = flow_prio_dscp_list
+        elif 'Test Flow 1 -> 0' in flow.name:
+            ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
+        elif 'Test Flow 2 -> 0' in flow.name:
+            ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
 
         ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
         flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(DATA_FLOW_DELAY_SEC))
@@ -397,3 +394,29 @@ def __gen_data_flow(testbed_config,
         pause_flow.duration.fixed_seconds.seconds = PAUSE_FLOW_DURATION_SEC
         pause_flow.metrics.enable = True
         pause_flow.metrics.loss = True
+
+
+def verify_throttling_pause_storm_result(rows,
+                                         tx_port,
+                                         rx_port):
+    """
+    Verifies the required loss % from the Traffic Items Statistics
+
+    Args:
+        rows (list): Traffic Item Statistics from snappi config
+        tx_port (list): Ingress Ports
+        rx_port : Egress Port
+    Returns:
+        N/A
+    """
+    for row in rows:
+        if 'Test Flow 1 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss".format(row.name))
+        elif 'Test Flow 2 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+        elif 'Background Flow 1 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+        elif 'Background Flow 2 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+        elif 'PFC' in row.name:
+            pytest_assert(int(row.loss) == 100, "{} must have 100% loss ".format(row.name))

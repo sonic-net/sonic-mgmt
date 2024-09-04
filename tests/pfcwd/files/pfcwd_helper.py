@@ -4,6 +4,7 @@ import sys
 import random
 import pytest
 import contextlib
+import time
 
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
@@ -491,6 +492,8 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
                                                                        selected_test_ports,
                                                                        test_ports_info)
         background_traffic_log = _send_background_traffic(ptfhost, background_traffic_params)
+        # Ensure the background traffic is running before moving on
+        time.sleep(1)
     yield
     if is_mellanox_device(duthost):
         _stop_background_traffic(ptfhost, background_traffic_log)
@@ -512,7 +515,8 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
         src_ips.append(selected_test_port_info["rx_neighbor_addr"])
 
     router_mac = duthost.get_dut_iface_mac(selected_test_ports[0])
-    pkt_count = 1000
+    # Send enough packets to make sure the background traffic is running during the test
+    pkt_count = 100000
 
     ptf_params = {'router_mac': router_mac,
                   'src_ports': src_ports,

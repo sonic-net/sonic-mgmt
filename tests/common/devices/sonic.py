@@ -17,6 +17,7 @@ from ansible.plugins.loader import connection_loader
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
+from tests.common.str_utils import str2bool
 from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
@@ -214,7 +215,7 @@ class SonicHost(AnsibleHostBase):
 
         facts["num_asic"] = results[0]
         facts["router_mac"] = results[1]
-        facts["modular_chassis"] = results[2]
+        facts["modular_chassis"] = str2bool(results[2])
         facts["mgmt_interface"] = results[3]
         facts["switch_type"] = results[4]
         facts["router_type"] = results[5]
@@ -1157,6 +1158,22 @@ class SonicHost(AnsibleHostBase):
         else:
             intf_str = ','.join(ifnames)
             return self.no_shutdown(intf_str)
+
+    def is_lldp_disabled(self):
+        """
+        Checks LLDP feature status
+        Returns True if disabled
+        Returns False if enabled
+        """
+        # get lldp status without table header
+        lldp_status_output = self.command('show feature status lldp | tail -n +3')["stdout_lines"][0]
+        if lldp_status_output is not None:
+            fields = lldp_status_output.split()
+            # State is the second field
+            state = fields[1]
+            if state == "enabled":
+                return False
+            return True
 
     def get_ip_route_info(self, dstip, ns=""):
         """

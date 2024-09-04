@@ -42,29 +42,30 @@ def announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name):
 
 def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_conpleteness_level,
                                  withdraw_and_announce_existing_routes, loganalyzer,
-                                 enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+                                 enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
+                                 rotate_syslog):
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     namespace = asichost.namespace
 
-    if loganalyzer:
-        ignoreRegex = [
-            ".*ERR route_check.py:.*",
-            ".*ERR.* 'routeCheck' status failed.*",
-            ".*Process \'orchagent\' is stuck in namespace \'host\'.*",
-            ".*ERR rsyslogd: .*"
-        ]
+    ignoreRegex = [
+        ".*ERR route_check.py:.*",
+        ".*ERR.* 'routeCheck' status failed.*",
+        ".*Process \'orchagent\' is stuck in namespace \'host\'.*",
+        ".*ERR rsyslogd: .*"
+    ]
 
-        hwsku = duthost.facts['hwsku']
-        if hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31']:
-            ignoreRegex.append(".*ERR memory_threshold_check:.*")
-            ignoreRegex.append(".*ERR monit.*memory_check.*")
-            ignoreRegex.append(".*ERR monit.*mem usage of.*matches resource limit.*")
+    hwsku = duthost.facts['hwsku']
+    if hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31']:
+        ignoreRegex.append(".*ERR memory_threshold_check:.*")
+        ignoreRegex.append(".*ERR monit.*memory_check.*")
+        ignoreRegex.append(".*ERR monit.*mem usage of.*matches resource limit.*")
 
-        # Ignore errors in ignoreRegex for *all* DUTs
-        for dut in duthosts:
+    # Ignore errors in ignoreRegex for *all* DUTs
+    for dut in duthosts.frontend_nodes:
+        if dut.loganalyzer:
             loganalyzer[dut.hostname].ignore_regex.extend(ignoreRegex)
 
     normalized_level = get_function_conpleteness_level
