@@ -25,6 +25,8 @@ SPECIFIC_PARAM_KEYWORD = "specific_param"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
 TOKEN_EXPIRE_HOURS = 1
 MAX_GET_TOKEN_RETRY_TIMES = 3
+TEST_PLAN_STATUS_UNSUCCESSFUL_FINISHED = ["FAILED", "CANCELLED"]
+TEST_PLAN_STEP_STATUS_UNFINISHED = ["EXECUTING", None]
 
 
 class PollTimeoutException(Exception):
@@ -230,7 +232,7 @@ class TestPlanManager(object):
         print("Test scripts to be covered in this test plan:")
         print(json.dumps(scripts, indent=4))
 
-        common_extra_params = common_extra_params + " --completeness_level=confident --allow_recover"
+        common_extra_params = common_extra_params + " --allow_recover"
 
         # Add topo and device type args for PR test
         if test_plan_type == "PR":
@@ -430,16 +432,17 @@ class TestPlanManager(object):
                     if test_summary:
                         print("Test summary:\n{}".format(json.dumps(test_summary, indent=4)))
 
-                    # We fail the step only if the step_status is "FAILED".
-                    # Other status such as "SKIPPED", "CANCELED" are considered successful.
                     """
-                    If step_status is None, means that current step was not executed but current status is in a post
-                    status behind the step. For example: current is {Failed}, expect is {Executing}, and after prepare
-                    tb it went to fail(run test not executed), so executing not started. In this scenario, step_status
-                    is None but current status is Failed. So, should return to failure. Otherwise, it will return to
-                    pass and cause inconsistency issues between pipeline and test plan.
+                    In below scenarios, need to return false to pipeline.
+                    1. If step status is {FAILED}, exactly need to return false to pipeline.
+                    2. If current test plan status finished but unsuccessful, need to check if current step status
+                       executed successfully, if not, return false to pipeline.
                     """
-                    if step_status == "FAILED" or (step_status is None and current_tp_status == "FAILED"):
+                    current_step_unsuccessful = (step_status == "FAILED"
+                                                 or (current_tp_status in TEST_PLAN_STATUS_UNSUCCESSFUL_FINISHED
+                                                     and step_status in TEST_PLAN_STEP_STATUS_UNFINISHED))
+
+                    if current_step_unsuccessful:
 
                         # Print error type and message
                         err_code = resp_data.get("runtime", {}).get("err_code", None)

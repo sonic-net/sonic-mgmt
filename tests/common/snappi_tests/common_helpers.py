@@ -107,13 +107,27 @@ def get_lossless_buffer_size(host_ans):
     """
     config_facts = host_ans.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
+
     is_cisco8000_platform = True if 'cisco-8000' in host_ans.facts['platform_asic'] else False
+
+    # Checking if platform is Broadcom-DNX.
+    is_broadcom_dnx = (
+            True
+            if "platform_asic" in host_ans.facts and host_ans.facts["platform_asic"] == "broadcom-dnx"
+            else False
+            )
 
     if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
-    profile_name = 'ingress_lossless_pool' if is_cisco8000_platform else 'egress_lossless_pool'
+
+    # Added check to select ingress_lossles_pool for Nokia7250 platform.
+    profile_name = (
+            'ingress_lossless_pool'
+            if (is_cisco8000_platform or is_broadcom_dnx)
+            else 'egress_lossless_pool'
+            )
 
     if profile_name not in list(buffer_pools.keys()):
         return None
