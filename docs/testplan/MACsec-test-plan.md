@@ -509,7 +509,3 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 #### Reboot DUT Line Card
 
 - Verify macsec connection comes up after line card reboot
-
-#### Reboot DUT Chassis
-
-- Verify macsec connection comes up after chassis reboot
