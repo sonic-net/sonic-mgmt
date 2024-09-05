@@ -3,7 +3,9 @@ import logging
 import socket
 import re
 
+from tests.common.cache import cached
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.cache_utils import sonic_asic_zone_getter
 from tests.common.helpers.constants import DEFAULT_NAMESPACE, NAMESPACE_PREFIX
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.platform.ssh_utils import ssh_authorize_local_user
@@ -30,6 +32,7 @@ class SonicAsic(object):
             asic_index: ASIC / namespace id for this asic.
         """
         self.sonichost = sonichost
+        self.hostname = self.sonichost.hostname
         self.asic_index = asic_index
         self.ns_arg = ""
         if self.sonichost.is_multi_asic:
@@ -67,6 +70,7 @@ class SonicAsic(object):
                 service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
 
+    @cached(name='is_frontend_asic', zone_getter=sonic_asic_zone_getter)
     def is_it_frontend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
@@ -75,6 +79,7 @@ class SonicAsic(object):
                 return True
         return False
 
+    @cached(name='is_backend_asic', zone_getter=sonic_asic_zone_getter)
     def is_it_backend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
