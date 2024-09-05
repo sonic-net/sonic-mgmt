@@ -67,6 +67,10 @@
     - name: Install necessary packages
       apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
       become: yes
+      register: apt_res
+      retries: 2
+      delay: 30
+      until: apt_res is success
       with_items:
         - ifupdown
         - qemu
@@ -78,6 +82,10 @@
     - name: Install necessary packages
       apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
       become: yes
+      register: apt_res
+      retries: 2
+      delay: 30
+      until: apt_res is success
       with_items:
         - iproute2
         - vlan
@@ -88,6 +96,10 @@
         - libvirt-clients
 
     - name: Install necessary packages
+      register: apt_res
+      retries: 2
+      delay: 30
+      until: apt_res is success
       apt:
         pkg:
         - python
@@ -98,6 +110,10 @@
       when: host_distribution_version.stdout == "18.04"
 
     - name: Install necessary packages
+      register: apt_res
+      retries: 2
+      delay: 30
+      until: apt_res is success
       apt:
         pkg:
         - python3-libvirt
