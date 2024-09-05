@@ -12,8 +12,12 @@ This plugin works at the collection stage of pytest. It mainly uses two pytest h
 
 In `pytest_collection` hook function, it reads the specified conditions file and collect some basic facts that can be used in condition evaluation. The loaded information is stored in pytest object `session.config.cache`.
 
-In `pytest_collection_modifyitems`, it checks each collected test item (test case). For each item, it searches for the longest matches test case name defined in the conditions content. If a match is found, then it will add the marks specified for this case based on conditions for each of the marks.
-Different marks in multiple files are allowed. If different marks are found, all of them will be added to the test item(test case). However, when having the duplicate mark, it will choose the first one.
+In `pytest_collection_modifyitems`, each collected test item (test case) is examined.
+For each item, all potential matching conditions found based on the test case name are identified.
+If a match is found and its mark is unique across all matches, the corresponding mark will be added to the test case.
+If there are multiple matches, the mark from the longest match is used.
+Different marks across multiple files are allowed.
+
 
 ## How to use `--mark-conditions-files`
 `--mark-conditions-files` supports exactly file name such as `tests/common/plugins/conditional_mark/test_mark_conditions.yaml` or the pattern of the file name such as `tests/common/plugins/conditional_mark/test_mark_conditions*.yaml` which will collect all files under the path `tests/common/plugins/conditional_mark` named as `test_mark_conditions*.yaml`.
@@ -74,9 +78,12 @@ folder3:
     reason: "Skip all the test scripts under subfolder 'folder3'"
 ```
 
-## Longest match rule
+## Match rule
 
-This plugin process each expanded (for parametrized test cases) test cases one by one. For each test case, the marks specified in the longest match entry in the conditions file will take precedence.
+This plugin process each expanded (for parametrized test cases) test cases one by one.
+For each test case, it will get all potential matches that match the pattern of test case name.
+And then, for each match, if the mark in it is unique across all matches, we will add this mark to test case based on conditions.
+Otherwise, we will use the mark which belongs to the longest match.
 
 Then we can easily apply a set of marks for specific test case in a script file and another set of marks for rest of the test cases in the same script file.
 
@@ -88,8 +95,12 @@ feature_a/test_file_1.py:
     conditions:
       - "release in ['201911']"
 feature_a/test_file_1.py::testcase_3:
+  skip:
+    reason: "testcase_3 should be skipped for 202311 image"
+    conditions:
+      - "release in ['202311']"
   xfail:
-    reason: "testcase_i are suppose to fail because an issue"
+    reason: "testcase_3 are suppose to fail because an issue"
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/1234
 ```
@@ -104,10 +115,12 @@ def testcase_2
 
 def testcase_3
 ```
-In this example, `testcase_1` and `testcase_2` will have nodeid like `feature_a/test_file_1.py::testcase_1` and `feature_a/test_file_1.py::testcase_2`. They will match entry `feature_a/test_file_1.py`. So, the `skip` mark will be added to `testcase_1` and `testcase_2` when `release in ['201911']`.
-For `testcase_3`, its nodeid will be `feature_a/test_file_1.py::testcase_3`. Then it will only match `feature_a/test_file_1.py::testcase_3`. The `xfail` mark will be added to `testcase_3` when the Github issue is still open. Entry `feature_a/test_file_1.py` also matches its nodeid. But, because it is not the longest match, it will simply be ignored.
+In this example, `testcase_1` and `testcase_2` will have nodeid like `feature_a/test_file_1.py::testcase_1` and `feature_a/test_file_1.py::testcase_2`.
+They will match entry `feature_a/test_file_1.py`. So, the `skip` mark will be added to `testcase_1` and `testcase_2` when `release in ['201911']`.
 
-In a summary, under such scenario, the `skip` mark will be conditionally added to `testcase_1` and `testcase_2`. The `xfail` mark will be conditionally added to `testcase_3`.
+For `testcase_3`, its nodeid will be `feature_a/test_file_1.py::testcase_3`. It will match both `feature_a/test_file_1.py` and `feature_a/test_file_1.py::testcase_3`.
+For mark `xfail`, it is the only mark in all matches, so it will be added to `testcase_3` when the Github issue is still open.
+And for mark `skip`, it exists in multiple matches. We will use the longest match of this match, which is under the entry `feature_a/test_file_1.py::testcase_3`.
 
 If a test case is parameterized, we can even specify different mark for different parameter value combinations for the same test case.
 
