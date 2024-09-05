@@ -162,6 +162,8 @@ configuration_properties:
 
 dut_cfg_file_loc : vars/configdb_jsons/7nodes_cisco/P1.json
 
+max_fp_num_provided : 6
+
 configuration:
   PE1:
     cfg_file_loc : vars/configdb_jsons/7nodes_cisco/PE1.json

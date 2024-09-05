@@ -3,7 +3,7 @@ root_path: veos-vm
 
 vm_console_base: 7000
 memory: 2097152
-max_fp_num: 6
+max_fp_num: 4
 
 ptf_bp_ip: 10.10.246.254/24
 ptf_bp_ipv6: fc0a::ff/64
