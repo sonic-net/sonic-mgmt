@@ -32,10 +32,7 @@ class ConsistencyChecker:
         self._python3_pysairedis_download_url = python3_pysairedis_download_url
 
     def __enter__(self):
-        logger.info("Setting up consistency checker on dut...")
-
-        # TODO: Check that the files don't currently exist on the dut, if so indicative
-        # of a concurrent or previous run that didn't cleanup properly
+        logger.info("Initializing consistency checker on dut...")
 
         self._duthost.shell(f"mkdir -p {DUT_DST_PATH_HOST}")
         self._duthost.copy(src=DUT_SCRIPT_PATH_SRC, dest=DUT_SCRIPT_PATH_DST_HOST)
@@ -45,7 +42,7 @@ class ConsistencyChecker:
         if self._python3_pysairedis_download_url is not None:
             self._duthost.shell(f"curl -o {DUT_DST_PATH_HOST}/{PYTHON3_PYSAIREDIS_DEB} {self._python3_pysairedis_download_url}")
 
-        # Move everything into syncd container...
+        # Move everything into syncd container
         self._duthost.shell((
             f"docker cp {DUT_DST_PATH_HOST} {SYNCD_CONTAINER}:/ && "
             f"rm -rf {DUT_DST_PATH_HOST}"
@@ -57,7 +54,7 @@ class ConsistencyChecker:
                                 f"'cd {DUT_DST_PATH_CONTAINER} && dpkg --install {DUT_DST_PATH_CONTAINER}/{PYTHON3_PYSAIREDIS_DEB}'"))
 
         if self._libsairedis_download_url is not None:
-            # Extract the libsairedis deb
+            # Extract the libsairedis deb to be used by the query script
             self._duthost.shell((f"docker exec {SYNCD_CONTAINER} bash -c "
                                 f"'cd {DUT_DST_PATH_CONTAINER} && dpkg --extract {DUT_DST_PATH_CONTAINER}/{LIBSAIREDIS_DEB} libsairedis-temp'"))
 
@@ -79,34 +76,36 @@ class ConsistencyChecker:
 
     def get_db_and_asic_peers(self, keys=["*"]) -> dict:
         """
-        Use cases:
-         - Bulk query ASIC data that exists in the ASIC_DB. Caller is free to do what they wish with the result i.e. custom asserts
-        This takes in an optional list of glob search strings that correspond to the --key arg of sonic-db-dump. sonic-db-dump doesn't take multiple keys, so a list is passed in to support multiple keys at the API level.
-        For every object returned from the sonic-db-dump the ASIC is queried.
+        Bulk query ASIC data that exists in the ASIC_DB.
 
-        Return val:
-            {
-                "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:oid:0x1900000000154f": {
-                    "SAI_BUFFER_PROFILE_ATTR_POOL_ID": {
-                        "dbValue": "oid:0x1800000000154a",
-                        "asicValue": "oid:0x1800000000154a",
-                        "asicQuerySuccess": true
-                    },
-                    "SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH": {
-                        "dbValue": "0",
-                        "asicValue": -1,
-                        "asicQuerySuccess": false,
-                        "asicQueryErrorMsg": "Failed to query attribute value"
-                    },
-                    "SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE": {
-                        "dbValue": "SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC",
-                        "asicValue": "SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC",
-                        "asicQuerySuccess": true
-                    },
-                    ...
+        :param keys: Optional list of glob search strings that correspond to the --key arg of sonic-db-dump.
+                     sonic-db-dump doesn't take multiple keys, so a list is passed in to support multiple
+                     keys at the API level.
+        :return: Dictionary containing the queried ASIC data.
+
+        Example return value:
+        {
+            "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:oid:0x1900000000154f": {
+                "SAI_BUFFER_PROFILE_ATTR_POOL_ID": {
+                    "dbValue": "oid:0x1800000000154a",
+                    "asicValue": "oid:0x1800000000154a",
+                    "asicQuerySuccess": True
+                },
+                "SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH": {
+                    "dbValue": "0",
+                    "asicValue": -1,
+                    "asicQuerySuccess": False,
+                    "asicQueryErrorMsg": "Failed to query attribute value"
+                },
+                "SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE": {
+                    "dbValue": "SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC",
+                    "asicValue": "SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC",
+                    "asicQuerySuccess": True
                 },
                 ...
-            }
+            },
+            ...
+        }
         """
 
         db_attributes = self._get_db_attributes(keys)
@@ -143,14 +142,20 @@ class ConsistencyChecker:
 
     def check_consistency(self, keys=["*"]) -> dict:
         """
-        Use cases:
-        -	Get the out-of-sync ASIC_DB and ASIC attributes. Caller can assert that there are no differences or print them for example. Differences are indicative of an error state.
-        Same arg style as the get_objects function but returns a list of objects that don’t match or couldn’t be queried from the ASIC. If it was successfully queried and has a matching value, then it won’t be included in the response.
+        Get the out-of-sync ASIC_DB and ASIC attributes. Differences are indicative of an error state.
+        Same arg style as the get_objects function but returns a list of objects that don't match or couldn't
+        be queried from the ASIC. If it was successfully queried and has a matching value, then it won't be
+        included in the response.
 
-        Return val (matching):
+        :param keys: Optional list of glob search strings that correspond to the --key arg of sonic-db-dump.
+                     sonic-db-dump doesn't take multiple keys, so a list is passed in to support multiple
+                     keys at the API level.
+        :return: Dictionary containing the out-of-sync ASIC_DB and ASIC attributes.
+        
+        Example return val (matching):
             {}
 
-        Return val (mismatch):
+        Example return val (mismatch):
             {
                 "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:oid:0x1900000000154f": {
                     "attributes": {
@@ -216,19 +221,6 @@ class ConsistencyChecker:
 
         return dict(inconsistencies)
 
-
-    def get_asic_attribute(oid, attr_value) -> dict:
-        """
-        Use cases:
-        -	Get a known attribute of an object oid that doesn't exist in the ASIC_DB but does exist in the ASIC. Can be used in an assert somewhere.
-        Not all attributes that exist on an object down at the ASIC level are in the Redis DB (i.e. SAI_OBJECT_TYPE_SWITCH’s attribute SAI_SWITCH_ATTR_NUMBER_OF_ACTIVE_PORTS), this method provides a way to retrieve them.
-        The oid is the hexadecimal int form i.e. 0x21000000000000.
-        We need to be careful here to validate the user provided oid actually exists, else syncd will restart. The implementation will validate that it’s present in ASIC_DB before attempting to retrieve.
-
-        """
-        raise NotImplementedError
-
-
     def _get_db_attributes(self, keys: list) -> dict:
         """
         Fetchs and merges the attributes of the objects returned by the search key from the DB.
@@ -268,7 +260,7 @@ class ConsistencyChecker:
                 ...
             }
         """
-        # Map to format expected by the dut script
+        # Map to format expected by the query-asic.py
         asic_query = {k: list(v["value"].keys()) for k, v in db_attributes.items()}
         asic_query_input_filename = f"query-input-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.json"
         with open(f"/tmp/{asic_query_input_filename}", 'w') as f:
@@ -294,15 +286,17 @@ class ConsistencyChecker:
 class ConsistencyCheckerProvider:
     def is_consistency_check_supported(self, dut) -> bool:
         """
-        Initially constrain to support versions 202311, 202405, master
-        and skus 7060, 7260 (t0)
+        Checks if the provided DUT is supported for consistency checking.
+        Currently, only supports select Arista platforms and SONiC versions 202305 and 202311.
+
+        :param dut: SonicHost object
+        :return bool: True if the DUT is supported, False otherwise
         """
 
         platform = dut.facts['platform']
         if platform not in ["x86_64-arista_7060_cx32s", "x86_64-arista_7260cx3_64"]:
             return False
 
-        # TODO: Support 202405 and master
         version = dut.image_facts()['ansible_facts']['ansible_image_facts']['current']
         if "202305" not in version and "202311" not in version:
             return False
@@ -310,9 +304,22 @@ class ConsistencyCheckerProvider:
         return True
 
     def get_consistency_checker(self, dut, libsairedis_download_url=None, python3_pysairedis_download_url=None) -> ConsistencyChecker:
+        """
+        Get a new instance of the ConsistencyChecker class.
+
+        :param dut: SonicHost object
+        :param libsairedis_download_url: Optional URL that the consistency checker should use to download the
+               libsairedis deb
+        :param python3_pysairedis_download_url: Optional URL that the consistency checker should use to
+               download the python3-pysairedis deb
+        :return ConsistencyChecker: New instance of the ConsistencyChecker class
+        """
         return ConsistencyChecker(dut, libsairedis_download_url, python3_pysairedis_download_url)
 
 
 @pytest.fixture
 def consistency_checker_provider():
+    """
+    Fixture that provides the ConsistencyCheckerProvider class.
+    """
     return ConsistencyCheckerProvider()

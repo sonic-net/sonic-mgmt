@@ -9,7 +9,8 @@ from collections import defaultdict
 from sairedis import pysairedis
 
 logger = logging.getLogger(__name__)
-# Results get put on stdout, so we want to log errors to stderr to avoid mixing them up
+
+# Results get written to stdout, so we want to log errors to stderr to avoid mixing them up
 logger.addHandler(logging.StreamHandler(sys.stderr))
 
 HELP_TEXT = """
@@ -44,25 +45,38 @@ The results will be printed to stdout, in the following format:
     }
 """
 
-def load_input(input_file) -> dict:
+def load_input(input_file: str) -> dict:
     """
-    Expecting a json file
+    Load the input JSON file with contents like so:
+    {
+        "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:oid:0x18000000000628": [
+            "SAI_BUFFER_POOL_ATTR_THRESHOLD_MODE",
+            "SAI_BUFFER_POOL_ATTR_SIZE",
+            "SAI_BUFFER_POOL_ATTR_TYPE"
+        ],
+        ...
+    }
+
+    :param input_file: Path to the input JSON file
+    :return: The loaded JSON data
     """
     with open(input_file) as f:
         return json.load(f)
 
 
-def get_numeric_oid_from_label(oid_label):
+def get_numeric_oid_from_label(oid_label: str) -> int:
     """
     From a label like "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:oid:0x18000000000628",
-    extracts and returns a the numeric oid part 0x18000000000628.
+    extracts and returns the numeric oid part 0x18000000000628.
 
     NOTE: There's also another form like so:
     ASIC_STATE:SAI_OBJECT_TYPE_FDB_ENTRY:{\"bvid\":\"oid:0x260000000008da\",\"mac\":\"98:03:9B:03:22:14\",\"switch_id\":\"oid:0x21000000000000\"}
     which isn't currently supported.
-    """
 
-    # Pull out the value segment e.g. oid:0x18000000000628
+    :param oid_label: The label to extract the oid from
+    :return: The numeric oid value
+    """
+    # Extract the value segment e.g. oid:0x18000000000628
     value_segment = oid_label.split(":", 2)[2]
     if not value_segment.startswith("oid:"):
         raise NotImplementedError(f"Unsupported oid format: {oid_label}")
@@ -71,9 +85,18 @@ def get_numeric_oid_from_label(oid_label):
     return int(oid_value, 16)
 
 
-def lookup_attribute_value_in_pysairedis(attr_string) -> int:
-    return getattr(pysairedis, attr_string)
+def lookup_attribute_value_in_pysairedis(attr: str) -> int:
+    """
+    Given an attribute name like "SAI_BUFFER_POOL_ATTR_THRESHOLD_MODE", return the corresponding
+    attribute oid from pysairedis.
 
+    :param attr: The attribute name
+    :return: The attribute oid value
+    """
+    return getattr(pysairedis, attr)
+
+
+# Generate a one-time lookup table for all SAI status codes in the query results
 sai_status_map = {
     "single": {},
     "range": defaultdict(list),
@@ -90,11 +113,14 @@ for key, value in vars(pysairedis).items():
             # Single value
             sai_status_map["single"][value] = key
 
-def map_sai_status_to_str(status_code) -> str:
+
+def map_sai_status_to_str(status_code: int) -> str:
     """
     Given a SAI status code e.g. -196608, return the string representation e.g. SAI_STATUS_ATTR_NOT_SUPPORTED
-    """
 
+    :param status_code: The numeric SAI status code
+    :return: The string representation of the status code
+    """
     if status_code in sai_status_map["single"]:
         return sai_status_map["single"][status_code]
 
@@ -106,9 +132,12 @@ def map_sai_status_to_str(status_code) -> str:
     return f"UNKNOWN_SAI_STATUS"
 
 
-def mac_address_str_from_swig_uint8_t_arr(swig_uint8_p):
+def mac_address_str_from_swig_uint8_t_arr(swig_uint8_p) -> str:
     """
-    swig_uint8_p is a Swig pointer to a 6 element array of uint8_t
+    Given a swig pointer to a uint8_t array, return the MAC address string representation
+
+    :param swig_uint8_p: The swig pointer to the uint8_t array
+    :return: The MAC address string representation
     """
     pointer = ctypes.cast(swig_uint8_p.__int__(), ctypes.POINTER(ctypes.c_uint8))
     octets = [pointer[i] for i in range(6)]
@@ -116,29 +145,42 @@ def mac_address_str_from_swig_uint8_t_arr(swig_uint8_p):
     return fmtd_mac_address
 
 
-def _get_attribute_value_from_asic(oid, attribute_oid):
+def get_attribute_value_from_asic(oid, attribute_oid):
+    """
+    Given an oid and attribute_oid, query the ASIC for the attribute value. The attribute value
+    is transformed to match the format of the ASIC_DB.
 
-    oidType = pysairedis.sai_object_type_query(oid)
-    objectTypeName = pysairedis.sai_metadata_get_object_type_name(oidType).replace("SAI_OBJECT_TYPE_", "")
-    className = objectTypeName.lower()
-    if objectTypeName in ["BUFFER_POOL", "BUFFER_PROFILE"]:
-        className = "buffer"
-    api = getattr(pysairedis, f"sai_{className}_api_t")()
-    status = getattr(pysairedis, f"sai_get_{className}_api")(api)
+    :param oid: The oid of the object to query
+    :param attribute_oid: The attribute oid of the object to query
+    :return: The attribute value from the ASIC in the format of the ASIC_DB
+    """
+
+    oid_type = pysairedis.sai_object_type_query(oid)
+    object_type_name = pysairedis.sai_metadata_get_object_type_name(oid_type).replace("SAI_OBJECT_TYPE_", "")
+    class_name = object_type_name.lower()
+    # Handle special cases where the class name is different
+    if object_type_name in ["BUFFER_POOL", "BUFFER_PROFILE"]:
+        class_name = "buffer"
+    api = getattr(pysairedis, f"sai_{class_name}_api_t")()
+    status = getattr(pysairedis, f"sai_get_{class_name}_api")(api)
     assert status == 0, f"Failed to get sai API {api}. Status: {map_sai_status_to_str(status)} ({status})"
 
-    attr_metadata = pysairedis.sai_metadata_get_attr_metadata(oidType, attribute_oid)
+    attr_metadata = pysairedis.sai_metadata_get_attr_metadata(oid_type, attribute_oid)
 
     attr = pysairedis.sai_attribute_t()
     attr.id = attribute_oid
     if attr_metadata.attrvaluetype == pysairedis.SAI_ATTR_VALUE_TYPE_UINT32_LIST:
+        # Extra initialization for reading into a list
         attr.value.u32list.count = 32
         attr.value.u32list.list = pysairedis.new_uint32_t_arr(attr.value.u32list.count)
 
-    status = getattr(api, f"get_{objectTypeName.lower()}_attribute")(oid, 1, attr)
-    assert status == 0, (f"Failed to call SAI API get_{objectTypeName.lower()}_attribute for oid {oid} and attribute "
+    # Read the attribute from the ASIC into attr
+    func_name = f"get_{object_type_name.lower()}_attribute"
+    status = getattr(api, func_name)(oid, 1, attr)
+    assert status == 0, (f"Failed to call SAI API {func_name} for oid {oid} and attribute "
                          f"{attribute_oid}. Status: {map_sai_status_to_str(status)} ({status})")
 
+    # Extract the attribute value from attr
     if attr_metadata.attrvaluetype == pysairedis.SAI_ATTR_VALUE_TYPE_BOOL:
         attr_value = attr.value.booldata
     elif attr_metadata.attrvaluetype == pysairedis.SAI_ATTR_VALUE_TYPE_UINT8:
@@ -163,7 +205,10 @@ def _get_attribute_value_from_asic(oid, attribute_oid):
         attr_value = attr.value.u32list
     elif attr_metadata.attrvaluetype == pysairedis.SAI_ATTR_VALUE_TYPE_MAC:
         attr_value = mac_address_str_from_swig_uint8_t_arr(attr.value.mac)
-    # ********* NOTE: GPT generated attributes below, likely to have errors ********* #
+    # ***************************************************************************
+    # NOTE: GPT generated attributes below, likely to be incomplete and/or
+    #       need additional processing.
+    # ***************************************************************************
     elif attr_metadata.attrvaluetype == pysairedis.SAI_ATTR_VALUE_TYPE_IP_ADDRESS:
         attr_value = attr.value.ipaddr
     elif attr_metadata.attrvaluetype == pysairedis.SAI_ATTR_VALUE_TYPE_LATCH_STATUS:
@@ -337,21 +382,23 @@ def _get_attribute_value_from_asic(oid, attribute_oid):
 
     if attr_metadata.isenum:
         # Map to the string value if enum
-        enummetadata = attr_metadata.enummetadata
-        attr_value = pysairedis.sai_metadata_get_enum_value_name(enummetadata, attr_value)
+        enum_metadata = attr_metadata.enummetadata
+        attr_value = pysairedis.sai_metadata_get_enum_value_name(enum_metadata, attr_value)
 
     return attr_value
 
 
 def query_asic_objects(query_objects) -> dict:
     """
-    Query the ASIC for the attributes of the objects provided in the query_objects dict
-    """
+    Query the ASIC for the attributes of the objects provided in deserialized JSON input file format.
+
+    :param query_objects: The deserialized JSON input file format
+    :return: The deserialized JSON output format
+    """ 
 
     results = defaultdict(dict)
 
     for oid_label_key, attributes in query_objects.items():
-        # TODO: Handle case where oid_label_key is not in the expected format
         try:
             logger.debug(f"Querying ASIC for object key {oid_label_key}")
             oid = get_numeric_oid_from_label(oid_label_key)
@@ -366,7 +413,7 @@ def query_asic_objects(query_objects) -> dict:
             try:
                 logger.debug(f"Querying ASIC object {oid_label_key} ({oid}) for attribute {attribute}")
                 attribute_oid = lookup_attribute_value_in_pysairedis(attribute)
-                asic_value = _get_attribute_value_from_asic(oid, attribute_oid)
+                asic_value = get_attribute_value_from_asic(oid, attribute_oid)
 
                 # Convert to str to match how values are represented in ASIC_DB
                 if asic_value in [True, False]:
@@ -393,22 +440,22 @@ def initialize_sai_api():
     """
     Initialize the SAI API
     """
-    logger.debug("Initializing SAI API")
+    logger.info("Initializing SAI API")
     profileMap = dict()
     profileMap[pysairedis.SAI_REDIS_KEY_ENABLE_CLIENT] = "true"
-    status = pysairedis.sai_api_initialize(0,profileMap)
+    status = pysairedis.sai_api_initialize(0, profileMap)
     assert status == 0, "Failed to initialize SAI API"
-    logger.debug("SAI API initialized")
+    logger.info("SAI API initialized")
 
 
 def uninitialize_sai_api():
     """
     Uninitialize the SAI API
     """
-    logger.debug("Uninitializing SAI API")
+    logger.info("Uninitializing SAI API")
     status = pysairedis.sai_api_uninitialize()
     assert status == 0, "Failed to uninitialize SAI API"
-    logger.debug("SAI API uninitialized")
+    logger.info("SAI API uninitialized")
 
 
 def main(args):
