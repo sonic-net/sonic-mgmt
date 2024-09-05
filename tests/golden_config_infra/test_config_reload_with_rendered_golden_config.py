@@ -18,6 +18,8 @@ pytestmark = [
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
+CONFIG_DB = "/etc/sonic/config_db.json"
+CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 
 
 def file_exists_on_dut(duthost, filename):
@@ -40,6 +42,8 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
 
+    # Backup configDB
+    backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     if file_exists_on_dut(duthost, GOLDEN_CONFIG):
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
@@ -51,6 +55,8 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     if topo_type in ["m0", "mx"]:
         update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
 
+    # Restore configDB after test.
+    restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     if file_exists_on_dut(duthost, GOLDEN_CONFIG_BACKUP):
         restore_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
     else:
