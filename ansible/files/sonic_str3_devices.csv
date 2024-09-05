@@ -124,8 +124,8 @@ str3-msn4700-02,10.3.146.149/24,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str3-msn4700-fanout-02,10.3.146.153/24,Mellanox-SN4700-O8V48,FanoutLeafSonic,,sonic
 str3-msn4700-03,10.3.146.11/24,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str3-msn4700-fanout-03,10.3.146.12/24,Mellanox-SN4700-O8V48,FanoutLeafSonic,,sonic
-str3-msn4700-04,10.3.146.175/24,Mellanox-SN4700-O28,DevSonic,,sonic
-str3-msn4700-fanout-04,10.3.146.131/24,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
+str3-msn4700-04,10.3.146.175/24,Mellanox-SN4700-O32,DevSonic,,sonic
+str3-msn4700-fanout-04,10.3.146.131/24,Mellanox-SN4700-O32,FanoutLeafSonic,,sonic
 str3-s6100-acs-8,10.64.247.77/23,Force10-S6100,DevSonic,,sonic
 str3-7060x6-64pe-1,10.64.246.2/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
 str3-7060x6-64pe-fan-1,10.64.246.3/23,Arista-7060X6-64PE-256x200G,FanoutLeafSonic,,sonic
