@@ -12,9 +12,12 @@ This plugin works at the collection stage of pytest. It mainly uses two pytest h
 
 In `pytest_collection` hook function, it reads the specified conditions file and collect some basic facts that can be used in condition evaluation. The loaded information is stored in pytest object `session.config.cache`.
 
-In `pytest_collection_modifyitems`, it checks each collected test item (test case). For each item, it searches for all matches which are included in test case name in the conditions content.
-If a match is found, and the mark is the only one in all matches, then it will add the mark to test case based on conditions. Otherwise, we will use the mark in longest match.
-Different marks in multiple files are allowed. If different marks are found, all of them will be added to the test item(test case).
+In `pytest_collection_modifyitems`, each collected test item (test case) is examined.
+For each item, all potential matching conditions found based on the test case name are identified.
+If a match is found and its mark is unique across all matches, the corresponding mark will be added to the test case.
+If there are multiple matches, the mark from the longest match is used.
+Different marks across multiple files are allowed.
+
 
 ## How to use `--mark-conditions-files`
 `--mark-conditions-files` supports exactly file name such as `tests/common/plugins/conditional_mark/test_mark_conditions.yaml` or the pattern of the file name such as `tests/common/plugins/conditional_mark/test_mark_conditions*.yaml` which will collect all files under the path `tests/common/plugins/conditional_mark` named as `test_mark_conditions*.yaml`.
@@ -77,8 +80,10 @@ folder3:
 
 ## Match rule
 
-This plugin process each expanded (for parametrized test cases) test cases one by one. For each test case, it will get all matches that match the pattern of test case name.
-And then, for each match, if the mark in it is unique in all matches, we will add this mark to test case based on conditions. Otherwise, we will use the mark which belongs to the longest match.
+This plugin process each expanded (for parametrized test cases) test cases one by one.
+For each test case, it will get all potential matches that match the pattern of test case name.
+And then, for each match, if the mark in it is unique across all matches, we will add this mark to test case based on conditions.
+Otherwise, we will use the mark which belongs to the longest match.
 
 Then we can easily apply a set of marks for specific test case in a script file and another set of marks for rest of the test cases in the same script file.
 
