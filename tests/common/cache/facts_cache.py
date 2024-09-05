@@ -250,7 +250,7 @@ def cached(name, zone_getter=None, after_read=None, before_write=None):
             if after_read:
                 cached_facts = after_read(cached_facts, target, args, kargs)
             if cached_facts is not FactsCache.NOTEXIST:
-                logger.error(f"[Cache] Use cache for func[{target}]")
+                logger.debug(f"[Cache] Use cache for func[{target}], zone[{zone}], key[{name}]")
                 return cached_facts
             else:
                 facts = target(*args, **kargs)
