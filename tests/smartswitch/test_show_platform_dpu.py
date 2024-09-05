@@ -10,7 +10,7 @@ import redis
 from tests.common.utilities import wait_until
 from . import util
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.device_utils_dpu import *
+from tests.smartswitch.common.platform.device_utils_dpu import *
 from tests.common.helpers.platform_api import chassis, module
 from tests.platform_tests.api.conftest import platform_api_conn
 from tests.common.devices.sonic import *
@@ -25,8 +25,6 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     num_modules = int(chassis.get_num_modules(platform_api_conn))
-    ping_count = 0
-    dpu_count = 0
     ip_address_list = []
 
     output_dpu_status = duthost.show_and_parse('show chassis module status')
@@ -92,7 +90,6 @@ def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname):
             if status == "down/down":
                 count_down += 1
             output_intf_up = duthost.shell("ifconfig %s up"%(interface))["stdout_lines"]
-            time.sleep(1)
 
     output_interface_cmd = duthost.show_and_parse('show ip interface')
     for index in range(len(output_interface_cmd)):
@@ -169,6 +166,9 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname):
 
     pytest_assert(wait_until(120, 60, 0, check_dpu_module_status, duthost, num_modules, "off"),
                           "Not all DPUs operationally down")
+
+    output_pcie_info = duthost.command(CMD_PCIE_INFO)["stdout_lines"]
+    pytest_assert(output_pcie_info[-1] == 'PCIe Device Checking All Test ----------->>> PASSED', "PCIe Li        nk is good'{}'".format(duthost.hostname))
 
     for index in range(num_modules):
         dpu = module.get_name(platform_api_conn, index)

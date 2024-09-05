@@ -12,7 +12,7 @@ from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot,wait_for_startup,REBOOT_TYPE_COLD
 from tests.common.config_reload import config_force_option_supported, config_system_checks_passed
-from tests.common.platform.device_utils_dpu import *
+from tests.smartswitch.common.platform.device_utils_dpu import *
 from tests.common.helpers.platform_api import chassis, module
 from tests.platform_tests.api.conftest import platform_api_conn
 
@@ -43,7 +43,6 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname, local
     logging.info("Interfaces are up")
 
     for DPU in dpu_powered_on_list:
-        dpu = module.get_name(platform_api_conn, DPU[3:])
         ip_address_list.append(module.get_midplane_ip(platform_api_conn, DPU[3:]))
         duthosts.shell("config chassis modules startup %s"%DPU)
         time.sleep(2)
