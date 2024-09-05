@@ -974,6 +974,21 @@ link_flap/test_cont_link_flap.py:
       - https://github.com/sonic-net/sonic-mgmt/issues/10955
 
 #######################################
+#####           lldp              #####
+#######################################
+lldp/test_lldp.py::test_lldp:
+  skip:
+    reason: "Skipping LLDP test because the topology is standalone. No LLDP neighbors detected."
+    conditions:
+      - "'standalone' in topo_name"
+
+lldp/test_lldp.py::test_lldp_neighbor:
+  skip:
+    reason: "Skipping LLDP test because the topology is standalone. No LLDP neighbors detected."
+    conditions:
+      - "'standalone' in topo_name"
+
+#######################################
 #####           macsec            #####
 #######################################
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
@@ -1569,6 +1584,12 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
 #######################################
 #####            snmp             #####
 #######################################
+snmp/test_snmp_default_route.py::test_snmp_default_route:
+  skip:
+    reason: "Skipping SNMP test because standalone topology has no default routes."
+    conditions:
+      - "'standalone' in topo_name"
+
 snmp/test_snmp_link_local.py:
   skip:
     reason: "SNMP over IPv6 support not present in release branches."
@@ -1578,9 +1599,13 @@ snmp/test_snmp_link_local.py:
 
 snmp/test_snmp_loopback.py::test_snmp_loopback:
   skip:
-    reason: "Not supported topology backend."
+    reason: "1. Not supported topology backend.
+             2. Skipping SNMP test because standalone topology has no neighbor VMs,
+            and SNMP queries will be executed from the neighbor VM."
+    conditions_logical_operator: OR
     conditions:
       - "'backend' in topo_name"
+      - "'standalone' in topo_name"
 
 snmp/test_snmp_pfc_counters.py:
   skip:
