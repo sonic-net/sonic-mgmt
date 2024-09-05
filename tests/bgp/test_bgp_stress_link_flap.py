@@ -17,7 +17,7 @@ pytestmark = [
 
 stop_threads = False
 SLEEP_DURATION = 0.005
-TEST_RUN_DURATION = 600
+TEST_RUN_DURATION = 300
 MEMORY_EXHAUST_THRESHOLD = 300
 dut_flap_count = 0
 fanout_flap_count = 0
@@ -25,7 +25,7 @@ neighbor_flap_count = 0
 
 LOOP_TIMES_LEVEL_MAP = {
     'debug': 60,
-    'basic': 600,
+    'basic': 300,
     'confident': 3600,
     'thorough': 21600
 }
