@@ -90,6 +90,13 @@ parameters:
     default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202311)"
     displayName: "Common test parameters"
 
+  - name: AFFINITY
+    type: string
+    default: '[
+      {"name": "qos/test_qos_sai.py", "op": "NOT_ON", "value": ["vms63-t1-7060-3"]}
+    ]'
+    displayName: "Test affinity, test module or feature name (e.g. 'bgp/test_bgp_fact.py')"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
