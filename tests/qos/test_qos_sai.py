@@ -2376,7 +2376,11 @@ class TestQosSai(QosSaiBase):
         for start, end in zip([0] + split_points, split_points + [len(all_keys)]):
             run_test_for_dst_port(start, end)
 
-    @pytest.mark.parametrize("xonHysteresisKey", ["xon_hysteresis_1"])
+    @pytest.mark.parametrize("xonHysteresisKey", ["xon_hysteresis_1", "xon_hysteresis_2",
+                                                  "xon_hysteresis_3", "xon_hysteresis_4",
+                                                  "xon_hysteresis_5", "xon_hysteresis_6",
+                                                  "xon_hysteresis_7", "xon_hysteresis_8",
+                                                  "xon_hysteresis_9"])
     def testQosSaiXonHysteresis(
             self, xonHysteresisKey, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             get_src_dst_asic_and_duts, check_skip_xon_hysteresis_test

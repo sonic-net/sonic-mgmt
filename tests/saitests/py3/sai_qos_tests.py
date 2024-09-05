@@ -6070,6 +6070,7 @@ class XonHysteresisTest(sai_base_test.ThriftInterfaceDataPlane):
         dscps = self.test_params['dscps']
         pgs = self.test_params['pgs']
         pg_cntr_indices = [pg + 2 for pg in pgs]
+        queues = self.test_params['queues']
         packet_length = self.test_params['packet_size']
         pkt_counts = self.test_params['pkt_counts']
         ecn = self.test_params['ecn']
@@ -6116,10 +6117,13 @@ class XonHysteresisTest(sai_base_test.ThriftInterfaceDataPlane):
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, uniq_dst_ports)
 
         try:
-            for (npkts, packets) in zip(pkt_counts, pkts_list):
+            for (npkts, packets, dst_port_id, queue) in zip(pkt_counts, pkts_list,
+                                                                dst_port_ids, queues):
                 for src_id in packets.keys():
                     for pkt_tuple in packets[src_id]:
-                        send_packet(self, src_id, pkt_tuple[0], npkts)
+                        fill_leakout_plus_one(self, src_id, dst_port_id,
+                            pkt_tuple[0], queue, asic_type)
+                        send_packet(self, src_id, pkt_tuple[0], npkts-1)
 
             # Verify XOFF has now been triggered on final port
             print(

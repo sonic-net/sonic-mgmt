@@ -75,6 +75,10 @@ class QosParamCisco(object):
             self.log("Pause thr bytes:           {}".format(self.pause_thr))
             self.log("Pre-pad drop thr bytes:    {}".format(pre_pad_drop))
             self.log("Drop thr bytes:            {}".format(self.drop_thr))
+            self.config_facts = duthost.get_running_config_facts()
+            # DSCP value for lossy
+            self.dscp_queue0 = self.get_one_dscp_from_queue(0)
+            self.dscp_queue1 = self.get_one_dscp_from_queue(1)
 
     def run(self):
         '''
@@ -98,6 +102,17 @@ class QosParamCisco(object):
         self.__define_pg_drop()
         self.__define_xon_hysteresis()
         return self.qos_params
+
+    def get_one_dscp_from_queue(self, queue):
+        '''
+        Get one dscp value which is mapped to given queue
+        '''
+        dscp_to_tc_map = self.config_facts['DSCP_TO_TC_MAP']['AZURE']
+        tc_to_queue_map = self.config_facts['TC_TO_QUEUE_MAP']['AZURE']
+        queue = str(queue)
+        tc = list(tc_to_queue_map.keys())[list(tc_to_queue_map.values()).index(queue)]
+        dscp = list(dscp_to_tc_map.keys())[list(dscp_to_tc_map.values()).index(tc)]
+        return int(dscp)
 
     def gr_get_mantissa_exp(self, thr):
         assert thr >= 0, "Expected non-negative threshold, not {}".format(thr)
@@ -427,39 +442,407 @@ class QosParamCisco(object):
     def __define_xon_hysteresis(self):
         if self.is_t2:
             return
+
         self.log("Autogenerating qos params for test labels {}".format("xon_hysteresis_"))
         cell_size = 384
         packet_size = 1350
+
+        def mb_to_pkt_count(sq_occupancies_mb):
+            pkt_counts = []
+            cell_per_pkt = math.ceil(packet_size/cell_size)
+            for sq_occupancy_mb in sq_occupancies_mb:
+                pkt_counts.append(math.ceil(sq_occupancy_mb * 1024 ** 2 / (cell_per_pkt * cell_size)))
+            return pkt_counts
+
         if self.is_large_sms:
-            if not self.is_deep_buffer:
+            if self.is_deep_buffer: # Crocodile/8111/Graphene/G100
+                if self.portSpeedCableLength.find('400000') == 0:
+                    # Crocodile 400G
+
+                    # 20*3 + 10.1 = 70.1 MB
+                    # 1st flow is to relieve and trigger SQG or Ctr-A region transition
+                    # last flow is flow under test
+                    sq_occupancies_mb = [20, 20, 20, 10.1]
+                    params_1 = {"packet_size": packet_size,
+                                "ecn": 1,
+                                "dscps":      [3, 3, 4, 3],
+                                "pgs":        [3, 3, 4, 3],
+                                "queues":     [3, 3, 4, 3],
+                                "src_port_i": [0, 1, 1, 2],
+                                "dst_port_i": [3, 4, 4, 5],
+                                "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                    self.write_params("xon_hysteresis_1", params_1)
+
+                    # 7 + 20*3 + 8 + 2.6 = 76.6 MB
+                    sq_occupancies_mb = [7, 20, 20, 20, 8, 2.6]
+                    params_1 = {"packet_size": packet_size,
+                                "ecn": 1,
+                                "dscps":      [3, 3, 4, 3, 4, 3],
+                                "pgs":        [3, 3, 4, 3, 4, 3],
+                                "queues":     [3, 3, 4, 3, 4, 3],
+                                "src_port_i": [0, 1, 1, 2, 2, 3],
+                                "dst_port_i": [4, 5, 5, 6, 6, 7],
+                                "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                    self.write_params("xon_hysteresis_2", params_1)
+
+                    # lossy 7 + 10 = 17 MB
+                    # lossless 20*3 + 9 = 69 MB
+                    # Ctr-A 86 -> 79 MB
+                    sq_occupancies_mb = [7, 10, 20, 20, 20, 9]
+                    params_1 = {"packet_size": packet_size,
+                                "ecn": 1,
+                                "dscps":      [self.dscp_queue1, self.dscp_queue1,
+                                               3, 4, 3, 4],
+                                "pgs":        [0, 0, 3, 4, 3, 4],
+                                "queues":     [1, 1, 3, 4, 3, 4],
+                                "src_port_i": [0, 1, 1, 1, 2, 2],
+                                "dst_port_i": [3, 4, 4, 4, 5, 5],
+                                "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                    self.write_params("xon_hysteresis_3", params_1)
+
+                    # lossy 2 + 17 = 19 MB
+                    # lossless 20*2 + 19 + 7.5 + 2.5 + 0.1 = 69.1 MB
+                    # Ctr-A 19 + 69.1 = 88.1 MB -> 86.1 MB
+                    sq_occupancies_mb = [2, 17, 20, 20, 19, 7.5, 2.5, 0.1]
+                    params_1 = {"packet_size": packet_size,
+                                "ecn": 1,
+                                "dscps":      [self.dscp_queue1, self.dscp_queue1,
+                                               3, 4, 3, 4, 3, 4],
+                                "pgs":        [0, 0, 3, 4, 3, 4, 3, 4],
+                                "queues":     [1, 1, 3, 4, 3, 4, 3, 4],
+                                "src_port_i": [0, 1, 1, 1, 2, 2, 3, 3],
+                                "dst_port_i": [4, 5, 5, 5, 6, 6, 7, 7],
+                                "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                    self.write_params("xon_hysteresis_4", params_1)
+
+                    # lossy 2 + 9 = 11 MB
+                    # lossless 20*3 + 10 + 4.5 + 2.5 + 0.1 = 77.1 MB
+                    # Ctr-A 11 + 77.1 = 88.1 MB -> 86.1 MB
+                    sq_occupancies_mb = [2, 9, 20, 20, 20, 10, 4.5, 2.5, 0.1]
+                    params_1 = {"packet_size": packet_size,
+                                "ecn": 1,
+                                "dscps":      [self.dscp_queue1, self.dscp_queue1,
+                                               3, 4, 3, 4, 3, 4, 3],
+                                "pgs":        [0, 0, 3, 4, 3, 4, 3, 4, 3],
+                                "queues":     [1, 1, 3, 4, 3, 4, 3, 4, 3],
+                                "src_port_i": [0, 1, 1, 1, 2, 2, 3, 3, 4],
+                                "dst_port_i": [5, 6, 6, 6, 7, 7, 8, 8, 9],
+                                "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                    self.write_params("xon_hysteresis_5", params_1)
+
+                    # lossy 3 MB
+                    # SQG0: 2 + 20*3 + 10 + 3.4 + 2.6 = 78 MB -> 76 MB
+                    # Ctr-A 3 + 78 = 81 MB -> 79 MB
+                    sq_occupancies_mb = [2, 3, 20, 20, 20, 10, 3.4, 2.6]
+                    params_1 = {"packet_size": packet_size,
+                                "ecn": 1,
+                                "dscps":      [3, self.dscp_queue1, 3, 4, 3, 4, 3, 4],
+                                "pgs":        [3, 0, 3, 4, 3, 4, 3, 4],
+                                "queues":     [3, 1, 3, 4, 3, 4, 3, 4],
+                                "src_port_i": [0, 1, 1, 1, 2, 2, 3, 3],
+                                "dst_port_i": [4, 5, 5, 5, 6, 6, 7, 7],
+                                "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                    self.write_params("xon_hysteresis_6", params_1)
+
+                    # SQG0: 2.5 + 20*3 + 7.5 * 2 + 2.5 + 0.1 = 80.1 MB -> 77.6 MB
+                    sq_occupancies_mb = [2.5, 20, 20, 20, 7.5, 7.5, 2.5, 0.1]
+                    params_1 = {"packet_size": packet_size,
+                                "ecn": 1,
+                                "dscps":      [3, 3, 4, 3, 4, 3, 4, 3],
+                                "pgs":        [3, 3, 4, 3, 4, 3, 4, 3],
+                                "queues":     [3, 3, 4, 3, 4, 3, 4, 3],
+                                "src_port_i": [0, 1, 1, 2, 2, 3, 3, 4],
+                                "dst_port_i": [5, 6, 6, 7, 7, 8, 8, 9],
+                                "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                    self.write_params("xon_hysteresis_7", params_1)
+
+                    # SQG0: 2 + 20*3 + 8 + 7.5 + 2.5 + 0.1 = 80.1 MB -> 78.1 MB
+                    sq_occupancies_mb = [2, 20, 20, 20, 8, 7.5, 2.5, 0.1]
+                    params_1 = {"packet_size": packet_size,
+                                "ecn": 1,
+                                "dscps":      [3, 3, 4, 3, 4, 3, 4, 3],
+                                "pgs":        [3, 3, 4, 3, 4, 3, 4, 3],
+                                "queues":     [3, 3, 4, 3, 4, 3, 4, 3],
+                                "src_port_i": [0, 1, 1, 2, 2, 3, 3, 4],
+                                "dst_port_i": [5, 6, 6, 7, 7, 8, 8, 9],
+                                "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                    self.write_params("xon_hysteresis_8", params_1)
+
+                    # Lossy: 2 + 6.5 = 8.5 MB
+                    # SQG0: 20*3 + 10 + 7 + 2.5 + 0.1 = 79.6 MB
+                    # Ctr-A: 8.5 + 79.6 = 88.1 - 2 = 86.1 MB
+                    sq_occupancies_mb = [2, 6.5, 20, 20, 20, 10, 7, 2.5, 0.1]
+                    params_1 = {"packet_size": packet_size,
+                                "ecn": 1,
+                                "dscps":      [self.dscp_queue1, self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3],
+                                "pgs":        [0, 0, 3, 4, 3, 4, 3, 4, 3],
+                                "queues":     [1, 1, 3, 4, 3, 4, 3, 4, 3],
+                                "src_port_i": [0, 1, 1, 1, 2, 2, 3, 3, 4],
+                                "dst_port_i": [5, 6, 6, 6, 7, 7, 8, 8, 9],
+                                "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                    self.write_params("xon_hysteresis_9", params_1)
+
+            else: # Churchill-Mono/8101/Gibraltar/Q200
+
                 # 5*10 + 4 = 54 MB
                 sq_occupancies_mb = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4]
-                pkt_counts = []
-                cell_per_pkt = math.ceil(packet_size/cell_size)
-                for sq_occupancy_mb in sq_occupancies_mb:
-                    pkt_counts.append(int(sq_occupancy_mb * 1024 ** 2 / (cell_per_pkt * cell_size)))
-                params_1 = {"dscps": [3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 3],
-                            "pgs": [3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 3],
+                params_1 = {"packet_size": packet_size,
+                            "ecn": 1,
+                            "dscps":  [3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 3],
+                            "pgs":    [3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 3],
+                            "queues": [3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 3],
                             "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 5, 6],
                             "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
-                            "pkt_counts": pkt_counts,
-                            "packet_size": packet_size,
-                            "ecn": 1}
+                            "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_1", params_1)
-        else:
+
+                # 3 + 2 + 5*9 + 3(3) = 59 MB
+                sq_occupancies_mb = [3, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3]
+                params_2 = {"packet_size": packet_size,
+                            "ecn": 1,
+                            "dscps":      [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                            "pgs":        [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                            "queues":     [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6],
+                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+                            "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                self.write_params("xon_hysteresis_2", params_2)
+
+                # Total: 67.5 MB
+                # lossy: 5(5) = 25
+                # lossless: 3 + 2 + 5(5) + 4 + 3(2) + 2.5 = 42.5
+                sq_occupancies_mb = [3, 5, 5, 5, 5, 5, 2, 5, 5, 5, 5, 5, 4, 3, 3, 2.5]
+                params_3 = {"packet_size": packet_size,
+                            "ecn": 1,
+                            "dscps":      [3, self.dscp_queue1, self.dscp_queue0,
+                                           self.dscp_queue1, self.dscp_queue0,
+                                           self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                            "pgs":        [3, 0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                            "queues":     [3, 1, 0, 1, 0, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9],
+                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+                            "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                self.write_params("xon_hysteresis_3", params_3)
+
+                # Total: 72.4 MB
+                # lossy: 5(5) = 25
+                # lossless: 3 + 2 + 5(5) + 4 + 3(2) + 1.5(4) + 1.4 = 47.4
+                sq_occupancies_mb = [3, 5, 5, 5, 5, 5, 2, 5, 5, 5, 5, 5, 4, 3, 3, 1.5, 1.5, 1.5, 1.5, 1.4]
+                params_4 = {"packet_size": packet_size,
+                            "ecn": 1,
+                            "dscps":      [3, self.dscp_queue1, self.dscp_queue0,
+                                           self.dscp_queue1, self.dscp_queue0,
+                                           self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                            "pgs":        [3, 0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4],
+                            "queues":     [3, 1, 0, 1, 0, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4],
+                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9, 10, 10, 11, 11],
+                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8],
+                            "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                self.write_params("xon_hysteresis_4", params_4)
+
+                # Total: 73 MB
+                # lossy: 3 + 2 + 5(3) = 20MB
+                # lossless: 5(7) + 3(3) + 1.5(6) = 53MB
+                sq_occupancies_mb = [3, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]
+                params_5 = {"packet_size": packet_size,
+                            "ecn": 1,
+                            "dscps":      [self.dscp_queue1, self.dscp_queue0,
+                                           self.dscp_queue1, self.dscp_queue0,
+                                           self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                            "pgs":        [0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3,  4,  3,  4,  3,  4],
+                            "queues":     [1, 0, 1, 0, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3,  4,  3,  4,  3,  4],
+                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9, 10, 10, 11, 11, 12],
+                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8],
+                            "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                self.write_params("xon_hysteresis_5", params_5)
+
+                # Total: 64MB MB
+                # lossy: 5 MB
+                # lossless: 3 + 2 + 5(9) + 3(3) = 59MB
+                sq_occupancies_mb = [3, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3]
+                params_6 = {"packet_size": packet_size,
+                            "ecn": 1,
+                            "dscps":      [3, 4, self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3,
+                                           4, 3, 4, 3, 4],
+                            "pgs":        [3, 4, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                            "queues":     [3, 4, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9],
+                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+                            "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                self.write_params("xon_hysteresis_6", params_6)
+
+                # 3*2 + 4 + 5*8 + 3(2) + 1(9) = 65 MB
+                sq_occupancies_mb = [3, 3, 4, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+                params_7 = {"packet_size": packet_size,
+                            "ecn": 1,
+                            "dscps":      [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4],
+                            "pgs":        [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4],
+                            "queues":     [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4],
+                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9, 10, 10, 11, 11, 12, 12],
+                            "dst_port_i": [7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8,  8],
+                            "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                self.write_params("xon_hysteresis_7", params_7)
+
+                # 3 + 2 + 5*9 + 3(2) + 1(9) = 65 MB
+                sq_occupancies_mb = [3, 2, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+                params_8 = {"packet_size": packet_size,
+                            "ecn": 1,
+                            "dscps":      [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4],
+                            "pgs":        [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4],
+                            "queues":     [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4],
+                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9, 10, 10, 11, 11, 12, 12],
+                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8,  8],
+                            "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                self.write_params("xon_hysteresis_8", params_8)
+
+                # Total: 72.5 MB
+                # lossy: 5*2 + 4 = 14MB
+                # lossless: 5(9) + 3(2) + 1.5(5) = 58.5MB
+                sq_occupancies_mb = [5, 5, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 1.5, 1.5, 1.5, 1.5, 1.5]
+                params_9 = {"packet_size": packet_size,
+                            "ecn": 1,
+                            "dscps":      [self.dscp_queue1, self.dscp_queue0,
+                                           self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,
+                                           3, 4, 3, 4, 3, 4],
+                            "pgs":        [0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3,  4,  3,  4],
+                            "queues":     [1, 0, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3,  4,  3,  4],
+                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9, 10, 10, 11],
+                            "dst_port_i": [7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8],
+                            "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+                self.write_params("xon_hysteresis_9", params_9)
+
+        else: # Matilda64/8102/Gibraltar/Q200
+
             # 4 + 5*5 + 2.5 = 31.5 MB
             # 1st flow do "tx enable" to trigger SQG transition from region 1 to region 0
             # last flow is target SQ, keep XOFF state after SQG transition
             sq_occupancies_mb = [4, 5, 5, 5, 5, 5, 2.5]
-            pkt_counts = []
-            cell_per_pkt = math.ceil(packet_size/cell_size)
-            for sq_occupancy_mb in sq_occupancies_mb:
-                pkt_counts.append(int(sq_occupancy_mb * 1024 ** 2 / (cell_per_pkt * cell_size)))
-            params_1 = {"dscps": [3, 3, 3, 3, 3, 3, 3],
-                        "pgs": [3, 3, 3, 3, 3, 3, 3],
+            params_1 = {"packet_size": packet_size,
+                        "ecn": 1,
+                        "dscps": [3, 3, 3, 3, 3, 3, 3],
+                        "pgs":   [3, 3, 3, 3, 3, 3, 3],
+                        "queues": [3, 3, 3, 3, 3, 3, 3],
                         "src_port_i": [0, 1, 2, 3, 4, 5, 6],
                         "dst_port_i": [7, 8, 8, 8, 8, 8, 8],
-                        "pkt_counts": pkt_counts,
-                        "packet_size": packet_size,
-                        "ecn": 1}
+                        "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
             self.write_params("xon_hysteresis_1", params_1)
+
+            # 6*5 + 2.25*3 + 0.8 = 37.55 MB
+            # 1st flow do "tx enable" to trigger SQG transition from region 2 to region 1
+            # last flow is target SQ, keep XOFF state after SQG transition
+            sq_occupancies_mb = [5, 5, 5, 5, 5, 5, 2.25, 2.25, 2.25, 0.8]
+            params_2 = {"packet_size": packet_size,
+                        "ecn": 1,
+                        "dscps":      [3, 3, 3, 3, 3, 3, 3, 3,  3,  3],
+                        "pgs":        [3, 3, 3, 3, 3, 3, 3, 3,  3,  3],
+                        "queues":     [3, 3, 3, 3, 3, 3, 3, 3,  3,  3],
+                        "src_port_i": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11],
+                        "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8,  8,  8],
+                        "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+            self.write_params("xon_hysteresis_2", params_2)
+
+            # CTR-A: 20 + 24 = 44MB
+            # Lossless: 2 + 3 + 5*2 + 2.25*4 = 24MB
+            # Lossy: 5*4 = 20MB
+            # 1st flow do "tx enable" to trigger CTR-A transition from region 2 to region 1
+            # last flow is target SQ, keep XOFF state after SQG transition
+            sq_occupancies_mb = [2, 5, 5, 5, 5, 3, 5, 5, 2.25, 2.25, 2.25, 2.25]
+            params_3 = {"packet_size": packet_size,
+                        "ecn": 1,
+                        "dscps":      [3, self.dscp_queue1, self.dscp_queue1,
+                                       self.dscp_queue1, self.dscp_queue1, 3, 3, 3, 3, 3, 3, 3],
+                        "pgs":        [3, 0, 0, 0, 0, 3, 3, 3,  3,  3,  3,  3],
+                        "queues":     [3, 1, 1, 1, 1, 3, 3, 3,  3,  3,  3,  3],
+                        "src_port_i": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13],
+                        "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8],
+                        "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+            self.write_params("xon_hysteresis_3", params_3)
+
+            # CTR-A: 25.25 + 20 = 45.25 MB
+            # Lossless: 3 + 2 + 5*2 + 2.25*3 + 0.5*7 = 25.25
+            # Lossy: 5*4 = 20 MB
+            # 1st flow do "tx enable" to trigger CTR-A transition from region 3 to region 2
+            # last flow is target SQ, keep XOFF state after SQG transition
+            sq_occupancies_mb = [3, 5, 5, 5, 5, 2, 5, 5, 2.25, 2.25, 2.25, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+            params_4 = {"packet_size": packet_size,
+                        "ecn": 1,
+                        "dscps":      [3, self.dscp_queue1, self.dscp_queue1,
+                                       self.dscp_queue1, self.dscp_queue1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+                        "pgs":        [3, 0, 0, 0, 0, 3, 3, 3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3],
+                        "queues":     [3, 1, 1, 1, 1, 3, 3, 3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3],
+                        "src_port_i": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+                        "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8],
+                        "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+            self.write_params("xon_hysteresis_4", params_4)
+
+            # CTR-A: 46.25 MB
+            # Lossless: 5(4) + 2.25*3 + 0.5(9) = 31.25 MB
+            # Lossy: 3 + 2 + 5(2) = 15 MB
+            # 1st flow do "tx enable" to trigger CTR-A transition from region 3 to region 2
+            # SQG in region 1 throughout
+            # last flow is target SQ, keep XOFF state after SQG transition
+            sq_occupancies_mb = [3, 2, 5, 5, 5, 5, 5, 5, 2.25, 2.25, 2.25, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+            params_5 = {"packet_size": packet_size,
+                        "ecn": 1,
+                        "dscps":      [self.dscp_queue1, self.dscp_queue1,
+                                       self.dscp_queue1, self.dscp_queue1,
+                                       3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+                        "pgs":        [0, 0, 0, 0, 3, 3, 3, 3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3],
+                        "queues":     [1, 1, 1, 1, 3, 3, 3, 3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  3],
+                        "src_port_i": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+                        "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8,  8],
+                        "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+            self.write_params("xon_hysteresis_5", params_5)
+
+            # CTR-A: 37.75 + 4 = 41.75 MB
+            # Lossless: 6*5 + 2.25*3 + 1 = 37.75 MB
+            # Lossy: 4MB
+            # 1st flow do "tx enable" to trigger SQG transition from region 2 to region 1
+            # CTR-A must stay in region 1
+            # last flow is target SQ, keep XOFF state after SQG transition
+            sq_occupancies_mb = [5, 4, 5, 5, 5, 5, 5, 2.25, 2.25, 2.25, 1]
+            params_6 = {"packet_size": packet_size,
+                        "ecn": 1,
+                        "dscps":      [3, self.dscp_queue1, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+                        "pgs":        [3, 0, 3, 3, 3, 3, 3, 3,  3,  3,  3],
+                        "queues":     [3, 1, 3, 3, 3, 3, 3, 3,  3,  3,  3],
+                        "src_port_i": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12],
+                        "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8],
+                        "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+            self.write_params("xon_hysteresis_6", params_6)
+
+            # CTR-A = 40.1 + 1.5 = 41.6 MB
+            # Lossy: 1.5 MB
+            # Lossless: 2.5 + 5*5 + 2.25*4 + 0.62*5 + 0.5 = 40.1 MB
+            # 1st flow do "tx enable" to trigger SQG transition from region 3 to region 2
+            # CTR-A must stay in region 1
+            # last flow is target SQ, keep XOFF state after SQG transition
+            sq_occupancies_mb = [2.5, 1.5, 5, 5, 5, 5, 5, 2.25, 2.25, 2.25, 2.25, 0.62, 0.62, 0.62, 0.62, 0.62, 0.5]
+            params_8 = {"packet_size": packet_size,
+                        "ecn": 1,
+                        "dscps":      [3, self.dscp_queue1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                       3, 3, 3, 3, 3],
+                        "pgs":        [3, 0, 3, 3, 3, 3, 3, 3,  3,  3,  3,  3,  3,  3,  3,  3,  3],
+                        "queues":     [3, 1, 3, 3, 3, 3, 3, 3,  3,  3,  3,  3,  3,  3,  3,  3,  3],
+                        "src_port_i": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
+                        "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8,  8,  8,  8,  8],
+                        "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+            self.write_params("xon_hysteresis_8", params_8)
+
+            # CTR-A: 44.98 MB
+            # Lossless: 5*5 + 3.5 + 2.25*2 + 2 + 0.62*4 + 0.5 = 37.98 MB
+            # Lossy: 3.5 * 2 = 7MB
+            # 1st flow do "tx enable" to trigger CTRA transition from region 3 to region 1
+            # SQG must stay in region 2
+            # last flow is target SQ, keep XOFF state after SQG transition
+            sq_occupancies_mb = [3.5, 3.5, 5, 5, 5, 5, 5, 3.5, 2.25, 2.25, 2, 0.62, 0.62, 0.62, 0.62, 0.5]
+            params_9 = {"packet_size": packet_size,
+                        "ecn": 1,
+                        "dscps":      [self.dscp_queue1, self.dscp_queue1,
+                                       3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+                        "pgs":        [0, 0, 3, 3, 3, 3, 3, 3,  3,  3,  3,  3,  3,  3,  3,  3],
+                        "queues":     [1, 1, 3, 3, 3, 3, 3, 3,  3,  3,  3,  3,  3,  3,  3,  3],
+                        "src_port_i": [0, 1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+                        "dst_port_i": [7, 7, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8,  8,  8,  8],
+                        "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
+            self.write_params("xon_hysteresis_9", params_9)
