@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 allure.logger = logger
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology("any"),
+    pytest.mark.device_type('physical')
 ]
 
 test_update_route_pattern_para = [
@@ -214,4 +215,7 @@ class TestRouteCounter:
         else:
             cmd = 'show ip bgp summary'
         parse_result = duthost.show_and_parse(cmd)
-        return parse_result[0]['neighbhor']
+        if 'neighbor' in parse_result[0]:
+            return parse_result[0]['neighbor']
+        else:
+            return parse_result[0]['neighbhor']

@@ -3,7 +3,6 @@ import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
 from tests.common.reboot import reboot
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -22,7 +21,7 @@ pass_config_test = True
 
 
 def is_sonic_console(conn_graph_facts, dut_hostname):
-    return conn_graph_facts['device_console_info'][dut_hostname]["Os"] == "sonic"
+    return conn_graph_facts['device_console_info'][dut_hostname].get("Os", "") == "sonic"
 
 
 def test_console_baud_rate_config(duthost):

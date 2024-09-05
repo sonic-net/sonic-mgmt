@@ -75,17 +75,25 @@ def run_pfc_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    # initialize the (duthost, port) set.
+    dut_asics_to_be_configured = set()
+
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
-    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    egress_duthost = rx_port['duthost']
+    dut_asics_to_be_configured.add((egress_duthost, rx_port['asic_value']))
+
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    ingress_duthost = tx_port['duthost']
+    dut_asics_to_be_configured.add((ingress_duthost, tx_port['asic_value']))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    stop_pfcwd(duthost1, rx_port['asic_value'])
-    disable_packet_aging(duthost1)
-    stop_pfcwd(duthost2, tx_port['asic_value'])
-    disable_packet_aging(duthost2)
+    for duthost, asic in dut_asics_to_be_configured:
+        stop_pfcwd(duthost, asic)
+        disable_packet_aging(duthost)
 
     global DATA_FLOW_DURATION_SEC
     global data_flow_delay_sec
@@ -216,10 +224,10 @@ def run_pfc_test(api,
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
     # Clear PFC, queue and interface counters before traffic run
-    duthost = duthost1
+    duthost = egress_duthost
     duthost.command("pfcstat -c")
     time.sleep(1)
-    duthost1.command("sonic-clear queuecounters")
+    duthost.command("sonic-clear queuecounters")
     time.sleep(1)
     duthost.command("sonic-clear counters")
     time.sleep(1)
@@ -263,14 +271,16 @@ def run_pfc_test(api,
                            snappi_extra_params=snappi_extra_params)
 
     # Verify PFC pause frame count on the DUT
-    verify_pause_frame_count_dut(duthost=duthost,
+    verify_pause_frame_count_dut(rx_dut=ingress_duthost,
+                                 tx_dut=egress_duthost,
                                  test_traffic_pause=test_traffic_pause,
                                  global_pause=global_pause,
                                  snappi_extra_params=snappi_extra_params)
 
     # Verify in flight TX lossless packets do not leave the DUT when traffic is expected
     # to be paused, or leave the DUT when the traffic is not expected to be paused
-    verify_egress_queue_frame_count(duthost=duthost,
+    # Verifying the packets on DUT egress, especially for multi line card scenario
+    verify_egress_queue_frame_count(duthost=egress_duthost,
                                     switch_flow_stats=switch_flow_stats,
                                     test_traffic_pause=test_traffic_pause,
                                     snappi_extra_params=snappi_extra_params)

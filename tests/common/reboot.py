@@ -276,7 +276,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     wait_for_startup(duthost, localhost, delay, timeout)
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
-
+    wait = max(wait, 900) if duthost.get_facts().get("modular_chassis") else wait
     if safe_reboot:
         # The wait time passed in might not be guaranteed to cover the actual
         # time it takes for containers to come back up. Therefore, add 5
@@ -287,7 +287,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         wait_critical_processes(duthost)
 
         if check_intf_up_ports:
-            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+            pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "Not all ports that are admin up on are operationally up")
     else:
         time.sleep(wait)
@@ -339,6 +339,14 @@ def get_reboot_cause(dut):
     logger.info('Getting reboot cause from dut {}'.format(dut.hostname))
     output = dut.shell('show reboot-cause')
     cause = output['stdout']
+
+    # For kvm testbed, the expected output of command `show reboot-cause`
+    # is such like "User issued 'xxx' command [User: admin, Time: Sun Aug  4 06:43:19 PM UTC 2024]"
+    # So, use the above pattern to get real reboot cause
+    if dut.facts["asic_type"] == "vs":
+        match = re.search("User issued '(.*)' command", cause)
+        if match:
+            cause = match.groups()[0]
 
     for type, ctrl in list(reboot_ctrl_dict.items()):
         if re.search(ctrl['cause'], cause):
@@ -451,6 +459,11 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     reboot_cause_history_got = dut.show_and_parse("show reboot-cause history")
     logger.debug("dut {} reboot-cause history {}. reboot type history queue is {}".format(
         dut.hostname, reboot_cause_history_got, reboot_type_history_queue))
+
+    # For kvm testbed, command `show reboot-cause history` will return None
+    # So, return in advance if this check is running on kvm.
+    if dut.facts["asic_type"] == "vs":
+        return True
 
     logger.info("Verify reboot-cause history title")
     if reboot_cause_history_got:
