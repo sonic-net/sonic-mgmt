@@ -223,16 +223,19 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
 
 def check_asic_and_db_consistency(pytest_config, duthost, consistency_checker_provider):
     if not pytest_config.getoption("enable_consistency_checker"):
-        logger.info(f"Consistency checker is not enabled. Skipping check.")
+        logger.info("Consistency checker is not enabled. Skipping check.")
         return
 
     os_version = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
     if not consistency_checker_provider.is_consistency_check_supported(duthost):
-        logger.info(f"Consistency check is not supported on this platform ({duthost.facts['platform']}) and version ({os_version})")
+        logger.info((f"Consistency check is not supported on this platform ({duthost.facts['platform']}) and "
+                     f"version ({os_version})"))
         return
 
-    consistency_checker_libsairedis_url_template = pytest_config.getoption("consistency_checker_libsairedis_url_template")
-    consistency_checker_python3_pysairedis_url_template = pytest_config.getoption("consistency_checker_python3_pysairedis_url_template")
+    consistency_checker_libsairedis_url_template = pytest_config.getoption(
+        "consistency_checker_libsairedis_url_template")
+    consistency_checker_python3_pysairedis_url_template = pytest_config.getoption(
+        "consistency_checker_python3_pysairedis_url_template")
 
     if consistency_checker_libsairedis_url_template or consistency_checker_python3_pysairedis_url_template:
         if "202305" in os_version:
@@ -242,13 +245,16 @@ def check_asic_and_db_consistency(pytest_config, duthost, consistency_checker_pr
         else:
             raise Exception(f"Unsupported OS version: {os_version}")
 
-    libsairedis_download_url = consistency_checker_libsairedis_url_template.format(sonic_version=sonic_version_template_param) \
+    libsairedis_download_url = consistency_checker_libsairedis_url_template\
+        .format(sonic_version=sonic_version_template_param)\
         if consistency_checker_libsairedis_url_template else None
 
-    python3_pysairedis_download_url = consistency_checker_python3_pysairedis_url_template.format(sonic_version=sonic_version_template_param) \
+    python3_pysairedis_download_url = consistency_checker_python3_pysairedis_url_template\
+        .format(sonic_version=sonic_version_template_param)\
         if consistency_checker_python3_pysairedis_url_template else None
 
-    with consistency_checker_provider.get_consistency_checker(duthost, libsairedis_download_url, python3_pysairedis_download_url) as consistency_checker:
+    with consistency_checker_provider.get_consistency_checker(duthost, libsairedis_download_url,
+                                                              python3_pysairedis_download_url) as consistency_checker:
         keys = [
             "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:*",
             "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:*",

@@ -45,6 +45,7 @@ The results will be printed to stdout, in the following format:
     }
 """
 
+
 def load_input(input_file: str) -> dict:
     """
     Load the input JSON file with contents like so:
@@ -129,7 +130,7 @@ def map_sai_status_to_str(status_code: int) -> str:
         if status_code_range[0] <= status_code and status_code <= status_code_range[1]:
             return status_str
 
-    return f"UNKNOWN_SAI_STATUS"
+    return "UNKNOWN_SAI_STATUS"
 
 
 def mac_address_str_from_swig_uint8_t_arr(swig_uint8_p) -> str:
@@ -394,7 +395,7 @@ def query_asic_objects(query_objects) -> dict:
 
     :param query_objects: The deserialized JSON input file format
     :return: The deserialized JSON output format
-    """ 
+    """
 
     results = defaultdict(dict)
 
@@ -426,7 +427,8 @@ def query_asic_objects(query_objects) -> dict:
 
                 # Success
                 results[oid_label_key][attribute] = {"asicValue": asic_value, "success": True}
-                logger.debug(f"Got ASIC object {oid_label_key} ({oid}) -> attribute {attribute} ({attribute_oid}) value {asic_value}")
+                logger.debug((f"Got ASIC object {oid_label_key} ({oid}) -> attribute {attribute} ({attribute_oid}) "
+                              f"value {asic_value}"))
 
             except Exception as e:
                 err_msg = f"Failed to lookup attribute '{attribute}': {e}"

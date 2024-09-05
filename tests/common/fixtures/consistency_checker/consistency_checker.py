@@ -40,7 +40,8 @@ class ConsistencyChecker:
         if self._libsairedis_download_url is not None:
             self._duthost.shell(f"curl -o {DUT_DST_PATH_HOST}/{LIBSAIREDIS_DEB} {self._libsairedis_download_url}")
         if self._python3_pysairedis_download_url is not None:
-            self._duthost.shell(f"curl -o {DUT_DST_PATH_HOST}/{PYTHON3_PYSAIREDIS_DEB} {self._python3_pysairedis_download_url}")
+            self._duthost.shell(
+                f"curl -o {DUT_DST_PATH_HOST}/{PYTHON3_PYSAIREDIS_DEB} {self._python3_pysairedis_download_url}")
 
         # Move everything into syncd container
         self._duthost.shell((
@@ -51,12 +52,14 @@ class ConsistencyChecker:
         if self._python3_pysairedis_download_url is not None:
             # Install python3-sairedis in syncd container
             self._duthost.shell((f"docker exec {SYNCD_CONTAINER} bash -c "
-                                f"'cd {DUT_DST_PATH_CONTAINER} && dpkg --install {DUT_DST_PATH_CONTAINER}/{PYTHON3_PYSAIREDIS_DEB}'"))
+                                 f"'cd {DUT_DST_PATH_CONTAINER} && "
+                                 f"dpkg --install {DUT_DST_PATH_CONTAINER}/{PYTHON3_PYSAIREDIS_DEB}'"))
 
         if self._libsairedis_download_url is not None:
             # Extract the libsairedis deb to be used by the query script
             self._duthost.shell((f"docker exec {SYNCD_CONTAINER} bash -c "
-                                f"'cd {DUT_DST_PATH_CONTAINER} && dpkg --extract {DUT_DST_PATH_CONTAINER}/{LIBSAIREDIS_DEB} libsairedis-temp'"))
+                                 f"'cd {DUT_DST_PATH_CONTAINER} && "
+                                 f"dpkg --extract {DUT_DST_PATH_CONTAINER}/{LIBSAIREDIS_DEB} libsairedis-temp'"))
 
         logger.info("Consistency checker setup complete.")
 
@@ -151,7 +154,7 @@ class ConsistencyChecker:
                      sonic-db-dump doesn't take multiple keys, so a list is passed in to support multiple
                      keys at the API level.
         :return: Dictionary containing the out-of-sync ASIC_DB and ASIC attributes.
-        
+
         Example return val (matching):
             {}
 
@@ -215,7 +218,7 @@ class ConsistencyChecker:
                 }
 
                 if asic_query_success:
-                        inconsistencies[object]["mismatchedAttributes"].append(attr)
+                    inconsistencies[object]["mismatchedAttributes"].append(attr)
                 else:
                     inconsistencies[object]["failedToQueryAsic"].append({attr: asic_object[attr]["error"]})
 
@@ -229,7 +232,9 @@ class ConsistencyChecker:
         for key in keys:
             result = self._duthost.shell(f"sonic-db-dump -k '{key}' -n ASIC_DB")
             if result['rc'] != 0:
-                raise Exception(f"Failed to fetch attributes for key '{key}' from ASIC_DB. Return code: {result['rc']}, stdout: {result['stdout']}, stderr: {result['stderr']}")
+                raise Exception((f"Failed to fetch attributes for key '{key}' from ASIC_DB. "
+                                 f"Return code: {result['rc']}, stdout: {result['stdout']}, "
+                                 f"stderr: {result['stderr']}"))
 
             query_result = json.loads(result['stdout'])
             db_attributes.update(query_result)
@@ -268,16 +273,20 @@ class ConsistencyChecker:
 
         # Copy the input file to the syncd container
         self._duthost.copy(src=f"/tmp/{asic_query_input_filename}", dest=f"/tmp/{asic_query_input_filename}")
-        self._duthost.shell((f"docker cp /tmp/{asic_query_input_filename} {SYNCD_CONTAINER}:{DUT_DST_PATH_CONTAINER} && "
-                            f"rm /tmp/{asic_query_input_filename}"))
+        self._duthost.shell((f"docker cp /tmp/{asic_query_input_filename} "
+                             f"{SYNCD_CONTAINER}:{DUT_DST_PATH_CONTAINER} && "
+                             f"rm /tmp/{asic_query_input_filename}"))
 
-        ld_lib_path_arg = f"LD_LIBRARY_PATH=libsairedis-temp/usr/lib/x86_64-linux-gnu" if self._libsairedis_download_url is not None else ""
+        ld_lib_path_arg = "LD_LIBRARY_PATH=libsairedis-temp/usr/lib/x86_64-linux-gnu"\
+                          if self._libsairedis_download_url is not None else ""
 
         res = self._duthost.shell((f"docker exec {SYNCD_CONTAINER} bash -c "
-                                  f"'cd {DUT_DST_PATH_CONTAINER} && "
-                                  f"{ld_lib_path_arg} python3 {DUT_SCRIPT_PATH_DST_CONTAINER} --input {asic_query_input_filename}'"))
+                                   f"'cd {DUT_DST_PATH_CONTAINER} && "
+                                   f"{ld_lib_path_arg} python3 {DUT_SCRIPT_PATH_DST_CONTAINER} "
+                                   f"--input {asic_query_input_filename}'"))
         if res['rc'] != 0:
-            raise Exception(f"Failed to query ASIC attributes. Return code: {res['rc']}, stdout: {res['stdout']}, stderr: {res['stderr']}")
+            raise Exception((f"Failed to query ASIC attributes. Return code: {res['rc']}, stdout: {res['stdout']}, "
+                             f"stderr: {res['stderr']}"))
         asic_results = json.loads(res['stdout'])
 
         return asic_results
@@ -303,7 +312,8 @@ class ConsistencyCheckerProvider:
 
         return True
 
-    def get_consistency_checker(self, dut, libsairedis_download_url=None, python3_pysairedis_download_url=None) -> ConsistencyChecker:
+    def get_consistency_checker(self, dut, libsairedis_download_url=None,
+                                python3_pysairedis_download_url=None) -> ConsistencyChecker:
         """
         Get a new instance of the ConsistencyChecker class.
 

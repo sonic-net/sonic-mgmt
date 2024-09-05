@@ -167,15 +167,17 @@ def add_advanced_reboot_args(parser):
         default="",
         help="Optional URL template for downloading and using an alternative version of libsairedis deb package " +
         "during the consistency check. E.g. " +
-        "http://build-server.example/sonic-buildimage/broadcom/{sonic_version}/latest/target/debs/bullseye/libsairedis_1.0.0_amd64.deb " +
-        "sonic_version is a template token that will be replaced with the actual sonic version of the device under test. e.g. 202311"
+        "http://build-server.example/sonic-buildimage/{sonic_version}/debs/libsairedis_1.0.0_amd64.deb " +
+        "sonic_version is a template token that will be replaced with the actual sonic version of the device under " +
+        "test. e.g. 202311"
     )
 
     parser.addoption(
         "--consistency_checker_python3_pysairedis_url_template",
         default="",
-        help="Optional URL template for downloading and using an alternative version of python3-pysairedis deb package " +
-        "during the consistency check. E.g. " +
-        "http://build-server.example/sonic-buildimage/broadcom/{sonic_version}/latest/target/debs/bullseye/python3-pysairedis_1.0.0_amd64.deb " +
-        "sonic_version is a template token that will be replaced with the actual sonic version of the device under test. e.g. 202311"
+        help="Optional URL template for downloading and using an alternative version of python3-pysairedis deb " +
+        "package during the consistency check. E.g. " +
+        "http://build-server.example/sonic-buildimage/{sonic_version}/debs/python3-pysairedis_1.0.0_amd64.deb " +
+        "sonic_version is a template token that will be replaced with the actual sonic version of the device under " +
+        "test. e.g. 202311"
     )
