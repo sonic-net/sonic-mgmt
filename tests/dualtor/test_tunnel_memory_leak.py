@@ -11,9 +11,9 @@ import random
 import time
 import contextlib
 from ptf import testutils
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa: F401
-from tests.common.dualtor.dual_tor_common import cable_type  # noqa: F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host  # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa F401
+from tests.common.dualtor.dual_tor_common import cable_type  # noqa F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host  # noqa F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
@@ -21,9 +21,10 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import delete_neighbor
 from tests.common.helpers.dut_utils import get_program_info
-from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder    # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test                       # noqa F401
 from tests.common.utilities import wait_until
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -115,8 +116,9 @@ def check_memory_leak(duthost, target_mem_percent, delay=10, timeout=15, interva
     return not wait_until(timeout, interval, delay, _check_memory, duthost)
 
 
-def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,  # noqa: F811
-                            ptfhost, ptfadapter, conn_graph_facts, tbinfo, vmhost, run_arp_responder):  # noqa: F811
+def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa F811
+                            ptfhost, ptfadapter, conn_graph_facts, tbinfo, vmhost, run_arp_responder,   # noqa F811
+                            skip_traffic_test):                                                         # noqa F811
     """
     Test if there is memory leak for service tunnel_packet_handler.
     Send ip packets from standby TOR T1 to Server, standby TOR will
@@ -170,6 +172,9 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
 
             pkt, exp_pkt = build_packet_to_server(lower_tor_host, ptfadapter, server_ipv4)
 
+            if skip_traffic_test is True:
+                logging.info("Skip traffic test.")
+                continue
             server_traffic_monitor = ServerTrafficMonitor(
                 upper_tor_host, ptfhost, vmhost, tbinfo, iface,
                 conn_graph_facts, exp_pkt, existing=True, is_mocked=False
@@ -183,9 +188,11 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
                     mem_usage, mem_limit, mem_percent = get_memory_info(upper_tor_host)
                     logging.info(
                         "SWSS MEM USAGE:{} LIMIT:{} PERCENT:{}".format(mem_usage, mem_limit, mem_percent))
-                    pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
-                                  "The server ip {} doesn't exist in neighbor table on dut {}. \
-                                  tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
+                    if not skip_traffic_test:
+                        pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
+                                      "The server ip {} doesn't exist in neighbor table on dut {}. \
+                                      tunnel_packet_handler isn't triggered."
+                                      .format(server_ipv4, upper_tor_host.hostname))
             except Exception as e:
                 logging.error("Capture exception {}, continue the process.".format(repr(e)))
             if len(server_traffic_monitor.matched_packets) == 0:

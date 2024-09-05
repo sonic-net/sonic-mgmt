@@ -15,7 +15,6 @@ from ptf import testutils
 from tests.common.utilities import wait_until
 from ptf.testutils import simple_tcp_packet, simple_ipv4ip_packet
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('dualtor')

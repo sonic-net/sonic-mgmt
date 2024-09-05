@@ -358,3 +358,54 @@ ondatra_test(
         "@com_github_pkg_errors//:errors",
     ],
 )
+
+# gNMI Features: Wildcard Subscription
+ondatra_test(
+    name = "gnmi_wildcard_subscription_test",
+    srcs = ["gnmi_wildcard_subscription_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_gnoi//system:system_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_openconfig_ygnmi//ygnmi",
+        "@com_github_openconfig_ygot//ygot",
+        "@com_github_pkg_errors//:errors",
+    ],
+)
+
+# Management interface tests
+ondatra_test(
+    name = "mgmt_interface_test",
+    srcs = ["mgmt_interface_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ondatra//gnmi/oc",
+        "@com_github_openconfig_testt//:testt",
+    ],
+)
+
+# gNMI Features: SUBSCRIBE Modes
+ondatra_test(
+    name = "gnmi_subscribe_modes_test",
+    srcs = ["gnmi_subscribe_modes_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+        "@com_github_openconfig_ondatra//gnmi",
+        "@com_github_openconfig_ygot//ygot",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_protobuf//encoding/prototext",
+    ],
+)

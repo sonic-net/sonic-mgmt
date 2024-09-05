@@ -21,7 +21,7 @@ broadcom_jr2_hwskus: ['Arista-7800R3-48CQ2-C48', 'Arista-7800R3-48CQM2-C48']
 
 mellanox_spc1_hwskus: [ 'ACS-MSN2700', 'ACS-MSN2740', 'ACS-MSN2100', 'ACS-MSN2410', 'ACS-MSN2010', 'Mellanox-SN2700', 'Mellanox-SN2700-A1', 'Mellanox-SN2700-D48C8','Mellanox-SN2700-D40C8S8', 'Mellanox-SN2700-A1-D48C8']
 mellanox_spc2_hwskus: [ 'ACS-MSN3700', 'ACS-MSN3700C', 'ACS-MSN3800', 'Mellanox-SN3800-D112C8' , 'ACS-MSN3420']
-mellanox_spc3_hwskus: [ 'ACS-MSN4700', 'Mellanox-SN4700-O28', 'ACS-MSN4600', 'ACS-MSN4600C', 'ACS-MSN4410', 'Mellanox-SN4600C-D112C8', 'Mellanox-SN4600C-C64', 'Mellanox-SN4700-O8C48', 'Mellanox-SN4700-O8V48', 'ACS-SN4280']
+mellanox_spc3_hwskus: [ 'ACS-MSN4700', 'Mellanox-SN4700-O28', 'ACS-MSN4600', 'ACS-MSN4600C', 'ACS-MSN4410', 'Mellanox-SN4600C-D112C8', 'Mellanox-SN4600C-C64', 'Mellanox-SN4700-O8C48', 'Mellanox-SN4700-O8V48', 'ACS-SN4280', 'Mellanox-SN4700-V64']
 mellanox_spc4_hwskus: [ 'ACS-SN5600' , 'Mellanox-SN5600-V256']
 mellanox_hwskus: "{{ mellanox_spc1_hwskus + mellanox_spc2_hwskus + mellanox_spc3_hwskus + mellanox_spc4_hwskus }}"
 mellanox_dualtor_hwskus: [ 'Mellanox-SN4600C-C64' ]
@@ -36,6 +36,7 @@ innovium_tl7_hwskus: ["Wistron_sw_to3200k_32x100" , "Wistron_sw_to3200k"]
 cisco_hwskus: ["Cisco-8102-C64", "Cisco-8111-O32", "Cisco-8111-O64", "Cisco-8800-LC-48H-C48"]
 cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-88-LC0-36FH-M-O36", "Cisco-8101-O8C48", "Cisco-8101-O32", "Cisco-88-LC0-36FH-O36"]
 cisco-8000_gr_hwskus: ["Cisco-8111-O32", "Cisco-8111-O64"]
+cisco-8000_gr2_hwskus: ["Cisco-8122-O64"]
 cisco-8000_pac_hwskus: ["Cisco-8800-LC-48H-C48"]
 
 ## Note:

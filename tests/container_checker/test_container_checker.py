@@ -15,7 +15,6 @@ from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import get_disabled_container_list
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -239,3 +238,50 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         # Wait for 70s to 80s  such that Monit has a chance to write alerting message into syslog.
         logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
         time.sleep(sleep_time)
+
+
+def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
+    """Tests the feature of container checker.
+
+    This function will verify container checker for telemetry.
+
+    Args:
+        duthosts: list of DUTs.
+        rand_one_dut_hostname: Fixture returning dut hostname.
+
+    Returns:
+        None.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    container_name = "telemetry"
+
+    # test_container_checker can disable the telemetry container
+    # Start service if telemetry is disabled
+    dut_command = r"docker inspect -f \{\{.State.Running\}\} %s" % container_name
+    result = duthost.command(dut_command, module_ignore_errors=True)
+    if result['stdout'] == "false":
+        logger.info("Start service as '{}' is not up ...".format(container_name))
+        duthost.shell("sudo systemctl reset-failed {}.service".format(container_name), module_ignore_errors=True)
+        duthost.shell("sudo systemctl start {}.service".format(container_name), module_ignore_errors=True)
+        restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                               CONTAINER_CHECK_INTERVAL_SECS,
+                               0,
+                               check_container_state, duthost, container_name, True)
+        pytest_assert(restarted, "Failed to restart container '{}'".format(container_name))
+
+    # Enable LogAnalyzer
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
+    loganalyzer.expect_regex = get_expected_alerting_message(container_name)
+    marker = loganalyzer.init()
+
+    # Enable telemetry in FEATURE table
+    dut_command = "sonic-db-cli CONFIG_DB hset \"FEATURE|{}\" state enabled".format(container_name)
+    duthost.command(dut_command, module_ignore_errors=True)
+
+    # Monit checks services at 1-minute intervals
+    # Add a 10-second delay to ensure Monit has time to write alert messages to syslog
+    sleep_time = 70
+    logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
+    time.sleep(sleep_time)
+    analysis = loganalyzer.analyze(marker, fail=False)
+    pytest_assert(analysis['total']['expected_match'] == 0, 'Monit error: {}'.format(analysis['expect_messages']))

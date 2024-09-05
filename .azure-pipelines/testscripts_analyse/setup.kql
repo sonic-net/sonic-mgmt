@@ -5,13 +5,14 @@
 # 2. Add a JSON mapping for the table                                         #
 ###############################################################################
 .create table TestScripts (TestScript: string, Topology: string, Category: string,
-                         PRCheckCovered: bool, ScanTime: datetime, UploadTime: datetime,
+                         PRCheckCovered: bool, IsSkipped: bool, ScanTime: datetime, UploadTime: datetime,
                          TrackId: string)
 
 .create table TestScripts ingestion json mapping 'TestScriptsMapping' @'[{"column":"TestScript","Properties":{"path":"$.testscript"}},'
                                                                                 '{"column":"Topology","Properties":{"path":"$.topology"}},'
                                                                                 '{"column":"Category","Properties":{"path":"$.category"}},'
                                                                                 '{"column":"PRCheckCovered","Properties":{"path":"$.covered"}},'
+                                                                                '{"column":"IsSkipped","Properties":{"path":"$.skipped"}},'
                                                                                 '{"column":"ScanTime","Properties":{"path":"$.scantime"}},'
                                                                                 '{"column":"UploadTime","Properties":{"path":"$.uploadtime"}},'
                                                                                 '{"column":"TrackId","Properties":{"path":"$.trackid"}}]'

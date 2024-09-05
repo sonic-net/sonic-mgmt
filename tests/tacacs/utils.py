@@ -104,7 +104,9 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip,
     for tacacs_server in config_facts.get('TACPLUS_SERVER', {}):
         duthost.shell("sudo config tacacs delete %s" % tacacs_server)
         default_tacacs_servers.append(tacacs_server)
-    duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
+    # setup TACACS server with port 59
+    # Port 49 bind to another TACACS server for daily work and none TACACS test case
+    duthost.shell("sudo config tacacs add %s --port 59" % tacacs_server_ip)
     duthost.shell("sudo config tacacs authtype login")
 
     # enable tacacs+
@@ -267,10 +269,18 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
     fix_ld_path_in_config(duthost, ptfhost)
 
     # config TACACS+ to use debug flag: '-d 2058', so received data will write to /var/log/tac_plus.log
+    # config TACACS+ to use port 59: '-p 59', because 49 already running another tacacs server for daily work
     ptfhost.lineinfile(
         path="/etc/default/tacacs+",
-        line="DAEMON_OPTS=\"-d 2058 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"",
+        line="DAEMON_OPTS=\"-d 2058 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf -p 59\"",
         regexp='^DAEMON_OPTS=.*'
+    )
+
+    # config TACACS+ start script to check tac_plus.pid.59
+    ptfhost.lineinfile(
+        path="/etc/init.d/tacacs_plus",
+        line="PIDFILE=/var/run/tac_plus.pid.59",
+        regexp='^PIDFILE=/var/run/tac_plus.*'
     )
     check_all_services_status(ptfhost)
 

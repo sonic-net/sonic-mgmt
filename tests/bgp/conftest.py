@@ -24,7 +24,6 @@ from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TE
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 logger = logging.getLogger(__name__)
@@ -720,3 +719,10 @@ def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 @pytest.fixture(scope="module")
 def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
+
+
+@pytest.fixture(scope="module")
+def traffic_shift_community(duthost):
+    community = duthost.shell('sonic-cfggen -y /etc/sonic/constants.yml -v constants.bgp.traffic_shift_community')[
+        'stdout']
+    return community

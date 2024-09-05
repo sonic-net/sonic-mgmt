@@ -5,6 +5,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # no
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
+from tests.common.fixtures.ptfhost_utils import pause_garp_service          # noqa F401
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 from tests.common.utilities import str2bool
@@ -107,7 +108,7 @@ def setup_pfc_test(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_list = list(mg_facts['minigraph_ports'].keys())
-    neighbors = conn_graph_facts['device_conn'][duthost.hostname]
+    neighbors = conn_graph_facts['device_conn'].get(duthost.hostname, {})
     dut_eth0_ip = duthost.mgmt_ip
     vlan_nw = None
 
@@ -209,14 +210,29 @@ def setup_dut_test_params(
 
 # icmp_responder need to be paused during the test because the test case
 # configures static IP address on ptf host and sends ICMP reply to DUT.
-@pytest.fixture(scope="module")
-def pause_icmp_responder(ptfhost):
-    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
-    if "RUNNING" not in icmp_responder_status:
-        yield
-        return
-    ptfhost.shell("supervisorctl stop icmp_responder", module_ignore_errors=True)
+@pytest.fixture(scope="module", autouse=True)
+def pfcwd_pause_service(ptfhost):
+    needs_resume = {"icmp_responder": False, "garp_service": False}
+
+    out = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True).get("stdout", "")
+    if 'RUNNING' in out:
+        needs_resume["icmp_responder"] = True
+        ptfhost.shell("supervisorctl stop icmp_responder")
+
+    out = ptfhost.shell("supervisorctl status garp_service", module_ignore_errors=True).get("stdout", "")
+    if 'RUNNING' in out:
+        needs_resume["garp_service"] = True
+        ptfhost.shell("supervisorctl stop garp_service")
+
+    logger.debug("pause_service needs_resume {}".format(needs_resume))
 
     yield
 
-    ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
+    if needs_resume["icmp_responder"]:
+        ptfhost.shell("supervisorctl start icmp_responder")
+        needs_resume["icmp_responder"] = False
+    if needs_resume["garp_service"]:
+        ptfhost.shell("supervisorctl start garp_service")
+        needs_resume["garp_service"] = False
+
+    logger.debug("pause_service needs_resume {}".format(needs_resume))

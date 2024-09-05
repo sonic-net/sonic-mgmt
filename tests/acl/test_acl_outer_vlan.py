@@ -21,7 +21,6 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.utilities import check_skip_release
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 

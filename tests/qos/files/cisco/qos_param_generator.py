@@ -69,12 +69,19 @@ class QosParamCisco(object):
             # Tune thresholds with padding for precise testing
             self.pause_thr = pre_pad_pause + (8 * self.buffer_size)
             self.drop_thr = pre_pad_drop + (12 * self.buffer_size)
+            if self.is_deep_buffer:
+                self.reduced_pause_thr = 10 * (1024 ** 2) * (2 ** dynamic_th)
+            elif self.is_large_sms:
+                self.reduced_pause_thr = 3 * (1024 ** 2)
+            else:
+                self.reduced_pause_thr = 2.25 * (1024 ** 2)
             self.log("Max pause thr bytes:       {}".format(max_pause))
             self.log("Attempted pause thr bytes: {}".format(attempted_pause))
             self.log("Pre-pad pause thr bytes:   {}".format(pre_pad_pause))
             self.log("Pause thr bytes:           {}".format(self.pause_thr))
             self.log("Pre-pad drop thr bytes:    {}".format(pre_pad_drop))
             self.log("Drop thr bytes:            {}".format(self.drop_thr))
+            self.log("Reduced pause thr bytes:   {}".format(self.reduced_pause_thr))
             self.config_facts = duthost.get_running_config_facts()
             # DSCP value for lossy
             self.dscp_queue0 = self.get_one_dscp_from_queue(0)
@@ -266,6 +273,8 @@ class QosParamCisco(object):
                       "ecn": 1,
                       "pg": dscp_pg,
                       "pkts_num_trig_pfc": (self.pause_thr // self.buffer_size // packet_buffs) - 1,
+                      "pkts_num_hysteresis": int(((self.pause_thr - self.reduced_pause_thr)
+                                                  // self.buffer_size // packet_buffs) - 2),
                       "pkts_num_dismiss_pfc": 2,
                       "packet_size": packet_size}
             self.write_params("xon_{}".format(param_i), params)
@@ -363,7 +372,7 @@ class QosParamCisco(object):
                       "pg": 0,
                       "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
                       "pkts_num_margin": 4,
-                      "packet_size": 64,
+                      "packet_size": 1350,
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_3", params)
 

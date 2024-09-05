@@ -4,6 +4,7 @@ import sys
 import random
 import pytest
 import contextlib
+import time
 
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
@@ -104,21 +105,22 @@ class TrafficPorts(object):
                     if item['peer_addr'] == pfc_wd_test_port_addr:
                         pfc_wd_test_neighbor_addr = item['addr']
 
-                self.test_ports[pfc_wd_test_port] = {'test_neighbor_addr': pfc_wd_test_neighbor_addr,
-                                                     'rx_port': [self.pfc_wd_rx_port],
-                                                     'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
-                                                     'peer_device': self.neighbors[pfc_wd_test_port]['peerdevice'],
-                                                     'test_port_id': pfc_wd_test_port_id,
-                                                     'rx_port_id': [self.pfc_wd_rx_port_id],
-                                                     'test_port_type': 'interface'
-                                                     }
+                self.test_ports[pfc_wd_test_port] = {
+                    'test_neighbor_addr': pfc_wd_test_neighbor_addr,
+                    'rx_port': [self.pfc_wd_rx_port],
+                    'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
+                    'peer_device': self.neighbors.get(pfc_wd_test_port, {}).get('peerdevice', ''),
+                    'test_port_id': pfc_wd_test_port_id,
+                    'rx_port_id': [self.pfc_wd_rx_port_id],
+                    'test_port_type': 'interface'
+                    }
             # populate info for the first port
             if first_pair:
                 self.test_ports[self.pfc_wd_rx_port] = {
                     'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
                     'rx_port': [pfc_wd_test_port],
                     'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
-                    'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
+                    'peer_device': self.neighbors.get(self.pfc_wd_rx_port, {}).get('peerdevice', ''),
                     'test_port_id': self.pfc_wd_rx_port_id,
                     'rx_port_id': [pfc_wd_test_port_id],
                     'test_port_type': 'interface'
@@ -173,7 +175,7 @@ class TrafficPorts(object):
                     self.test_ports[port] = {'test_neighbor_addr': pfc_wd_test_neighbor_addr,
                                              'rx_port': self.pfc_wd_rx_port,
                                              'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
-                                             'peer_device': self.neighbors[port]['peerdevice'],
+                                             'peer_device': self.neighbors.get(port, {}).get('peerdevice', ''),
                                              'test_port_id': self.port_idx_info[port],
                                              'rx_port_id': self.pfc_wd_rx_port_id,
                                              'test_portchannel_members': pfc_wd_test_port_id,
@@ -185,7 +187,7 @@ class TrafficPorts(object):
                     self.test_ports[port] = {'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
                                              'rx_port': pfc_wd_test_port,
                                              'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
-                                             'peer_device': self.neighbors[port]['peerdevice'],
+                                             'peer_device': self.neighbors.get(port, {}).get('peerdevice', ''),
                                              'test_port_id': self.port_idx_info[port],
                                              'rx_port_id': pfc_wd_test_port_id,
                                              'test_portchannel_members': self.pfc_wd_rx_port_id,
@@ -222,7 +224,7 @@ class TrafficPorts(object):
             temp_ports[item] = {'test_neighbor_addr': self.vlan_nw,
                                 'rx_port': rx_port,
                                 'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
-                                'peer_device': self.neighbors[item]['peerdevice'],
+                                'peer_device': self.neighbors.get(item, {}).get('peerdevice', ''),
                                 'test_port_id': self.port_idx_info[item],
                                 'rx_port_id': rx_port_id,
                                 'test_port_type': 'vlan'
@@ -267,23 +269,24 @@ class TrafficPorts(object):
                     if item['peer_addr'] == pfc_wd_test_port_addr:
                         pfc_wd_test_neighbor_addr = item['addr']
 
-                self.test_ports[pfc_wd_test_port] = {'test_neighbor_addr': pfc_wd_test_neighbor_addr,
-                                                     'rx_port': [self.pfc_wd_rx_port],
-                                                     'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
-                                                     'peer_device': self.neighbors[pfc_wd_test_port]['peerdevice'],
-                                                     'test_port_id': pfc_wd_test_port_id,
-                                                     'rx_port_id': [self.pfc_wd_rx_port_id],
-                                                     'rx_port_vlan_id': self.pfc_wd_rx_port_vlan_id,
-                                                     'test_port_vlan_id': vlan_id,
-                                                     'test_port_type': 'interface'
-                                                     }
+                self.test_ports[pfc_wd_test_port] = {
+                    'test_neighbor_addr': pfc_wd_test_neighbor_addr,
+                    'rx_port': [self.pfc_wd_rx_port],
+                    'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
+                    'peer_device': self.neighbors.get(pfc_wd_test_port, {}).get('peerdevice', ''),
+                    'test_port_id': pfc_wd_test_port_id,
+                    'rx_port_id': [self.pfc_wd_rx_port_id],
+                    'rx_port_vlan_id': self.pfc_wd_rx_port_vlan_id,
+                    'test_port_vlan_id': vlan_id,
+                    'test_port_type': 'interface'
+                    }
             # populate info for the first port
             if first_pair:
                 self.test_ports[self.pfc_wd_rx_port] = {
                     'test_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
                     'rx_port': [pfc_wd_test_port],
                     'rx_neighbor_addr': pfc_wd_test_neighbor_addr,
-                    'peer_device': self.neighbors[self.pfc_wd_rx_port]['peerdevice'],
+                    'peer_device': self.neighbors.get(self.pfc_wd_rx_port, {}).get('peerdevice', ''),
                     'test_port_id': self.pfc_wd_rx_port_id,
                     'rx_port_id': [pfc_wd_test_port_id],
                     'rx_port_vlan_id': vlan_id,
@@ -489,6 +492,8 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
                                                                        selected_test_ports,
                                                                        test_ports_info)
         background_traffic_log = _send_background_traffic(ptfhost, background_traffic_params)
+        # Ensure the background traffic is running before moving on
+        time.sleep(1)
     yield
     if is_mellanox_device(duthost):
         _stop_background_traffic(ptfhost, background_traffic_log)
@@ -510,7 +515,8 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
         src_ips.append(selected_test_port_info["rx_neighbor_addr"])
 
     router_mac = duthost.get_dut_iface_mac(selected_test_ports[0])
-    pkt_count = 1000
+    # Send enough packets to make sure the background traffic is running during the test
+    pkt_count = 100000
 
     ptf_params = {'router_mac': router_mac,
                   'src_ports': src_ports,
@@ -537,3 +543,22 @@ def _stop_background_traffic(ptfhost, background_traffic_log):
     pids = ptfhost.shell(f"pgrep -f {background_traffic_log}")["stdout_lines"]
     for pid in pids:
         ptfhost.shell(f"kill -9 {pid}", module_ignore_errors=True)
+
+
+def has_neighbor_device(setup_pfc_test):
+    """
+    Check if there are neighbor devices present
+
+    Args:
+        setup_pfc_test (fixture): Module scoped autouse fixture for PFCwd
+
+    Returns:
+        bool: True if there are neighbor devices present, False otherwise
+    """
+    for _, details in setup_pfc_test['selected_test_ports'].items():
+        # 'rx_port' and 'rx_port_id' are expected to be conjugate attributes
+        # if one is unset or contains None, the other should be as well
+        if (not details.get('rx_port') or None in details['rx_port']) or \
+                (not details.get('rx_port_id') or None in details['rx_port_id']):
+            return False  # neighbor devices are not present
+    return True

@@ -14,10 +14,11 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
                                                 copy_ptftests_directory, change_mac_addresses       # noqa F401
+# Temporary work around to add skip_traffic_test fixture from duthost_utils
+from tests.common.fixtures.duthost_utils import skip_traffic_test                                   # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC, CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [
@@ -29,16 +30,19 @@ pytestmark = [
 def test_normal_op_upstream(upper_tor_host, lower_tor_host,             # noqa F811
                             send_server_to_t1_with_action,              # noqa F811
                             toggle_all_simulator_ports_to_upper_tor,    # noqa F811
-                            cable_type):                                # noqa F811
+                            cable_type,                                 # noqa F811
+                            skip_traffic_test):                         # noqa F811
     """Send upstream traffic and confirm no disruption or switchover occurs"""
     if cable_type == CableType.active_standby:
-        send_server_to_t1_with_action(upper_tor_host, verify=True, stop_after=60)
+        send_server_to_t1_with_action(upper_tor_host, verify=True,
+                                      stop_after=60, skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=upper_tor_host,
                           expected_standby_host=lower_tor_host,
                           skip_tunnel_route=False)
 
     if cable_type == CableType.active_active:
-        send_server_to_t1_with_action(upper_tor_host, verify=True, stop_after=60)
+        send_server_to_t1_with_action(upper_tor_host, verify=True,
+                                      stop_after=60, skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                           expected_standby_host=None,
                           cable_type=cable_type,
@@ -49,18 +53,21 @@ def test_normal_op_upstream(upper_tor_host, lower_tor_host,             # noqa F
 def test_normal_op_downstream_upper_tor(upper_tor_host, lower_tor_host,             # noqa F811
                                         send_t1_to_server_with_action,              # noqa F811
                                         toggle_all_simulator_ports_to_upper_tor,    # noqa F811
-                                        cable_type):                                # noqa F811
+                                        cable_type,                                 # noqa F811
+                                        skip_traffic_test):                         # noqa F811
     """
     Send downstream traffic to the upper ToR and confirm no disruption or
     switchover occurs
     """
     if cable_type == CableType.active_standby:
-        send_t1_to_server_with_action(upper_tor_host, verify=True, stop_after=60)
+        send_t1_to_server_with_action(upper_tor_host, verify=True,
+                                      stop_after=60, skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=upper_tor_host,
                           expected_standby_host=lower_tor_host)
 
     if cable_type == CableType.active_active:
-        send_t1_to_server_with_action(upper_tor_host, verify=True, stop_after=60)
+        send_t1_to_server_with_action(upper_tor_host, verify=True,
+                                      stop_after=60, skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                           expected_standby_host=None,
                           cable_type=cable_type)
@@ -68,20 +75,23 @@ def test_normal_op_downstream_upper_tor(upper_tor_host, lower_tor_host,         
 
 @pytest.mark.enable_active_active
 def test_normal_op_downstream_lower_tor(upper_tor_host, lower_tor_host,             # noqa F811
-                                        send_t1_to_server_with_action,             # noqa F811
-                                        toggle_all_simulator_ports_to_upper_tor,   # noqa F811
-                                        cable_type):                               # noqa F811
+                                        send_t1_to_server_with_action,              # noqa F811
+                                        toggle_all_simulator_ports_to_upper_tor,    # noqa F811
+                                        cable_type,                                 # noqa F811
+                                        skip_traffic_test):                         # noqa F811
     """
     Send downstream traffic to the lower ToR and confirm no disruption or
     switchover occurs
     """
     if cable_type == CableType.active_standby:
-        send_t1_to_server_with_action(lower_tor_host, verify=True, stop_after=60)
+        send_t1_to_server_with_action(lower_tor_host, verify=True,
+                                      stop_after=60, skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=upper_tor_host,
                           expected_standby_host=lower_tor_host)
 
     if cable_type == CableType.active_active:
-        send_t1_to_server_with_action(lower_tor_host, verify=True, stop_after=60)
+        send_t1_to_server_with_action(lower_tor_host, verify=True,
+                                      stop_after=60, skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                           expected_standby_host=None,
                           cable_type=cable_type)
@@ -92,7 +102,8 @@ def test_normal_op_active_server_to_active_server(upper_tor_host, lower_tor_host
                                                   send_server_to_server_with_action,            # noqa F811
                                                   toggle_all_simulator_ports_to_upper_tor,      # noqa F811
                                                   cable_type,                                   # noqa F811
-                                                  select_test_mux_ports):                       # noqa F811
+                                                  select_test_mux_ports,                        # noqa F811
+                                                  skip_traffic_test):                           # noqa F811
     """
     Send server to server traffic in active-active setup and confirm no disruption or switchover occurs.
     """
@@ -100,13 +111,15 @@ def test_normal_op_active_server_to_active_server(upper_tor_host, lower_tor_host
     test_mux_ports = select_test_mux_ports(cable_type, 2)
 
     if cable_type == CableType.active_standby:
-        send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True, stop_after=60)
+        send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True,
+                                          stop_after=60, skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=upper_tor_host,
                           expected_standby_host=lower_tor_host,
                           skip_tunnel_route=False)
 
     if cable_type == CableType.active_active:
-        send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True, stop_after=60)
+        send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True,
+                                          stop_after=60, skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                           expected_standby_host=None,
                           cable_type=cable_type,
@@ -118,7 +131,8 @@ def test_normal_op_active_server_to_standby_server(upper_tor_host, lower_tor_hos
                                                    send_server_to_server_with_action,               # noqa F811
                                                    toggle_all_simulator_ports_to_upper_tor,         # noqa F811
                                                    cable_type, force_standby_tor,                   # noqa F811
-                                                   select_test_mux_ports):                          # noqa F811
+                                                   select_test_mux_ports,                           # noqa F811
+                                                   skip_traffic_test):                              # noqa F811
     """
     Send server to server traffic in active-standby setup and confirm no disruption or switchover occurs.
     """
@@ -134,10 +148,12 @@ def test_normal_op_active_server_to_standby_server(upper_tor_host, lower_tor_hos
                   "failed to toggle mux port %s to standby on DUT %s" % (tx_mux_port, upper_tor_host.hostname))
 
     if cable_type == CableType.active_standby:
-        send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True, stop_after=60)
+        send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True,
+                                          stop_after=60, skip_traffic_test=skip_traffic_test)
 
     if cable_type == CableType.active_active:
-        send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True, stop_after=60)
+        send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True,
+                                          stop_after=60, skip_traffic_test=skip_traffic_test)
 
     # TODO: Add per-port db check
 
@@ -147,7 +163,8 @@ def test_normal_op_active_server_to_standby_server(upper_tor_host, lower_tor_hos
 def test_upper_tor_config_reload_upstream(upper_tor_host, lower_tor_host,               # noqa F811
                                           send_server_to_t1_with_action,                # noqa F811
                                           toggle_all_simulator_ports_to_upper_tor,      # noqa F811
-                                          cable_type):                                  # noqa F811
+                                          cable_type,                                   # noqa F811
+                                          skip_traffic_test):                           # noqa F811
     """
     Send upstream traffic and `config reload` the active ToR.
     Confirm switchover occurs and disruption lasted < 1 second for active-standby ports.
@@ -155,13 +172,15 @@ def test_upper_tor_config_reload_upstream(upper_tor_host, lower_tor_host,       
     """
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(upper_tor_host, verify=True, delay=CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC,
-                                      action=lambda: config_reload(upper_tor_host, wait=0))
+                                      action=lambda: config_reload(upper_tor_host, wait=0),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=lower_tor_host,
                           expected_standby_host=upper_tor_host)
 
     if cable_type == CableType.active_active:
         send_server_to_t1_with_action(upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-                                      action=lambda: config_reload(upper_tor_host, wait=0))
+                                      action=lambda: config_reload(upper_tor_host, wait=0),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                           expected_standby_host=None,
                           cable_type=cable_type)
@@ -171,14 +190,16 @@ def test_upper_tor_config_reload_upstream(upper_tor_host, lower_tor_host,       
 def test_lower_tor_config_reload_upstream(upper_tor_host, lower_tor_host,               # noqa F811
                                           send_server_to_t1_with_action,                # noqa F811
                                           toggle_all_simulator_ports_to_upper_tor,      # noqa F811
-                                          cable_type):                                  # noqa F811
+                                          cable_type,                                   # noqa F811
+                                          skip_traffic_test):                           # noqa F811
     """
     Send upstream traffic and `config reload` the lower ToR.
     Confirm no switchover occurs and no disruption.
     """
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(upper_tor_host, verify=True,
-                                      action=lambda: config_reload(lower_tor_host, wait=0))
+                                      action=lambda: config_reload(lower_tor_host, wait=0),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=upper_tor_host,
                           expected_standby_host=lower_tor_host)
 
@@ -188,20 +209,23 @@ def test_lower_tor_config_reload_upstream(upper_tor_host, lower_tor_host,       
 def test_lower_tor_config_reload_downstream_upper_tor(upper_tor_host, lower_tor_host,           # noqa F811
                                                       send_t1_to_server_with_action,            # noqa F811
                                                       toggle_all_simulator_ports_to_upper_tor,  # noqa F811
-                                                      cable_type):                              # noqa F811
+                                                      cable_type,                               # noqa F811
+                                                      skip_traffic_test):                       # noqa F811
     """
     Send downstream traffic to the upper ToR and `config reload` the lower ToR.
     Confirm no switchover occurs and no disruption
     """
     if cable_type == CableType.active_standby:
         send_t1_to_server_with_action(upper_tor_host, verify=True,
-                                      action=lambda: config_reload(lower_tor_host, wait=0))
+                                      action=lambda: config_reload(lower_tor_host, wait=0),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=upper_tor_host,
                           expected_standby_host=lower_tor_host)
 
     if cable_type == CableType.active_active:
         send_t1_to_server_with_action(upper_tor_host, verify=True,
-                                      action=lambda: config_reload(lower_tor_host, wait=0))
+                                      action=lambda: config_reload(lower_tor_host, wait=0),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
                           expected_standby_host=None,
                           cable_type=cable_type)
@@ -211,7 +235,8 @@ def test_lower_tor_config_reload_downstream_upper_tor(upper_tor_host, lower_tor_
 def test_upper_tor_config_reload_downstream_lower_tor(upper_tor_host, lower_tor_host,           # noqa F811
                                                       send_t1_to_server_with_action,            # noqa F811
                                                       toggle_all_simulator_ports_to_upper_tor,  # noqa F811
-                                                      cable_type):                              # noqa F811
+                                                      cable_type,                               # noqa F811
+                                                      skip_traffic_test):                       # noqa F811
     """
     Send downstream traffic to the lower ToR and `config reload` the upper ToR.
     Confirm switchover occurs and disruption lasts < 1 second for active-standby ports.
@@ -219,7 +244,8 @@ def test_upper_tor_config_reload_downstream_lower_tor(upper_tor_host, lower_tor_
     """
     if cable_type == CableType.active_standby:
         send_t1_to_server_with_action(lower_tor_host, verify=True, delay=CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC,
-                                      action=lambda: config_reload(upper_tor_host, wait=0))
+                                      action=lambda: config_reload(upper_tor_host, wait=0),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=lower_tor_host,
                           expected_standby_host=upper_tor_host)
 
@@ -229,7 +255,8 @@ def test_tor_switch_upstream(upper_tor_host, lower_tor_host,                # no
                              send_server_to_t1_with_action,                 # noqa F811
                              toggle_all_simulator_ports_to_upper_tor,       # noqa F811
                              force_active_tor, force_standby_tor,           # noqa F811
-                             cable_type):                                   # noqa F811
+                             cable_type,                                    # noqa F811
+                             skip_traffic_test):                            # noqa F811
     """
     Send upstream traffic and perform switchover via CLI.
     Confirm switchover occurs and disruption lasts < 1 second for active-standby ports.
@@ -237,13 +264,15 @@ def test_tor_switch_upstream(upper_tor_host, lower_tor_host,                # no
     """
     if cable_type == CableType.active_standby:
         send_server_to_t1_with_action(upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-                                      action=lambda: force_active_tor(lower_tor_host, 'all'))
+                                      action=lambda: force_active_tor(lower_tor_host, 'all'),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=lower_tor_host,
                           expected_standby_host=upper_tor_host)
 
     if cable_type == CableType.active_active:
         send_server_to_t1_with_action(upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-                                      action=lambda: force_standby_tor(upper_tor_host, 'all'))
+                                      action=lambda: force_standby_tor(upper_tor_host, 'all'),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=lower_tor_host,
                           expected_standby_host=upper_tor_host,
                           expected_standby_health="healthy",
@@ -255,7 +284,8 @@ def test_tor_switch_downstream_active(upper_tor_host, lower_tor_host,           
                                       send_t1_to_server_with_action,                # noqa F811
                                       toggle_all_simulator_ports_to_upper_tor,      # noqa F811
                                       force_active_tor, force_standby_tor,          # noqa F811
-                                      cable_type):                                  # noqa F811
+                                      cable_type,                                   # noqa F811
+                                      skip_traffic_test):                           # noqa F811
     """
     Send downstream traffic to the upper ToR and perform switchover via CLI.
     Confirm switchover occurs and disruption lasts < 1 second for active-standby ports.
@@ -263,13 +293,15 @@ def test_tor_switch_downstream_active(upper_tor_host, lower_tor_host,           
     """
     if cable_type == CableType.active_standby:
         send_t1_to_server_with_action(upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-                                      action=lambda: force_active_tor(lower_tor_host, 'all'))
+                                      action=lambda: force_active_tor(lower_tor_host, 'all'),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=lower_tor_host,
                           expected_standby_host=upper_tor_host)
 
     if cable_type == CableType.active_active:
         send_t1_to_server_with_action(upper_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-                                      action=lambda: force_standby_tor(upper_tor_host, 'all'))
+                                      action=lambda: force_standby_tor(upper_tor_host, 'all'),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=lower_tor_host,
                           expected_standby_host=upper_tor_host,
                           expected_standby_health="healthy",
@@ -281,7 +313,8 @@ def test_tor_switch_downstream_standby(upper_tor_host, lower_tor_host,          
                                        send_t1_to_server_with_action,               # noqa F811
                                        toggle_all_simulator_ports_to_upper_tor,     # noqa F811
                                        force_active_tor, force_standby_tor,         # noqa F811
-                                       cable_type):                                 # noqa F811
+                                       cable_type,                                  # noqa F811
+                                       skip_traffic_test):                          # noqa F811
     """
     Send downstream traffic to the lower ToR and perform switchover via CLI.
     Confirm switchover occurs and disruption lasts < 1 second for active-standby ports.
@@ -289,13 +322,15 @@ def test_tor_switch_downstream_standby(upper_tor_host, lower_tor_host,          
     """
     if cable_type == CableType.active_standby:
         send_t1_to_server_with_action(lower_tor_host, verify=True, delay=MUX_SIM_ALLOWED_DISRUPTION_SEC,
-                                      action=lambda: force_active_tor(lower_tor_host, 'all'))
+                                      action=lambda: force_active_tor(lower_tor_host, 'all'),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=lower_tor_host,
                           expected_standby_host=upper_tor_host)
 
     if cable_type == CableType.active_active:
         send_t1_to_server_with_action(lower_tor_host, verify=True,
-                                      action=lambda: force_standby_tor(upper_tor_host, 'all'))
+                                      action=lambda: force_standby_tor(upper_tor_host, 'all'),
+                                      skip_traffic_test=skip_traffic_test)
         verify_tor_states(expected_active_host=lower_tor_host,
                           expected_standby_host=upper_tor_host,
                           expected_standby_health="healthy",
@@ -323,7 +358,7 @@ def test_mux_port_switch_active_server_to_active_server(upper_tor_host, lower_to
         send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True,
                                           action=lambda: force_standby_tor(upper_tor_host, [tx_mux_port]),
                                           send_interval=0.0035,
-                                          stop_after=60)
+                                          stop_after=60,)
 
         pytest_assert(_is_mux_port_standby(upper_tor_host, tx_mux_port),
                       "mux port %s on DUT %s failed to toggle to standby" % (upper_tor_host.hostname, tx_mux_port))

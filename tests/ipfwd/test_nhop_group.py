@@ -752,9 +752,10 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     # Fill this array after first run of test case which will give neighbor selected
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
                                               "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
-                                              "td3": td3_asic_flow_map, "gr": gr_asic_flow_map,
-                                              "spc1": spc_asic_flow_map, "spc2": spc_asic_flow_map,
-                                              "spc3": spc_asic_flow_map, "spc4": spc_asic_flow_map}
+                                              "th4": th_asic_flow_map, "td3": td3_asic_flow_map,
+                                              "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
+                                              "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
+                                              "spc4": spc_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
@@ -777,8 +778,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                       "Flow {} is not picking expected Neighbor".format(flow_count))
 
 
-def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
-                                   enum_rand_one_frontend_asic_index, fanouthosts):
+def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter,
+                                   gather_facts, enum_rand_one_frontend_asic_index, fanouthosts):
     """
     Test for packet drop when route is added with ECMP and all ECMP member's
     interfaces are down. Use kernel flag 'arp_evict_nocarrier' to disable ARP
@@ -787,6 +788,7 @@ def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
     Nexthop members. Without this kernel flag, static route addition fails when
     Nexthop ARP entries are not resolved.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     # Check Gather facts IP Interface is active one
@@ -846,7 +848,7 @@ def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
                                                             gather_facts['src_port'][i])
             logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
             fanout.no_shutdown(fanout_port)
-        time.sleep(10)
+        time.sleep(20)
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
