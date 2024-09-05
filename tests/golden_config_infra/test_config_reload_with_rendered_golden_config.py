@@ -12,7 +12,7 @@ from tests.common.utilities import update_pfcwd_default_state
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology(('t0', 'm0', 'mx', 't1'),
+    pytest.mark.topology('t0', 'm0', 'mx', 't1'),
     pytest.mark.disable_loganalyzer,
 ]
 
