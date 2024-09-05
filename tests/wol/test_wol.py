@@ -385,3 +385,165 @@ def test_broadcast_port(
         pkts_validator=validate_wol_packets
     ):
         duthost.shell("wol %s %s -b" % (random_dut_port, target_mac))
+
+
+@pytest.mark.parametrize("password", ["192.168.0.256", "q1:11:22:33:44:55"])
+def test_invalid_password(
+    duthost,
+    get_connected_dut_intf_to_ptf_index,
+    password
+):
+    target_mac = "1a:2b:3c:d1:e2:f7"
+    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
+    exception_catched = False
+    try:
+        duthost.shell("wol %s %s -b -p %s" % (random_dut_port, target_mac, password))
+    except Exception as e:
+        exception_catched = True
+        pytest_assert("invalid password" in e.results['stderr'], "Unexpected exception %s" % str(e))
+    pytest_assert(exception_catched, "No exception catched")
+
+
+def test_invalid_mac(
+    duthost,
+    get_connected_dut_intf_to_ptf_index
+):
+    invalid_mac = "1a:2b:3c:d1:e2:fq"
+    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
+    exception_catched = False
+    try:
+        duthost.shell("wol %s %s -b" % (random_dut_port, invalid_mac))
+    except Exception as e:
+        exception_catched = True
+        pytest_assert(r'Invalid value for "TARGET_MAC": invalid MAC address 1a:2b:3c:d1:e2:fq' in e.results['stderr']
+                      or r'Invalid MAC address' in e.results['stderr'],
+                      "Unexpected exception %s" % str(e))
+    pytest_assert(exception_catched, "No exception catched")
+
+
+def test_invalid_interface(
+    duthost
+):
+    target_mac = "1a:2b:3c:d1:e2:f8"
+    invalid_interface = "Ethernet999"
+    exception_catched = False
+    try:
+        duthost.shell("wol %s %s -b" % (invalid_interface, target_mac))
+    except Exception as e:
+        exception_catched = True
+        pytest_assert(r'invalid SONiC interface name Ethernet999' in e.results['stderr'],
+                      "Unexpected exception %s" % str(e))
+    pytest_assert(exception_catched, "No exception catched")
+
+
+def test_down_interface(
+    duthost,
+    get_connected_dut_intf_to_ptf_index
+):
+    target_mac = "1a:2b:3c:d1:e2:f9"
+    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
+
+    duthost.shutdown(random_dut_port)
+
+    exception_catched = False
+    try:
+        duthost.shell("wol %s %s -b" % (random_dut_port, target_mac))
+    except Exception as e:
+        exception_catched = True
+        pytest_assert("interface %s is not up" % random_dut_port in e.results['stderr'],
+                      "Unexpected exception %s" % str(e))
+        pytest_assert(e.results['rc'] == 2, "Unexpected exception %s" % str(e))
+    finally:
+        duthost.no_shutdown(random_dut_port)
+    pytest_assert(exception_catched, "No exception catched")
+
+
+def test_invalid_interval(
+    duthost,
+    get_connected_dut_intf_to_ptf_index
+):
+    target_mac = "1a:2b:3c:d1:e2:fa"
+    invalid_interval = "2001"
+    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
+    exception_catched = False
+    try:
+        duthost.shell("wol %s %s -b -i %s" % (random_dut_port, target_mac, invalid_interval))
+    except Exception as e:
+        exception_catched = True
+        pytest_assert(r'Invalid value for "-i": 2001 is not in the valid range of 0 to 2000.' in e.results['stderr']
+                      or r'Invalid value for "INTERVAL": interval must between 0 and 2000' in e.results['stderr'],
+                      "Unexpected exception %s" % str(e))
+    pytest_assert(exception_catched, "No exception catched")
+
+
+def test_invalid_count(
+    duthost,
+    get_connected_dut_intf_to_ptf_index
+):
+    target_mac = "1a:2b:3c:d1:e2:fb"
+    invalid_count = "10"
+    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
+    exception_catched = False
+    try:
+        duthost.shell("wol %s %s -b -c %s" % (random_dut_port, target_mac, invalid_count))
+    except Exception as e:
+        exception_catched = True
+        pytest_assert(r'Invalid value for "-c": 10 is not in the valid range of 1 to 5.' in e.results['stderr'] or
+                      r'Invalid value for "COUNT": count must between 1 and 5' in e.results['stderr'],
+                      "Unexpected exception %s" % str(e))
+    pytest_assert(exception_catched, "No exception catched")
+
+
+def test_parameter_constrain_of_count_and_interval(
+    duthost,
+    get_connected_dut_intf_to_ptf_index
+):
+    target_mac = "1a:2b:3c:d1:e2:ee"
+    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
+    exception_catched = False
+    try:
+        duthost.shell("wol %s %s -c 2" % (random_dut_port, target_mac))
+    except Exception as e:
+        exception_catched = True
+        pytest_assert("count and interval must be used together" in e.results['stderr']
+                      or "required arguments were not provided", "Unexpected exception %s" % str(e))
+    pytest_assert(exception_catched, "No exception catched")
+
+    exception_catched = False
+    try:
+        duthost.shell("wol %s %s -i 1000" % (random_dut_port, target_mac))
+    except Exception as e:
+        exception_catched = True
+        pytest_assert("count and interval must be used together" in e.results['stderr']
+                      or "required arguments were not provided", "Unexpected exception %s" % str(e))
+    pytest_assert(exception_catched, "No exception catched")
+
+
+def test_rc_2_invalid_parameter(
+    duthost,
+    get_connected_dut_intf_to_ptf_index
+):
+    target_mac = "1a:2b:3c:d1:e2:fb"
+    invalid_count = "10"
+    connected_dut_intf_to_ptf_index = get_connected_dut_intf_to_ptf_index
+    random_dut_port, random_ptf_port = random.choice(connected_dut_intf_to_ptf_index)
+    logging.info("Test with random dut port %s and ptf port index %s" % (random_dut_port, random_ptf_port))
+    exception_catched = False
+    try:
+        duthost.shell("wol %s %s -b -c %s" % (random_dut_port, target_mac, invalid_count))
+    except Exception as e:
+        exception_catched = True
+        pytest_assert(e.results['rc'] == 2, "Unexpected exception %s" % str(e))
+    pytest_assert(exception_catched, "No exception catched")
