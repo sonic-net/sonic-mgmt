@@ -710,7 +710,8 @@ sonic_mlnx_4700:
     str-msn4700-01:
       ansible_host: 10.3.146.206
       ansible_hostv6: 2a01:111:e210:3000::a03:92ce
-      hwsku: Mellanox-SN4700-O28
+      hwsku: Mellanox-SN4700-O32
+      iface_speed: 400000
       model: MSN4700-WS2ROS
       serial: MT2409XZ00CE
       base_mac: 9C:05:91:F7:5C:00
@@ -727,7 +728,8 @@ sonic_mlnx_4700:
     str-msn4700-02:
       ansible_host: 10.64.247.80
       ansible_hostv6: 2a01:111:e210:b000::a40:f755
-      hwsku: Mellanox-SN4700-O28
+      hwsku: Mellanox-SN4700-O32
+      iface_speed: 400000
       model: MSN4700-WS2ROS
       serial: MT2409XZ00CG
       base_mac: 9C:05:91:F7:5E:00
@@ -907,4 +909,3 @@ self_hosted_azure_agents:
     str-acs-serv-15:
       ansible_host: 10.64.247.31
       ansible_hostv6: 2a01:111:e210:b000::a40:f71f
-
