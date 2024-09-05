@@ -12,6 +12,8 @@
     max_fp_num: "{{ max_fp_num_provided }}"
   when: max_fp_num_provided is defined
 
+- debug: msg="max_fp_num {{ max_fp_num }}"
+
 - name: Filter VMs for specified topology
   set_fact: VM_hosts={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
   when: topology['VMs'] is defined and VM_base is defined
