@@ -1,0 +1,38 @@
+Value Filldown VERSION (\d+)
+Value Filldown ROUTER_ID (\S{0,19})						 
+Value Filldown ROUTE_DISTINGUISHER (\d+\.\d+\.\d+\.\d+:\d+)
+Value STATUS_CODE ([sdhi>*]*)
+Value ROUTE_TYPE (\d+)
+Value ETH_TAG (\d+)
+Value MAC_LEN (\d+)
+Value MAC ([0-9A-Fa-f:]+)			   
+Value IP_LEN (\d+)
+Value IP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?) 
+Value NEXT_HOP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)
+Value METRIC (\d*)
+Value LOC_PREF (\d*)
+Value WEIGHT (\d*)
+Value PATH (.*?)
+Value ORIGIN ([ie\?]?)
+Value ESI ([\da-fA-F:]+)
+Value RT (\d+:\d+)			
+Value ET (\d+)
+Value RT1 (\d+:\d+)	
+Value RT2 (\d+:\d+)	
+Value RMAC ([0-9A-Fa-f:]+)
+Value ND_PROXY (ND:Proxy)
+
+Start
+  ^\s*BGP table version is ${VERSION}, local router ID is ${ROUTER_ID}$$
+  ^\s*Route Distinguisher:\s+${ROUTE_DISTINGUISHER}$$ 
+  ^\s*${STATUS_CODE}\s+\[${ROUTE_TYPE}\]:\[${ETH_TAG}\]:\[${MAC_LEN}\]:\[${MAC}\](:\[${IP_LEN}\]:\[${IP}\])?$$ 
+  ^\s*${NEXT_HOP}\s+${WEIGHT}(\s+${PATH})?\s+${ORIGIN}$$
+  ^\s*ESI:${ESI}$$ 
+  ^\s*RT:${RT}\s+ET:${ET}(?:\s+Rmac:${RMAC})?\s+${ND_PROXY}$$ -> Record
+  ^\s*RT:${RT1}\s+RT:${RT2}\s+ET:${ET}(?:\s+Rmac:${RMAC})?\s+${ND_PROXY}$$ -> Record
+  ^\s*ET:${ET}\s+RT:${RT}(?:\s+${ND_PROXY})?$$ -> Record
+  ^\s*ET:${ET}\s+RT:${RT1}(?:\s+RT:${RT2})?\s+Rmac:${RMAC}(?:\s+${ND_PROXY})?$$ -> Record
+  ^\s*RT:${RT}\s+ET:${ET}$$ -> Record
+  ^\s*RT:${RT1}\s+RT:${RT2}\s+ET:${ET}(?:\s+Rmac:${RMAC})?$$ -> Record
+
+EOF

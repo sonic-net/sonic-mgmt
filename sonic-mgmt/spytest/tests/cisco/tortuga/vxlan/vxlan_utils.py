@@ -1,4 +1,5 @@
 from spytest import st, tgapi
+import tgen_utils_cmn as tgen_utils
 import yaml
 import os
 import re
@@ -6,7 +7,6 @@ import time
 
 NO_OF_RETRIES = 6 
 REMOTE_VTEP_COUNT = '1'
-EXPECTED_L3VNI = '1000'
 NO_OF_BGP_RETRIES = 20
 
 def config_vlan(node, vlan, members = [], vrf = None, add = True, tagged = False):
@@ -67,8 +67,6 @@ def tgen_preconfig(stream_info, traffic_item_type, data, addr_family='ipv4'):
     Sample input:
     tgen_preconfig({"src_endpoint": {"port" : "T1D3P1", "host_ip": 10.10.10.5, "gateway": 10.10.10.1, "mac" : 00:00:00:00:00:01 }, 
                     "dst_endpoint" : {"port" : "T1D4P1","host_ip": 10.10.10.10, "gateway": 10.10.10.1, "mac" : 00:00:00:00:00:02 }},"raw")
-
-
     returns tgen handle, port handles and stream id for traffic item
     
     '''
@@ -95,7 +93,7 @@ def tgen_preconfig(stream_info, traffic_item_type, data, addr_family='ipv4'):
             int_handle_2 = res2['handle']
         st.wait(60)
         ###PING TEST###
-        ping_result = tgapi.verify_ping(src_obj=tg_handle1, port_handle=port_handle1, dev_handle=int_handle_1, dst_ip=stream_info['dst_endpoint']['host_ip'],ping_count='5', exp_count='5')
+        ping_result = tgen_utils.verify_interface_ping(src_obj=tg_handle1, dev_handle=int_handle_1, dst_ip=stream_info['dst_endpoint']['host_ip'],ping_count='5', exp_count='5')
         if ping_result:
             st.log("Ping succeeded.")
         else:
@@ -125,6 +123,68 @@ def tgen_preconfig(stream_info, traffic_item_type, data, addr_family='ipv4'):
 
     return handles
 
+def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_info, traffic_item_type, data, _mode):
+    '''
+    Author:Garima Mishra
+    Sample input:
+    create_raw_traffic_stream(
+        {'tg_handle': <spytest.tgen.tg.TGIxia object at 0x7f1da6675050>, 'int_handle': '/topology:2/deviceGroup:1/ethernet:1/ipv4:1/item:1', 'port_handle': '1/1/6'},
+        {'tg_handle': <spytest.tgen.tg.TGIxia object at 0x7f1da6675050>, 'int_handle': '/topology:2/deviceGroup:1/ethernet:1/ipv4:1/item:2', 'port_handle': '1/1/8'},
+        {"src_endpoint": {"port" : "T1D3P1", "host_ip": data.t1d3_ip_addr, "gateway": data.d3t1_ip_addr, "mac" : data.t1d3_mac_addr },
+         "dst_endpoint" : {"port" : "T1D4P1","host_ip": data.t1d4_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4_mac_addr }}
+         "raw", data)
+    '''
+    lag = False
+    port_handle1 = src_handle["port_handle"]
+    if "lag_handle" in src_handle.keys():
+       port_handle1 = src_handle["lag_handle"]
+       lag = True
+    port_handle2 = dst_handle["port_handle"]
+    if "lag_handle" in dst_handle.keys():
+        port_handle2 = dst_handle["lag_handle"]
+    if _mode == "broadcast":
+        dst_mac = "ff:ff:ff:ff:ff:ff"
+    elif _mode == "multicast":
+        dst_mac = "01:00:5e:44:44:44"
+    elif _mode == "unknownunicast":
+        dst_mac = "00:44:44:44:44:44"
+    else:
+        st.log("Unknown traffic item mode")
+        st.report_fail("Unknown traffic_item mode")
+    if traffic_item_type == "raw":
+        st.log("Adding BUM traffic stream: {} {}".format(port_handle1, port_handle2))
+        if lag:
+            receive = src_handle['tg_handle'].tg_traffic_config(emulation_src_handle=port_handle1, emulation_dst_handle=port_handle2, mode='create',
+            transmit_mode=data.transmit_mode, pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent, track_by = 'trackingenabled0',
+            circuit_type="raw", frame_size=data.frame_size, mac_src=stream_info['src_endpoint']['mac'], mac_dst=dst_mac)
+        else:
+            receive = src_handle['tg_handle'].tg_traffic_config(port_handle=port_handle1, port_handle2=port_handle2, mode='create',
+            transmit_mode=data.transmit_mode, pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent, 
+            circuit_endpoint_type=data.circuit_endpoint_type,
+	    frame_size=data.frame_size, mac_src=stream_info['src_endpoint']['mac'], mac_dst=stream_info['dst_endpoint']['mac'])
+            src_handle['tg_handle'].tg_traffic_config(port_handle=port_handle1, port_handle2=port_handle2, mode='modify', mac_dst=dst_mac, stream_id = receive["stream_id"])
+        stream_id = receive["stream_id"]
+    else:
+        st.log("Unknown traffic_item_type")
+        st.report_fail("Unknown traffic_item_type")
+    st.wait(5)
+    tg_handle = src_handle['tg_handle']
+    tg_handle.tg_traffic_control(action='apply', stream_handle=stream_id)
+    tg_handle.tg_traffic_control(action='run', stream_handle=stream_id)
+    st.wait(30)
+    tg_handle.tg_traffic_control(action='stop', stream_handle=stream_id)
+    st.wait(5)
+    flag = False
+    traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='traffic_item', port_handle=src_handle["port_handle"], direction='tx', stream_handle=stream_id)
+    st.log("Received traffic: {}".format(traffic_stat['rx']['total_packets']))
+    st.log("Sent traffic: {}".format(traffic_stat['tx']['total_packets']))
+    st.log(traffic_stat['rx']['total_packets']/traffic_stat['tx']['total_packets'])
+    if traffic_stat['rx']['total_packets'] > 0.998*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] < 1.002*traffic_stat['tx']['total_packets']:
+        flag = True
+    else:
+        flag = False
+    tg_handle.tg_traffic_control(action='reset')
+    return flag
 
 def traffic_test_burst(_mode,handles):
     '''  
@@ -164,6 +224,70 @@ def traffic_test_burst(_mode,handles):
     else:
         flag = False
     return flag
+
+def config_lag_interface(lag_name, ports, lag_ip, lag_gateway_ip, lag_mac):
+    lag_vport_list = ""
+    port_list = ""
+    handles = {}
+    for port in ports:
+        tg, port_handle = tgapi.get_handle_byname(port)
+        port_list += port_handle + " "
+        vporthandle_status = tg.tg_convert_porthandle_to_vport(port_handle=port_handle)
+        vport_handle = vporthandle_status['handle'].split('-')[-1]
+        lag_vport_list += vport_handle + " "
+    lag_vport_list = "{" + lag_vport_list.rstrip() + "}"
+    port_list = port_list.rstrip()
+    st.log("Creating Lag with ports {}".format(port_list))
+    _result_ = tg.tg_emulation_lag_config( mode= "create", port_handle=lag_vport_list, active= "1", lag_name= """LAG1""",protocol_type= "lag_port_lacp")
+    lag_1_handle = _result_['lag_handle']
+    st.log("Creating topology config")
+    _result_ = tg.tg_topology_config(
+        topology_name = 'LAG1',
+        lag_handle = lag_1_handle
+    )
+    if _result_['status'] != '1':
+        st.log('topology_config {} creation failed'.format(_result_))
+    topology_1_handle = _result_['topology_handle']
+
+    # Creating a device group in topology
+    st.log("Creating device group 1 in topology 1")
+    _result_ = tg.tg_topology_config(
+        topology_handle         = topology_1_handle,
+        device_group_name       = 'LAG Device Group',
+        device_group_multiplier = '1',
+        device_group_enabled    = '1'
+    )
+    if _result_['status'] != '1':
+        st.log('Device Group creation failed {}'.format(_result_))
+    deviceGroup_1_handle = _result_['device_group_handle']
+
+    st.log("Creating ethernet stack for the first Device Group")
+    _result_ = tg.tg_interface_config(
+        protocol_name     = 'Ethernet 1',
+        protocol_handle   = deviceGroup_1_handle,
+        mtu               = '1500',
+        src_mac_addr      = lag_mac
+    )
+    if _result_['status'] != '1':
+        st.log('Ethernet stack creation failed {}'.format(_result_))
+    ethernet_1_handle = _result_['ethernet_handle']
+    st.log("Creating IPv4 stack for the first Device Group")
+    _result_ = tg.tg_interface_config(
+        protocol_name     = 'IPv4 1',
+        protocol_handle   = ethernet_1_handle,
+        gateway           = lag_gateway_ip,
+        intf_ip_addr      = lag_ip,
+        netmask           = "255.255.255.0"
+    )
+    if _result_['status'] != '1':
+        st.log('IPv4 stack creation failed {}'.format(_result_))
+    ipv4_1_handle = _result_['ipv4_handle']
+    int_handle = _result_['interface_handle']
+    st.wait(10)
+    tg.tg_test_control(action='start_protocol', handle=topology_1_handle)
+    lag_1_handle_name = "1/1/" + lag_1_handle.split(":")[-1]
+    handles[lag_name] = {"tg_handle": tg, "port_handle": lag_1_handle_name,"int_handle": int_handle, "lag_handle": lag_1_handle}
+    return handles
 
 def config_tgen_interface(int_dict, addr_family='ipv4'):
     '''
@@ -211,15 +335,19 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True):
     '''
     traffic_item_dict = {}
     for item in stream_list:
-        receive = handles[item[0]]["tg_handle"].tg_traffic_config(port_handle=handles[item[0]]["port_handle"], port_handle2=handles[item[1]]["port_handle"], mode='create', 
-                    bidirectional=1, transmit_mode=data.transmit_mode, pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent, circuit_endpoint_type=data.circuit_endpoint_type, 
-                    frame_size=data.frame_size, emulation_src_handle=handles[item[0]]["int_handle"], emulation_dst_handle=handles[item[1]]["int_handle"])
+        receive = handles[item[0]]["tg_handle"].tg_traffic_config(
+                    port_handle=handles[item[0]]["port_handle"], port_handle2=handles[item[1]]["port_handle"], 
+                    mode='create', bidirectional=1, transmit_mode=data.transmit_mode,
+                    pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent, 
+                    circuit_endpoint_type=data.circuit_endpoint_type, 
+                    frame_size=data.frame_size, emulation_src_handle=handles[item[0]]["int_handle"], 
+                    emulation_dst_handle=handles[item[1]]["int_handle"])
         stream_id = receive["stream_id"]
         traffic_item_dict[item[0]+"<-->"+item[1]] = {"stream_id":stream_id, "port_handle": handles[item[0]]["port_handle"] , "tg_handle": handles[item[0]]["tg_handle"]}
         st.wait(5)
         if ping:
             ###PING TEST###
-            ping_result = tgapi.verify_ping(src_obj=handles[item[0]]["tg_handle"], port_handle=handles[item[0]]["port_handle"], dev_handle=handles[item[0]]["int_handle"], dst_ip=int_dict[item[1]]['host_ip'],ping_count='5', exp_count='5')
+            ping_result = tgen_utils.verify_interface_ping(src_obj=handles[item[0]]["tg_handle"], dev_handle=handles[item[0]]["int_handle"], dst_ip=int_dict[item[1]]['host_ip'],ping_count='5', exp_count='5')
             if ping_result:
                 st.banner("Ping succeeded between endpoints for stream {} ".format(item[0]+"<-->"+item[1]))
             else:
@@ -229,6 +357,9 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True):
         handles[item[0]]["tg_handle"].tg_traffic_control(action="clear_stats", port_handle=[handles[item[0]]["port_handle"], handles[item[1]]["port_handle"]]) 
     return traffic_item_dict
 
+def reset_traffic(streams_info):
+    for traffic_item, values in streams_info.items():
+        values['tg_handle'].tg_traffic_control(action='reset')
 
 def check_traffic(streams_info, timeout=30):
     '''
@@ -237,11 +368,12 @@ def check_traffic(streams_info, timeout=30):
     '''
     flag = True
     for traffic_item, values in streams_info.items(): 
+        values['tg_handle'].tg_traffic_control(action='apply', stream_handle=values['stream_id'])
         values['tg_handle'].tg_traffic_control(action='run', stream_handle=values['stream_id'])
         st.wait(timeout)
         values['tg_handle'].tg_traffic_control(action='stop', stream_handle=values['stream_id'])
         st.wait(5)
-        traffic_stat = tgapi.get_traffic_stats(values['tg_handle'], mode='streams', port_handle=values['port_handle'], direction='tx', stream_handle=values['stream_id'])
+        traffic_stat = tgapi.get_traffic_stats(values['tg_handle'], mode='traffic_item', port_handle=values['port_handle'], direction='tx', stream_handle=values['stream_id'])
         st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {}".format(traffic_item))
         st.log("Received traffic: {}".format(traffic_stat['rx']['total_packets']))
         st.log("Sent traffic: {}".format(traffic_stat['tx']['total_packets']))
@@ -253,7 +385,6 @@ def check_traffic(streams_info, timeout=30):
             st.report_fail("BI-DIRECTIONAL TRAFFIC BEWTEEN {} FAILED".format(traffic_item))
             flag = False
     return flag
-
 
 def cleanup_traffic(int_dict, streams_info, handles):
     for traffic_item, values in streams_info.items(): 
@@ -316,78 +447,44 @@ def report_fail(dut, msg=''):
     st.report_fail('test_case_failed', dut)
 
 def verify_vtep_state (vtep_ip_dict):
-    leaf0_vtep_ip = vtep_ip_dict["LEAF0_VXLAN_IP"]
-    leaf1_vtep_ip = vtep_ip_dict["LEAF1_VXLAN_IP"]
-    leaf0_parsed = []
-    leaf1_parsed = []
-    iter = 0
-    start_time = time.time()
+    for leaf_ip in vtep_ip_dict:
+        leaf_vtep_ip = vtep_ip_dict[leaf_ip]
+        leaf_parsed = []
+        iter = 0
+        start_time = time.time()
+        leaf = leaf_ip.split("_")[0]
+        leaf = leaf.lower()
 
-    while len(leaf0_parsed) == 0 and iter < NO_OF_RETRIES:
-        st.wait(10)
-        leaf0_output = st.show('leaf0', "show vxlan remotevtep", skip_tmpl=True)
+        while len(leaf_parsed) == 0 and iter < NO_OF_RETRIES:
+            st.wait(10)
+            leaf_output = st.show(leaf, "show vxlan remotevtep", skip_tmpl=True)
 
-        leaf0_parsed = st.parse_show('leaf0', "show vxlan remotevtep",
-                                 leaf0_output, "show_vxlan_remote.tmpl")
-        if len(leaf0_parsed) == 0:
-            iter += 1
-            continue
+            leaf_parsed = st.parse_show(leaf, "show vxlan remotevtep",
+                                     leaf_output, "show_vxlan_remote.tmpl")
+            if len(leaf_parsed) == 0:
+                iter += 1
+                continue
+        if iter == NO_OF_RETRIES:
+            end_time = time.time()
+            st.log("No remote VTEP found on {} after {} secs".format(leaf, end_time-start_time))
+            report_fail(leaf, msg='No remote VTEP found in {}'.format(leaf))
 
-    if iter == NO_OF_RETRIES:
         end_time = time.time()
-        st.log("No remote VTEP found on leaf0 after {} secs".format(end_time-start_time))
-        report_fail('leaf0', msg='No remote VTEP found in leaf0')
+        st.log("Remote VTEP found on {} after {} secs".format(leaf, end_time-start_time))
 
-    end_time = time.time()
-    st.log("Remote VTEP found on leaf0 after {} secs".format(end_time-start_time))
-
-    vtep_num = 0
-    for path in leaf0_parsed:
-        vtep_num += 1
-        if path['tun_src'] != 'EVPN':
-            report_fail('leaf0', msg='Unexpected tunnel type {} in leaf0'.format(path['tun_src']))
-        if path['src_vtep'] != leaf0_vtep_ip:
-            report_fail('leaf0', msg='No local vtep {} found in leaf0'.format(leaf0_vtep_ip))
-        if path['dst_vtep'] != leaf1_vtep_ip:
-            report_fail('leaf0', msg='Unexpected vtep {} found in leaf0'.format(path['dst_vtep']))
-        if path['tun_status'] != 'oper_up':
-            report_fail('leaf0', msg='Tunnel is not in up status in leaf0')
-    if vtep_num != 1:
-        report_fail('leaf0', msg='Incorrect number of VTEPs found in leaf0')
-
-    iter = 0
-    start_time = time.time()
-    while len(leaf1_parsed) == 0 and iter < NO_OF_RETRIES:
-        st.wait(10)
-        leaf1_output = st.show('leaf1', "show vxlan remotevtep", skip_tmpl=True)
-
-        leaf1_parsed = st.parse_show('leaf1', "show vxlan remotevtep",
-                leaf1_output, "show_vxlan_remote.tmpl")
-        if len(leaf1_parsed) == 0:
-            iter += 1
-            continue
-
-    if iter == NO_OF_RETRIES:
-        end_time = time.time()
-        st.log("No remote VTEP found on leaf1 after {} secs".format(end_time-start_time))
-        report_fail('leaf1', msg='No remote VTEP found in leaf1')
-
-    end_time = time.time()
-    st.log("Remote VTEP found on leaf1 after {} secs".format(end_time-start_time))
-
-    vtep_num = 0
-    for path in leaf1_parsed:
-        vtep_num += 1
-        if path['tun_src'] != 'EVPN':
-            report_fail('leaf1', msg='Unexpected tunnel type {} in leaf1'.format(path['tun_src']))
-        if path['src_vtep'] != leaf1_vtep_ip:
-            report_fail('leaf1', msg='No local vtep {} found in leaf1'.format(leaf1_vtep_ip))
-        if path['dst_vtep'] != leaf0_vtep_ip:
-            report_fail('leaf1', msg='Unexpected vtep {} found in leaf1'.format(path['dst_vtep']))
-        if path['tun_status'] != 'oper_up':
-            report_fail('leaf1', msg='Tunnel is not in up status in leaf1')
-    if vtep_num != 1:
-        report_fail('leaf1', msg='Incorrect number of VTEPs found in leaf1')
+        vtep_num = 0
+        for path in leaf_parsed:
+            vtep_num += 1
+            if path['tun_src'] != 'EVPN':
+                report_fail(leaf, msg='Unexpected tunnel type {} in {}'.format(path['tun_src'], leaf))
+            if path['src_vtep'] != leaf_vtep_ip:
+                report_fail(leaf, msg='No local vtep {} found in {}'.format(leaf_vtep_ip, leaf))
+            if path['dst_vtep'] not in vtep_ip_dict.values():
+                report_fail(leaf, msg='Unexpected vtep {} found in {}'.format(path['dst_vtep'], leaf))
+            if path['tun_status'] != 'oper_up':
+                report_fail(leaf, msg='Tunnel is not in up status in {}'.format(leaf))
+        if vtep_num != 1:
+            report_fail(leaf, msg='Incorrect number of VTEPs found in {}'.format(leaf))
 
 def check_hw_or_sim(node):
     dut_type = ""
@@ -508,7 +605,7 @@ def configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vla
     st.config(nodes['leaf0'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf0_vlan, leaf0_vlan_ip))
     st.config(nodes['leaf1'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf1_vlan, leaf1_vlan_ip))
 
-def verify_bgp(nodes, prefix, src_vtep):
+def verify_bgp(nodes, prefix, src_vtep, expected_l3vni='1000'):
     st.log("Start BGP verification check on {}" .format(src_vtep))
     start_time = time.time()
     iter = 0
@@ -528,7 +625,7 @@ def verify_bgp(nodes, prefix, src_vtep):
                 report_fail(nodes[src_vtep], msg='Invalid path found in {}'.format(src_vtep))
             if path['pathevpntype'] != '5':
                 report_fail(nodes[src_vtep], msg='Invalid evpn type {0} found in {1}'.format(path['evpntype'], src_vtep))
-            if path['vni'] != EXPECTED_L3VNI:
+            if path['vni'] != expected_l3vni:
                 report_fail(nodes[src_vtep], msg='Invalid vni found in {}'.format(src_vtep))
     if iter == NO_OF_BGP_RETRIES:
         end_time = time.time()

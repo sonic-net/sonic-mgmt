@@ -1,0 +1,24 @@
+Value MAC (..:..:..:..:..:..)
+Value EXPIREAT (\S+)
+Value TTL (\S+)
+Value TYPE (hash)
+Value IFNAME (\S+)
+Value NEXTHOP_GROUP (\S+)
+Value ENTRY_TYPE (dynamic|static|dynamic_control_learn)
+Value VNI (\S+)
+
+Start
+  ^\{
+  ^\s*"VXLAN_FDB_TABLE::${MAC}":\s\{
+  ^\s*"expireat":\s${EXPIREAT},
+  ^\s*"ttl":\s${TTL},
+  ^\s*"type":\s"${TYPE}",
+  ^\s*"value":\s\{
+  ^\s*"ifname":\s"${IFNAME}",
+  ^\s*"nexthop_group":\s"${NEXTHOP_GROUP}",
+  ^\s*"type":\s"${ENTRY_TYPE}",
+  ^\s*"vni":\s"${VNI}"
+  ^\s*\}
+  ^\s*\}
+  ^\}
+

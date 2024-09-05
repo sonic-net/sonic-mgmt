@@ -22,6 +22,9 @@ Value VNI (\d+)
 Value PATHEVPNTYPE (\d+)
 Value PATHETHTAG (\d+)
 Value PATHIPLEN (\d+)
+Value LOCAL ([-()\d\w\s]+)
+Value WEIGHT ([-()\d\w\s]+)
+Value SOURCED ([-()\d\w\s]+)
 
 Start
   ^\s*BGP\s*routing\s*table\s*entry\s*for\s*${PREFIXIP}:\d:\[${EVPNTYPE}\]:\[${ETHTAG}\]:\[${IPLEN}\]:\[${ADVERTIP}\]$$
@@ -32,6 +35,7 @@ Start
   ^\s*Local|${PEERASN}+$$
   ^\s*${peernhtip1}\s*(\(\w+\))*\s*from\s*${peernhtip2}\s*\(${peerrtrid}\)$$
   ^\s*Origin\s*${ORIGIN}(,\s*metric\s*${METRIC}){0,1}(,\s*localpref\s*${LOCALPREF}){0,1},\s*${VALID},\s*${EXTERNAL}(,\s*${BEST}){0,1}$$
+  ^\s*Origin\s*${ORIGIN}(,\s*metric\s*${METRIC}){0,1}(,\s*weight\s*${WEIGHT}),\s*${VALID}(,\s*${SOURCED})(,\s*${LOCAL})(,\s*${BEST}\s*)$$
   ^\s*Extended Community:\s*${COMMUNITY}\s*$$
   ^\s*Last update:\s*(.*)$$ -> Record
 

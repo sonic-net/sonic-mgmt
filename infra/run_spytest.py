@@ -23,13 +23,29 @@ TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
 SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
 COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 
-TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING = {
-    "spine0": "SD1",
-    "spine1": "SD2",
-    "leaf0": "SD3",
-    "leaf1": "SD4",
-    "leaf2": "SD5"
-}
+pattern = r'_mh'
+flag = False
+for item in sys.argv:
+    match = re.search(pattern, item)
+    if match:
+        flag = True
+        break
+if flag:
+    TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING = {
+        "spine0": "SD1",
+        "leaf0": "SD2",
+        "leaf1": "SD3",
+        "leaf2": "SD4",
+        "leaf3": "SD5"
+    }   
+else:
+    TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING = {
+        "spine0": "SD1",
+        "spine1": "SD2",
+        "leaf0": "SD3",
+        "leaf1": "SD4",
+        "leaf2": "SD5"
+    }
 
 device_ip_and_ports = []
 

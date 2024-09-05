@@ -1,0 +1,13 @@
+Value IFACE (\S+)
+Value RX_PKTS ([0-9,]+)
+Value RX_BYTES ([0-9,]+)
+Value RX_PPS ([0-9\.]+)
+Value TX_PKTS ([0-9,]+)
+Value TX_BYTES ([0-9,]+)
+Value TX_PPS ([0-9\.]+)
+
+
+Start
+  ^\s*${IFACE}\s+${RX_PKTS}\s+${RX_BYTES}\s+${RX_PPS}/s\s+${TX_PKTS}\s+${TX_BYTES}\s+${TX_PPS}/s\s*$$ -> Record
+ 
+EOF

@@ -1,0 +1,11 @@
+Value Filldown IP_ADDRESS (\S+)
+Value INTERFACE (\S+)
+Value NEXTHOPID (\S+)
+Value NEXTHOPIP (\S+)
+Value vni_label (\d+)
+
+Start
+  ^\s*\"ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:\{\\\"dest\\\":\\\"${IP_ADDRESS}\\\",\\\"sw\s*
+  ^\s+\"SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID\":\s*\"oid:${NEXTHOPID}\"
+  ^\s+"SAI_NEXT_HOP_ATTR_IP":\s*"${NEXTHOPIP}",
+  ^\s+"SAI_NEXT_HOP_ATTR_TUNNEL_VNI":\s*${vni_label}",$$ -> Record

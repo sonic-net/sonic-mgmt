@@ -1,0 +1,7 @@
+Value ESI ([\da-fA-F:]+)
+Value TYPE ([BLRN]+)
+Value ES_IF (\S+)
+Value VTEPS ([\da-fA-F\.:,]+)
+
+Start
+  ^${ESI}\s+${TYPE}\s+${ES_IF}\s+${VTEPS}\s*$$ -> Record

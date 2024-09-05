@@ -1,0 +1,13 @@
+Value Filldown IP_ADDRESS (\S+)
+Value INTERFACE (\S+)
+Value NEXTHOP (\S+)
+Value mac (..:..:..:..:..:..)
+Value vrf (\S+)
+Value vni_label (\d+)
+
+Start
+  ^\s*\"ROUTE_TABLE:${vrf}:${IP_ADDRESS}\":\s*
+  ^\s+\"ifname\":\s*\"${INTERFACE}\"\s*
+  ^\s+\"nexthop\":\s*\"${NEXTHOP}\"\s*
+  ^\s+\"router_mac\":\s*\"${mac}\"\s*
+  ^\s+\"vni_label\":\s*\"${vni_label}\"\s*

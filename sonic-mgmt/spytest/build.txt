@@ -1,4 +1,19 @@
-build:SONiC.cisco_201911.0-dirty-20200916.152910
-uitype:click
-Execution Started:2020-09-30 01:18:59.825685
-Execution Completed:2020-09-30 01:50:51.606638
+build: SONiC.azure_cisco_tortuga_202305.10652-dirty-20240414.022304
+uitype: click
+Execution Started: 2024-07-23 23:20:13.973760
+Execution Completed: 2024-07-23 23:43:20.042716
+Execution Time: 0:23:07
+DailyRun: 0
+Python: 2.7.17
+Combined Report: 0
+GCOV Run: 0
+Image Build Path: 
+EMail: None
+EMailSubject: Run Report
+Dry Run: 0
+GCOV_POST_RUN_KPI_UPDATE: 0
+GCOV_MERGE_HTML: 0
+Pass Rate: 100.00%
+Suite: 
+Platforms Not Covered: 
+Chips Not Covered: 

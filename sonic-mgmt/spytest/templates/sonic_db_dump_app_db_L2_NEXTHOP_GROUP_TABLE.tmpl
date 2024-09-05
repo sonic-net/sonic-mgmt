@@ -1,0 +1,21 @@
+Value ID (\d+)
+Value EXPIREAT (\S+)
+Value TTL (\S+)
+Value TYPE (hash)
+Value IFNAME (\S+)
+Value NEXTHOP_GROUP (\S+)
+Value REMOTE_VTEP (\S+)
+
+Start
+  ^\{
+  ^\s*"L2_NEXTHOP_GROUP_TABLE:\s*${ID}":\s\{
+  ^\s*"expireat":\s*${EXPIREAT},
+  ^\s*"ttl":\s*${TTL},
+  ^\s*"type":\s*"${TYPE}",
+  ^\s*"value":\s\{
+  ^\s*"ifname":\s"${IFNAME}",
+  ^\s*"nexthop_group":\s"${NEXTHOP_GROUP}"\s*
+  ^\s*"remote_vtep":\s"${REMOTE_VTEP}"\s*
+  ^\s*\}
+  ^\s*\}
+  ^\}
