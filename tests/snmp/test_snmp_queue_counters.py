@@ -24,35 +24,47 @@ def get_queue_ctrs(duthost, cmd):
     return len(duthost.shell(cmd)["stdout_lines"])
 
 
-def get_queue_cntrs_oid(duthost, asic):
+def get_queue_cntrs_oid(interface):
     """
-    @summary: Returns queue_cntrs_oid value based on the single/multi-asic sonic host.
-              In case of multi-asic, for asic0 returns oid value for Ethernet0 port and
-              for asic1, returns oid value for Ethernet144
+    @summary: Returns queue_cntrs_oid value based on the interface chosen
+              for single/multi-asic sonic host.
     Args:
-        duthost: Ansible object DuT.
-        asic: SonicAsic object
+        interface: Asic interface selected
     Returns:
         queue_cntrs_oid
     """
-    # Ethernet0 port OID, chosen arbitrary
-    queue_cntrs_oid = '1.3.6.1.4.1.9.9.580.1.5.5.1.4.1'
-    if duthost.sonichost.is_multi_asic and asic is not None:
-        queue_cntrs_oid = '1.3.6.1.4.1.9.9.580.1.5.5.1.4.1' if asic.namespace == 'asic0' \
-            else '1.3.6.1.4.1.9.9.580.1.5.5.1.4.145'   # Ethernet144 asic1 port OID, chosen arbitrary
-
+    intf_num = interface.split('Ethernet')[1]
+    queue_cntrs_oid = '1.3.6.1.4.1.9.9.580.1.5.5.1.4.{}'.format(int(intf_num) + 1)
     return queue_cntrs_oid
 
 
+def get_asic_interface(inter_facts):
+    """
+    @summary: Returns interface dynamically based on the asic chosen
+              for single/multi-asic sonic host.
+    """
+    ansible_inter_facts = inter_facts['ansible_interface_facts']
+    interface = None
+    for key, v in ansible_inter_facts.items():
+        # Exclude internal interfaces
+        if 'IB' in key or 'Rec' in key or 'BP' in key:
+            continue
+        if 'Ether' in key and v['active']:
+            interface = key
+            break
+
+    return interface
+
+
 def test_snmp_queue_counters(duthosts,
-                             enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_asic_index,
+                             enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
                              creds_all_duts, teardown):
     """
     Test SNMP queue counters
       - Set "create_only_config_db_buffers" to true in config db, to create
       only relevant counters
-      - Remove one of the buffer queues, Ethernet0|3-4 is chosen arbitrary
-      - Using snmpwalk compare number of queue counters on Ethernet0, assuming
+      - Remove one of the buffer queues for asic interface chosen, <interface>|3-4 is chosen arbitrary
+      - Using snmpwalk compare number of queue counters on the interface, assuming
       there will be 8 less after removing the buffer. (Assuming unicast only,
       4 counters for each queue in this case)
     This test covers the issue: 'The feature "polling only configured ports
@@ -64,8 +76,12 @@ def test_snmp_queue_counters(duthosts,
     global ORIG_CFG_DB, CFG_DB_PATH
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
-    asic = duthost.asic_instance(enum_rand_one_asic_index)
-    queue_cntrs_oid = get_queue_cntrs_oid(duthost, asic)
+    asic = duthost.asic_instance(enum_frontend_asic_index)
+    int_facts = asic.interface_facts()['ansible_facts']
+    interface = get_asic_interface(int_facts)
+    if interface is None:
+        pytest.skip("No active interface present on the asic {}".format(asic))
+    queue_cntrs_oid = get_queue_cntrs_oid(interface)
     get_bfr_queue_cntrs_cmd \
         = "docker exec snmp snmpwalk -v2c -c {} {} {}".format(
             creds_all_duts[duthost.hostname]['snmp_rocommunity'], hostip,
@@ -88,11 +104,11 @@ def test_snmp_queue_counters(duthosts,
         iface_to_check = buffer_queues[0].split('|')[0]
         iface_buffer_queues = [bq for bq in buffer_queues if any(val in iface_to_check for val in bq.split('|'))]
         for queue in iface_buffer_queues:
-            if asic.namespace in queue and queue.split('|')[-1] == '3-4':
+            if asic.namespace in queue and queue.split('|')[-1] == '3-4' and queue.split('|')[-2] == interface:
                 buffer_queue_to_del = queue
                 break
     else:
-        buffer_queue_to_del = "Ethernet0|3-4"
+        buffer_queue_to_del = "{}|3-4".format(interface)
 
     # Add create_only_config_db_buffers entry to device metadata to enable
     # counters optimization and get number of queue counters of Ethernet0 prior
