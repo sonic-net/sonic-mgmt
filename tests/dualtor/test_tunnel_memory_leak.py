@@ -22,8 +22,7 @@ from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import delete_neighbor
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.fixtures.ptfhost_utils import run_garp_service, run_icmp_responder    # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test                       # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test                       # noqa F401
 from tests.common.utilities import wait_until
 
 
