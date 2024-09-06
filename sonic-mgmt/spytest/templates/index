@@ -239,6 +239,7 @@ show_system_health_summary.tmpl, .*, sonic, sudo show system-health summary
 show_error_database.tmpl, .*, sonic, show error_database
 bcmcmd_listmem_l3_entry.tmpl, .*, sonic, bcmcmd 'listmem l3_entry'
 bcmcmd_listmem_defip.tmpl, .*, sonic, bcmcmd 'listmem DEFIP'
+show_spanning_tree_vlan_cisco.tmpl, .*, sonic, show spanning-tree vlan\s+\d+(\s+ interface\s+\w+)?
 show_spanning_tree_vlan.tmpl, .*, sonic, show (spanning_tree|spanning-tree) vlan\s+\d+(\s+ interface\s+\w+)?
 cloud_advanced/show_tam_device.tmpl, .*, sonic, show tam device
 cloud_advanced/show_tam_samplers.tmpl, .*, sonic, show tam samplers
@@ -264,6 +265,8 @@ show_spanning_tree_root_guard.tmpl, .*, sonic, show spanning_tree root_guard
 show_spanning_tree_root_guard.tmpl, .*, sonic, show spanning-tree inconsistentports
 show_spanning_tree_bpdu_guard.tmpl, .*, sonic, show spanning_tree bpdu_guard
 show_spanning_tree_bpdu_guard.tmpl, .*, sonic, show spanning-tree bpdu-guard
+show_spanning_tree_root_guard_cisco.tmpl, .*, sonic, show spanning-tree root_guard
+show_spanning_tree_bpdu_guard_cisco.tmpl, .*, sonic, show spanning-tree bpdu_guard
 stpctl_port.tmpl, .*, sonic, stpctl\s+port\s+\d+\s+\w+
 route_n.tmpl, .*, sonic, sudo route -n
 show_vrrpv3.tmpl,.*,sonic,show vrrp6 \w+
