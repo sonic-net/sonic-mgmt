@@ -1,9 +1,13 @@
 """Test cases to support the Everflow Mirroring feature in SONiC."""
 import logging
+import random
 import time
 import pytest
+import ipaddress
 import threading
 import ptf.testutils as testutils
+from ptf.mask import Mask
+import ptf.packet as packet
 from . import everflow_test_utilities as everflow_utils
 import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
@@ -647,10 +651,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                         setup_info[default_tarffic_port_type]["remote_namespace"])
 
     def test_everflow_frwd_with_bkg_trf(self,
-                                        setup_info, # noqa F811
+                                        setup_info,  # noqa F811
                                         setup_mirror_session,
                                         dest_port_type, ptfadapter, tbinfo,
-                                        skip_traffic_test # noqa F811
+                                        skip_traffic_test  # noqa F811
                                         ):
         """
         Verify basic forwarding scenarios for the Everflow feature with background traffic.
@@ -675,26 +679,64 @@ class EverflowIPv4Tests(BaseEverflowTest):
         rx_port_ptf_id = setup_info[dest_port_type]["src_port_ptf_id"]
         tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
 
+        # Events to control the thread
         stop_thread = threading.Event()
+        neigh_ipv4 = {entry['name']: entry['addr'].lower() for entry in ptfadapter.mg_facts['minigraph_bgp'] if
+                      'ASIC' not in entry['name'] and isinstance(ipaddress.ip_address(entry['addr']),
+                                                                 ipaddress.IPv4Address)}
+        if len(neigh_ipv4) < 2:
+            pytest.skip("Skipping as Less than 2 Neigbhour")
 
-        def background_traffic():
-
+        def background_traffic(run_count=None):
+            selected_addrs1 = random.sample(list(neigh_ipv4.values()), 2)
+            selected_addrs2 = random.sample(list(neigh_ipv4.values()), 2)
+            selected_addrs3 = random.sample(list(neigh_ipv4.values()), 2)
             router_mac = setup_info[dest_port_type]["ingress_router_mac"]
-            inner_pkt2 = self._base_tcp_packet(ptfadapter, setup_info, router_mac, src_ip="1.0.0.10", dst_ip="4.4.4.4")
-            bkg_trf1 = testutils.simple_ipv4ip_packet(ip_src="30.0.0.10",
-                                                      eth_dst=router_mac,
-                                                      ip_dst="50.0.2.2",
-                                                      eth_src=ptfadapter.dataplane.get_mac(0, 0),
-                                                      inner_frame=inner_pkt2[scapy.IP])
-            bkg_trf2 = self._base_tcp_packet(ptfadapter, setup_info, router_mac, src_ip="30.0.0.10", dst_ip="50.0.2.2")
-            logger.debug("Background Traffic Started")
-            while not stop_thread.is_set():
-                testutils.send(ptfadapter, rx_port_ptf_id, bkg_trf1)
-                testutils.send(ptfadapter, rx_port_ptf_id, bkg_trf2)
+            inner_pkt2 = self._base_tcp_packet(ptfadapter, setup_info, router_mac, src_ip=selected_addrs1[1],
+                                               dst_ip=selected_addrs1[0])
+            packets = [
+                testutils.simple_ipv4ip_packet(
+                    ip_src=selected_addrs2[0],
+                    eth_dst=router_mac,
+                    ip_dst=selected_addrs2[1],
+                    eth_src=ptfadapter.dataplane.get_mac(0, 0),
+                    inner_frame=inner_pkt2[scapy.IP]
+                ),
+                self._base_tcp_packet(ptfadapter, setup_info, router_mac, src_ip=selected_addrs3[0],
+                                      dst_ip=selected_addrs3[1])
+            ]
 
+            count = 0
+            if run_count is None:
+                logger.debug("Background Traffic Started")
+            # Run the loop either for a specified count or until stop_thread is set
+            while (run_count is None and not stop_thread.is_set()) or (run_count is not None and count < run_count):
+                for bkg_trf in packets:
+                    # Send packet
+                    time.sleep(.1)
+                    testutils.send(ptfadapter, rx_port_ptf_id, bkg_trf)
+
+                    # Verify packet if run_count is specified
+                    if run_count is not None:
+                        exp_pkt = Mask(bkg_trf)
+                        exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
+                        exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
+                        exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+                        exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
+                        exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+                        testutils.verify_packet_any_port(
+                            ptfadapter,
+                            exp_pkt,
+                            ports=ptfadapter.ptf_port_set
+                        )
+
+                count += 1
+
+        background_traffic(run_count=1)
         background_thread = threading.Thread(target=background_traffic)
         background_thread.daemon = True
         background_thread.start()
+
         try:
             self._run_everflow_test_scenarios(
                 ptfadapter,
@@ -712,6 +754,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             everflow_utils.add_route(remote_dut, setup_mirror_session["session_prefixes"][1], peer_ip,
                                      setup_info[dest_port_type]["remote_namespace"])
             time.sleep(15)
+            background_traffic(run_count=1)
 
             # Verify that mirrored traffic is still sent along the original route
             self._run_everflow_test_scenarios(
@@ -735,7 +778,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             everflow_utils.add_route(remote_dut, setup_mirror_session['session_prefixes'][1], peer_ip,
                                      setup_info[dest_port_type]["remote_namespace"])
             time.sleep(15)
-
+            background_traffic(run_count=1)
             # Verify that mirrored traffic uses the new route
             tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][1]
             self._run_everflow_test_scenarios(
@@ -753,7 +796,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             everflow_utils.remove_route(remote_dut, setup_mirror_session["session_prefixes"][1], peer_ip,
                                         setup_info[dest_port_type]["remote_namespace"])
             time.sleep(15)
-
+            background_traffic(run_count=1)
             # Verify that mirrored traffic switches back to the original route
             tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
             self._run_everflow_test_scenarios(
@@ -776,6 +819,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             stop_thread.set()
             # Wait for the background thread to finish
             background_thread.join()
+            background_traffic(run_count=1)
 
     def _run_everflow_test_scenarios(self, ptfadapter, setup, mirror_session, duthost, rx_port,
                                      tx_ports, direction, expect_recv=True, valid_across_namespace=True,
