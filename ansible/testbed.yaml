@@ -646,6 +646,21 @@
   auto_recover: 'True'
   comment: jcai
 
+- conf-name: vms68-t1-8122-01
+  group-name: vms68-4
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms68-4
+  ptf_ip: 10.64.247.93/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f75d/64
+  server: server_68
+  vm_base: VM68121
+  dut:
+  - str3-8122-01
+  inv_name: str3
+  auto_recover: 'True'
+  comment: yawenni
+
 - conf-name: vms63-t0-dual-4600-1
   group-name: vms63-7
   topo: dualtor-64
@@ -3118,15 +3133,15 @@
   comment: Beijing Lab
 
 - conf-name: testbed-bjw2-can-t1-8102-2
-  group-name: bjw2-4-1
+  group-name: bjw2-5-1
   topo: t1-64-lag
   ptf_image_name: docker-ptf
-  ptf: bjw2-4-1
+  ptf: bjw2-5-1
   ptf_ip: 10.150.23.107/23
   ptf_ipv6: 2404:f801:10:2200::a96:176b/52
   ptf_extra_mgmt_ip: ["172.16.188.107/17"]
-  server: server_bjw2_4
-  vm_base: VM84011
+  server: server_bjw2_5
+  vm_base: VM85011
   dut:
     - bjw2-can-8102-2
   inv_name: bjw2
@@ -3134,15 +3149,15 @@
   comment: Beijing Lab
 
 - conf-name: testbed-bjw2-can-t1-8102-3
-  group-name: bjw2-4-2
+  group-name: bjw2-5-2
   topo: t1-64-lag
   ptf_image_name: docker-ptf
-  ptf: bjw2-4-2
+  ptf: bjw2-5-2
   ptf_ip: 10.150.23.108/23
   ptf_ipv6: 2404:f801:10:2200::a96:176c/52
   ptf_extra_mgmt_ip: ["172.16.188.108/17"]
-  server: server_bjw2_4
-  vm_base: VM84035
+  server: server_bjw2_5
+  vm_base: VM85035
   dut:
     - bjw2-can-8102-3
   inv_name: bjw2
@@ -3150,15 +3165,15 @@
   comment: Beijing Lab
 
 - conf-name: testbed-bjw2-can-t1-8102-4
-  group-name: bjw2-4-3
+  group-name: bjw2-5-3
   topo: t1-64-lag
   ptf_image_name: docker-ptf
-  ptf: bjw2-4-3
+  ptf: bjw2-5-3
   ptf_ip: 10.150.23.109/23
   ptf_ipv6: 2404:f801:10:2200::a96:176d/52
   ptf_extra_mgmt_ip: ["172.16.188.109/17"]
-  server: server_bjw2_4
-  vm_base: VM84059
+  server: server_bjw2_5
+  vm_base: VM85059
   dut:
     - bjw2-can-8102-4
   inv_name: bjw2
@@ -3166,16 +3181,16 @@
   comment: Beijing Lab
 
 - conf-name: testbed-bjw2-can-dual-t0-8102-1
-  group-name: bjw2-4-4
+  group-name: bjw2-5-4
   topo: dualtor-aa
   ptf_image_name: docker-ptf
-  ptf: bjw2-4-4
+  ptf: bjw2-5-4
   ptf_ip: 10.150.22.110
   ptf_ipv6: 2404:f801:10:2200::a96:176e/52
   ptf_extra_mgmt_ip: ["172.16.188.110/17"]
   netns_mgmt_ip: 10.150.23.47/23
-  server: server_bjw2_4
-  vm_base: VM84083
+  server: server_bjw2_5
+  vm_base: VM85083
   dut:
     - bjw2-can-8102-5
     - bjw2-can-8102-6

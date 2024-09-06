@@ -108,6 +108,9 @@ all:
         vms68-3:
           ansible_host: 10.64.247.78
           ansible_hostv6: 2a01:111:e210:b000::a40:f74e
+        vms68-4:
+          ansible_host: 10.64.247.93
+          ansible_hostv6: 2a01:111:e210:b000::a40:f75d
         vms69-1:
           ansible_host: 10.64.246.37
           ansible_hostv6: 2a01:111:e210:b000::a40:f625
@@ -343,6 +346,18 @@ fanout:
       ansible_host: 10.3.146.131
       ansible_hostv6: 2a01:111:e210:3000::a03:9283
       os: sonic
+    str3-msn4700-fanout-05:
+      ansible_host: 10.3.146.151
+      ansible_hostv6: 2a01:111:e210:3000::a03:9297
+      os: sonic
+    str3-msn4700-fanout-06:
+      ansible_host: 10.3.146.14
+      ansible_hostv6: 2a01:111:e210:3000::a03:920e
+      os: sonic
+    str3-msn4700-fanout-07:
+      ansible_host: 10.3.146.44
+      ansible_hostv6: 2a01:111:e210:3000::a03:922c
+      os: sonic
     str3-7060x6-64pe-fan-1:
       ansible_host: 10.64.246.3
       ansible_hostv6:
@@ -363,6 +378,7 @@ sonic:
     sonic_cisco_8101_C64:
     sonic_cisco_8101_O8C48:
     sonic_cisco_8111:
+    sonic_cisco_8122:
     sonic_cisco_lc_100G:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
@@ -806,6 +822,43 @@ sonic_cisco_8111:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xD6FA6A00"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 300
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+
+sonic_cisco_8122:
+  vars:
+    iface_speed: 800000
+  hosts:
+    str3-8122-01:
+      ansible_host: 10.64.247.90
+      ansible_hostv6: 2a01:111:e210:b000::a40:f75a
+      hwsku: Cisco-8122-O64
+      model: 8122-64EH-O
+      serial: FLM2820015B
+      base_mac: B4:4C:90:EC:4E:00
+      syseeprom_info:
+        "0x21": "8122-64EH-O"
+        "0x22": "ECI123"
+        "0x23": "FLM2820015B"
+        "0x24": "B4:4C:90:EC:4E:00"
+        "0x26": "0"
+        "0x28": "x86_64-8122_64eh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xC72C0F13"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -1499,7 +1552,8 @@ sonic_mlnx_4700:
       ansible_host: 10.3.146.175
       ansible_hostv6: 2a01:111:e210:3000::a03:92af
       mgmt_subnet_mask_length: 24
-      hwsku: Mellanox-SN4700-O28
+      hwsku: Mellanox-SN4700-O32
+      iface_speed: 400000
       model: MSN4700-WS2RO
       serial: MT2308XZ0APE
       base_mac: 9C:05:91:3A:94:00
