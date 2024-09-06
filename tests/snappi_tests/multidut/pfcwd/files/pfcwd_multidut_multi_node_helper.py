@@ -108,6 +108,16 @@ def run_pfcwd_multi_node_test(api,
         pfc_storm_dur_sec = 0.5 * detect_time_sec
 
     exp_dur_sec = ceil(pfc_storm_dur_sec + 1)
+    cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
+
+    speed_str = testbed_config.layer1[0].speed
+    speed_gbps = int(speed_str.split('_')[1])
+    # Backplane is 200G in Cisco platforms.
+    if speed_gbps > 200 and cisco_platform:
+        global TEST_FLOW_AGGR_RATE_PERCENT
+        global BG_FLOW_AGGR_RATE_PERCENT
+        TEST_FLOW_AGGR_RATE_PERCENT = TEST_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
+        BG_FLOW_AGGR_RATE_PERCENT = BG_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
 
     """ Generate traffic config """
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT /
@@ -144,9 +154,6 @@ def run_pfcwd_multi_node_test(api,
                                config=testbed_config,
                                all_flow_names=all_flow_names,
                                exp_dur_sec=exp_dur_sec)
-
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
 
     __verify_results(rows=flow_stats,
                      speed_gbps=speed_gbps,
