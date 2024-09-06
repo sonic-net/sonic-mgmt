@@ -14,6 +14,7 @@ from .utils import check_server_received
 from tests.override_config_table.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
 from tests.common.helpers.dut_utils import is_container_running
+from .utils import duthost_shell_with_unreachable_retry
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -604,7 +605,7 @@ def test_stop_request_next_server_after_reject(
     tacacs_server_ipv6 = ptfhost_vars['ansible_hostv6']
 
     # Setup second tacacs server
-    duthost.shell("sudo config tacacs add {} --port 59".format(tacacs_server_ipv6))
+    duthost_shell_with_unreachable_retry(duthost, "sudo config tacacs add {} --port 59".format(tacacs_server_ipv6))
     duthost.shell("sudo config tacacs timeout 1")
 
     # Clean tacacs log
