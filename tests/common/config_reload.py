@@ -61,6 +61,12 @@ def config_force_option_supported(duthost):
     return False
 
 
+def pfcwd_feature_enabled(duthost):
+    device_metadata = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']['DEVICE_METADATA']
+    pfc_status = device_metadata['localhost']["default_pfcwd_status"]
+    return pfc_status == 'enable'
+
+
 @ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False, wait_before_force_reload=0,
@@ -146,8 +152,9 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
                       "All critical services should be fully started!")
         wait_critical_processes(sonic_host)
-        if config_source == 'minigraph':
-            pytest_assert(wait_until(300, 20, 0, chk_for_pfc_wd, sonic_host),
+        # PFCWD feature does not enable on some topology, for example M0
+        if config_source == 'minigraph' and pfcwd_feature_enabled(sonic_host):
+            pytest_assert(wait_until(wait + 300, 20, 0, chk_for_pfc_wd, sonic_host),
                           "PFC_WD is missing in CONFIG-DB")
 
         if check_intf_up_ports:
