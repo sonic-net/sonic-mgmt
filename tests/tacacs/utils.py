@@ -414,7 +414,8 @@ def duthost_shell_with_unreachable_retry(duthost, command):
         try:
             return duthost.shell(command)
         except AnsibleConnectionFailure as e:
-            retries+=1
-            logger.warning("retry_when_dut_unreachable exception： {}, retry {}/{}".format(e, retries, DEVICE_UNREACHABLE_MAX_RETRIES))
+            retries += 1
+            logger.warning("retry_when_dut_unreachable exception： {}, retry {}/{}"
+                           .format(e, retries, DEVICE_UNREACHABLE_MAX_RETRIES))
             if retries > DEVICE_UNREACHABLE_MAX_RETRIES:
                 raise e
