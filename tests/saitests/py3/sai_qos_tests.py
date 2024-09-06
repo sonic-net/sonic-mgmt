@@ -6118,11 +6118,11 @@ class XonHysteresisTest(sai_base_test.ThriftInterfaceDataPlane):
 
         try:
             for (npkts, packets, dst_port_id, queue) in zip(pkt_counts, pkts_list,
-                                                                dst_port_ids, queues):
+                                                            dst_port_ids, queues):
                 for src_id in packets.keys():
                     for pkt_tuple in packets[src_id]:
                         fill_leakout_plus_one(self, src_id, dst_port_id,
-                            pkt_tuple[0], queue, asic_type)
+                                              pkt_tuple[0], queue, asic_type)
                         send_packet(self, src_id, pkt_tuple[0], npkts-1)
 
             # Verify XOFF has now been triggered on final port

@@ -464,10 +464,8 @@ class QosParamCisco(object):
             return pkt_counts
 
         if self.is_large_sms:
-            if self.is_deep_buffer: # Crocodile/8111/Graphene/G100
+            if self.is_deep_buffer:  # 8111/G100
                 if self.portSpeedCableLength.find('400000') == 0:
-                    # Crocodile 400G
-
                     # 20*3 + 10.1 = 70.1 MB
                     # 1st flow is to relieve and trigger SQG or Ctr-A region transition
                     # last flow is flow under test
@@ -591,7 +589,7 @@ class QosParamCisco(object):
                                 "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                     self.write_params("xon_hysteresis_9", params_1)
 
-            else: # Churchill-Mono/8101/Gibraltar/Q200
+            else:  # 8101/Q200
 
                 # 5*10 + 4 = 54 MB
                 sq_occupancies_mb = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4]
@@ -720,7 +718,7 @@ class QosParamCisco(object):
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_9", params_9)
 
-        else: # Matilda64/8102/Gibraltar/Q200
+        else:  # 8102/Q200
 
             # 4 + 5*5 + 2.5 = 31.5 MB
             # 1st flow do "tx enable" to trigger SQG transition from region 1 to region 0
