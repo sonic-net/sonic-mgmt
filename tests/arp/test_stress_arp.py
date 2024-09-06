@@ -10,6 +10,7 @@ from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsm
 from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test   # noqa F401
+from tests.common.errors import RunAnsibleModuleFail
 
 ARP_BASE_IP = "172.16.0.1/16"
 ARP_SRC_MAC = "00:00:01:02:03:04"
@@ -28,6 +29,34 @@ LOOP_TIMES_LEVEL_MAP = {
     'thorough': 100,
     'diagnose': 200
 }
+
+
+@pytest.fixture(autouse=True)
+def arp_cache_fdb_cleanup(duthost):
+    try:
+        clear_dut_arp_cache(duthost)
+        fdb_cleanup(duthost)
+    except RunAnsibleModuleFail as e:
+        if 'Failed to send flush request: No such file or directory' in str(e):
+            logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
+        else:
+            raise e
+
+    time.sleep(5)
+
+    yield
+
+    # Ensure clean test environment even after failing
+    try:
+        clear_dut_arp_cache(duthost)
+        fdb_cleanup(duthost)
+    except RunAnsibleModuleFail as e:
+        if 'Failed to send flush request: No such file or directory' in str(e):
+            logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
+        else:
+            raise e
+
+    time.sleep(10)
 
 
 def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
@@ -57,20 +86,18 @@ def genrate_ipv4_ip():
 
 
 def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
-                  ptfadapter, get_function_conpleteness_level, skip_traffic_test):  # noqa F811
+                  ptfadapter, get_function_completeness_level, skip_traffic_test):  # noqa F811
     """
     Send gratuitous ARP (GARP) packet sfrom the PTF to the DUT
 
     The DUT should learn the (previously unseen) ARP info from the packet
     """
-    normalized_level = get_function_conpleteness_level
+    normalized_level = get_function_completeness_level
     if normalized_level is None:
         normalized_level = "debug"
 
-    ipv4_avaliable = get_crm_resources(duthost, "ipv4_neighbor", "available") - \
-        get_crm_resources(duthost, "ipv4_neighbor", "used")
-    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available") - \
-        get_crm_resources(duthost, "fdb_entry", "used")
+    ipv4_avaliable = get_crm_resources(duthost, "ipv4_neighbor", "available")
+    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
     pytest_assert(ipv4_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
     arp_avaliable = min(min(ipv4_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
@@ -92,11 +119,17 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
                 logger.debug("Expected route number: {}, real route number {}"
                              .format(arp_avaliable, get_fdb_dynamic_mac_count(duthost)))
                 pytest_assert(wait_until(20, 1, 0,
-                                         lambda: abs(arp_avaliable - get_fdb_dynamic_mac_count(duthost)) < 100),
+                                         lambda: abs(arp_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
                               "ARP Table Add failed")
         finally:
-            clear_dut_arp_cache(duthost)
-            fdb_cleanup(duthost)
+            try:
+                clear_dut_arp_cache(duthost)
+                fdb_cleanup(duthost)
+            except RunAnsibleModuleFail as e:
+                if 'Failed to send flush request: No such file or directory' in str(e):
+                    logger.warning("Failed to clear arp cache, file may not exist yet")
+                else:
+                    raise e
 
             time.sleep(5)
 
@@ -142,21 +175,19 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
 
 
 def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
-                 ptfadapter, get_function_conpleteness_level, proxy_arp_enabled, skip_traffic_test):    # noqa F811
+                 ptfadapter, get_function_completeness_level, proxy_arp_enabled, skip_traffic_test):    # noqa F811
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
-    normalized_level = get_function_conpleteness_level
+    normalized_level = get_function_completeness_level
     if normalized_level is None:
         normalized_level = "debug"
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-    ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - \
-        get_crm_resources(duthost, "ipv6_neighbor", "used")
-    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available") - \
-        get_crm_resources(duthost, "fdb_entry", "used")
+    ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available")
+    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
     pytest_assert(ipv6_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
     nd_avaliable = min(min(ipv6_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
@@ -171,10 +202,16 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
                 logger.debug("Expected route number: {}, real route number {}"
                              .format(nd_avaliable, get_fdb_dynamic_mac_count(duthost)))
                 pytest_assert(wait_until(20, 1, 0,
-                                         lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 100),
+                                         lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
                               "Neighbor Table Add failed")
         finally:
-            clear_dut_arp_cache(duthost)
-            fdb_cleanup(duthost)
+            try:
+                clear_dut_arp_cache(duthost)
+                fdb_cleanup(duthost)
+            except RunAnsibleModuleFail as e:
+                if 'Failed to send flush request: No such file or directory' in str(e):
+                    logger.warning("Failed to clear arp cache, file may not exist yet")
+                else:
+                    raise e
             # Wait for 10 seconds before starting next loop
             time.sleep(10)

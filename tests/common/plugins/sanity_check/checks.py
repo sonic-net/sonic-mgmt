@@ -91,7 +91,7 @@ def check_interfaces(duthosts):
 
     def _check(*args, **kwargs):
         result = parallel_run(_check_interfaces_on_dut, args, kwargs, duthosts.frontend_nodes,
-                              timeout=600, init_result=init_result)
+                              timeout=1200, init_result=init_result)
         return list(result.values())
 
     @reset_ansible_local_tmp
@@ -102,6 +102,8 @@ def check_interfaces(duthosts):
 
         networking_uptime = dut.get_networking_uptime().seconds
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        if dut.get_facts().get("modular_chassis"):
+            timeout = max(timeout, 900)
         interval = 20
         logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" %
                     (networking_uptime, timeout, interval))
@@ -155,7 +157,7 @@ def check_bgp(duthosts, tbinfo):
 
     def _check(*args, **kwargs):
         result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes,
-                              timeout=600, init_result=init_result)
+                              timeout=1200, init_result=init_result)
         return list(result.values())
 
     @reset_ansible_local_tmp
@@ -228,6 +230,8 @@ def check_bgp(duthosts, tbinfo):
             max_timeout = 500
         else:
             max_timeout = SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480
+        if dut.get_facts().get("modular_chassis"):
+            max_timeout = max(max_timeout, 900)
         timeout = max(max_timeout, 1)
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)

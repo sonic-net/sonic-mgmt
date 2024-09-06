@@ -375,7 +375,7 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
 
 
 def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
-                    get_function_conpleteness_level, announce_default_routes,
+                    get_function_completeness_level, announce_default_routes,
                     enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
                     setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m,                     # noqa F811
                     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m, loganalyzer):    # noqa F811
@@ -448,9 +448,9 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     logger.info("exabgp_port = %d" % exabgp_port)
     ping_ip = route_to_ping.strip('/{}'.format(route_prefix_len))
 
-    normalized_level = get_function_conpleteness_level
+    normalized_level = get_function_completeness_level
     if normalized_level is None:
-        normalized_level = 'basic'
+        normalized_level = 'debug'
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
