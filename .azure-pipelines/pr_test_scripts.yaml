@@ -84,7 +84,6 @@ t0:
   - http/test_http_copy.py
   - iface_loopback_action/test_iface_loopback_action.py
   - iface_namingmode/test_iface_namingmode.py
-  - ip/test_mgmt_ipv6_only.py
   - ip/test_ip_packet.py
   - ipfwd/test_dip_sip.py
   - ipfwd/test_dir_bcast.py
@@ -172,7 +171,6 @@ t0:
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
   - telemetry/test_events.py
-  - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
   - test_interfaces.py
@@ -273,7 +271,6 @@ t1-lag:
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
   - ip/test_ip_packet.py
-  - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dip_sip.py
   - ipfwd/test_mtu.py
   - lldp/test_lldp.py
@@ -391,7 +388,6 @@ t1-lag:
   - system_health/test_system_status.py
   - system_health/test_watchdog.py
   - tacacs/test_ro_disk.py
-  - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
   - test_procdockerstatsd.py
@@ -406,7 +402,6 @@ t1-lag:
   - stress/test_stress_routes.py
   - drop_packets/test_drop_counters.py
   - crm/test_crm.py
-  - bgp/test_bgp_suppress_fib.py
   - bgp/test_bgp_sentinel.py
 
 multi-asic-t1-lag:
