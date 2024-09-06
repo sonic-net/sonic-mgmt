@@ -10,8 +10,7 @@ from ipaddress import ip_address, IPv4Address
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa F401
 from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 
 logger = logging.getLogger(__name__)
 

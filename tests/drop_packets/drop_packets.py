@@ -15,8 +15,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
