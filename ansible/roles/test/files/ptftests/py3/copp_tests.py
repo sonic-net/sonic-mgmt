@@ -81,6 +81,7 @@ class ControlPlaneBaseTest(BaseTest):
                 self.hw_sku == "Cisco-8111-O62C2"):
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
         self.asic_type = test_params.get('asic_type', None)
+        self.platform = test_params.get('platform', None)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -352,10 +353,18 @@ class DHCPTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
             self.PPS_LIMIT = 250
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
         else:
             self.PPS_LIMIT = 100
-        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
-        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+        if self.asic_type == "cisco-8000" and any(platform in self.platform
+                                                  for platform in ["8102", "8101", "8111"]):
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.8
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
+        else:
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("DHCPTest")
@@ -396,10 +405,18 @@ class DHCP6Test(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
             self.PPS_LIMIT = 250
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
         else:
             self.PPS_LIMIT = 100
-        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
-        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+        if self.asic_type == "cisco-8000" and any(platform in self.platform
+                                                  for platform in ["8102", "8101", "8111"]):
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.8
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
+        else:
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("DHCP6Test")
@@ -459,10 +476,18 @@ class LLDPTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
             self.PPS_LIMIT = 250
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
         else:
             self.PPS_LIMIT = 100
-        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
-        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+        if self.asic_type == "cisco-8000" and any(platform in self.platform
+                                                  for platform in ["8102", "8101", "8111"]):
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.8
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
+        else:
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("LLDPTest")
@@ -490,11 +515,18 @@ class UDLDTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
             self.PPS_LIMIT = 250
-
+        # Cisco G100 based platform has CIR 600
+        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
+            self.PPS_LIMIT = 600
         else:
             self.PPS_LIMIT = 100
-        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
-        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+        if self.asic_type == "cisco-8000" and any(platform in self.platform
+                                                  for platform in ["8102", "8101", "8111"]):
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.8
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
+        else:
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("UDLDTest")
