@@ -10,8 +10,12 @@ import time
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
 from tests.common.helpers.assertions import pytest_assert
+from ansible.errors import AnsibleConnectionFailure
 
 logger = logging.getLogger(__name__)
+
+
+DEVICE_UNREACHABLE_MAX_RETRIES = 3
 
 
 # per-command authorization feature not available in following versions
@@ -402,3 +406,15 @@ def load_tacacs_creds():
     TACACS_CREDS_FILE = 'tacacs_creds.yaml'
     creds_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), TACACS_CREDS_FILE)
     return yaml.safe_load(open(creds_file_path).read())
+
+
+def duthost_shell_with_unreachable_retry(duthost, command):
+    retries = 0
+    while True:
+        try:
+            return duthost.shell(command)
+        except AnsibleConnectionFailure as e:
+            retries+=1
+            logger.warning("retry_when_dut_unreachable exception： {}, retry {}/{}".format(e, retries, DEVICE_UNREACHABLE_MAX_RETRIES))
+            if retries > DEVICE_UNREACHABLE_MAX_RETRIES:
+                raise e
