@@ -555,4 +555,3 @@ def check_pfc_storm_state(dut, port, queue):
             return entry['storm detected/restored']
     logger.info("PFCWD not triggered on queue {}".format(queue_name))
     return None
-
