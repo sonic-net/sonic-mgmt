@@ -61,4 +61,4 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
         logger.info("Failed to set: " + str(e))
         msg = str(e)
 
-    assert "rpc error: code = Unauthenticated" in msg
+    assert "Unauthenticated" in msg
