@@ -27,6 +27,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import config_reload
+from tests.common.devices.eos import EosHost
 
 logger = logging.getLogger(__name__)
 
@@ -2546,6 +2547,7 @@ class QosSaiBase(QosBase):
         yield
         return
 
+
     @pytest.fixture(scope="class", autouse=False)
     def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
         duthost = get_src_dst_asic_and_duts['src_dut']
@@ -2572,3 +2574,44 @@ class QosSaiBase(QosBase):
                     if cable_length >= 120000:
                         return True
         return False
+
+    @pytest.fixture(scope="function", autouse=False)
+    def change_lag_lacp_timer(self, duthosts, get_src_dst_asic_and_duts, tbinfo, nbrhosts, dutConfig, dutTestParams):
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            src_dut = get_src_dst_asic_and_duts['src_dut']
+            dst_dut = get_src_dst_asic_and_duts['dst_dut']
+            if src_dut.sonichost.is_multi_asic and dst_dut.sonichost.is_multi_asic:
+                dst_mgfacts = dst_dut.get_extended_minigraph_facts(tbinfo)
+                dst_port_id = dutConfig['testPorts']['dst_port_id']
+                dst_interface = dutConfig['dutInterfaces'][dst_port_id]
+                lag_name = ''
+                for port_ch, port_intf in dst_mgfacts['minigraph_portchannels'].items():
+                    if dst_interface in port_intf['members']:
+                        lag_name = port_ch
+                        break
+                if lag_name == '':
+                    yield
+                    return
+                lag_facts = dst_dut.lag_facts(host=dst_dut.hostname)['ansible_facts']['lag_facts']
+                po_interfaces = lag_facts['lags'][lag_name]['po_config']['ports']
+                vm_neighbors = dst_mgfacts['minigraph_neighbors']
+                neighbor_lag_intfs = [vm_neighbors[po_intf]['port'] for po_intf in po_interfaces]
+                neigh_intf = next(iter(po_interfaces.keys()))
+                peer_device = vm_neighbors[neigh_intf]['name']
+                vm_host = nbrhosts[peer_device]['host']
+                num = 600
+                for neighbor_lag_member in neighbor_lag_intfs:
+                    logger.info(
+                        "Changing lacp timer multiplier to 600 for %s in %s" % (neighbor_lag_member, peer_device))
+                    if isinstance(vm_host, EosHost):
+                        vm_host.set_interface_lacp_time_multiplier(neighbor_lag_member, num)
+
+        yield
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            if src_dut.sonichost.is_multi_asic and dst_dut.sonichost.is_multi_asic:
+                for neighbor_lag_member in neighbor_lag_intfs:
+                    logger.info(
+                        "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, peer_device))
+                    vm_host.no_lacp_time_multiplier(neighbor_lag_member)
