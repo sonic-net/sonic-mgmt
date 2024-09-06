@@ -10,7 +10,7 @@ from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_runtime_traffic_helper import run_pfcwd_runtime_traffic_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
-pytestmark = [pytest.mark.topology('snappi')]
+pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
