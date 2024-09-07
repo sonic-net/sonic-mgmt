@@ -3,6 +3,7 @@ import struct
 import ipaddress
 import binascii
 import os
+import time
 
 # Packet Test Framework imports
 import ptf
@@ -134,9 +135,9 @@ class DHCPTest(DataplaneBaseTest):
             0, self.server_port_indices[0])
 
         self.relay_iface_ip = self.test_params['relay_iface_ip']
-        self.relay_iface_mac = self.test_params['relay_iface_mac']
+        self.relay_iface_mac = self.test_params.get('relay_iface_mac', '')
 
-        self.client_iface_alias = self.test_params['client_iface_alias']
+        self.client_iface_alias = self.test_params.get('client_iface_alias', '')
         self.client_port_index = int(self.test_params['client_port_index'])
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
 
@@ -795,3 +796,36 @@ class DHCPTest(DataplaneBaseTest):
         if not self.dual_tor and 'other_client_port' in self.test_params:
             self.verify_dhcp_relay_pkt_on_server_port_with_no_padding(
                 self.dest_mac_address, self.client_udp_src_port)
+
+
+class DHCPContinuousStressTest(DHCPTest):
+    def __init__(self):
+        DHCPTest.__init__(self)
+
+    def setUp(self):
+        DHCPTest.setUp(self)
+        self.send_interval = 1 / self.test_params["pps"]
+        self.duration = self.test_params["duration"]
+        self.client_ports = self.other_client_port
+        self.client_ports.append(self.client_port_index)
+
+    def send_packet_with_interval(self, pkt, index):
+        testutils.send_packet(self, index, pkt)
+        time.sleep(self.send_interval)
+
+    def runTest(self):
+        dhcp_discover = self.create_dhcp_discover_packet(self.dest_mac_address, self.client_udp_src_port)
+        dhcp_offer = self.create_dhcp_offer_packet()
+        dhcp_request = self.create_dhcp_request_packet(self.dest_mac_address, self.client_udp_src_port)
+        dhcp_ack = self.create_dhcp_ack_packet()
+
+        start_time = time.time()
+        while time.time() - start_time <= self.duration:
+            for client_port in self.client_ports:
+                self.send_packet_with_interval(dhcp_discover, client_port)
+            for server_port in self.server_port_indices:
+                self.send_packet_with_interval(dhcp_offer, server_port)
+            for client_port in self.client_ports:
+                self.send_packet_with_interval(dhcp_request, client_port)
+            for server_port in self.server_port_indices:
+                self.send_packet_with_interval(dhcp_ack, server_port)

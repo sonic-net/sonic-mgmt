@@ -11,7 +11,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_link_status
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -187,15 +187,13 @@ def restart_dhcp_service(duthost):
     duthost.shell('systemctl restart dhcp_relay')
     duthost.shell('systemctl reset-failed dhcp_relay')
 
-    for retry in range(5):
-        time.sleep(30)
-        dhcp_status = duthost.shell('docker container top dhcp_relay | grep dhcrelay | cat')["stdout"]
-        if dhcp_status != "":
-            break
-    else:
-        assert False, "Failed to restart dhcp docker"
-
-    time.sleep(30)
+    def _is_dhcp_relay_ready():
+        output = duthost.shell('docker exec dhcp_relay supervisorctl | grep dhcp | awk \'{print $2}\'',
+                               module_ignore_errors=True)
+        return (not output['rc'] and output['stderr'] == '' and
+                all(element == 'RUNNING' for element in output['stdout_lines']))
+    
+    pytest_assert(wait_until(30, 1, 0, _is_dhcp_relay_ready), "dhcp_relay is not ready after restarting")
 
 
 def get_subtype_from_configdb(duthost):
@@ -524,6 +522,78 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                            "uplink_mac": str(dhcp_relay['uplink_mac']),
                            "testing_mode": testing_mode},
                    log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python3=True)
+
+
+def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
+    """
+    This test case is to make sure DHCPv4 relay would work well when startup with stress packets coming
+    """
+    pytest_require(len(dut_dhcp_relay_data) >= 1, "Skip because cannot get enough vlan data")
+    testing_mode, duthost = testing_config
+
+    # Unit: s, indicates duration time for sending stress packets
+    duration = 30
+    # Packets sending count per second
+    pps = 20
+
+    # Keep sending packets and then restart dhcp_relay
+    ptf_runner(ptfhost, "ptftests", "dhcp_relay_test.DHCPContinuousStressTest", platform_dir="ptftests",
+               params={"hostname": duthost.hostname,
+                       "client_port_index": dut_dhcp_relay_data[0]['client_iface']['port_idx'],
+                        # This port is introduced to test DHCP relay packet received
+                        # on other client port
+                        "other_client_port": repr(dut_dhcp_relay_data[0]['other_client_ports']),
+                        "leaf_port_indices": repr(dut_dhcp_relay_data[0]['uplink_port_indices']),
+                        "num_dhcp_servers": len(dut_dhcp_relay_data[0]['downlink_vlan_iface']['dhcp_server_addrs']),
+                        "server_ip": dut_dhcp_relay_data[0]['downlink_vlan_iface']['dhcp_server_addrs'],
+                        "relay_iface_ip": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['addr']),
+                        "relay_iface_mac": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['mac']),
+                        "relay_iface_netmask": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['mask']),
+                        "dest_mac_address": BROADCAST_MAC,
+                        "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                        "switch_loopback_ip": dut_dhcp_relay_data[0]['switch_loopback_ip'],
+                        "uplink_mac": str(dut_dhcp_relay_data[0]['uplink_mac']),
+                        "testing_mode": testing_mode,
+                        "duration": duration,
+                        "pps": pps},
+               log_file="/tmp/dhcp_relay_test.DHCPContinuousStressTest.log", is_python3=True,
+               async_mode=True)
+
+    restart_dhcp_service(duthost)
+    time.sleep(10)
+    ptfhost.shell("kill -9 $(ps aux | grep DHCPContinuousStress | grep -v 'grep' | awk '{print $2}')",
+                  module_ignore_errors=True)
+
+    def _check_socket_buffer():
+        output = duthost.shell('ss -nlpu | grep Vlan | awk \'{print $2}\'',
+                               module_ignore_errors=True)
+        return (not output['rc'] and output['stderr'] == '' and
+                all(element == '0' for element in output['stdout_lines']))
+
+    # Make sure there are not packets left in socket buffer.
+    pytest_assert(wait_until(30, 1, 0, _check_socket_buffer), "Socket buffer is not zero")
+
+    # Run the DHCP relay test on the PTF host, make sure DHCPv4 relay is functionality good
+    ptf_runner(ptfhost, "ptftests", "dhcp_relay_test.DHCPTest", platform_dir="ptftests",
+               params={"hostname": duthost.hostname,
+                       "client_port_index": dut_dhcp_relay_data[0]['client_iface']['port_idx'],
+                        # This port is introduced to test DHCP relay packet received
+                        # on other client port
+                        "other_client_port": repr(dut_dhcp_relay_data[0]['other_client_ports']),
+                        "client_iface_alias": str(dut_dhcp_relay_data[0]['client_iface']['alias']),
+                        "leaf_port_indices": repr(dut_dhcp_relay_data[0]['uplink_port_indices']),
+                        "num_dhcp_servers":
+                            len(dut_dhcp_relay_data[0]['downlink_vlan_iface']['dhcp_server_addrs']),
+                        "server_ip": dut_dhcp_relay_data[0]['downlink_vlan_iface']['dhcp_server_addrs'],
+                        "relay_iface_ip": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['addr']),
+                        "relay_iface_mac": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['mac']),
+                        "relay_iface_netmask": str(dut_dhcp_relay_data[0]['downlink_vlan_iface']['mask']),
+                        "dest_mac_address": BROADCAST_MAC,
+                        "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                        "switch_loopback_ip": dut_dhcp_relay_data[0]['switch_loopback_ip'],
+                        "uplink_mac": str(dut_dhcp_relay_data[0]['uplink_mac']),
+                        "testing_mode": testing_mode},
+               log_file="/tmp/dhcp_relay_test.stress.DHCPTest.log", is_python3=True)
 
 
 def get_dhcp_relay_counter(duthost, ifname, type, dir):
