@@ -562,7 +562,7 @@ class EosHost(AnsibleHostBase):
             lines=['lacp timer multiplier %d' % multiplier],
             parents='interface %s' % interface_name)
 
-        if out['failed'] == True or out['changed'] == False:
+        if out['failed'] is True or out['changed'] is False:
             logging.warning("Unable to set interface [%s] lacp timer multiplier to [%d]" % (interface_name, multiplier))
         else:
             logging.info("Set interface [%s] lacp timer to [%d]" % (interface_name, multiplier))
