@@ -1,7 +1,10 @@
 import time
 import logging
 import pytest
+import ptf.packet as scapy
 
+from ptf.testutils import simple_tcp_packet
+from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -9,6 +12,7 @@ from srv6_utils import announce_route
 from srv6_utils import find_node_interfaces
 from srv6_utils import check_bgp_neighbors
 from srv6_utils import check_bgp_neighbors_func
+from srv6_utils import runSendReceive
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +29,12 @@ pytestmark = [
 ]
 
 test_vm_names = ["PE1", "PE2", "PE3", "P2", "P3", "P4"]
+sender_mac = "52:54:00:df:1c:5e" # From PE3
+
+#
+# The port used by ptf to connect with backplane. This number is different from 3 ndoe case.
+#
+ptf_port_for_backplane = 18
 
 # The number of routes published by each CE
 num_ce_routes = 10
@@ -126,3 +136,45 @@ def test_check_bgp_neighbors(duthosts, rand_one_dut_hostname, nbrhosts):
     # From P4
     nbrhost = nbrhosts["P4"]['host']
     check_bgp_neighbors(nbrhost, ['fc01::86', 'fc04::2', 'fc07::2', 'fc06::1'])
+
+#
+# Test Case : Traffic check in Normal Case
+#
+def test_traffic_check(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
+    #
+    # Create a packet sending to 192.100.0.1
+    #
+    # establish_and_configure_bfd(nbrhosts)
+    tcp_pkt0 = simple_tcp_packet(
+        ip_src="192.200.0.1",
+        ip_dst="192.100.0.1",
+        tcp_sport=8888,
+        tcp_dport=6666,
+        ip_ttl=64
+    )
+    pkt = tcp_pkt0.copy()
+    pkt['Ether'].dst = sender_mac
+    
+    exp_pkt = tcp_pkt0.copy()
+    exp_pkt['IP'].ttl -= 4
+    masked2recv = Mask(exp_pkt)
+    masked2recv.set_do_not_care_scapy(scapy.Ether, "dst")
+    masked2recv.set_do_not_care_scapy(scapy.Ether, "src")
+    # Add retry for debugging purpose
+    count = 0 
+    done = False
+    while count < 10 and done == False:
+        try:
+            runSendReceive(pkt, ptf_port_for_backplane, masked2recv, [ptf_port_for_backplane], True, ptfadapter)
+            logger.info("Done with traffic run")
+            done = True
+        except Exception as e:
+            count = count + 1
+            logger.info("Retry round {}".format(count))
+            # sleep make sure all forwarding structures are settled down.
+            sleep_duration_for_retry = 60
+            time.sleep(sleep_duration_for_retry)
+            logger.info("Sleep {} seconds to make sure all forwarding structures are settled down".format(sleep_duration_for_retry))
+    logger.info("Done {} count {}".format(done, count))
+    if not done:
+        raise Exception("Traffic test failed")

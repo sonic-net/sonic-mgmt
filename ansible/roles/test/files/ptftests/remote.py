@@ -8,6 +8,7 @@ import yaml
 
 
 ETH_PFX = 'eth'
+BACKPLANE = 'backplane'
 SUB_INTF_SEP = '.'
 
 
@@ -24,7 +25,7 @@ def get_ifaces():
         iface = line.split(':')[0].strip()
 
         # Skip not FP interfaces and vlan interface, like eth1.20
-        if ETH_PFX not in iface:
+        if ETH_PFX not in iface and BACKPLANE != iface:
             continue
 
         ifaces.append(iface)
@@ -45,15 +46,26 @@ def build_ifaces_map(ifaces):
 
     sub_ifaces = []
     iface_map = {}
+    used_index = set()
+    backplane_exist = False
     for iface in ifaces:
         iface_suffix = iface.lstrip(ETH_PFX)
         if SUB_INTF_SEP in iface_suffix:
             iface_index = int(iface_suffix.split(SUB_INTF_SEP)[0])
             sub_ifaces.append((iface_index, iface))
+        elif iface == BACKPLANE:
+            backplane_exist = True
         else:
             iface_index = int(iface_suffix)
             iface_map[(0, iface_index)] = iface
+            used_index.add(iface_index)
 
+    count = 1
+    while count in used_index:
+        count = count + 1
+    if backplane_exist:
+        iface_map[(0, count)] = "backplane"
+        
     if ptf_port_mapping_mode == "use_sub_interface":
         # override those interfaces that has sub interfaces
         for i, si in sub_ifaces:

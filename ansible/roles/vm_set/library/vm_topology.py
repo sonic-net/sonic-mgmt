@@ -286,6 +286,7 @@ class VMTopology(object):
         self.duts_fp_ports = duts_fp_ports
 
         self.injected_fp_ports = self.extract_vm_vlans()
+        self.injected_VM_ports = self.extract_vm_ovs()
 
         self.bp_bridge = ROOT_BACK_BR_TEMPLATE % self.vm_set_name
 
@@ -386,6 +387,13 @@ class VMTopology(object):
 
         return vlans
 
+    def extract_vm_ovs(self):
+        vlans = {}
+        for _, attr in self.OVS_LINKs.items():
+            VM = self.vm_names[self.vm_base_index + attr['start_vm_offset']]
+            vlans[VM] = attr['vlans'][:]
+        return vlans
+    
     def add_network_namespace(self):
         """Create a network namespace."""
         self.delete_network_namespace()
@@ -1149,8 +1157,8 @@ class VMTopology(object):
                            (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s" %
                            (br_name, dut_iface_id, injected_iface_id))
-            VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=5,ipv6,in_port=%s,action=output:%s" %
-                           (br_name, dut_iface_id, injected_iface_id))
+            VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=5,ipv6,in_port=%s,action=output:%s,%s" %
+                           (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=3,in_port=%s,action=output:%s,%s" %
                            (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,priority=10,ip,in_port=%s,nw_proto=89,action=output:%s,%s" %

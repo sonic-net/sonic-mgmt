@@ -14,6 +14,7 @@ DEFAULT_PTF_NN_PORT_RANGE = [10900, 11000]
 DEFAULT_DEVICE_NUM = 0
 ETH_PFX = 'eth'
 ETHERNET_PFX = "Ethernet"
+BACKPLANE = 'backplane'
 MAX_RETRY_TIME = 3
 
 
@@ -65,7 +66,7 @@ def get_ifaces(netdev_output):
         iface = line.split(':')[0].strip()
 
         # Skip not FP interfaces
-        if ETH_PFX not in iface and ETHERNET_PFX not in iface:
+        if ETH_PFX not in iface and ETHERNET_PFX not in iface and BACKPLANE != iface:
             continue
 
         ifaces.append(iface)
@@ -77,14 +78,25 @@ def get_ifaces_map(ifaces, ptf_port_mapping_mode):
     """Get interface map."""
     sub_ifaces = []
     iface_map = {}
+    used_index = set()
+    backplane_exist = False
     for iface in ifaces:
         iface_suffix = iface.lstrip(ETH_PFX)
         if "." in iface_suffix:
             iface_index = int(iface_suffix.split(".")[0])
             sub_ifaces.append((iface_index, iface))
+        elif iface == BACKPLANE:
+            backplane_exist = True
         else:
             iface_index = int(iface_suffix)
             iface_map[iface_index] = iface
+            used_index.add(iface_index)
+
+    count = 1
+    while count in used_index:
+        count = count + 1
+    if backplane_exist:
+        iface_map[count] = "backplane"
 
     if ptf_port_mapping_mode == "use_sub_interface":
         # override those interfaces that has sub interface
@@ -155,7 +167,7 @@ def ptfadapter(ptfhost, tbinfo, request, duthost):
             adapter.payload_pattern = node_id + " "
 
         adapter.duthost = duthost
-        adapter.mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        # adapter.mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
         yield adapter
 

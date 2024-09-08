@@ -1,5 +1,8 @@
 import logging
 import requests
+import ptf.packet as scapy
+import ptf.testutils as testutils
+
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -101,3 +104,38 @@ def find_node_interfaces(nbrhost):
             found = found + 1
 
     return found, hwsku
+
+#
+# Send receive packets
+#
+def runSendReceive(pkt, src_port, exp_pkt, dst_ports, pkt_expected, ptfadapter):
+    """
+    @summary Send packet and verify it is received/not received on the expected ports
+    @param pkt: The packet that will be injected into src_port
+    @param src_ports: The port into which the pkt will be injected
+    @param exp_pkt: The packet that will be received on one of the dst_ports
+    @param dst_ports: The ports on which the exp_pkt may be received
+    @param pkt_expected: Indicated whether it is expected to receive the exp_pkt on one of the dst_ports
+    @param ptfadapter: The ptfadapter fixture
+    """
+    # Send the packet and poll on destination ports
+    testutils.send(ptfadapter, src_port, pkt, 1)
+    logger.debug("Sent packet: " + pkt.summary())
+    (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
+    received = False
+    if rcv_pkt:
+        received = True
+    pytest_assert(received == True)
+    logger.debug('index=%s, received=%s' % (str(index), str(received)))
+    if received:
+        logger.debug("Received packet: " + scapy.Ether(rcv_pkt).summary())
+    if pkt_expected:
+        logger.debug('Expected packet on dst_ports')
+        passed = True if received else False
+        logger.debug('Received: ' + str(received))
+    else:
+        logger.debug('No packet expected on dst_ports')
+        passed = False if received else True
+        logger.debug('Received: ' + str(received))
+    logger.debug('Passed: ' + str(passed))
+    return passed
