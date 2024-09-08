@@ -55,7 +55,12 @@ def __gen_all_to_all_traffic(testbed_config,
             flow.tx_rx.port.tx_name = tx_port_name
             flow.tx_rx.port.rx_name = rx_port_name
 
-            eth, ipv4 = flow.packet.ethernet().ipv4()
+            eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+            src_port = random.randint(5000, 6000)
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = 1
+
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
             eth.pfc_queue.value = priority
