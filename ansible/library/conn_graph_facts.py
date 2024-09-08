@@ -299,7 +299,7 @@ class LabGraph(object):
             band_width = link["BandWidth"]
             vlan_ID = link["VlanID"]
             vlan_mode = link["VlanMode"]
-            autoneg_mode = link["AutoNeg"]
+            autoneg_mode = link.get("AutoNeg", "off")
 
             if start_device not in links:
                 links[start_device] = {}
