@@ -14,7 +14,7 @@ tag = "sonic-events-bgp"
 def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     if duthost.is_supervisor_node():
         pytest.skip(
-            "Skipping test for BGP onsupervisor card")
+            "Skipping test for BGP on supervisor card")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, drop_tcp_packets,
              "bgp_notification.json", "sonic-events-bgp:notification", tag)
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
@@ -23,7 +23,6 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
 
 def drop_tcp_packets(duthost):
     prefix = ""
-    
     if duthost.is_multi_asic:
         nslist = duthost.get_asic_namespace_list()
         ns = random.choice(nslist)
