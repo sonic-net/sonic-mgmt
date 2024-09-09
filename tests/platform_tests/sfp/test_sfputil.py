@@ -29,6 +29,10 @@ cmd_intf_startup = "startup"
 cmd_intf_shutdown = "shutdown"
 cmd_dom_disable = "disable"
 cmd_dom_enable = "enable"
+db_cmd_dom_polling = "sonic-db-cli {} CONFIG_DB {} 'PORT|{}' 'dom_polling' {}"
+DOM_DISABLED = "disabled"
+DOM_ENABLED = "enabled"
+DOM_POLLING_CONFIG_VALUES = [DOM_DISABLED, DOM_ENABLED]
 
 I2C_WAIT_TIME_AFTER_SFP_RESET = 5  # in seconds
 
@@ -67,6 +71,15 @@ class LogicalInterfaceDisabler:
                                                          logical_intf, cmd_dom_enable)
         self.cmd_sfp_show_lpmode = "{} -p {}".format(cmd_sfp_show_lpmode, logical_intf)
         self.cmd_sfp_presence = "{} -p {}".format(cmd_sfp_presence, logical_intf)
+        self.db_cmd_dom_polling_clear = db_cmd_dom_polling.format(self.namespace_cmd_opt,
+                                                                  "HDEL",
+                                                                  logical_intf,
+                                                                  "")
+        self.db_cmd_dom_polling_get = db_cmd_dom_polling.format(self.namespace_cmd_opt,
+                                                                "HGET",
+                                                                logical_intf,
+                                                                "")
+        self.orig_dom_polling_value = None
 
     def disable(self):
         """
@@ -76,6 +89,9 @@ class LogicalInterfaceDisabler:
             * Check and save lpmode
         """
         if not self.skip_dom_polling_handle:
+            orig_dom_get_result = self.duthost.command(self.db_cmd_dom_polling_get)
+            if orig_dom_get_result["stdout"] in DOM_POLLING_CONFIG_VALUES:
+                self.orig_dom_polling_value = orig_dom_get_result["stdout"]
             logging.info("Disable DOM polling to avoid race condition during sfp reset"
                          " for {}".format(self.logical_intf))
             disable_dom_result = self.duthost.command(self.cmd_disable_dom)
@@ -127,9 +143,16 @@ class LogicalInterfaceDisabler:
         assert check_interface_status(self.duthost, [self.logical_intf], expect_up=True)
 
         if not self.skip_dom_polling_handle:
-            logging.info("Restore DOM polling after sfp reset for {}".format(self.logical_intf))
-            enable_dom_result = self.duthost.command(self.cmd_enable_dom)
-            assert enable_dom_result["rc"] == 0, "Enable DOM polling failed for {}".format(self.logical_intf)
+            logging.info("Restore DOM polling to {} after sfp reset for {}".format(self.orig_dom_polling_value,
+                                                                                   self.logical_intf))
+            if not self.orig_dom_polling_value:
+                restore_dom_result = self.duthost.command(self.db_cmd_dom_polling_clear)
+            else:
+                restore_dom_result = self.duthost.command(db_cmd_dom_polling.format(self.namespace_cmd_opt,
+                                                                                    "HSET",
+                                                                                    self.logical_intf,
+                                                                                    self.orig_dom_polling_value))
+            assert restore_dom_result["rc"] == 0, "Restore DOM polling failed for {}".format(self.logical_intf)
 
 
 class DisablePhysicalInterface:
@@ -250,7 +273,7 @@ def check_interface_status(duthost, ports, expect_up=True, wait_time=None):
             wait_time = port_down_wait_time
 
     logging.info("Wait for ports to come {}: {}".format(expect_status_str, ports))
-    is_ok = wait_until(wait_time, 5, 0,
+    is_ok = wait_until(wait_time, 1, 0,
                        is_interface_status_expected,
                        duthost, ports, expect_up)
 
