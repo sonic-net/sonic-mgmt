@@ -34,7 +34,7 @@ class SshSessionRepoGenerator(object):
         """
         raise NotImplementedError
 
-    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass):
+    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass, console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
         """Generate SSH session for a node.
 
         This is a virtual method that should be implemented by child class.
@@ -102,14 +102,21 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
 
             return template
 
-    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass):
+    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass, console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
         """Generate SSH session for a testbed node."""
-        if ssh_ip:
-            ssh_session_name = session_path
+        session_file_matrix = [
+                (session_path, ssh_ip, ssh_user, ssh_pass),
+                (session_path + "-v6", ssh_ipv6, ssh_user, ssh_pass),
+                (session_path + "-console", console_ssh_ip, f"{console_ssh_user}:{console_ssh_port}", console_ssh_pass),
+        ]
+
+        for (session_name, ip, user, password) in session_file_matrix:
+            if not ip or not user:
+                continue
 
             # In SecureCRT, every SSH session is stored in a ini file separately,
             # hence we add .ini extension to the session path in order to generate individual SSH session file.
-            ssh_session_file_path = os.path.join(self.target, ssh_session_name + ".ini")
+            ssh_session_file_path = os.path.join(self.target, session_name + ".ini")
 
             # Recursively create SSH session file directory
             ssh_session_folder = os.path.dirname(ssh_session_file_path)
@@ -117,7 +124,7 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
 
             # Generate SSH session file
             ssh_session_file_content = self._generate_ssh_session_file_content(
-                ssh_session_name, ssh_ip, ssh_user, ssh_pass
+                session_name, ip, user, password
             )
             with open(ssh_session_file_path, "w") as ssh_session_file:
                 ssh_session_file.write(ssh_session_file_content)
@@ -126,32 +133,7 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
             ssh_session_folder_data = SecureCRTRepoFolderData.from_folder(
                 ssh_session_folder, create_if_not_exist=True
             )
-            ssh_session_folder_data.add_session(ssh_session_name)
-            ssh_session_folder_data.save()
-
-        if ssh_ipv6:
-            ssh_session_name = session_path + "-v6"
-
-            # In SecureCRT, every SSH session is stored in a ini file separately,
-            # hence we add .ini extension to the session path in order to generate individual SSH session file.
-            ssh_session_file_path = os.path.join(self.target, ssh_session_name + ".ini")
-
-            # Recursively create SSH session file directory
-            ssh_session_folder = os.path.dirname(ssh_session_file_path)
-            self._create_ssh_session_folder(ssh_session_folder)
-
-            # Generate SSH session file
-            ssh_session_file_content = self._generate_ssh_session_file_content(
-                ssh_session_name, ssh_ip, ssh_user, ssh_pass
-            )
-            with open(ssh_session_file_path, "w") as ssh_session_file:
-                ssh_session_file.write(ssh_session_file_content)
-
-            # Add newly created session file into current folder data
-            ssh_session_folder_data = SecureCRTRepoFolderData.from_folder(
-                ssh_session_folder, create_if_not_exist=True
-            )
-            ssh_session_folder_data.add_session(ssh_session_name)
+            ssh_session_folder_data.add_session(session_name)
             ssh_session_folder_data.save()
 
     def _create_ssh_session_folder(self, ssh_session_file_dir):
@@ -353,7 +335,7 @@ class SshConfigSshSessionRepoGenerator(SshSessionRepoGenerator):
     It derives from SshSessionRepoGenerator and implements the generate method.
     """
 
-    def __init__(self, target, ssh_config_params):
+    def __init__(self, target, ssh_config_params, console_ssh_config_params):
         super().__init__(target, "")
 
         # Load SSH config file from target file path
@@ -365,6 +347,7 @@ class SshConfigSshSessionRepoGenerator(SshSessionRepoGenerator):
 
         # Add SSH config parameters
         self.ssh_config_params = ssh_config_params
+        self.console_ssh_config_params = console_ssh_config_params
 
     def _load_template(self, template_file):
         """Load SSH session template file.
@@ -373,24 +356,38 @@ class SshConfigSshSessionRepoGenerator(SshSessionRepoGenerator):
         """
         pass
 
-    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass):
+    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass, console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
         """Generate SSH session for a testbed node."""
         ssh_session_name = os.path.basename(session_path)
 
-        # Remove existing host config if it exists
-        try:
-            self.ssh_config.remove(ssh_session_name)
-            self.ssh_config.remove(ssh_session_name + "-v6")
-        except ValueError:
-            pass
+        current_hosts = self.ssh_config.hosts()
+        ssh_config = {}
+        if ssh_user:
+            ssh_config["User"] = ssh_user
 
         # Add new host config
         if ssh_ip:
-            self.ssh_config.add(ssh_session_name, Hostname=ssh_ip, User=ssh_user,
-                                PasswordAuthentication="yes", **self.ssh_config_params)
+            session_name = ssh_session_name
+            ssh_config["Hostname"] = ssh_ip
+            if session_name in current_hosts:
+                self.ssh_config.set(session_name, **ssh_config, **self.ssh_config_params)
+            else:
+                self.ssh_config.add(session_name, **ssh_config, **self.ssh_config_params)
         if ssh_ipv6:
-            self.ssh_config.add(ssh_session_name + "-v6", Hostname=ssh_ipv6, User=ssh_user,
-                                PasswordAuthentication="yes", **self.ssh_config_params)
+            session_name = ssh_session_name + "-v6"
+            ssh_config["Hostname"] = ssh_ipv6
+            if session_name in current_hosts:
+                self.ssh_config.set(session_name, **ssh_config, **self.ssh_config_params)
+            else:
+                self.ssh_config.add(session_name, **ssh_config, **self.ssh_config_params)
+        if console_ssh_ip:
+            session_name = ssh_session_name + "-console"
+            ssh_config["User"] = f"{console_ssh_user}:{console_ssh_port}"
+            ssh_config["Hostname"] = console_ssh_ip
+            if session_name in current_hosts:
+                self.ssh_config.set(session_name, **ssh_config, **self.ssh_config_params, **self.console_ssh_config_params)
+            else:
+                self.ssh_config.add(session_name, **ssh_config, **self.ssh_config_params, **self.console_ssh_config_params)
 
     def finish(self):
         """Finish SSH session generation."""

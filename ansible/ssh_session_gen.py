@@ -58,6 +58,7 @@ class SSHInfoSolver(object):
             "FanoutLeafSonic": {"user": leaf_fanout_user, "pass": leaf_fanout_pass},
             "FanoutRoot": {"user": root_fanout_user, "pass": root_fanout_pass},
             "ConsoleServer": {"user": console_server_user, "pass": console_server_pass},
+            "MgmtTsToRRouter": {"user": console_server_user, "pass": console_server_pass},
             "PTF": {"user": ptf_user, "pass": ptf_pass},
         }
 
@@ -131,6 +132,12 @@ class DeviceSshSessionRepoGenerator(object):
             )
             return
 
+        if device.console_device:
+            console_ssh_ip, _, console_ssh_user, console_ssh_pass = self.ssh_info_solver.get_ssh_cred(device.console_device)
+            console_ssh_port = device.console_port
+        else:
+            console_ssh_ip, console_ssh_user, console_ssh_pass, console_ssh_port = None, None, None, 0
+
         if not ssh_user:
             print(
                 "WARNING: SSH credential is missing for device: {}".format(
@@ -144,6 +151,10 @@ class DeviceSshSessionRepoGenerator(object):
             ssh_ipv6,
             ssh_user,
             ssh_pass,
+            console_ssh_ip,
+            console_ssh_port,
+            console_ssh_user,
+            console_ssh_pass
         )
 
 
@@ -256,7 +267,8 @@ class DeviceSessionRepoGenerator(DeviceSshSessionRepoGenerator):
         )
 
         for device in device_inventory.devices.values():
-            device_type = device_type_pattern.sub("-", device.device_type).lower()
+            device_type = device.device_type.lower()
+            print(device_type)
             session_path = os.path.join(
                 "devices", device_inventory.inv_name, device_type, device.hostname
             )
@@ -274,13 +286,9 @@ def main(args):
             args.target, args.template_file_path
         )
     elif args.format == "ssh":
-        ssh_config_params = {}
-        for param in args.ssh_config_params:
-            key, value = param.split("=")
-            ssh_config_params[key] = value
 
         repo_generator = SshConfigSshSessionRepoGenerator(
-            args.target, ssh_config_params
+            args.target, args.ssh_config_params, args.console_ssh_config_params
         )
     else:
         print("Unsupported output format: {}".format(args.format))
@@ -331,6 +339,17 @@ def main(args):
         )
         device_repo_generator.generate()
 
+class SSHConfigParamsParser(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        current_params = getattr(namespace, self.dest)
+        if current_params is None:
+            current_params = {}
+        for configEntry in values:
+            if '=' not in configEntry:
+                raise argparse.ArgumentError(self, f"Invalid syntax '{configEntry}' for SSH parameter")
+            key, value = configEntry.split('=', 2)
+            current_params[key] = value
+        setattr(namespace, self.dest, current_params)
 
 if __name__ == "__main__":
     # Parse arguments
@@ -411,16 +430,27 @@ the `secrets.json` file and use the alternative credentials.
         help="Output target format, currently supports securecrt or ssh.",
     )
 
-    parser.add_argument(
+    group = parser.add_argument_group("templates")
+
+    group.add_argument(
         "--ssh-config-params",
         type=str,
         dest="ssh_config_params",
         nargs="+",
-        default="",
-        help="Extra SSH config parameters, only used when --format=ssh. E.g. ProxyJump=jumpbox",
+        action=SSHConfigParamsParser,
+        help="Extra SSH config parameters used for all devices, only used when --format=ssh. E.g. ProxyJump=jumpbox",
     )
 
-    parser.add_argument(
+    group.add_argument(
+        "--console-ssh-config-params",
+        type=str,
+        dest="console_ssh_config_params",
+        nargs="+",
+        action=SSHConfigParamsParser,
+        help="Extra SSH config parameters used for consoles, only used when --format=ssh. E.g. ProxyJump=jumpbox",
+    )
+
+    group.add_argument(
         "-p",
         "--template",
         type=str,
@@ -429,84 +459,86 @@ the `secrets.json` file and use the alternative credentials.
         "Only used when --format=securecrt.",
     )
 
-    parser.add_argument(
+    group = parser.add_argument_group("credentials")
+
+    group.add_argument(
         "--dut-user",
         type=str,
         dest="dut_user",
         help="SSH user name of DUTs. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--dut-pass",
         type=str,
         dest="dut_pass",
         help="SSH password of DUTs. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--ptf-user",
         type=str,
         dest="ptf_user",
         help="SSH user name of PTF containers. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--ptf-pass",
         type=str,
         dest="ptf_pass",
         help="SSH password of PTF containers. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--server-user",
         type=str,
         dest="server_user",
         help="SSH user name of servers. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--server-pass",
         type=str,
         dest="server_pass",
         help="SSH password of servers. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--leaf-fanout-user",
         type=str,
         dest="leaf_fanout_user",
         help="SSH user name of leaf fanouts. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--leaf-fanout-pass",
         type=str,
         dest="leaf_fanout_pass",
         help="SSH password of leaf fanouts. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--root-fanout-user",
         type=str,
         dest="root_fanout_user",
         help="SSH user name of root fanouts. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--root-fanout-pass",
         type=str,
         dest="root_fanout_pass",
         help="SSH password of root fanouts. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--console-server-user",
         type=str,
         dest="console_server_user",
         help="SSH user name of console server. If not specified, we will use ansible to get the SSH configuration.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "--console-server-pass",
         type=str,
         dest="console_server_pass",
