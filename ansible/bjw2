@@ -101,6 +101,27 @@ all:
         bjw2-3-3:
           ansible_host: 10.150.23.105
           ansible_hostv6: 2404:f801:10:2200::a96:1769
+        bjw2-3-4:
+          ansible_host: 10.150.23.106
+          ansible_hostv6: 2404:f801:10:2200::a96:176a
+        bjw2-5-1:
+          ansible_host: 10.150.23.107
+          ansible_hostv6: 2404:f801:10:2200::a96:176b
+        bjw2-5-2:
+          ansible_host: 10.150.23.108
+          ansible_hostv6: 2404:f801:10:2200::a96:176c
+        bjw2-5-3:
+          ansible_host: 10.150.23.109
+          ansible_hostv6: 2404:f801:10:2200::a96:176d
+        bjw2-5-4:
+          ansible_host: 10.150.23.110
+          ansible_hostv6: 2404:f801:10:2200::a96:176e
+        bjw2-5-5:
+          ansible_host: 10.150.23.111
+          ansible_hostv6: 2404:f801:10:2200::a96:176f
+        bjw2-5-6:
+          ansible_host: 10.150.23.112
+          ansible_hostv6: 2404:f801:10:2200::a96:1770
     pdu:
       hosts:
         bjw2-pdu-126-80:  # R500M

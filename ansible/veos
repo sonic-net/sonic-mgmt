@@ -7913,6 +7913,54 @@ vms_bjw2_3:
       ansible_host: 172.16.205.81
     VM83082:
       ansible_host: 172.16.205.82
+    VM83083:
+      ansible_host: 172.16.205.83
+    VM83084:
+      ansible_host: 172.16.205.84
+    VM83085:
+      ansible_host: 172.16.205.85
+    VM83086:
+      ansible_host: 172.16.205.86
+    VM83087:
+      ansible_host: 172.16.205.87
+    VM83088:
+      ansible_host: 172.16.205.88
+    VM83089:
+      ansible_host: 172.16.205.89
+    VM83090:
+      ansible_host: 172.16.205.90
+    VM83091:
+      ansible_host: 172.16.205.91
+    VM83092:
+      ansible_host: 172.16.205.92
+    VM83093:
+      ansible_host: 172.16.205.93
+    VM83094:
+      ansible_host: 172.16.205.94
+    VM83095:
+      ansible_host: 172.16.205.95
+    VM83096:
+      ansible_host: 172.16.205.96
+    VM83097:
+      ansible_host: 172.16.205.97
+    VM83098:
+      ansible_host: 172.16.205.98
+    VM83099:
+      ansible_host: 172.16.205.99
+    VM83100:
+      ansible_host: 172.16.205.100
+    VM83101:
+      ansible_host: 172.16.205.101
+    VM83102:
+      ansible_host: 172.16.205.102
+    VM83103:
+      ansible_host: 172.16.205.103
+    VM83104:
+      ansible_host: 172.16.205.104
+    VM83105:
+      ansible_host: 172.16.205.105
+    VM83106:
+      ansible_host: 172.16.205.106
 
 vms_bjw2_4:
   hosts:
@@ -7923,6 +7971,212 @@ vms_bjw2_5:
   hosts:
     VM85011:
       ansible_host: 172.16.207.11
+    VM85012:
+      ansible_host: 172.16.207.12
+    VM85013:
+      ansible_host: 172.16.207.13
+    VM85014:
+      ansible_host: 172.16.207.14
+    VM85015:
+      ansible_host: 172.16.207.15
+    VM85016:
+      ansible_host: 172.16.207.16
+    VM85017:
+      ansible_host: 172.16.207.17
+    VM85018:
+      ansible_host: 172.16.207.18
+    VM85019:
+      ansible_host: 172.16.207.19
+    VM85020:
+      ansible_host: 172.16.207.20
+    VM85021:
+      ansible_host: 172.16.207.21
+    VM85022:
+      ansible_host: 172.16.207.22
+    VM85023:
+      ansible_host: 172.16.207.23
+    VM85024:
+      ansible_host: 172.16.207.24
+    VM85025:
+      ansible_host: 172.16.207.25
+    VM85026:
+      ansible_host: 172.16.207.26
+    VM85027:
+      ansible_host: 172.16.207.27
+    VM85028:
+      ansible_host: 172.16.207.28
+    VM85029:
+      ansible_host: 172.16.207.29
+    VM85030:
+      ansible_host: 172.16.207.30
+    VM85031:
+      ansible_host: 172.16.207.31
+    VM85032:
+      ansible_host: 172.16.207.32
+    VM85033:
+      ansible_host: 172.16.207.33
+    VM85034:
+      ansible_host: 172.16.207.34
+    VM85035:
+      ansible_host: 172.16.207.35
+    VM85036:
+      ansible_host: 172.16.207.36
+    VM85037:
+      ansible_host: 172.16.207.37
+    VM85038:
+      ansible_host: 172.16.207.38
+    VM85039:
+      ansible_host: 172.16.207.39
+    VM85040:
+      ansible_host: 172.16.207.40
+    VM85041:
+      ansible_host: 172.16.207.41
+    VM85042:
+      ansible_host: 172.16.207.42
+    VM85043:
+      ansible_host: 172.16.207.43
+    VM85044:
+      ansible_host: 172.16.207.44
+    VM85045:
+      ansible_host: 172.16.207.45
+    VM85046:
+      ansible_host: 172.16.207.46
+    VM85047:
+      ansible_host: 172.16.207.47
+    VM85048:
+      ansible_host: 172.16.207.48
+    VM85049:
+      ansible_host: 172.16.207.49
+    VM85050:
+      ansible_host: 172.16.207.50
+    VM85051:
+      ansible_host: 172.16.207.51
+    VM85052:
+      ansible_host: 172.16.207.52
+    VM85053:
+      ansible_host: 172.16.207.53
+    VM85054:
+      ansible_host: 172.16.207.54
+    VM85055:
+      ansible_host: 172.16.207.55
+    VM85056:
+      ansible_host: 172.16.207.56
+    VM85057:
+      ansible_host: 172.16.207.57
+    VM85058:
+      ansible_host: 172.16.207.58
+    VM85059:
+      ansible_host: 172.16.207.59
+    VM85060:
+      ansible_host: 172.16.207.60
+    VM85061:
+      ansible_host: 172.16.207.61
+    VM85062:
+      ansible_host: 172.16.207.62
+    VM85063:
+      ansible_host: 172.16.207.63
+    VM85064:
+      ansible_host: 172.16.207.64
+    VM85065:
+      ansible_host: 172.16.207.65
+    VM85066:
+      ansible_host: 172.16.207.66
+    VM85067:
+      ansible_host: 172.16.207.67
+    VM85068:
+      ansible_host: 172.16.207.68
+    VM85069:
+      ansible_host: 172.16.207.69
+    VM85070:
+      ansible_host: 172.16.207.70
+    VM85071:
+      ansible_host: 172.16.207.71
+    VM85072:
+      ansible_host: 172.16.207.72
+    VM85073:
+      ansible_host: 172.16.207.73
+    VM85074:
+      ansible_host: 172.16.207.74
+    VM85075:
+      ansible_host: 172.16.207.75
+    VM85076:
+      ansible_host: 172.16.207.76
+    VM85077:
+      ansible_host: 172.16.207.77
+    VM85078:
+      ansible_host: 172.16.207.78
+    VM85079:
+      ansible_host: 172.16.207.79
+    VM85080:
+      ansible_host: 172.16.207.80
+    VM85081:
+      ansible_host: 172.16.207.81
+    VM85082:
+      ansible_host: 172.16.207.82
+    VM85083:
+      ansible_host: 172.16.207.83
+    VM85084:
+      ansible_host: 172.16.207.84
+    VM85085:
+      ansible_host: 172.16.207.85
+    VM85086:
+      ansible_host: 172.16.207.86
+    VM85087:
+      ansible_host: 172.16.207.87
+    VM85088:
+      ansible_host: 172.16.207.88
+    VM85089:
+      ansible_host: 172.16.207.89
+    VM85090:
+      ansible_host: 172.16.207.90
+    VM85091:
+      ansible_host: 172.16.207.91
+    VM85092:
+      ansible_host: 172.16.207.92
+    VM85093:
+      ansible_host: 172.16.207.93
+    VM85094:
+      ansible_host: 172.16.207.94
+    VM85095:
+      ansible_host: 172.16.207.95
+    VM85096:
+      ansible_host: 172.16.207.96
+    VM85097:
+      ansible_host: 172.16.207.97
+    VM85098:
+      ansible_host: 172.16.207.98
+    VM85099:
+      ansible_host: 172.16.207.99
+    VM85100:
+      ansible_host: 172.16.207.100
+    VM85101:
+      ansible_host: 172.16.207.101
+    VM85102:
+      ansible_host: 172.16.207.102
+    VM85103:
+      ansible_host: 172.16.207.103
+    VM85104:
+      ansible_host: 172.16.207.104
+    VM85105:
+      ansible_host: 172.16.207.105
+    VM85106:
+      ansible_host: 172.16.207.106
+    VM85107:
+      ansible_host: 172.16.207.107
+    VM85108:
+      ansible_host: 172.16.207.108
+    VM85109:
+      ansible_host: 172.16.207.109
+    VM85110:
+      ansible_host: 172.16.207.110
+    VM85111:
+      ansible_host: 172.16.207.111
+    VM85112:
+      ansible_host: 172.16.207.112
+    VM85113:
+      ansible_host: 172.16.207.113
+    VM85114:
+      ansible_host: 172.16.207.114
 
 vms_bjw2_6:
   hosts:
