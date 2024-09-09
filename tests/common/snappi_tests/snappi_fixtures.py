@@ -581,7 +581,10 @@ def snappi_dut_base_config(duthost_list,
     l1_config.speed = 'speed_{}_gbps'.format(speed_gbps)
     l1_config.ieee_media_defaults = False
     l1_config.auto_negotiate = False
-    l1_config.auto_negotiation.link_training = False
+    if is_snappi_multidut(duthost_list):
+        l1_config.auto_negotiation.link_training = False
+    else:
+        l1_config.auto_negotiation.link_training = True
     l1_config.auto_negotiation.rs_fec = True
 
     pfc = l1_config.flow_control.ieee_802_1qbb
@@ -610,12 +613,34 @@ def snappi_dut_base_config(duthost_list,
     port_config_list = []
 
     for index, duthost in enumerate(duthost_list):
-        config_result = __intf_config_multidut(
-                                                config=config,
-                                                port_config_list=port_config_list,
-                                                duthost=duthost,
-                                                snappi_ports=new_snappi_ports)
+        config_result = __vlan_intf_config(config=config,
+                                           port_config_list=port_config_list,
+                                           duthost=duthost,
+                                           snappi_ports=new_snappi_ports)
         pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
+
+    for index, duthost in enumerate(duthost_list):
+        config_result = __portchannel_intf_config(config=config,
+                                                  port_config_list=port_config_list,
+                                                  duthost=duthost,
+                                                  snappi_ports=new_snappi_ports)
+        pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
+
+    if is_snappi_multidut(duthost_list):
+        for index, duthost in enumerate(duthost_list):
+            config_result = __intf_config_multidut(
+                                                    config=config,
+                                                    port_config_list=port_config_list,
+                                                    duthost=duthost,
+                                                    snappi_ports=new_snappi_ports)
+            pytest_assert(config_result is True, 'Fail to configure multidut L3 interfaces')
+    else:
+        for index, duthost in enumerate(duthost_list):
+            config_result = __l3_intf_config(config=config,
+                                             port_config_list=port_config_list,
+                                             duthost=duthost,
+                                             snappi_ports=new_snappi_ports)
+            pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
 
     return config, port_config_list, new_snappi_ports
 
