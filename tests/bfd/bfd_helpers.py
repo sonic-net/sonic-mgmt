@@ -8,7 +8,6 @@ import pytest
 from ptf import testutils
 
 from tests.common.utilities import wait_until
-from tests.platform_tests.cli import util
 
 logger = logging.getLogger(__name__)
 
@@ -224,12 +223,28 @@ def selecting_route_to_delete(asic_routes, nexthops):
                 return prefix
 
 
+def parse_colon_speparated_lines(lines):
+    """
+    @summary: Helper function for parsing lines which consist of key-value pairs
+              formatted like "<key>: <value>", where the colon can be surrounded
+              by 0 or more whitespace characters
+    @return: A dictionary containing key-value pairs of the output
+    """
+    res = {}
+    for line in lines:
+        fields = line.split(":")
+        if len(fields) != 2:
+            continue
+        res[fields[0].strip()] = fields[1].strip()
+    return res
+
+
 def modify_all_bfd_sessions(dut, flag):
     # Extracting asic count
     cmd = "show platform summary"
     logging.info("Verifying output of '{}' on '{}'...".format(cmd, dut.hostname))
     summary_output_lines = dut.command(cmd)["stdout_lines"]
-    summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
+    summary_dict = parse_colon_speparated_lines(summary_output_lines)
     asic_count = int(summary_dict["ASIC Count"])
 
     # Creating bfd.json, bfd0.json, bfd1.json, bfd2.json ...
