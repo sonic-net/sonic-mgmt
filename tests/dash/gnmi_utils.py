@@ -31,7 +31,7 @@ class GNMIEnvironment(object):
                 self.gnmi_config_table = "GNMI"
                 self.gnmi_container = "gnmi"
                 self.gnmi_program = "gnmi-native"
-                self.gnmi_port = 8080
+                self.gnmi_port = 50052
                 return
             else:
                 pytest.fail("GNMI is not running")

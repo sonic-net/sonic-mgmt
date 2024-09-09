@@ -525,9 +525,10 @@ class MultiAsicSonicHost(object):
             cmds.append(cmd_reload.format(docker))
             self.sonichost.shell_cmds(cmds=cmds)
 
-    def get_bgp_neighbors(self):
+    def get_bgp_neighbors(self, namespace=None):
         """
-        Get a diction of BGP neighbor states
+        Get a diction of BGP neighbor states. If namespace is not None
+        will get a diction of BGP neighbor states for that namespace
 
         Args: None
 
@@ -536,23 +537,7 @@ class MultiAsicSonicHost(object):
         """
         bgp_neigh = {}
         for asic in self.asics:
-            bgp_info = asic.bgp_facts()
-            bgp_neigh.update(bgp_info["ansible_facts"]["bgp_neighbors"])
-
-        return bgp_neigh
-
-    def get_bgp_neighbors_for_asic(self, namespace=None):
-        """
-        Get a diction of BGP neighbor states for asic with specific namespace
-
-        Args: None
-
-        Returns: dictionary { (neighbor_ip : info_dict)* }
-
-        """
-        bgp_neigh = {}
-        for asic in self.asics:
-            if asic.namespace == namespace:
+            if namespace is None or asic.namespace == namespace:
                 bgp_info = asic.bgp_facts()
                 bgp_neigh.update(bgp_info["ansible_facts"]["bgp_neighbors"])
 

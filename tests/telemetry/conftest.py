@@ -58,7 +58,7 @@ def check_gnmi_config(duthost):
 
 
 def create_gnmi_config(duthost):
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 8080"
+    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052"
     duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true"
     duthost.shell(cmd, module_ignore_errors=True)
