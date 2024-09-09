@@ -3762,7 +3762,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                                    ip_id=exp_ip_id,
                                    ecn=ecn,
                                    ttl=64)
-            if 'cisco-8000' in asic_type:
+            if 'cisco-8000' in asic_type and pkt_cnt > 0:
                 fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
                 pkt_cnt -= 1
             send_packet(self, src_port_id, pkt, pkt_cnt)
