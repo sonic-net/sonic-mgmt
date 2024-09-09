@@ -4,6 +4,7 @@ import logging
 import time
 import random
 import re
+import pytest
 
 from run_events_test import run_test
 from tests.common.utilities import wait_until
@@ -32,6 +33,9 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
     if duthost.topo_type.lower() in ["m0", "mx"]:
         logger.info("Skipping swss events test on MGFX topologies")
         return
+    if duthost.is_supervisor_node():
+        pytest.skip(
+            "Skipping SWSS event test on supervisor card")
     logger.info("Beginning to test swss events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_interface,
              "if_state.json", "sonic-events-swss:if-state", tag)
@@ -80,9 +84,7 @@ def generate_pfc_storm(duthost):
     logger.info("Generating pfc storm")
     nslist = duthost.get_asic_namespace_list()
     ns = random.choice(nslist)
-    if ns is not None:
-        ns = "asic0"
-    interfaces = duthost.get_interfaces_status()
+    interfaces = duthost.get_interfaces_status(ns)
     pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
     interface_list = []
     for interface, status in interfaces.items():
