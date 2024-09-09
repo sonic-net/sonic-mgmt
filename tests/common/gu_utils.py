@@ -16,7 +16,7 @@ GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "../generic_config_updater/templates")
 TMP_DIR = '/tmp'
 
 
