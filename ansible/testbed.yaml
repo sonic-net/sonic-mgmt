@@ -2122,7 +2122,7 @@
 
 - conf-name: p2p-7060x6-1
   group-name:
-  topo: point-to-point-256
+  topo: ptp-256
   ptf_image_name: ''
   ptf: ''
   ptf_ip: ''
