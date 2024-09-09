@@ -756,13 +756,6 @@ generic_config_updater/test_eth_interface.py::test_update_speed:
       - https://github.com/sonic-net/sonic-mgmt/issues/8143
       - https://github.com/sonic-net/sonic-buildimage/issues/13267
 
-generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
-  skip:
-    reason: 'Skipping test on mellanox platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/7733'
-    conditions:
-      - "asic_type in ['mellanox']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/7733
-
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
     reason: "This test is not run on this hwsku/asic type or version currently"
