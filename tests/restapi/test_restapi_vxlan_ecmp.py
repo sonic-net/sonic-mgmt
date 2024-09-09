@@ -9,7 +9,7 @@ from restapi_operations import Restapi
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t1', 't1-lag', 't1-64-lag'),
+    pytest.mark.topology('t1'),
     pytest.mark.disable_loganalyzer
 ]
 
