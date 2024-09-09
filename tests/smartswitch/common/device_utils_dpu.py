@@ -70,8 +70,10 @@ def check_dpu_module_status(duthost, num_modules, power_status):
     for index in range(len(output_dpu_status)):
         parse_output = output_dpu_status[index]
         if parse_output['oper-status'] == 'Offline':
+            logging.info("'{}' is offline ...".format(parse_output['name']))
             dpu_off_count += 1
         else:
+            logging.info("'{}' is online ...".format(parse_output['name']))
             dpu_on_count += 1
 
     if power_status == "on":
@@ -98,8 +100,10 @@ def check_dpu_reboot_cause(duthost, num_modules):
         parse_output = output_reboot_cause[index]
         # Checking for Unknown as of now and implementation for other reasons are not in place now
         # TODO: Needs to be extend the function for other reasons
-        if 'DPU' in parse_output['device'] and parse_output['cause'] == 'Unknown':
-            len_show_cmd += 1
+        if 'DPU' in parse_output['device']
+            logging.info("'{}' - reboot cause is {}...".format(parse_output['device'], parse_output['cause']))
+            if parse_output['cause'] == 'Unknown':
+                len_show_cmd += 1
 
     return num_modules == len_show_cmd
 

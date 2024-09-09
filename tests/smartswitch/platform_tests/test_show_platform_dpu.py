@@ -100,7 +100,10 @@ def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname):
 
         if interface != "eth0" and 'eth' in interface:
             if status == "up/up":
+                logging.info("Link to '{}' is up ...".format(interface))
                 count_up += 1
+            else:
+                logging.info("Link to '{}' is not up ...".format(interface))
 
     # Checking the state of dpu health again after bringing up interface and waiting for db entry to get populated
     dpu_db_after = wait_until(60, 60, 0, count_dpu_modules_in_system_health_cli, duthost)
