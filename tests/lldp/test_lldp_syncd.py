@@ -199,7 +199,7 @@ def test_lldp_entry_table_after_flap(
         # Shutdown and startup the interface
         duthost.shell("sudo config interface shutdown {}".format(interface))
         duthost.shell("sudo config interface startup {}".format(interface))
-        result = wait_until(30, 2, 0, verify_lldp_entry, db_instance, interface)
+        result = wait_until(30, 2, 5, verify_lldp_entry, db_instance, interface)
         pytest_assert(
             result,
             "After interface {} flap, no LLDP_ENTRY_TABLE entry for it.".format(
@@ -244,7 +244,7 @@ def test_lldp_entry_table_after_lldp_restart(
     # Restart the LLDP service
     duthost.shell("sudo systemctl restart lldp")
     result = wait_until(
-        60, 2, 0, verify_lldp_table, duthost
+        60, 2, 5, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
     pytest_assert(result, "eth0 is still not in output of show lldp table")
     lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
