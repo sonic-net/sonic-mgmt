@@ -16,6 +16,7 @@ from .util import get_dev_conn
 from tests.common.utilities import skip_release, wait_until
 from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa F401
 from tests.common.port_toggle import default_port_toggle_wait_time
+from tests.common.platform.interface_utils import get_physical_port_indices
 
 cmd_sfp_presence = "sudo sfputil show presence"
 cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -51,8 +52,8 @@ class LogicalInterfaceDisabler:
         self.original_lpmode_state = None
         self.skip_dom_polling_handle = skip_dom_polling_handle
         self.skip_lpmode_handle = skip_lpmode_handle
-        self.wait_after_dom_config = 1
-        self.wait_after_lpmode_set = 1
+        self.wait_after_dom_config = 5
+        self.wait_after_lpmode_set = 3
 
         self.namespace_cmd_opt = get_namespace_cmd_option(duthost,
                                                           enum_frontend_asic_index)
@@ -129,7 +130,6 @@ class LogicalInterfaceDisabler:
             logging.info("Restore DOM polling after sfp reset for {}".format(self.logical_intf))
             enable_dom_result = self.duthost.command(self.cmd_enable_dom)
             assert enable_dom_result["rc"] == 0, "Enable DOM polling failed for {}".format(self.logical_intf)
-            time.sleep(self.wait_after_dom_config)
 
 
 class DisablePhysicalInterface:
@@ -148,13 +148,34 @@ class DisablePhysicalInterface:
         self.original_lpmode_state = None
         self.wait_after_dom_config = 1
         self.wait_after_lpmode_set = 1
-        self.logical_intf_disablers = [LogicalInterfaceDisabler(duthost=duthost,
-                                                                enum_frontend_asic_index=enum_frontend_asic_index,
-                                                                logical_intf=logical_intf,
-                                                                phy_intf=phy_intf,
-                                                                skip_dom_polling_handle=(i != 0),
-                                                                skip_lpmode_handle=(i != 0))
-                                       for i, logical_intf in enumerate(logical_intfs_list)]
+        self.logical_intfs_list = logical_intfs_list
+        self.namespace_cmd_opt = get_namespace_cmd_option(duthost,
+                                                          enum_frontend_asic_index)
+        self.skip_lpmode_handle_global = self.skip_lpmode_handle_for_physical_interface()
+        self.logical_intf_disablers = \
+            [LogicalInterfaceDisabler(duthost=duthost,
+                                      enum_frontend_asic_index=enum_frontend_asic_index,
+                                      logical_intf=logical_intf,
+                                      phy_intf=phy_intf,
+                                      skip_dom_polling_handle=(i != 0),
+                                      skip_lpmode_handle=(self.skip_lpmode_handle_global or
+                                                          i != 0))
+             for i, logical_intf in enumerate(logical_intfs_list)]
+
+    def skip_lpmode_handle_for_physical_interface(self):
+        cmd = "sonic-db-cli {} STATE_DB HGETALL 'TRANSCEIVER_INFO|{}'".format(self.namespace_cmd_opt,
+                                                                              self.logical_intfs_list[0])
+        xcvr_info_output = self.duthost.command(cmd)["stdout"]
+        is_cmis = "cmis_rev" in xcvr_info_output
+        is_power_class_1 = "Power Class 1" in xcvr_info_output
+
+        if is_cmis or is_power_class_1:
+            logging.info("Skip lpmode handling for physical interface {} "
+                         "as it's CMIS compliant({}) or Power Class 1({})".format(self.phy_intf,
+                                                                                  is_cmis,
+                                                                                  is_power_class_1))
+            return True
+        return False
 
     def __enter__(self):
         """
@@ -253,14 +274,13 @@ def get_phy_intfs_to_test_per_asic(duthost,
     Get the interfaces to test for given asic, excluding the skipped ones.
 
     return:
-        phy_intfs_to_test_per_asic: dict of all physical interfaces to test (key: physical port number,
-                                    value: list of logical interfaces under this physical port)
+        dict of all physical interfaces to test (key: physical port number,
+        value: list of logical interfaces under this physical port)
     """
-    portmap, dev_conn = get_dev_conn(duthost,
-                                     conn_graph_facts,
-                                     enum_frontend_asic_index)
-    # dict of all interfaces to test, excluding the ones with duplicate physical
-    # port index
+    _, dev_conn = get_dev_conn(duthost,
+                               conn_graph_facts,
+                               enum_frontend_asic_index)
+    physical_port_idx_map = get_physical_port_indices(duthost, logical_intfs=dev_conn)
     phy_intfs_to_test_per_asic = {}
     tmp_dict = {}
 
@@ -268,7 +288,7 @@ def get_phy_intfs_to_test_per_asic(duthost,
         # Skip the interfaces in the skip list
         if logical_intf in xcvr_skip_list[ans_host.hostname]:
             continue
-        physical_port_idx = portmap[logical_intf][0]
+        physical_port_idx = physical_port_idx_map[logical_intf]
         tmp_dict.setdefault(physical_port_idx, []).append(logical_intf)
     # sort physical interfaces
     for phy_intf, logical_intfs_list in sorted(tmp_dict.items()):
