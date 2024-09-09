@@ -114,8 +114,9 @@ class BGPNeighbor(object):
         self.ptfhost.exabgp(name=self.name, state="stopped")
         if not self.is_passive:
             for asichost in self.duthost.asics:
-                logging.debug("update CONFIG_DB admin_status to down")
-                asichost.run_sonic_db_cli_cmd("CONFIG_DB hset 'BGP_NEIGHBOR|{}' admin_status down".format(self.ip))
+                if asichost.namespace == self.namespace:
+                    logging.debug("update CONFIG_DB admin_status to down on {}".format(asichost.namespace))
+                    asichost.run_sonic_db_cli_cmd("CONFIG_DB hset 'BGP_NEIGHBOR|{}' admin_status down".format(self.ip))
 
     def announce_route(self, route):
         if "aspath" in route:
