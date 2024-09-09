@@ -553,7 +553,7 @@ def localhost(ansible_adhoc):
 
 @pytest.fixture(scope="session")
 def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
-    if 'point-to-point' in tbinfo['topo']['name']:
+    if 'ptp' in tbinfo['topo']['name']:
         return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
@@ -770,7 +770,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
 
 @pytest.fixture(scope="session")
 def vmhost(enhance_inventory, ansible_adhoc, request, tbinfo):
-    if 'point-to-point' in tbinfo['topo']['name']:
+    if 'ptp' in tbinfo['topo']['name']:
         return None
     server = tbinfo["server"]
     inv_files = get_inventory_files(request)

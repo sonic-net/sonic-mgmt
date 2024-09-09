@@ -14,9 +14,7 @@ from tests.vxlan.vnet_utils import generate_dut_config_files, safe_open_template
     apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
-    copy_arp_responder_py, copy_ptftests_directory      # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test               # noqa F401
+    copy_arp_responder_py, copy_ptftests_directory, skip_traffic_test      # noqa F401
 from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext,\
     is_route_flow_counter_supported     # noqa F401
 import tests.arp.test_wr_arp as test_wr_arp

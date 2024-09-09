@@ -5,6 +5,7 @@ import random
 import pytest
 import contextlib
 import time
+import logging
 
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
@@ -23,6 +24,8 @@ VENDOR_SPEC_ADDITIONAL_INFO_RE = {
     }
 
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
+
+logger = logging.getLogger(__name__)
 
 
 class TrafficPorts(object):
@@ -562,3 +565,17 @@ def has_neighbor_device(setup_pfc_test):
                 (not details.get('rx_port_id') or None in details['rx_port_id']):
             return False  # neighbor devices are not present
     return True
+
+
+def check_pfc_storm_state(dut, port, queue):
+    """
+    Helper function to check if PFC storm is detected/restored on a given queue
+    """
+    pfcwd_stats = dut.show_and_parse("show pfcwd stats")
+    queue_name = str(port) + ":" + str(queue)
+    for entry in pfcwd_stats:
+        if entry["queue"] == queue_name:
+            logger.info("PFCWD status on queue {} stats: {}".format(queue_name, entry))
+            return entry['storm detected/restored']
+    logger.info("PFCWD not triggered on queue {}".format(queue_name))
+    return None
