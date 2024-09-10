@@ -403,6 +403,7 @@ t1-lag:
   - drop_packets/test_drop_counters.py
   - crm/test_crm.py
   - bgp/test_bgp_sentinel.py
+  - bgp/test_bgp_suppress_fib.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -427,27 +428,6 @@ multi-asic-t1-lag:
   - container_checker/test_container_checker.py
   - http/test_http_copy.py
 
-t2:
-  - test_vs_chassis_setup.py
-  - voq/test_voq_init.py
-
-wan-pub:
-  - system_health/test_system_status.py
-  - snmp/test_snmp_cpu.py
-  - snmp/test_snmp_interfaces.py
-  - snmp/test_snmp_lldp.py
-  - snmp/test_snmp_pfc_counters.py
-  - snmp/test_snmp_queue.py
-  - snmp/test_snmp_v2mib.py
-  - arp/test_arpall.py
-  - telemetry/test_telemetry.py
-  - tacacs/test_jit_user.py
-  - tacacs/test_ro_user.py
-  - tacacs/test_rw_user.py
-  - tacacs/test_ro_disk.py
-  - tacacs/test_authorization.py
-  - tacacs/test_accounting.py
-
 dpu:
   - dash/test_dash_vnet.py
 
@@ -462,6 +442,12 @@ onboarding_t0:
   - platform_tests/test_cont_warm_reboot.py
   - snmp/test_snmp_link_local.py
   - test_nbr_health.py
+  - dhcp_server/test_dhcp_server.py
+  - dhcp_server/test_dhcp_server_multi_vlans.py
+  - dhcp_server/test_dhcp_server_stress.py
+  - platform_tests/test_idle_driver.py
+  - wol/test_wol.py
+  - dhcp_relay/test_dhcp_pkt_fwd.py
 
 onboarding_t1:
   - bgp/test_bgp_stress_link_flap.py

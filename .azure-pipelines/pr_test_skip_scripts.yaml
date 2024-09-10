@@ -183,6 +183,8 @@ t2:
   - voq/test_voq_intfs.py
   - voq/test_voq_ipfwd.py
   - voq/test_voq_nbr.py
+  - test_vs_chassis_setup.py
+  - voq/test_voq_init.py
 
 dualtor:
   # This test only support on dualtor-aa testbed
