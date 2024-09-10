@@ -1,18 +1,17 @@
 import logging
 import datetime
 import pexpect
-
 import pytest
-
 from tests.common import reboot, config_reload
 from tests.common.reboot import get_reboot_cause, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.bgp.test_traffic_shift import get_traffic_shift_state, parse_routes_on_neighbors,\
-    check_tsa_persistence_support, verify_current_routes_announced_to_neighs, check_and_log_routes_diff, \
-    verify_only_loopback_routes_are_announced_to_neighs
+from traffic_checker import get_traffic_shift_state, check_tsa_persistence_support
+from route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
+    verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
+
 
 pytestmark = [
     pytest.mark.topology('t2')
