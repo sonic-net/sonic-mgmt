@@ -15,7 +15,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import wait_until
-from tests.common.flow_counter import RouteFlowCounterTestContext  # noqa F401
+from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext  # noqa F401
 
 
 pytestmark = [

@@ -3,7 +3,7 @@ import pytest
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.flow_counter import flow_counter_utils
-from tests.common.flow_counter import is_route_flow_counter_supported   # noqa F401
+from tests.common.flow_counter.flow_counter_utils import is_route_flow_counter_supported   # noqa F401
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
