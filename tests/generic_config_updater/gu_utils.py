@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import pytest
@@ -34,6 +35,21 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
+def multi_asic_patch_decorator(func):
+    @functools.wraps(func)
+    def wrapper(duthost, json_data, dest_file, *args, **kwargs):
+        if duthost.is_multi_asic:
+            for operation in json_data:
+                if not operation["path"].startswith(f"/{HOST_NAME}") and \
+                   not operation["path"].startswith(f"/{ASIC_PREFIX}"):
+                    operation["path"] = f"/{HOST_NAME}{operation['path']}"
+
+        return func(duthost, json_data, dest_file, *args, **kwargs)
+    
+    return wrapper
+
+
+@multi_asic_patch_decorator
 def apply_patch(duthost, json_data, dest_file):
     """Run apply-patch on target duthost
 
