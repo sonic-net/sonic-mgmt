@@ -53,14 +53,15 @@ def update_sensors_checks(duthost, sensors_checks, hardware_version):
         if psu_models_to_replace:
             logging.info(f"Fetching PSU sensors for PSUS: {psu_models_to_replace}\n")
             if sensor_helper.get_uncovered_psus():
-                logging.warning(f"Unsupported PSUs in psu-sensors-data.yml: {sensor_helper.get_uncovered_psus()}\n")
+                logging.warning(f"Unsupported PSUs (regardless of fan direction) in psu_data.yml: "
+                                f"{sensor_helper.get_uncovered_psus()}\n")
 
             sensor_helper.remove_psu_checks(sensors_checks, set(psu_models_to_replace.keys()))
 
             sensor_helper.update_psu_sensors(sensors_checks, psu_models_to_replace, hardware_version)
         else:
-            logging.warning(f"PSU sensors not covered by psu-sensors-data.yml. "
-                            f"Unsupported PSUs: {sensor_helper.get_uncovered_psus()}\n")
+            logging.warning(f"PSU sensors not covered by psu_data.yml. Unsupported PSUs"
+                            f" (regardless of fan direction): {sensor_helper.get_uncovered_psus()}\n")
 
 
 def test_sensors(duthosts, rand_one_dut_hostname, sensors_data):
