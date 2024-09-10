@@ -23,7 +23,6 @@ from tests.common import constants
 import ptf.testutils as testutils
 
 from ipaddress import ip_network, IPv6Network, IPv4Network
-from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses     # noqa F401
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
@@ -122,9 +121,28 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
                    ShortField("lltype", 1),  # ethernet
                    _LLAddrField("clladdr", ETHER_ANY)]
 
+
+def increment_ipv4_addr(ipv4_addr, incr=1):
+    octets = str(ipv4_addr).split('.')
+    last_octet = int(octets[-1])
+    last_octet += incr
+    octets[-1] = str(last_octet)
+
+    return '.'.join(octets)
+
+
+def increment_ipv6_addr(ipv6_addr, incr=1):
+    octets = str(ipv6_addr).split(':')
+    last_octet = octets[-1]
+    if last_octet == '':
+        last_octet = '0'
+    incremented_octet = int(last_octet, 16) + incr
+    new_octet_str = '{:x}'.format(incremented_octet)
+
+    return ':'.join(octets[:-1]) + ':' + new_octet_str
+
+
 # Fixtures
-
-
 @pytest.fixture(scope="module")
 def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenario, ptfadapter, ptfhost):
     """Setup various variables neede for different tests"""
