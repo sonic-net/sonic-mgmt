@@ -611,9 +611,15 @@ def verify_pause_frame_count_dut(rx_dut,
                 pytest_assert(pfc_pause_rx_frames == 0,
                               "PFC pause frames with no bit set in the class enable vector should be dropped")
             else:
-                pytest_assert(pfc_pause_rx_frames > 0,
-                              "PFC pause frames should be received and counted in RX PFC counters for priority {}"
-                              .format(prio))
+                if "Cisco" in tx_dut.facts['hwsku']:
+                    pytest_assert(
+                        pfc_pause_rx_frames == 0,
+                        "Cisco platforms should't increment PFC counter for lossy priorities.")
+                else:
+                    pytest_assert(
+                        pfc_pause_rx_frames > 0,
+                        "PFC pause frames should be received and counted in RX PFC counters for priority {}"
+                        .format(prio))
 
     for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
         for prio in prios:
