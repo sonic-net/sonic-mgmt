@@ -43,10 +43,9 @@ def check_dpu_ping_status(duthost, ip_address_list):
 
     ping_count = 0
     for ip_address in ip_address_list:
-        output_ping = duthost.command("ping -c 3 %s"%ip_address)["stdout_lines"]
-        for i in range(len(output_ping)):
-            if "0% packet loss" in output_ping[i]:
-                ping_count += 1
+        output_ping = duthost.command("ping -c 3 %s"%ip_address)
+        if "0% packet loss" in output_ping["stdout"]:
+            ping_count += 1
 
     return ping_count == len(ip_address_list)
 
