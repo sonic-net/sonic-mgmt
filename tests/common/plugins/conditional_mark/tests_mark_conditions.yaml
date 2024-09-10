@@ -1360,11 +1360,10 @@ route/test_route_perf.py:
 
 route/test_static_route.py:
   skip:
-    reason: "Test not supported for 201911 images or older."
+    reason: "Test not supported for 201911 images or older. Does not apply to standalone topos."
+    conditions_logical_operator: OR
     conditions:
       - "release in ['201811', '201911']"
-    reason: "Does not apply to standalone topos."
-    conditions:
       - "'standalone' in topo_name"
 
 route/test_static_route.py::test_static_route_ecmp_ipv6:
