@@ -2120,7 +2120,7 @@
   auto_recover: 'True'
   comment: riffjiang
 
-- conf-name: p2p-7060x6-1
+- conf-name: ptp-7060x6-1
   group-name:
   topo: ptp-256
   ptf_image_name: ''
@@ -2131,6 +2131,21 @@
   vm_base: ''
   dut:
   - str3-7060x6-64pe-3
+  inv_name: str3
+  auto_recover: 'True'
+  comment: patelmi
+
+- conf-name: ptp-7060x6-2
+  group-name:
+  topo: ptp-256
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str3-7060x6-64pe-4
   inv_name: str3
   auto_recover: 'True'
   comment: patelmi
