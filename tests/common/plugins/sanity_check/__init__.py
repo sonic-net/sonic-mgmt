@@ -100,6 +100,9 @@ def filter_check_items(tbinfo, check_items):
     if tbinfo['topo']['type'] == 'ptf' and 'check_bgp' in filtered_check_items:
         filtered_check_items.remove('check_bgp')
 
+    if 'standalone' in tbinfo['topo']['name'] and 'check_bgp' in filtered_check_items:
+        filtered_check_items.remove('check_bgp')
+
     if 'dualtor' not in tbinfo['topo']['name'] and 'check_mux_simulator' in filtered_check_items:
         filtered_check_items.remove('check_mux_simulator')
 
