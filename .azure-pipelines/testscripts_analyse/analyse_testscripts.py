@@ -98,7 +98,8 @@ def collect_all_scripts():
                                 "testscript": filename,
                                 "topology": topo_name_to_type(topology_mark)
                             }
-                            test_scripts.append(result)
+                            if result not in test_scripts:
+                                test_scripts.append(result)
         except Exception as e:
             logging.error('Failed to load file {}, error {}'.format(f, e))
 
