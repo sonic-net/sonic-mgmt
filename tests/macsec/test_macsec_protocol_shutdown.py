@@ -24,8 +24,10 @@ profile_name = "256_XPN_SCI"
 
 
 @pytest.fixture(scope='module')
-def setup(duthost, macsec_nbrhosts):
-    dut_num_asics = duthost.num_asics()
+def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+          enum_rand_one_frontend_asic_index, macsec_nbrhosts):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    dut_num_asics = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     with open(os.path.dirname(__file__) + '/profile.json') as f:
         macsec_profiles = json.load(f)
@@ -75,7 +77,7 @@ def test_macsec_protocol_shutdown(duthost, macsec_nbrhosts, setup, ctrl_links):
     logger.info("macsec disabled")
 
     enable_macsec_feature(duthost, macsec_nbrhosts)
-    time.sleep(60)
+
     output = duthost.shell("docker ps")["stdout_lines"]
     if setup['dut_num_asics'] > 1:
         for i in range(setup['dut_num_asics']):
