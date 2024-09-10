@@ -526,7 +526,7 @@ def verify_basic_test_flow(flow_metrics,
 
 def verify_in_flight_buffer_pkts(duthost,
                                  flow_metrics,
-                                 snappi_extra_params, asic_value = None):
+                                 snappi_extra_params, asic_value=None):
     """
     Verify in-flight TX bytes of test flows should be held by switch buffer unless PFC delay is applied
     for when test traffic is expected to be paused
