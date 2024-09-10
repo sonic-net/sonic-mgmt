@@ -1,14 +1,9 @@
 """
 Helper script for DPU  operations
 """
+import logging
+from tests.common.devices.sonic import *  # noqa: F403, F401
 
-import time
-import pytest
-from tests.common.utilities import wait_until
-from tests.common.helpers.platform_api import chassis, module
-from tests.platform_tests.api.conftest import * #noqa
-from tests.common.devices.sonic import * #noqa
-from tests.common.helpers.assertions import pytest_assert
 
 def check_dpu_ping_status(duthost, ip_address_list):
     """
@@ -22,7 +17,7 @@ def check_dpu_ping_status(duthost, ip_address_list):
 
     ping_count = 0
     for ip_address in ip_address_list:
-        output_ping = duthost.command("ping -c 3 %s"%ip_address)
+        output_ping = duthost.command("ping -c 3 %s" % (ip_address))
         if "0% packet loss" in output_ping["stdout"]:
             ping_count += 1
 
@@ -40,22 +35,24 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
         Returns True or False based on status of given DPU module
     """
 
-    output_dpu_status = duthost.command('show chassis module status | grep %s'%(dpu_name))
+    output_dpu_status = duthost.command(
+            'show chassis module status | grep %s' % (dpu_name))
 
-    if "Offline" in output_dpu_status[stdout]:
+    if "Offline" in output_dpu_status["stdout"]:
         if power_status == "off":
             logging.info("'{}' is offline ...".format(dpu_name))
-            return  True
+            return True
         else:
             logging.info("'{}' is online ...".format(dpu_name))
             return False
     else:
         if power_status == "on":
             logging.info("'{}' is online ...".format(dpu_name))
-            return  True
+            return True
         else:
             logging.info("'{}' is offline ...".format(dpu_name))
             return False
+
 
 def check_dpu_reboot_cause(duthost, dpu_name):
     """
@@ -67,15 +64,18 @@ def check_dpu_reboot_cause(duthost, dpu_name):
         Returns True or False based on reboot cause of all DPU modules
     """
 
-    output_reboot_cause = duthost.command('show reboot-cause all | grep %s'%(dpu_name))
+    output_reboot_cause = duthost.command(
+            'show reboot-cause all | grep %s' % (dpu_name))
 
-    if 'Unknown' in output_reboot_cause[stdout]:
-        # Checking for Unknown as of now and implementation for other reasons are not in place now
+    if 'Unknown' in output_reboot_cause["stdout"]:
+        # Checking for Unknown as of now and
+        # implementation for other reasons are not in place now
         # TODO: Needs to be extend the function for other reasons
         logging.info("'{}' - reboot cause is Unkown...".format(dpu_name))
         return True
 
     return False
+
 
 def count_dpu_modules_in_system_health_cli(duthost):
     """
