@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('util')  # special marker
+    pytest.mark.topology('any')
 ]
 
 
