@@ -200,10 +200,14 @@ class TestPfcwdAllTimer(object):
         else:
             storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
             storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
+            real_storm_duration_time = storm_end_ms - storm_start_ms
             real_detect_time = storm_detect_ms - storm_start_ms
             real_restore_time = storm_restore_ms - storm_end_ms
+            self.all_storm_duration_time.append(real_storm_duration_time)
             self.all_detect_time.append(real_detect_time)
             self.all_restore_time.append(real_restore_time)
+            logger.info("storm_duration_time {} detect_time {} restore_time {}".format(
+                real_storm_duration_time, real_detect_time, real_restore_time))
 
         dut_detect_restore_time = storm_restore_ms - storm_detect_ms
         logger.info(
@@ -218,11 +222,16 @@ class TestPfcwdAllTimer(object):
         """
         Compare the timestamps obtained and verify the timer accuracy
         """
+        logger.info("all_detect_time {}".format(self.all_detect_time))
+        logger.info("all_restore_time {}".format(self.all_restore_time))
+        logger.info("all_storm_duration_time {}".format(self.all_storm_duration_time))
+
         self.all_detect_time.sort()
         self.all_restore_time.sort()
         logger.info("Verify that real detection time is not greater than configured")
-        logger.info("all detect time {}".format(self.all_detect_time))
-        logger.info("all restore time {}".format(self.all_restore_time))
+        logger.info("sorted all_detect_time {}".format(self.all_detect_time))
+        logger.info("sorted all_restore_time {}".format(self.all_restore_time))
+
         config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
                    "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[9],
@@ -305,6 +314,7 @@ class TestPfcwdAllTimer(object):
         self.timers = setup_info['timers']
         self.dut = duthost
         self.ptf = ptfhost
+        self.all_storm_duration_time = list()
         self.all_detect_time = list()
         self.all_restore_time = list()
         self.all_dut_detect_restore_time = list()
