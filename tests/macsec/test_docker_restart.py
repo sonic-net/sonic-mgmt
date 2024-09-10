@@ -12,8 +12,11 @@ pytestmark = [
 ]
 
 
-def test_restart_macsec_docker(duthost, ctrl_links, policy, cipher_suite, send_sci):
+def test_restart_macsec_docker(duthosts, ctrl_links, policy, cipher_suite, send_sci,
+                               enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
     logger.info(duthost.shell(cmd="docker ps", module_ignore_errors=True)['stdout'])
     duthost.restart_service("macsec")
-    duthost.shell(cmd="docker ps", module_ignore_errors=True)['stdout']
+    logger.info(duthost.shell(cmd="docker ps", module_ignore_errors=True)['stdout'])
     assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
