@@ -45,7 +45,7 @@ def multi_asic_patch_decorator(func):
                     operation["path"] = f"/{HOST_NAME}{operation['path']}"
 
         return func(duthost, json_data, dest_file, *args, **kwargs)
-    
+
     return wrapper
 
 
