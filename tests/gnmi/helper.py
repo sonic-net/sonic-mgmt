@@ -54,6 +54,15 @@ def verify_tcp_port(localhost, ip, port):
     logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
+def add_gnmi_client_common_name(duthost, cname):
+    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "role1"'.format(cname),
+                  module_ignore_errors=True)
+
+
+def del_gnmi_client_common_name(duthost, cname):
+    duthost.shell('sudo sonic-db-cli CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(cname), module_ignore_errors=True)
+
+
 def apply_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     # Stop all running program
@@ -73,8 +82,14 @@ def apply_cert_config(duthost):
     dut_command = "docker exec %s bash -c " % env.gnmi_container
     dut_command += "\"/usr/bin/nohup /usr/sbin/%s -logtostderr --port %s " % (env.gnmi_process, env.gnmi_port)
     dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt --server_key /etc/sonic/telemetry/gnmiserver.key "
+    dut_command += "--config_table_name GNMI_CLIENT_CERT "
+    dut_command += "--client_auth cert "
     dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
+
+    # Setup gnmi client cert common name
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
+
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
     output = duthost.shell(dut_command, module_ignore_errors=True)
@@ -100,6 +115,9 @@ def recover_cert_config(duthost):
         'systemctl restart %s' % (env.gnmi_container)
     ]
     duthost.shell_cmds(cmds=cmds)
+
+    # Remove gnmi client cert common name
+    del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
 
 
