@@ -13,7 +13,7 @@ from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY,\
 from .vnet_utils import generate_dut_config_files, safe_open_template, \
     apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
-from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext  # noqa F401
+from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa F401
 import tests.arp.test_wr_arp as test_wr_arp
 
 from tests.common.config_reload import config_reload
