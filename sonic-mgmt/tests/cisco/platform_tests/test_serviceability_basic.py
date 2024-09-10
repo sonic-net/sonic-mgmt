@@ -126,8 +126,7 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform npu` , update the npu_cli_dict at the top for new platform npu command check.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip("Not supported on RP")
+
     check_dshell_client(duthost)
 
     result_list = []
