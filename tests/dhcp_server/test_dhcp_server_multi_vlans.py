@@ -258,7 +258,7 @@ def test_range_ip_assignment(
     vlan_name_1, gateway_1, net_mask_1, vlan_hosts_1, vlan_members_with_ptf_idx_1 = vlan_info_1['vlan_name'], \
         vlan_info_1['vlan_gateway'], vlan_info_1['vlan_subnet_mask'], vlan_info_1['vlan_hosts'], \
         vlan_info_1['members_with_ptf_idx']
-    expected_assigned_ip_1 = random.choice(vlan_hosts_1)
+    expected_assigned_ip_1 = random.choice(vlan_hosts_1[:-1])
     last_ip_in_range_1 = random.choice(vlan_hosts_1[vlan_hosts_1.index(expected_assigned_ip_1) + 1:])
     dut_port_1, ptf_port_index_1 = random.choice(vlan_members_with_ptf_idx_1)
     logging.info("expected_assigned_ip_1 is %s, last_ip_in_range_1 is %s, dut_port_1 is %s, ptf_port_index_1 is %s" %
@@ -268,7 +268,7 @@ def test_range_ip_assignment(
     vlan_name_2, gateway_2, net_mask_2, vlan_hosts_2, vlan_members_with_ptf_idx_2 = vlan_info_2['vlan_name'], \
         vlan_info_2['vlan_gateway'], vlan_info_2['vlan_subnet_mask'], vlan_info_2['vlan_hosts'], \
         vlan_info_2['members_with_ptf_idx']
-    expected_assigned_ip_2 = random.choice(vlan_hosts_2)
+    expected_assigned_ip_2 = random.choice(vlan_hosts_2[:-1])
     last_ip_in_range_2 = random.choice(vlan_hosts_2[vlan_hosts_2.index(expected_assigned_ip_2) + 1:])
     dut_port_2, ptf_port_index_2 = random.choice(vlan_members_with_ptf_idx_2)
     logging.info("expected_assigned_ip_2 is %s, last_ip_in_range_2 is %s, dut_port_2 is %s, ptf_port_index_2 is %s" %
