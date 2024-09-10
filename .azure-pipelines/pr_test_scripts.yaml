@@ -403,6 +403,7 @@ t1-lag:
   - drop_packets/test_drop_counters.py
   - crm/test_crm.py
   - bgp/test_bgp_sentinel.py
+  - bgp/test_bgp_suppress_fib.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
