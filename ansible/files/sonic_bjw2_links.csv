@@ -2499,10 +2499,10 @@ bjw2-can-7260-root-1,Ethernet15/1,bjw2-can-720dt-leaf-9,etp49,10000,617-664,Trun
 bjw2-can-7260-root-1,Ethernet15/2,bjw2-can-720dt-leaf-10,etp49,10000,669-716,Trunk
 bjw2-can-7260-root-1,Ethernet15/3,bjw2-can-720dt-leaf-11,etp49,10000,721-768,Trunk
 bjw2-can-7260-root-1,Ethernet15/4,bjw2-can-720dt-leaf-12,etp49,10000,773-820,Trunk
-bjw2-can-7260-root-1,Ethernet16/1,bjw2-can-720dt-leaf-13,etp52,10000,825-875,Trunk
-bjw2-can-7260-root-1,Ethernet16/2,bjw2-can-720dt-leaf-14,etp52,10000,877-927,Trunk
-bjw2-can-7260-root-1,Ethernet16/3,bjw2-can-720dt-leaf-15,etp52,10000,929-979,Trunk
-bjw2-can-7260-root-1,Ethernet16/4,bjw2-can-720dt-leaf-16,etp52,10000,981-1031,Trunk
+bjw2-can-7260-root-1,Ethernet12/1,bjw2-can-720dt-leaf-13,etp52,10000,825-875,Trunk
+bjw2-can-7260-root-1,Ethernet12/2,bjw2-can-720dt-leaf-14,etp52,10000,877-927,Trunk
+bjw2-can-7260-root-1,Ethernet12/3,bjw2-can-720dt-leaf-15,etp52,10000,929-979,Trunk
+bjw2-can-7260-root-1,Ethernet12/4,bjw2-can-720dt-leaf-16,etp52,10000,981-1031,Trunk
 bjw2-can-7260-root-1,Ethernet17/1,bjw2-can-serv-1,ens4f1,100000,,Trunk
 bjw2-can-7260-root-1,Ethernet18/1,bjw2-can-serv-2,ens4f1,100000,,Trunk
 bjw2-can-7260-root-1,Ethernet19/1,bjw2-can-serv-3,ens4f1,100000,,Trunk
