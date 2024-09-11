@@ -172,7 +172,12 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
 
 def get_exabgp_status(module, name):
     output = exec_command(module, cmd="supervisorctl status exabgp-%s" % name)
-    m = re.search(r'^([\w|-]*)\s+(\w*).*$', output.decode("utf-8"))
+    m = None
+    if six.PY2:
+        m = re.search(r'^([\w|-]*)\s+(\w*).*$', output.decode("utf-8"))
+    else:
+        # For PY3 module.run_command encoding is "utf-8" by default
+        m = re.search(r'^([\w|-]*)\s+(\w*).*$', output)
     return m.group(2)
 
 
