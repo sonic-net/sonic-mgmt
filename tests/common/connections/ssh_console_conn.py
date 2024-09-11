@@ -4,6 +4,7 @@ from .base_console_conn import BaseConsoleConn, CONSOLE_SSH
 from netmiko.ssh_exception import NetMikoAuthenticationException
 from paramiko.ssh_exception import SSHException
 
+
 class SSHConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
         if "console_username" not in kwargs \
@@ -28,9 +29,10 @@ class SSHConsoleConn(BaseConsoleConn):
     def session_preparation(self):
         session_init_msg = self._test_channel_read()
         self.logger.debug(session_init_msg)
-        
+
         if re.search(r"Port is in use. Closing connection...", session_init_msg, flags=re.M):
-            raise PortInUseException(f"Host aborted connection, as console port '{self.username.split(':')[-1]}' is currently occupied.")
+            console_port = self.username.split(':')[-1]
+            raise PortInUseException(f"Host closed connection, as console port '{console_port}' is currently occupied.")
 
         if (self.menu_port):
             # For devices logining via menu port, 2 additional login are needed
@@ -161,4 +163,3 @@ class SSHConsoleConn(BaseConsoleConn):
 class PortInUseException(SSHException):
     '''Exception to denote a console port is in use.'''
     pass
-
