@@ -101,6 +101,7 @@ def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=update_count, xpath="all[heartbeat=2]",
                               target="EVENTS", filter_event_regex=filter_event_regex, timeout=timeout)
+    cmd = f"timeout {timeout} " + cmd
     result = ptfhost.shell(cmd)
     assert result["rc"] == 0, "PTF command failed with non zero return code"
     output = result["stdout"]

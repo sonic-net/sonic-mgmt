@@ -8,6 +8,8 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, wait_tcp_connection, get_mgmt_ipv6
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.telemetry.telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient
+from tests.telemetry.events.event_utils import reset_event_counters
+from tests.telemetry.events.event_utils import restart_eventd
 from contextlib import contextmanager
 
 EVENTS_TESTS_PATH = "./telemetry/events"
@@ -174,6 +176,9 @@ def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptf
 
     if duthost.is_multi_asic:
         pytest.skip("Skip eventd testing on multi-asic")
+
+    reset_event_counters(duthost)
+    restart_eventd(duthost)
 
     features_dict, succeeded = duthost.get_feature_status()
     if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
