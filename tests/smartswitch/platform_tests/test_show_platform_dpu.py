@@ -135,7 +135,8 @@ def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname):
 
     # Checking the state of dpu health again after bringing up
     # interface and waiting for db entry to get populated
-    dpu_db_after = wait_until(60, 60, 0,
+    dpu_db_after = wait_until(
+                   60, 60, 0,
                    count_dpu_modules_in_system_health_cli,  # noqa: F405
                    duthost)
 
@@ -183,7 +184,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
         pytest_assert(wait_until(180, 60, 0,
                                  check_dpu_module_status,  # noqa: F405
                                  duthost, "off", dpu_name),
-                                 "DPU is not operationally down")
+                                "DPU is not operationally down")
 
     for index in range(num_modules):
         dpu_name = module.get_name(platform_api_conn, index)
@@ -191,7 +192,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
         pytest_assert(wait_until(180, 60, 0,
                                  check_dpu_reboot_cause,  # noqa: F405
                                  duthost, dpu_name),
-                                 "DPU is not operationally up")
+                                "DPU is not operationally up")
 
 
 def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -220,7 +221,7 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname):
                       "DPU is not operationally down")
 
     output_pcie_info = duthost.command(CMD_PCIE_INFO)["stdout_lines"]
-    pytest_assert(output_pcie_info[-1] == \
+    pytest_assert(output_pcie_info[-1] ==
                   'PCIe Device Checking All Test ----------->>> PASSED',
                   "PCIe Link is good'{}'".format(duthost.hostname))
 
