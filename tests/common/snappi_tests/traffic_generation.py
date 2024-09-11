@@ -7,7 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
     get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
-    traffic_flow_mode
+    traffic_flow_mode, get_pfc_priorities
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
@@ -599,6 +599,7 @@ def verify_pause_frame_count_dut(rx_dut,
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
 
     for peer_port, prios in dut_port_config[1].items():  # PFC pause frames received on DUT's egress port
+        lossless_prios = get_pfc_priorities(tx_dut, peer_port)
         for prio in prios:
             pfc_pause_rx_frames = get_pfc_frame_count(tx_dut, peer_port, prio, is_tx=False)
             # For now, all PFC pause test cases send out PFC pause frames from the TGEN RX port to the DUT TX port,
@@ -611,7 +612,7 @@ def verify_pause_frame_count_dut(rx_dut,
                 pytest_assert(pfc_pause_rx_frames == 0,
                               "PFC pause frames with no bit set in the class enable vector should be dropped")
             else:
-                if "Cisco" in tx_dut.facts['hwsku']:
+                if "Cisco" in tx_dut.facts['hwsku'] and prio not in lossless_prios:
                     pytest_assert(
                         pfc_pause_rx_frames == 0,
                         "Cisco platforms should't increment PFC counter for lossy priorities.")

@@ -1189,3 +1189,25 @@ def get_pfc_count(duthost, port):
         pfc_dict[duthost.hostname][port]['rx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
 
     return pfc_dict
+
+
+def get_pfc_priorities(duthost, port):
+    """
+    Get the pfc lossless priorities of the given port in the given DUT.
+
+    Args:
+        duthost : SonicHost Object
+        port    : Interface name in the same DUT.
+
+    Returns:
+        A list of lossless priorities, as listed by "show pfc priorities" command.
+    """
+
+    asic_index = duthost.get_port_asic_instance(port).asic_index
+    cmd = ""
+    if asic_index is not None:
+        cmd = f"ip netns exec asic{asic_index} "
+    cmd = cmd + f"show pfc priority {port} | grep {port} | awk '{{print $2}}'"
+
+    output = duthost.shell(cmd)['stdout']
+    return [int(f) for f in output.split(',')]
