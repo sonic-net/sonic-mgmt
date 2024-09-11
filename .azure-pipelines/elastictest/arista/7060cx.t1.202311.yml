@@ -129,3 +129,4 @@ stages:
         UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        AFFINITY: ${{ parameters.AFFINITY }}
