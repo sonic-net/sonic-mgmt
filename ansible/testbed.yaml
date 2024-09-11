@@ -2120,7 +2120,7 @@
   auto_recover: 'True'
   comment: riffjiang
 
-- conf-name: p2p-7060x6-1
+- conf-name: ptp-7060x6-1
   group-name:
   topo: ptp-256
   ptf_image_name: ''
@@ -2131,6 +2131,21 @@
   vm_base: ''
   dut:
   - str3-7060x6-64pe-3
+  inv_name: str3
+  auto_recover: 'True'
+  comment: patelmi
+
+- conf-name: ptp-7060x6-2
+  group-name:
+  topo: ptp-256
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str3-7060x6-64pe-4
   inv_name: str3
   auto_recover: 'True'
   comment: patelmi
@@ -3185,7 +3200,7 @@
   topo: dualtor-aa
   ptf_image_name: docker-ptf
   ptf: bjw2-5-4
-  ptf_ip: 10.150.23.110
+  ptf_ip: 10.150.23.110/23
   ptf_ipv6: 2404:f801:10:2200::a96:176e/52
   ptf_extra_mgmt_ip: ["172.16.188.110/17"]
   netns_mgmt_ip: 10.150.23.47/23
