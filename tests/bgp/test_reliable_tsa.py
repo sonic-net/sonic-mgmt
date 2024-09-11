@@ -4,13 +4,14 @@ import pytest
 from tests.common import reboot, config_reload
 from tests.common.reboot import wait_for_startup
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes, _all_critical_processes_healthy
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.bgp.test_traffic_shift import get_traffic_shift_state, parse_routes_on_neighbors, \
-    verify_current_routes_announced_to_neighs, check_and_log_routes_diff, \
-    verify_only_loopback_routes_are_announced_to_neighs
+from tests.bgp.bgp_helpers import get_tsa_chassisdb_config, get_sup_cfggen_tsa_value, verify_dut_configdb_tsa_value
+from traffic_checker import get_traffic_shift_state
+from route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
+    verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
+from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.bgp.test_startup_tsa_tsb_service import get_tsa_tsb_service_uptime, get_tsa_tsb_service_status, \
     get_startup_tsb_timer, enable_disable_startup_tsa_tsb_service     # noqa: F401
 
@@ -20,10 +21,6 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-TS_NORMAL = "System Mode: Normal"
-TS_MAINTENANCE = "System Mode: Maintenance"
-TS_INCONSISTENT = "System Mode: Not consistent"
-TS_NO_NEIGHBORS = "System Mode: No external neighbors"
 CONTAINER_CHECK_INTERVAL_SECS = 2
 CONTAINER_STOP_THRESHOLD_SECS = 60
 CONTAINER_RESTART_THRESHOLD_SECS = 300
@@ -130,39 +127,6 @@ def verify_route_on_neighbors_when_duts_on_tsb(duthosts, dut_nbrhosts, orig_v4_r
             if not check_and_log_routes_diff(linecard, dut_nbrhosts[linecard],
                                              orig_v6_routes[linecard], cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
-
-
-def get_tsa_chassisdb_config(duthost):
-    """
-    @summary: Returns the dut's CHASSIS_APP_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
-    """
-    tsa_conf = duthost.shell('sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
-    return tsa_conf
-
-
-def get_sup_cfggen_tsa_value(suphost):
-    """
-    @summary: Returns the supervisor sonic-cfggen value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
-    """
-    tsa_conf = suphost.shell('sonic-cfggen -d -v BGP_DEVICE_GLOBAL.STATE.tsa_enabled')['stdout']
-    return tsa_conf
-
-
-def verify_dut_configdb_tsa_value(duthost):
-    """
-    @summary: Returns the line cards' asic CONFIG_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
-    """
-    tsa_config = list()
-    tsa_enabled = 'false'
-    for asic_index in duthost.get_frontend_asic_ids():
-        prefix = "-n asic{}".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
-        output = duthost.shell('sonic-db-cli {} CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' \'tsa_enabled\''.
-                               format(prefix))['stdout']
-        tsa_config.append(output)
-    if 'true' in tsa_config:
-        tsa_enabled = 'true'
-
-    return tsa_enabled
 
 
 def kill_process_by_pid(duthost, container_name, program_name, program_pid):
