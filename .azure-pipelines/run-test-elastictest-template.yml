@@ -49,7 +49,7 @@ parameters:
 
   - name: PTF_IMAGE_TAG
     type: string
-    default: "internal-202405"
+    default: ""
 
   - name: IMAGE_URL
     type: string
