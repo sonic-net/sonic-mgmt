@@ -441,6 +441,8 @@ def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhost
 def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, setup,
                                             bbr_status, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]
+    if setup['tor1_namespace']:
+        pytest.skip('Skip test for multi-asic environment')
 
     # Set BBR status in config_db
     duthost.shell('redis-cli -n 4 HSET "BGP_BBR|all" "status" "{}" '.format(bbr_status))
