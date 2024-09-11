@@ -17,6 +17,7 @@ all:
           - t1-8-lag
           - t1-64-lag-clet
           - t1-backend
+          - t1-dpu
           - t0
           - t0-16
           - t0-28
@@ -65,6 +66,7 @@ all:
         vlab-10:
         vlab-11:
         vlab-12:
+        vlab-13:
         vlab-8k-01:
         vlab-t2-01:
         vlab-t2-02:
@@ -246,6 +248,16 @@ all:
         vlab-12:
           ansible_host: 10.250.0.124
           ansible_hostv6: fec0::ffff:afb:7
+          type: kvm
+          hwsku: Force10-S6000
+          serial_port: 9024
+          ansible_password: password
+          ansible_user: admin
+        vlab-13:
+          ansible_host: 10.250.0.125
+          ansible_hostv6: fec0::ffff:afb:8
+          dpu_host: 10.250.0.126
+          dpu_hostv6: fec0::ffff:afb:9
           type: kvm
           hwsku: Force10-S6000
           serial_port: 9024

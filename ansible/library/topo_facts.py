@@ -114,6 +114,11 @@ class ParseTestbedTopoinfo():
                 dut_index = 0
                 for asic_intf in topo_definition['topology'][neigh_type][vm]['asic_intfs']:
                     vmconfig[vm]['asic_intfs'][dut_index].append(asic_intf)
+            if neigh_type == 'DPUs':
+                vmconfig[vm]['dpu_intfs'] = []
+                dut_index = 0
+                for dpu_intf in topo_definition['topology'][neigh_type][vm]['dpu_intfs']:
+                    vmconfig[vm]['dpu_intfs'][dut_index].append(dpu_intf)
 
             # physical interface
             if 'configuration' in topo_definition:
@@ -279,6 +284,10 @@ class ParseTestbedTopoinfo():
                 vm_topo_config['dut_cluster'] = topo_definition['configuration_properties']['common']['dut_cluster']
             vm_topo_config['vm'] = self.parse_topo_defintion(
                 topo_definition, po_map, dut_num, 'VMs')
+
+        if 'DPUs' in topo_definition['topology']:
+            vm_topo_config['dpu'] = self.parse_topo_defintion(
+                topo_definition, po_map, dut_num, 'DPUs')
 
         if 'cable' in topo_name:
             dut_asn = topo_definition['configuration_properties']['common']['dut_asn']

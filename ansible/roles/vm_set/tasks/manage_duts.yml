@@ -26,3 +26,13 @@
   when:
     - hostvars[dut_name] is defined
     - hostvars[dut_name].type is defined
+
+- block:
+    - name: Start SONiC DPU VM
+      include_tasks: start_sonic_dpu_vm.yml
+      loop: "{{ dpu_vms }}"
+      loop_control:
+        loop_var: dpu_vm
+      when: action == 'start_sonic_vm'
+
+  when: dpu_targets is defined

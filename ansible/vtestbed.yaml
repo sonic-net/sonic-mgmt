@@ -337,17 +337,17 @@
   auto_recover: False
   comment: Tests virtual switch vm as DPU
 
-- conf-name: vms-kvm-t1
-  group-name: vms6-2
-  topo: t1
+- conf-name: vms-kvm-t1-dpu
+  group-name: vms6-1
+  topo: t1-dpu
   ptf_image_name: docker-ptf
-  ptf: ptf-02
-  ptf_ip: 10.250.0.106/24
-  ptf_ipv6: fec0::ffff:afa:6/64
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
   server: server_1
   vm_base: VM0100
   dut:
-    - vlab-03
+    - vlab-01
   inv_name: veos_vtb
-  auto_recover: 'False'
-  comment: Tests virtual switch vm
+  auto_recover: False
+  comment: Tests virtual switch vm with a DPU

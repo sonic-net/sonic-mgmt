@@ -1,0 +1,64 @@
+- set_fact:
+    sonic_vm_storage_location: "{{ home_path }}/sonic-vm"
+    when: sonic_vm_storage_location is not defined
+
+- name: Create directory for vm images and vm disks
+  file: path={{ item }} state=directory mode=0755
+  with_items:
+    - "{{ sonic_vm_storage_location }}/images"
+    - "{{ sonic_vm_storage_location }}/disks"
+
+- set_fact:
+    src_disk_image: "{{ sonic_vm_storage_location }}/images/sonic-vs.img"
+    disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dpu_vm }}.img"
+    mgmt_ip_address: " {{ hostvars[dut_name]['dpu_host'] }}"
+    mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
+    serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
+    hwsku: "{{ hostvars[dut_name].hwsku }}"
+    num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
+
+- name: Device debug output
+  debug: msg="hostname = {{ dpu_name }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }}/{{ mgmt_prefixlen }} mgmt_gw = {{ mgmt_gw }}"
+
+- name: Check destination file existance
+  stat: path={{ disk_image }}
+  register: file_stat
+
+- name: Copy sonic disk image for {{ dpu)b }}
+  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
+  when: not file_stat.stat.exists
+
+- name: Get DUT port alias
+  port_alias: hwsku={{ hostvars[dut_name].hwsku }} num_asic={{ num_asic }}
+  delegate_to: localhost
+
+- name: Define SONiC vm {{ dpu_name }}
+  virt: name={{ dpu_name }}
+        command=define
+        xml="{{ lookup('template', 'templates/sonic.xml.j2') }}"
+        uri=qemu:///system
+  when: dut_name not in vm_list_defined.list_vms
+  become: yes
+
+- name: Start SONiC vm {{ dpu_name }}
+  virt: name={{ dpu_name }}
+        state=running
+        uri=qemu:///system
+  when: dut_name not in vm_list_running.list_vms
+  become: yes
+  register: sonic_vm_start
+
+- name: Wait until vm {{ dpu_name }} is loaded
+  sonic_kickstart: telnet_port={{ serial_port }}
+             login={{ sonic_login }}
+             passwords={{ sonic_default_passwords }}
+             hostname={{ dpu_name }}
+             mgmt_ip="{{ mgmt_ip_address }}/{{ mgmt_prefixlen }}"
+             mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
+             new_password={{ sonic_password }}
+             num_asic={{ num_asic }}
+  register: kickstart_output
+
+- name: Fail if kickstart gives error for {{ dpu_name }}
+  fail: msg="Start sonic vm weren't succesfull"
+  when: kickstart_output.kickstart_code != 0
