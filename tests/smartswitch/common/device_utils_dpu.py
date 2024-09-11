@@ -2,6 +2,7 @@
 Helper script for DPU  operations
 """
 import logging
+import pytest
 from tests.common.devices.sonic import *  # noqa: F403, F401
 
 
@@ -41,11 +42,11 @@ def skip_test_smartswitch(duthost):
 
     output_smartswitch = duthost.command(python_script_smartswitch)
 
-    if output_smartswitch["stdout"] == False:
+    if output_smartswitch["stdout"] is False:
         pytest.skip("It is not a smartswitch")
     else:
         output_dark_mode = duthost.command(python_script_dark_mode)
-        if output_dark_mode["stdout"] == True:
+        if output_dark_mode["stdout"] is True:
             pytest.skip("Smartswitch is in darkmode")
 
     logging.info("Testbed is smartswitch and not in dark mode")
