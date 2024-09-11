@@ -80,6 +80,7 @@ pdu-93,10.3.155.93,ApcRPDU,Pdu,snmp,
 pdu-94,10.3.155.94,Sentry,Pdu,snmp,
 pdu-96,10.3.155.96,Sentry,Pdu,snmp,
 pdu-97,10.3.155.97,Sentry,Pdu,snmp,
+pdu-98,10.3.155.98,Sentry,Pdu,snmp,
 pdu-100,10.3.155.100,Sentry4,Pdu,snmp,
 pdu-101,10.3.155.101,Sentry4,Pdu,snmp,
 pdu-102,10.3.155.102,Sentry4,Pdu,snmp,
@@ -132,6 +133,7 @@ str3-7060x6-64pe-fan-1,10.64.246.3/23,Arista-7060X6-64PE-256x200G,FanoutLeafSoni
 str3-7060x6-64pe-2,10.64.246.4/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
 str3-7060x6-64pe-fan-2,10.64.246.8/23,Arista-7060X6-64PE-256x200G,FanoutLeafSonic,,sonic
 str3-7060x6-64pe-3,10.64.246.20/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
+str3-7060x6-64pe-4,10.64.246.64/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
 str3-sn5600-1,10.64.246.9/23,ACS-SN5600,DevSonic,,sonic
 str3-sn5600-fan-1,10.64.246.12/23,ACS-SN5600,FanoutLeafSonic,,sonic
 str3-8102-07,10.3.146.173/23,32x400Gb,DevSonic,,sonic

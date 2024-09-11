@@ -180,6 +180,8 @@ pdu-124,48,str3-8800-sup-1,PSU8
 pdu-126,24,str3-8800-sup-1,PSU9
 pdu-105,22,str3-7060x6-64pe-3,PSU1
 pdu-106,22,str3-7060x6-64pe-3,PSU2
+pdu-98,40,str3-7060x6-64pe-4,PSU1
+pdu-97,23,str3-7060x6-64pe-4,PSU2
 pdu-105,41,str3-8122-01,PSU1
 pdu-106,41,str3-8122-01,PSU2
 pdu-105,9,str3-msn4700-fanout-05,PSU1
