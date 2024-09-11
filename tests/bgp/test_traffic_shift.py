@@ -11,7 +11,7 @@ from tests.common.utilities import wait_until
 from route_checker import verify_only_loopback_routes_are_announced_to_neighs, parse_routes_on_neighbors, \
     verify_current_routes_announced_to_neighs, check_and_log_routes_diff
 from traffic_checker import get_traffic_shift_state, check_tsa_persistence_support, verify_traffic_shift_per_asic
-from constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
+from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')

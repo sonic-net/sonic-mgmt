@@ -1,6 +1,6 @@
 import pytest
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
-from constants import TS_NORMAL, TS_MAINTENANCE, TS_INCONSISTENT, TS_NO_NEIGHBORS
+from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_INCONSISTENT, TS_NO_NEIGHBORS
 
 
 def verify_traffic_shift_per_asic(host, outputs, match_result, asic_index):
