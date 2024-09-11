@@ -184,7 +184,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
         pytest_assert(wait_until(180, 60, 0,
                                  check_dpu_module_status,  # noqa: F405
                                  duthost, "off", dpu_name),
-                                "DPU is not operationally down")
+                                 "DPU is not operationally down")
 
     for index in range(num_modules):
         dpu_name = module.get_name(platform_api_conn, index)
@@ -192,7 +192,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
         pytest_assert(wait_until(180, 60, 0,
                                  check_dpu_reboot_cause,  # noqa: F405
                                  duthost, dpu_name),
-                                "DPU is not operationally up")
+                                 "DPU is not operationally up")
 
 
 def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname):
