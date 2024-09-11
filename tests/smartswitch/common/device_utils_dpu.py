@@ -5,6 +5,52 @@ import logging
 from tests.common.devices.sonic import *  # noqa: F403, F401
 
 
+@pytest.fixture(scope='function')
+def skip_test_smartswitch(duthost):
+    """
+    Checks whethere given testbed is smartswitch or not
+    If not smartswitch, then skip tests
+    else, checks for darkmode of dpus
+    If dpus are in dark mode, then skip tests
+    else, proceeds to run test cases scripts
+
+    Args:
+        duthost : Host handle
+    """
+
+    python_script_smartswitch = '''
+    python -c 'import json
+    fp = open(
+             "/usr/share/sonic/device/x86_64-8102_28fh_dpu_o-r0/platform.json",
+             "r")
+    data = json.load(fp)
+    fp.close()
+    print("DPUS" in data)'
+    '''
+
+    python_script_dark_mode = '''
+    python -c 'import json
+    fp = open("/etc/sonic/config_db.json", "r")
+    data = json.load(fp)
+    fp.close()
+    data_dict = [(key,value) for key, value in data["CHASSIS_MODULE"].items()]
+    dpus = [x[1]  for x in data_dict]
+    admin_status = ([(dpu["admin_status"]=="down") for dpu in dpus])
+    print(admin_status.count(admin_status[0]) == len(admin_status))'
+    '''
+
+    output_smartswitch = duthost.command(python_script_smartswitch)
+
+    if output_smartswitch["stdout"] == False:
+        pytest.skip("It is not a smartswitch")
+    else:
+        output_dark_mode = duthost.command(python_script_dark_mode)
+        if output_dark_mode["stdout"] == True:
+            pytest.skip("Smartswitch is in darkmode")
+
+    logging.info("Testbed is smartswitch and not in dark mode")
+
+
 def check_dpu_ping_status(duthost, ip_address_list):
     """
     Executes ping to all DPUs
