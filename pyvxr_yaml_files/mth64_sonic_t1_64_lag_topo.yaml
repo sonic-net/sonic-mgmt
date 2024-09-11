@@ -1,5 +1,5 @@
 simulation:
-  no_image_copy: true
+  no_image_copy: false
   slurm_flags:
     pending_timeout: 60
     hours: 30
@@ -9,14 +9,16 @@ simulation:
 devices:
   docker_ptf:
     platform: linux
-    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker_v2.qcow2
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker_v3.qcow2
     linux_username: root
     linux_password: lab
     linux_prompt: root@docker-ptf:~#
     xr_port_redir: [22]
     extended_pci_bus: True
     vcpu: 4
-    memory: '4G'
+    memory: '8G'
+    data_port_attributes:
+      transport: e1000
     mgmt_intf_name: mgmt
     data_ports:
       - eth[0..64]
@@ -28,6 +30,8 @@ devices:
     xr_port_redir: [22]
     linux_username: "cisco"
     linux_password: "cisco123"
+    vcpu: 10
+    memory: '20G'
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     onie-install: http://172.27.147.152/IMAGES/7371/sonic-cisco-8000.bin
     linecard_types: [matilda64]
@@ -39,8 +43,8 @@ devices:
     linux_username: 'vxr'
     linux_password : 'cisco123'
     linux_prompt: 'vxr@vxr-vm:~\$'
-    vcpu: 32
-    memory: '64G'
+    vcpu: 10
+    memory: '20G'
 
 device_groups:
   veos:
