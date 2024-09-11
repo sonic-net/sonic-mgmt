@@ -21,9 +21,18 @@ def skip_test_smartswitch(duthost):
 
     python_script_smartswitch = '''
     python -c 'import json
-    fp = open(
-             "/usr/share/sonic/device/x86_64-8102_28fh_dpu_o-r0/platform.json",
-             "r")
+    import subprocess
+    cmd = "cat /host/machine.conf | grep onie_platform | cut -d '=' -f 2"
+    pin = subprocess.Popen(cmd,
+                           shell=True,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT)
+    id = pin.communicate()[0]
+    id = id.strip()
+    platform_file = "/usr/share/sonic/device/" +
+                    id.decode() +
+                    "/platform.json"
+    fp = open(platform_file, "r")
     data = json.load(fp)
     fp.close()
     print("DPUS" in data)'
