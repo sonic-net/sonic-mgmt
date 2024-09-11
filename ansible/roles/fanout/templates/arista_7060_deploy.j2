@@ -36,7 +36,7 @@ interface defaults
 {% for intf in device_port_vlans[inventory_hostname] %}
 interface {{ intf }}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-{%     if device_conn[inventory_hostname][intf]['autoneg'] == "on" %}
+{%     if device_conn[inventory_hostname][intf]['autoneg']|lower == "on" %}
    speed auto {{ device_conn[inventory_hostname][intf]['speed'] }}full
 {%   else %}
    speed force {{ device_conn[inventory_hostname][intf]['speed'] }}full
@@ -47,7 +47,7 @@ interface {{ intf }}
 {%   else %}
    switchport mode dot1q-tunnel
    switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
-{%     if device_conn[inventory_hostname][intf]['speed'] == "100000" and device_conn[inventory_hostname][intf]['autoneg'] == "off" %}
+{%     if device_conn[inventory_hostname][intf]['speed'] == "100000" and device_conn[inventory_hostname][intf]['autoneg']|lower == "off" %}
    error-correction encoding reed-solomon
 {%     else %}
    no error-correction encoding
