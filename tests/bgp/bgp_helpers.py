@@ -13,7 +13,8 @@ from natsort import natsorted
 import ipaddr as ipaddress
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE, \
+    DEFAULT_ASIC_ID
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
@@ -845,3 +846,36 @@ def fetch_and_delete_pcap_file(bgp_pcap, log_dir, duthost, request):
     duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
     duthost.file(path=bgp_pcap, state="absent")
     return local_pcap_filename
+
+
+def get_tsa_chassisdb_config(duthost):
+    """
+    @summary: Returns the dut's CHASSIS_APP_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_conf = duthost.shell('sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
+    return tsa_conf
+
+
+def get_sup_cfggen_tsa_value(suphost):
+    """
+    @summary: Returns the supervisor sonic-cfggen value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_conf = suphost.shell('sonic-cfggen -d -v BGP_DEVICE_GLOBAL.STATE.tsa_enabled')['stdout']
+    return tsa_conf
+
+
+def verify_dut_configdb_tsa_value(duthost):
+    """
+    @summary: Returns the line cards' asic CONFIG_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
+    """
+    tsa_config = list()
+    tsa_enabled = 'false'
+    for asic_index in duthost.get_frontend_asic_ids():
+        prefix = "-n asic{}".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
+        output = duthost.shell('sonic-db-cli {} CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' \'tsa_enabled\''.
+                               format(prefix))['stdout']
+        tsa_config.append(output)
+    if 'true' in tsa_config:
+        tsa_enabled = 'true'
+
+    return tsa_enabled
