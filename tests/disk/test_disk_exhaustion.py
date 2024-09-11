@@ -10,6 +10,10 @@ from ptf import mask, packet
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import paramiko_ssh
 
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
+from tests.common.ptf_arp_responder import ptf_arp_responder
+
+
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -133,7 +137,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     return pkt, ptf_port_idx, exp_pkt, out_ptf_indices, rif_support
 
 
-def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
+def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds, ptf_arp_responder):
     """Test SONiC basic performance(like ssh-connect, packet forward...) when disk is exhausted
     Args:
         duthost: DUT host object
