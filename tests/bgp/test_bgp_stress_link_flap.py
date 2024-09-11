@@ -225,7 +225,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
-        normalized_level = 'basic'
+        normalized_level = 'debug'
     TEST_RUN_DURATION = LOOP_TIMES_LEVEL_MAP[normalized_level]
     logger.debug('normalized_level {}, set test run duration {}'.format(normalized_level, TEST_RUN_DURATION))
 
