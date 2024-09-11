@@ -336,6 +336,14 @@
         "tag": "Yes"
     },
     {
+        "hwsku": "Mellanox-SN4700-O32",
+        "topo": "t1",
+        "owner": "Yan Mo",
+        "email": "yanmo@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
         "hwsku": "Nexus-3164",
         "topo": "t1",
         "owner": "Rita Hui",
