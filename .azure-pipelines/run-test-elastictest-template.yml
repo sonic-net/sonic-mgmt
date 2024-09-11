@@ -47,6 +47,10 @@ parameters:
     type: string
     default: ""
 
+  - name: PTF_IMAGE_TAG
+    type: string
+    default: "internal-202405"
+
   - name: IMAGE_URL
     type: string
     default: ""
@@ -204,6 +208,7 @@ steps:
         --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
         --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
         --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
+        --ptf_image_tag ${{ parameters.PTF_IMAGE_TAG }} \
         --image_url ${{ parameters.IMAGE_URL }} \
         --upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}" \
         --hwsku ${{ parameters.HWSKU }} \
