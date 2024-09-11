@@ -12,7 +12,7 @@ from traffic_checker import get_traffic_shift_state, check_tsa_persistence_suppo
 from route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
     verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
-
+from tests.bgp.bgp_helpers import get_tsa_chassisdb_config, get_sup_cfggen_tsa_value, verify_dut_configdb_tsa_value
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -145,6 +145,30 @@ def nbrhosts_to_dut(duthost, nbrhosts):
     return dut_nbrhosts
 
 
+def initial_check_before_and_after_test(duthosts):
+    """
+    @summary: Common method to make sure the supervisor and line cards are in normal state before and after the test
+    """
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            # Initially make sure both supervisor and line cards are in BGP operational normal state
+            if get_tsa_chassisdb_config(duthost) != 'false' or get_sup_cfggen_tsa_value(duthost) != 'false':
+                duthost.shell('TSB')
+                duthost.shell('sudo config save -y')
+                pytest_assert('false' == get_tsa_chassisdb_config(duthost),
+                              "Supervisor {} tsa_enabled config is enabled".format(duthost.hostname))
+
+    for linecard in duthosts.frontend_nodes:
+        # Issue TSB on the line card before proceeding further
+        if verify_dut_configdb_tsa_value(linecard) != 'false' or get_tsa_chassisdb_config(linecard) != 'false' or \
+                get_traffic_shift_state(linecard, cmd='TSC no-stats') != TS_NORMAL:
+            linecard.shell('TSB')
+            linecard.shell('sudo config save -y')
+            # Ensure that the DUT is not in maintenance already before start of the test
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+                          "DUT is not in normal state")
+
+
 def check_ssh_state(localhost, dut_ip, expected_state, timeout=60):
     """
     Check the SSH state of DUT.
@@ -180,11 +204,11 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
     if not tsa_tsb_timer:
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
-    # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
+
+    # Initially make sure both supervisor and line cards are in BGP operational normal state
+    initial_check_before_and_after_test(duthosts)
 
     try:
         # Get all routes on neighbors before doing reboot
@@ -247,6 +271,8 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
 
     finally:
+        # Bring back the supervisor and line cards to the BGP operational normal state
+        initial_check_before_and_after_test(duthosts)
         # Verify DUT is in normal state after cold reboot scenario.
         if not (int_status_result and crit_process_check and TS_NORMAL == get_traffic_shift_state(duthost)):
             logging.info("DUT is not in normal state after cold reboot, doing config-reload")
@@ -273,11 +299,11 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
     dut_ip = duthost.mgmt_ip
-    # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
+
+    # Initially make sure both supervisor and line cards are in BGP operational normal state
+    initial_check_before_and_after_test(duthosts)
 
     try:
         # Get all routes on neighbors before doing reboot
@@ -356,6 +382,8 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
 
     finally:
+        # Bring back the supervisor and line cards to the BGP operational normal state
+        initial_check_before_and_after_test(duthosts)
         # Verify DUT is in normal state after abnormal reboot scenario.
         if not (int_status_result and crit_process_check and TS_NORMAL == get_traffic_shift_state(duthost)):
             logging.info("DUT is not in normal state after abnormal reboot, doing config-reload")
@@ -387,11 +415,10 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
         if not tsa_tsb_timer[linecard]:
             pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
-                      "DUT is not in normal state")
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
+    # Initially make sure both supervisor and line cards are in BGP operational normal state
+    initial_check_before_and_after_test(duthosts)
 
     try:
         for linecard in duthosts.frontend_nodes:
@@ -464,6 +491,9 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
                     pytest.fail("Not all ipv6 routes are announced to neighbors")
 
     finally:
+        # Bring back the supervisor and line cards to the BGP operational normal state
+        initial_check_before_and_after_test(duthosts)
+
         # Make sure DUT is in normal state after supervisor cold reboot
         for linecard in duthosts.frontend_nodes:
             if not (int_status_result[linecard] and crit_process_check[linecard] and
@@ -506,11 +536,11 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
         if not tsa_tsb_timer[linecard]:
             pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
-                      "DUT is not in normal state")
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
+
+    # Initially make sure both supervisor and line cards are in BGP operational normal state
+    initial_check_before_and_after_test(duthosts)
 
     try:
         for linecard in duthosts.frontend_nodes:
@@ -604,6 +634,9 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
                     pytest.fail("Not all ipv6 routes are announced to neighbors")
 
     finally:
+        # Bring back the supervisor and line cards to the BGP operational normal state
+        initial_check_before_and_after_test(duthosts)
+
         # Make sure DUT is in normal state after supervisor abnormal reboot
         for linecard in duthosts.frontend_nodes:
             if not (int_status_result[linecard] and crit_process_check[linecard] and
@@ -640,11 +673,11 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
     orig_v4_routes, orig_v6_routes = {}, {}
-    # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
+
+    # Initially make sure both supervisor and line cards are in BGP operational normal state
+    initial_check_before_and_after_test(duthosts)
 
     try:
         # Get all routes on neighbors before doing reboot
@@ -719,6 +752,8 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         reboot_cause = get_reboot_cause(duthost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
                       "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+        # Bring back the supervisor and line cards to the BGP operational normal state
+        initial_check_before_and_after_test(duthosts)
 
 
 @pytest.mark.disable_loganalyzer
@@ -738,11 +773,11 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
     if not tsa_tsb_timer:
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
-    # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
+
+    # Initially make sure both supervisor and line cards are in BGP operational normal state
+    initial_check_before_and_after_test(duthosts)
 
     try:
         # Get all routes on neighbors before doing reboot
@@ -825,6 +860,8 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         reboot_cause = get_reboot_cause(duthost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
                       "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+        # Bring back the supervisor and line cards to the BGP operational normal state
+        initial_check_before_and_after_test(duthosts)
 
 
 @pytest.mark.disable_loganalyzer
@@ -843,11 +880,11 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
     int_status_result, crit_process_check = True, True
     if not tsa_tsb_timer:
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
-    # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
+
+    # Initially make sure both supervisor and line cards are in BGP operational normal state
+    initial_check_before_and_after_test(duthosts)
 
     try:
         # Get all routes on neighbors before doing reboot
@@ -910,6 +947,8 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
 
     finally:
+        # Bring back the supervisor and line cards to the BGP operational normal state
+        initial_check_before_and_after_test(duthosts)
         # Verify DUT is in normal state after cold reboot scenario.
         if not (int_status_result and crit_process_check and TS_NORMAL == get_traffic_shift_state(duthost)):
             logging.info("DUT is not in normal state after cold reboot, doing config-reload")
@@ -945,11 +984,11 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
         if not tsa_tsb_timer[linecard]:
             pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
-        # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
-                      "DUT is not in normal state")
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
+
+    # Initially make sure both supervisor and line cards are in BGP operational normal state
+    initial_check_before_and_after_test(duthosts)
 
     try:
         for linecard in duthosts.frontend_nodes:
@@ -1029,10 +1068,11 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
                     pytest.fail("Not all ipv6 routes are announced to neighbors")
 
     finally:
+        # Bring back the supervisor and line cards to the BGP operational normal state
+        initial_check_before_and_after_test(duthosts)
+
         for linecard in duthosts.frontend_nodes:
             # Make sure linecards are in Normal state and save the config to proceed further
-            linecard.shell("TSB")
-            linecard.shell('sudo config save -y')
             if not (int_status_result[linecard] and crit_process_check[linecard] and
                     TS_NORMAL == get_traffic_shift_state(linecard)):
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
@@ -1063,11 +1103,11 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
     int_status_result, crit_process_check = True, True
     if not tsa_tsb_timer:
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
-    # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
+
+    # Initially make sure both supervisor and line cards are in BGP operational normal state
+    initial_check_before_and_after_test(duthosts)
 
     try:
         # Get all routes on neighbors before doing reboot
@@ -1144,6 +1184,8 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
 
     finally:
+        # Bring back the supervisor and line cards to the BGP operational normal state
+        initial_check_before_and_after_test(duthosts)
         # Verify DUT is in normal state after cold reboot scenario.
         if not (int_status_result and crit_process_check and TS_NORMAL == get_traffic_shift_state(duthost)):
             logging.info("DUT is not in normal state after cold reboot, doing config-reload")
