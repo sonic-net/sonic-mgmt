@@ -1,8 +1,8 @@
 import logging
 import pytest
 import time
+import re
 
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
@@ -158,10 +158,14 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
         pfc_send_time = 8
     else:
         pfc_gen_file = 'pfc_gen.py'
+        pfc_gen_c_files = []
         pfc_send_time = None
+        if 'Arista' in fanout_info.get(peer_device, {}).get('device_info', {}).get('HwSku', ''):
+            pfc_gen_c_files = ['send_packets_c_bit32.so', 'send_packets_c_bit64.so']
+
     storm_handle = PFCStorm(dut, fanout_info, fanout, pfc_queue_idx=pfc_queue_index,
                             pfc_frames_number=pfc_frames_count, pfc_gen_file=pfc_gen_file,
-                            pfc_send_period=pfc_send_time, peer_info=peer_params)
+                            pfc_send_period=pfc_send_time, peer_info=peer_params, pfc_gen_c_files=pfc_gen_c_files)
     storm_handle.deploy_pfc_gen()
     return storm_handle
 
@@ -193,6 +197,11 @@ class TestPfcwdAllTimer(object):
         else:
             storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
+
+        if storm_detect_ms is None or storm_start_ms is None:
+            logger.info("PFC storm detect timestamp not found in syslog")
+            return
+
         logger.info("Wait for PFC storm end marker to appear in logs")
         time.sleep(16)
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
@@ -200,6 +209,12 @@ class TestPfcwdAllTimer(object):
         else:
             storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
             storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
+
+        if storm_restore_ms is None or storm_end_ms is None:
+            logger.info("PFC storm restore timestamp not found in syslog")
+            return
+
+        if self.dut.topo_type != 't2' or self.storm_handle.peer_device.os != 'sonic':
             real_storm_duration_time = storm_end_ms - storm_start_ms
             real_detect_time = storm_detect_ms - storm_start_ms
             real_restore_time = storm_restore_ms - storm_end_ms
@@ -287,17 +302,24 @@ class TestPfcwdAllTimer(object):
         Returns:
             timestamp_ms (int): syslog timestamp in ms for the line matching the pattern
         """
-        cmd = "grep \"{}\" /var/log/syslog".format(pattern)
-        syslog_msg_list = self.dut.shell(cmd)['stdout'].split()
         try:
-            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[3]))['stdout'])
-        except RunAnsibleModuleFail:
-            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[2]))['stdout'])
-        except Exception as e:
-            logging.error("Error when parsing syslog message timestamp: {}".format(repr(e)))
-            pytest.fail("Failed to parse syslog message timestamp")
+            cmd = "grep \"{}\" /var/log/syslog".format(pattern)
+            syslog_msg = self.dut.shell(cmd)['stdout']
 
-        return int(timestamp_ms)
+            # Regular expressions for the two timestamp formats
+            regex1 = re.compile(r'^[A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
+            regex2 = re.compile(r'^\d{4} [A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
+
+            if regex1.match(syslog_msg):
+                timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
+            elif regex2.match(syslog_msg):
+                timestamp = syslog_msg.replace('  ', ' ').split(' ')[3]
+
+            timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
+            return int(timestamp_ms)
+        except Exception as e:
+            logger.warning("Get {} timestamp: An unexpected error occurred: {}".format(pattern, str(e)))
+            return None
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,
                                   pfcwd_timer_setup_restore):

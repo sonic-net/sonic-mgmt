@@ -11,6 +11,8 @@ import logging
 import logging.handlers
 import time
 import multiprocessing
+import platform
+import ctypes
 
 from socket import socket, AF_PACKET, SOCK_RAW
 
@@ -25,30 +27,69 @@ class PacketSender():
     """
     A class to send PFC pause frames
     """
-    def __init__(self, interfaces, packet, num, interval):
+    def __init__(self, interfaces, packet, num, interval, use_c_function):
         # Create RAW socket to send PFC pause frames
         self.sockets = []
-        try:
-            for interface in interfaces:
-                s = socket(AF_PACKET, SOCK_RAW)
-                s.bind((interface, 0))
-                self.sockets.append(s)
-        except Exception as e:
-            print("Unable to create socket. Check your permissions: %s" % e)
-            sys.exit(1)
+        self.interfaces = interfaces
+        self.use_c_function = use_c_function
+        if use_c_function:
+            # Load the C library
+            arch, _ = platform.architecture()
+            if arch == '32bit':
+                lib_name = './send_packets_c_bit32.so'
+            elif arch == '64bit':
+                lib_name = './send_packets_c_bit64.so'
+            else:
+                raise RuntimeError("Unsupported architecture")
+
+            self.packet_sender_lib = ctypes.CDLL(lib_name)
+            self.packet_sender_lib.send_packets_c.argtypes = [
+                ctypes.c_char_p,
+                ctypes.POINTER(ctypes.c_ubyte),
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_int
+            ]
+        else:
+            try:
+                for interface in interfaces:
+                    s = socket(AF_PACKET, SOCK_RAW)
+                    s.bind((interface, 0))
+                    self.sockets.append(s)
+            except Exception as e:
+                print("Unable to create socket. Check your permissions: %s" % e)
+                sys.exit(1)
         self.packet_num = num
         self.packet_interval = interval
         self.process = None
         self.packet = packet
 
     def send_packets(self):
+        if self.use_c_function:
+            for interface in self.interfaces:
+                self._send_packets_c(interface)
+        else:
+            iteration = self.packet_num
+            while iteration > 0:
+                for s in self.sockets:
+                    s.send(self.packet)
+                    if self.packet_interval > 0:
+                        time.sleep(self.packet_interval)
+                iteration -= 1
+
+    def _send_packets_c(self, interface):
         iteration = self.packet_num
-        while iteration > 0:
-            for s in self.sockets:
-                s.send(self.packet)
-                if self.packet_interval > 0:
-                    time.sleep(self.packet_interval)
-            iteration -= 1
+        packet_size = len(self.packet)
+        # Create a ctypes array for the packet
+        packet_array = (ctypes.c_ubyte * packet_size).from_buffer_copy(self.packet)
+        # Call the C function
+        self.packet_sender_lib.send_packets_c(
+            interface.encode('utf-8'),  # Change to your interface name
+            packet_array,
+            packet_size,
+            iteration,
+            int(self.packet_interval * 1000)  # Convert seconds to milliseconds
+        )
 
     def start(self):
         self.process = multiprocessing.Process(target=self.send_packets)
@@ -78,6 +119,8 @@ def main():
                       help="Send global pause frames (not PFC)", default=False)
     parser.add_option("-s", "--send_pfc_frame_interval", type="float", dest="send_pfc_frame_interval",
                       help="Interval sending pfc frame", metavar="send_pfc_frame_interval", default=0)
+    parser.add_option("-c", "--use_c_function", action="store_true", dest="use_c_function",
+                      help="Use C function to send packets", default=False)
 
     (options, args) = parser.parse_args()
 
@@ -93,7 +136,6 @@ def main():
 
     if options.global_pf:
         # Send global pause frames
-        # -p option should not be set
         if options.priority != -1:
             print("'-p' option is not valid when sending global pause frames ('--global' / '-g')")
             parser.print_help()
@@ -172,7 +214,6 @@ def main():
                 packet = packet + b"\x00\x00"
 
     pre_str = 'GLOBAL_PF' if options.global_pf else 'PFC'
-    logger.debug(pre_str + '_STORM_START')
 
     # Start sending PFC pause frames
     senders = []
@@ -180,11 +221,14 @@ def main():
     for i in range(0, len(interfaces)):
         interface_slices[i % MAX_PROCESS_NUM].append(interfaces[i])
 
+    logger.debug(pre_str + '_STORM_DEBUG')
     for interface_slice in interface_slices:
         if (interface_slice):
-            s = PacketSender(interface_slice, packet, options.num, options.send_pfc_frame_interval)
+            s = PacketSender(interface_slice, packet, options.num,
+                             options.send_pfc_frame_interval, options.use_c_function)
             s.start()
             senders.append(s)
+    logger.debug(pre_str + '_STORM_START')
 
     # Wait PFC packets to be sent
     for sender in senders:
