@@ -41,10 +41,26 @@ def find_and_replace(file_path, target_string, replacement_string):
     updated_data = replace_string(data)
     with open(file_path, 'w') as file:
         yaml.dump(updated_data, file)
-        
+
 def remove_temp_config(updated_config_file):
     os.system("rm {}".format(updated_config_file))
-        
+
+def check_hw_or_sim(node):
+    dut_type = ""
+    st.log("Check whether the spytest is being run on Hw or SIM.")
+    cmd_output = st.config(node,"cat /proc/cpuinfo | grep '^model name.: VXR$'")
+    try:
+        if 'VXR' in str(cmd_output.encode('ascii','ignore')):
+            st.log("DUT type is SIM")
+            dut_type = "sim"
+        else:
+            st.log("DUT type is HW")
+            dut_type = "hw"
+    except:
+        st.log("Exception case : DUT type HW is taken by default.")
+        dut_type = "hw"
+    return dut_type
+
 #Tgen wrappers
 
 def get_handles(hdl1,hdl2):
@@ -61,29 +77,59 @@ def clear_counters():
         st.config(_dut, "sudo sonic-clear fdb all")
         st.config(_dut, "sudo sonic-clear rifcounters")
         st.config(_dut, "sudo sonic-clear counters")
-        
-def config_ipv4_intf(tg, tg_ph, data, intf_ip_addr, src_mac_addr, gateway):
+
+def config_ipv4_intf(tg, tg_ph, data, intf_ip_addr, src_mac_addr, gateway, vid):
+    intf_args = {}
+    if vid:
+        intf_args['vlan'] = '1'
+        intf_args['vlan_id'] = vid
     res=tg.tg_interface_config(port_handle=tg_ph, mode='config', intf_ip_addr=intf_ip_addr,
-    gateway=gateway, src_mac_addr=src_mac_addr, arp_send_req='1', enable_ping_response=1)
-    st.log("INTFCONF: "+str(res))
-    return res['handle']
-    
-def config_ipv6_intf(tg, tg_ph, data, ipv6_intf_addr, src_mac_addr, gateway):
-    res=tg.tg_interface_config(port_handle=tg_ph, mode='config', ipv6_intf_addr=ipv6_intf_addr, ipv6_prefix_length='64',
-    ipv6_gateway=gateway, src_mac_addr=src_mac_addr, arp_send_req='1', enable_ping_response=1)
+        gateway=gateway, src_mac_addr=src_mac_addr, arp_send_req='1', enable_ping_response=1, **intf_args)
     st.log("INTFCONF: "+str(res))
     return res['handle']
 
-def config_ipv4_traffic(tg, tg_ph, data1, data2, mac_src, dst_mac, ip_src_addr, ip_dst_addr):
-    data1.tr1=tg.tg_traffic_config(port_handle=tg_ph, mode='create', transmit_mode=data1.transmit_mode, length_mode='fixed',
-            l3_protocol='ipv4', mac_dst=dst_mac, mac_src=mac_src, pkts_per_burst=data1.pkts_per_burst,
-            l3_length=data1.tgen_l3_len, rate_pps=data1.tgen_rate_pps, ip_src_addr=ip_src_addr, ip_dst_addr=ip_dst_addr)
-    
-def config_ipv6_traffic(tg, tg_ph, data1, data2, mac_src, dst_mac, ipv6_src_addr, ipv6_dst_addr):
-    data1.tr1=tg.tg_traffic_config(port_handle=tg_ph, mode='create', transmit_mode='single_burst', length_mode='fixed',
-            l3_protocol='ipv6', mac_src=mac_src, mac_dst=dst_mac, pkts_per_burst=data1.pkts_per_burst,
-            rate_pps=data1.tgen_rate_pps, ipv6_src_addr=ipv6_src_addr, ipv6_dst_addr=ipv6_dst_addr)
-    
+def config_ipv6_intf(tg, tg_ph, data, ipv6_intf_addr, src_mac_addr, gateway, vid):
+    intf_args = {}
+    if vid:
+        intf_args['vlan'] = '1'
+        intf_args['vlan_id'] = vid
+    res=tg.tg_interface_config(port_handle=tg_ph, mode='config', ipv6_intf_addr=ipv6_intf_addr, ipv6_prefix_length='64',
+            ipv6_gateway=gateway, src_mac_addr=src_mac_addr, arp_send_req='1', enable_ping_response=1, **intf_args)
+    st.log("INTFCONF: "+str(res))
+    return res['handle']
+
+def config_ipv4_traffic(tg, tg_ph, data1, data2, mac_src, dst_mac, ip_src_addr, ip_dst_addr, vid):
+    traffic_args = {}
+    if vid :
+        traffic_args['l2_encap'] = 'ethernet_ii_vlan'
+        traffic_args['vlan'] = 'enable'
+        traffic_args['vlan_id'] = vid
+
+    if hasattr(data1,'pkts_per_burst'): traffic_args['pkts_per_burst'] = data1.pkts_per_burst
+    if hasattr(data1,'frame_size'): traffic_args['frame_size'] = data1.frame_size
+    if hasattr(data1,'tgen_rate_pps') : traffic_args['rate_pps'] = data1.tgen_rate_pps
+    if hasattr(data1,'duration') : traffic_args['duration'] = data1.duration
+    if hasattr(data1,'transmit_mode') : traffic_args['transmit_mode'] = data1.transmit_mode
+
+    data1.tr1=tg.tg_traffic_config(port_handle=tg_ph, mode='create', length_mode='fixed', l3_protocol='ipv4',
+                mac_dst=dst_mac, mac_src=mac_src, ip_src_addr=ip_src_addr, ip_dst_addr=ip_dst_addr, **traffic_args)
+
+def config_ipv6_traffic(tg, tg_ph, data1, data2, mac_src, dst_mac, ipv6_src_addr, ipv6_dst_addr, vid):
+    traffic_args = {}
+    if vid :
+        traffic_args['l2_encap'] = 'ethernet_ii_vlan'
+        traffic_args['vlan'] = 'enable'
+        traffic_args['vlan_id'] = vid
+
+    if hasattr(data1,'pkts_per_burst'): traffic_args['pkts_per_burst'] = data1.pkts_per_burst
+    if hasattr(data1,'frame_size'): traffic_args['frame_size'] = data1.frame_size
+    if hasattr(data1,'tgen_rate_pps') : traffic_args['rate_pps'] = data1.tgen_rate_pps
+    if hasattr(data1,'duration') : traffic_args['duration'] = data1.duration
+    if hasattr(data1,'transmit_mode') : traffic_args['transmit_mode'] = data1.transmit_mode
+
+    data1.tr1=tg.tg_traffic_config(port_handle=tg_ph, mode='create', length_mode='fixed', l3_protocol='ipv6',
+                mac_src=mac_src, mac_dst=dst_mac, ipv6_src_addr=ipv6_src_addr, ipv6_dst_addr=ipv6_dst_addr, **traffic_args)
+
 def verify_ping_helper(tg, tg_ph, handle, dest_ip):
     ping_max_iteration=2
     for iter in range(ping_max_iteration):
@@ -93,18 +139,18 @@ def verify_ping_helper(tg, tg_ph, handle, dest_ip):
             st.log("Ping succeeded.")
             return
     st.report_fail('msg', "Ping Failed")
-    
-def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True, verify_ping=True, is_l2=False):
+
+def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True, verify_ping=True, is_l2=False, vlan1='', vlan2='', traffic_type="bounded"):
     data1.my_dut_list = st.get_dut_names()
     data2.my_dut_list = st.get_dut_names()
-    
-    if cl_count: clear_counters() 
+
+    if cl_count: clear_counters()
 
     tg_handler = tgapi.get_handles_byname(hdl1, hdl2)
     tg = tg_handler["tg"]
 
     vars = st.get_testbed_vars()
-    dut_lists = [vars.D3, vars.D4]
+    dut_lists = [vars.D1, vars.D2, vars.D3, vars.D4]
 
     (tg1, tg2, tg_ph_1, tg_ph_2) = get_handles(hdl1, hdl2)
 
@@ -112,25 +158,25 @@ def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True, ver
     tg.tg_traffic_control(action="clear_stats", port_handle=tg_handler["tg_ph_list"])
 
     if ipv4 :
-        handle1 = config_ipv4_intf(tg1, tg_ph_1, data1, data1.t1d3_ip_addr, data1.t1d3_mac_addr, data1.t1d3_ip_gateway)
-        handle2 = config_ipv4_intf(tg2, tg_ph_2, data2, data2.t1d4_ip_addr, data2.t1d4_mac_addr, data2.t1d4_ip_gateway)
+        handle1 = config_ipv4_intf(tg1, tg_ph_1, data1, data1.t1d3_ip_addr, data1.t1d3_mac_addr, data1.t1d3_ip_gateway, vlan1)
+        handle2 = config_ipv4_intf(tg2, tg_ph_2, data2, data2.t1d4_ip_addr, data2.t1d4_mac_addr, data2.t1d4_ip_gateway, vlan2)
         # Ping from tgen to tgen.
         if verify_ping:
             verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ip_addr)
             st.wait(2)
             verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ip_addr)
     else:
-        handle1 = config_ipv6_intf(tg1, tg_ph_1, data1, data1.t1d3_ipv6_addr, data1.t1d3_mac_addr, data1.t1d3_ipv6_gateway)
-        handle2 = config_ipv6_intf(tg2, tg_ph_2, data2, data2.t1d4_ipv6_addr, data2.t1d4_mac_addr, data2.t1d4_ipv6_gateway)
+        handle1 = config_ipv6_intf(tg1, tg_ph_1, data1, data1.t1d3_ipv6_addr, data1.t1d3_mac_addr, data1.t1d3_ipv6_gateway, vlan1)
+        handle2 = config_ipv6_intf(tg2, tg_ph_2, data2, data2.t1d4_ipv6_addr, data2.t1d4_mac_addr, data2.t1d4_ipv6_gateway, vlan2)
         # Ping from tgen to tgen.
         if verify_ping:
             verify_ping_helper(tg1, tg_ph_1, handle1, data2.t1d4_ipv6_addr)
             st.wait(2)
             verify_ping_helper(tg2, tg_ph_2, handle2, data1.t1d3_ipv6_addr)
-        
+
 
     ## Update Traffic Result for Burst Test:
-     
+
     for _dut in dut_lists:
       papi.clear_interface_counters(_dut)
       st.config(_dut, "sudo sonic-clear counters")
@@ -155,73 +201,108 @@ def traffic_test_config(data1, data2, hdl1, hdl2, mode, ipv4, cl_count=True, ver
     if mode == "unknownunicast":
         dst_mac1 = "00:44:44:44:44:44"
         dst_mac2 = "00:33:33:33:33:33"
-        
+
     if ipv4 :
-        config_ipv4_traffic(tg1, tg_ph_1, data1, data2, data1.t1d3_mac_addr, dst_mac1, data1.t1d3_ip_addr, data2.t1d4_ip_addr)
-        config_ipv4_traffic(tg2, tg_ph_2, data2, data1, data2.t1d4_mac_addr, dst_mac2, data2.t1d4_ip_addr, data1.t1d3_ip_addr)
+        config_ipv4_traffic(tg1, tg_ph_1, data1, data2, data1.t1d3_mac_addr, dst_mac1, data1.t1d3_ip_addr, data2.t1d4_ip_addr, vlan1)
+        if traffic_type=="bounded":
+            config_ipv4_traffic(tg2, tg_ph_2, data2, data1, data2.t1d4_mac_addr, dst_mac2, data2.t1d4_ip_addr, data1.t1d3_ip_addr, vlan2)
     else:
-        config_ipv6_traffic(tg1, tg_ph_1, data1, data2, data1.t1d3_mac_addr, dst_mac1, data1.t1d3_ipv6_addr, data2.t1d4_ipv6_addr)
-        config_ipv6_traffic(tg2, tg_ph_2, data2, data1, data2.t1d4_mac_addr, dst_mac2, data2.t1d4_ipv6_addr, data1.t1d3_ipv6_addr)
-        
-    handles = {'tg_handle_1': tg1, 'tg_handle_2': tg2, 'port_handle_1': tg_ph_1, 'port_handle_2': tg_ph_2, 'int_handle_1': handle1, 'int_handle_2': handle2} 
+        config_ipv6_traffic(tg1, tg_ph_1, data1, data2, data1.t1d3_mac_addr, dst_mac1, data1.t1d3_ipv6_addr, data2.t1d4_ipv6_addr, vlan1)
+        if traffic_type=="bounded":
+            config_ipv6_traffic(tg2, tg_ph_2, data2, data1, data2.t1d4_mac_addr, dst_mac2, data2.t1d4_ipv6_addr, data1.t1d3_ipv6_addr, vlan2)
+
+    handles = {'tg_handle_1': tg1, 'tg_handle_2': tg2, 'port_handle_1': tg_ph_1, 'port_handle_2': tg_ph_2, 'int_handle_1': handle1, 'int_handle_2': handle2}
     return handles
 
-def traffic_start(handles, data1, data2):
+def traffic_start(handles, data1, data2, traffic_type="bounded"):
     vars = st.get_testbed_vars()
-    dut_lists = [vars.D3, vars.D4]
- 
+    dut_lists = [vars.D1, vars.D2, vars.D3, vars.D4]
+
     handles['tg_handle_1'].tg_packet_control(port_handle=handles['port_handle_1'], action='start')
-    handles['tg_handle_2'].tg_packet_control(port_handle=handles['port_handle_2'], action='start')
+    if traffic_type=="bounded":
+        handles['tg_handle_2'].tg_packet_control(port_handle=handles['port_handle_2'], action='start')
 
     handles['tg_handle_1'].tg_traffic_control(action='clear_stats', port_handle=handles['port_handle_1'])
-    handles['tg_handle_2'].tg_traffic_control(action='clear_stats', port_handle=handles['port_handle_2'])
+    if traffic_type=="bounded":
+        handles['tg_handle_2'].tg_traffic_control(action='clear_stats', port_handle=handles['port_handle_2'])
     st.log("TRAFCONF - TR1: " + str(data1.tr1) + " TR2: " + str(data2.tr1))
-        
+
     for _dut in dut_lists:
         papi.clear_interface_counters(_dut)
         st.config(_dut, "sudo sonic-clear counters")
         st.wait(1)
 
     t_run1=handles['tg_handle_1'].tg_traffic_control(action='run', port_handle=handles['port_handle_1'])
-    t_run2=handles['tg_handle_2'].tg_traffic_control(action='run', port_handle=handles['port_handle_2'])
-    st.wait(data1.traffic_run_time)
-    st.log("TR_CTRL: " + str(t_run1) + "t run2 " + str(t_run2))
+    if traffic_type=="bounded":
+        t_run2=handles['tg_handle_2'].tg_traffic_control(action='run', port_handle=handles['port_handle_2'])
 
-def traffic_stop(handles, mode="continuous"):
+    st.wait(data1.traffic_run_time)
+    if traffic_type=="bounded":
+        st.log("TR_CTRL: " + str(t_run1) + "t run2 " + str(t_run2))
+    else:
+        st.log("TR_CTRL: " + str(t_run1))
+
+def traffic_stop(handles, mode="continuous", traffic_type="bounded"):
     handles['tg_handle_1'].tg_traffic_control(action='stop', port_handle=handles['port_handle_1'])
-    handles['tg_handle_2'].tg_traffic_control(action='stop', port_handle=handles['port_handle_2'])
+    if traffic_type=="bounded":
+        handles['tg_handle_2'].tg_traffic_control(action='stop', port_handle=handles['port_handle_2'])
     if mode == "continuous":
         st.wait(30)
     else:
         st.wait(5)
-    
-def traffic_test_check(handles, d3t1port, d4t1port, data1, data2):
+
+def traffic_test_check(handles, d3t1port, d4t1port, data1, data2, rate_limit = False, traffic_type="bounded"):
     vars = st.get_testbed_vars()
-    dut_lists = [vars.D3, vars.D4]
+
     stats_tg1 = handles['tg_handle_1'].tg_traffic_stats(port_handle=handles['port_handle_1'],mode='aggregate')
     total_tg1_tx = stats_tg1[handles['port_handle_1']]['aggregate']['tx']['total_pkts']
-    total_tg1_rx = stats_tg1[handles['port_handle_1']]['aggregate']['rx']['total_pkts']
+    if traffic_type=="bounded":
+        total_tg1_rx = stats_tg1[handles['port_handle_1']]['aggregate']['rx']['total_pkts']
 
     stats_tg2 = handles['tg_handle_2'].tg_traffic_stats(port_handle=handles['port_handle_2'],mode='aggregate')
-    total_tg2_tx = stats_tg2[handles['port_handle_2']]['aggregate']['tx']['total_pkts']
+    if traffic_type=="bounded":
+        total_tg2_tx = stats_tg2[handles['port_handle_2']]['aggregate']['tx']['total_pkts']
     total_tg2_rx = stats_tg2[handles['port_handle_2']]['aggregate']['rx']['total_pkts']
 
     st.log("Tgen Sent Packets on {}: {} and Received Packets on {}: {}".format(d3t1port, total_tg1_tx, d4t1port, total_tg2_rx))
-    st.log("Tgen Sent Packets on {}: {} and Received Packets on {}: {}".format(d4t1port, total_tg2_tx, d3t1port, total_tg1_rx))
+    if traffic_type=="bounded":
+        st.log("Tgen Sent Packets on {}: {} and Received Packets on {}: {}".format(d4t1port, total_tg2_tx, d3t1port, total_tg1_rx))
 
     st.banner("Tgen Sent Packets on {}: {} and Received Packets on {}: {}".format(d3t1port, total_tg1_tx, d4t1port, total_tg2_rx))
-    st.banner("Tgen Sent Packets on {}: {} and Received Packets on {}: {}".format(d4t1port, total_tg2_tx, d3t1port, total_tg1_rx))
+    if traffic_type=="bounded":
+        st.banner("Tgen Sent Packets on {}: {} and Received Packets on {}: {}".format(d4t1port, total_tg2_tx, d3t1port, total_tg1_rx))
 
     passed = True
-    if ((int(total_tg1_tx) == 0) or (int(total_tg2_tx) == 0) or
-        (int(total_tg1_tx)-int(total_tg2_rx) > data1.tgen_stats_threshold) or
-        (int(total_tg2_tx)-int(total_tg1_rx) > data1.tgen_stats_threshold)):
-      passed = False
-    
-    dut_lists = [vars.D1, vars.D3, vars.D4]
+    if rate_limit :
+        counters_tg2_avg = int(total_tg2_rx)/data1.duration
+        st.log("Tgen Average Rx pps on {} : {}".format(d4t1port, counters_tg2_avg))
+        if traffic_type=="bounded":
+            counters_tg1_avg = int(total_tg1_rx)/data1.duration
+            st.log("Tgen Average Rx pps on {} : {}".format(d3t1port, counters_tg1_avg))
+            if  (counters_tg1_avg > data1.higher_pkt_count or counters_tg1_avg < data1.lower_pkt_count or
+                counters_tg2_avg > data1.higher_pkt_count or counters_tg2_avg < data1.lower_pkt_count):
+                passed = False
+        else:
+            if  (counters_tg2_avg > data1.higher_pkt_count or counters_tg2_avg < data1.lower_pkt_count):
+                passed = False
+    else:
+        if traffic_type=="bounded":
+            if ((int(total_tg1_tx) == 0) or (int(total_tg2_tx) == 0) or
+                (abs(int(total_tg1_tx)-int(total_tg2_rx)) > data1.tgen_stats_threshold) or
+                (abs(int(total_tg2_tx)-int(total_tg1_rx)) > data1.tgen_stats_threshold)):
+              st.log("absolute diff of tg1 tx and tg2 rx : {}".format(abs(int(total_tg1_tx)-int(total_tg2_rx))))
+              st.log("absolute diff of tg2 tx and tg1 rx : {}".format(abs(int(total_tg2_tx)-int(total_tg1_rx))))
+              passed = False
+        else:
+            if ((int(total_tg1_tx) == 0) or
+                (abs(int(total_tg1_tx)-int(total_tg2_rx)) > data1.tgen_stats_threshold)):
+              st.log("absolute diff of tg1 tx and tg2 rx : {}".format(abs(int(total_tg1_tx)-int(total_tg2_rx))))
+              passed = False
+
+    dut_lists = [vars.D1, vars.D2, vars.D3, vars.D4]
     for _dut in dut_lists:
         st.show(_dut, "sudo show interface counter", skip_tmpl=True, skip_error_check=True)
-      
+
     if passed:
         st.report_pass("test_case_passed",  "Traffic Validation Passed")
     else:
@@ -233,7 +314,7 @@ def traffic_cleanup(handles):
     st.log("Test traffic gen Cleanup.")
     handles['tg_handle_1'].tg_interface_config(port_handle=handles['port_handle_1'], handle=handles['int_handle_1'], mode='destroy')
     handles['tg_handle_2'].tg_interface_config(port_handle=handles['port_handle_2'], handle=handles['int_handle_2'], mode='destroy')
-    
+
 # Config functions
 
 def config_node(node, config, type=''):
@@ -261,7 +342,7 @@ def config_static(node, config_domain, add, config_file):
             config_node(nodes[node], config_list[node][config_domain]['config'], domain)
         else:
             config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain) 
-            
+
 # Portchannel wrappers
 
 def portchannel_add_del_member(node, portchannel='', members=[], add=True):
@@ -287,9 +368,9 @@ def portchannel_add_del_member(node, portchannel='', members=[], add=True):
             #delete member interfaces
             if not portchannel_obj.delete_portchannel_member(node, portchannel, members):
                 st.report_fail('msg', "{} delete members failed".format(portchannel))
-                
+
 def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[], min_link="", add=True):
-    
+
     if not portchannel:
        return
 
@@ -325,7 +406,7 @@ def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[],
         if members:
             #delete member interfaces
             portchannel_add_del_member(node, portchannel, members, add=False)
-            
+
         if ipv4_add:
             ipv4_addr, ipv4_mask = ipv4_add.split('/')
             #remove ipv4 address from PortChannelxx
@@ -351,7 +432,7 @@ def portchannel_create_delete(node, portchannel, ipv4_add, ipv6_add, members=[],
         #del PortChannelxx 
         if not portchannel_obj.delete_portchannel(node, [portchannel]):
             st.report_fail('msg', "{} delete failed".format(portchannel))
-            
+
 def check_portchannel_add_del(node, portchannel, members, state='up', add=True):  
     if add:
         if not portchannel_obj.poll_for_portchannel_status(node, portchannel, state):
@@ -362,7 +443,7 @@ def check_portchannel_add_del(node, portchannel, members, state='up', add=True):
     else:
         if portchannel_obj.verify_portchannel(node, portchannel):
             st.report_fail('msg', '{} {} still exists'.format(node, portchannel))
-    
+
 
 def check_portchannel_ip_address(node, portchannel, ip_addr, family, add=True):
     if add:
@@ -376,7 +457,7 @@ def check_portchannel_ip_address(node, portchannel, ip_addr, family, add=True):
         for interface_det in parsed_output:
             if interface_det['interface'] == portchannel:
                 st.report_fail('msg', "{} {} {} address removal failed".format(node, portchannel, check_type))
-                
+
 # L2 wrappers
 
 # Static Mac config
@@ -406,7 +487,7 @@ def delete_mac(node, mac, vlan, verify=False):
     if verify:
         if mac_obj.verify_mac_address_table(node, mac, vlan=vlan, type='Static'):
             st.report_fail('msg', "Static MAC delete for mac {} failed for host on vlan {} for node {}".format(mac, vlan, node))
-        
+
 # Mac API config_mac_agetime cli "config mac aging_time" is not supported yet
 # MAC API get_mac_agetime is community unsupported
 def update_mac_aging(node, mac_aging_time, verify=False):
@@ -416,7 +497,7 @@ def update_mac_aging(node, mac_aging_time, verify=False):
           '''.format(mac_aging_time)
     st.config(node, cmd)
     st.wait(1)
-    
+
     #Verify mac aging time is correctly updated
     if verify:
         cmd = "show mac aging-time"
@@ -424,6 +505,13 @@ def update_mac_aging(node, mac_aging_time, verify=False):
         if not cmd_output:
             st.report_fail('msg', "No output generated by mac aging time command")
         if  str(mac_aging_time)+" " not in cmd_output:
-            st.report_fail('msg', "Mac aging time update Unsuccessful, expected: {}, got: {}".format(mac_aging_time, int(output[0]["aging_time"])))
+            st.report_fail('msg', "Mac aging time update Unsuccessful, expected: {}, got: {}".format(mac_aging_time, int(cmd_output[0]["aging_time"])))
         st.log("Mac aging time update Successful, New mac aging time : {} seconds".format(mac_aging_time))
-            
+
+# Storm Control APIs
+def config_storm_control(node, type, action, interface_name, bits_per_sec):
+    if action == "add":
+        cmd = "config interface storm-control {} {} {} {}".format(action, interface_name, type, bits_per_sec)
+    else:
+        cmd = "config interface storm-control {} {} {}".format(action, interface_name, type)
+    st.config(node, cmd)
