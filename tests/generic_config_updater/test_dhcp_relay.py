@@ -3,7 +3,8 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig,\
+    utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa F401
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
