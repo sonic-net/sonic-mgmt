@@ -19,6 +19,14 @@ all:
           ansible_hostv6: 2a01:111:e205:100::ace:9050
         svc5-ixia-2-ptf:
           ansible_host: 10.206.144.17
+    pdu:
+      hosts:
+        pdu-16:
+          ansible_host: 10.206.144.16
+          protocol: snmp
+        pdu-127:
+          ansible_host: 10.206.144.127
+          protocol: snmp
 fanout:
   hosts:
     svcstr2-7260cx3-acs-2:
@@ -100,6 +108,15 @@ sonic_cisco_sup:
         - psu5.0
         - psu5.1
         - psu5.2
+        - PSU1
+        - PSU2
+        - PSU3
+        - PSU4
+        - PSU5
+        - PSU6
+        - PSU7
+        - PSU8
+        - PSU9
         'thermals':
         - TEMPERATURE_INFO_2
       asics_present: [0,1,4,5,8,9,10,11,12,13]
