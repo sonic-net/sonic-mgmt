@@ -201,7 +201,7 @@ steps:
         ptf_py3=${{ parameters.PTF_PY3 }}
         # with no value mixed image is used
         PTF_IMAGETAG=""
-        if [ $ptf_py3 == "True" ]
+        if [ "$ptf_py3" == "True" ]
         then
           PTF_IMAGETAG="--ptf_imagetag=py3only"
         fi
