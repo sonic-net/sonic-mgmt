@@ -16,7 +16,7 @@ from tests.common.dualtor.mux_simulator_control import get_mux_status, check_mux
     toggle_all_simulator_ports, toggle_simulator_port_to_upper_tor              # noqa F401
 from tests.common.dualtor.constants import LOWER_TOR
 from tests.common.utilities import wait_until
-from tests.common.devices.sonic import SonicHost
+
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -79,17 +79,15 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope="function")
-def skip_on_low_cpu_platform(duthosts, rand_one_dut_hostname, nbrhosts):
+def skip_on_low_cpu_platform(request, duthosts, rand_one_dut_hostname):
     '''
     skip the test on some low CPU platform if the neighbor is not vsonic
     '''
     LOW_CPU_PLATFORMS = ["x86_64-mlnx_msn2700-r0"]
     duthost = duthosts[rand_one_dut_hostname]
     platform = duthost.facts["platform"]
-    if platform in LOW_CPU_PLATFORMS:
-        for nbrhost in list(nbrhosts.values()):
-            if not isinstance(nbrhost, SonicHost):
-                pytest.skip("Skip the test on low performance CPU platform with Non-vSONiC neighbors")
+    if platform in LOW_CPU_PLATFORMS and request.config.getoption("neighbor_type") != "sonic":
+        pytest.skip("Skip the test on low performance CPU platform with Non-vSONiC neighbors")
 
 
 # Tetcases to verify normal reboot procedure ###
