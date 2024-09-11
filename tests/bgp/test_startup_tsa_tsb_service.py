@@ -11,7 +11,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from traffic_checker import get_traffic_shift_state, check_tsa_persistence_support
 from route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
     verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
-from .constants import TS_NORMAL, TS_MAINTENANCE
+from constants import TS_NORMAL, TS_MAINTENANCE
 
 
 pytestmark = [

@@ -1,3 +1,4 @@
+
 TS_NORMAL = "System Mode: Normal"
 TS_MAINTENANCE = "System Mode: Maintenance"
 TS_INCONSISTENT = "System Mode: Not consistent"
