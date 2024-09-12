@@ -17,6 +17,14 @@
     - [1.10 Check the Health of DPUs](#110-check-the-health-of-dpus)
     - [1.11 Check reboot cause history](#111-check-reboot-cause-history)
     - [1.12 Check the DPU state after OS reboot](#112-check-the-dpu-state-after-os-reboot)
+    - [1.13 Check CPU process on DPU](#113-check-cpu-process-on-dpu)
+    - [1.14 Check memory on DPU](#114-check-memory-on-dpu)
+    - [1.15 Check flapping of NPU and DPU interface](#115-check-flapping-of-NPU-and-DPU-interface)
+    - [1.16 Check DPU status and Link after memory exhaustion](#116-check-dpu-status-and-link-after-memory-exhaustion)
+    - [1.17 Check DPU status and Link after restart swss and syncd](#117-check-dpu-status-and-link-after-restart-swss-and-syncd)
+    - [1.18 Check DPU status and Link after reload of configuration](#118-check-dpu-status-and-link-after-reload-of-configuration)
+    - [1.19 Check DPU status and Link after kernel panic](#119-check-dpu-status-and-link-after-kernel-panic)
+    - [1.20 Check DPU status and Link after power off reboot](#120-check-dpu-status-and-link-after-power-off-reboot)
 - [Objectives of API Test Cases](#objectives-of-api-test-cases)
 - [API Test Cases](#api-test-cases)
     - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-specific-chassisclass-apis)
@@ -59,9 +67,17 @@ General convention of DPU0, DPU1, DPU2 and DPUX has been followed to represent D
 | 1.7 | Check removal of pcie link between NPU and DPU       | To Verify the PCie hot plug functinality        | |
 | 1.8 | Check the NTP date and timezone between DPU and NPU       | To Verify NPU and DPU are in sync with respect to timezone and logs timestamp | |
 | 1.9 | Check the State of DPUs      | To Verify DPU state details during online and offline      | |
-| 1.10 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU | Phase:2 |
+| 1.10 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU | |
 | 1.11 | Check reboot cause history       | To Verify reboot cause history cli | |
 | 1.12 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot | |
+| 1.13 | Check CPU process on DPU       | To verify CPU Process and its threshold on all the DPUs  |
+| 1.14 | Check memory on DPU       |  To verify Memory and its threshold on all the DPUs |
+| 1.15 | Check flapping of NPU and DPU interface       |  To verify NPU-DPU interface holds good after flapping it  |
+| 1.16 | Check DPU status and Link after memory exhaustion | To verify dpu status and connectivity after memory exhaustion |
+| 1.17 | Check DPU status and Link after restart swss and syncd | To verify dpu status and connectivity after restart of swss and syncd on NPU |
+| 1.18 | Check DPU status and Link after reload of configuration | To verify dpu status and connectivity after reload of configuration | 
+| 1.19 | Check DPU status and Link after kernel panic | To verify dpu status and connectivity after Kernel Panic |
+| 1.20 | Check DPU status and Link after power off reboot | To verify dpu status and connectivity after power off reboot |
 
 
 ## CLI Test Cases
@@ -643,6 +659,368 @@ root@sonic:/home/cisco# show chassis modules status
 
 #### Pass/Fail Criteria 
  *  Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
+
+
+### 1.13 Check CPU process on DPU
+
+#### Steps
+ * Get the number of DPU modules from ansible inventory file for the testbed
+ * Use command `top` to get CPU Processes on each of those DPUs
+
+#### Verify in
+ * DPU
+   
+#### Sample Output
+```
+On DPU:
+
+root@sonic:/home/admin# top
+
+top - 23:57:25 up 55 min,  1 user,  load average: 17.39, 17.17, 16.79
+Tasks: 314 total,   4 running, 303 sleeping,   0 stopped,   7 zombie
+%Cpu(s): 91.1 us,  6.7 sy,  0.0 ni,  1.7 id,  0.0 wa,  0.0 hi,  0.5 si,  0.0 st 
+MiB Mem :   6266.5 total,   1463.3 free,   4234.9 used,    767.0 buff/cache     
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.   2031.7 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND   
+   1372 root      20   0 1035964  57828  32192 R  66.2   0.9  40:23.00 operd    
+  92068 root      20   0  170720  65740  20920 S  27.2   1.0   0:00.82 python3  
+  92203 root      20   0   33668  25652   9100 R   7.3   0.4   0:00.22 supervi+ 
+   1212 root      20   0  211352  20192  15188 S   6.0   0.3   3:29.69 sysmgr   
+   1381 root      20   0   39.4g 228828 118236 S   5.0   3.6   7:01.30 pdsagent 
+    730 root      20   0 2258848 102596  45236 S   2.3   1.6   0:45.04 dockerd  
+    705 root      20   0 1641200  55584  25356 S   1.0   0.9   0:18.42 contain+ 
+  91685 root      20   0   12340   4708   2792 R   1.0   0.1   0:00.20 top      
+  92183 root      20   0 1327320  29692  16020 S   1.0   0.5   0:00.03 docker   
+      1 root      20   0  169980  13640   8788 S   0.7   0.2   0:17.55 systemd  
+   2138 root      20   0  720440  13780   6896 S   0.7   0.2   0:02.11 contain+ 
+   3015 uuidd     20   0   98760  19092   8216 S   0.7   0.3   0:16.94 redis-s+ 
+   5156 root      20   0 1975688  48804  36360 S   0.7   0.8   0:06.13 syncd    
+     14 root      20   0       0      0      0 I   0.3   0.0   0:06.52 rcu_sch+ 
+     15 root      20   0       0      0      0 I   0.3   0.0   0:03.12 rcuog/0  
+
+root@sonic:/home/admin# 
+
+```
+
+#### Pass/Fail Criteria
+
+ * Verify that no process should cross specified threshold value of CPU usage.
+
+
+### 1.14 Check Memory on DPU
+
+#### Steps
+ * Get the number of DPU modules from ansible inventory file for the testbed
+ * Use command `top` to get memory usage on each of those DPUs
+
+#### Verify in
+ * DPU
+   
+#### Sample Output
+```
+On DPU:
+
+root@sonic:/home/admin# top
+
+top - 23:57:25 up 55 min,  1 user,  load average: 17.39, 17.17, 16.79
+Tasks: 314 total,   4 running, 303 sleeping,   0 stopped,   7 zombie
+%Cpu(s): 91.1 us,  6.7 sy,  0.0 ni,  1.7 id,  0.0 wa,  0.0 hi,  0.5 si,  0.0 st 
+MiB Mem :   6266.5 total,   1463.3 free,   4234.9 used,    767.0 buff/cache     
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.   2031.7 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND   
+   1372 root      20   0 1035964  57828  32192 R  66.2   0.9  40:23.00 operd    
+  92068 root      20   0  170720  65740  20920 S  27.2   1.0   0:00.82 python3  
+  92203 root      20   0   33668  25652   9100 R   7.3   0.4   0:00.22 supervi+ 
+   1212 root      20   0  211352  20192  15188 S   6.0   0.3   3:29.69 sysmgr   
+   1381 root      20   0   39.4g 228828 118236 S   5.0   3.6   7:01.30 pdsagent 
+    730 root      20   0 2258848 102596  45236 S   2.3   1.6   0:45.04 dockerd  
+    705 root      20   0 1641200  55584  25356 S   1.0   0.9   0:18.42 contain+ 
+  91685 root      20   0   12340   4708   2792 R   1.0   0.1   0:00.20 top      
+  92183 root      20   0 1327320  29692  16020 S   1.0   0.5   0:00.03 docker   
+      1 root      20   0  169980  13640   8788 S   0.7   0.2   0:17.55 systemd  
+   2138 root      20   0  720440  13780   6896 S   0.7   0.2   0:02.11 contain+ 
+   3015 uuidd     20   0   98760  19092   8216 S   0.7   0.3   0:16.94 redis-s+ 
+   5156 root      20   0 1975688  48804  36360 S   0.7   0.8   0:06.13 syncd    
+     14 root      20   0       0      0      0 I   0.3   0.0   0:06.52 rcu_sch+ 
+     15 root      20   0       0      0      0 I   0.3   0.0   0:03.12 rcuog/0  
+
+root@sonic:/home/admin#  
+```
+
+#### Pass/Fail Criteria
+
+ * Verify that no process should cross the specified threshold value of memory usage.
+
+
+### 1.15 Check flapping of NPU and DPU interface
+
+#### Steps
+ * Get the number of DPU modules from ansible inventory file for the testbed
+ * Check and store system-health for the DPUs
+ * Bring down the link between Switch and DPU
+ * Wait for 1 min
+ * Check system-health for the respective DPUs
+ * Bring the link back up
+ * Wait for 1 mins
+ * Check system-health for the respective DPUs
+
+#### Verify in
+ * Switch
+   
+#### Sample Output
+```
+On Switch:
+root@sonic:/home/cisco# ifconfig eth1 down 
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show ip interface
+Interface     Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
+------------  --------  -------------------  ------------  --------------  -------------
+eth0                    172.25.42.56/24      up/up         N/A             N/A
+eth1                    169.254.200.1/24     up/up         N/A             N/A
+eth2                    169.254.200.2/24     up/up         N/A             N/A
+eth3                    169.254.200.3/24     up/up         N/A             N/A
+eth4                    169.254.200.4/24     up/up         N/A             N/A
+eth5                    169.254.200.5/24     up/up         N/A             N/A
+eth6                    169.254.200.6/24     up/up         N/A             N/A
+eth7                    169.254.200.7/24     up/up         N/A             N/A
+eth8                    169.254.200.8/24     up/up         N/A             N/A
+lo                      127.0.0.1/16         up/up         N/A             N/A
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show system-health dpu DPU0
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# ifconfig eth1 up 
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show ip interface
+Interface     Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
+------------  --------  -------------------  ------------  --------------  -------------
+eth0                    172.25.42.56/24      up/up         N/A             N/A
+eth1                    169.254.200.1/24     up/up         N/A             N/A
+eth2                    169.254.200.2/24     up/up         N/A             N/A
+eth3                    169.254.200.3/24     up/up         N/A             N/A
+eth4                    169.254.200.4/24     up/up         N/A             N/A
+eth5                    169.254.200.5/24     up/up         N/A             N/A
+eth6                    169.254.200.6/24     up/up         N/A             N/A
+eth7                    169.254.200.7/24     up/up         N/A             N/A
+eth8                    169.254.200.8/24     up/up         N/A             N/A
+lo                      127.0.0.1/16         up/up         N/A             N/A
+
+root@sonic:/home/cisco# show system-health dpu DPU0
+Name    ID    Oper-Status     State-Detail             State-Value    Time               Reason
+------  ----  --------------  -----------------------  -------------  -----------------  --------------------------------------------------------------------------------------------------------------------------
+DPU0    0     Partial Online  dpu_midplane_link_state  UP             20240723 18:56:12  INTERNAL-MGMT : admin state - UP, oper_state - UP, status - OK, HOST-MGMT : admin state - UP, oper_state - UP, status - OK
+                              dpu_control_plane_state  UP             20240723 18:56:12  All containers are up and running, host-ethlink-status: Uplink1/1 is UP
+root@sonic:/home/cisco#
+
+```
+
+#### Pass/Fail Criteria
+
+ * Verify that link is up after the flap. 
+ * Verify that DB contents are updated after the flap.
+
+
+### 1.16 Check memory exhaustion on DPU
+
+#### Steps
+
+ * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py#L54
+ * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
+ * Power on DPUs after switch goes for reboot and comes back
+ 
+ #### Verify in
+ * Switch and DPU
+   
+#### Sample Output
+
+```
+root@sonic:/home/cisco# sudo swapoff -a
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# nohup bash -c "sleep 5 && tail /dev/zero" &
+root@sonic:/home/cisco# nohup: ignoring input and appending output to 'nohup.out'
+root@sonic:/home/cisco#
+.
+(Going for reboot)
+.
+root@sonic:/home/cisco
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
+
+root@sonic:/home/cisco# ping 169.254.200.1
+PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
+64 bytes from 169.254.200.1: icmp_seq=1 ttl=64 time=0.160 ms
+^C
+--- 169.254.28.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
+root@sonic:/home/cisco# 
+```
+ 
+#### Pass/Fail Criteria
+
+ * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
+ * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
+
+
+### 1.17 Check DPU status and Link after restart swss and syncd
+
+#### Steps
+ * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_sequential_restart.py#L101
+                                     https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_sequential_restart.py#L121
+ * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
+ * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+ * Use `show chassis modules status` to check status of the DPUs.
+ 
+#### Verify in
+ * Switch
+   
+#### Sample Output
+
+```
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
+
+root@sonic:/home/cisco# ping 169.254.200.1
+PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
+64 bytes from 169.254.200.1: icmp_seq=1 ttl=64 time=0.160 ms
+^C
+--- 169.254.28.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
+root@sonic:/home/cisco# 
+
+```
+#### Pass/Fail Criteria
+ * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
+ * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
+
+
+### 1.18 Check DPU status and Link after reload of configuration
+
+#### Steps
+* Use `config reload -y` to reload the configurations in the switch.
+* Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+* Use `show chassis modules status` to check status of the DPUs.
+ 
+#### Verify in
+ * Switch
+   
+#### Sample Output
+
+```
+root@sonic:/home/cisco# config reload -y
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
+
+root@sonic:/home/cisco# ping 169.254.200.1
+PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
+64 bytes from 169.254.200.1: icmp_seq=1 ttl=64 time=0.160 ms
+^C
+--- 169.254.28.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
+root@sonic:/home/cisco# 
+
+```
+
+#### Pass/Fail Criteria
+ * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
+ * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
+
+
+### 1.19 Check DPU status and Link after kernel panic
+
+#### Steps
+ * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py#L58
+ * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
+ * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+ * Use `show chassis modules status` to check status of the DPUs.
+ 
+#### Verify in
+ * Switch
+   
+#### Sample Output
+
+```
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
+  
+root@sonic:/home/cisco# ping 169.254.200.1
+PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
+64 bytes from 169.254.200.1: icmp_seq=1 ttl=64 time=0.160 ms
+^C
+--- 169.254.28.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
+root@sonic:/home/cisco# 
+```
+
+#### Pass/Fail Criteria
+ * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
+ * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
+
+ 
+### 1.20 Check DPU status and Link after power off reboot
+
+#### Steps
+ * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_power_off_reboot.py#L72
+ * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
+ * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+ * Use `show chassis modules status` to check status of the DPUs.
+ 
+#### Verify in
+ * Switch
+   
+#### Sample Output
+
+After power cycle of the testbed, 
+
+```
+root@sonic:/home/cisco# config chassis modules startup <DPU_NUMBER>
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
+
+root@sonic:/home/cisco# ping 169.254.200.1
+PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
+64 bytes from 169.254.200.1: icmp_seq=1 ttl=64 time=0.160 ms
+^C
+--- 169.254.28.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
+root@sonic:/home/cisco# 
+```
+
+#### Pass/Fail Criteria
+ * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
+ * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
 
 ## Objectives of API Test Cases
