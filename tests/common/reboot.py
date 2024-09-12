@@ -256,9 +256,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             timeout = plt_reboot_ctrl.get('timeout', timeout)
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
+        if duthost.get_facts().get("modular_chassis"):
+            wait = max(wait, 900)
+            timeout = max(timeout, 600)
     except KeyError:
         raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
-
+    logger.info('Reboot {}: wait[{}], timeout[{}]'.format(hostname, wait, timeout))
     # Create a temporary file in tmpfs before reboot
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
@@ -276,7 +279,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     wait_for_startup(duthost, localhost, delay, timeout)
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
-
     if safe_reboot:
         # The wait time passed in might not be guaranteed to cover the actual
         # time it takes for containers to come back up. Therefore, add 5
@@ -287,7 +289,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         wait_critical_processes(duthost)
 
         if check_intf_up_ports:
-            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+            pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
                           "Not all ports that are admin up on are operationally up")
     else:
         time.sleep(wait)
@@ -344,7 +346,9 @@ def get_reboot_cause(dut):
     # is such like "User issued 'xxx' command [User: admin, Time: Sun Aug  4 06:43:19 PM UTC 2024]"
     # So, use the above pattern to get real reboot cause
     if dut.facts["asic_type"] == "vs":
-        cause = re.search("User issued '(.*)' command", cause).groups()[0]
+        match = re.search("User issued '(.*)' command", cause)
+        if match:
+            cause = match.groups()[0]
 
     for type, ctrl in list(reboot_ctrl_dict.items()):
         if re.search(ctrl['cause'], cause):

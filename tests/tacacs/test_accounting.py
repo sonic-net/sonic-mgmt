@@ -117,9 +117,13 @@ def check_local_log_exist(duthost, tacacs_creds, command):
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
 
     if len(logs) == 0:
-        # print recent logs for debug
+        # Print recent logs for debug
         recent_logs = duthost.command("tail /var/log/syslog -n 1000")
         logger.debug("Found logs: %s", recent_logs)
+
+        # Missing log may caused by incorrect NSS config
+        tacacs_config = duthost.command("cat /etc/tacplus_nss.conf")
+        logger.debug("tacplus_nss.conf: %s", tacacs_config)
 
     pytest_assert(len(logs) > 0)
 
@@ -260,8 +264,8 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
 
     duthost.shell("sudo config tacacs timeout 1")
     remove_all_tacacs_server(duthost)
-    duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
-    duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % invalid_tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % tacacs_server_ip)
     change_and_wait_aaa_config_update(duthost,
                                       "sudo config aaa accounting tacacs+",
                                       last_timestamp)

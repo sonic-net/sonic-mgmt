@@ -22,8 +22,7 @@ from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_U
     test_acl_egress_drop  # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -45,6 +44,18 @@ LOG_EXPECT_PORT_ADMIN_UP_RE = ".*Port {} oper state set from down to up.*"
 
 COMBINED_L2L3_DROP_COUNTER = False
 COMBINED_ACL_DROP_COUNTER = False
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore in KVM test
+    KVMIgnoreRegex = [
+        ".*ERR kernel.*Reset adapter.*",
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is disabled
+        if duthost.facts["asic_type"] == "vs":
+            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
 
 
 @pytest.fixture(autouse=True, scope="module")

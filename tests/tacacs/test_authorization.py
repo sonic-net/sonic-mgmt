@@ -11,7 +11,7 @@ from tests.tacacs.utils import per_command_authorization_skip_versions, \
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until, paramiko_ssh
 from .utils import check_server_received
-from tests.override_config_table.utilities import backup_config, restore_config, \
+from tests.common.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
 from tests.common.helpers.dut_utils import is_container_running
 
@@ -264,8 +264,8 @@ def test_authorization_tacacs_only_some_server_down(
     # cleanup all tacacs server, if UT break, tacacs server may still left in dut and will break next UT.
     remove_all_tacacs_server(duthost)
 
-    duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
-    duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % invalid_tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % tacacs_server_ip)
 
     """
         Verify TACACS+ user run command in server side whitelist:
@@ -604,7 +604,7 @@ def test_stop_request_next_server_after_reject(
     tacacs_server_ipv6 = ptfhost_vars['ansible_hostv6']
 
     # Setup second tacacs server
-    duthost.shell("sudo config tacacs add {}".format(tacacs_server_ipv6))
+    duthost.shell("sudo config tacacs add {} --port 59".format(tacacs_server_ipv6))
     duthost.shell("sudo config tacacs timeout 1")
 
     # Clean tacacs log
@@ -665,7 +665,7 @@ def test_fallback_to_local_authorization_with_config_reload(
             "global": {"auth_type": "login", "passkey": tacacs_passkey}
         },
         "TACPLUS_SERVER": {
-            tacacs_server_ip: {"priority": "60", "tcp_port": "49", "timeout": "2"}
+            tacacs_server_ip: {"priority": "60", "tcp_port": "59", "timeout": "2"}
         }
     }
     reload_minigraph_with_golden_config(duthost, override_config)
