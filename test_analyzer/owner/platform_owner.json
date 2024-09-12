@@ -366,5 +366,13 @@
         "email": "jika@microsoft.com",
         "new_platform": "",
         "tag": ""
+    },
+    {
+        "hwsku": "Arista-7060X6-64PE-256x200G",
+        "topo": "t0",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
     }
 ]
