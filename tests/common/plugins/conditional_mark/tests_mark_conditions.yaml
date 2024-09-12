@@ -1673,8 +1673,10 @@ telemetry/test_telemetry.py:
 #######################################
 test_pktgen.py:
   skip:
-    reason: "have known issue, skip for now"
-    conditions: https://github.com/sonic-net/sonic-mgmt/issues/13804
+    reason: "Have known issue, only running for 'cisco-8000', skipping for all other ASIC types"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/13804"
 
 #######################################
 #####            vlan             #####
