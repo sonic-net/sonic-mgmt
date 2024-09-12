@@ -1,5 +1,5 @@
 import logging
-import ipaddress
+import ipaddr as ipaddress
 import re
 import json
 from bgp_helpers import parse_rib
