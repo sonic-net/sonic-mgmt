@@ -198,7 +198,7 @@ class KustoConnector(object):
             | sort by ReproCount, ModulePath
             '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords_setup_error"],
                    configuration["branch"]["excluded_branch_setup_error"], configuration["hwsku"]["excluded_hwsku"],
-                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_while_list'],
+                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_white_list'],
                    self.search_start_time, self.search_end_time, self.search_start_time, self.search_end_time,
                    configuration['threshold']['repro_count_limit_summary'])
         logger.info("Query common summary cases:{}".format(query_str))
@@ -250,7 +250,7 @@ class KustoConnector(object):
         | sort by ReproCount, ModulePath
         '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords_setup_error"],
                    configuration["branch"]["excluded_branch_setup_error"], configuration["hwsku"]["excluded_hwsku"],
-                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_while_list'],
+                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_white_list'],
                    self.search_start_time, self.search_end_time, self.search_start_time, self.search_end_time,
                    configuration['threshold']['repro_count_limit'])
         logger.info("Query common summary failure cases:{}".format(query_str))
@@ -392,7 +392,7 @@ class KustoConnector(object):
         | sort by ModulePath, opTestCase, Result
         '''.format(release_branch, configuration["testbeds"]["excluded_testbed_keywords"],
                    configuration["branch"]["excluded_branch"], configuration["hwsku"]["excluded_hwsku"],
-                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_while_list'],
+                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_white_list'],
                    self.search_start_time, self.search_end_time)
         logger.info(
             "Query 7 days's failed cases for branch {}:{}".format(release_branch, query_str))
@@ -428,7 +428,7 @@ class KustoConnector(object):
         | sort by UploadTimestamp desc
         '''.format(configuration["branch"]["included_branch"], configuration["testbeds"]["excluded_testbed_keywords"],
                    configuration["branch"]["excluded_branch"], configuration["hwsku"]["excluded_hwsku"],
-                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_while_list'],
+                   configuration['topo']['excluded_topo'], configuration['asic']['excluded_asic'], configuration['summary_white_list'],
                    self.search_start_time, self.search_end_time)
         logger.info(
             "Query 7 days's failed cases cross branches:{}".format(query_str))

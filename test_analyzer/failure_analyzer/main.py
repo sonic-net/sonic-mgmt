@@ -11,6 +11,7 @@ from data_analyzer import DataAnalyzer
 from config import configuration
 import logging
 import pandas as pd
+import os
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -69,12 +70,13 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error):
     for index, case in enumerate(failure_duplicated_icm_table):
         logger.info("{}: {}".format(index + 1, case['subject']))
     
-    failures_df = pd.DataFrame(failure_new_icm_table, columns=['subject', 'failure_summary'])
-
-    # failures_df.to_csv('failures_df_post.csv', index=True)
+    failures_df = pd.DataFrame(failure_new_icm_table, columns=['subject', 'branch', 'failure_summary'])
+    with open('logs/failures_df_post.csv', 'w') as file:
+        failures_df.to_csv(file, index=False)
     aggregated_df = deduper.find_similar_summaries_and_count(failures_df)
-    
-    # aggregated_df.to_csv('aggregated_df_post.csv', index=True)
+
+    with open('logs/aggregated_df_post.csv', 'w') as file:
+        aggregated_df.to_csv(file, index=False)
     logger.debug("The count of failures before aggregation: {} after:{}".format(len(failures_df), len(aggregated_df)))
     aggregated_failure_new_icm_list = [item for item in failure_new_icm_table if item['subject'] in list(aggregated_df['subject'])]
  

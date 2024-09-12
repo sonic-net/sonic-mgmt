@@ -720,7 +720,10 @@ class DataAnalyzer(BasicAnalyzer):
     def collect_failed_testcase_cross_branch(self):
         failedcases_response = self.kusto_connector.query_failed_testcase_cross_branch()
         failures_df = dataframe_from_result_table(failedcases_response.primary_results[0])
-        # failures_df.to_csv('failures_df.csv', index=False)
+        os.makedirs('logs', exist_ok=True)
+        with open('logs/failures_df.csv', 'w') as file:
+            failures_df.to_csv(file, index=False)
+
         logger.debug("Found {} failed test cases in total on all branches.".format(len(failures_df)))
         # aggregated_df = deduper.find_similar_summaries_and_count(failures_df)
         # aggregated_df.to_csv('aggregated_df.csv', index=False)

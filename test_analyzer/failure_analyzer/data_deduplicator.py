@@ -243,24 +243,32 @@ class DataDeduplicator:
     def find_similar_summaries_and_count(self, dataframe_data):
         unique_summaries = {}
         summaries_to_indices = {}  # Map summaries to their indices
+
         for index, row in dataframe_data.iterrows():
             summary = row["failure_summary"]
+            branch = row["branch"]
+            subject = row["subject"]
+
+            if branch not in unique_summaries:
+                unique_summaries[branch] = {}
+                summaries_to_indices[branch] = {}
+
             if summary == '':
-                unique_summaries[index] = summary
-                summaries_to_indices.setdefault(summary, []).append(index)
+                unique_summaries[branch][index] = summary
+                summaries_to_indices[branch].setdefault(summary, []).append(index)
                 continue
-            if summary in ("AssertionError", "test setup failure", "test teardown failure"):
-                unique_summaries[index] = summary
-                summaries_to_indices.setdefault(summary, []).append(index)
+            if summary in configuration["summary_white_list"]:
+                unique_summaries[branch][index] = summary
+                summaries_to_indices[branch].setdefault(summary, []).append(index)
                 continue
-            if not unique_summaries:
-                unique_summaries[index] = summary
-                summaries_to_indices[summary] = [index]
+            if not unique_summaries[branch]:
+                unique_summaries[branch][index] = summary
+                summaries_to_indices[branch][summary] = [index]
                 continue
 
             # Replace the fuzzywuzzy process.extractOne call with RapidFuzz equivalent
             result = process.extractOne(
-                summary, unique_summaries.values(), scorer=fuzz.WRatio
+                summary, unique_summaries[branch].values(), scorer=fuzz.WRatio
             )
             if result:
                 matched_summary, highest_score, _ = (
@@ -272,32 +280,38 @@ class DataDeduplicator:
             # matched_summary, highest_score = process.extractOne(summary, unique_summaries.values())
 
             logger.debug(
-                "{}===matched_summary={}, summary={}, hightest_score={}".format(
-                    index, matched_summary[:80], summary[:80], highest_score
+                "{}:{}===matched_summary={}, summary={}, hightest_score={}".format(
+                    index, subject, matched_summary[:80], summary[:80], highest_score
                 )
             )
             if highest_score < int(configuration["threshold"]["fuzzy_rate"]):
-                unique_summaries[index] = summary
-                summaries_to_indices[summary] = [index]
+                unique_summaries[branch][index] = summary
+                summaries_to_indices[branch][summary] = [index]
             else:
                 # Find the original summary corresponding to the matched summary for mapping
-                for orig_summary, indices in summaries_to_indices.items():
-                    if orig_summary == '':
-                        summaries_to_indices[orig_summary].append(index)
+                for orig_summary, indices in summaries_to_indices[branch].items():
                     if matched_summary in orig_summary:
-                        summaries_to_indices[orig_summary].append(index)
+                        summaries_to_indices[branch][orig_summary].append(index)
                         break
-        # logger.debug("summaries_to_indices={}".format(json.dumps(summaries_to_indices, indent=4)))
-        # Count the occurrences of each summary
-        summary_counts = {
-            summary: len(indices) for summary, indices in summaries_to_indices.items()
-        }
-        # logger.debug("summary_counts={}".format(json.dumps(summary_counts, indent=4)))
+
+        # Count the occurrences of each summary for each branch
+        summary_counts = {}
+        for branch, indices in summaries_to_indices.items():
+            summary_counts[branch] = {
+                summary: len(indices) for summary, indices in indices.items()
+            }
+
         # Create a new DataFrame from the filtered summaries
-        new_df = dataframe_data.loc[unique_summaries.keys()].copy()
+        new_df = pd.DataFrame()
+        for branch, summaries in unique_summaries.items():
+            branch_df = dataframe_data[dataframe_data["branch"] == branch]
+            new_df = pd.concat([new_df, branch_df.loc[summaries.keys()]])
 
         # Add the 'count' column to the new DataFrame
-        new_df["count"] = new_df["failure_summary"].apply(lambda x: summary_counts[x])
+        new_df["count"] = new_df.apply(lambda row: summary_counts[row["branch"]][row["failure_summary"]], axis=1)
+
+        # Select the desired columns
+        new_df = new_df[["subject", "branch", "failure_summary", "count"]]
 
         return new_df
 

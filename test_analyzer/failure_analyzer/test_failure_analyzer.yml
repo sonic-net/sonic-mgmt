@@ -46,9 +46,16 @@ stages:
                 source /var/AzDevOps/env-python3/bin/activate
 
                 cd test_analyzer/failure_analyzer
+                mkdir logs
+                touch logs/analyzer.log
                 pip3 install -r requirements.txt
 
-                python3 main.py -extb $(EXCLUDED_TESTBED_KEYWORDS) -exerr $(EXCLUDED_TESTBED_KEYWORDS_SETUP_ERROR)
+                python3 main.py -extb $(EXCLUDED_TESTBED_KEYWORDS) -exerr $(EXCLUDED_TESTBED_KEYWORDS_SETUP_ERROR) 2>&1 | tee logs/analyzer.log
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
               AZURE_DEVOPS_MSAZURE_TOKEN: $(MSAZURE-TOKEN)
+
+          - publish: test_analyzer/failure_analyzer/logs
+            displayName: "Archive test logs"
+            artifact: TestFailureAnalyzing.log@$(System.JobAttempt)
+            condition: always()

@@ -16,7 +16,7 @@
     "topo": {
         "excluded_topo": ["t2"]
     },
-    "summary_while_list": ["AssertionError", "Exception", "test teardown failure", "test setup failure", "Failed: None", "failed on setup with \"Failed: Not all critical processes are healthy\""],
+    "summary_white_list": ["AssertionError", "Exception", "test teardown failure", "test setup failure", "Failed: None", "failed on setup with \"Failed: Not all critical processes are healthy\""],
     "threshold": {
         "duration_days": 7,
         "repro_count_limit": 2,
