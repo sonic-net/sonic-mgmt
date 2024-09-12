@@ -29,8 +29,8 @@ def skip_test_smartswitch(duthost):
                            stderr=subprocess.STDOUT)
     id = pin.communicate()[0]
     id = id.strip()
-    platform_file = "/usr/share/sonic/device/" +
-                    id.decode() +
+    platform_file = "/usr/share/sonic/device/" + \
+                    id.decode() + \
                     "/platform.json"
     fp = open(platform_file, "r")
     data = json.load(fp)
