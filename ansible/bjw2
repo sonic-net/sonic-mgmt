@@ -741,44 +741,110 @@ sonic_cisco_8102:
       ansible_host: 10.150.22.43
       ansible_hostv6: 2404:f801:10:2200::a96:162b
       model: 8102-64H-O
-      serial:
-      base_mac:
+      serial: FLM28020JYM
+      base_mac: B0:8D:57:F5:B3:60
       syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "477595"
+        "0x23": "FLM28020JYM"
+        "0x24": "B0:8D:57:F5:B3:60"
+        "0x26": "4"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x400C319E"
     bjw2-can-8102-2:
       ansible_host: 10.150.22.45
       ansible_hostv6: 2404:f801:10:2200::a96:162d
       model: 8102-64H-O
-      serial:
-      base_mac:
+      serial: FLM2803000C
+      base_mac: B0:8D:57:F5:CF:98
       syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "477595"
+        "0x23": "FLM2803000C"
+        "0x24": "B0:8D:57:F5:CF:98"
+        "0x26": "4"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x0D5C960E"
     bjw2-can-8102-3:
       ansible_host: 10.150.22.47
       ansible_hostv6: 2404:f801:10:2200::a96:162f
       model: 8102-64H-O
-      serial:
-      base_mac:
+      serial: FLM28020JYW
+      base_mac: 94:33:D8:6C:71:18
       syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "477595"
+        "0x23": "FLM28020JYW"
+        "0x24": "94:33:D8:6C:71:18"
+        "0x26": "4"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xF25D05E6"
     bjw2-can-8102-4:
       ansible_host: 10.150.22.49
       ansible_hostv6: 2404:f801:10:2200::a96:1631
       model: 8102-64H-O
-      serial:
-      base_mac:
+      serial: FLM28030156
+      base_mac: B0:8D:57:F5:D9:AC
       syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "477595"
+        "0x23": "FLM28030156"
+        "0x24": "B0:8D:57:F5:D9:AC"
+        "0x26": "4"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xDA497DEF"
     bjw2-can-8102-5:
       ansible_host: 10.150.22.51
       ansible_hostv6: 2404:f801:10:2200::a96:1633
       model: 8102-64H-O
-      serial:
-      base_mac:
+      serial: FLM28030005
+      base_mac: 94:33:D8:75:E9:E4
       syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "477595"
+        "0x23": "FLM28030005"
+        "0x24": "94:33:D8:75:E9:E4"
+        "0x26": "4"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xCF1C5351"
     bjw2-can-8102-6:
       ansible_host: 10.150.22.53
       ansible_hostv6: 2404:f801:10:2200::a96:1635
       model: 8102-64H-O
-      serial:
-      base_mac:
+      serial: FLM2803018C
+      base_mac: 94:33:D8:75:FE:0C
       syseeprom_info:
+        "0x21": "8102-64H-O"
+        "0x22": "477595"
+        "0x23": "FLM2803018C"
+        "0x24": "94:33:D8:75:FE:0C"
+        "0x26": "4"
+        "0x28": "x86_64-8102_64h_o-r0"
+        "0x2A": "516"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x21A605A2"
 
 
 sonic_mlnx_sn4600c:
