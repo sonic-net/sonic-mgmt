@@ -11,7 +11,7 @@ index 0708dd561..c5033554b 100644
 +r, ".* ERR pmon#CCmisApi.*: PCIe device status check : FAILED.*"
 +r, ".* ERR pmon#xcvrd.*CMIS.* FAILED .*"
 +r, ".* ERR swss#orchagent:.* doCfgSensorsTableTask: ASIC sensors : unsupported operation for poller state.*"
-+r, ".* ERR monit.* 'routeCheck' status failed.*”
++r, ".* ERR monit.* 'routeCheck' status failed.*"
 +
  # White list below messages found on KVM for now. Need to address them later.
  r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
