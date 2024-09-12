@@ -323,13 +323,6 @@ def _context_for_check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_host
     restore_tacacs_servers(duthost)
 
 
-@pytest.fixture(scope="module")
-def tacacs_creds(creds_all_duts):
-    hardcoded_creds = load_tacacs_creds()
-    creds_all_duts.update(hardcoded_creds)
-    return creds_all_duts
-
-
 @pytest.fixture(scope="function")
 def check_tacacs_v6_func(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds): # noqa F811
     with _context_for_check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds) as result:
