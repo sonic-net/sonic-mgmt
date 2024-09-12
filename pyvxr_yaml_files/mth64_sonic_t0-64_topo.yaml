@@ -15,8 +15,6 @@ devices:
     linux_prompt: root@docker-ptf:~#
     xr_port_redir: [22]
     extended_pci_bus: True
-    data_port_attributes:
-      transport: e1000
     vcpu: 4
     memory: '8G'
     mgmt_intf_name: mgmt
