@@ -86,7 +86,6 @@ stages:
         DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
         MGMT_BRANCH: $(BUILD_BRANCH)
-        PTF_IMAGE_TAG: "test_tag"
 
 #  - job: t1_lag_elastictest
 #    displayName: "kvmtest-t1-lag by Elastictest"
