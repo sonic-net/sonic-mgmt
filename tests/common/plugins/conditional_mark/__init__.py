@@ -428,7 +428,7 @@ def find_all_matches(nodeid, conditions):
         marks = match[case_starting_substring].keys()
         for mark in marks:
             if mark in conditional_marks:
-                if length > max_length:
+                if length >= max_length:
                     conditional_marks.update({
                         mark: {
                             case_starting_substring: {
@@ -441,6 +441,7 @@ def find_all_matches(nodeid, conditions):
                         case_starting_substring: {
                             mark: match[case_starting_substring][mark]}
                     }})
+                max_length = length
 
     # We may have the same matches of different marks
     # Need to remove duplicate here
