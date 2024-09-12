@@ -50,7 +50,6 @@ FILE_CHANGE_TIMEOUT = 300
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
 
 
-
 def check_skip_release(duthost, release_list):
     """
     @summary: check if need skip current test if any given release keywords are in os_version, match sonic_release.
@@ -1291,7 +1290,7 @@ def wait_for_file_changed(duthost, file, action, *args, **kwargs):
     exist = wait_until(FILE_CHANGE_TIMEOUT, 1, 0, hash_and_timestamp_changed, duthost, file)
     pytest_assert(exist, "File {} does not change after {} seconds.".format(file, FILE_CHANGE_TIMEOUT))
 
-    
+
 def backup_config(duthost, config, config_backup):
     logger.info("Backup {} to {} on {}".format(
         config, config_backup, duthost.hostname))
