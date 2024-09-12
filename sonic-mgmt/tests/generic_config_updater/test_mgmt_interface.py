@@ -81,10 +81,10 @@ def update_and_check_forced_mgmt_routes(duthost, forced_mgmt_routes, interface_a
     interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
     logging.debug("interfaces: {}".format(interfaces))
 
-    pytest_assert("up ip {} rule add pref {} to {} table default"
-                  .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces == expect_exist)
-    pytest_assert("pre-down ip {} rule delete pref {} to {} table default"
-                  .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces == expect_exist)
+    pytest_assert(("up ip {} rule add pref {} to {} table default"
+                  .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces) == expect_exist)
+    pytest_assert(("pre-down ip {} rule delete pref {} to {} table default"
+                  .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces) == expect_exist)
 
 
 def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):

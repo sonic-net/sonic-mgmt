@@ -15,8 +15,7 @@ from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxla
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload

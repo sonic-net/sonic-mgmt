@@ -11,8 +11,7 @@ from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions        
 from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions_on_duthost
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
                                                 copy_ptftests_directory, change_mac_addresses       # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test                                   # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test                                   # noqa F401
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401

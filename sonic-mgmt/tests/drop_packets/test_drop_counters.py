@@ -22,8 +22,7 @@ from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_U
     test_acl_egress_drop  # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 
 pytestmark = [
     pytest.mark.topology("any")

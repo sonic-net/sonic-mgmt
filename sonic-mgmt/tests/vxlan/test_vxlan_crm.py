@@ -28,6 +28,7 @@ def _ignore_route_sync_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
         # Ignore in KVM test
         KVMIgnoreRegex = [
             ".*missed_in_asic_db_routes.*",
+            ".*Vnet Route Mismatch reported.*",
         ]
         duthost = duthosts[rand_one_dut_hostname]
         if duthost.facts["asic_type"] == "vs":

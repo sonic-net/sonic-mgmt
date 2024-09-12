@@ -57,7 +57,8 @@ def get_dummay_mac_count(tbinfo, duthosts, rand_one_dut_hostname):
 
     # t0-116 will take 90m with DUMMY_MAC_COUNT, so use DUMMY_MAC_COUNT_SLIM for t0-116 to reduce running time
     # Use DUMMY_MAC_COUNT_SLIM on dualtor-64 to reduce running time
-    REQUIRED_TOPO = ["t0-116", "dualtor-64", "dualtor-120"]
+    REQUIRED_TOPO = ["t0-116", "dualtor-64", "dualtor-120",
+                     "t0-standalone-64", "t0-standalone-128", "t0-standalone-256", "t0-standalone-512"]
     if tbinfo["topo"]["name"] in REQUIRED_TOPO:
         # To reduce the case running time
         logger.info("Use dummy mac count {} on topo {}\n".format(DUMMY_MAC_COUNT_SLIM, tbinfo["topo"]["name"]))

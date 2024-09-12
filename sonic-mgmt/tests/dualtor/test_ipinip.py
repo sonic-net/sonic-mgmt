@@ -28,8 +28,7 @@ from tests.common.utilities import is_ipv4_address, wait_until
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
