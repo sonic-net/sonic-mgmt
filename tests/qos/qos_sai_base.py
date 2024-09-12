@@ -1943,14 +1943,21 @@ class QosSaiBase(QosBase):
                     ]
                 )
 
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"]
+        if "wrr_chg" in qosConfig[portSpeedCableLength]:
+            qosConfigWrrChg = qosConfig[portSpeedCableLength]["wrr_chg"]
+        else:
+            qosConfigWrrChg = qosConfig["wrr_chg"]
+
         wrrSchedParams = [
             {
                 "profile": lossySchedProfile["schedProfile"],
-                "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossy_weight"]
+                "qosConfig": qosConfigWrrChg["lossy_weight"]
             },
             {
                 "profile": losslessSchedProfile["schedProfile"],
-                "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossless_weight"]
+                "qosConfig": qosConfigWrrChg["lossless_weight"]
             },
         ]
 
@@ -2161,19 +2168,20 @@ class QosSaiBase(QosBase):
         return mapping
 
     @pytest.fixture(autouse=False)
-    def _check_ingress_speed_gte_400g(
+    def skip_400g_longlink(
             self,
             get_src_dst_asic_and_duts,
             dutQosConfig):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        m = re.search("([0-9]+)_([0-9]+m)", portSpeedCableLength)
+        m = re.search("([0-9]+)_([0-9]+)m", portSpeedCableLength)
         if not m:
             raise RuntimeError(
                 "Format error in portSpeedCableLength:{}".
                 format(portSpeedCableLength))
         speed = int(m.group(1))
-        if speed >= 400000:
-            pytest.skip("PGDrop test is not supported for 400G port speed.")
+        cable_length = int(m.group(2))
+        if speed >= 400000 and cable_length >= 120000:
+            pytest.skip("PGDrop test is not supported for 400G longlink.")
 
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds, dualtor_dut_ports=None):
         """
@@ -2288,3 +2296,15 @@ class QosSaiBase(QosBase):
                 "This test is skipped for longlink.")
         yield
         return
+
+    @pytest.fixture(scope="class", autouse=False)
+    def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
+        duthost = get_src_dst_asic_and_duts['src_dut']
+        tc_to_dscp_count_map = {}
+        for tc in range(8):
+            tc_to_dscp_count_map[tc] = 0
+        config_facts = duthost.get_running_config_facts()
+        dscp_to_tc_map = config_facts['DSCP_TO_TC_MAP']['AZURE']
+        for dscp, tc in dscp_to_tc_map.items():
+            tc_to_dscp_count_map[int(tc)] += 1
+        yield tc_to_dscp_count_map
