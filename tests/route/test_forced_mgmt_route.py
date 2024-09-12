@@ -5,10 +5,9 @@ import pytest
 
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until, wait_for_file_changed, \
-    FORCED_MGMT_ROUTE_PRIORITY
-from tests.override_config_table.utilities import backup_config, restore_config, \
-        reload_minigraph_with_golden_config
+from tests.common.utilities import wait_until, wait_for_file_changed, backup_config, restore_config, \
+            reload_minigraph_with_golden_config, FORCED_MGMT_ROUTE_PRIORITY
+from tests.override_config_table.utilities import backup_config, restore_config, 
 from tests.syslog.syslog_utils import is_mgmt_vrf_enabled
 
 pytestmark = [
