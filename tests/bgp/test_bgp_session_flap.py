@@ -61,6 +61,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
     namespace = duthost.get_namespace_from_asic_id(asic_index)
+    asichost = duthost.asic_instance_from_namespace(namespace)
 
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
     neigh_keys = []
@@ -92,17 +93,8 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         'namespace': namespace
     }
 
-    logger.info("DUT BGP Config: {}".format(duthost.shell("vtysh -n {} -c \"show run bgp\"".format(asic_index),
-                                                          module_ignore_errors=True)))
-    # If host it sonic use 'show runningconfig bgp'
-    if isinstance(nbrhosts[tor1]["host"], SonicHost):
-        logger.info("Neighbor BGP Config: {}".format(
-           nbrhosts[tor1]["host"].command("show runningconfig bgp")))
-    else:
-        # Else use industry standard 'show run | sec bgp'
-        logger.info("Neighbor BGP Config: {}".format(
-           nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
-
+    logger.info("DUT BGP Config: {}".format(asichost.run_vtysh(" -c \"show run bgp\"")))
+    logger.info("Neighbor BGP Config: {}".format(nbrhosts[tor1]["host"].get_nbrhost_bgp_run_config()))
     logger.info('Setup_info: {}'.format(setup_info))
 
     #  get baseline BGP CPU and Memory Utilization
