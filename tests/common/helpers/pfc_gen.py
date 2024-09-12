@@ -32,25 +32,28 @@ class PacketSender():
         self.sockets = []
         self.interfaces = interfaces
         self.use_c_function = use_c_function
-        if use_c_function:
-            # Load the C library
-            arch, _ = platform.architecture()
-            if arch == '32bit':
-                lib_name = './send_packets_c_bit32.so'
-            elif arch == '64bit':
-                lib_name = './send_packets_c_bit64.so'
-            else:
-                raise RuntimeError("Unsupported architecture")
+        if self.use_c_function:
+            try:
+                # Load the C library
+                arch, _ = platform.architecture()
+                if arch == '32bit':
+                    lib_name = './send_packets_c_bit32.so'
+                elif arch == '64bit':
+                    lib_name = './send_packets_c_bit64.so'
 
-            self.packet_sender_lib = ctypes.CDLL(lib_name)
-            self.packet_sender_lib.send_packets_c.argtypes = [
-                ctypes.c_char_p,
-                ctypes.POINTER(ctypes.c_ubyte),
-                ctypes.c_int,
-                ctypes.c_int,
-                ctypes.c_int
-            ]
-        else:
+                self.packet_sender_lib = ctypes.CDLL(lib_name)
+                self.packet_sender_lib.send_packets_c.argtypes = [
+                    ctypes.c_char_p,
+                    ctypes.POINTER(ctypes.c_ubyte),
+                    ctypes.c_int,
+                    ctypes.c_int,
+                    ctypes.c_int
+                ]
+            except Exception as e:
+                print("load lib failed, ignore using c function: %s" % e)
+                self.use_c_function = False
+
+        if not self.use_c_function:
             try:
                 for interface in interfaces:
                     s = socket(AF_PACKET, SOCK_RAW)
