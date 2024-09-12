@@ -303,8 +303,6 @@ class EosHost(AnsibleHostBase):
                                            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
         res = self.localhost.shell(cli_cmd)
 
-        logging.info("#### cli_cmd {}".format(cli_cmd))
-
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 

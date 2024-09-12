@@ -133,8 +133,8 @@ class PFCStorm(object):
 
             pfc_gen_c_files = self.pfc_gen_c_files if isinstance(self.pfc_gen_c_files, list) else [self.pfc_gen_c_files]
             for pfc_gen_c_file in pfc_gen_c_files:
-                logger.info("#### pfc_gen_c_file {}".format(pfc_gen_c_file))
-                logger.info("#### fanout_asic_type {}".format(self.fanout_asic_type))
+                logger.info("pfc_gen_c_file {}".format(pfc_gen_c_file))
+                logger.info("fanout_asic_type {}".format(self.fanout_asic_type))
                 self.peer_device.copy(
                     src="pfcwd/files/{}".format(pfc_gen_c_file),
                     dest=self._PFC_GEN_DIR[self.peer_device.os]
