@@ -3,7 +3,7 @@ import pytest
 import random
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts                  # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, snappi_api,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, snappi_api, \
     snappi_dut_base_config, get_multidut_snappi_ports, get_multidut_tgen_peer_port_set                   # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.port import select_ports
@@ -12,8 +12,9 @@ from tests.snappi_tests.variables import config_set, line_card_choice
 
 SNAPPI_POLL_DELAY_SEC = 2
 
+pytestmark = [pytest.mark.topology('snappi')]
 
-@pytest.mark.topology("snappi")
+
 @pytest.mark.disable_loganalyzer
 def __gen_all_to_all_traffic(testbed_config,
                              port_config_list,
@@ -55,7 +56,12 @@ def __gen_all_to_all_traffic(testbed_config,
             flow.tx_rx.port.tx_name = tx_port_name
             flow.tx_rx.port.rx_name = rx_port_name
 
-            eth, ipv4 = flow.packet.ethernet().ipv4()
+            eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+            src_port = random.randint(5000, 6000)
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = 1
+
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
             eth.pfc_queue.value = priority
@@ -82,7 +88,9 @@ def __gen_all_to_all_traffic(testbed_config,
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
 def test_snappi(request,
                 duthosts,
-                snappi_api, conn_graph_facts, fanout_graph_facts,               # noqa: F811
+                snappi_api,                         # noqa: F811
+                conn_graph_facts,                  # noqa: F811
+                fanout_graph_facts,               # noqa: F811
                 rand_one_dut_lossless_prio,
                 prio_dscp_map,                                                  # noqa: F811
                 line_card_choice,
@@ -109,7 +117,7 @@ def test_snappi(request,
         assert False, "Invalid line_card_choice value passed in parameter"
 
     if len(linecard_configuration_set[line_card_choice]['hostname']) > 1:
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(list(duthosts), 2)
     elif len(linecard_configuration_set[line_card_choice]['hostname']) == 1:
         dut_list = [dut for dut in duthosts
                     if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
@@ -125,9 +133,8 @@ def test_snappi(request,
                                                    snappi_port_list,
                                                    config_set,
                                                    2)
-    tgen_ports = [port['location'] for port in snappi_ports]
+
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 

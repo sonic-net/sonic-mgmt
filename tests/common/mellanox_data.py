@@ -5,8 +5,8 @@ SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-M
                "ACS-MSN2010", "ACS-SN2201"]
 SPC2_HWSKUS = ["ACS-MSN3700", "ACS-MSN3700C", "ACS-MSN3800", "Mellanox-SN3800-D112C8", "ACS-MSN3420"]
 SPC3_HWSKUS = ["ACS-MSN4700", "Mellanox-SN4700-O28", "ACS-MSN4600C", "ACS-MSN4410", "ACS-MSN4600",
-               "Mellanox-SN4600C-D112C8", "Mellanox-SN4600C-C64"]
-SPC4_HWSKUS = ["ACS-SN5600"]
+               "Mellanox-SN4600C-D112C8", "Mellanox-SN4600C-C64", "ACS-SN4280", "Mellanox-SN4280-O28"]
+SPC4_HWSKUS = ["ACS-SN5600", "Mellanox-SN5600-V256"]
 SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS + SPC4_HWSKUS
 
 PSU_CAPABILITIES = [
@@ -599,6 +599,61 @@ SWITCH_MODELS = {
             "module": {
                 "start": 1,
                 "number": 32
+            },
+            "psu": {
+                "start": 1,
+                "number": 2
+            },
+            "cpu_pack": {
+                "number": 1
+            },
+            "asic_ambient": {
+                "number": 1
+            },
+            "port_ambient": {
+                "number": 1
+            },
+            "fan_ambient": {
+                "number": 1
+            },
+            "comex_ambient": {
+                "number": 1
+            }
+        }
+    },
+    "x86_64-nvidia_sn4280-r0": {
+        "chip_type": "spectrum3",
+        "reboot": {
+            "cold_reboot": True,
+            "fast_reboot": False,
+            "warm_reboot": True
+        },
+        "fans": {
+            "number": 4,
+            "hot_swappable": True
+        },
+        "psus": {
+            "number": 2,
+            "hot_swappable": True,
+            "capabilities": PSU_CAPABILITIES[1]
+        },
+        "cpu_pack": {
+            "number": 1
+        },
+        "cpu_cores": {
+            "number": 0
+        },
+        "ports": {
+            "number": 32
+        },
+        "thermals": {
+            "cpu_core": {
+                "start": 0,
+                "number": 0
+            },
+            "module": {
+                "start": 1,
+                "number": 28
             },
             "psu": {
                 "start": 1,

@@ -329,7 +329,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
         finally:
             for conn in connections:
-                ptfhost.shell("ip address flush %s" % conn["neighbor_intf"])
+                ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
     def _setup_interfaces_t1_or_t2(mg_facts, peer_count):
@@ -793,3 +793,15 @@ def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 @pytest.fixture(scope="module")
 def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
+
+
+@pytest.fixture(scope="module")
+def traffic_shift_community(duthost):
+    community = duthost.shell('sonic-cfggen -y /etc/sonic/constants.yml -v constants.bgp.traffic_shift_community')[
+        'stdout']
+    return community
+
+
+@pytest.fixture(scope='module')
+def get_function_completeness_level(pytestconfig):
+    return pytestconfig.getoption("--completeness_level")

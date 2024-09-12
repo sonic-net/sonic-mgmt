@@ -38,6 +38,9 @@ from netaddr import valid_ipv6
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+LA_START_MARKER_SCRIPT = "scripts/find_la_start_marker.sh"
+FIND_SYSLOG_MSG_SCRIPT = "scripts/find_log_msg.sh"
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
 
 
 def check_skip_release(duthost, release_list):
@@ -758,6 +761,29 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     return reboot_dict
 
 
+def pdu_reboot(pdu_controller):
+    """Power-cycle the DUT by turning off and on the PDU outlets.
+
+    Args:
+        pdu_controller: PDU controller object implementing the BasePduController interface.
+            User can acquire pdu_controller object from fixture tests.common.plugins.pdu_controller.pdu_controller
+
+    Returns: True if the PDU reboot is successful, False otherwise.
+    """
+    if not pdu_controller:
+        logging.warning("pdu_controller is None, skip PDU reboot")
+        return False
+    hostname = pdu_controller.dut_hostname
+    if not pdu_controller.turn_off_outlet():
+        logging.error("Turn off the PDU outlets of {} failed".format(hostname))
+        return False
+    time.sleep(10)  # sleep 10 second to ensure there is gap between power off and on
+    if not pdu_controller.turn_on_outlet():
+        logging.error("Turn on the PDU outlets of {} failed".format(hostname))
+        return False
+    return True
+
+
 def get_image_type(duthost):
     """get the SONiC image type
         It might be public/microsoft/...or any other type.
@@ -1112,7 +1138,7 @@ def capture_and_check_packet_on_dut(
         wait_time: the time to wait before stopping the packet capture, default is 1 second
     """
     pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
-    cmd_capture_pkts = "sudo nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
+    cmd_capture_pkts = "nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
         % (interface, pcap_save_path, pkts_filter)
     tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
     cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
@@ -1178,3 +1204,79 @@ def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     except Exception:
         _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
     return passwd
+
+
+def check_msg_in_syslog(duthost, log_msg):
+    """
+    Checks for a given log message after the last start-LogAnalyzer message in syslog
+
+    Args:
+        duthost: Device under test.
+        log_msg: Log message to be searched
+
+    Yields:
+        True if log message is present or returns False
+    """
+    la_output = duthost.script(LA_START_MARKER_SCRIPT)["stdout"]
+    if not la_output:
+        return False
+    else:
+        output = la_output.replace('\r', '').replace('\n', '')
+
+    try:
+        log_msg = f"\"{log_msg}\""
+        log_output = duthost.script("%s %s %s" % (FIND_SYSLOG_MSG_SCRIPT, output, log_msg))
+        if log_output:
+            return True
+        else:
+            return False
+    except Exception:
+        return False
+
+
+def backup_config(duthost, config, config_backup):
+    logger.info("Backup {} to {} on {}".format(
+        config, config_backup, duthost.hostname))
+    duthost.shell("cp {} {}".format(config, config_backup))
+
+
+def restore_config(duthost, config, config_backup):
+    logger.info("Restore {} with {} on {}".format(
+        config, config_backup, duthost.hostname))
+    duthost.shell("mv {} {}".format(config_backup, config))
+
+
+def get_running_config(duthost, asic=None):
+    ns = "-n " + asic if asic else ""
+    return json.loads(duthost.shell("sonic-cfggen {} -d --print-data".format(ns))['stdout'])
+
+
+def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
+    """
+    for multi-asic/single-asic devices, we only have 1 golden_config_db.json
+    """
+    from tests.common.config_reload import config_reload
+    golden_config = "/etc/sonic/golden_config_db.json"
+    duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
+    config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+    # Cleanup golden config because some other test or device recover may reload config with golden config
+    duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+
+
+def file_exists_on_dut(duthost, filename):
+    return duthost.stat(path=filename).get('stat', {}).get('exists', False)
+
+
+def compare_dicts_ignore_list_order(dict1, dict2):
+    def normalize(data):
+        if isinstance(data, list):
+            return set(data)
+        elif isinstance(data, dict):
+            return {k: normalize(v) for k, v in data.items()}
+        else:
+            return data
+
+    dict1_normalized = normalize(dict1)
+    dict2_normalized = normalize(dict2)
+
+    return dict1_normalized == dict2_normalized

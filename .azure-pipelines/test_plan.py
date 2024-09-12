@@ -5,6 +5,7 @@ import ast
 import json
 import os
 import sys
+import subprocess
 import copy
 import time
 from datetime import datetime, timedelta
@@ -22,8 +23,14 @@ INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mg
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
-TOKEN_EXPIRE_HOURS = 6
+TOKEN_EXPIRE_HOURS = 1
 MAX_GET_TOKEN_RETRY_TIMES = 3
+TEST_PLAN_STATUS_UNSUCCESSFUL_FINISHED = ["FAILED", "CANCELLED"]
+TEST_PLAN_STEP_STATUS_UNFINISHED = ["EXECUTING", None]
+
+
+class PollTimeoutException(Exception):
+    pass
 
 
 class TestPlanStatus(Enum):
@@ -69,7 +76,7 @@ def test_plan_status_factory(status):
     raise Exception("The status is not correct.")
 
 
-class AbstractStatus():
+class AbstractStatus:
     def __init__(self, status):
         self.status = status
 
@@ -130,18 +137,6 @@ class FinishStatus(AbstractStatus):
         super(FinishStatus, self).__init__(TestPlanStatus.FINISHED)
 
 
-def get_scope(elastictest_url):
-    scope = "api://sonic-testbed-tools-dev/.default"
-    if elastictest_url in [
-        "http://sonic-testbed2-scheduler-backend.azurewebsites.net",
-        "https://sonic-testbed2-scheduler-backend.azurewebsites.net",
-        "http://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net",
-        "https://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net"
-    ]:
-        scope = "api://sonic-testbed-tools-prod/.default"
-    return scope
-
-
 def parse_list_from_str(s):
     # Since Azure Pipeline doesn't support to receive an empty parameter,
     # We use ' ' as a magic code for empty parameter.
@@ -157,49 +152,65 @@ def parse_list_from_str(s):
 
 class TestPlanManager(object):
 
-    def __init__(self, url, frontend_url, tenant_id=None, client_id=None, client_secret=None, ):
+    def __init__(self, url, frontend_url, client_id=None):
         self.url = url
         self.frontend_url = frontend_url
-        self.tenant_id = tenant_id
         self.client_id = client_id
-        self.client_secret = client_secret
         self.with_auth = False
         self._token = None
-        self._token_generate_time = None
-        if self.tenant_id and self.client_id and self.client_secret:
+        self._token_expires_on = None
+        if self.client_id:
             self.with_auth = True
             self.get_token()
 
-    def get_token(self):
-        token_generate_time_valid = \
-            self._token_generate_time is not None and \
-            (datetime.utcnow() - self._token_generate_time) < timedelta(hours=TOKEN_EXPIRE_HOURS)
+    def cmd(self, cmds):
+        process = subprocess.Popen(
+            cmds,
+            shell=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        stdout, stderr = process.communicate()
+        return_code = process.returncode
 
-        if self._token is not None and token_generate_time_valid:
+        return stdout, stderr, return_code
+
+    def az_run(self, cmd):
+        stdout, stderr, retcode = self.cmd(cmd.split())
+        if retcode != 0:
+            raise Exception(f'Command {cmd} execution failed, rc={retcode}, error={stderr}')
+        return stdout, stderr, retcode
+
+    def get_token(self):
+
+        token_is_valid = \
+            self._token_expires_on is not None and \
+            (self._token_expires_on - datetime.now()) > timedelta(hours=TOKEN_EXPIRE_HOURS)
+
+        if self._token is not None and token_is_valid:
             return self._token
 
-        token_url = "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(self.tenant_id)
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-
-        payload = {
-            "grant_type": "client_credentials",
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-            "scope": get_scope(self.url)
-        }
+        cmd = 'az account get-access-token --resource {}'.format(self.client_id)
         attempt = 0
-        while(attempt < MAX_GET_TOKEN_RETRY_TIMES):
+        while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
             try:
-                resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
-                self._token = resp["access_token"]
-                self._token_generate_time = datetime.utcnow()
+                stdout, _, _ = self.az_run(cmd)
+
+                token = json.loads(stdout.decode("utf-8"))
+                self._token = token.get("accessToken", None)
+                if not self._token:
+                    raise Exception("Parse token from stdout failed")
+
+                # Parse token expires time from string
+                token_expires_on = token.get("expiresOn", "")
+                self._token_expires_on = datetime.strptime(token_expires_on, "%Y-%m-%d %H:%M:%S.%f")
+                print("Get token successfully.")
                 return self._token
+
             except Exception as exception:
                 attempt += 1
-                print("Get token failed with exception: {}. Retry {} times to get token."
-                      .format(repr(exception), MAX_GET_TOKEN_RETRY_TIMES - attempt))
+                print("Failed to get token with exception: {}".format(repr(exception)))
+
         raise Exception("Failed to get token after {} attempts".format(MAX_GET_TOKEN_RETRY_TIMES))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
@@ -221,7 +232,22 @@ class TestPlanManager(object):
         print("Test scripts to be covered in this test plan:")
         print(json.dumps(scripts, indent=4))
 
-        common_extra_params = common_extra_params + " --completeness_level=confident --allow_recover"
+        common_extra_params = common_extra_params + " --allow_recover"
+
+        # Add topo and device type args for PR test
+        if test_plan_type == "PR":
+            # Add topo arg
+            if topology in ["t0", "t0-64-32"]:
+                common_extra_params = common_extra_params + " --topology=t0,any"
+            elif topology in ["t1-lag", "t1-8-lag"]:
+                common_extra_params = common_extra_params + " --topology=t1,any"
+            elif topology == "dualtor":
+                common_extra_params = common_extra_params + " --topology=t0,dualtor,any"
+            elif topology == "dpu":
+                common_extra_params = common_extra_params + " --topology=dpu,any"
+
+            # Add device type arg
+            common_extra_params = common_extra_params + " --device_type=vs"
 
         # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
         sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
@@ -356,7 +382,7 @@ class TestPlanManager(object):
         }
         start_time = time.time()
         http_exception_times = 0
-        while (timeout < 0 or (time.time() - start_time) < timeout):
+        while timeout < 0 or (time.time() - start_time) < timeout:
             try:
                 if self.with_auth:
                     headers["Authorization"] = "Bearer {}".format(self.get_token())
@@ -378,12 +404,14 @@ class TestPlanManager(object):
             if not resp_data:
                 raise Exception("No valid data in response: {}".format(str(resp)))
 
-            status = resp_data.get("status", None)
-            result = resp_data.get("result", None)
+            current_tp_status = resp_data.get("status", None)
+            current_tp_result = resp_data.get("result", None)
 
             if expected_state:
-                current_status = test_plan_status_factory(status)
+                current_status = test_plan_status_factory(current_tp_status)
                 expected_status = test_plan_status_factory(expected_state)
+
+                print("current test plan status: {}, expected status: {}".format(current_tp_status, expected_state))
 
                 if expected_status.get_status() == current_status.get_status():
                     current_status.print_logs(test_plan_id, resp_data, start_time)
@@ -398,34 +426,60 @@ class TestPlanManager(object):
                             if step.get("step") == expected_state:
                                 step_status = step.get("status")
                                 break
-                    # We fail the step only if the step_status is "FAILED".
-                    # Other status such as "SKIPPED", "CANCELED" are considered successful.
-                    if step_status == "FAILED":
+
+                    # Print test summary
+                    test_summary = resp_data.get("runtime", {}).get("test_summary", None)
+                    if test_summary:
+                        print("Test summary:\n{}".format(json.dumps(test_summary, indent=4)))
+
+                    """
+                    In below scenarios, need to return false to pipeline.
+                    1. If step status is {FAILED}, exactly need to return false to pipeline.
+                    2. If current test plan status finished but unsuccessful, need to check if current step status
+                       executed successfully, if not, return false to pipeline.
+                    """
+                    current_step_unsuccessful = (step_status == "FAILED"
+                                                 or (current_tp_status in TEST_PLAN_STATUS_UNSUCCESSFUL_FINISHED
+                                                     and step_status in TEST_PLAN_STEP_STATUS_UNFINISHED))
+
+                    if current_step_unsuccessful:
+
+                        # Print error type and message
+                        err_code = resp_data.get("runtime", {}).get("err_code", None)
+                        if err_code:
+                            print("Error type: {}".format(err_code))
+
+                        err_msg = resp_data.get("runtime", {}).get("message", None)
+                        if err_msg:
+                            print("Error message: {}".format(err_msg))
+
                         raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. "
                                         "Check {}/scheduler/testplan/{} for test plan status"
-                                        .format(test_plan_id, step_status, result, time.time() - start_time,
+                                        .format(test_plan_id, step_status, current_tp_result, time.time() - start_time,
                                                 self.frontend_url,
                                                 test_plan_id))
                     if expected_result:
-                        if result != expected_result:
+                        if current_tp_result != expected_result:
                             raise Exception("Test plan id: {}, status: {}, result: {} not match expected result: {}, "
                                             "Elapsed {:.0f} seconds. "
                                             "Check {}/scheduler/testplan/{} for test plan status"
-                                            .format(test_plan_id, step_status, result,
+                                            .format(test_plan_id, step_status, current_tp_result,
                                                     expected_result, time.time() - start_time,
                                                     self.frontend_url,
                                                     test_plan_id))
 
-                    print("Current status is {}".format(step_status))
+                    print("Current step status is {}".format(step_status))
                     return
                 else:
-                    print("Current state is {}, waiting for the state {}".format(status, expected_state))
+                    print("Current test plan state is {}, waiting for the expected state {}".format(current_tp_status,
+                                                                                                    expected_state))
 
                 time.sleep(interval)
 
         else:
-            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
-                            .format(poll_url))
+            raise PollTimeoutException(
+                "Max polling time reached, test plan at {} is not successfully finished or cancelled".format(poll_url)
+            )
 
 
 if __name__ == "__main__":
@@ -822,7 +876,7 @@ if __name__ == "__main__":
         required=False,
         default=-1,
         dest="timeout",
-        help="Max polling time. Default 36000 seconds (10 hours)."
+        help="Max polling time in seconds. Default -1, no timeout."
     )
 
     if len(sys.argv) == 1:
@@ -837,7 +891,7 @@ if __name__ == "__main__":
         args.test_plan_id = args.test_plan_id.replace("'", "")
 
     print("Test plan utils parameters: {}".format(args))
-    auth_env = ["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"]
+    auth_env = ["CLIENT_ID"]
     required_env = ["ELASTICTEST_SCHEDULER_BACKEND_URL"]
 
     if args.action in ["create", "cancel"]:
@@ -845,9 +899,7 @@ if __name__ == "__main__":
 
     env = {
         "elastictest_scheduler_backend_url": os.environ.get("ELASTICTEST_SCHEDULER_BACKEND_URL"),
-        "tenant_id": os.environ.get("ELASTICTEST_MSAL_TENANT_ID"),
         "client_id": os.environ.get("ELASTICTEST_MSAL_CLIENT_ID"),
-        "client_secret": os.environ.get("ELASTICTEST_MSAL_CLIENT_SECRET"),
         "frontend_url": os.environ.get("ELASTICTEST_FRONTEND_URL", "https://elastictest.org"),
     }
     env_missing = [k.upper() for k, v in env.items() if k.upper() in required_env and not v]
@@ -859,9 +911,7 @@ if __name__ == "__main__":
         tp = TestPlanManager(
             env["elastictest_scheduler_backend_url"],
             env["frontend_url"],
-            env["tenant_id"],
-            env["client_id"],
-            env["client_secret"])
+            env["client_id"])
 
         if args.action == "create":
             pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
@@ -939,6 +989,9 @@ if __name__ == "__main__":
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)
+    except PollTimeoutException as e:
+        print("Polling test plan failed with exception: {}".format(repr(e)))
+        sys.exit(2)
     except Exception as e:
         print("Operation failed with exception: {}".format(repr(e)))
         sys.exit(3)

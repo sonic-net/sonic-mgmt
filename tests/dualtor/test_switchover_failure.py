@@ -12,7 +12,6 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_ser
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_common import cable_type, CableType                                     # noqa F401
 
-
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology("dualtor")]

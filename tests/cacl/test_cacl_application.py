@@ -17,6 +17,18 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope="module", autouse=True)
+def disable_port_toggle(duthosts, tbinfo):
+    # set mux mode to manual on both TORs to avoid port state change during test
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode manual all")
+    yield
+    if "dualtor" in tbinfo['topo']['name']:
+        for dut in duthosts:
+            dut.shell("sudo config mux mode auto all")
+
+
 @pytest.fixture(scope="function", params=["active_tor", "standby_tor"])
 def duthost_dualtor(request, upper_tor_host, lower_tor_host):       # noqa F811
     which_tor = request.param
@@ -28,9 +40,7 @@ def duthost_dualtor(request, upper_tor_host, lower_tor_host):       # noqa F811
     else:
         logger.info("Select upper tor...")
         dut = upper_tor_host
-    dut.shell("sudo config mux mode manual all")
-    yield dut
-    dut.shell("sudo config mux mode auto all")
+    return dut
 
 
 @pytest.fixture
@@ -394,6 +404,9 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     if asic_index is None:
         # Allow Communication among docker containers
         for k, v in list(docker_network['container'].items()):
+            # network mode for dhcp_server container is bridge, but this rule is not expected to be seen
+            if k == "dhcp_server":
+                continue
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT"
                                   .format(docker_network['bridge']['IPv4Address'],
                                           docker_network['bridge']['IPv4Address']))
@@ -579,8 +592,13 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6tables_rules, asic_index)
 
     # Allow all packets with a TTL/hop limit of 0 or 1
-    iptables_rules.append("-A INPUT -m ttl --ttl-lt 2 -j ACCEPT")
-    ip6tables_rules.append("-A INPUT -p tcp -m hl --hl-lt 2 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p icmp -m ttl --ttl-lt 2 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p udp -m ttl --ttl-lt 2 -m udp --dport 1025:65535 -j ACCEPT")
+    iptables_rules.append("-A INPUT -p tcp -m ttl --ttl-lt 2 -m tcp --dport 1025:65535 -j ACCEPT")
+
+    ip6tables_rules.append("-A INPUT -p ipv6-icmp -m hl --hl-lt 2 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT -p udp -m hl --hl-lt 2 -m udp --dport 1025:65535 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT -p tcp -m hl --hl-lt 2 -m tcp --dport 1025:65535 -j ACCEPT")
 
     # If we have added rules from the device config, we lastly add default drop rules
     if rules_applied_from_config > 0:

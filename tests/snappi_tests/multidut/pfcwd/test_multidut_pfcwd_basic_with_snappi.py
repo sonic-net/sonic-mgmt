@@ -1,6 +1,8 @@
 import pytest
 import random
 import logging
+import re
+from collections import defaultdict
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -54,10 +56,10 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
         pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts if
+        dut_list = [dut for dut in duthosts.frontend_nodes if
                     linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:
@@ -131,10 +133,10 @@ def test_pfcwd_basic_multi_lossless_prio(snappi_api,                # noqa F811
         pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts if
+        dut_list = [dut for dut in duthosts.frontend_nodes if
                     linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:
@@ -211,10 +213,10 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
         pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts if
+        dut_list = [dut for dut in duthosts.frontend_nodes if
                     linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:
@@ -299,10 +301,10 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
         pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts if
+        dut_list = [dut for dut in duthosts.frontend_nodes if
                     linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:
@@ -385,10 +387,10 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
         pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts if
+        dut_list = [dut for dut in duthosts.frontend_nodes if
                     linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:
@@ -405,13 +407,35 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
     _, lossless_prio = rand_one_dut_lossless_prio.split('|')
     lossless_prio = int(lossless_prio)
 
-    for duthost in dut_list:
-        logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
-        duthost.command("systemctl reset-failed {}".format(restart_service))
-        duthost.command("systemctl restart {}".format(restart_service))
-        logger.info("Wait until the system is stable")
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "Not all critical services are fully started")
+    if (duthost1.is_multi_asic):
+        ports_dict = defaultdict(list)
+        for port in snappi_ports:
+            ports_dict[port['peer_device']].append(port['asic_value'])
+
+        for k in ports_dict.keys():
+            ports_dict[k] = list(set(ports_dict[k]))
+
+        logger.info('Line Card Choice:{}'.format(line_card_choice))
+        logger.info('Port dictionary:{}'.format(ports_dict))
+        for duthost in dut_list:
+            asic_list = ports_dict[duthost.hostname]
+            for asic in asic_list:
+                asic_id = re.match(r"(asic)(\d+)", asic).group(2)
+                proc = 'swss@' + asic_id
+                logger.info("Issuing a restart of service {} on the dut {}".format(proc, duthost.hostname))
+                duthost.command("sudo systemctl reset-failed {}".format(proc))
+                duthost.command("sudo systemctl restart {}".format(proc))
+                logger.info("Wait until the system is stable")
+                pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                              "Not all critical services are fully started")
+    else:
+        for duthost in dut_list:
+            logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
+            duthost.command("systemctl reset-failed {}".format(restart_service))
+            duthost.command("systemctl restart {}".format(restart_service))
+            logger.info("Wait until the system is stable")
+            pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                          "Not all critical services are fully started")
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.duthost1 = duthost1
@@ -471,10 +495,10 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
         pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts, 2)
+        dut_list = random.sample(duthosts.frontend_nodes, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts if
+        dut_list = [dut for dut in duthosts.frontend_nodes if
                     linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:
@@ -489,13 +513,35 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
                                                                             snappi_ports,
                                                                             snappi_api)
 
-    for duthost in dut_list:
-        logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
-        duthost.command("systemctl reset-failed {}".format(restart_service))
-        duthost.command("systemctl restart {}".format(restart_service))
-        logger.info("Wait until the system is stable")
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "Not all critical services are fully started")
+    if (duthost1.is_multi_asic):
+        ports_dict = defaultdict(list)
+        for port in snappi_ports:
+            ports_dict[port['peer_device']].append(port['asic_value'])
+
+        for k in ports_dict.keys():
+            ports_dict[k] = list(set(ports_dict[k]))
+
+        logger.info('Line Card Choice:{}'.format(line_card_choice))
+        logger.info('Port dictionary:{}'.format(ports_dict))
+        for duthost in dut_list:
+            asic_list = ports_dict[duthost.hostname]
+            for asic in asic_list:
+                asic_id = re.match(r"(asic)(\d+)", asic).group(2)
+                proc = 'swss@' + asic_id
+                logger.info("Issuing a restart of service {} on the dut {}".format(proc, duthost.hostname))
+                duthost.command("sudo systemctl reset-failed {}".format(proc))
+                duthost.command("sudo systemctl restart {}".format(proc))
+                logger.info("Wait until the system is stable")
+                pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                              "Not all critical services are fully started")
+    else:
+        for duthost in dut_list:
+            logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
+            duthost.command("systemctl reset-failed {}".format(restart_service))
+            duthost.command("systemctl restart {}".format(restart_service))
+            logger.info("Wait until the system is stable")
+            pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                          "Not all critical services are fully started")
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.duthost1 = duthost1

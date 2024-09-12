@@ -1,6 +1,7 @@
 import time
 from math import ceil
 import logging
+import random
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
@@ -11,6 +12,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports                                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -67,25 +69,37 @@ def run_pfcwd_multi_node_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    # initialize the (duthost, port) set.
+    # The final list will have all the asics which needs to be configured for PFC
+    pfcwd_to_be_configured = set()
+
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     rx_port_id_list = [rx_port["port_id"]]
-    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    egress_duthost = rx_port['duthost']
+    # Add the port to the set of ports to be configured for PFC
+    pfcwd_to_be_configured.add((egress_duthost, rx_port['asic_value']))
+
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+    # add ingress DUT into the set
+    pfcwd_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
+    pfcwd_to_be_configured.add((tx_port[1]['duthost'], tx_port[1]['asic_value']))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     num_ports = len(port_config_list)
     pytest_require(num_ports >= 3, "This test requires at least 3 ports")
 
-    start_pfcwd(duthost1, rx_port['asic_value'])
-    enable_packet_aging(duthost1)
-    start_pfcwd(duthost2, tx_port[0]['asic_value'])
-    enable_packet_aging(duthost2)
+    # Enable PFC watchdog on the rx side and tx side of the DUT without duplication.
+    for duthost, asic in pfcwd_to_be_configured:
+        start_pfcwd(duthost, asic)
+        enable_packet_aging(duthost)
 
-    poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,
+    poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=rx_port['peer_port'],
                                             asic_value=rx_port['asic_value']) / 1000.0
 
     if trigger_pfcwd:
@@ -94,6 +108,16 @@ def run_pfcwd_multi_node_test(api,
         pfc_storm_dur_sec = 0.5 * detect_time_sec
 
     exp_dur_sec = ceil(pfc_storm_dur_sec + 1)
+    cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
+
+    speed_str = testbed_config.layer1[0].speed
+    speed_gbps = int(speed_str.split('_')[1])
+    # Backplane is 200G in Cisco platforms.
+    if speed_gbps > 200 and cisco_platform:
+        global TEST_FLOW_AGGR_RATE_PERCENT
+        global BG_FLOW_AGGR_RATE_PERCENT
+        TEST_FLOW_AGGR_RATE_PERCENT = TEST_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
+        BG_FLOW_AGGR_RATE_PERCENT = BG_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
 
     """ Generate traffic config """
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT /
@@ -130,9 +154,6 @@ def run_pfcwd_multi_node_test(api,
                                config=testbed_config,
                                all_flow_names=all_flow_names,
                                exp_dur_sec=exp_dur_sec)
-
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
 
     __verify_results(rows=flow_stats,
                      speed_gbps=speed_gbps,
@@ -396,10 +417,18 @@ def __gen_data_flow(testbed_config,
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
 
-    eth, ipv4 = flow.packet.ethernet().ipv4()
+    eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+    src_port = random.randint(5000, 6000)
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = 1
+
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
-    eth.pfc_queue.value = flow_prio
+    if pfcQueueGroupSize == 8:
+        eth.pfc_queue.value = flow_prio
+    else:
+        eth.pfc_queue.value = pfcQueueValueDict[flow_prio]
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = rx_port_config.ip

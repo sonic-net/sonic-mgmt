@@ -2,6 +2,7 @@ import logging
 import pytest
 import time
 
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
@@ -183,7 +184,7 @@ class TestPfcwdAllTimer(object):
         with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info):
             self.storm_handle.start_storm()
             logger.info("Wait for queue to recover from PFC storm")
-            time.sleep(8)
+            time.sleep(32)
             self.storm_handle.stop_storm()
             time.sleep(16)
 
@@ -205,6 +206,9 @@ class TestPfcwdAllTimer(object):
             self.all_restore_time.append(real_restore_time)
 
         dut_detect_restore_time = storm_restore_ms - storm_detect_ms
+        logger.info(
+            "Iteration all_dut_detect_time list {} and length {}".format(
+                ",".join(str(i) for i in self.all_detect_time), len(self.all_detect_time)))
         self.all_dut_detect_restore_time.append(dut_detect_restore_time)
         logger.info(
             "Iteration all_dut_detect_restore_time list {} and length {}".format(
@@ -217,6 +221,8 @@ class TestPfcwdAllTimer(object):
         self.all_detect_time.sort()
         self.all_restore_time.sort()
         logger.info("Verify that real detection time is not greater than configured")
+        logger.info("all detect time {}".format(self.all_detect_time))
+        logger.info("all restore time {}".format(self.all_restore_time))
         config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
                    "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[9],
@@ -273,9 +279,15 @@ class TestPfcwdAllTimer(object):
             timestamp_ms (int): syslog timestamp in ms for the line matching the pattern
         """
         cmd = "grep \"{}\" /var/log/syslog".format(pattern)
-        syslog_msg = self.dut.shell(cmd)['stdout']
-        timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
-        timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
+        syslog_msg_list = self.dut.shell(cmd)['stdout'].split()
+        try:
+            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[3]))['stdout'])
+        except RunAnsibleModuleFail:
+            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[2]))['stdout'])
+        except Exception as e:
+            logging.error("Error when parsing syslog message timestamp: {}".format(repr(e)))
+            pytest.fail("Failed to parse syslog message timestamp")
+
         return int(timestamp_ms)
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,

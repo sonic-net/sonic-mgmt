@@ -3,13 +3,15 @@ import json
 import logging
 import pytest
 
+from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.override_config_table.utilities import backup_config, restore_config, \
+from tests.common.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
 from tests.syslog.syslog_utils import is_mgmt_vrf_enabled
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0'),
     pytest.mark.device_type('vs')
 ]
@@ -20,6 +22,11 @@ logger = logging.getLogger(__name__)
 # forced mgmt route priority hardcoded to 32764 in following j2 template:
 # https://github.com/sonic-net/sonic-buildimage/blob/master/files/image_config/interfaces/interfaces.j2#L82
 FORCED_MGMT_ROUTE_PRIORITY = 32764
+
+
+# Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
+# interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
+FILE_CHANGE_TIMEOUT = 300
 
 
 @pytest.fixture
@@ -36,6 +43,7 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
 
     #  Restore config after test finish
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+    config_reload(duthost)
 
 
 def get_interface_reload_timestamp(duthost):
@@ -64,8 +72,8 @@ def wait_for_file_changed(duthost, file, action, *args, **kwargs):
         latest_timestamp = get_interface_reload_timestamp(duthost)
         return latest_hash != original_hash and latest_timestamp != last_timestamp
 
-    exist = wait_until(10, 1, 0, hash_and_timestamp_changed, duthost, file)
-    pytest_assert(exist, "File {} does not change after 10 seconds.".format(file))
+    exist = wait_until(FILE_CHANGE_TIMEOUT, 1, 0, hash_and_timestamp_changed, duthost, file)
+    pytest_assert(exist, "File {} does not change after {} seconds.".format(file, FILE_CHANGE_TIMEOUT))
 
 
 def address_type(address):
@@ -120,9 +128,14 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     config_db_mgmt_interface = config_db_json["MGMT_INTERFACE"]
     config_db_port = config_db_json["MGMT_PORT"]
 
-    # Skip multi-asic because override_config format are different.
+    # Skip if port does not exist
+    output = duthost.command("ip link show eth1", module_ignore_errors=True)
+    if output["failed"]:
+        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status, port does not exist")
+
+    # Skip if port is already in use
     if 'eth1' in config_db_port:
-        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status for multi-mgmt device")
+        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status, port in use")
 
     # Add eth1 to mgmt interface and port
     ipv4_forced_mgmt_address = "172.17.1.1/24"
@@ -153,7 +166,13 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
                         "/etc/network/interfaces",
                         reload_minigraph_with_golden_config,
                         duthost,
-                        override_config)
+                        override_config,
+                        False)
+
+    # for device can't config eth1, ignore this test case
+    eth1_status = duthost.command("sudo ifconfig eth1")['stdout']
+    if "Device not found" in eth1_status:
+        pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status because hardware can't config eth1")
 
     # Get interface and check config generate correct
     interfaces = duthost.command("cat /etc/network/interfaces")['stdout']

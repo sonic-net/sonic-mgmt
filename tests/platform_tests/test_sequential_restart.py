@@ -104,7 +104,7 @@ def test_restart_swss(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_
     @summary: This test case is to restart the swss service and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    all_interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    all_interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
 
     if enum_frontend_asic_index is not None:
         # Get the interface pertaining to that asic
@@ -124,5 +124,5 @@ def test_restart_syncd(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend
     @summary: This test case is to restart the syncd service and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    restart_service_and_check(localhost, duthost, enum_frontend_asic_index,
-                              "syncd", conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list)
+    restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "syncd",
+                              conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}), xcvr_skip_list)
