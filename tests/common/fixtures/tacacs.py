@@ -3,7 +3,7 @@ import pytest
 
 from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.assertions import pytest_assert
-from tests.tacacs.utils import setup_tacacs_client, setup_tacacs_server, load_tacacs_creds,\
+from tests.tacacs.utils import setup_tacacs_client, setup_tacacs_server,\
                     cleanup_tacacs, restore_tacacs_servers
 
 logger = logging.getLogger(__name__)
@@ -16,13 +16,6 @@ def drop_all_ssh_session(duthost):
     except AnsibleConnectionFailure:
         # duthost will throw AnsibleConnectionFailure because current connection dropped by itself
         pass
-
-
-@pytest.fixture(scope="module")
-def tacacs_creds(creds_all_duts):
-    hardcoded_creds = load_tacacs_creds()
-    creds_all_duts.update(hardcoded_creds)
-    return creds_all_duts
 
 
 def collect_artifact(duthost, module_name):

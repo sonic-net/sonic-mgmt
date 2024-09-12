@@ -1280,3 +1280,24 @@ def compare_dicts_ignore_list_order(dict1, dict2):
     dict2_normalized = normalize(dict2)
 
     return dict1_normalized == dict2_normalized
+
+
+def check_output(output, exp_val1, exp_val2):
+    pytest_assert(not output['failed'], output['stderr'])
+    for line in output['stdout_lines']:
+        fds = line.split(':')
+        if fds[0] == exp_val1:
+            pytest_assert(fds[4] == exp_val2)
+
+
+def run_show_features(duthosts, enum_dut_hostname):
+    """Verify show features command output against CONFIG_DB
+    """
+    duthost = duthosts[enum_dut_hostname]
+    features_dict, succeeded = duthost.get_feature_status()
+    pytest_assert(succeeded, "failed to obtain feature status")
+    for cmd_key, cmd_value in list(features_dict.items()):
+        redis_value = duthost.shell('/usr/bin/redis-cli -n 4 --raw hget "FEATURE|{}" "state"'
+                                    .format(cmd_key), module_ignore_errors=False)['stdout']
+        pytest_assert(redis_value.lower() == cmd_value.lower(),
+                      "'{}' is '{}' which does not match with config_db".format(cmd_key, cmd_value))

@@ -12,7 +12,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_column_positions
 from tests.common.portstat_utilities import parse_portstat
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
-from tests.drop_packets.drop_packets import is_mellanox_fanout
+from tests.common.helpers.dut_utils import is_mellanox_fanout
 
 
 pytestmark = [

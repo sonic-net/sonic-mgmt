@@ -1,7 +1,8 @@
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert
-from .utils import check_output, tacacs_running, start_tacacs_server
+from tests.common.utilities import check_output
+from tests.common.helpers.tacacs_helper import ssh_remote_run, ssh_remote_run_retry
 
 import logging
 
@@ -15,13 +16,6 @@ logger = logging.getLogger(__name__)
 
 SLEEP_TIME = 10
 TIMEOUT_LIMIT = 120
-
-
-def ssh_remote_run(localhost, remote_ip, username, password, cmd):
-    res = localhost.shell("sshpass -p {} ssh "
-                          "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-                          "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)
-    return res
 
 
 def does_command_exist(localhost, remote_ip, username, password, command):
@@ -76,21 +70,6 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
                 pytest_assert(False, "hostcfgd did not start after {} seconds".format(TIMEOUT_LIMIT))
             else:
                 current_attempt += 1
-
-
-def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=3):
-    while retry_count > 0:
-        res = ssh_remote_run(localhost, dutip, user,
-                             password, command)
-
-        # TACACS server randomly crash after receive authorization request from IPV6
-        if not tacacs_running(ptfhost):
-            start_tacacs_server(ptfhost)
-            retry_count -= 1
-        else:
-            return res
-
-    pytest_assert(False, "cat command failed because TACACS server not running")
 
 
 def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):

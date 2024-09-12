@@ -8,9 +8,9 @@ import pytest
 
 from .test_authorization import ssh_connect_remote_retry, ssh_run_command, \
         remove_all_tacacs_server
-from .utils import stop_tacacs_server, start_tacacs_server, \
-        check_server_received, per_command_accounting_skip_versions, \
-        change_and_wait_aaa_config_update, get_auditd_config_reload_timestamp, \
+from tests.common.helpers.tacacs_helper import stop_tacacs_server, start_tacacs_server, \
+    per_command_accounting_skip_versions
+from .utils import check_server_received, change_and_wait_aaa_config_update, get_auditd_config_reload_timestamp, \
         ensure_tacacs_server_running_after_ut  # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
