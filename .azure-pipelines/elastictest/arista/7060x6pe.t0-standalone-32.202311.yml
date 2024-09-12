@@ -50,7 +50,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202311_LATEST)
+    default: $(IMAGE_BRCM_ABOOT_202311)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
