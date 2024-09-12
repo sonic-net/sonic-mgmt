@@ -15,7 +15,7 @@ from collections import defaultdict
 
 from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require, pytest_assert
-from tests.common.helpers.sonic_db import AsicDbCli  # noqa F401
+from tests.common.helpers.sonic_db import AsicDbCli
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.config_reload import config_reload
