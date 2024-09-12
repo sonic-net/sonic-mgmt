@@ -1,0 +1,14 @@
+{
+    "WRED_PROFILE": {
+        "AZURE_LOSSLESS": {
+            "red_max_threshold": "518720", 
+            "yellow_max_threshold": "32760", 
+            "green_min_threshold": "4095", 
+            "red_min_threshold": "4095", 
+            "yellow_min_threshold": "4095", 
+            "green_max_threshold": "32760", 
+            "wred_yellow_enable": "true", 
+            "wred_green_enable": "true"
+        }
+    }
+}
