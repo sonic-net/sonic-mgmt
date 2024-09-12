@@ -10,6 +10,7 @@ from ipaddress import ip_address, IPv4Address
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa F401
 from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +179,11 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     duthost.shell("sudo ip neigh flush nud permanent")
 
 
-def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo, vlan_mac=None, dtor_ul=False, dtor_dl=False):
+def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo,
+                       vlan_mac=None, dtor_ul=False, dtor_dl=False, skip_traffic_test=False):   # noqa F811
+    if skip_traffic_test is True:
+        logger.info("Skipping traffic test")
+        return
     if dtor_ul is True:
         # use vlan int mac in case of dualtor UL test pkt
         pkt = testutils.simple_icmp_packet(eth_src=str(src_port['mac']),
@@ -218,8 +223,8 @@ def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo, vlan_mac
                 raise e  # If it fails on the last attempt, raise the exception
 
 
-def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
-                   ptfadapter, tbinfo, toggle_all_simulator_ports_to_rand_selected_tor_m):   # noqa F811
+def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter, tbinfo,
+                   toggle_all_simulator_ports_to_rand_selected_tor_m, skip_traffic_test):   # noqa F811
     """
     test for checking connectivity of statically added ipv4 and ipv6 arp entries
     """
@@ -247,12 +252,16 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
     for member in ptfhost_info:
         if 'dualtor' in tbinfo["topo"]["name"]:
             verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
-                               vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True)
+                               vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True,
+                               skip_traffic_test=skip_traffic_test)
             verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
-                               ptfadapter, tbinfo, vlan_mac, dtor_dl=True)
+                               ptfadapter, tbinfo, vlan_mac, dtor_dl=True,
+                               skip_traffic_test=skip_traffic_test)
         else:
-            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo)
-            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo)
+            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo,
+                               skip_traffic_test=skip_traffic_test)
+            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo,
+                               skip_traffic_test=skip_traffic_test)
 
     # flushing and re-adding ipv6 static arp entry
     static_neighbor_entry(duthost, ptfhost_info, "del", "6")
@@ -271,9 +280,13 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
     for member in ptfhost_info:
         if 'dualtor' in tbinfo["topo"]["name"]:
             verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
-                               vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True)
+                               vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True,
+                               skip_traffic_test=skip_traffic_test)
             verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
-                               ptfadapter, tbinfo, vlan_mac, dtor_dl=True)
+                               ptfadapter, tbinfo, vlan_mac, dtor_dl=True,
+                               skip_traffic_test=skip_traffic_test)
         else:
-            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo)
-            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo)
+            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo,
+                               skip_traffic_test=skip_traffic_test)
+            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo,
+                               skip_traffic_test=skip_traffic_test)

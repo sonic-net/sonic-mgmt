@@ -19,8 +19,7 @@ from tests.common.helpers.sonic_db import AsicDbCli
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.config_reload import config_reload
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, get_upstream_neigh_type, get_downstream_neigh_type, check_msg_in_syslog
@@ -538,7 +537,10 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
 
 
 @pytest.fixture(scope="module")
-def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo):
+def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo,
+              # make sure the tear down of core_dump_and_config_check happened after acl_table
+              core_dump_and_config_check
+              ):
     """Apply ACL table configuration and remove after tests.
 
     Args:
@@ -1435,7 +1437,7 @@ class TestAclWithReboot(TestBasicAcl):
 
         """
         dut.command("config save -y")
-        reboot(dut, localhost, wait=240)
+        reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True)
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)
