@@ -681,7 +681,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for duthost in duthosts:
-                executor.submit(self.set_up_acl_rules_single_dut, acl_table, conn_graph_facts,
+                executor.submit(self.set_up_acl_rules_single_dut, request, acl_table, conn_graph_facts,
                                 dut_to_analyzer_map, duthost, ip_version, localhost,
                                 populate_vlan_arp_entries, tbinfo)
         logger.info("Set up acl_rules finished")
@@ -702,7 +702,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             logger.info("Removing ACL rules")
             self.teardown_rules(duthost)
 
-    def set_up_acl_rules_single_dut(self, acl_table,
+    def set_up_acl_rules_single_dut(self, request, acl_table,
                                     conn_graph_facts, dut_to_analyzer_map, duthost, # noqa F811
                                     ip_version, localhost,
                                     populate_vlan_arp_entries, tbinfo):
@@ -725,6 +725,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
 
             assert self.check_rule_counters(duthost), "Rule counters should be ready!"
+            asic_db = AsicDbCli(duthost)
+            asic_db.get_acl_entries(refresh=True)
+            asic_db.get_acl_range_entries(refresh=True)
+            request.config.asic_db[duthost.hostname] = asic_db
 
         except LogAnalyzerError as err:
             # Cleanup Config DB if rule creation failed
