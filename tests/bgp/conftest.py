@@ -726,3 +726,8 @@ def traffic_shift_community(duthost):
     community = duthost.shell('sonic-cfggen -y /etc/sonic/constants.yml -v constants.bgp.traffic_shift_community')[
         'stdout']
     return community
+
+
+@pytest.fixture(scope='module')
+def get_function_completeness_level(pytestconfig):
+    return pytestconfig.getoption("--completeness_level")
