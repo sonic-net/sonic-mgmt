@@ -35,7 +35,6 @@ from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
 from netaddr import valid_ipv6
-from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -1256,6 +1255,7 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     """
     for multi-asic/single-asic devices, we only have 1 golden_config_db.json
     """
+    from tests.common.config_reload import config_reload
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
