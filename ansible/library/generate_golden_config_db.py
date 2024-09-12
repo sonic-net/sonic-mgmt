@@ -5,6 +5,7 @@
 # which has dhcp_server feature.
 
 
+import copy
 import json
 
 from ansible.module_utils.basic import AnsibleModule
@@ -38,15 +39,18 @@ class GenerateGoldenConfigDBModule(object):
         If FEATURE table in init_cfg.json contains dhcp_server, enable it.
         And add dhcp_server related configuration
         """
-        rc, out, err = self.module.run_command("sonic-cfggen -m -j /etc/sonic/init_cfg.json --print-data")
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
 
         # Generate FEATURE table from init_cfg.ini
-        gold_config_db = json.loads(out)
-        if "FEATURE" not in gold_config_db or "dhcp_server" not in gold_config_db["FEATURE"]:
+        ori_config_db = json.loads(out)
+        if "FEATURE" not in ori_config_db or "dhcp_server" not in ori_config_db["FEATURE"]:
             return "{}"
-        gold_config_db["FEATURE"]["dhcp_server"]["state"] = "enabled"
+        gold_config_db = {
+            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
+            "PORT": copy.deepcopy(ori_config_db["PORT"])
+        }
 
         # Generate dhcp_server related configuration
         rc, out, err = self.module.run_command("cat {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
