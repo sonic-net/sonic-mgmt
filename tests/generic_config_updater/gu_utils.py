@@ -58,12 +58,6 @@ def apply_patch(duthost, json_data, dest_file):
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
     """
-    if duthost.is_multi_asic:
-        for operation in json_data:
-            if not operation["path"].startswith("/{}".format(HOST_NAME)) and \
-               not operation["path"].startswith("/{}".format(ASIC_PREFIX)):
-                operation["path"] = "/" + HOST_NAME + operation["path"]
-
     duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
 
     cmds = 'config apply-patch {}'.format(dest_file)
