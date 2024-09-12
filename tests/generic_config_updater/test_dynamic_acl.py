@@ -34,7 +34,8 @@ from tests.generic_config_updater.gu_utils import expect_acl_rule_match, expect_
 from tests.generic_config_updater.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor # noqa F401
-from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
+from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, \
+    increment_ipv4_addr, increment_ipv6_addr
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -120,26 +121,6 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
                                  adjust=lambda pkt, x: x + 2),
                    ShortField("lltype", 1),  # ethernet
                    _LLAddrField("clladdr", ETHER_ANY)]
-
-
-def increment_ipv4_addr(ipv4_addr, incr=1):
-    octets = str(ipv4_addr).split('.')
-    last_octet = int(octets[-1])
-    last_octet += incr
-    octets[-1] = str(last_octet)
-
-    return '.'.join(octets)
-
-
-def increment_ipv6_addr(ipv6_addr, incr=1):
-    octets = str(ipv6_addr).split(':')
-    last_octet = octets[-1]
-    if last_octet == '':
-        last_octet = '0'
-    incremented_octet = int(last_octet, 16) + incr
-    new_octet_str = '{:x}'.format(incremented_octet)
-
-    return ':'.join(octets[:-1]) + ':' + new_octet_str
 
 
 # Fixtures

@@ -40,6 +40,12 @@ logger = logging.getLogger(__name__)
 cache = FactsCache()
 LA_START_MARKER_SCRIPT = "scripts/find_la_start_marker.sh"
 FIND_SYSLOG_MSG_SCRIPT = "scripts/find_log_msg.sh"
+# forced mgmt route priority hardcoded to 32764 in following j2 template:
+# https://github.com/sonic-net/sonic-buildimage/blob/master/files/image_config/interfaces/interfaces.j2#L82
+FORCED_MGMT_ROUTE_PRIORITY = 32764
+# Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
+# interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
+FILE_CHANGE_TIMEOUT = 300
 
 
 def check_skip_release(duthost, release_list):
@@ -1231,3 +1237,53 @@ def check_msg_in_syslog(duthost, log_msg):
             return False
     except Exception:
         return False
+
+
+def increment_ipv4_addr(ipv4_addr, incr=1):
+    octets = str(ipv4_addr).split('.')
+    last_octet = int(octets[-1])
+    last_octet += incr
+    octets[-1] = str(last_octet)
+
+    return '.'.join(octets)
+
+
+def increment_ipv6_addr(ipv6_addr, incr=1):
+    octets = str(ipv6_addr).split(':')
+    last_octet = octets[-1]
+    if last_octet == '':
+        last_octet = '0'
+    incremented_octet = int(last_octet, 16) + incr
+    new_octet_str = '{:x}'.format(incremented_octet)
+
+    return ':'.join(octets[:-1]) + ':' + new_octet_str
+
+
+def get_file_hash(duthost, file):
+    hash = duthost.command("sha1sum {}".format(file))["stdout"]
+    logger.debug("file hash: {}".format(hash))
+
+    return hash
+
+
+def get_interface_reload_timestamp(duthost):
+    timestamp = duthost.command("sudo systemctl show --no-pager interfaces-config"
+                                " -p ExecMainExitTimestamp --value")["stdout"]
+    logger.info("interfaces config timestamp {}".format(timestamp))
+
+    return timestamp
+
+
+def wait_for_file_changed(duthost, file, action, *args, **kwargs):
+    original_hash = get_file_hash(duthost, file)
+    last_timestamp = get_interface_reload_timestamp(duthost)
+
+    action(*args, **kwargs)
+
+    def hash_and_timestamp_changed(duthost, file):
+        latest_hash = get_file_hash(duthost, file)
+        latest_timestamp = get_interface_reload_timestamp(duthost)
+        return latest_hash != original_hash and latest_timestamp != last_timestamp
+
+    exist = wait_until(FILE_CHANGE_TIMEOUT, 1, 0, hash_and_timestamp_changed, duthost, file)
+    pytest_assert(exist, "File {} does not change after {} seconds.".format(file, FILE_CHANGE_TIMEOUT))
