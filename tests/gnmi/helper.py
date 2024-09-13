@@ -21,7 +21,7 @@ def get_env(duthost):
     elif "gnmi" in container_list["stdout"]:
         env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     else:
-        raise ValueError("Expected modes 'telemetry' or 'gnmi' not found in container list output")
+        raise ValueError("Expected modes \"telemetry\" or \"gnmi\" not found in container list output")
     return env
 
 
