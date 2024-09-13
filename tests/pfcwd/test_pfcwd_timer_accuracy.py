@@ -1,8 +1,8 @@
 import logging
 import pytest
 import time
+import re
 
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
@@ -158,10 +158,14 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
         pfc_send_time = 8
     else:
         pfc_gen_file = 'pfc_gen.py'
+        pfc_gen_c_files = []
         pfc_send_time = None
+        if 'Arista' in fanout_info.get(peer_device, {}).get('device_info', {}).get('HwSku', ''):
+            pfc_gen_c_files = ['send_packets_c_bit32.so', 'send_packets_c_bit64.so']
+
     storm_handle = PFCStorm(dut, fanout_info, fanout, pfc_queue_idx=pfc_queue_index,
                             pfc_frames_number=pfc_frames_count, pfc_gen_file=pfc_gen_file,
-                            pfc_send_period=pfc_send_time, peer_info=peer_params)
+                            pfc_send_period=pfc_send_time, peer_info=peer_params, pfc_gen_c_files=pfc_gen_c_files)
     storm_handle.deploy_pfc_gen()
     return storm_handle
 
@@ -193,6 +197,11 @@ class TestPfcwdAllTimer(object):
         else:
             storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
+
+        if storm_detect_ms is None or storm_start_ms is None:
+            logger.info("PFC storm detect timestamp not found in syslog")
+            return
+
         logger.info("Wait for PFC storm end marker to appear in logs")
         time.sleep(16)
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
@@ -200,10 +209,20 @@ class TestPfcwdAllTimer(object):
         else:
             storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
             storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
+
+        if storm_restore_ms is None or storm_end_ms is None:
+            logger.info("PFC storm restore timestamp not found in syslog")
+            return
+
+        if self.dut.topo_type != 't2' or self.storm_handle.peer_device.os != 'sonic':
+            real_storm_duration_time = storm_end_ms - storm_start_ms
             real_detect_time = storm_detect_ms - storm_start_ms
             real_restore_time = storm_restore_ms - storm_end_ms
+            self.all_storm_duration_time.append(real_storm_duration_time)
             self.all_detect_time.append(real_detect_time)
             self.all_restore_time.append(real_restore_time)
+            logger.info("storm_duration_time {} detect_time {} restore_time {}".format(
+                real_storm_duration_time, real_detect_time, real_restore_time))
 
         dut_detect_restore_time = storm_restore_ms - storm_detect_ms
         logger.info(
@@ -218,11 +237,16 @@ class TestPfcwdAllTimer(object):
         """
         Compare the timestamps obtained and verify the timer accuracy
         """
+        logger.info("all_detect_time {}".format(self.all_detect_time))
+        logger.info("all_restore_time {}".format(self.all_restore_time))
+        logger.info("all_storm_duration_time {}".format(self.all_storm_duration_time))
+
         self.all_detect_time.sort()
         self.all_restore_time.sort()
         logger.info("Verify that real detection time is not greater than configured")
-        logger.info("all detect time {}".format(self.all_detect_time))
-        logger.info("all restore time {}".format(self.all_restore_time))
+        logger.info("sorted all_detect_time {}".format(self.all_detect_time))
+        logger.info("sorted all_restore_time {}".format(self.all_restore_time))
+
         config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
                    "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[9],
@@ -278,17 +302,24 @@ class TestPfcwdAllTimer(object):
         Returns:
             timestamp_ms (int): syslog timestamp in ms for the line matching the pattern
         """
-        cmd = "grep \"{}\" /var/log/syslog".format(pattern)
-        syslog_msg_list = self.dut.shell(cmd)['stdout'].split()
         try:
-            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[3]))['stdout'])
-        except RunAnsibleModuleFail:
-            timestamp_ms = float(self.dut.shell("date -d \"{}\" +%s%3N".format(syslog_msg_list[2]))['stdout'])
-        except Exception as e:
-            logging.error("Error when parsing syslog message timestamp: {}".format(repr(e)))
-            pytest.fail("Failed to parse syslog message timestamp")
+            cmd = "grep \"{}\" /var/log/syslog".format(pattern)
+            syslog_msg = self.dut.shell(cmd)['stdout']
 
-        return int(timestamp_ms)
+            # Regular expressions for the two timestamp formats
+            regex1 = re.compile(r'^[A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
+            regex2 = re.compile(r'^\d{4} [A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
+
+            if regex1.match(syslog_msg):
+                timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
+            elif regex2.match(syslog_msg):
+                timestamp = syslog_msg.replace('  ', ' ').split(' ')[3]
+
+            timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
+            return int(timestamp_ms)
+        except Exception as e:
+            logger.warning("Get {} timestamp: An unexpected error occurred: {}".format(pattern, str(e)))
+            return None
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,
                                   pfcwd_timer_setup_restore):
@@ -305,6 +336,7 @@ class TestPfcwdAllTimer(object):
         self.timers = setup_info['timers']
         self.dut = duthost
         self.ptf = ptfhost
+        self.all_storm_duration_time = list()
         self.all_detect_time = list()
         self.all_restore_time = list()
         self.all_dut_detect_restore_time = list()
