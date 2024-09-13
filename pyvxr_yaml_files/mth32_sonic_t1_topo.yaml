@@ -16,8 +16,6 @@ devices:
     extended_pci_bus: True
     vcpu: 4
     memory: '8G'
-    data_port_attributes:
-      transport: e1000
     mgmt_intf_name: mgmt
     data_ports:
       - eth[0..32]
