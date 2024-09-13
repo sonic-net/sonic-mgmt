@@ -821,7 +821,7 @@ root@sonic:/home/cisco#
  * Verify that DB contents are updated after the flap.
 
 
-### 1.16 Check memory exhaustion on DPU
+### 1.16 Check DPU status and Link after memory exhaustion
 
 #### Steps
 
