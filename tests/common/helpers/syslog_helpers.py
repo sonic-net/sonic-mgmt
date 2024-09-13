@@ -150,38 +150,6 @@ def run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_
         pytest.fail("Dummy syslog server IP not seen in the pcap file")
 
 
-# Before real test, check default route on DUT:
-#     If DUT has no IPv4 and IPv6 default route, skip syslog test. If DUT has at least one type default route,
-#     tell test_syslog function to do further check
-@pytest.fixture(scope="module")
-def check_default_route(rand_selected_dut):
-    duthost = rand_selected_dut
-    ret = {'IPv4': False, 'IPv6': False}
-
-    logger.info("Checking DUT default route")
-    result = duthost.shell("ip route show default table default | grep via", module_ignore_errors=True)['rc']
-    if result == 0:
-        neigh_ip = duthost.shell(
-            "ip route show default table default | cut -d ' ' -f 3", module_ignore_errors=True)['stdout']
-        result = duthost.shell(
-            "ip -4 neigh show {} | grep REACHABLE".format(neigh_ip), module_ignore_errors=True)['rc']
-        if result == 0:
-            ret['IPv4'] = True
-    result = duthost.shell("ip -6 route show default table default | grep via", module_ignore_errors=True)['rc']
-    if result == 0:
-        neigh_ip = duthost.shell(
-            "ip -6 route show default table default | cut -d ' ' -f 3", module_ignore_errors=True)['stdout']
-        result = duthost.shell(
-            "ip -6 neigh show {} | grep REACHABLE".format(neigh_ip), module_ignore_errors=True)['rc']
-        if result == 0:
-            ret['IPv6'] = True
-
-    if not ret['IPv4'] and not ret['IPv6']:
-        pytest.skip("DUT has no default route, skiped")
-
-    yield ret
-
-
 def is_mgmt_vrf_enabled(dut):
     """
     Check mgmt vrf is enabled or not
