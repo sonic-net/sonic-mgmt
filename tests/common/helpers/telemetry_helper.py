@@ -9,25 +9,6 @@ from tests.common.utilities import wait_until, get_mgmt_ipv6, wait_tcp_connectio
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="module")
-def gnxi_path(ptfhost):
-    """
-    gnxi's location is updated from /gnxi to /root/gnxi
-    in RP https://github.com/sonic-net/sonic-buildimage/pull/10599.
-    But old docker-ptf images don't have this update,
-    test case will fail for these docker-ptf images,
-    because it should still call /gnxi files.
-    For avoiding this conflict, check gnxi path before test and set GNXI_PATH to correct value.
-    Add a new gnxi_path module fixture to make sure to set GNXI_PATH before test.
-    """
-    path_exists = ptfhost.stat(path="/root/gnxi/")
-    if path_exists["stat"]["exists"] and path_exists["stat"]["isdir"]:
-        gnxipath = "/root/gnxi/"
-    else:
-        gnxipath = "/gnxi/"
-    return gnxipath
-
-
 def check_gnmi_config(duthost):
     cmd = 'sonic-db-cli CONFIG_DB HGET "GNMI|gnmi" port'
     port = duthost.shell(cmd, module_ignore_errors=False)['stdout']
