@@ -23,7 +23,6 @@ from tests.common import constants
 import ptf.testutils as testutils
 
 from ipaddress import ip_network, IPv6Network, IPv4Network
-from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses     # noqa F401
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
@@ -35,7 +34,8 @@ from tests.generic_config_updater.gu_utils import expect_acl_rule_match, expect_
 from tests.generic_config_updater.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor # noqa F401
-from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
+from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, \
+    increment_ipv4_addr, increment_ipv6_addr
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -122,9 +122,8 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
                    ShortField("lltype", 1),  # ethernet
                    _LLAddrField("clladdr", ETHER_ANY)]
 
+
 # Fixtures
-
-
 @pytest.fixture(scope="module")
 def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenario, ptfadapter, ptfhost):
     """Setup various variables neede for different tests"""
