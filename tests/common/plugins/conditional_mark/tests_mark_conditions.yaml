@@ -959,9 +959,10 @@ ip/test_mgmt_ipv6_only.py::test_image_download_ipv6_only:
 
 ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
   xfail:
-    reason: "iburst not enabled by default on 202311 and newer images"
+    reason: "flaky Host unreachable error issue"
     conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/19425
+      - https://github.com/sonic-net/sonic-mgmt/issues/14581
+      - "release in ['202305', '202311', '202405']"
 
 #######################################
 #####            ipfwd            #####
