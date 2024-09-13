@@ -122,6 +122,12 @@ all:
         bjw2-5-6:
           ansible_host: 10.150.23.112
           ansible_hostv6: 2404:f801:10:2200::a96:1770
+        bjw2-1-h:
+          ansible_host: 10.150.23.113
+          ansible_hostv6: 2404:f801:10:2200::a96:1771
+        bjw2-1-i:
+          ansible_host: 10.150.23.114
+          ansible_hostv6: 2404:f801:10:2200::a96:1772
     pdu:
       hosts:
         bjw2-pdu-126-80:  # R500M
