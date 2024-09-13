@@ -28,7 +28,8 @@ import re
 from tabulate import tabulate
 
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa F401
-from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps, \
+    separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
@@ -40,7 +41,7 @@ from tests.common.helpers.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
-from tests.common.helpers.ptf_tests_helper import select_random_link,\
+from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
     get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown, fetch_test_logs_ptf   # noqa F401
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
