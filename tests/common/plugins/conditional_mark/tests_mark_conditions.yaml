@@ -1398,7 +1398,7 @@ syslog/test_syslog_source_ip.py:
   skip:
     reason: "Testcase consistent failed, raised issue to track"
     conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/6479
+      - https://github.com/sonic-net/sonic-mgmt/issues/6479 
 
 #######################################
 #####         system_health       #####
