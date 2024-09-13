@@ -15,18 +15,16 @@ from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory             # noqa: F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                # noqa: F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service                    # noqa: F401
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder                  # noqa: F401
-# from tests.common.fixtures.ptfhost_utils import skip_traffic_test                   # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test                   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory             # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service                    # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                  # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test                   # noqa F401
 from tests.common.helpers.assertions import pytest_assert as pt_assert
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa: F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa: F401
-from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions            # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa F401
+from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions            # noqa F401
 from tests.common.utilities import wait_until
 
 

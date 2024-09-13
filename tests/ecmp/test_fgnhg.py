@@ -66,8 +66,8 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip):
             ptf_to_dut_port_map[ptf_port_id] = port
 
     port_list.sort()
-    bank_0_port = port_list[:len(port_list)/2]
-    bank_1_port = port_list[len(port_list)/2:]
+    bank_0_port = port_list[:len(port_list)//2]
+    bank_1_port = port_list[len(port_list)//2:]
 
     # Create vlan if
     duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(vlan_ip))
@@ -111,6 +111,9 @@ def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port):
 
 
 def setup_neighbors(duthost, ptfhost, ip_to_port):
+    duthost.shell("sonic-clear fdb all")
+    duthost.shell("sonic-clear arp")
+    duthost.shell("sonic-clear ndp")
     vlan_name = "Vlan" + str(DEFAULT_VLAN_ID)
     neigh_entries = {}
     neigh_entries['NEIGH'] = {}

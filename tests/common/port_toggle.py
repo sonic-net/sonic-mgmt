@@ -80,7 +80,7 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
 
         if not startup_ok:
             down_ports = __get_down_ports()
-            startup_err_msg = "Some ports did not come up as expected: {}".format(str(down_ports))
+            startup_err_msg = "{}: Some ports did not come up as expected: {}".format(duthost.hostname, str(down_ports))
     except Exception as e:
         startup_err_msg = "Startup ports failed with exception: {}".format(repr(e))
 
@@ -128,5 +128,8 @@ def default_port_toggle_wait_time(duthost, port_count):
         port_count_factor = port_count / BASE_PORT_COUNT
         port_down_wait_time = int(port_down_wait_time * port_count_factor)
         port_up_wait_time = int(port_up_wait_time * port_count_factor)
+    elif duthost.get_facts().get("modular_chassis"):
+        port_down_wait_time = 300
+        port_up_wait_time = 300
 
     return port_down_wait_time, port_up_wait_time
