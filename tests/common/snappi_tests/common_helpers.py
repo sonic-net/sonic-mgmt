@@ -139,7 +139,7 @@ def get_lossless_buffer_size(host_ans):
     return int(lossless_pool['size'])
 
 
-def get_pg_dropped_packets(duthost, phys_intf, prio):
+def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
     """
     Get number of ingress packets dropped on a specific priority
     of a physical interface
@@ -150,14 +150,22 @@ def get_pg_dropped_packets(duthost, phys_intf, prio):
     Returns:
         total number of dropped packets (int)
     """
-    oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+    if asic_value is None:
+        oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+    else:
+        oid_cmd = "sudo ip netns exec {} sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP ".format(asic_value) \
+                  + phys_intf + ":" + str(prio)
     oid_out = duthost.command(oid_cmd)
     oid_str = str(oid_out["stdout_lines"][0] or 1)
 
     if oid_str == "1":
         return None
 
-    cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
+    if asic_value is None:
+        cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
+    else:
+        cmd = "sudo ip netns exec {} sonic-db-cli COUNTERS_DB HGET COUNTERS:".format(asic_value) \
+              + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
     out = duthost.command(cmd)
     dropped_packets = int(out["stdout_lines"][0] or -1)
 
