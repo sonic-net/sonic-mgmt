@@ -6,7 +6,7 @@ import re
 from tests.common.utilities import get_mgmt_ipv6, check_output, run_show_features
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.bgp import run_bgp_facts
-from tests.common.helpers.tacacs_helper import ssh_remote_run_retry
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry
 from tests.common.helpers.ntp_helper import run_ntp
 from tests.common.helpers.syslog_helpers import run_syslog
 from tests.common.helpers.gnmi_utils import GNMIEnvironment

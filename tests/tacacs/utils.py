@@ -3,7 +3,7 @@ import logging
 import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.tacacs_helper import start_tacacs_server
+from tests.common.helpers.tacacs.tacacs_helper import start_tacacs_server
 
 
 logger = logging.getLogger(__name__)

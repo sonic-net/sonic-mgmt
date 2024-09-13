@@ -2,7 +2,7 @@ import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import check_output
-from tests.common.helpers.tacacs_helper import ssh_remote_run, ssh_remote_run_retry
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry
 
 import logging
 

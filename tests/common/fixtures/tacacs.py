@@ -3,7 +3,7 @@ import pytest
 
 from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.tacacs_helper import setup_tacacs_client, setup_tacacs_server, load_tacacs_creds, \
+from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_client, setup_tacacs_server, load_tacacs_creds, \
                     cleanup_tacacs, restore_tacacs_servers
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,7 @@
 import logging
 import pytest
 from tests.common.fixtures.tacacs import tacacs_creds     # noqa F401
-from tests.common.helpers.tacacs_helper import setup_tacacs_client, setup_tacacs_server,\
+from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_client, setup_tacacs_server,\
                     cleanup_tacacs, restore_tacacs_servers, _context_for_check_tacacs_v6
 
 logger = logging.getLogger(__name__)
