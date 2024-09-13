@@ -3,7 +3,6 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from natsort import natsorted
-import logging
 
 PSU_STATUS_OK = 2
 PSU_STATUS_FUNCTIONING_FAIL = 7
