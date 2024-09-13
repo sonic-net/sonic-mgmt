@@ -3,6 +3,7 @@ import logging
 import time
 import ipaddress
 import json
+import os
 import re
 from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
@@ -31,7 +32,7 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture(scope="module")
 def restore_image(localhost, duthosts, rand_one_dut_hostname, upgrade_path_lists, tbinfo):
-    _, _, _, restore_to_image, _ = upgrade_path_lists
+    _, _, _, _, _, restore_to_image, _ = upgrade_path_lists
     yield
     duthost = duthosts[rand_one_dut_hostname]
     if restore_to_image:
@@ -57,6 +58,40 @@ def check_sonic_version(duthost, target_version):
     current_version = duthost.image_facts()['ansible_facts']['ansible_image_facts']['current']
     assert current_version == target_version, \
         "Upgrade sonic failed: target={} current={}".format(target_version, current_version)
+
+
+def restore_image_to_first_boot(duthost, image_version):
+    """
+    Restore the specified image version to a "first boot" state. If the image is installed, and it's not the
+    currently-running image, then the image will be restored to the first boot state. This means that when it boots up,
+    it'll go through platform module installation, container creations, etc. (basically everything that happens when
+    the image first boots up).
+
+    Returns true if the image was successfully restored to first-boot state, false otherwise.
+    """
+    images = duthost.image_facts()['ansible_facts']['ansible_image_facts']
+    if images['current'] == image_version:
+        # We're running the image we want to restore to first boot state, which isn't valid,
+        # so fail here
+        return False
+
+    image_present = False
+    for installed_image in images['available']:
+        if installed_image == image_version:
+            image_present = True
+            break
+    if not image_present:
+        return False
+
+    base_path = os.path.dirname(__file__)
+    restore_to_first_boot_script = os.path.join(base_path, "restoreToFirstBoot.sh")
+    duthost.copy(src=restore_to_first_boot_script, dest="/tmp/restoreToFirstBoot.sh", mode="preserve")
+    duthost.command("sudo unshare -mnpf /tmp/restoreToFirstBoot.sh {}"
+                    .format(image_version.replace("SONiC-OS", "image")))
+    duthost.command("sudo sonic-installer set-next-boot {}".format(image_version))
+    duthost.file(path="/host/old_config", state="absent")
+    duthost.copy(src="/etc/sonic/", dest="/host/old_config/", remote_src=True)
+    return True
 
 
 def install_sonic(duthost, image_url, tbinfo):

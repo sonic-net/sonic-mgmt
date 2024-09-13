@@ -126,13 +126,25 @@ def add_advanced_reboot_args(parser):
     parser.addoption(
         "--base_image_list",
         default="",
-        help="Specify the base image(s) for upgrade (comma seperated list is allowed)",
+        help="Specify the base image(s) for upgrade (comma-separated list is allowed)",
         )
 
     parser.addoption(
         "--target_image_list",
         default="",
-        help="Specify the target image(s) for upgrade (comma seperated list is allowed)",
+        help="Specify the target image(s) for upgrade (comma-separated list is allowed)",
+        )
+
+    parser.addoption(
+        "--base_image_version_list",
+        default="",
+        help="Specify the base image version(s) for upgrade (comma-separated list is allowed)",
+        )
+
+    parser.addoption(
+        "--target_image_version_list",
+        default="",
+        help="Specify the target image version (comma-separated list is allowed)",
         )
 
     parser.addoption(
