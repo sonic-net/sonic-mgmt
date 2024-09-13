@@ -17,8 +17,12 @@ import time
 import traceback
 import copy
 import tempfile
+import uuid
+import paramiko
 from io import StringIO
 from ast import literal_eval
+from scapy.all import sniff as scapy_sniff
+from paramiko.ssh_exception import AuthenticationException
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -30,9 +34,13 @@ from tests.common.cache import cached
 from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
+from netaddr import valid_ipv6
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+LA_START_MARKER_SCRIPT = "scripts/find_la_start_marker.sh"
+FIND_SYSLOG_MSG_SCRIPT = "scripts/find_log_msg.sh"
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
 
 
 def check_skip_release(duthost, release_list):
@@ -165,7 +173,7 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           state='started',
                           timeout=timeout_s,
                           module_ignore_errors=True)
-    if 'exception' in res:
+    if 'exception' in res or res.get('failed') is True:
         logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
                     (str(server_hostname), listening_port, timeout_s))
         return False
@@ -473,6 +481,19 @@ def is_ipv4_address(ip_address):
         return False
 
 
+def get_mgmt_ipv6(duthost):
+    config_facts = duthost.get_running_config_facts()
+    mgmt_interfaces = config_facts.get("MGMT_INTERFACE", {})
+    mgmt_ipv6 = None
+
+    for mgmt_interface, ip_configs in mgmt_interfaces.items():
+        for ip_addr_with_prefix in ip_configs.keys():
+            ip_addr = ip_addr_with_prefix.split("/")[0]
+            if valid_ipv6(ip_addr):
+                mgmt_ipv6 = ip_addr
+    return mgmt_ipv6
+
+
 def compare_crm_facts(left, right):
     """Compare CRM facts
 
@@ -740,6 +761,29 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     return reboot_dict
 
 
+def pdu_reboot(pdu_controller):
+    """Power-cycle the DUT by turning off and on the PDU outlets.
+
+    Args:
+        pdu_controller: PDU controller object implementing the BasePduController interface.
+            User can acquire pdu_controller object from fixture tests.common.plugins.pdu_controller.pdu_controller
+
+    Returns: True if the PDU reboot is successful, False otherwise.
+    """
+    if not pdu_controller:
+        logging.warning("pdu_controller is None, skip PDU reboot")
+        return False
+    hostname = pdu_controller.dut_hostname
+    if not pdu_controller.turn_off_outlet():
+        logging.error("Turn off the PDU outlets of {} failed".format(hostname))
+        return False
+    time.sleep(10)  # sleep 10 second to ensure there is gap between power off and on
+    if not pdu_controller.turn_on_outlet():
+        logging.error("Turn on the PDU outlets of {} failed".format(hostname))
+        return False
+    return True
+
+
 def get_image_type(duthost):
     """get the SONiC image type
         It might be public/microsoft/...or any other type.
@@ -965,7 +1009,6 @@ def recover_acl_rule(duthost, data_acl):
             acl_entry_config[seq_id]["config"]["sequence-id"] = seq_id
             acl_entry_config[seq_id]["l2"]["config"]["ethertype"] = value["ETHER_TYPE"]
             acl_entry_config[seq_id]["l2"]["config"]["vlan_id"] = value["VLAN_ID"]
-            acl_entry_config[seq_id]["input_interface"]["interface_ref"]["config"]["interface"] = value["IN_PORTS"]
 
     with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
         json.dump(acl_config, fp)
@@ -1071,3 +1114,169 @@ def get_egress_queue_pkt_count_all_prio(duthost, port):
         queue_stats.append(int(total_pkts_str.replace(',', '')))
 
     return queue_stats
+
+
+@contextlib.contextmanager
+def capture_and_check_packet_on_dut(
+    duthost,
+    interface='any',
+    pkts_filter='',
+    pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured"),
+    pkts_validator_args=[],
+    pkts_validator_kwargs={},
+    wait_time=1
+):
+    """
+    Capture packets on DUT and check if the packet is expected
+    Parameters:
+        duthost: the DUT to perform the packet capture
+        interface: the interface to capture packets on, default is 'any'
+        pkts_filter: the PCAP-FILTER to apply to the captured packets, default is '' means no filter
+        pkts_validator: the function to validate the captured packets, default is to check if any packet is captured
+        pkts_validator_args: ther args to pass to the pkts_validator function
+        pkts_validator_kwargs: the kwargs to pass to the pkts_validator function
+        wait_time: the time to wait before stopping the packet capture, default is 1 second
+    """
+    pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
+    cmd_capture_pkts = "nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
+        % (interface, pcap_save_path, pkts_filter)
+    tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
+    cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
+    pytest_assert(duthost.shell(cmd_check_if_process_running)["stdout"] == "1",
+                  "Failed to start tcpdump on DUT")
+    logging.info("Start to capture packet on DUT, tcpdump pid: %s, pcap save path: %s, with command: %s"
+                 % (tcpdump_pid, pcap_save_path, cmd_capture_pkts))
+    try:
+        yield
+        time.sleep(wait_time)
+        duthost.shell("kill -s 2 %s" % tcpdump_pid)
+        with tempfile.NamedTemporaryFile() as temp_pcap:
+            duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
+            pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
+    finally:
+        duthost.file(path=pcap_save_path, state="absent")
+
+
+def _paramiko_ssh(ip_address, username, passwords):
+    """
+    Connect to the device via ssh using paramiko
+    Args:
+        ip_address (str): The ip address of device
+        username (str): The username of device
+        passwords (str or list): Potential passwords of device
+            this argument can be either a string or a list of string
+    Returns:
+        AuthResult: the ssh session of device
+    """
+    if isinstance(passwords, str):
+        candidate_passwords = [passwords]
+    elif isinstance(passwords, list):
+        candidate_passwords = passwords
+    else:
+        raise Exception("The passwords argument must be either a string or a list of string.")
+
+    for password in candidate_passwords:
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(ip_address, username=username, password=password,
+                        allow_agent=False, look_for_keys=False, timeout=10)
+            return ssh, password
+        except AuthenticationException:
+            continue
+        except Exception as e:
+            logging.info("Cannot access device {} via ssh, error: {}".format(ip_address, e))
+            raise e
+    logging.info("Cannot access device {} via ssh, error: Password incorrect".format(ip_address))
+    raise AuthenticationException
+
+
+def paramiko_ssh(ip_address, username, passwords):
+    ssh, pwd = _paramiko_ssh(ip_address, username, passwords)
+    return ssh
+
+
+def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
+    try:
+        _, passwd = _paramiko_ssh(ipv4_address, username, passwords)
+    except AuthenticationException:
+        raise
+    except Exception:
+        _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
+    return passwd
+
+
+def check_msg_in_syslog(duthost, log_msg):
+    """
+    Checks for a given log message after the last start-LogAnalyzer message in syslog
+
+    Args:
+        duthost: Device under test.
+        log_msg: Log message to be searched
+
+    Yields:
+        True if log message is present or returns False
+    """
+    la_output = duthost.script(LA_START_MARKER_SCRIPT)["stdout"]
+    if not la_output:
+        return False
+    else:
+        output = la_output.replace('\r', '').replace('\n', '')
+
+    try:
+        log_msg = f"\"{log_msg}\""
+        log_output = duthost.script("%s %s %s" % (FIND_SYSLOG_MSG_SCRIPT, output, log_msg))
+        if log_output:
+            return True
+        else:
+            return False
+    except Exception:
+        return False
+
+
+def backup_config(duthost, config, config_backup):
+    logger.info("Backup {} to {} on {}".format(
+        config, config_backup, duthost.hostname))
+    duthost.shell("cp {} {}".format(config, config_backup))
+
+
+def restore_config(duthost, config, config_backup):
+    logger.info("Restore {} with {} on {}".format(
+        config, config_backup, duthost.hostname))
+    duthost.shell("mv {} {}".format(config_backup, config))
+
+
+def get_running_config(duthost, asic=None):
+    ns = "-n " + asic if asic else ""
+    return json.loads(duthost.shell("sonic-cfggen {} -d --print-data".format(ns))['stdout'])
+
+
+def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
+    """
+    for multi-asic/single-asic devices, we only have 1 golden_config_db.json
+    """
+    from tests.common.config_reload import config_reload
+    golden_config = "/etc/sonic/golden_config_db.json"
+    duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
+    config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+    # Cleanup golden config because some other test or device recover may reload config with golden config
+    duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+
+
+def file_exists_on_dut(duthost, filename):
+    return duthost.stat(path=filename).get('stat', {}).get('exists', False)
+
+
+def compare_dicts_ignore_list_order(dict1, dict2):
+    def normalize(data):
+        if isinstance(data, list):
+            return set(data)
+        elif isinstance(data, dict):
+            return {k: normalize(v) for k, v in data.items()}
+        else:
+            return data
+
+    dict1_normalized = normalize(dict1)
+    dict2_normalized = normalize(dict2)
+
+    return dict1_normalized == dict2_normalized

@@ -197,7 +197,7 @@ def apply_gnmi_cert(duthost, ptfhost):
     time.sleep(env.gnmi_server_start_wait_time)
 
 
-def recover_gnmi_cert(localhost, duthost):
+def recover_gnmi_cert(localhost, duthost, skip_cert_cleanup):
     """
     Restart gnmi server to use default certificate
 
@@ -208,7 +208,8 @@ def recover_gnmi_cert(localhost, duthost):
     Returns:
     """
     env = GNMIEnvironment(duthost)
-    localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
+    if not skip_cert_cleanup:
+        localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
     output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
     if 'RUNNING' in output:
@@ -370,9 +371,9 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
                 if proto_utils.ENABLE_PROTO:
-                    path = "/APPL_DB/%s:$/root/%s" % (k, filename)
+                    path = "/APPL_DB/localhost/%s:$/root/%s" % (k, filename)
                 else:
-                    path = "/APPL_DB/%s:@/root/%s" % (k, filename)
+                    path = "/APPL_DB/localhost/%s:@/root/%s" % (k, filename)
                 update_list.append(path)
         elif operation["OP"] == "DEL":
             for k, v in operation.items():
@@ -380,7 +381,7 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                     continue
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
-                path = "/APPL_DB/%s" % (k)
+                path = "/APPL_DB/localhost/%s" % (k)
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])

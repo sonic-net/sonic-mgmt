@@ -255,9 +255,10 @@ class KustoConnector(ReportDBConnector):
         pdu_status_data = {"data": pdu_output}
         self._ingest_data(self.RAW_PDU_STATUS_TABLE, pdu_status_data)
 
-    def upload_reboot_report(self, path_name: str = "", report_guid: str = "") -> None:
+    def upload_reboot_report(self, path_name: str = "", tracking_id: str = "", report_guid: str = "") -> None:
         reboot_timing_data = {
-            "id": report_guid
+            "id": report_guid,
+            "tracking_id": tracking_id
         }
         reboot_timing_dict = validate_json_file(path_name)
         reboot_timing_data.update(reboot_timing_dict)

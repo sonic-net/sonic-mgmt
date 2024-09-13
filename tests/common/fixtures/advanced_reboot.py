@@ -579,13 +579,14 @@ class AdvancedReboot:
                     self.postboot_setup()
             except Exception:
                 traceback_msg = traceback.format_exc()
-                logger.error("Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg))
-                test_results[test_case_name].append("Exception caught while running advanced-reboot test on ptf")
+                err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
+                logger.error(err_msg)
+                test_results[test_case_name].append(err_msg)
             finally:
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper)
                 self.print_test_logs_summary(log_dir)
-                if self.advanceboot_loganalyzer:
+                if self.advanceboot_loganalyzer and post_reboot_analysis:
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
                                                                reboot_oper=rebootOper, log_dir=log_dir)
                     if verification_errors:
@@ -688,6 +689,9 @@ class AdvancedReboot:
         """
         logger.info("Running PTF runner on PTF host: {0}".format(self.ptfhost))
 
+        passwords = self.duthost.host.options['variable_manager'].\
+            _hostvars[self.duthost.hostname]['sonic_default_passwords']
+
         params = {
             "dut_username": self.rebootData['dut_username'],
             "dut_password": self.rebootData['dut_password'],
@@ -715,8 +719,7 @@ class AdvancedReboot:
             "asic_type": self.duthost.facts["asic_type"],
             "allow_mac_jumping": self.allowMacJump,
             "preboot_files": self.prebootFiles,
-            "alt_password": self.duthost.host.options['variable_manager']
-                            ._hostvars[self.duthost.hostname].get("ansible_altpassword"),
+            "alt_password": passwords,
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
             "neighbor_type": self.neighborType,

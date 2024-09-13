@@ -3,12 +3,15 @@ import time
 import json
 import logging
 import re
+import ipaddress
 
-from test_crm import RESTORE_CMDS
+from test_crm import RESTORE_CMDS, get_nh_ip
 from tests.common.helpers.crm import CRM_POLLING_INTERVAL
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, recover_acl_rule
 from tests.common.platform.interface_utils import parse_intf_status
+from tests.common.mellanox_data import is_mellanox_device
+from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +94,7 @@ def crm_thresholds(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     return res
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, enum_frontend_asic_index):
     """ Return tuple of two DUT interfaces """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -131,8 +134,8 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
                 elif crm_intf2 is None:
                     crm_intf2 = intf
 
-        if crm_intf1 is not None and crm_intf2 is not None:
-            return (crm_intf1, crm_intf2)
+    if crm_intf1 is not None and crm_intf2 is not None:
+        return (crm_intf1, crm_intf2)
 
     if crm_intf1 is None or crm_intf2 is None:
         pytest.skip("Not enough interfaces on this host/asic (%s/%s) to support test." % (duthost.hostname,
@@ -188,16 +191,74 @@ def check_interface_status(duthost, intf_list, expected_oper='up'):
     return True
 
 
+def configure_a_route_with_same_prefix_as_vlan_for_mlnx(duthost, asichost, tbinfo, crm_interface):
+    """
+    For mellanox device, the crm available counter is related to LPM tree.
+    When shutdown all interfaces in vlan (e.g. vlan 1000),
+    it will cause the route (e.g. 192.168.0.1/21 )for vlan to be removed, we have only one route for the prefix (21),
+    so after it is removed, the corresponding prefix in LPM tree will be removed too,
+    which will lead to the LPM tree structure is changed.
+    LPM tree change might cause available counter change dramatically,
+    but we cannot estimate how long the change is ready.
+    Therefore, it will lead the first case of test_crm_route fail occasionally
+    because the expected available counter is not decreased.
+    So, we add another route with the same prefix(21) as the vlan's so that the LPM tree is not changed.
+    """
+    # Get NH IP
+    nh_ip = get_nh_ip(duthost, asichost, crm_interface, '4')
+
+    dump_ip_for_construct_test_route_with_same_prefix_as_vlan_interface = '21.21.21.21'
+    network_with_same_prefix_as_vlan_interface = str(
+        ipaddress.IPv4Interface(
+            f"{dump_ip_for_construct_test_route_with_same_prefix_as_vlan_interface}/"
+            f"{get_vlan_ipv4_prefix_len(asichost, tbinfo)}").network)
+    add_route_command = f"sudo ip route add {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
+    duthost.shell(add_route_command)
+    assert wait_until(30, 5, 0, check_route_exist, duthost, network_with_same_prefix_as_vlan_interface, nh_ip), \
+        f"Failed to add route {network_with_same_prefix_as_vlan_interface} via {nh_ip} "
+
+    # Get sai sdk dump file in case test fail, we can get the LPM tree information
+    get_sai_sdk_dump_file(duthost, "sai_sdk_dump_before_shutdown_vlan_ports")
+
+    del_dump_route_with_same_prefix_as_vlan_interface_cmd = \
+        f" sudo ip route del {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
+
+    return del_dump_route_with_same_prefix_as_vlan_interface_cmd
+
+
+def check_route_exist(duthost, network_with_same_prefix_as_vlan_interface, nh_ip):
+    route_output = duthost.shell(f"show ip route {network_with_same_prefix_as_vlan_interface}")["stdout"]
+    return f"Routing entry for {network_with_same_prefix_as_vlan_interface}" in route_output and nh_ip in route_output
+
+
+def get_vlan_ipv4_prefix_len(asichost, tbinfo):
+    mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
+    for vlan_port_data in mg_facts["minigraph_vlan_interfaces"]:
+        if ipaddress.ip_interface(vlan_port_data['addr']).version == 4:
+            logger.info(f"vlan interface v4 prefix is :{vlan_port_data['prefixlen']}")
+            return vlan_port_data['prefixlen']
+    assert False, "Not find v4 prefix for vlan interface config"
+
+
 @pytest.fixture(scope="module", autouse=True)
-def shutdown_unnecessary_intf(duthosts, tbinfo, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname):
+def shutdown_unnecessary_intf(
+        duthosts, tbinfo, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname, crm_interface):
     """ Shutdown unused interfaces to avoid fdb entry influenced by mac learning """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
     intfs_connect_with_ptf = get_intf_list(duthost, tbinfo, enum_frontend_asic_index)
     if intfs_connect_with_ptf:
+        if is_mellanox_device(duthost):
+            del_dump_route_with_same_prefix_as_vlan_interface_cmd = configure_a_route_with_same_prefix_as_vlan_for_mlnx(
+                duthost, asichost, tbinfo, crm_interface)
         logger.info("Shutdown interfaces: {}".format(intfs_connect_with_ptf))
         duthost.shutdown_multiple(intfs_connect_with_ptf)
         assert wait_until(300, 20, 0, check_interface_status, duthost, intfs_connect_with_ptf, 'down'), \
             "All interfaces should be down!"
+
+        if is_mellanox_device(duthost):
+            # Get sai sdk dump file in case test fail, we can get the LPM tree information
+            get_sai_sdk_dump_file(duthost, "sai_sdk_dump_after_shutdown_vlan_ports")
 
     yield
 
@@ -206,6 +267,8 @@ def shutdown_unnecessary_intf(duthosts, tbinfo, enum_frontend_asic_index, enum_r
         duthost.no_shutdown_multiple(intfs_connect_with_ptf)
         assert wait_until(300, 20, 0, check_interface_status, duthost, intfs_connect_with_ptf), \
             "All interfaces should be up!"
+        if is_mellanox_device(duthost):
+            duthost.shell(del_dump_route_with_same_prefix_as_vlan_interface_cmd)
 
 
 @pytest.fixture(scope="module")
@@ -217,3 +280,26 @@ def collector(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         data[asic.asic_index] = {}
 
     yield data
+
+
+@pytest.fixture(scope="function")
+def cleanup_ptf_interface(duthosts, ip_ver, enum_rand_one_per_hwsku_frontend_hostname,
+                          enum_frontend_asic_index, ptfhost):
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
+    if ip_ver == "4":
+        ip_remove_cmd = "config interface ip remove Ethernet1 2.2.2.1/24"
+    else:
+        ip_remove_cmd = "config interface ip remove Ethernet1 2001::2/64"
+    check_vlan_cmd = "show vlan br | grep -w 'Ethernet1'"
+
+    yield
+
+    if duthost.facts["asic_type"] == "marvell":
+        asichost.shell(ip_remove_cmd)
+        # Check if member not removed
+        output = asichost.shell(check_vlan_cmd, module_ignore_errors=True)
+        if "Ethernet1" not in output['stdout']:
+            asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
+        ptfhost.remove_ip_addresses()

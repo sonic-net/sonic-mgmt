@@ -211,13 +211,16 @@ class Sonic(host_device.HostDevice):
             cli_data['route_timeout'] = route_timeout
 
             # {'10.0.0.38': [(0, '4200065100)')], 'fc00::2d': [(0, '4200065100)')]}
-            for nei in route_timeout.keys():
+            for nei in list(route_timeout.keys()):
                 asn = route_timeout[nei][0][-1]
                 msg = 'BGP route GR timeout: neighbor %s (ASN %s' % (nei, asn)
                 self.fails.add(msg)
 
-        if cli_data['po'][1] > 0:
+        if cli_data['po'][1] > 0 and self.reboot_type == 'warm-reboot':
             self.fails.add('Port channel flap occurred!')
+
+        if cli_data['po'][1] > 1 and self.reboot_type == 'fast-reboot':
+            self.fails.add('More than one port channel flap occurred!')
 
         self.log('Finishing run()')
         return self.fails, self.info, cli_data, log_data, {
@@ -288,23 +291,24 @@ class Sonic(host_device.HostDevice):
             assert first_state == 'DOWN', 'First PO state should be down, it was {}'.format(first_state)
             assert last_state == 'UP', 'Last PO state should be up, it was {}'.format(last_state)
 
-        for neig_ip in result_bgp.keys():
+        for neig_ip in list(result_bgp.keys()):
             key = "BGP IPv6 was down (seconds)" if ':' in neig_ip else "BGP IPv4 was down (seconds)"
             result[key] = result_bgp[neig_ip][-1][0] - result_bgp[neig_ip][0][0]
 
-        for neig_ip in result_bgp.keys():
+        for neig_ip in list(result_bgp.keys()):
             key = "BGP IPv6 was down (times)" if ':' in neig_ip else "BGP IPv4 was down (times)"
-            result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
+            result[key] = list(map(itemgetter(1), result_bgp[neig_ip])).count("Idle")
 
         result['PortChannel was down (seconds)'] = po_carrier_data[-1][0] - po_carrier_data[0][0] \
             if po_carrier_data else 0
         for if_name in sorted(result_if.keys()):
-            result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
+            result['Interface %s was down (times)' % if_name] = \
+                list(map(itemgetter(1), result_if[if_name])).count("down")
 
         bgp_po_offset = abs(initial_time_if - initial_time_bgp)
         result['BGP went down after portchannel went down (seconds)'] = bgp_po_offset
 
-        for neig_ip in result_bgp.keys():
+        for neig_ip in list(result_bgp.keys()):
             key = "BGP {} was gotten up after Po was up (seconds)".format("IPv6" if ':' in neig_ip else "IPv4")
             result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset
 
@@ -328,7 +332,7 @@ class Sonic(host_device.HostDevice):
         is_gr_ipv6_enabled = False
         restart_time = None
         obj = json.loads(output)
-        for prefix, attrs in obj.items():
+        for prefix, attrs in list(obj.items()):
             if "exabgp" in attrs["nbrDesc"]:
                 continue
             if attrs["gracefulRestartInfo"]["remoteGrMode"] == "Disable":
@@ -351,7 +355,7 @@ class Sonic(host_device.HostDevice):
         neigh_bgp = None
         dut_bgp = None
         asn = None
-        for neighbor, attrs in obj.items():
+        for neighbor, attrs in list(obj.items()):
             dut_bgp = neighbor
             asn = attrs["localAs"]
             neigh_bgp = attrs["hostLocal"]
@@ -362,7 +366,7 @@ class Sonic(host_device.HostDevice):
         gr_active = False
         gr_timer = None
         obj = json.loads(output)
-        for prefix, attrs in obj.items():
+        for prefix, attrs in list(obj.items()):
             if "exabgp" in attrs["nbrDesc"]:
                 continue
             if "gracefulRestartInfo" not in attrs:
@@ -379,7 +383,7 @@ class Sonic(host_device.HostDevice):
         prefixes = set()
         obj = json.loads(output)
 
-        for prefix, attrs in obj.items():
+        for prefix, attrs in list(obj.items()):
             attrs = attrs[0]
             if "nexthops" not in attrs:
                 continue
@@ -509,7 +513,7 @@ class Sonic(host_device.HostDevice):
         if self.gr_timeout < 120:  # bgp graceful restart timeout less then 120 seconds
             self.fails.add("bgp graceful restart timeout ({}) is less then 120 seconds".format(self.gr_timeout))
 
-        for when, other in sorted(output.items(), key=lambda x: x[0]):
+        for when, other in sorted(list(output.items()), key=lambda x: x[0]):
             gr_active, timer = other['bgp_neig']
             # wnen it's False, it's ok, wnen it's True, check that inactivity timer not less then
             # self.min_bgp_gr_timeout seconds

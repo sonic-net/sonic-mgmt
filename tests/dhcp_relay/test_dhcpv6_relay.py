@@ -13,7 +13,9 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F401
-
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
@@ -224,7 +226,33 @@ def check_interface_status(duthost):
     return False
 
 
-def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
+def restart_dhcp_relay_and_check_dhcp6relay(duthost):
+    duthost.shell("sudo systemctl reset-failed dhcp_relay")
+    duthost.shell("sudo systemctl restart dhcp_relay")
+    wait_until(60, 3, 0, lambda: ("RUNNING" in duthost.shell("docker exec dhcp_relay supervisorctl status " +
+                                                             "dhcp-relay:dhcp6relay | awk '{print $2}'")["stdout"]))
+
+
+@pytest.fixture(scope="function")
+def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    new_vlan_id = 4001
+    new_vlan_ipv6 = "fc01:5000::1/64"
+    duthost.shell("sudo config vlan add {}".format(new_vlan_id))
+    duthost.shell("sudo config interface ip add Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
+    restart_dhcp_relay_and_check_dhcp6relay(duthost)
+
+    yield new_vlan_id
+
+    duthost.shell("sudo config interface ip remove Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
+    duthost.shell("sudo config vlan del {}".format(new_vlan_id))
+    restart_dhcp_relay_and_check_dhcp6relay(duthost)
+
+
+def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, setup_and_teardown_no_servers_vlan):
+    # Add vlan without dhcpv6_server, which should not be binded
+    new_vlan_id = setup_and_teardown_no_servers_vlan
+
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201911", "202106"])
     if not check_interface_status(duthost):
@@ -238,9 +266,32 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
                 "{} is not found in {}".format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)) or \
                ("*:*" in output, "dhcp6relay socket is not properly binded")
 
+    pytest_assert("Vlan{}".format(new_vlan_id) not in output,
+                  "dhcp6relay bind to Vlan{} without dhcpv6_servers configured, which is unexpected"
+                  .format(new_vlan_id))
+
+
+@pytest.fixture
+def setup_active_active_as_active_standby(
+    active_active_ports, rand_selected_dut, rand_unselected_dut, tbinfo,                # noqa F811
+    config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup): # noqa F811
+    if 'dualtor' not in tbinfo['topo']['name']:
+        logger.info("Skipping toggle on non-dualtor testbed")
+
+    if active_active_ports:
+        # The traffic from active-active mux ports are ECMPed so the DHCP6 Request
+        # May land to any TOR.
+        # So let's configure the active-active mux ports, to let them work in active-standby mode.
+        logger.info("Configuring {} as active".format(rand_selected_dut.hostname))
+        logger.info("Configuring {} as standby".format(rand_unselected_dut.hostname))
+        config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports)
+
+    return
+
 
 def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
-                              toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                              toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
+                              setup_active_active_as_active_standby):            # noqa F811
     """ Test DHCPv6 Counter """
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201911", "202106"])
@@ -249,7 +300,6 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
                      "Decline", "Reconfigure", "Information-Request", "Relay-Forward", "Relay-Reply", "Malformed"]
 
     for dhcp_relay in dut_dhcp_relay_data:
-
         init_counter(duthost, dhcp_relay['client_iface']['name'], message_types)
         init_counter(duthost, dhcp_relay['downlink_vlan_iface']['name'], message_types)
         if dhcp_relay['is_dualtor']:
@@ -306,7 +356,8 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
 
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
-                            toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
+                            toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
+                            setup_active_active_as_active_standby):            # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """

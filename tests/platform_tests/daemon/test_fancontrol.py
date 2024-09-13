@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.device_type('physical'),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer
 ]

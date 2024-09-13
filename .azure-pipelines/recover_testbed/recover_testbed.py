@@ -7,7 +7,6 @@ import sys
 import ipaddress
 import traceback
 from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
-from constants import RC_SSH_FAILED
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -35,7 +34,7 @@ If console fails, do power cycle
 
 def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku):
     try:
-        dut_console = duthost_console(sonichost, conn_graph_facts, localhost)
+        dut_console = duthost_console(sonichost, conn_graph_facts)
 
         do_power_cycle(sonichost, conn_graph_facts, localhost)
 
@@ -51,13 +50,12 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
         elif device_type in ["nokia"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url, is_nokia=True)
         else:
-            return
+            raise Exception("We don't support this type of testbed.")
 
         dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip)
     except Exception as e:
-        logger.info(e)
         traceback.print_exc()
-        return
+        raise Exception(e)
 
 
 def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
@@ -107,12 +105,9 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 except Exception as e:
                     logger.info("Exception caught while executing cmd. Error message: {}".format(e))
                     need_to_recover = True
-            elif dut_ssh == RC_SSH_FAILED:
+            else:
                 # Do power cycle
                 need_to_recover = True
-            else:
-                logger.info("Authentication failed. Passwords are incorrect.")
-                return
 
             if need_to_recover:
                 recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku)

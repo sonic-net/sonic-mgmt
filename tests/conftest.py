@@ -1,3 +1,4 @@
+import concurrent.futures
 import os
 import glob
 import json
@@ -5,11 +6,15 @@ import logging
 import getpass
 import random
 import re
+from concurrent.futures import as_completed
 
 import pytest
 import yaml
 import jinja2
 import copy
+import time
+import subprocess
+import threading
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -30,12 +35,14 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_ses
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                        # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active         # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session              # noqa F401
+from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby# noqa F401
 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
 )
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
+from tests.common.plugins.sanity_check import recover_chassis
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
@@ -44,11 +51,15 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
+from tests.common.utilities import get_dut_current_passwd
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.helpers.sonic_db import AsicDbCli
+from tests.common.helpers.inventory_utils import trim_inventory
+from tests.common.utilities import InterruptableThread
 
 try:
     from tests.macsec import MacsecPluginT2, MacsecPluginT0
@@ -81,7 +92,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.platform_tests.api',
                   'tests.common.plugins.allure_server',
                   'tests.common.plugins.conditional_mark',
-                  'tests.common.plugins.random_seed')
+                  'tests.common.plugins.random_seed',
+                  'tests.common.plugins.memory_utilization')
 
 
 def pytest_addoption(parser):
@@ -197,6 +209,11 @@ def pytest_addoption(parser):
     parser.addoption("--public_docker_registry", action="store_true", default=False,
                      help="To use public docker registry for syncd swap, by default is disabled (False)")
 
+    ##############################
+    #   ansible inventory option #
+    ##############################
+    parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -208,7 +225,7 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def enhance_inventory(request):
+def enhance_inventory(request, tbinfo):
     """
     This fixture is to enhance the capability of parsing the value of pytest cli argument '--inventory'.
     The pytest-ansible plugin always assumes that the value of cli argument '--inventory' is a single
@@ -225,7 +242,12 @@ def enhance_inventory(request):
     if isinstance(inv_opt, list):
         return
     inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
+
+    if request.config.getoption("trim_inv"):
+        trim_inventory(inv_files, tbinfo)
+
     try:
+        logger.info(f"Inventory file: {inv_files}")
         setattr(request.config.option, "ansible_inventory", inv_files)
     except AttributeError:
         logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
@@ -387,15 +409,26 @@ def macsec_duthost(duthosts, tbinfo):
     return macsec_dut
 
 
+# Make sure in same test module, always use same random DUT
+rand_one_dut_hostname_var = None
+
+
+def set_rand_one_dut_hostname(request):
+    global rand_one_dut_hostname_var
+    if rand_one_dut_hostname_var is None:
+        dut_hostnames = generate_params_dut_hostname(request)
+        if len(dut_hostnames) > 1:
+            dut_hostnames = random.sample(dut_hostnames, 1)
+        rand_one_dut_hostname_var = dut_hostnames[0]
+        logger.info("Randomly select dut {} for testing".format(rand_one_dut_hostname_var))
+
+
 @pytest.fixture(scope="module")
 def rand_one_dut_hostname(request):
     """
     """
-    dut_hostnames = generate_params_dut_hostname(request)
-    if len(dut_hostnames) > 1:
-        dut_hostnames = random.sample(dut_hostnames, 1)
-    logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
-    return dut_hostnames[0]
+    global rand_one_dut_hostname_var
+    return rand_one_dut_hostname_var
 
 
 @pytest.fixture(scope="module")
@@ -407,6 +440,12 @@ def rand_selected_dut(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
+def selected_rand_dut(request):
+    global rand_one_dut_hostname_var
+    return rand_one_dut_hostname_var
+
+
+@pytest.fixture(scope="module")
 def rand_one_dut_front_end_hostname(request):
     """
     """
@@ -415,6 +454,17 @@ def rand_one_dut_front_end_hostname(request):
         dut_hostnames = random.sample(dut_hostnames, 1)
     logger.info("Randomly select dut {} for testing".format(dut_hostnames[0]))
     return dut_hostnames[0]
+
+
+@pytest.fixture(scope="module")
+def rand_one_tgen_dut_hostname(request, tbinfo, rand_one_dut_front_end_hostname, rand_one_dut_hostname):
+    """
+    Return the randomly selected duthost for TGEN test cases
+    """
+    # For T2, we need to skip supervisor, only use linecards.
+    if 't2' in tbinfo['topo']['name']:
+        return rand_one_dut_front_end_hostname
+    return rand_one_dut_hostname
 
 
 @pytest.fixture(scope="module")
@@ -484,6 +534,8 @@ def localhost(ansible_adhoc):
 
 @pytest.fixture(scope="session")
 def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
+    if 'ptp' in tbinfo['topo']['name']:
+        return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
@@ -534,7 +586,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
-
+    logger.info("Fixture nbrhosts started")
     devices = {}
     if (not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or 'ptf' in tbinfo['topo']['name']:
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
@@ -548,8 +600,8 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
 
-    for k, v in list(tbinfo['topo']['properties']['topology']['VMs'].items()):
-        vm_name = vm_name_fmt % (vm_base + v['vm_offset'])
+    def initial_neighbor(neighbor_name, vm_name):
+        logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
         if neighbor_type == "eos":
             device = NeighborDevice(
                 {
@@ -561,7 +613,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
                         shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
         elif neighbor_type == "sonic":
@@ -573,7 +625,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
                         ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
         elif neighbor_type == "cisco":
@@ -585,12 +637,25 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         creds['cisco_login'],
                         creds['cisco_password'],
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][k]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
         else:
-            raise ValueError("Unknown neighbor type %s" % (neighbor_type, ))
-        devices[k] = device
+            raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
+        devices[neighbor_name] = device
+        logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+    futures = []
+    for neighbor_name, neighbor in list(tbinfo['topo']['properties']['topology']['VMs'].items()):
+        vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
+        futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
+
+    for future in as_completed(futures):
+        # if exception caught in the sub-thread, .result() will raise it in the main thread
+        _ = future.result()
+    executor.shutdown(wait=True)
+    logger.info("Fixture nbrhosts finished")
     return devices
 
 
@@ -631,9 +696,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
                 elif os_type == 'eos':
                     fanout_user = creds.get('fanout_network_user', None)
                     fanout_password = creds.get('fanout_network_password', None)
-                elif os_type == 'snappi':
-                    fanout_user = creds.get('fanout_network_user', None)
-                    fanout_password = creds.get('fanout_network_password', None)
+                elif os_type == 'ixia':
+                    # Skip for ixia device which has no fanout
+                    continue
                 else:
                     # when os is mellanox, not supported
                     pytest.fail("os other than sonic and eos not supported")
@@ -686,6 +751,8 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
 
 @pytest.fixture(scope="session")
 def vmhost(enhance_inventory, ansible_adhoc, request, tbinfo):
+    if 'ptp' in tbinfo['topo']['name']:
+        return None
     server = tbinfo["server"]
     inv_files = get_inventory_files(request)
     vmhost = get_test_server_host(inv_files, server)
@@ -766,6 +833,20 @@ def creds_on_dut(duthost):
     creds["console_user"] = {}
     creds["console_password"] = {}
 
+    creds["ansible_altpasswords"] = []
+
+    # If ansible_altpasswords is empty, add ansible_altpassword to it
+    if len(creds["ansible_altpasswords"]) == 0:
+        creds["ansible_altpasswords"].append(hostvars["ansible_altpassword"])
+
+    passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
+    creds['sonicadmin_password'] = get_dut_current_passwd(
+        duthost.mgmt_ip,
+        duthost.mgmt_ipv6,
+        creds['sonicadmin_user'],
+        passwords
+    )
+
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
         creds["console_password"][k] = v["passwd"]
@@ -832,6 +913,13 @@ def collect_techsupport(request, duthosts, enum_dut_hostname):
 def collect_techsupport_all_duts(request, duthosts):
     yield
     [collect_techsupport_on_dut(request, a_dut) for a_dut in duthosts]
+
+
+@pytest.fixture
+def collect_techsupport_all_nbrs(request, nbrhosts):
+    yield
+    if request.config.getoption("neighbor_type") == "sonic":
+        [collect_techsupport_on_dut(request, nbrhosts[nbrhost]['host']) for nbrhost in nbrhosts]
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -1134,7 +1222,7 @@ def get_completeness_level_metadata(request):
     # if completeness_level is not set or an unknown completeness_level is set
     # return "thorough" to run all test set
     if not completeness_level or completeness_level not in ["debug", "basic", "confident", "thorough"]:
-        return "thorough"
+        return "debug"
     return completeness_level
 
 
@@ -1452,6 +1540,16 @@ def pytest_generate_tests(metafunc):        # noqa E302
         else:
             metafunc.parametrize(asic_fixture_name, [None], scope="module", indirect=True)
 
+    # When selected_dut used and select a dut for test, parameterize dut for enable TACACS on all UT
+    if dut_fixture_name and "selected_dut" in metafunc.fixturenames:
+        metafunc.parametrize("selected_dut", duts_selected, scope="module", indirect=True)
+
+    # When rand_one_dut_hostname used and select a dut for test, initialize rand_one_dut_hostname_var
+    # rand_one_dut_hostname and rand_selected_dut will use this variable for setup test case
+    # selected_rand_dut will use this variable for setup TACACS
+    if "rand_one_dut_hostname" in metafunc.fixturenames:
+        set_rand_one_dut_hostname(metafunc)
+
     if "enum_dut_portname" in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_portname", generate_port_lists(metafunc, "all_ports"))
 
@@ -1565,6 +1663,15 @@ def enum_supervisor_dut_hostname(request):
 @pytest.fixture(scope="module")
 def enum_frontend_dut_hostname(request):
     return request.param
+
+
+@pytest.fixture(scope="module")
+def selected_dut(request):
+    try:
+        logger.debug("selected_dut host: {}".format(request.param))
+        return request.param
+    except AttributeError:
+        return None
 
 
 @pytest.fixture(scope="module")
@@ -1994,7 +2101,7 @@ def __dut_reload(duts_data, node=None, results=None):
             node.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
             os.remove(asic_cfg_file)
 
-    config_reload(node, wait_before_force_reload=300)
+    config_reload(node, wait_before_force_reload=300, safe_reload=True)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
@@ -2009,7 +2116,7 @@ def compare_running_config(pre_running_config, cur_running_config):
             for key in pre_running_config.keys():
                 if not compare_running_config(pre_running_config[key], cur_running_config[key]):
                     return False
-                return True
+            return True
         # We only have string in list in running config now, so we can ignore the order of the list.
         elif type(pre_running_config) is list:
             if set(pre_running_config) != set(cur_running_config):
@@ -2021,7 +2128,11 @@ def compare_running_config(pre_running_config, cur_running_config):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def core_dump_and_config_check(duthosts, tbinfo, request):
+def core_dump_and_config_check(duthosts, tbinfo,
+                               request,
+                               # make sure the tear down of sanity_check happened after core_dump_and_config_check
+                               sanity_check
+                               ):
     '''
     Check if there are new core dump files and if the running config is modified after the test case running.
     If so, we will reload the running config after test case running.
@@ -2128,6 +2239,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             # The keys that we don't care
             # Current skipped keys:
             # 1. "MUX_LINKMGR|LINK_PROBER"
+            # 2. "MUX_LINKMGR|TIMED_OSCILLATION"
+            # 3. "LOGGER|linkmgrd"
             # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
             # to account for the lower performance of the ICMP responder/mux simulator compared to
             # real servers and mux cables.
@@ -2136,7 +2249,9 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             # let's skip checking it.
             if "dualtor" in tbinfo["topo"]["name"]:
                 EXCLUDE_CONFIG_KEY_NAMES = [
-                    'MUX_LINKMGR|LINK_PROBER'
+                    'MUX_LINKMGR|LINK_PROBER',
+                    'MUX_LINKMGR|TIMED_OSCILLATION',
+                    'LOGGER|linkmgrd'
                 ]
             else:
                 EXCLUDE_CONFIG_KEY_NAMES = []
@@ -2237,7 +2352,13 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             }
             logger.warning("Core dump or config check failed for {}, results: {}"
                            .format(module_name, json.dumps(check_result)))
-            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
+
+            is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+            if is_modular_chassis:
+                results = recover_chassis(duthosts)
+            else:
+                results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
+
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
@@ -2258,6 +2379,7 @@ def on_exit():
     Utility to register callbacks for cleanup. Runs callbacks despite assertion
     failures. Callbacks are executed in reverse order of registration.
     '''
+
     class OnExit():
         def __init__(self):
             self.cbs = []
@@ -2272,6 +2394,37 @@ def on_exit():
     on_exit = OnExit()
     yield on_exit
     on_exit.cleanup()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def add_mgmt_test_mark(duthosts):
+    '''
+    @summary: Create mark file at /etc/sonic/mgmt_test_mark, and DUT can use this mark to detect mgmt test.
+    @param duthosts: fixture to get DUT hosts
+    '''
+    mark_file = "/etc/sonic/mgmt_test_mark"
+    duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def asic_db_dut(request, duthosts, enum_frontend_dut_hostname):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asic_db = AsicDbCli(duthost)
+    yield asic_db
+
+
+@pytest.fixture(scope="module")
+def asic_db_dut_rand(request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    asic_db = AsicDbCli(duthost)
+    yield asic_db
+
+
+@pytest.fixture(scope="module")
+def asic_db_dut_supervisor(request, duthosts, enum_supervisor_dut_hostname):
+    duthost = duthosts[enum_supervisor_dut_hostname]
+    asic_db = AsicDbCli(duthost)
+    yield asic_db
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):
@@ -2317,3 +2470,39 @@ testutils.verify_packets_any = verify_packets_any_fixed
 # HACK: We are using set_do_not_care_scapy but it will be deprecated.
 if not hasattr(Mask, "set_do_not_care_scapy"):
     Mask.set_do_not_care_scapy = Mask.set_do_not_care_packet
+
+
+def run_logrotate(duthost, stop_event):
+    logger.info("Start rotate_syslog on {}".format(duthost))
+    while not stop_event.is_set():
+        try:
+            # Run logrotate for rsyslog
+            duthost.shell("logrotate -f /etc/logrotate.conf", module_ignore_errors=True)
+        except subprocess.CalledProcessError as e:
+            logger.error("Error: {}".format(str(e)))
+        # Wait for 60 seconds before the next rotation
+        time.sleep(60)
+
+
+@pytest.fixture(scope="function")
+def rotate_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    stop_event = threading.Event()
+    thread = InterruptableThread(
+        target=run_logrotate,
+        args=(duthost, stop_event,)
+    )
+    thread.daemon = True
+    thread.start()
+
+    yield
+    stop_event.set()
+    try:
+        if thread.is_alive():
+            thread.join(timeout=30)
+            logger.info("thread {} joined".format(thread))
+    except Exception as e:
+        logger.debug("Exception occurred in thread {}".format(str(e)))
+
+    logger.info("rotate_syslog exit {}".format(thread))

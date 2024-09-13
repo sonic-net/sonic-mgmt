@@ -174,6 +174,7 @@ test_t0() {
       show_techsupport/test_techsupport_no_secret.py \
       system_health/test_system_status.py \
       radv/test_radv_ipv6_ra.py \
+      database/test_db_config.py \
       database/test_db_scripts.py"
 
       pushd $SONIC_MGMT_DIR/tests

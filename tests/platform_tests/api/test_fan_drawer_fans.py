@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 FAN_DIRECTION_INTAKE = "intake"
@@ -45,7 +46,8 @@ class TestFanDrawerFans(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn, duthost):
+    def setup(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if self.num_fan_drawers is None:
             try:
                 self.num_fan_drawers = chassis.get_num_fan_drawers(platform_api_conn)
@@ -304,9 +306,11 @@ class TestFanDrawerFans(PlatformApiTestBase):
                     target_speed = random.randint(speed_minimum, speed_maximum)
 
                 speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
+                speed_delta = abs(speed-target_speed)
 
                 speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, target_speed)     # noqa F841
-                time.sleep(self.get_fan_facts(duthost, j, i, 5, "speed", "delay"))
+                time_wait = 10 if speed_delta > 40 else 5
+                time.sleep(self.get_fan_facts(duthost, j, i, time_wait, "speed", "delay"))
 
                 act_speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
                 under_speed = fan_drawer_fan.is_under_speed(platform_api_conn, j, i)

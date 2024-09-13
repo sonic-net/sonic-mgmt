@@ -5,9 +5,10 @@ import sys
 
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import wait_until, wait_tcp_connection
+from tests.common.utilities import wait_until, wait_tcp_connection, get_mgmt_ipv6
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient
+from tests.telemetry.telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient
+from contextlib import contextmanager
 
 EVENTS_TESTS_PATH = "./telemetry/events"
 sys.path.append(EVENTS_TESTS_PATH)
@@ -86,10 +87,26 @@ def delete_gnmi_config(duthost):
 
 
 @pytest.fixture(scope="module")
-def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localhost,  ptfhost, gnxi_path):
+def setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, ptfhost, gnxi_path):
+    with _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname,
+                                                localhost, ptfhost, gnxi_path) as result:
+        yield result
+
+
+@pytest.fixture(scope="function")
+def setup_streaming_telemetry_func(request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, ptfhost, gnxi_path):
+    with _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname,
+                                                localhost, ptfhost, gnxi_path) as result:
+        yield result
+
+
+@contextmanager
+def _context_for_setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname,
+                                           localhost, ptfhost, gnxi_path):
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
+    is_ipv6 = request.param
     try:
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         has_gnmi_config = check_gnmi_config(duthost)
@@ -113,11 +130,18 @@ def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localh
 
         # Wait until the TCP port was opened
         dut_ip = duthost.mgmt_ip
+        if is_ipv6:
+            dut_ip = get_mgmt_ipv6(duthost)
         wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
 
         # pyclient should be available on ptfhost. If it was not available, then fail pytest.
-        file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
-        py_assert(file_exists["stat"]["exists"] is True)
+        if is_ipv6:
+            cmd = "docker cp %s:/usr/sbin/gnmi_get ~/" % (env.gnmi_container)
+            ret = duthost.shell(cmd)['rc']
+            py_assert(ret == 0)
+        else:
+            file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
+            py_assert(file_exists["stat"]["exists"] is True)
     except RunAnsibleModuleFail as e:
         logger.info("Error happens in the setup period of setup_streaming_telemetry, recover the telemetry.")
         restore_telemetry_forpyclient(duthost, default_client_auth)
@@ -140,17 +164,29 @@ def do_init(duthost):
 
 
 @pytest.fixture(scope="module")
-def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, gnxi_path):
+def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter,
+                        setup_streaming_telemetry, gnxi_path):
     """
     @summary: Test eventd heartbeat before testing all testcases
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    if duthost.is_multi_asic:
+        pytest.skip("Skip eventd testing on multi-asic")
+
+    features_dict, succeeded = duthost.get_feature_status()
+    if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
+        pytest.skip("eventd is disabled on the system")
+
     do_init(duthost)
 
     module = __import__("eventd_events")
 
-    module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, None)
+    duthost.shell("systemctl restart eventd")
+
+    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started.")
+
+    module.test_event(duthost, gnxi_path, ptfhost, ptfadapter, DATA_DIR, None)
 
     logger.info("Completed test file: {}".format("eventd_events test completed."))

@@ -39,17 +39,33 @@ def cleanup_tacacs_log(ptfhost, rw_user_client):
     ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
 
 
+def host_run_command(host, command):
+    if isinstance(host, PTFHost):
+        return host.command(command)
+    else:
+        return host.shell("sudo {0}".format(command))
+
+
+def flush_log(host, log_file):
+    if "syslog" in log_file:
+        # force flush syslog by reopen log file and write cached data to disk:
+        #   https://man7.org/linux/man-pages/man8/rsyslogd.8.html
+        #   https://man7.org/linux/man-pages/man1/sync.1.html
+        host_run_command(host, "kill -HUP $(cat /var/run/rsyslogd.pid)")
+        host_run_command(host, "sync {0}".format(log_file))
+    else:
+        host_run_command(host, "sync {0}".format(log_file))
+
+
 def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
     wait_time = 0
     while wait_time <= timeout:
+        flush_log(host, log_file)
         sed_command = "sed -nE '{0}' {1}".format(pattern, log_file)
-        logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-        if isinstance(host, PTFHost):
-            res = host.command(sed_command)
-        else:
-            res = host.shell(sed_command)
+        logger.debug(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
+        res = host_run_command(host, sed_command)
 
-        logger.info(res["stdout_lines"])
+        logger.debug(res["stdout_lines"])
         if len(res["stdout_lines"]) > 0:
             return res["stdout_lines"]
 
@@ -85,15 +101,30 @@ def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
 
 def check_local_log_exist(duthost, tacacs_creds, command):
     """
+        Remove all ansible command log with /D command,
+        which will match following format:
+            "ansible.legacy.command Invoked"
+
         Find logs run by tacacs_rw_user from syslog:
             Find logs match following format:
                 "INFO audisp-tacplus: Accounting: user: tacacs_rw_user,.*, command: .*command,"
             Print matched logs with /P command.
     """
     username = tacacs_creds['tacacs_rw_user']
-    log_pattern = "/INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
+    log_pattern = "/ansible.legacy.command Invoked/D;\
+                  /INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
                   .format(username, command)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
+
+    if len(logs) == 0:
+        # Print recent logs for debug
+        recent_logs = duthost.command("tail /var/log/syslog -n 1000")
+        logger.debug("Found logs: %s", recent_logs)
+
+        # Missing log may caused by incorrect NSS config
+        tacacs_config = duthost.command("cat /etc/tacplus_nss.conf")
+        logger.debug("tacplus_nss.conf: %s", tacacs_config)
+
     pytest_assert(len(logs) > 0)
 
     # exclude logs of the sed command produced by Ansible
@@ -106,6 +137,9 @@ def check_local_log_exist(duthost, tacacs_creds, command):
 def check_local_no_other_user_log(duthost, tacacs_creds):
     """
         Find logs not run by tacacs_rw_user from syslog:
+            Remove all ansible command log with /D command,
+            which will match following format:
+                "ansible.legacy.command Invoked"
 
             Remove all tacacs_rw_user's log with /D command,
             which will match following format:
@@ -117,7 +151,9 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
             Print matched logs with /P command, which are not run by tacacs_rw_user.
     """
     username = tacacs_creds['tacacs_rw_user']
-    log_pattern = "/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P" \
+    log_pattern = "/ansible.legacy.command Invoked/D;\
+                  /INFO audisp-tacplus: Accounting: user: {0},/D;\
+                  /INFO audisp-tacplus: Accounting: user:/P" \
                   .format(username)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
 
@@ -228,8 +264,8 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
 
     duthost.shell("sudo config tacacs timeout 1")
     remove_all_tacacs_server(duthost)
-    duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
-    duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % invalid_tacacs_server_ip)
+    duthost.shell("sudo config tacacs add %s --port 59" % tacacs_server_ip)
     change_and_wait_aaa_config_update(duthost,
                                       "sudo config aaa accounting tacacs+",
                                       last_timestamp)

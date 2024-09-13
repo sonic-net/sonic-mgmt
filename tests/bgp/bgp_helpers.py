@@ -1,5 +1,7 @@
+import contextlib
 import os
 import re
+import tempfile
 import time
 import json
 import pytest
@@ -28,7 +30,7 @@ CUSTOM_DUMP_SCRIPT = "bgp/bgp_monitor_dump.py"
 CUSTOM_DUMP_SCRIPT_DEST = "/usr/share/exabgp/bgp_monitor_dump.py"
 BGPMON_TEMPLATE_FILE = 'bgp/templates/bgp_template.j2'
 BGPMON_CONFIG_FILE = '/tmp/bgpmon.json'
-BGP_MONITOR_NAME = "bgp_monitor"
+BGP_MONITOR_NAME = "BGPMonitor"
 BGP_MONITOR_PORT = 7000
 BGPSENTINEL_CONFIG_FILE = '/tmp/bgpsentinel.json'
 BGP_SENTINEL_NAME_V4 = "bgp_sentinelV4"
@@ -58,6 +60,9 @@ QUEUED = "queued"
 ACTION_IN = "in"
 ACTION_NOT_IN = "not"
 ACTION_STOP = "stop"
+WAIT_TIMEOUT = 120
+TCPDUMP_WAIT_TIMEOUT = 20
+LOCAL_PCAP_FILE_TEMPLATE = "%s_dump.pcap"
 
 
 def apply_bgp_config(duthost, template_name):
@@ -781,3 +786,62 @@ def check_bgp_neighbor(duthost):
         wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors),
         "bgp sessions {} are not up".format(bgp_neighbors)
     )
+
+
+def is_tcpdump_running(duthost, cmd):
+    check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
+    if cmd in duthost.shell(check_cmd)["stdout"]:
+        return True
+    return False
+
+
+@contextlib.contextmanager
+def capture_bgp_packages_to_file(duthost, iface, save_path, ns):
+    """Capture bgp packets to file."""
+    if iface == "any":
+        # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
+        # defaults to writing in that format when listening on any interface. Therefore,
+        # have it use LINUX_SLL (Linux cooked) instead.
+        start_pcap = "tcpdump -y LINUX_SLL -i %s -w %s port 179" % (iface, save_path)
+    else:
+        start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
+    # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
+    stop_pcap = "sudo pkill -f '%s%s'" % (
+        duthost.asic_instance_from_namespace(ns).ns_arg,
+        start_pcap,
+    )
+    start_pcap_cmd = "nohup {}{} &".format(
+        duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap
+    )
+
+    duthost.file(path=save_path, state="absent")
+
+    duthost.shell(start_pcap_cmd)
+    # wait until tcpdump process created
+    if not wait_until(
+        WAIT_TIMEOUT,
+        5,
+        1,
+        lambda: is_tcpdump_running(duthost, start_pcap),
+    ):
+        pytest.fail("Could not start tcpdump")
+    # sleep and wait for tcpdump ready to sniff packets
+    time.sleep(TCPDUMP_WAIT_TIMEOUT)
+
+    try:
+        yield
+    finally:
+        duthost.shell(stop_pcap, module_ignore_errors=True)
+
+
+def fetch_and_delete_pcap_file(bgp_pcap, log_dir, duthost, request):
+    if log_dir:
+        local_pcap_filename = os.path.join(
+            log_dir, LOCAL_PCAP_FILE_TEMPLATE % request.node.name
+        )
+    else:
+        local_pcap_file = tempfile.NamedTemporaryFile()
+        local_pcap_filename = local_pcap_file.name
+    duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
+    duthost.file(path=bgp_pcap, state="absent")
+    return local_pcap_filename

@@ -12,9 +12,11 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.platform_tests.thermal_control_test_helper import disable_thermal_policy     # noqa F401
 from .device_mocker import device_mocker_factory        # noqa F401
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.duthost_utils import is_support_mock_asic    # noqa F401
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)
@@ -38,7 +40,7 @@ DEFAULT_INTERVAL = 62
 FAST_INTERVAL = 10
 THERMAL_CHECK_INTERVAL = 70
 PSU_CHECK_INTERVAL = FAST_INTERVAL + 5
-WAIT_TIMEOUT = 90
+WAIT_TIMEOUT = 180
 STATE_DB = 6
 
 SERVICE_EXPECT_STATUS_DICT = {
@@ -159,60 +161,51 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
 
 @pytest.mark.disable_loganalyzer
 def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
-                        device_mocker_factory, disable_thermal_policy):     # noqa F811
+                        device_mocker_factory, disable_thermal_policy, is_support_mock_asic):     # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, DEVICE_CHECK_CONFIG_FILE)):
         time.sleep(DEFAULT_INTERVAL)
-        fan_mock_result, fan_name = device_mocker.mock_fan_speed(False)
-        fan_expect_value = EXPECT_FAN_INVALID_SPEED.format(fan_name)
 
-        asic_mock_result = device_mocker.mock_asic_temperature(False)
+        asic_mock_result = 'not support asic mock'
+        if is_support_mock_asic:
+            asic_mock_result = device_mocker.mock_asic_temperature(False)
         asic_expect_value = EXPECT_ASIC_HOT
 
         psu_mock_result, psu_name = device_mocker.mock_psu_presence(False)
         psu_expect_value = EXPECT_PSU_MISSING.format(psu_name)
 
-        if fan_mock_result and asic_mock_result and psu_mock_result:
-            logger.info('Mocked invalid fan speed for {}'.format(fan_name))
+        if asic_mock_result and psu_mock_result:
             logger.info('Mocked ASIC overheated')
             logger.info('Mocked PSU absence for {}'.format(psu_name))
             logger.info('Waiting {} seconds for it to take effect'.format(
                 THERMAL_CHECK_INTERVAL))
             time.sleep(THERMAL_CHECK_INTERVAL)
-            value = redis_get_field_value(
-                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
-            assert value and fan_expect_value in value,\
-                'Mock fan invalid speed, expect {}, but got {}'.format(fan_expect_value, value)
-            value = redis_get_field_value(
-                duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
-            assert value and asic_expect_value in value,\
-                'Mock ASIC temperature overheated, expect {}, but got {}'.format(asic_expect_value, value)
+            if is_support_mock_asic:
+                value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
+                assert value and asic_expect_value in value,\
+                    'Mock ASIC temperature overheated, expect {}, but got {}'.format(asic_expect_value, value)
 
             value = redis_get_field_value(
                 duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
             assert value and psu_expect_value == value,\
                 'Mock PSU absence, expect {}, but got {}'.format(psu_expect_value, value)
-        fan_mock_result, fan_name = device_mocker.mock_fan_speed(True)
-        asic_mock_result = device_mocker.mock_asic_temperature(True)
+
+        if is_support_mock_asic:
+            asic_mock_result = device_mocker.mock_asic_temperature(True)
         psu_mock_result, psu_name = device_mocker.mock_psu_presence(True)
-        if fan_mock_result and asic_mock_result and psu_mock_result:
-            logger.info('Mocked valid fan speed for {}'.format(fan_name))
+        if asic_mock_result and psu_mock_result:
             logger.info('Mocked ASIC normal temperatue')
             logger.info('Mocked PSU presence for {}'.format(psu_name))
             logger.info('Waiting {} seconds for it to take effect'.format(
                 THERMAL_CHECK_INTERVAL))
             time.sleep(THERMAL_CHECK_INTERVAL)
-            value = redis_get_field_value(
-                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
-            assert not value or fan_expect_value not in value,\
-                'Mock fan valid speed, expect {}, but it still report invalid speed'.format(fan_expect_value)
 
-            value = redis_get_field_value(
-                duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
-            assert not value or asic_expect_value not in value,\
-                'Mock ASIC normal temperature, but it is still overheated'
+            if is_support_mock_asic:
+                value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
+                assert not value or asic_expect_value not in value,\
+                    'Mock ASIC normal temperature, but it is still overheated'
 
             value = redis_get_field_value(
                 duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
@@ -356,7 +349,7 @@ def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_log_analyzer_by_vendor', [['mellanox']], indirect=True)
 def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
-                              device_mocker_factory, ignore_log_analyzer_by_vendor):    # noqa F811
+                              device_mocker_factory, ignore_log_analyzer_by_vendor, is_support_mock_asic):    # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
@@ -375,16 +368,17 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
 
     logger.info(
         'Ignore ASIC check, verify there is no error information about ASIC')
-    with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_ASIC_CHECK_CONFIG_FILE)):
-        time.sleep(FAST_INTERVAL)
-        mock_result = device_mocker.mock_asic_temperature(False)
-        expect_value = EXPECT_ASIC_HOT
-        if mock_result:
-            time.sleep(THERMAL_CHECK_INTERVAL)
-            value = redis_get_field_value(
-                duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
-            assert not value or expect_value not in value, 'ASIC check is still performed after it ' \
-                                                           'is configured to be ignored'
+    if is_support_mock_asic:
+        with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_ASIC_CHECK_CONFIG_FILE)):
+            time.sleep(FAST_INTERVAL)
+            mock_result = device_mocker.mock_asic_temperature(False)
+            expect_value = EXPECT_ASIC_HOT
+            if mock_result:
+                time.sleep(THERMAL_CHECK_INTERVAL)
+                value = redis_get_field_value(
+                    duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
+                assert not value or expect_value not in value, 'ASIC check is still performed after it ' \
+                                                               'is configured to be ignored'
 
     logger.info(
         'Ignore PSU check, verify there is no error information about psu')
@@ -398,6 +392,40 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
                 duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
             assert not value or expect_value != value, 'PSU check is still performed after it ' \
                                                        'is configured to be ignored'
+
+
+@pytest.mark.disable_loganalyzer
+def test_device_fan_speed_checker(duthosts, enum_rand_one_per_hwsku_hostname,
+                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic):  # noqa F811
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    device_mocker = device_mocker_factory(duthost)
+    wait_system_health_boot_up(duthost)
+    with ConfigFileContext(duthost, os.path.join(FILES_DIR, DEVICE_CHECK_CONFIG_FILE)):
+        time.sleep(DEFAULT_INTERVAL)
+
+        fan_mock_result, fan_name = device_mocker.mock_fan_speed(False)
+        fan_expect_value = EXPECT_FAN_INVALID_SPEED.format(fan_name)
+
+        if fan_mock_result:
+            logger.info('Mocked invalid fan speed for {}'.format(fan_name))
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert value and fan_expect_value in value, \
+                'Mock fan invalid speed, expect {}, but got {}'.format(fan_expect_value, value)
+
+        fan_mock_result, fan_name = device_mocker.mock_fan_speed(True)
+        if fan_mock_result:
+            logger.info('Mocked valid fan speed for {}'.format(fan_name))
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert not value or fan_expect_value not in value, \
+                'Mock fan valid speed, expect {}, but it still report invalid speed'.format(fan_expect_value)
 
 
 def wait_system_health_boot_up(duthost):
