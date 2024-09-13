@@ -457,6 +457,7 @@ onboarding_t0:
   - route/test_route_bgp_ecmp.py
   - snmp/test_snmp_link_local.py
   - drop_packets/test_drop_counters.py
+  - lldp/test_lldp_syncd.py
 
 onboarding_t1:
   - bgp/test_bgp_stress_link_flap.py
@@ -472,6 +473,7 @@ onboarding_t1:
   - bgp/test_bgp_sentinel.py
   - bgp/test_bgp_suppress_fib.py
   - snmp/test_snmp_link_local.py
+  - lldp/test_lldp_syncd.py
 
 onboarding_dualtor:
   - dualtor_io/test_link_failure.py
