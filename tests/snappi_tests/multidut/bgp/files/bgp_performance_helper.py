@@ -67,6 +67,53 @@ def run_bgp_route_install_test(api,
                                )
 
 
+def run_bgp_route_delete_test(api,
+                              duthosts,
+                              snappi_extra_params):
+    """
+    Run BGP route delete test test
+
+    Args:
+        api (pytest fixture): snappi API
+        duthosts: Duthosts fixture
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    """
+
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
+
+    route_ranges = snappi_extra_params.ROUTE_RANGES
+    snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
+    iteration = snappi_extra_params.iteration
+    test_name = snappi_extra_params.test_name
+
+    """ Create bgp config on dut """
+    duthost_bgp_config(duthosts,
+                       snappi_ports)
+
+    """ Create snappi config """
+    for route_range in route_ranges:
+        traffic_type = []
+        for key, _ in route_range.items():
+            traffic_type.append(key)
+        snappi_bgp_config = __snappi_bgp_config(api,
+                                                snappi_ports,
+                                                traffic_type,
+                                                route_range,
+                                                test_name,
+                                                )
+
+        get_route_delete_time(api,
+                              duthosts,
+                              snappi_ports,
+                              snappi_bgp_config,
+                              iteration,
+                              traffic_type,
+                              route_range,
+                              test_name
+                              )
+
+
 def duthost_bgp_config(duthosts,
                        snappi_ports):
     """
@@ -560,4 +607,128 @@ def get_route_install_time(api,
     table.append(mean(avg))
     columns = ['Test Name', 'Traffic Type', 'No. of Routes', 'BGP Sessions',
                'Iterations', 'Frames Delta', 'BGP Route Install Time(ms)']
+    logger.info("\n%s" % tabulate([table], headers=columns, tablefmt="psql"))
+
+
+def get_route_delete_time(api,
+                          duthosts,
+                          snappi_ports,
+                          snappi_bgp_config,
+                          iteration,
+                          traffic_type,
+                          route_range,
+                          test_name):
+    """
+    Args:
+        api (pytest fixture): snappi API
+        duthosts (pytest fixture): duthosts fixture
+        snappi_bgp_config: __tgen_bgp_config
+        iteration: number of iterations for running convergence test on a port
+        traffic_type: IPv4 or IPv6 traffic
+        route_range: V4 and V6 route combination
+        test_name: Test name
+    """
+    global route_names
+
+    snappi_bgp_config.rx_rate_threshold = 95/rx_port_count
+    api.set_config(snappi_bgp_config)
+
+    test_platform = TestPlatform(snappi_ports[0]['api_server_ip'])
+    username = duthosts[0].host.options['variable_manager']\
+               ._hostvars[duthosts[0].hostname]['secret_group_vars']['snappi_api_server']['user']    # noqa: E127
+    password = duthosts[0].host.options['variable_manager']\
+               ._hostvars[duthosts[0].hostname]['secret_group_vars']['snappi_api_server']['password']   # noqa: E127
+    test_platform.Authenticate(username, password)
+    session = SessionAssistant(IpAddress=snappi_ports[0]['api_server_ip'],
+                               UserName=username, SessionId=test_platform.Sessions.find()[-1].Id, Password=password)
+    ixnetwork = session.Ixnetwork
+    for index, topology in enumerate(ixnetwork.Topology.find()):
+        try:
+            topology.DeviceGroup.find()[0].RouterData.find().RouterId.Single(router_ids[index])
+            logger.info('Setting Router id {} for {}'.format(router_ids[index], topology.DeviceGroup.find()[0].Name))
+        except Exception:
+            logger.info('Skipping Router id for {}, Since bgp is not configured'.
+                        format(topology.DeviceGroup.find()[0].Name))
+            continue
+
+    logger.info('\n')
+    logger.info('Testing with Route Range: {}'.format(route_range))
+    logger.info('\n')
+    table, avg, tx_frate, rx_frate = [], [], [], []
+    for i in range(0, iteration):
+        logger.info(
+            '|---- Route Install test, Iteration : {} ----|'.format(i+1))
+        """ Starting Protocols """
+        logger.info("Starting all protocols ...")
+        cs = api.convergence_state()
+        cs.protocol.state = cs.protocol.START
+        api.set_state(cs)
+        wait(SNAPPI_TRIGGER, "For Protocols To start")
+        logger.info('Verifying protocol sessions state')
+        protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
+        protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+
+        """ Start Traffic """
+        logger.info('Starting Traffic')
+        cs = api.convergence_state()
+        cs.transmit.state = cs.transmit.START
+        api.set_state(cs)
+        wait(SNAPPI_TRIGGER, "For Traffic To start")
+        """ withdraw all routes before starting traffic """
+        logger.info('Withdraw All Routes before starting traffic')
+        cs = api.convergence_state()
+        cs.route.names = route_names
+        cs.route.state = cs.route.WITHDRAW
+        api.set_state(cs)
+        wait(SNAPPI_TRIGGER, "For Routes to be withdrawn")
+        TI_Statistics = StatViewAssistant(ixnetwork, 'User Defined Statistics')
+        lastStreamPacketTimestamp = TI_Statistics.Rows[0]["Last TimeStamp"]
+        eventStartTimestamp = TI_Statistics.Rows[0]['Event Start Timestamp']
+        time = float(lastStreamPacketTimestamp.split(':')[-1]) - float(eventStartTimestamp.split(':')[-1])
+        flow_stats = get_flow_stats(api)
+        tx_frame_rate = flow_stats[0].frames_tx_rate
+        rx_frame_rate = flow_stats[0].frames_rx_rate
+        pytest_assert(tx_frame_rate != 0, "Traffic has not started")
+        pytest_assert(rx_frame_rate == 0, "Rx Rate must be zero")
+
+        logger.info('|--------------------------------------|')
+        logger.info('Route Delete Time: {} (ms)'.format(int(round(time, 3) * 1000)))
+        logger.info('|--------------------------------------|')
+
+        """ Advertise All Routes at the end of iteration """
+        logger.info('Advertising all Routes from {}'.format(route_names))
+        cs = api.convergence_state()
+        cs.route.names = route_names
+        cs.route.state = cs.route.ADVERTISE
+        api.set_state(cs)
+        wait(SNAPPI_TRIGGER, "For all routes to be ADVERTISED")
+        flows = get_flow_stats(api)
+        for flow in flows:
+            tx_frate.append(flow.frames_tx_rate)
+            rx_frate.append(flow.frames_rx_rate)
+        assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
+            "Traffic has not convergedv, TxFrameRate:{},RxFrameRate:{}"\
+            .format(sum(tx_frate), sum(rx_frate))
+        logger.info("Traffic has converged after route advertisement")
+        avg.append(int(round(time, 3) * 1000))
+        """ Stop traffic at the end of iteration """
+        logger.info('Stopping Traffic at the end of iteration{}'.format(i+1))
+        cs = api.convergence_state()
+        cs.transmit.state = cs.transmit.STOP
+        api.set_state(cs)
+        wait(SNAPPI_TRIGGER, "For Traffic To stop")
+        """ Stopping Protocols """
+        logger.info("Stopping all protocols ...")
+        cs = api.convergence_state()
+        cs.protocol.state = cs.protocol.STOP
+        api.set_state(cs)
+        wait(SNAPPI_TRIGGER, "For Protocols To STOP")
+    table.append(test_name)
+    table.append(traffic_type)
+    table.append(total_routes)
+    table.append(rx_port_count)
+    table.append(iteration)
+    table.append(mean(avg))
+    columns = ['Test Name', 'Traffic Type', 'No. of Routes', 'BGP Sessions',
+               'Iterations', 'BGP Route Delete Time(ms)']
     logger.info("\n%s" % tabulate([table], headers=columns, tablefmt="psql"))
