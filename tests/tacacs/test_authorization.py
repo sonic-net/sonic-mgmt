@@ -11,7 +11,7 @@ from tests.tacacs.utils import per_command_authorization_skip_versions, \
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until, paramiko_ssh
 from .utils import check_server_received
-from tests.override_config_table.utilities import backup_config, restore_config, \
+from tests.common.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
 from tests.common.helpers.dut_utils import is_container_running
 
