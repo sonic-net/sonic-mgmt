@@ -59,7 +59,7 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
                               enum_frontend_asic_index, conn_graph_facts):
     """
     @Summary: Configure the FEC operational mode for all the interfaces, then check
-    FEC operational mode is retored to default FEC mode
+    FEC operational mode is restored to 'rs' FEC mode
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
