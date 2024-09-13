@@ -508,7 +508,7 @@ class GenericHashTest(BaseTest):
                 self.L4_SRC_PORT
             dst_port = random.randint(0, 65535) if self.hash_field in ['L4_DST_PORT', 'INNER_L4_DST_PORT'] else \
                 self.L4_DST_PORT
-            ip_proto = self.get_ip_proto() if self.hash_field in ['IP_PROTOCOL', 'INNER_IP_PROTOCOL'] else 17
+            ip_proto = self.get_ip_proto() if self.hash_field in ['IP_PROTOCOL', 'INNER_IP_PROTOCOL'] else 6
 
             pkt, masked_expected_pkt, pkt_summary = self.generate_pkt(
                 src_ip, dst_ip, src_port, dst_port, ip_proto, inner_src_ip, inner_dst_ip)
