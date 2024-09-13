@@ -80,7 +80,7 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
 
         if not startup_ok:
             down_ports = __get_down_ports()
-            startup_err_msg = "Some ports did not come up as expected: {}".format(str(down_ports))
+            startup_err_msg = "{}: Some ports did not come up as expected: {}".format(duthost.hostname, str(down_ports))
     except Exception as e:
         startup_err_msg = "Startup ports failed with exception: {}".format(repr(e))
 
