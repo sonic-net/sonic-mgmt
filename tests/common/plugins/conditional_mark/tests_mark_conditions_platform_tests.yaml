@@ -902,9 +902,14 @@ platform_tests/test_reload_config.py:
 #######################################
 platform_tests/test_secure_upgrade.py:
   skip:
-    reason: "Skip test_secure_upgrade for m0/mx with 202305 release"
+    reason:
+    - "Skip test_secure_upgrade for m0/mx with 202305 release / platform does not support secure upgrade"
+    - "Skip test case since parameter '--target_image_list' is not specified"
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx'] and release in ['202305']"
+      - "'sn2' in platform or 'sn3' in platform or 'sn4' in platform"
+      - "'target_image_list' not in session.config.option"
 
 #######################################
 #########  test_sensors.py  ###########
