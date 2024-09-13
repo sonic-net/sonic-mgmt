@@ -119,15 +119,15 @@ class QosParamCisco(object):
 
             # Hysteresis calculations depending on asic
             if dutAsic == "gr2":
-                if "xon_offset" in lossless_prof:
-                    xon_offset = int(lossless_prof["xon_offset"])
-                    self.log("Pre-pad hysteresis bytes: {}".format(xon_offset))
-                    # Determine difference between pause thr and hysteresis thr.
-                    # Use raw pause thr for calculation.
-                    xon_thr = (self.gr_get_hw_thr_buffs((pre_pad_pause - xon_offset) // self.buffer_size) *
-                               self.buffer_size)
-                    # Use padded value for precise packet determination
-                    self.hysteresis_bytes = self.pause_thr - xon_thr
+                assert "xon_offset" in lossless_prof, "gr2 missing xon_offset from lossless buffer profile"
+                xon_offset = int(lossless_prof["xon_offset"])
+                self.log("Pre-pad hysteresis bytes: {}".format(xon_offset))
+                # Determine difference between pause thr and hysteresis thr.
+                # Use raw pause thr for calculation.
+                xon_thr = (self.gr_get_hw_thr_buffs((pre_pad_pause - xon_offset) // self.buffer_size) *
+                           self.buffer_size)
+                # Use padded value for precise packet determination
+                self.hysteresis_bytes = self.pause_thr - xon_thr
             else:
                 if self.is_deep_buffer:
                     self.reduced_pause_thr = 10 * (1024 ** 2) * (2 ** dynamic_th)
@@ -135,6 +135,7 @@ class QosParamCisco(object):
                     self.reduced_pause_thr = 3 * (1024 ** 2)
                 else:
                     self.reduced_pause_thr = 2.25 * (1024 ** 2)
+                self.log("Reduced pause thr bytes:   {}".format(self.reduced_pause_thr))
                 self.hysteresis_bytes = int(self.pause_thr - self.reduced_pause_thr -
                                             (2 * self.buffer_size * buffer_occupancy))
 
@@ -145,7 +146,6 @@ class QosParamCisco(object):
             self.log("Hysteresis bytes: {}".format(self.hysteresis_bytes))
             self.log("Pre-pad drop thr bytes:    {}".format(pre_pad_drop))
             self.log("Drop thr bytes:            {}".format(self.lossless_drop_thr))
-            self.log("Reduced pause thr bytes:   {}".format(self.reduced_pause_thr))
         self.config_facts = duthost.get_running_config_facts()
         # DSCP value for lossy
         self.dscp_queue0 = self.get_one_dscp_from_queue(0)
@@ -504,7 +504,7 @@ class QosParamCisco(object):
                       "ecn": 1,
                       "pg": 0,
                       "flow_config": "shared",
-                      "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
+                      "pkts_num_trig_egr_drp": self.lossy_drop_bytes // self.buffer_size,
                       "pkts_num_margin": 4,
                       "packet_size": 64,
                       "cell_size": self.buffer_size}
@@ -513,9 +513,9 @@ class QosParamCisco(object):
             params = {"dscp": self.dscp_queue0,
                       "ecn": 1,
                       "pg": 0,
-                      "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
+                      "pkts_num_trig_egr_drp": self.lossy_drop_bytes // self.buffer_size,
                       "pkts_num_margin": 4,
-                      "packet_size": 1350,
+                      "packet_size": self.preferred_packet_size,
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_3", params)
 

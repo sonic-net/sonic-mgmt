@@ -3744,12 +3744,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], disable_port_by_block_queue=False)
 
-        if 'cisco-8000' in asic_type:
-            # TODO: Obtain queue dynamically
-            queue = 1  # Dscp 0 maps to queue 1
-            assert (fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
-        else:
-            send_packet(self, src_port_id, pkt, pkts_num_leak_out)
+        send_packet(self, src_port_id, pkt, pkts_num_leak_out)
 
         # Get a snapshot of counter values
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
