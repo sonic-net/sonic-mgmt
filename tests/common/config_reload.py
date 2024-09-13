@@ -203,9 +203,10 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         wait_critical_processes(sonic_host)
         # PFCWD feature does not enable on some topology, for example M0
         if config_source == 'minigraph' and pfcwd_feature_enabled(sonic_host):
-            pytest_assert(wait_until(wait + 300, 20, 0, chk_for_pfc_wd, sonic_host),
-                          "PFC_WD is missing in CONFIG-DB")
-
+            # Supervisor node doesn't have PFC_WD
+            if not sonic_host.is_supervisor_node():
+                pytest_assert(wait_until(wait + 300, 20, 0, chk_for_pfc_wd, sonic_host),
+                              "PFC_WD is missing in CONFIG-DB")
         if check_intf_up_ports:
             pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, sonic_host),
                           "Not all ports that are admin up on are operationally up")
