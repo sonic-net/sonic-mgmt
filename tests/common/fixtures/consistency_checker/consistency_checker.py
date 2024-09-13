@@ -4,6 +4,7 @@ import json
 import os
 import datetime
 from collections import defaultdict
+from constants import SUPPORTED_PLATFORMS_AND_VERSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +15,11 @@ PYTHON3_PYSAIREDIS_DEB = "python3-pysairedis.deb"
 DUT_DST_PATH_HOST = "/tmp/consistency-checker"
 DUT_DST_PATH_CONTAINER = "/consistency-checker"
 
-DUT_SCRIPT_PATH_SRC = os.path.dirname(__file__) + "/" + QUERY_ASIC_SCRIPT
-DUT_SCRIPT_PATH_DST_HOST = DUT_DST_PATH_HOST + "/" + QUERY_ASIC_SCRIPT
-DUT_SCRIPT_PATH_DST_CONTAINER = DUT_DST_PATH_CONTAINER + "/" + QUERY_ASIC_SCRIPT
+QUERY_ASIC_SCRIPT_PATH_SRC = os.path.dirname(__file__) + "/" + QUERY_ASIC_SCRIPT
+QUERY_ASIC_SCRIPT_PATH_DST_HOST = DUT_DST_PATH_HOST + "/" + QUERY_ASIC_SCRIPT
+QUERY_ASIC_SCRIPT_PATH_DST_CONTAINER = DUT_DST_PATH_CONTAINER + "/" + QUERY_ASIC_SCRIPT
+
+LIBSAIREDIS_TEMP = "libsairedis-temp"
 
 
 class ConsistencyChecker:
@@ -35,7 +38,7 @@ class ConsistencyChecker:
         logger.info("Initializing consistency checker on dut...")
 
         self._duthost.shell(f"mkdir -p {DUT_DST_PATH_HOST}")
-        self._duthost.copy(src=DUT_SCRIPT_PATH_SRC, dest=DUT_SCRIPT_PATH_DST_HOST)
+        self._duthost.copy(src=QUERY_ASIC_SCRIPT_PATH_SRC, dest=QUERY_ASIC_SCRIPT_PATH_DST_HOST)
 
         if self._libsairedis_download_url is not None:
             self._duthost.shell(f"curl -o {DUT_DST_PATH_HOST}/{LIBSAIREDIS_DEB} {self._libsairedis_download_url}")
@@ -59,7 +62,7 @@ class ConsistencyChecker:
             # Extract the libsairedis deb to be used by the query script
             self._duthost.shell((f"docker exec {SYNCD_CONTAINER} bash -c "
                                  f"'cd {DUT_DST_PATH_CONTAINER} && "
-                                 f"dpkg --extract {DUT_DST_PATH_CONTAINER}/{LIBSAIREDIS_DEB} libsairedis-temp'"))
+                                 f"dpkg --extract {DUT_DST_PATH_CONTAINER}/{LIBSAIREDIS_DEB} {LIBSAIREDIS_TEMP}'"))
 
         logger.info("Consistency checker setup complete.")
 
@@ -74,6 +77,9 @@ class ConsistencyChecker:
 
         # Remove all the files from the syncd container
         self._duthost.shell(f"docker exec {SYNCD_CONTAINER} rm -rf {DUT_DST_PATH_CONTAINER}")
+
+        # NOTE: If consistency checker is used to do write operations (currently it's read-only), then syncd should be
+        #       restarted or minigraph reloaded re-align the ASIC_DB and ASIC state.
 
         logger.info("Consistency checker cleanup complete.")
 
@@ -277,12 +283,12 @@ class ConsistencyChecker:
                              f"{SYNCD_CONTAINER}:{DUT_DST_PATH_CONTAINER} && "
                              f"rm /tmp/{asic_query_input_filename}"))
 
-        ld_lib_path_arg = "LD_LIBRARY_PATH=libsairedis-temp/usr/lib/x86_64-linux-gnu"\
+        ld_lib_path_arg = f"LD_LIBRARY_PATH={LIBSAIREDIS_TEMP}/usr/lib/x86_64-linux-gnu"\
                           if self._libsairedis_download_url is not None else ""
 
         res = self._duthost.shell((f"docker exec {SYNCD_CONTAINER} bash -c "
                                    f"'cd {DUT_DST_PATH_CONTAINER} && "
-                                   f"{ld_lib_path_arg} python3 {DUT_SCRIPT_PATH_DST_CONTAINER} "
+                                   f"{ld_lib_path_arg} python3 {QUERY_ASIC_SCRIPT_PATH_DST_CONTAINER} "
                                    f"--input {asic_query_input_filename}'"))
         if res['rc'] != 0:
             raise Exception((f"Failed to query ASIC attributes. Return code: {res['rc']}, stdout: {res['stdout']}, "
@@ -296,21 +302,21 @@ class ConsistencyCheckerProvider:
     def is_consistency_check_supported(self, dut) -> bool:
         """
         Checks if the provided DUT is supported for consistency checking.
-        Currently, only supports select Arista platforms and SONiC versions 202305 and 202311.
 
         :param dut: SonicHost object
         :return bool: True if the DUT is supported, False otherwise
         """
 
         platform = dut.facts['platform']
-        if platform not in ["x86_64-arista_7060_cx32s", "x86_64-arista_7260cx3_64"]:
+        if platform not in SUPPORTED_PLATFORMS_AND_VERSIONS:
             return False
 
-        version = dut.image_facts()['ansible_facts']['ansible_image_facts']['current']
-        if "202305" not in version and "202311" not in version:
-            return False
+        current_version = dut.image_facts()['ansible_facts']['ansible_image_facts']['current']
+        supported_versions = SUPPORTED_PLATFORMS_AND_VERSIONS[platform]
+        if any(v in current_version for v in supported_versions):
+            return True
 
-        return True
+        return False
 
     def get_consistency_checker(self, dut, libsairedis_download_url=None,
                                 python3_pysairedis_download_url=None) -> ConsistencyChecker:
