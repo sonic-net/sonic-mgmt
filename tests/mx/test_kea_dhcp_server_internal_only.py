@@ -110,6 +110,7 @@ def test_dhcp_server_ip_assignment(
             'has_global_scope': 'True', 'has_per_asic_scope': 'False', 'high_mem_alert': 'disabled',
             'set_owner': 'local', 'state': 'enabled', 'support_syslog_rate_limit': 'False'
         }
+        dhcp_server_config['PORT'] = duthost.get_running_config_facts()['PORT']
         apply_dhcp_server_config_golden(duthost, dhcp_server_config)
         pytest_assert(
             wait_until(300, 15, 30, lambda: len(duthost.shell('show int st')['stdout_lines']) > 2),
