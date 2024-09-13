@@ -23,7 +23,8 @@ class GNMIEnvironment(object):
         self.gnmi_client_cert = "gnmiclient.crt"
         self.gnmi_client_key = "gnmiclient.key"
         self.gnmi_server_start_wait_time = 30
-        self.enable_zmq = duthost.shell("netstat -na | grep -w 8100", module_ignore_errors=True)['rc'] == 0
+        #self.enable_zmq = duthost.shell("netstat -na | grep -w 8100", module_ignore_errors=True)['rc'] == 0
+        self.enable_zmq = True
         cmd = "docker images | grep -w sonic-gnmi"
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
             cmd = "docker ps | grep -w gnmi"
@@ -371,9 +372,9 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
                 if proto_utils.ENABLE_PROTO:
-                    path = "/APPL_DB/localhost/%s:$/root/%s" % (k, filename)
+                    path = "/APPL_DB/dpu1/%s:$/root/%s" % (k, filename)
                 else:
-                    path = "/APPL_DB/localhost/%s:@/root/%s" % (k, filename)
+                    path = "/APPL_DB/dpu1/%s:@/root/%s" % (k, filename)
                 update_list.append(path)
         elif operation["OP"] == "DEL":
             for k, v in operation.items():
@@ -381,7 +382,7 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                     continue
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
-                path = "/APPL_DB/localhost/%s" % (k)
+                path = "/APPL_DB/dpu1/%s" % (k)
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])
