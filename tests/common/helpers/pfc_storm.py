@@ -193,6 +193,8 @@ class PFCStorm(object):
             self.extra_vars.update({"pfc_asym": self.pfc_asym})
         if self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.extra_vars.update({"pfc_fanout_label_port": self._generate_mellanox_label_ports()})
+        if len(self.pfc_gen_c_files) > 0:
+            self.extra_vars.update({"pfc_gen_c_files_enabled": True})
 
     def _prepare_start_template(self):
         """

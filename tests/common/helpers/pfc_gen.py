@@ -225,12 +225,20 @@ def main():
         interface_slices[i % MAX_PROCESS_NUM].append(interfaces[i])
 
     logger.debug(pre_str + '_STORM_DEBUG')
+
     for interface_slice in interface_slices:
         if (interface_slice):
-            s = PacketSender(interface_slice, packet, options.num,
-                             options.send_pfc_frame_interval, options.use_c_function)
-            s.start()
-            senders.append(s)
+            if options.use_c_function and len(interface_slice) > 1:
+                for interface in interface_slice:
+                    s = PacketSender([interface], packet, options.num,
+                                     options.send_pfc_frame_interval, options.use_c_function)
+                    s.start()
+                    senders.append(s)
+            else:
+                s = PacketSender(interface_slice, packet, options.num,
+                                 options.send_pfc_frame_interval, options.use_c_function)
+                s.start()
+                senders.append(s)
     logger.debug(pre_str + '_STORM_START')
 
     # Wait PFC packets to be sent
