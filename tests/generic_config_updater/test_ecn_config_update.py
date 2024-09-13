@@ -32,6 +32,10 @@ def ensure_dut_readiness(duthost):
         duthost: DUT host object
     """
     verify_orchagent_running_or_assert(duthost)
+
+    duthost.shell('sonic-db-cli CONFIG_DB hset "WRED_PROFILE|AZURE_LOSSLESS" green_min_threshold 100 \
+                   green_max_threshold 100000 green_drop_probability 10 wred_green_enable true')
+
     create_checkpoint(duthost)
 
     yield
@@ -42,6 +46,8 @@ def ensure_dut_readiness(duthost):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
+
+    duthost.shell('sonic-db-cli CONFIG_DB del "WRED_PROFILE|AZURE_LOSSLESS"')
 
 
 def ensure_application_of_updated_config(duthost, configdb_field, values):
@@ -56,10 +62,10 @@ def ensure_application_of_updated_config(duthost, configdb_field, values):
     def _confirm_value_in_asic_db():
         wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
         wred_objects = wred_objects.split("\n")
-        if(len(wred_objects) > 1):
+        if (len(wred_objects) > 1):
             for wred_object in wred_objects:
                 wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_object))["stdout"]
-                if('NULL' in wred_data):
+                if ('NULL' in wred_data):
                     continue
                 wred_data = ast.literal_eval(wred_data)
                 for field, value in zip(configdb_field.split(','), values.split(',')):
