@@ -336,6 +336,25 @@ class QosParamCisco(object):
                       "packet_size": 64,
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_1", params)
+        if self.should_autogen(["lossy_queue_voq_2"]):
+            params = {"dscp": 8,
+                      "ecn": 1,
+                      "pg": 0,
+                      "flow_config": "shared",
+                      "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
+                      "pkts_num_margin": 4,
+                      "packet_size": 64,
+                      "cell_size": self.buffer_size}
+            self.write_params("lossy_queue_voq_2", params)
+        if self.should_autogen(["lossy_queue_voq_3"]):
+            params = {"dscp": 8,
+                      "ecn": 1,
+                      "pg": 0,
+                      "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
+                      "pkts_num_margin": 4,
+                      "packet_size": 64,
+                      "cell_size": self.buffer_size}
+            self.write_params("lossy_queue_voq_3", params)
 
     def __define_lossy_queue(self):
         if self.should_autogen(["lossy_queue_1"]):
