@@ -7571,6 +7571,30 @@ vms_bjw2_1:
       ansible_host: 172.16.203.105
     VM81106:
       ansible_host: 172.16.203.106
+    VM81107:  # testbed-bjw2-can-7215a1-1 (m0, 6VM)
+      ansible_host: 172.16.203.107
+    VM81108:
+      ansible_host: 172.16.203.108
+    VM81109:
+      ansible_host: 172.16.203.109
+    VM81110:
+      ansible_host: 172.16.203.110
+    VM81111:
+      ansible_host: 172.16.203.111
+    VM81112:
+      ansible_host: 172.16.203.112
+    VM81113:  # testbed-bjw2-can-7215a1-1 (m0, 6VM)
+      ansible_host: 172.16.203.113
+    VM81114:
+      ansible_host: 172.16.203.114
+    VM81115:
+      ansible_host: 172.16.203.115
+    VM81116:
+      ansible_host: 172.16.203.116
+    VM81117:
+      ansible_host: 172.16.203.117
+    VM81118:
+      ansible_host: 172.16.203.118
 
 vms_bjw2_2:
   hosts:
