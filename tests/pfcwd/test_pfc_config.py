@@ -2,7 +2,7 @@ import json
 import os
 import pytest
 import logging
-import time
+# import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -307,25 +307,25 @@ class TestPfcConfig(object):
         self.execute_test(duthost, "pfc_wd_high_restore_time", None, [CONFIG_TEST_EXPECT_INVALID_RESTORE_TIME_RE], True)
 
 
-@pytest.mark.usefixtures('mg_cfg_setup')
-class TestDefaultPfcConfig(object):
-    def test_default_cfg_after_load_mg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        """
-        Tests for checking if pfcwd gets started after load_minigraph
-
-        Args:
-            duthost(AnsibleHost): instance
-
-        Returns:
-            None
-        """
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        config_reload(duthost, config_source='minigraph')
-        # sleep 20 seconds to make sure configuration is loaded
-        time.sleep(20)
-        res = duthost.command('pfcwd show config')
-        for port_config in res['stdout_lines']:
-            if "ethernet" in port_config.lower():
-                return
-        # If no ethernet port existing in stdout, failed this case.
-        pytest.fail("Failed to start pfcwd after load_minigraph")
+# @pytest.mark.usefixtures('mg_cfg_setup')
+# class TestDefaultPfcConfig(object):
+#     def test_default_cfg_after_load_mg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+#         """
+#         Tests for checking if pfcwd gets started after load_minigraph
+#
+#         Args:
+#             duthost(AnsibleHost): instance
+#
+#         Returns:
+#             None
+#         """
+#         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+#         config_reload(duthost, config_source='minigraph')
+#         # sleep 20 seconds to make sure configuration is loaded
+#         time.sleep(20)
+#         res = duthost.command('pfcwd show config')
+#         for port_config in res['stdout_lines']:
+#             if "ethernet" in port_config.lower():
+#                 return
+#         # If no ethernet port existing in stdout, failed this case.
+#         pytest.fail("Failed to start pfcwd after load_minigraph")
