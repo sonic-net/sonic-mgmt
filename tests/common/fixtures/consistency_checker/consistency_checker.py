@@ -4,19 +4,23 @@ import json
 import os
 import datetime
 from collections import defaultdict
-from constants import SUPPORTED_PLATFORMS_AND_VERSIONS
+from tests.common.fixtures.consistency_checker.constants import SUPPORTED_PLATFORMS_AND_VERSIONS
 
 logger = logging.getLogger(__name__)
 
 SYNCD_CONTAINER = "syncd"
 QUERY_ASIC_SCRIPT = "query-asic.py"
+QUERY_ASIC_PARSER = "parser.py"
 LIBSAIREDIS_DEB = "libsairedis.deb"
 PYTHON3_PYSAIREDIS_DEB = "python3-pysairedis.deb"
 DUT_DST_PATH_HOST = "/tmp/consistency-checker"
 DUT_DST_PATH_CONTAINER = "/consistency-checker"
 
-QUERY_ASIC_SCRIPT_PATH_SRC = os.path.dirname(__file__) + "/" + QUERY_ASIC_SCRIPT
+QUERY_ASIC_PATH_SRC = os.path.dirname(__file__) + "/query-asic"
+QUERY_ASIC_SCRIPT_PATH_SRC = QUERY_ASIC_PATH_SRC + "/" + QUERY_ASIC_SCRIPT
+QUERY_ASIC_PARSER_PATH_SRC = QUERY_ASIC_PATH_SRC + "/" + QUERY_ASIC_PARSER
 QUERY_ASIC_SCRIPT_PATH_DST_HOST = DUT_DST_PATH_HOST + "/" + QUERY_ASIC_SCRIPT
+QUERY_ASIC_PARSER_PATH_DST_HOST = DUT_DST_PATH_HOST + "/" + QUERY_ASIC_PARSER
 QUERY_ASIC_SCRIPT_PATH_DST_CONTAINER = DUT_DST_PATH_CONTAINER + "/" + QUERY_ASIC_SCRIPT
 
 LIBSAIREDIS_TEMP = "libsairedis-temp"
@@ -39,6 +43,7 @@ class ConsistencyChecker:
 
         self._duthost.shell(f"mkdir -p {DUT_DST_PATH_HOST}")
         self._duthost.copy(src=QUERY_ASIC_SCRIPT_PATH_SRC, dest=QUERY_ASIC_SCRIPT_PATH_DST_HOST)
+        self._duthost.copy(src=QUERY_ASIC_PARSER_PATH_SRC, dest=QUERY_ASIC_PARSER_PATH_DST_HOST)
 
         if self._libsairedis_download_url is not None:
             self._duthost.shell(f"curl -o {DUT_DST_PATH_HOST}/{LIBSAIREDIS_DEB} {self._libsairedis_download_url}")
