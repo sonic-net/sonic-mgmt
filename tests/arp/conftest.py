@@ -10,9 +10,8 @@ from .arp_utils import collect_info, get_po
 from tests.common import constants
 from tests.common.config_reload import config_reload
 from ipaddress import ip_network, IPv6Network, IPv4Network
-from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_require as pt_require
-from tests.common.utilities import wait
+from tests.common.utilities import wait, increment_ipv6_addr, increment_ipv4_addr
 from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, \
                       ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
                       in6_getnsma, inet_pton, inet_ntop, socket
