@@ -4,6 +4,8 @@ import sys
 import random
 import pytest
 import contextlib
+import time
+import logging
 
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
@@ -22,6 +24,8 @@ VENDOR_SPEC_ADDITIONAL_INFO_RE = {
     }
 
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
+
+logger = logging.getLogger(__name__)
 
 
 class TrafficPorts(object):
@@ -491,6 +495,8 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
                                                                        selected_test_ports,
                                                                        test_ports_info)
         background_traffic_log = _send_background_traffic(ptfhost, background_traffic_params)
+        # Ensure the background traffic is running before moving on
+        time.sleep(1)
     yield
     if is_mellanox_device(duthost):
         _stop_background_traffic(ptfhost, background_traffic_log)
@@ -512,7 +518,8 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
         src_ips.append(selected_test_port_info["rx_neighbor_addr"])
 
     router_mac = duthost.get_dut_iface_mac(selected_test_ports[0])
-    pkt_count = 1000
+    # Send enough packets to make sure the background traffic is running during the test
+    pkt_count = 100000
 
     ptf_params = {'router_mac': router_mac,
                   'src_ports': src_ports,
@@ -539,3 +546,36 @@ def _stop_background_traffic(ptfhost, background_traffic_log):
     pids = ptfhost.shell(f"pgrep -f {background_traffic_log}")["stdout_lines"]
     for pid in pids:
         ptfhost.shell(f"kill -9 {pid}", module_ignore_errors=True)
+
+
+def has_neighbor_device(setup_pfc_test):
+    """
+    Check if there are neighbor devices present
+
+    Args:
+        setup_pfc_test (fixture): Module scoped autouse fixture for PFCwd
+
+    Returns:
+        bool: True if there are neighbor devices present, False otherwise
+    """
+    for _, details in setup_pfc_test['selected_test_ports'].items():
+        # 'rx_port' and 'rx_port_id' are expected to be conjugate attributes
+        # if one is unset or contains None, the other should be as well
+        if (not details.get('rx_port') or None in details['rx_port']) or \
+                (not details.get('rx_port_id') or None in details['rx_port_id']):
+            return False  # neighbor devices are not present
+    return True
+
+
+def check_pfc_storm_state(dut, port, queue):
+    """
+    Helper function to check if PFC storm is detected/restored on a given queue
+    """
+    pfcwd_stats = dut.show_and_parse("show pfcwd stats")
+    queue_name = str(port) + ":" + str(queue)
+    for entry in pfcwd_stats:
+        if entry["queue"] == queue_name:
+            logger.info("PFCWD status on queue {} stats: {}".format(queue_name, entry))
+            return entry['storm detected/restored']
+    logger.info("PFCWD not triggered on queue {}".format(queue_name))
+    return None

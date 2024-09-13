@@ -36,11 +36,11 @@ class QosBase:
     Common APIs
     """
     SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-64", "dualtor-120",
-                          "dualtor", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32",
-                          "t0-standalone-64", "t0-standalone-128", "t0-standalone-256"]
+                          "dualtor", "dualtor-64-breakout", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag",
+                          "t0-standalone-32", "t0-standalone-64", "t0-standalone-128", "t0-standalone-256", "t0-28"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
                            "j2c+", "jr2", "th5"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
@@ -2071,14 +2071,21 @@ class QosSaiBase(QosBase):
                     ]
                 )
 
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"]
+        if "wrr_chg" in qosConfig[portSpeedCableLength]:
+            qosConfigWrrChg = qosConfig[portSpeedCableLength]["wrr_chg"]
+        else:
+            qosConfigWrrChg = qosConfig["wrr_chg"]
+
         wrrSchedParams = [
             {
                 "profile": lossySchedProfile["schedProfile"],
-                "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossy_weight"]
+                "qosConfig": qosConfigWrrChg["lossy_weight"]
             },
             {
                 "profile": losslessSchedProfile["schedProfile"],
-                "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossless_weight"]
+                "qosConfig": qosConfigWrrChg["lossless_weight"]
             },
         ]
 
@@ -2289,19 +2296,20 @@ class QosSaiBase(QosBase):
         return mapping
 
     @pytest.fixture(autouse=False)
-    def _check_ingress_speed_gte_400g(
+    def skip_400g_longlink(
             self,
             get_src_dst_asic_and_duts,
             dutQosConfig):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        m = re.search("([0-9]+)_([0-9]+m)", portSpeedCableLength)
+        m = re.search("([0-9]+)_([0-9]+)m", portSpeedCableLength)
         if not m:
             raise RuntimeError(
                 "Format error in portSpeedCableLength:{}".
                 format(portSpeedCableLength))
         speed = int(m.group(1))
-        if speed >= 400000:
-            pytest.skip("PGDrop test is not supported for 400G port speed.")
+        cable_length = int(m.group(2))
+        if speed >= 400000 and cable_length >= 120000:
+            pytest.skip("PGDrop test is not supported for 400G longlink.")
 
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds, dualtor_dut_ports=None):
         """
@@ -2477,3 +2485,15 @@ class QosSaiBase(QosBase):
                 "This test is skipped for longlink.")
         yield
         return
+
+    @pytest.fixture(scope="class", autouse=False)
+    def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
+        duthost = get_src_dst_asic_and_duts['src_dut']
+        tc_to_dscp_count_map = {}
+        for tc in range(8):
+            tc_to_dscp_count_map[tc] = 0
+        config_facts = duthost.get_running_config_facts()
+        dscp_to_tc_map = config_facts['DSCP_TO_TC_MAP']['AZURE']
+        for dscp, tc in dscp_to_tc_map.items():
+            tc_to_dscp_count_map[int(tc)] += 1
+        yield tc_to_dscp_count_map

@@ -5,6 +5,7 @@
 # Compiled at: 2023-02-10 09:15:26
 from math import ceil                                                                               # noqa: F401
 import logging                                                                                      # noqa: F401
+import random
 from tests.common.helpers.assertions import pytest_assert, pytest_require                           # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                                # noqa: F401
@@ -13,7 +14,8 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports                                             # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, \
-     verify_m2o_oversubscribtion_results, run_traffic                                               # noqa: F401
+     run_traffic                                               # noqa: F401
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -114,14 +116,7 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
-    flag = {
-            'Test Flow': {
-                'loss': '16'
-                },
-            'Background Flow': {
-                'loss': '0'
-                },
-           }
+
     """ Run traffic """
     flow_stats, switch_flow_stats, _ = run_traffic(duthost=egress_duthost,
                                                    api=api,
@@ -132,10 +127,9 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
                                                    snappi_extra_params=snappi_extra_params)
 
     """ Verify Results """
-    verify_m2o_oversubscribtion_results(rows=flow_stats,
-                                        test_flow_name=TEST_FLOW_NAME,
-                                        bg_flow_name=BG_FLOW_NAME,
-                                        flag=flag)
+    verify_m2o_oversubscribe_lossy_result(flow_stats,
+                                          tx_port,
+                                          rx_port)
 
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
@@ -301,31 +295,44 @@ def __gen_data_flow(testbed_config,
     flow = testbed_config.flows.flow(name='{} {} -> {}'.format(flow_name_prefix, src_port_id, dst_port_id))[-1]
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
-    eth, ipv4 = flow.packet.ethernet().ipv4()
+    eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+    src_port = random.randint(5000, 6000)
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = 1
+
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
 
-    if 'Background Flow' in flow.name:
-        eth.pfc_queue.value = 3
-    elif 'Test Flow 2 -> 0' in flow.name:
-        eth.pfc_queue.value = 1
+    if pfcQueueGroupSize == 8:
+        if 'Test Flow' in flow.name:
+            eth.pfc_queue.value = 1
+        elif 'Background Flow 1 -> 0' in flow.name:
+            eth.pfc_queue.value = flow_prio[0]
+        elif 'Background Flow 2 -> 0' in flow.name:
+            eth.pfc_queue.value = flow_prio[1]
     else:
-        eth.pfc_queue.value = 0
+        if 'Test Flow' in flow.name:
+            eth.pfc_queue.value = pfcQueueValueDict[1]
+        elif 'Background Flow 1 -> 0' in flow.name:
+            eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
+        elif 'Background Flow 2 -> 0' in flow.name:
+            eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = rx_port_config.ip
     ipv4.priority.choice = ipv4.priority.DSCP
-
-    flow_prio_dscp_list = []
     flow.duration.fixed_seconds.delay.nanoseconds = 0
-    if 'Background Flow' in flow_name_prefix:
-        for fp in flow_prio:
-            for val in prio_dscp_map[fp]:
-                flow_prio_dscp_list.append(val)
+    if 'Background Flow 1 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = [
             ipv4.priority.dscp.phb.AF11,
         ]
-        ipv4.priority.dscp.phb.values = flow_prio_dscp_list
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
+    elif 'Background Flow 2 -> 0' in flow.name:
+        ipv4.priority.dscp.phb.values = [
+            ipv4.priority.dscp.phb.AF11,
+        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
     elif 'Test Flow 1 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = [
             ipv4.priority.dscp.phb.CS1,
@@ -350,3 +357,27 @@ def __gen_data_flow(testbed_config,
     flow.duration.fixed_seconds.seconds = flow_dur_sec
     flow.metrics.enable = True
     flow.metrics.loss = True
+
+
+def verify_m2o_oversubscribe_lossy_result(rows,
+                                          tx_port,
+                                          rx_port):
+    """
+    Verifies the required loss % from the Traffic Items Statistics
+
+    Args:
+        rows (list): Traffic Item Statistics from snappi config
+        tx_port (list): Ingress Ports
+        rx_port : Egress Port
+    Returns:
+        N/A
+    """
+    for row in rows:
+        if 'Test Flow 1 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 16, "{} must have 16% loss".format(row.name))
+        elif 'Test Flow 2 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 16, "{} must have 16% loss ".format(row.name))
+        elif 'Background Flow 1 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+        elif 'Background Flow 2 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))

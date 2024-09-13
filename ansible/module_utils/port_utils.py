@@ -204,7 +204,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 alias = "etp%d" % (i / 4 + 1) + ("a" if i % 4 == 0 else "b")
                 # print alias, "Ethernet%d" % i
                 port_alias_to_name_map[alias] = "Ethernet%d" % i
-        elif hwsku in ["ACS-MSN3800", "ACS-MSN4600C"]:
+        elif hwsku in ["ACS-MSN3800", "ACS-MSN4600C", 'Mellanox-SN4700-V64']:
             for i in range(1, 65):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
         elif hwsku == "Mellanox-SN2700" or hwsku == "ACS-MSN2700":
@@ -285,13 +285,13 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "Seastone-DX010":
             for i in range(1, 33):
                 port_alias_to_name_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-        elif hwsku in ["Celestica-E1031-T48S4", "Nokia-7215", "Nokia-M0-7215"]:
+        elif hwsku in ["Celestica-E1031-T48S4", "Nokia-7215", "Nokia-M0-7215", "Nokia-7215-A1"]:
             for i in range(1, 53):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
         elif hwsku == "et6448m":
             for i in range(0, 52):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-        elif hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx", "Nokia-7215-A1"]:
+        elif hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx"]:
             for i in range(0, 32):
                 port_alias_to_name_map["oneGigE%d" % i] = "Ethernet%d" % i
             for i in range(32, 48):
@@ -335,6 +335,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(0, 32):
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
+        elif hwsku in ["Cisco-8122-O64"]:
+            for i in range(0, 64):
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 8)
         elif hwsku in ["Cisco-8800-LC-48H-C48"]:
             for i in range(0, 48, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i * 4)

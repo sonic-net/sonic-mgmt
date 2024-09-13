@@ -1,6 +1,12 @@
 t0:
   # KVM do not support drop reason in testcase, and testcase would set drop reason in setup stage, can't do more test
   - drop_packets/test_configurable_drop_counters.py
+  # KVM do not support dualtor tunnel functionality, lower tor bgp verify would fail
+  - dualtor/test_orchagent_slb.py
+  # KVM do not support dualtor tunnel functionality, verify DB status would fail
+  - dualtor_io/test_normal_op.py
+  # This script would toggle PDU, which is not supported on KVM
+  - dualtor_io/test_tor_failure.py
   # This script only supported on Mellanox
   - generic_config_updater/test_pfcwd_interval.py
   # There is no k8s in inventory file
@@ -44,6 +50,8 @@ t0:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  # read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test
+  - read_mac/test_read_mac_metadata.py
   # This script only supported on Mellanox
   - restapi/test_restapi.py
   # Route flow counter is not supported on vs platform
@@ -56,8 +64,10 @@ t0:
   # There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed
   # The tests in this script are all related to the above table
   - system_health/test_system_health.py
-  # This script is also skipped in nightly test
+  # Vrf tests are also skipped in nightly test
   - mvrf/test_mgmtvrf.py
+  - vrf/test_vrf.py
+  - vrf/test_vrf_attr.py
 
 t1-lag:
   # KVM do not support bfd test
@@ -101,6 +111,8 @@ t1-lag:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  # read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test
+  - read_mac/test_read_mac_metadata.py
   # Route flow counter is not supported on vs platform
   - route/test_route_flow_counter.py
   - snmp/test_snmp_phy_entity.py
@@ -109,7 +121,7 @@ t1-lag:
   # There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed
   # The tests in this script are all related to the above table
   - system_health/test_system_health.py
-  # This script is also skipped in nightly test
+  # Vrf tests are also skipped in nightly test
   - mvrf/test_mgmtvrf.py
 
 t2:
@@ -151,6 +163,8 @@ t2:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  # read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test
+  - read_mac/test_read_mac_metadata.py
   - snmp/test_snmp_phy_entity.py
   # Remove from PR test in https://github.com/sonic-net/sonic-mgmt/pull/6073
   - cacl/test_ebtables_application.py
@@ -159,6 +173,18 @@ t2:
   - system_health/test_system_health.py
   # This script is also skipped in nightly test
   - mvrf/test_mgmtvrf.py
+  # Voq test only support on T2, currently not available in PR test
+  - voq/test_fabric_cli_and_db.py
+  - voq/test_fabric_reach.py
+  - voq/test_voq_chassis_app_db_consistency.py
+  - voq/test_voq_disrupts.py
+  - voq/test_voq_fabric_isolation.py
+  - voq/test_voq_fabric_status_all.py
+  - voq/test_voq_intfs.py
+  - voq/test_voq_ipfwd.py
+  - voq/test_voq_nbr.py
+  - test_vs_chassis_setup.py
+  - voq/test_voq_init.py
 
 dualtor:
   # This test only support on dualtor-aa testbed
@@ -191,6 +217,13 @@ tgen:
   - snappi_tests/bgp/test_bgp_scalability.py
   - snappi_tests/ecn/test_dequeue_ecn_with_snappi.py
   - snappi_tests/ecn/test_red_accuracy_with_snappi.py
+  - snappi_tests/multidut/bgp/test_bgp_outbound_downlink_port_flap.py
+  - snappi_tests/multidut/bgp/test_bgp_outbound_downlink_process_crash.py
+  - snappi_tests/multidut/bgp/test_bgp_outbound_tsa.py
+  - snappi_tests/multidut/bgp/test_bgp_outbound_uplink_multi_po_flap.py
+  - snappi_tests/multidut/bgp/test_bgp_outbound_uplink_po_flap.py
+  - snappi_tests/multidut/bgp/test_bgp_outbound_uplink_po_member_flap.py
+  - snappi_tests/multidut/bgp/test_bgp_outbound_uplink_process_crash.py
   - snappi_tests/multidut/ecn/test_multidut_dequeue_ecn_with_snappi.py
   - snappi_tests/multidut/ecn/test_multidut_red_accuracy_with_snappi.py
   - snappi_tests/multidut/pfc/test_lossless_response_to_external_pause_storms.py
@@ -225,6 +258,7 @@ tgen:
 
 snappi:
   # Snappi test only support on physical snappi testbed
+  - snappi_tests/multidut/pfcwd/test_multidut_pfcwd_runtime_traffic_with_snappi.py
   - snappi_tests/reboot/test_cold_reboot.py
   - snappi_tests/reboot/test_fast_reboot.py
   - snappi_tests/reboot/test_soft_reboot.py
@@ -234,6 +268,7 @@ snappi:
 
 wan-pub:
   # Currently PR test will not test wan topo
+  - macsec/test_interop_wan_isis.py
   - wan/isis/test_isis_authentication.py
   - wan/isis/test_isis_csnp_interval.py
   - wan/isis/test_isis_database.py
