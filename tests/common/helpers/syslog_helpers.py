@@ -180,3 +180,15 @@ def check_default_route(rand_selected_dut):
         pytest.skip("DUT has no default route, skiped")
 
     yield ret
+
+
+def is_mgmt_vrf_enabled(dut):
+    """
+    Check mgmt vrf is enabled or not
+
+    Args:
+        dut (SonicHost): The target device
+    Return: True or False
+    """
+    show_mgmt_vrf = dut.command("show mgmt-vrf")["stdout"]
+    return "ManagementVRF : Disabled" not in show_mgmt_vrf
