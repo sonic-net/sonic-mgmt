@@ -72,7 +72,7 @@ fi
 echo "PyVxr Hostname: ${host}"
 if [ "${n1}" != "null" ]; then
   echo "PORTS=--spines ${spines} --leaves ${leaves} --hosts ${h1},${h2},${h3},${h4}"
-  echo "PORTS=--leaves ${n1} --hosts ${h5},${h6}"
+  echo "PORTS=--leaves ${n1} --hosts ${h5},${h6},${h7}"
 else
   echo "PORTS=--spines ${spines} --leaves ${leaves} --hosts ${hosts}"
 fi

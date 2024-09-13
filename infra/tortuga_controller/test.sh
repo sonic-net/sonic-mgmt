@@ -13,20 +13,21 @@
 #
 FABRIC_NAME=tortuga-1x3
 PYVXR_HOST=tortuga-1x3.cisco.com
-HOST_PORTS=57291,41157,44799,55603,52097,52411,56183,57277,40323
-LEAF_PORTS=40361,41899,40815
+HOST_PORTS=40409,39855,36427,41851,49665,56787,35027,56005,51299
+LEAF_PORTS=43039,45263,52467
 SPINE_COUNT=1
 TEST_NAME="${1}"
+HOST_USER="vxr"
 
 # Vrf40000 is automatically created by Tortuga when a L2VNI + SAG
 # is added to the fabric.
-SUBINFS1x3="Vrf40000|*|Ethernet1_8|eth1|lo|0"
+SUBINFS1x3="Vrf40000|*|Ethernet1_9|eth1|lo|1"
 RELAYS1x3="Vrf40000|relay1|5.1.30.1|5010#5020"
 RELAYS1x3="*"
 BGPPEERS1x3="Vrf40000|bgp1#5.1.30.1#4000#65200"
 BGPPEERS1x3="*"
 ROUTES1x3="Vrf40000|5.1.1.0/24|41.220.1.1|leaf1|Ethernet1_32_1"
-#ROUTES1x3="${ROUTES1x3},Vrf40000|6.6.6.0/24|blackhole"
+ROUTES1x3="${ROUTES1x3},Vrf40000|6.6.6.0/24|blackhole"
 PORTS1x3="leaf1|Ethernet1_32_1#41.220.1.2/24#Vrf40000"
 
 CONFIG_GEN=./config-gen
@@ -56,57 +57,38 @@ function cleanup() {
   echo
 }
 
-# Tests static anycast gateway.
-# L2VNI 5100 + Vlan10 - one port per leaf; IP = 41.216.0.1/24
-# L2VNI 5200 + Vlan20 - one port per leaf; IP = 41.216.1.1/24
-# L2VNI 5300 + Vlan30 - one port per leaf; IP = 41.216.2.1/24
-# All Vlans are added to Vrf12000000 initially. Test then moves them to
-# a new Vrf40000.
-# L3VNI 40000 + VRF + [Vlan10, Vlan20, Vlan30, Vlan3600]
-# All hosts should be able to ping each other.
-if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
-  cleanup "static-anycast-gateway"
+# SONiC regression test flow:
+# 1) Create three L2VNI with SAG.
+#     L2VNI 5100 + Vlan10 - one port per leaf; IPv4 = 41.216.0.1/24, IPv6 = dead:face::0:1/112
+#     L2VNI 5200 + Vlan20 - one port per leaf; IPv4 = 41.216.1.1/24, IPv6 = dead:face::1:1/112
+# 2) Adds VLANs to Vrf12000000
+# 3) Creates a new VRF (Vrf40000)
+# 4) Moves all VLANs to Vrf40000
+# 5) Adds Loopbacks to all leaf switches.
+# 6) Adds multiple SubInterfaces to all leaves from host1.
+# 7) Adds static routes to host's loopbacks.
+cleanup "SONiC regression tests"
 
-  "${CONFIG_GEN}" \
-    --lldp \
-    --auto \
-    --prefix \
-    --orgName "${ORG_NAME}" \
-    --test "${CGEN_TEST}" \
-    --cloud "${CLOUD_URL}" \
-    --fabric "${FABRIC_NAME}" \
-    --pyvxr "${PYVXR_HOST}" \
-    --spines "${SPINE_COUNT}" \
-    --leaves "${LEAF_PORTS}" \
-    --hosts "${HOST_PORTS}" \
-    --dhcpRelays "${RELAYS1x3}" \
-    --bgpPeers "${BGPPEERS1x3}" \
-    --subInterfaces "${SUBINFS1x3}" \
-    --ports "${PORTS1x3}" \
-    --routes "${ROUTES1x3}" \
-    --tags "${TEST_TAGS},add-sag,ipv4,ipv6,l3vni,loopback"
-fi
-
-# Test multi-VNI with single vlan in each VNI.
-# L3VNI 5100 + VRF + Vlan10, Vlan3600 - one port per leaf; IP = 41.216.0.1/24
-# L3VNI 5200 + VRF + Vlan20, Vlan3601 - one port per leaf; IP = 41.216.10.1/24
-# L3VNI 5300 + VRF + Vlan30, Vlan3602 - one port per leaf; IP = 41.216.20.1/24
-if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "l3vni" ]]; then
-  cleanup "multiple-l3vni"
-
-  "${CONFIG_GEN}" \
-    --lldp \
-    --auto \
-    --prefix \
-    --orgName "${ORG_NAME}" \
-    --cloud "${CLOUD_URL}" \
-    --fabric "${FABRIC_NAME}" \
-    --pyvxr "${PYVXR_HOST}" \
-    --hosts "${HOST_PORTS}" \
-    --spines "${SPINE_COUNT}" \
-    --leaves "${LEAF_PORTS}" \
-    --tags "${TEST_TAGS}"
-fi
+"${CONFIG_GEN}" \
+  --lldp \
+  --auto \
+  --prefix \
+  --verify \
+  --orgName "${ORG_NAME}" \
+  --hostUser "${HOST_USER}" \
+  --test "${CGEN_TEST}" \
+  --cloud "${CLOUD_URL}" \
+  --fabric "${FABRIC_NAME}" \
+  --pyvxr "${PYVXR_HOST}" \
+  --spines "${SPINE_COUNT}" \
+  --leaves "${LEAF_PORTS}" \
+  --hosts "${HOST_PORTS}" \
+  --dhcpRelays "${RELAYS1x3}" \
+  --bgpPeers "${BGPPEERS1x3}" \
+  --subInterfaces "${SUBINFS1x3}" \
+  --ports "${PORTS1x3}" \
+  --routes "${ROUTES1x3}" \
+  --tags "${TEST_TAGS},ipv4,ipv6,loopback"
 
 end=$(date +%s)
 stm=$((end-START_TIME))

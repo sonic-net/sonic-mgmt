@@ -14,7 +14,7 @@ devices:
       - eth2
     disks:
       - hda_ref:
-          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
     memory: 4GB
     platform: linux
@@ -28,7 +28,7 @@ devices:
       - eth2
     disks:
       - hda_ref:
-          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
     memory: 4GB
     platform: linux
@@ -42,7 +42,7 @@ devices:
       - eth2
     disks:
       - hda_ref:
-          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
     memory: 4GB
     platform: linux
@@ -56,7 +56,7 @@ devices:
       - eth2
     disks:
       - hda_ref:
-          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
     memory: 4GB
     platform: linux
@@ -70,7 +70,7 @@ devices:
       - eth2
     disks:
       - hda_ref:
-          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
     memory: 4GB
     platform: linux
@@ -84,7 +84,7 @@ devices:
       - eth2
     disks:
       - hda_ref:
-          file: /auto/vxr1/images/linux/rhel7_serial.qcow2
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
     memory: 4GB
     platform: linux

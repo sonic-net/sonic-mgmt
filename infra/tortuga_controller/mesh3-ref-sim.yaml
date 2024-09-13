@@ -7,21 +7,43 @@ simulation:
   skip_auto_bringup: false
 
 devices:
-  host: &host
+  trex1: &host
     data_ports:
       - eth1
       - eth2
+    data_port_attributes:
+      transport: e1000
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
     disks:
       - hda_ref:
-          file: /nobackup/images/rhel7_serial.qcow2
+          file: /nobackup/images/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
 
-  switch: &switch
+  trex2:
+    <<: *host
+  trex3:
+    <<: *host
+  trex4:
+    <<: *host
+  trex5:
+    <<: *host
+  trex6:
+    <<: *host
+  trex7:
+    <<: *host
+  trex8:
+    <<: *host
+  trex9:
+    <<: *host
+
+  L0: &switch
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - 8101-32FH
@@ -33,7 +55,7 @@ devices:
         24..31: 4x10
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.31/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.42/npl
         ConfigS1NpsuiteVer: 1.137.1
         ConfigCardPidOverride: HF6100-32D
     linux_password: cisco123
@@ -44,34 +66,20 @@ devices:
     vcpu: 8
     platform: spitfire_f
     data_ports:
-      - Ethernet0
-      - Ethernet1
-      - Ethernet2
-      - Ethernet3
-      - Ethernet4
-      - Ethernet5
-      - Ethernet6
-      - Ethernet7
-      - Ethernet8
-      - Ethernet9
+      - Ethernet1_1
+      - Ethernet1_2
+      - Ethernet1_3
+      - Ethernet1_4
+      - Ethernet1_5
+      - Ethernet1_6
+      - Ethernet1_7
+      - Ethernet1_8
+      - Ethernet1_9
+      - Ethernet1_10
+      - Ethernet1_11
+      - Ethernet1_12
     xr_port_redir:
       - 22
-
-  trex1:
-    <<: *host
-  trex2:
-    <<: *host
-  trex3:
-    <<: *host
-  trex4:
-    <<: *host
-  trex5:
-    <<: *host
-  trex6:
-    <<: *host
-
-  L0:
-    <<: *switch
     cli_commands: |
       sleep 60
       sudo config hostname tortuga-mesh3-leaf0
@@ -115,29 +123,38 @@ devices:
 connections:
   hubs:
     L0_trex1:
-      - L0.Ethernet6
+      - L0.Ethernet1_7
       - trex1.eth1
     L0_trex2:
-      - L0.Ethernet7
+      - L0.Ethernet1_8
       - trex2.eth1
-    L1_trex3:
-      - L1.Ethernet6
+    L0_trex3:
+      - L0.Ethernet1_9
       - trex3.eth1
     L1_trex4:
-      - L1.Ethernet7
+      - L1.Ethernet1_7
       - trex4.eth1
-    L2_trex5:
-      - L2.Ethernet6
+    L1_trex5:
+      - L1.Ethernet1_8
       - trex5.eth1
-    L2_trex6:
-      - L2.Ethernet7
+    L1_trex6:
+      - L1.Ethernet1_9
       - trex6.eth1
+    L2_trex7:
+      - L2.Ethernet1_7
+      - trex7.eth1
+    L2_trex8:
+      - L2.Ethernet1_8
+      - trex8.eth1
+    L2_trex9:
+      - L2.Ethernet1_9
+      - trex9.eth1
     L0_L1_conn1:
-      - L0.Ethernet0
-      - L1.Ethernet0
+      - L0.Ethernet1_1
+      - L1.Ethernet1_1
     L0_L2_conn1:
-      - L0.Ethernet1
-      - L2.Ethernet0
+      - L0.Ethernet1_2
+      - L2.Ethernet1_1
     L1_L2_conn1:
-      - L1.Ethernet1
-      - L2.Ethernet1
+      - L1.Ethernet1_2
+      - L2.Ethernet1_2

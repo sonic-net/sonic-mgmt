@@ -7,22 +7,44 @@ simulation:
   skip_auto_bringup: false
 
 devices:
-  host: &host
+  trex1: &host
     data_ports:
       - eth1
       - eth2
       - eth3
+    data_port_attributes:
+      transport: e1000
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
     disks:
       - hda_ref:
-          file: /nobackup/images/rhel7_serial.qcow2
+          file: /nobackup/images/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
 
-  switch: &switch
+  trex2:
+    <<: *host
+  trex3:
+    <<: *host
+  trex4:
+    <<: *host
+  trex5:
+    <<: *host
+  trex6:
+    <<: *host
+  trex7:
+    <<: *host
+  trex8:
+    <<: *host
+  trex9:
+    <<: *host
+
+  L0: &switch
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - 8101-32FH
@@ -34,7 +56,7 @@ devices:
         24..31: 4x10
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.31/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.42/npl
         ConfigS1NpsuiteVer: 1.137.1
         ConfigCardPidOverride: HF6100-32D
     linux_password: cisco123
@@ -59,28 +81,6 @@ devices:
       - Ethernet1_12
     xr_port_redir:
       - 22
-
-  trex1:
-    <<: *host
-  trex2:
-    <<: *host
-  trex3:
-    <<: *host
-  trex4:
-    <<: *host
-  trex5:
-    <<: *host
-  trex6:
-    <<: *host
-  trex7:
-    <<: *host
-  trex8:
-    <<: *host
-  trex9:
-    <<: *host
-
-  L0:
-    <<: *switch
     cli_commands: |
       sleep 60
       sudo config hostname tortuga-1x3-leaf0
@@ -140,39 +140,39 @@ connections:
     L0_trex1_1:
       - L0.Ethernet1_7
       - trex1.eth1
+    L0_trex1_2:
+      - L0.Ethernet1_10
+      - trex1.eth2
     L0_trex2_1:
       - L0.Ethernet1_8
       - trex2.eth1
     L0_trex3_1:
       - L0.Ethernet1_9
       - trex3.eth1
-    L0_trex1_2:
-      - L0.Ethernet1_10
-      - trex1.eth2
     L1_trex4_1:
       - L1.Ethernet1_7
       - trex4.eth1
+    L1_trex4_2:
+      - L1.Ethernet1_10
+      - trex4.eth2
     L1_trex5_1:
       - L1.Ethernet1_8
       - trex5.eth1
     L1_trex6_1:
       - L1.Ethernet1_9
       - trex6.eth1
-    L1_trex4_2:
-      - L1.Ethernet1_10
-      - trex4.eth2
     L2_trex7_1:
       - L2.Ethernet1_7
       - trex7.eth1
+    L2_trex7_2:
+      - L2.Ethernet1_10
+      - trex7.eth2
     L2_trex8_1:
       - L2.Ethernet1_8
       - trex8.eth1
     L2_trex9_1:
       - L2.Ethernet1_9
       - trex9.eth1
-    L2_trex7_2:
-      - L2.Ethernet1_10
-      - trex7.eth2
     S0_L0_conn1:
       - S0.Ethernet1_1
       - L0.Ethernet1_1
