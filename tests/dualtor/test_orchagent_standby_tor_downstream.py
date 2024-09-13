@@ -130,6 +130,7 @@ def startup_bgp_session(dut, bgp_to_up):
         logger.info("Bring back bgp session with {}".format(bgp_to_up))
         dut.shell("config bgp startup neighbor {}".format(bgp_to_up))
 
+
 def check_mux_status(duthost, state):
     output = duthost.shell("python3 /usr/local/bin/dualtor_neighbor_check.py")["stdout_lines"]
     if len(output) <= 2:
@@ -140,6 +141,7 @@ def check_mux_status(duthost, state):
             continue
         return False
     return True
+
 
 @pytest.fixture
 def shutdown_one_bgp_session(rand_selected_dut):
