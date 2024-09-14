@@ -231,8 +231,9 @@ class TestPfcwdAllTimer(object):
         # Loose the check if two conditions are met
         # 1. Leaf-fanout is Non-Onyx or non-Mellanox SONiC devices
         # 2. Device is Mellanox plaform, Loose the check
-        # 3. Device is not Mellanox plaform, add 50% of poll time to detect time
+        # 3. Device is broadcom plaform, add 50% of poll time to detect time
         # It's because the pfc_gen.py running on leaf-fanout can't guarantee the PFCWD is triggered consistently
+        logger.debug("dut asic_type {}".format(self.dut.facts['asic_type']))
         for fanouthost in list(self.fanout.values()):
             if fanouthost.get_fanout_os() != "onyx" or \
                     fanouthost.get_fanout_os() == "sonic" and fanouthost.facts['asic_type'] != "mellanox":
@@ -240,8 +241,8 @@ class TestPfcwdAllTimer(object):
                     logger.info("Loose the check for non-Onyx or non-Mellanox leaf-fanout testbed")
                     check_point = ITERATION_NUM // 3 - 1
                     break
-                else:
-                    logger.info("Configuring detect time for non-Mellanox DUT")
+                elif self.dut.facts['asic_type'] == "broadcom":
+                    logger.info("Configuring detect time for broadcom DUT")
                     config_detect_time = (
                         self.timers['pfc_wd_detect_time'] +
                         self.timers['pfc_wd_poll_time'] +
