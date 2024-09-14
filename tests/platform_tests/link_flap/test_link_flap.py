@@ -4,8 +4,8 @@ Tests the link flap in SONiC.
 import logging
 import pytest
 
-from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link, \
-    check_orch_cpu_utilization, build_test_candidates
+from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization, build_test_candidates
+from tests.common.platform.device_utils import toggle_one_link
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 
