@@ -19,14 +19,14 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # no
 
 from .test_voq_nbr import LinkFlap
 
-from .voq_helpers import sonic_ping
-from .voq_helpers import eos_ping
-from .voq_helpers import get_inband_info
-from .voq_helpers import get_vm_with_ip
-from .voq_helpers import asic_cmd
-from .voq_helpers import get_port_by_ip
-from .voq_helpers import get_sonic_mac
-from .voq_helpers import get_ptf_port
+from tests.common.helpers.voq_helpers import sonic_ping
+from tests.common.helpers.voq_helpers import eos_ping
+from tests.common.helpers.voq_helpers import get_inband_info
+from tests.common.helpers.voq_helpers import get_vm_with_ip
+from tests.common.helpers.voq_helpers import asic_cmd
+from tests.common.helpers.voq_helpers import get_port_by_ip
+from tests.common.helpers.voq_helpers import get_sonic_mac
+from tests.common.helpers.voq_helpers import get_ptf_port
 import re
 
 logger = logging.getLogger(__name__)
