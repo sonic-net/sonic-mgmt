@@ -13,7 +13,7 @@ from tests.common.devices.sonic import SonicHost
 DUT_THERMAL_POLICY_FILE = '/usr/share/sonic/device/{}/thermal_policy.json'
 DUT_THERMAL_POLICY_BACKUP_FILE = '/usr/share/sonic/device/{}/thermal_policy.json.bak'
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-FILES_DIR = os.path.join(BASE_DIR, '../../platform_tests/files')
+FILES_DIR = os.path.join(BASE_DIR, 'files')
 
 daemon_name = "thermalctld"
 
