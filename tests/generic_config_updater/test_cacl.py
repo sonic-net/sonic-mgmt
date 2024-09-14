@@ -4,9 +4,9 @@ import time
 import difflib
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # admin@vlab-01:~$ show acl table

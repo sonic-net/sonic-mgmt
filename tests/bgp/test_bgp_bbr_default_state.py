@@ -9,8 +9,8 @@ from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import delete_running_config
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import apply_patch, expect_op_success
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.config_reload import config_reload
 
 
