@@ -172,7 +172,7 @@ def main():
                 packet = packet + b"\x00\x00"
 
     pre_str = 'GLOBAL_PF' if options.global_pf else 'PFC'
-    logger.debug(pre_str + '_STORM_START')
+    logger.debug(pre_str + '_STORM_DEBUG')
 
     # Start sending PFC pause frames
     senders = []
@@ -186,6 +186,7 @@ def main():
             s.start()
             senders.append(s)
 
+    logger.debug(pre_str + '_STORM_START')
     # Wait PFC packets to be sent
     for sender in senders:
         sender.stop()
