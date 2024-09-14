@@ -1,6 +1,6 @@
 import pytest
 import tests.common.helpers.voq_lag as voq_lag
-from tests.voq.voq_helpers import verify_no_routes_from_nexthop
+from tests.common.helpers.voq_helpers import verify_no_routes_from_nexthop
 import logging
 logger = logging.getLogger(__name__)
 
