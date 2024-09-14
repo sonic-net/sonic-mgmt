@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 5"
+  - cron: "0 1 * * 6"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -26,14 +26,17 @@ variables:
 parameters:
   - name: AGENT_POOL
     type: string
-    default: nightly-svc
+    default: nightly
     values:
+      - nightly
+      - nightly2
       - nightly-svc
+      - nightly-bjw
     displayName: "AGENT POOL"
 
   - name: TESTBED_NAME
     type: string
-    default: "vmsvc3-t2-7250-1"
+    default: "testbed-bjw-can-7250-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -90,7 +93,7 @@ parameters:
   # Temporarily disable loganalyzer
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405) --disable_loganalyzer"
+    default: "--topology t2,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405) --disable_loganalyzer --trim_inv --post_check"
     displayName: "Common test parameters"
 
   # Test timeout
