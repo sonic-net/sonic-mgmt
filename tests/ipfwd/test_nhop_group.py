@@ -16,8 +16,7 @@ from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.innovium_data import is_innovium_device
 from tests.common.utilities import wait_until
-from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link
-from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
 
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
