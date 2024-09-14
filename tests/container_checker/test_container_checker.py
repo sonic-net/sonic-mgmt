@@ -255,19 +255,10 @@ def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     container_name = "telemetry"
 
-    # test_container_checker can disable the telemetry container
-    # Start service if telemetry is disabled
-    dut_command = r"docker inspect -f \{\{.State.Running\}\} %s" % container_name
-    result = duthost.command(dut_command, module_ignore_errors=True)
-    if result['stdout'] == "false":
-        logger.info("Start service as '{}' is not up ...".format(container_name))
-        duthost.shell("sudo systemctl reset-failed {}.service".format(container_name), module_ignore_errors=True)
-        duthost.shell("sudo systemctl start {}.service".format(container_name), module_ignore_errors=True)
-        restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                               CONTAINER_CHECK_INTERVAL_SECS,
-                               0,
-                               check_container_state, duthost, container_name, True)
-        pytest_assert(restarted, "Failed to restart container '{}'".format(container_name))
+    # Reload config to restore the container
+    config_reload(duthost, safe_reload=True)
+    # Monit needs 300 seconds to start monitoring the container
+    time.sleep(300)
 
     # Enable LogAnalyzer
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
@@ -279,8 +270,8 @@ def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
     duthost.command(dut_command, module_ignore_errors=True)
 
     # Monit checks services at 1-minute intervals
-    # Add a 10-second delay to ensure Monit has time to write alert messages to syslog
-    sleep_time = 70
+    # Add a 20-second delay to ensure Monit has time to write alert messages to syslog
+    sleep_time = 80
     logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
     time.sleep(sleep_time)
     analysis = loganalyzer.analyze(marker, fail=False)
