@@ -1,9 +1,6 @@
 '''
-    The functions used by test_vxlan_ecmp.py. Since there are plans to
-    seperate the test script to multiple files, we need a common location
-    for these functions.
     Usage:
-    from tests.vxlan.ecmp_utils import Ecmp_Utils
+    from tests.common.vxlan_ecmp_utils import Ecmp_Utils
     my_own_ecmp_utils = Ecmp_Utils()
     my_own_ecmp_utils.create_vxlan_tunnel(...)
 '''
