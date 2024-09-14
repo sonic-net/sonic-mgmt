@@ -120,6 +120,8 @@ def _create_parser():
                       required=False,default=None)
     parser.add_argument('--apply_wa', action='store_true', help='Use workaround command list for SIM',
                       default=False)
+    parser.add_argument('--add_sim_patches', action='store_true', help='Add patches to SIM to handle eth4 for route_check and shutdown',
+                      default=False)
     return parser
 
 def repo_update(data):
@@ -644,6 +646,70 @@ def reload_dut_with_newCFG(data):
         cmd_list.append('sudo reboot\n')
         run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
 
+
+# apply sim patches to handle eth4 for route_check and fast and warm reboot.
+# note that eth4 is added as the simulation interface, however, in sonic only eth0 is used for mgmt and eth4 is considered as data port that lead to issues.
+# these are temporary patches to handle the issues. Evetually, the sonic coode should be updated to treat eth4 as managment interfce.
+def add_sim_patches(data):
+    for dut_name in get_dut_names(data):
+        print(f"****** Applying simulation patches for eth4 on {dut_name} ******")
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'])
+
+        ftp_client=ssh.open_sftp()
+        ftp_client.get('/usr/local/bin/fast-reboot','fast-reboot')
+        ftp_client.get('/usr/local/bin/warm-reboot','warm-reboot')
+        ftp_client.get('/usr/local/bin/route_check.py','route_check.py')
+
+        route_check_lines = []
+        with open('route_check.py', 'r') as file:
+            for  line in file.readlines():
+                route_check_lines.append(line)
+                if re.search(r"\s*local_if_lst\s*=\s*\{.*\}\s*", line):
+                    indent_count = len(re.match(r'^(\s*)', line).group(1))
+                    route_check_lines.append(' ' * indent_count+"local_if_lst.add('eth4')\n")
+        with open('route_check.py', 'w') as file:
+            file.writelines(route_check_lines)
+
+        fast_reboot_lines = []
+        ## adding -s to orchagent_restart_check command since the orchagent_restart_check check for eth4 which is not the data port for the DUT
+        with open('fast-reboot', 'r') as file:
+            for  line in file.readlines():
+                if re.search(r'\s*docker exec -i swss \/usr\/bin\/orchagent_restart_check -w 2000 -r 5 .*', line):
+                    indent_count = len(re.match(r'^(\s*)', line).group(1))
+                    fast_reboot_lines.append(' ' *indent_count +"docker exec -i swss /usr/bin/orchagent_restart_check -s -w 2000 -r 5 > /dev/null || RESTARTCHECK_RC=$?\n")
+                else:
+                    fast_reboot_lines.append(line)
+        with open('fast-reboot', 'w') as file:
+            file.writelines(fast_reboot_lines)
+
+        warm_reboot_lines = []
+        ## adding -s to orchagent_restart_check command since the orchagent_restart_check check for eth4 which is not the data port for the DUT
+        with open('warm-reboot', 'r') as file:
+            for  line in file.readlines():
+                if re.search(r'\s*docker exec -i swss \/usr\/bin\/orchagent_restart_check -w 2000 -r 5 .*', line):
+                    indent_count = len(re.match(r'^(\s*)', line).group(1))
+                    warm_reboot_lines.append(' ' * indent_count+"docker exec -i swss /usr/bin/orchagent_restart_check -s -w 2000 -r 5 > /dev/null || RESTARTCHECK_RC=$?\n")
+                else:
+                    warm_reboot_lines.append(line)
+        with open('warm-reboot', 'w') as file:
+            file.writelines(warm_reboot_lines)
+
+        ftp_client.put('./route_check.py', '/tmp/route_check.py')
+        ftp_client.put('./fast-reboot', '/tmp/fast-reboot')
+        ftp_client.put('./warm-reboot', '/tmp/warm-reboot')
+        ftp_client.close()
+        ssh.close()
+        cmd_list = list()
+        cmd_list.append('sudo cp /tmp/route_check.py /usr/local/bin/route_check.py\n')
+        cmd_list.append('sudo cp /tmp/fast-reboot /usr/local/bin/fast-reboot\n')
+        cmd_list.append('sudo cp /tmp/warm-reboot /usr/local/bin/warm-reboot\n')
+        run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
+        print(f"******  Finished applying simulation patches for eth4 on {dut_name} ******")
+
+
+
 def run_sim_workaround(data, filename):
     ssh = paramiko.SSHClient()
     for dut_name in get_dut_names(data):
@@ -908,7 +974,7 @@ def attach_vxr():
     os.system("{} ports > vxr_ports.yaml".format(vxr_path))
     return vxr_path, "vxr_ports.yaml"
 
-def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa=False):
+def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa=False, add_sim_patch=False):
     # Create admin user in vEOS vm
     print("****** Create admin user in vEOS vm *******")
     vEOS_inital_cfg(data,vEOS_count)
@@ -936,6 +1002,8 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
     if apply_wa and device_type in wa_file_map:
         run_sim_workaround(data, wa_file_map[device_type])
 
+    if add_sim_patch:
+        add_sim_patches(data)
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
     deploy_mg(data,topo_type,base_topo_file, lc_topo_code)
@@ -1062,7 +1130,7 @@ def main():
     skip_sanity = args['skip_sanity']
     sim_attach = args['sim_attach']
     apply_wa = args['apply_wa']
-
+    add_sim_patches = args['add_sim_patches']
     print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
     with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
         TOPO_PLATFORM_FILE_DICT = json.load(cfg_file)
@@ -1112,7 +1180,7 @@ def main():
     else:
         lc_topo_code = None
 
-    configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa)
+    configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code, apply_wa, add_sim_patches)
 
     print_env_info(data, device_type, vEOS_count)
 
