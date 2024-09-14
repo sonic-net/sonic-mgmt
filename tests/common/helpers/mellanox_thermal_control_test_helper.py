@@ -8,7 +8,7 @@ from pkg_resources import parse_version
 from tests.common.helpers.thermal_control_test_helper import mocker, FanStatusMocker, ThermalStatusMocker, \
     SingleFanMocker
 from tests.common.mellanox_data import get_hw_management_version, get_platform_data
-from tests.platform_tests.mellanox.minimum_table import get_min_table
+from tests.common.helpers.minimum_table import get_min_table
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
