@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.bgp import run_bgp_facts
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry
 from tests.common.helpers.ntp_helper import run_ntp
-from tests.common.helpers.syslog_helpers import run_syslog
+from tests.common.helpers.syslog_helpers import run_syslog, check_default_route   # noqa F401
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
 
