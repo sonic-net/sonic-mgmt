@@ -16,7 +16,7 @@ import pytest
 import re
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
-from tests.upgrade_path.upgrade_helpers import install_sonic
+from tests.common.helpers.upgrade_helpers import install_sonic
 
 pytestmark = [
     pytest.mark.topology('any'),
