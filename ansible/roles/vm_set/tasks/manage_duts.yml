@@ -29,10 +29,6 @@
 
 - block:
     - name: Start SONiC DPU VM
-      include_tasks: start_sonic_dpu_vm.yml
-      loop: "{{ dpu_vms }}"
-      loop_control:
-        loop_var: dpu_vm
-      when: action == 'start_sonic_vm'
+      include_tasks: start_dpu_vm.yml
 
   when: dpu_targets is defined

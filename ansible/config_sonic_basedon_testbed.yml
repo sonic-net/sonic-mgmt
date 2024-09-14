@@ -269,12 +269,12 @@
   - block:
       - name: find all DPU VM attached to DUT
         set_fact:
-        dpu_vms: "{{ dpu_vms | default([]) + [ item.key ] }}"
+          dpu_vms: "{{ dpu_vms | default([]) + [ item.key ] }}"
         with_dict: "{{ vm_topo_config['dpu'] }}"
 
       - name: find all interface indexes mapping connecting to DPU VM
         set_fact:
-        interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
+          interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
         with_dict: "{{ vm_topo_config['dpu'] }}"
 
     when: "'t1-dpu' in topo"
