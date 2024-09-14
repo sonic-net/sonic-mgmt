@@ -13,7 +13,7 @@ import ipaddress
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.voq.voq_helpers import verify_no_routes_from_nexthop
+from tests.common.helpers.voq_helpers import verify_no_routes_from_nexthop
 
 pytestmark = [
     pytest.mark.topology('any'),

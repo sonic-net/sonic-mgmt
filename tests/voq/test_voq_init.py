@@ -5,10 +5,10 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 
 from tests.common.helpers.sonic_db import AsicDbCli, VoqDbCli
-from .voq_helpers import check_voq_remote_neighbor, get_sonic_mac
-from .voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
-from .voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup
-from .voq_helpers import dump_and_verify_neighbors_on_asic
+from tests.common.helpers.voq_helpers import check_voq_remote_neighbor, get_sonic_mac
+from tests.common.helpers.voq_helpers import check_local_neighbor_asicdb, get_device_system_ports, get_inband_info
+from tests.common.helpers.voq_helpers import check_rif_on_sup, check_voq_neighbor_on_sup
+from tests.common.helpers.voq_helpers import dump_and_verify_neighbors_on_asic
 
 logger = logging.getLogger(__name__)
 
