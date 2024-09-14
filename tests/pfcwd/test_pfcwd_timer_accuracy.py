@@ -6,10 +6,10 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from .files.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
-from .files.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import send_background_traffic
 
 
 pytestmark = [

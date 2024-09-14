@@ -37,7 +37,7 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
+from tests.common.helpers.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
