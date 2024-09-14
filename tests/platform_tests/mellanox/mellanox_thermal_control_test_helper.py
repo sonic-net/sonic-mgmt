@@ -5,7 +5,7 @@ import random
 import logging
 import time
 from pkg_resources import parse_version
-from tests.platform_tests.thermal_control_test_helper import mocker, FanStatusMocker, ThermalStatusMocker, \
+from tests.common.helpers.thermal_control_test_helper import mocker, FanStatusMocker, ThermalStatusMocker, \
     SingleFanMocker
 from tests.common.mellanox_data import get_hw_management_version, get_platform_data
 from .minimum_table import get_min_table
