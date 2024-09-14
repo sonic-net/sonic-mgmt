@@ -453,11 +453,13 @@ onboarding_t0:
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
   - snmp/test_snmp_link_local.py
+  - lldp/test_lldp_syncd.py
 
 
 onboarding_t1:
   - bgp/test_bgp_stress_link_flap.py
   - snmp/test_snmp_link_local.py
+  - lldp/test_lldp_syncd.py
 
 onboarding_dualtor:
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
