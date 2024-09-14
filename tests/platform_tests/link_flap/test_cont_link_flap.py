@@ -13,11 +13,12 @@ import math
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
-from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, toggle_one_link,\
+from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates,\
     check_orch_cpu_utilization, check_bgp_routes
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.platform.device_utils import toggle_one_link
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
