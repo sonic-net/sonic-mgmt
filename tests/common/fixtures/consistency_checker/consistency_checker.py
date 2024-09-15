@@ -41,14 +41,14 @@ class ConsistencyChecker:
     def __enter__(self):
         logger.info("Initializing consistency checker on dut...")
 
-        self._duthost.shell(f"mkdir -p {DUT_DST_PATH_HOST}")
+        self._duthost.file(path=DUT_DST_PATH_HOST, state="directory")
         self._duthost.copy(src=QUERY_ASIC_SCRIPT_PATH_SRC, dest=QUERY_ASIC_SCRIPT_PATH_DST_HOST)
         self._duthost.copy(src=QUERY_ASIC_PARSER_PATH_SRC, dest=QUERY_ASIC_PARSER_PATH_DST_HOST)
 
         if self._libsairedis_download_url is not None:
-            self._duthost.shell(f"curl -o {DUT_DST_PATH_HOST}/{LIBSAIREDIS_DEB} {self._libsairedis_download_url}")
+            self._duthost.command(f"curl -o {DUT_DST_PATH_HOST}/{LIBSAIREDIS_DEB} {self._libsairedis_download_url}")
         if self._python3_pysairedis_download_url is not None:
-            self._duthost.shell(
+            self._duthost.command(
                 f"curl -o {DUT_DST_PATH_HOST}/{PYTHON3_PYSAIREDIS_DEB} {self._python3_pysairedis_download_url}")
 
         # Move everything into syncd container
@@ -78,10 +78,10 @@ class ConsistencyChecker:
 
         if self._python3_pysairedis_download_url is not None:
             # Uninstall python3-sairedis in syncd container
-            self._duthost.shell(f"docker exec {SYNCD_CONTAINER} dpkg --remove python3-pysairedis")
+            self._duthost.command(f"docker exec {SYNCD_CONTAINER} dpkg --remove python3-pysairedis")
 
         # Remove all the files from the syncd container
-        self._duthost.shell(f"docker exec {SYNCD_CONTAINER} rm -rf {DUT_DST_PATH_CONTAINER}")
+        self._duthost.command(f"docker exec {SYNCD_CONTAINER} rm -rf {DUT_DST_PATH_CONTAINER}")
 
         # NOTE: If consistency checker is used to do write operations (currently it's read-only), then syncd should be
         #       restarted or minigraph reloaded re-align the ASIC_DB and ASIC state.
@@ -241,7 +241,7 @@ class ConsistencyChecker:
         """
         db_attributes = {}
         for key in keys:
-            result = self._duthost.shell(f"sonic-db-dump -k '{key}' -n ASIC_DB")
+            result = self._duthost.command(f"sonic-db-dump -k '{key}' -n ASIC_DB")
             if result['rc'] != 0:
                 raise Exception((f"Failed to fetch attributes for key '{key}' from ASIC_DB. "
                                  f"Return code: {result['rc']}, stdout: {result['stdout']}, "

@@ -263,4 +263,4 @@ def check_asic_and_db_consistency(pytest_config, duthost, consistency_checker_pr
             "ASIC_STATE:SAI_OBJECT_TYPE_WRED:*",
         ]
         inconsistencies = consistency_checker.check_consistency(keys)
-        logger.info(f"Found ASIC_DB and ASIC inconsistencies: {inconsistencies}")
+        logger.warning(f"Found ASIC_DB and ASIC inconsistencies: {inconsistencies}")

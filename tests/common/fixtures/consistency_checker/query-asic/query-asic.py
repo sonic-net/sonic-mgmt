@@ -46,9 +46,9 @@ The results will be printed to stdout, in the following format:
 """
 
 
-def load_input(input_file: str) -> dict:
+def load_input(input_file: argparse.FileType) -> dict:
     """
-    Load the input JSON file with contents like so:
+    Read the opened input JSON file with contents like so:
     {
         "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:oid:0x18000000000628": [
             "SAI_BUFFER_POOL_ATTR_THRESHOLD_MODE",
@@ -58,10 +58,12 @@ def load_input(input_file: str) -> dict:
         ...
     }
 
+    Closes the file after reading.
+
     :param input_file: Path to the input JSON file
     :return: The loaded JSON data
     """
-    with open(input_file) as f:
+    with input_file as f:
         return json.load(f)
 
 
@@ -248,7 +250,7 @@ def uninitialize_sai_api():
 
 def main(args):
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, description=HELP_TEXT)
-    parser.add_argument("-i", "--input", help="Input JSON file", required=True)
+    parser.add_argument("-i", "--input", type=argparse.FileType("r"), help="Input JSON file", required=True)
     args = parser.parse_args(args)
 
     try:
