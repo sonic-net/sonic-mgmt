@@ -2,9 +2,9 @@ import pytest
 import logging
 import re
 from tests.common import reboot
-from tests.upgrade_path.upgrade_helpers import install_sonic, check_sonic_version,\
+from tests.common.helpers.upgrade_helpers import install_sonic, check_sonic_version,\
     upgrade_test_helper, check_asic_and_db_consistency
-from tests.upgrade_path.upgrade_helpers import restore_image            # noqa F401
+from tests.common.helpers.upgrade_helpers import restore_image            # noqa F401
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
 from tests.platform_tests.verify_dut_health import verify_dut_health    # noqa F401

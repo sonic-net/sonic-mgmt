@@ -10,7 +10,7 @@ from collections import defaultdict
 from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.sanity_check.checks import *      # noqa: F401, F403
-from tests.common.plugins.sanity_check.recover import recover
+from tests.common.plugins.sanity_check.recover import recover, recover_chassis
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
@@ -287,10 +287,15 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
                     infra_recovery_actions.append(failed_result['action'])
         for action in infra_recovery_actions:
             action()
-        for dut_name, dut_results in list(dut_failed_results.items()):
-            # Attempt to restore DUT state
-            recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
-                    recover_method)
+
+        is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+        if is_modular_chassis:
+            recover_chassis(duthosts)
+        else:
+            for dut_name, dut_results in list(dut_failed_results.items()):
+                # Attempt to restore DUT state
+                recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
+                        recover_method)
 
     except BaseException as e:
         request.config.cache.set(cache_key, True)
