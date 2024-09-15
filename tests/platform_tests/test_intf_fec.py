@@ -59,7 +59,7 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
                               enum_frontend_asic_index, conn_graph_facts):
     """
     @Summary: Configure the FEC operational mode for all the interfaces, then check
-    FEC operational mode is retored to default FEC mode
+    FEC operational mode is restored to 'rs' FEC mode
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -72,8 +72,9 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         if sfp_presence:
             presence = sfp_presence[0].get('presence', '').lower()
             oper = intf.get('oper', '').lower()
+            speed = intf.get('speed', '')
 
-            if presence == "not present" or oper != "up":
+            if presence == "not present" or oper != "up" or speed not in SUPPORTED_SPEEDS:
                 continue
 
         config_status = duthost.command("sudo config interface fec {} rs"
