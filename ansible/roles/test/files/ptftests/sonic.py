@@ -444,7 +444,8 @@ class Sonic(host_device.HostDevice):
     def verify_bgp_neigh_state(self, dut=None, state="Active"):
         bgp_state = {}
         bgp_state['v4'] = bgp_state['v6'] = False
-        for cmd, ver in [("vtysh -c 'show ip bgp summary json'", 'v4'), ("vtysh -c 'show bgp ipv6 summary json'", 'v6')]:
+        for cmd, ver in [("vtysh -c 'show ip bgp summary json'", 'v4'),
+                         ("vtysh -c 'show bgp ipv6 summary json'", 'v6')]:
             output = self.do_cmd(cmd)
             obj = json.loads(output)
 
@@ -479,7 +480,7 @@ class Sonic(host_device.HostDevice):
                 obj = json.loads(output)
                 if lag in obj:
                     obj = obj[lag]
-                    if not 'operationalStatus' in obj or obj['operationalStatus'] == 'down':
+                    if 'operationalStatus' not in obj or obj['operationalStatus'] == 'down':
                         lag_state = state == 'down'
                     else:
                         lag_state = (obj['operationalStatus'] in state)

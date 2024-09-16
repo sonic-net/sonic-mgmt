@@ -237,6 +237,7 @@ class LagMemberDown(SadOperation):
                 state = output["interfaces"][nbr_lag_name]["interfaceStatus"]
                 assert state in ["notconnect"]
 
+
 class DutLagMemberDown(LagMemberDown):
     """ Sad path to test warm-reboot when LAG member on DUT is shutdown
     and verify that after warm-reboot LAG member state is still down on DUT and neighbor. """
