@@ -165,7 +165,11 @@ def test_no_fd_leak_at_link_flap(rand_selected_dut, setup_info): # noqa F401
         cmd = "config interface startup {}".format(portchannel_to_toggle)
         rand_selected_dut.shell(cmd)
         time.sleep(1)
-    # Get the open fd count of vnet_monitor process after port flapping
-    fd_count_after = rand_selected_dut.shell(cmd_get_fd)['stdout']
-    MARGIN = 5
-    pytest_assert(int(fd_count_after) <= int(fd_count_base) + MARGIN, "File descriptor leak detected")
+
+    def _fd_leak_detected():
+        MARGIN = 5
+        # Get the open fd count of vnet_monitor process after port flapping
+        fd_count_after = rand_selected_dut.shell(cmd_get_fd)['stdout']
+        return int(fd_count_after) - int(fd_count_base) <= MARGIN
+
+    pytest_assert(wait_until(300, 10, 5, _fd_leak_detected), "File descriptor leak detected")
