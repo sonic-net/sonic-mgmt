@@ -18,6 +18,9 @@ devices:
           type: reference
     memory: 4GB
     platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
     vcpu: 4
     xr_port_redir:
       - 22
@@ -32,6 +35,9 @@ devices:
           type: reference
     memory: 4GB
     platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
     vcpu: 4
     xr_port_redir:
       - 22
@@ -46,6 +52,9 @@ devices:
           type: reference
     memory: 4GB
     platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
     vcpu: 4
     xr_port_redir:
       - 22
@@ -60,6 +69,9 @@ devices:
           type: reference
     memory: 4GB
     platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
     vcpu: 4
     xr_port_redir:
       - 22
@@ -74,6 +86,9 @@ devices:
           type: reference
     memory: 4GB
     platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
     vcpu: 4
     xr_port_redir:
       - 22
@@ -88,6 +103,9 @@ devices:
           type: reference
     memory: 4GB
     platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
     vcpu: 4
     xr_port_redir:
       - 22
