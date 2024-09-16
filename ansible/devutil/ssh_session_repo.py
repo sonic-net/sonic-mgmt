@@ -34,7 +34,8 @@ class SshSessionRepoGenerator(object):
         """
         raise NotImplementedError
 
-    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass, console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
+    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass,
+                 console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
         """Generate SSH session for a node.
 
         This is a virtual method that should be implemented by child class.
@@ -102,7 +103,8 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
 
             return template
 
-    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass, console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
+    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass,
+                 console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
         """Generate SSH session for a testbed node."""
         session_file_matrix = [
                 (session_path, ssh_ip, ssh_user, ssh_pass),
@@ -356,7 +358,8 @@ class SshConfigSshSessionRepoGenerator(SshSessionRepoGenerator):
         """
         pass
 
-    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass, console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
+    def generate(self, session_path, ssh_ip, ssh_ipv6, ssh_user, ssh_pass,
+                 console_ssh_ip, console_ssh_port, console_ssh_user, console_ssh_pass):
         """Generate SSH session for a testbed node."""
         ssh_session_name = os.path.basename(session_path)
 
@@ -385,9 +388,11 @@ class SshConfigSshSessionRepoGenerator(SshSessionRepoGenerator):
             ssh_config["User"] = f"{console_ssh_user}:{console_ssh_port}"
             ssh_config["Hostname"] = console_ssh_ip
             if session_name in current_hosts:
-                self.ssh_config.set(session_name, **ssh_config, **self.ssh_config_params, **self.console_ssh_config_params)
+                self.ssh_config.set(session_name, **ssh_config, **self.ssh_config_params,
+                                    **self.console_ssh_config_params)
             else:
-                self.ssh_config.add(session_name, **ssh_config, **self.ssh_config_params, **self.console_ssh_config_params)
+                self.ssh_config.add(session_name, **ssh_config, **self.ssh_config_params,
+                                    **self.console_ssh_config_params)
 
     def finish(self):
         """Finish SSH session generation."""

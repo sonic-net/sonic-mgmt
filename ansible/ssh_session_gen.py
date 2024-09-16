@@ -133,7 +133,8 @@ class DeviceSshSessionRepoGenerator(object):
             return
 
         if device.console_device:
-            console_ssh_ip, _, console_ssh_user, console_ssh_pass = self.ssh_info_solver.get_ssh_cred(device.console_device)
+            console_ssh_ip, _, console_ssh_user, console_ssh_pass = self.ssh_info_solver.get_ssh_cred(
+                    device.console_device)
             console_ssh_port = device.console_port
         else:
             console_ssh_ip, console_ssh_user, console_ssh_pass, console_ssh_port = None, None, None, 0
@@ -339,6 +340,7 @@ def main(args):
         )
         device_repo_generator.generate()
 
+
 class SSHConfigParamsParser(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         current_params = getattr(namespace, self.dest)
@@ -350,6 +352,7 @@ class SSHConfigParamsParser(argparse.Action):
             key, value = configEntry.split('=', 2)
             current_params[key] = value
         setattr(namespace, self.dest, current_params)
+
 
 if __name__ == "__main__":
     # Parse arguments
