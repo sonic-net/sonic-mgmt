@@ -546,6 +546,25 @@ def _stop_background_traffic(ptfhost, background_traffic_log):
         ptfhost.shell(f"kill -9 {pid}", module_ignore_errors=True)
 
 
+def has_neighbor_device(setup_pfc_test):
+    """
+    Check if there are neighbor devices present
+
+    Args:
+        setup_pfc_test (fixture): Module scoped autouse fixture for PFCwd
+
+    Returns:
+        bool: True if there are neighbor devices present, False otherwise
+    """
+    for _, details in setup_pfc_test['selected_test_ports'].items():
+        # 'rx_port' and 'rx_port_id' are expected to be conjugate attributes
+        # if one is unset or contains None, the other should be as well
+        if (not details.get('rx_port') or None in details['rx_port']) or \
+                (not details.get('rx_port_id') or None in details['rx_port_id']):
+            return False  # neighbor devices are not present
+    return True
+
+
 def check_pfc_storm_state(dut, port, queue):
     """
     Helper function to check if PFC storm is detected/restored on a given queue
