@@ -38,6 +38,7 @@ r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListAttrCapabilities: Fail
 r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
+r, ".* ERR syncd#syncd:.{1,35}\[none\] SAI_API_QUEUE:_brcm_sai_get_ingress_priority_group_stats_mode:\d+ PG ing stat get failed with error Invalid parameter \(0xfffffffc\).*"
 
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
