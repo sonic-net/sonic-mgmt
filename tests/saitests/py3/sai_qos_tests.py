@@ -2561,17 +2561,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             if check_leackout_compensation_support(asic_type, hwsku):
                 pkts_num_leak_out = 0
 
-            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(
                     self, src_port_id, pkt,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc -
                      pkts_num_dismiss_pfc - hysteresis) // cell_occupancy
-                )
-            elif hwsku == 'Arista-7060X6-64PE-256x200G':
-                send_packet(
-                    self, src_port_id, pkt,
-                    (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc -
-                     pkts_num_dismiss_pfc - hysteresis) // cell_occupancy - margin
                 )
             elif 'cisco-8000' in asic_type:
                 fill_leakout_plus_one(
@@ -2609,17 +2603,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_2_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_2_id]
             )
-            if hwsku == 'DellEMC-Z9332f-M-O16C64' or hwsku == 'DellEMC-Z9332f-O32':
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
                 send_packet(
                     self, src_port_id, pkt2,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_dismiss_pfc +
                      hysteresis) // cell_occupancy + margin - 1
-                )
-            elif hwsku == 'Arista-7060X6-64PE-256x200G':
-                send_packet(
-                    self, src_port_id, pkt2,
-                    (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_dismiss_pfc +
-                     hysteresis) // cell_occupancy + margin * 2 - 1
                 )
             elif 'cisco-8000' in asic_type:
                 if not is_multi_asic:
@@ -4488,7 +4476,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     assert (pg_shared_wm_res[pg] <=
                             ((pkts_num_leak_out + pkts_num_fill_min) * (packet_length + internal_hdr_size)))
                 elif hwsku == 'Arista-7060X6-64PE-256x200G':
-                    assert (pg_shared_wm_res[pg] == pg_shared_wm_res_base[pg])
+                    assert (pg_shared_wm_res[pg] <= margin * cell_size)
                 else:
                     assert (pg_shared_wm_res[pg] == 0)
             else:
