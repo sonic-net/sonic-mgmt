@@ -114,12 +114,14 @@ leaf1:
       config: |
         sudo config interface startup D3D1P1
         sudo config interface startup D3T1P1
+        sudo config interface startup D3T1P2
         sudo config interface ipv6 enable use-link-local-only D3D1P1
         sudo config interface ip add Loopback0 fd27::2dc:c1c9:e17c/128
         sudo config vlan add 10
         sudo config portchannel add PortChannel2
         sudo config portchannel member add PortChannel2 D3T1P1
         sudo config vlan member add -u 10 PortChannel2
+        sudo config vlan member add -u 10 D3T1P2
         sudo config vxlan add VXLAN fd27::2dc:c1c9:e17c
         sudo config vxlan evpn_nvo add NVO VXLAN
         sudo config vxlan map add VXLAN 10 5010
@@ -139,6 +141,7 @@ leaf1:
       deconfig: |
         sudo config portchannel member del PortChannel2 D3T1P1
         sudo config vlan member del 10 PortChannel2
+        sudo config vlan member del 10 D3T1P2
         sudo config interface vrf unbind Vlan10
         sudo config interface vrf unbind Vlan20
         sudo config interface vrf unbind Vlan30

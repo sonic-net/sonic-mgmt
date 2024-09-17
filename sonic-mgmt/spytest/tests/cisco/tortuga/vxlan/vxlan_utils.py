@@ -123,6 +123,46 @@ def tgen_preconfig(stream_info, traffic_item_type, data, addr_family='ipv4'):
 
     return handles
 
+def create_udp_traffic_stream_and_send_traffic(handles, data, stream_list,timeout=30):
+    flag = True
+    src_port = stream_list['src_endpoint']['port']
+    dst_port = stream_list['dst_endpoint']['port']
+    receive = handles[src_port]["tg_handle"].tg_traffic_config(
+                    mode='create', transmit_mode=data.transmit_mode,
+                    pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,
+                    circuit_endpoint_type=data.circuit_endpoint_type,
+                    frame_size=data.frame_size, bidirectional=1,
+                    emulation_src_handle=handles[src_port]["int_handle"],
+                    emulation_dst_handle=handles[dst_port]["int_handle"],
+                    track_by = 'trackingenabled0',
+                    l4_protocol='udp',
+                    udp_dst_port_mode='incr',udp_dst_port_count=500,udp_dst_port_step=1,
+                    udp_src_port_mode='incr',udp_src_port_count=500,udp_src_port_step=1)
+    stream_id = receive["stream_id"]
+    handles[src_port]["tg_handle"].tg_traffic_control(
+                action="clear_stats",
+                port_handle=[handles[src_port]["port_handle"],
+                handles[dst_port]["port_handle"]])
+    traffic_item = src_port+"<-->"+dst_port
+    handles[src_port]['tg_handle'].tg_traffic_control(action='apply', stream_handle=stream_id)
+    handles[src_port]['tg_handle'].tg_traffic_control(action='run', stream_handle=stream_id)
+    st.wait(timeout)
+    handles[src_port]['tg_handle'].tg_traffic_control(action='stop', stream_handle=stream_id)
+    st.wait(5)
+    traffic_stat = tgapi.get_traffic_stats(handles[src_port]['tg_handle'], mode='traffic_item', port_handle=handles[src_port]['port_handle'], direction='tx', stream_handle=stream_id)
+    st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {}".format(traffic_item))
+    st.log("Received traffic: {}".format(traffic_stat['rx']['total_packets']))
+    st.log("Sent traffic: {}".format(traffic_stat['tx']['total_packets']))
+    st.log(traffic_stat['rx']['total_packets']/traffic_stat['tx']['total_packets'])
+    if traffic_stat['rx']['total_packets'] > 0.998*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] < 1.002*traffic_stat['tx']['total_packets']:
+        st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {} PASSED".format(traffic_item))
+        flag = True
+    else:
+        st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {} FAILED".format(traffic_item))
+        flag = False
+    handles[src_port]['tg_handle'].tg_traffic_control(action='reset')
+    return flag
+
 def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_info, traffic_item_type, data, _mode):
     '''
     Author:Garima Mishra
@@ -154,15 +194,25 @@ def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_in
     if traffic_item_type == "raw":
         st.log("Adding BUM traffic stream: {} {}".format(port_handle1, port_handle2))
         if lag:
-            receive = src_handle['tg_handle'].tg_traffic_config(emulation_src_handle=port_handle1, emulation_dst_handle=port_handle2, mode='create',
-            transmit_mode=data.transmit_mode, pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent, track_by = 'trackingenabled0',
-            circuit_type="raw", frame_size=data.frame_size, mac_src=stream_info['src_endpoint']['mac'], mac_dst=dst_mac)
+            receive = src_handle['tg_handle'].tg_traffic_config(
+                            emulation_src_handle=port_handle1,
+                            emulation_dst_handle=port_handle2, mode='create',
+                            transmit_mode=data.transmit_mode, pkts_per_burst=data.pkts_per_burst,
+                            rate_percent = data.rate_percent, track_by = 'trackingenabled0',
+                            circuit_type="raw", frame_size=data.frame_size,
+                            mac_src=stream_info['src_endpoint']['mac'], mac_dst=dst_mac)
         else:
-            receive = src_handle['tg_handle'].tg_traffic_config(port_handle=port_handle1, port_handle2=port_handle2, mode='create',
-            transmit_mode=data.transmit_mode, pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent, 
-            circuit_endpoint_type=data.circuit_endpoint_type,
-	    frame_size=data.frame_size, mac_src=stream_info['src_endpoint']['mac'], mac_dst=stream_info['dst_endpoint']['mac'])
-            src_handle['tg_handle'].tg_traffic_config(port_handle=port_handle1, port_handle2=port_handle2, mode='modify', mac_dst=dst_mac, stream_id = receive["stream_id"])
+            receive = src_handle['tg_handle'].tg_traffic_config(
+                port_handle=port_handle1, port_handle2=port_handle2, mode='create',
+                transmit_mode=data.transmit_mode,
+                pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,
+                circuit_endpoint_type=data.circuit_endpoint_type,
+               frame_size=data.frame_size, mac_src=stream_info['src_endpoint']['mac'],
+                mac_dst=stream_info['dst_endpoint']['mac'])
+            src_handle['tg_handle'].tg_traffic_config(
+                port_handle=port_handle1,
+                port_handle2=port_handle2, mode='modify',
+                mac_dst=dst_mac, stream_id = receive["stream_id"])
         stream_id = receive["stream_id"]
     else:
         st.log("Unknown traffic_item_type")
@@ -193,6 +243,7 @@ def traffic_test_burst(_mode,handles):
     '''
     ### Clear Statistics ###
     handles['tg_handle'].tg_traffic_control(action="clear_stats", port_handle=handles['all_port_handles'])
+    handles['tg_handle'].tg_traffic_control(action="clear_stats", stream_handle=handles['stream_id'])
 
     ### Send ARP ###
     for item in handles['all_port_handles']:
@@ -209,7 +260,7 @@ def traffic_test_burst(_mode,handles):
         if _mode != "unicast":
             handles['tg_handle'].tg_traffic_config(port_handle=handles['port_handle1'], port_handle2=handles['port_handle2'], mode='modify', mac_dst=dst_mac, stream_id = handles['stream_id'])
             st.wait(5)
-    
+    handles['tg_handle'].tg_traffic_control(action='apply', stream_handle=handles['stream_id'])
     handles['tg_handle'].tg_traffic_control(action='run', stream_handle=handles['stream_id'])
     st.wait(30)
     handles['tg_handle'].tg_traffic_control(action='stop', stream_handle=handles['stream_id'])
@@ -382,7 +433,6 @@ def check_traffic(streams_info, timeout=30):
             st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {} PASSED".format(traffic_item))
         else:
             st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {} FAILED".format(traffic_item))
-            st.report_fail("BI-DIRECTIONAL TRAFFIC BEWTEEN {} FAILED".format(traffic_item))
             flag = False
     return flag
 

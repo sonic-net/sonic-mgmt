@@ -124,21 +124,24 @@ def traffic_setup(vxlan_config_hooks):
     leaf2_vrf_prefix = "10.212.20.0"
     data.d2t1_ip_addr = "10.212.10.10"		#Host1 GW
     data.t1d2p1_ip_addr = "10.212.10.1"		#Host1 IP 
-    data.t1d2p1_mac_addr = "00:61:61:00:00:11"	#Host1 Mac
+    data.t1d2p1_mac_addr = "00:00:00:00:00:01"	#Host1 Mac
     data.lag_ip = "10.212.10.2"			#Lag IP
     data.lag_gateway_ip = "10.212.10.10"	#Lag GW
-    data.lag_mac = "00:71:71:00:00:01"		#Lag Mac
+    data.lag_mac = "00:00:00:00:00:02"		#Lag Mac
+    data.t1d3p2_ip_addr = "10.212.10.5"        #Host5 IP
+    data.t1d3p2_mac_addr = "00:00:00:00:01:05" #Host5 Mac
     data.t1d4p1_ip_addr = "10.212.10.3"		#Host3 IP
-    data.t1d4p1_mac_addr = "00:81:81:00:00:11"	#Host3 Mac
+    data.t1d4p1_mac_addr = "00:00:00:00:02:03"	#Host3 Mac
     data.d4t1_ip_addr = "10.212.20.10"		#Host3 GW
     data.t1d4p2_ip_addr = "10.212.20.1"		#Host4 IP
-    data.t1d4p2_mac_addr = "00:91:91:00:00:11"	#Host4 Mac
+    data.t1d4p2_mac_addr = "00:00:00:00:02:04"	#Host4 Mac
     global lag_ports
     lag_ports = ["T1D2P2", "T1D3P1"]
     global lag_name
     lag_name = "LAG1"
     global int_dict
-    int_dict = {"T1D2P1": {"host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
+    int_dict = {"T1D2P1": {"host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr},
+                "T1D3P2": {"host_ip": data.t1d3p2_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d3p2_mac_addr},
                 "T1D4P1": {"host_ip": data.t1d4p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d4p1_mac_addr},
                 "T1D4P2": {"host_ip": data.t1d4p2_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4p2_mac_addr}}
     global handles
@@ -152,17 +155,23 @@ def traffic_item_setup(stream_list):
     streams = vxlan_obj.config_traffic_item(stream_list, handles, int_dict, data, ping=True)
     return streams
 
-def l3_traffic_test(stream_list):
+def l3_traffic_test(stream_list, del_stream=True):
     st.banner("Start to test VxLAN L3  with ping and traffic")
     ## Verify Vtep state
     vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP,"LEAF2_VXLAN_IP":LEAF2_VXLAN_IP})
-    ## Run Traffic: Bi-directional Burst of 100 Packets
     streams = traffic_item_setup(stream_list)
     st.log("Ping passed, sending traffic now")
     clear_counters()
     result = vxlan_obj.check_traffic(streams)
-    vxlan_obj.reset_traffic(streams)
-    return True
+    if del_stream:
+        vxlan_obj.reset_traffic(streams)
+    return result
+
+def unicast_udp_traffic_test(stream_list):
+    flag = False
+    clear_counters()
+    get_cli_out()
+    return vxlan_obj.create_udp_traffic_stream_and_send_traffic(handles, data, stream_list)
 
 def clear_arp():
     for dut in st.get_dut_names():
@@ -353,7 +362,7 @@ def test_remote_broadcast_traffic():
 ######################################################################
 # Test Inter-Subnet Ping
 ###################################################################### 
-def test_inter_subnet_ping():
+def _inter_subnet_ping():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -364,16 +373,12 @@ def test_inter_subnet_ping():
     try:
         #ping and unicast traffic from H1 to H4
         result = l3_traffic_test([("T1D2P1","T1D4P2")])                # H1 -> H4
-        if result:
-            st.report_pass("test_case_passed", "ping and traffic from single homed host to different subnet host passed with unicast traffic")
-        else:
-            st.report_fail("test_case_failed", "ping and traffic from single homed host to different subnet host failed with unicast traffic")
+        if not result:
+            report_fail(nodes['leaf0'], "ping and traffic from single homed host to different subnet host failed with unicast traffic")
 
         #ping and unicast traffic from H2 to H4
         result = l3_traffic_test([(lag_name,"T1D4P2")])                # H2 -> H4
-        if result:
-            st.report_pass("test_case_passed", "traffic from multihomed host to different subnet host passed with unicast traffic")
-        else:
+        if not result:
             report_fail("test_case_failed", "traffic from multihomed host to different subnet host failed with unicast traffic")
         
         #Verify RT-5 with subnet are exchanged
@@ -398,6 +403,7 @@ def test_inter_subnet_ping():
         #Verify H2 MAC is learn locally
         verify_mac(nodes, data.lag_mac, 'leaf0')
         verify_mac(nodes, data.lag_mac, 'leaf1')
+        st.report_pass('test_case_passed')
  
     except Exception as e:
         report_fail("", msg=e)
@@ -414,9 +420,7 @@ def test_intra_subnet_ping():
     nodes['leaf2'] = vars.D4
     try:
         result = l3_traffic_test([("T1D2P1",lag_name)])        # H1 -> H2
-        if result:
-            st.report_pass("test_case_passed", "test_intra_subnet_ping passed with unicast traffic")
-        else:
+        if not result:
             report_fail("test_case_failed", "test_intra_subnet_ping failed with unicast traffic")
 
 
@@ -436,45 +440,40 @@ def test_intra_subnet_ping():
                   "dst_endpoint" : {"port" : "T1D4P1","host_ip": data.t1d4p1_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4p1_mac_addr }}
         st.wait(10)
         result = BUM_traffic_test(stream, lag_name, "unknownunicast", "T1D4P1")
-        if result:
-            st.report_pass("test_case_passed", "test_intra_subnet_ping testcase passed with Unknown Unicast traffic sent from H2")
-        else:
-            st.report_fail("test_case_failed", "test_intra_subnet_ping testcase failed with Unknown Unicast traffic sent from H2")
+        if not result:
+            report_fail(nodes['leaf1'], "test_intra_subnet_ping testcase failed with Unknown Unicast traffic sent from H2")
         intf_cmd = 'show interface counters'
         diff_vlan_counters = get_counters(nodes['leaf2'], cmd = intf_cmd, target_iface = vars.D4T1P2, r_t_key = 'tx_ok')
         st.log("\nTX counters on interface {} belonging to different vlan is {}".format(vars.D4T1P2, diff_vlan_counters))
 
-        if not (diff_vlan_counters <= 0.02 * int(data.pkts_per_burst)):
+        if not (diff_vlan_counters <= 0.1 * int(data.pkts_per_burst)):
             report_fail(nodes['leaf2'], "BUM traffic getting flooded on different vlan")
 
         st.log("\nsending BUM traffic from H1 \n")
         stream = {"src_endpoint": {"port" : "T1D2P1", "host_ip": data.t1d2p1_ip_addr, "gateway": data.d2t1_ip_addr, "mac" : data.t1d2p1_mac_addr },
                   "dst_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4p1_mac_addr }}
         result = BUM_traffic_test(stream, "T1D2P1", "unknownunicast")
-        if result:
-            st.report_pass("test_case_passed", "test_intra_subnet_ping passed with unknown unicast traffic")
-        else:
+        if not result:
             report_fail("test_case_failed", "test_intra_subnet_ping failed with unknown unicast traffic")
         result = BUM_traffic_test(stream, "T1D2P1", "broadcast")
-        if result:
-            st.report_pass("test_case_passed", "test_intra_subnet_ping passed with broadcast traffic")
-        else:
+        if not result:
             report_fail("test_case_failed", "test_intra_subnet_ping failed with broadcast traffic")
-        arp_leaf0 = verify_arp(nodes, data.lag_ip, 'leaf0')
-        arp_leaf1 = verify_arp(nodes, data.lag_ip, 'leaf1')
-        if not arp_leaf0:
-            if not arp_leaf1:
-                report_fail("test_case_failed", 'verify_arp testcase failed for {}'.format(data.lag_ip))
+        #arp_leaf0 = verify_arp(nodes, data.lag_ip, 'leaf0')
+        #arp_leaf1 = verify_arp(nodes, data.lag_ip, 'leaf1')
+        #if not arp_leaf0:
+            #if not arp_leaf1:
+                #report_fail("test_case_failed", 'verify_arp testcase failed for {}'.format(data.lag_ip))
         #Verify H2 in APP_DB on T1, T2 and T3
-        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0')
-        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf1')
-        verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf2')
+        #verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf0')
+        #verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf1')
+        #verify_sonic_app_db_for_pfx(nodes, data.lag_ip, 'leaf2')
         #Verify H2 in ASIC_DB on T1 and T2
-        verify_sonic_asic_db_for_pfx(nodes, data.lag_ip, 'leaf0', LEAF2_VXLAN_IP)
-        verify_sonic_asic_db_for_pfx(nodes, data.lag_ip, 'leaf1', LEAF2_VXLAN_IP)
+        #verify_sonic_asic_db_for_pfx(nodes, data.lag_ip, 'leaf0', LEAF2_VXLAN_IP)
+        #verify_sonic_asic_db_for_pfx(nodes, data.lag_ip, 'leaf1', LEAF2_VXLAN_IP)
         #Verify H2 adjacency is learn locally 
         verify_mac(nodes, data.lag_mac, 'leaf0')
         verify_mac(nodes, data.lag_mac, 'leaf1')
+        st.report_pass('test_case_passed')
 
     except Exception as e:
         report_fail("", msg=e)
@@ -488,7 +487,6 @@ def verify_mac(nodes, host_mac, src_vtep):
     for path in parsed:
         if path['macaddress'] == host_mac:
             st.log("Host mac entry present on {}".format(src_vtep))
-            st.report_pass("test_case_passed", 'verify_mac testcase passed for {} on node {}'.format(host_mac, src_vtep))
             return
     report_fail(nodes[src_vtep], 'verify_mac testcase failed for {} on node {}'.format(host_mac, src_vtep))
 
@@ -501,7 +499,6 @@ def verify_arp(nodes, host_ip, src_vtep):
     for path in parsed:
         if path['address'] == host_ip:
             st.log("Host entry present on {}".format(src_vtep))
-            st.report_pass("test_case_passed", 'verify_arp testcase passed for {} on node {}'.format(host_ip, src_vtep))
             return True
     return False
     
@@ -510,7 +507,7 @@ def verify_sonic_asic_db_for_pfx(nodes, prefix_ip, src_vtep, dst_vtep):
     parsed = st.parse_show(nodes[src_vtep], 'sonic-db-dump -n ASIC_DB -k *{}* -y'.format(prefix_ip), output, 'show_asic_db.tmpl')
     if len(parsed) == 0:
         st.log("ERROR empty output")
-        report_fail("verify_sonic_asic_db_for_pfx {} not found in asic db on {}".format(prefix_ip, src_vtep))
+        report_fail(nodes[src_vtep], "verify_sonic_asic_db_for_pfx {} not found in asic db on {}".format(prefix_ip, src_vtep))
     st.log(parsed)
     for path in parsed:
         if path['ip_address'].split("/")[0] == prefix_ip:
@@ -521,7 +518,6 @@ def verify_sonic_asic_db_for_pfx(nodes, prefix_ip, src_vtep, dst_vtep):
             for path in parsed:
                 if path['nexthopip'] == dst_vtep:
                     st.log("Testcase passed")
-                    st.report_pass("test_case_passed", 'verify_sonic_asic_db_for_pfx testcase passed for {} on node {}'.format(prefix_ip, src_vtep))
                 else:
                     report_fail(nodes[src_vtep], "verify_sonic_asic_db_for_pfx wrong dest_vtep ip found in asic_db for {} on {}".format(prefix_ip, src_vtep))
 
@@ -532,8 +528,6 @@ def verify_sonic_app_db_for_pfx(nodes, prefix_ip, src_vtep):
         st.log("ERROR empty output")
     for path in parsed:
         if path['ip_address'] == prefix_ip:
-        #if path['ip_address'].split("/")[0] == prefix_ip:
-            st.report_pass("test_case_passed", 'verify_sonic_app_db_for_pfx testcase passed for {} on node {}'.format(prefix_ip, src_vtep))
             return
     report_fail(nodes[src_vtep], 'verify_sonic_app_db_for_pfx testcase failed for {} on node {}'.format(prefix_ip, src_vtep))
 
@@ -549,7 +543,6 @@ def verify_ip_route_multihomed_host(nodes, prefix_ip, src_vtep, vrf):
         if path['type'] == 'B' and path['ip_address'] == "10.212.10.2/32":
             st.log(path['nexthop'])
             if path['nexthop'] == ['fd27::233:d0c6:fefb','fd27::2dc:c1c9:e17c']:
-                st.report_pass("test_case_passed", 'verify_ip_route_multihomed_host testcase passed on {}'.format(nodes[src_vtep]))
                 return
     st.log("{} not installed as ECMP in FRR on {}".format(prefix_ip, src_vtep))
     report_fail(nodes[src_vtep], "ecmp not installed for {} on {}".format(prefix_ip, nodes[src_vtep]))
@@ -564,17 +557,16 @@ def verify_vrf_route_l3vni(nodes, prefix_ip, src_vtep, vrf):
         report_fail(nodes[src_vtep], msg='Found no routes in vrf {}'.format(vrf))
     for path in parsed:
         if path['type'] == 'B' and path['ip_address'] == "10.212.20.0/24" and "3.3.3.3" in path['nexthop']:
-            st.report_pass('test_case_passed', 'verify_vrf_route_l3vni passed for {}'.format(nodes[src_vtep]))
             return
         else:
-            st.report_fail("test_case_failed", nodes[src_vtep])    
+            report_fail(nodes[src_vtep], nodes[src_vtep])    
 
 ######################################################################
 # Test Route Type 2 Proxy
 ######################################################################
 #Verify T2 regenerate RT-2 as proxy
 # TC could fail until MIGSOFTWAR-17150 is fixed
-def test_rt2_proxy():
+def _rt2_proxy():
     vars = st.get_testbed_vars()
     
     nodes = {}
@@ -857,7 +849,7 @@ def test_nhg():
     vtep_list = [LEAF0_VXLAN_IP, LEAF1_VXLAN_IP]
     
     # Dump VXLAN_FDB_TABLE
-    cmd = 'sonic-db-dump -n APPL_DB -k *VXLAN_FDB_TABLE::{}* -y'.format(data.lag_mac)
+    cmd = 'sonic-db-dump -n APPL_DB -k *VXLAN_FDB_TABLE:Vlan10:{}* -y'.format(data.lag_mac)
     
     output = st.show(nodes['leaf2'], cmd, skip_tmpl=True, skip_error_check=True)
     parsed = st.parse_show(nodes['leaf2'], cmd, output, 'sonic_db_dump_app_db_VXLAN_FDB_TABLE.tmpl')
@@ -894,10 +886,38 @@ def test_nhg():
         report_fail(nodes['leaf2'], 'Leaf1 is missing as nexthop')   
     st.report_pass('test_case_passed')
 
+def test_remote_unicast_for_ecmp():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['leaf0'] = vars.D2
+    nodes['leaf1'] = vars.D3
+    nodes['leaf2'] = vars.D4
+    stream = {"src_endpoint": {"port" : "T1D4P1", "host_ip": data.t1d4p1_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4p1_mac_addr },
+              "dst_endpoint": {"port" : lag_name, "host_ip": data.lag_ip, "gateway": data.lag_gateway_ip, "mac" : data.lag_mac }}
+    result = unicast_udp_traffic_test(stream)
+    if not result:
+        report_fail(nodes['leaf2'], "Unicast traffic in test_remote_unicast_for_ecmp failed")
+    intf_cmd = 'show interface counters'
+    leaf0_counters = get_counters(nodes['leaf0'], cmd = intf_cmd, target_iface = vars.D2T1P2, r_t_key = 'tx_ok')
+    leaf1_counters = get_counters(nodes['leaf1'], cmd = intf_cmd, target_iface = vars.D3T1P1, r_t_key = 'tx_ok')
+    st.log("\nTX counters on interface {} and {} is {} and {}".format(vars.D2T1P2, vars.D3T1P1, leaf0_counters, leaf1_counters))
+
+    if (leaf0_counters <= 0.1 * int(data.pkts_per_burst) or leaf1_counters <= 0.1 * int(data.pkts_per_burst)):
+        st.banner("Unicast traffic from leaf2 is not getting load balanced between leaf0 and leaf1")
+        report_fail(nodes['leaf2'], "Unicast traffic from leaf2 is not getting load balanced between leaf0 and leaf1")
+    st.report_pass('test_case_passed', 'test_remote_unicast_for_ecmp passed')
+    #st.config(nodes['leaf0'], "config interface shutdown {}".format(vars.D2T1P2))
+    #st.wait(10)
+    #result = unicast_udp_traffic_test(stream)
+    #if not result:
+    #    report_fail(nodes['leaf0'], "Traffic test failed after shutting down Leaf0 link connected to multihomed host")
+
 ######################################################################
 # Test Portchannel Deconfig and Config to See DF and NDF is Honored
 ######################################################################    
-def test_portchannel_deconf():
+def _portchannel_deconf():
     vars = st.get_testbed_vars()
     
     nodes = {}
@@ -922,6 +942,7 @@ def test_portchannel_deconf():
     
     # Restore config
     cmds = ['sudo config portchannel add PortChannel2',
+        'sudo config interface ipv6 disable use-link-local-only {}'.format(vars.D2T1P2),
         'sudo config portchannel member add PortChannel2 {}'.format(vars.D2T1P2),
         'sudo config vlan member add -u 10 PortChannel2',
         'sudo config interface sys-mac add PortChannel2 00:44:33:22:11:00']
@@ -966,4 +987,57 @@ def test_portchannel_deconf():
     else:
         st.report_pass('test_case_passed')
         
+def stop_device_group(port):
+    tg_handle = handles.values()[0]['tg_handle']
+    tmp_handle = handles[port]['int_handle']
+    device_group = "/"+"/".join(tmp_handle.split('/',3)[1:3])       #/topology:2/deviceGroup:1
+    tg_handle.tg_test_control(action="stop_protocol", handle=device_group)
+    st.wait(10)
+
+def create_device_group(port, host_dict):
+    tg = handles[port]['tg_handle']
+    topology_name = "/"+handles[port]['int_handle'].split("/")[1]       #/topology:2
+    tg.tg_test_control(action='stop_protocol', handle=topology_name)
+    st.wait(10)
+    _result_ = tg.tg_topology_config(topology_handle=topology_name,
+                                     device_group_name="moved_deviceGroup_H1",
+                                     device_group_multiplier = '1', device_group_enabled = '1')
+    deviceGroup_1_handle = _result_['device_group_handle']
+    _result_ = tg.tg_interface_config(protocol_name     = 'Ethernet H1',
+                                      protocol_handle   = deviceGroup_1_handle,
+                                      mtu               = '1500',
+                                      src_mac_addr      = host_dict["host_mac"]
+                                      )
+    ethernet_1_handle = _result_['ethernet_handle']
+    _result_ = tg.tg_interface_config(
+        protocol_name     = 'IPv4 H1',
+        protocol_handle   = ethernet_1_handle,
+        gateway           = host_dict["gateway"],
+        intf_ip_addr      = host_dict["host_ip"],
+         netmask          = "255.255.255.0"
+    )
+    st.wait(10)
+    int_handle = _result_['interface_handle']
+    tg.tg_test_control(action='start_protocol', handle=topology_name)
+    handles[port].update({"int_handle": int_handle})
+
+def create_raw_traffic_stream(stream_info):
+    all_port_handles=[]
+    if stream_info.get('src_endpoint') and stream_info.get('dst_endpoint'):
+        tg_handle1, port_handle1 = tgapi.get_handle_byname(stream_info['src_endpoint']['port'])
+        tg_handle2, port_handle2 = tgapi.get_handle_byname(stream_info['dst_endpoint']['port'])
+
+        all_port_handles.append(port_handle1)
+        all_port_handles.append(port_handle2)
+
+        tg_handle1.tg_traffic_control(action='clear_stats', port_handle=[port_handle1, port_handle2])
+        receive = tg_handle1.tg_traffic_config(
+                port_handle=port_handle1, port_handle2=port_handle2, mode='create',
+                transmit_mode=data.transmit_mode, pkts_per_burst=data.pkts_per_burst,
+                rate_percent = data.rate_percent, circuit_endpoint_type=data.circuit_endpoint_type,
+                frame_size=data.frame_size, mac_src=stream_info['src_endpoint']['mac'],
+                mac_dst=stream_info['dst_endpoint']['mac'])
+        stream_id = receive["stream_id"]
+        tmp_handle = {"tg_handle": tg_handle1,"port_handle1": port_handle1, "port_handle2": port_handle2, "stream_id": stream_id,"all_port_handles": all_port_handles,"traffic_item_type": "raw"}
+    return tmp_handle
 

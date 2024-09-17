@@ -7,4 +7,4 @@ Steps to run Spytest:
 4. vxr.py ports 
 5. Login to sonic-mgmt
 6. Follow steps from sonic-mgmt/spytest/tests/cisco/tortuga/README.md
-7. ./bin/spytest --testbed tortuga_spytest_topo_EVPN_MH.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 /data/tests/cisco/tortuga/vxlan/test_evpn_mh_v6.py
+7. ./bin/spytest --testbed tortuga_spytest_topo_EVPN_MH.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 /data/tests/cisco/tortuga/vxlan/test_evpn_mh_v4_over_v6.py
