@@ -113,7 +113,7 @@ parameters:
   default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=202305&platform=vs&target=target%2Fsonic-vs.img.gz
 
 - name: SKIP_REBOOT_CASES
-  default: "test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path"
+  default: "test_cancelled_upgrade_path test_upgrade_path test_double_upgrade_path"
   type: string
   displayName: "Cases to skip running"
   values:
@@ -132,7 +132,7 @@ parameters:
 
 - name: ITERATIONS
   type: string
-  default: "18"
+  default: "1"
   values:
   - "1"
   - "10"
