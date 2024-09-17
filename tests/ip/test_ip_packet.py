@@ -684,7 +684,7 @@ class TestIPPacket(object):
         # THEN DUT should drop it and add drop count
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
-         pc_ports_map, ptf_indices, ingress_router_mac) = common_param
+         pc_ports_map, _, ingress_router_mac) = common_param
 
         dst_mac = TestIPPacket.random_mac()
         while dst_mac == ingress_router_mac:
@@ -713,22 +713,21 @@ class TestIPPacket(object):
                 duthost.command("show interfaces counters rif")["stdout_lines"])
 
         # rx_ok counter to increase to show packets are being received correctly at layer 2
-        # rx_drp or rx_err counter to increase to show packets are being dropped
+        # rx_drp counter to increase to show packets are being dropped
         # tx_ok, tx_drop, tx_err counter to zero to show no packets are being forwarded
         rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
         rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) if rif_support else 0
         tx_ok = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
-        tx_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
+        tx_rif_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
         if skip_traffic_test is True:
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
-        pytest_assert(max(rx_drp, rx_err) >= self.PKT_NUM_MIN,
-                      "Dropped {} packets in rx, not in expected range".format(rx_err))
+        pytest_assert(rx_drp >= self.PKT_NUM_MIN,
+                      "Dropped {} packets in rx, not in expected range".format(rx_drp))
         pytest_assert(tx_ok <= self.PKT_NUM_ZERO,
                       "Forwarded {} packets in tx, not in expected range".format(tx_ok))
-        pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO,
-                      "Dropped {} packets in tx, not in expected range".format(tx_err))
+        pytest_assert(max(tx_drp, tx_rif_err) <= self.PKT_NUM_ZERO,
+                      "Dropped {} packets in tx, tx_rif_err {}, not in expected range".format(tx_drp, tx_rif_err))
