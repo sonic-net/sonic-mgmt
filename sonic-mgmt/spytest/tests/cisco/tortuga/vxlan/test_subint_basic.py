@@ -91,7 +91,7 @@ def config_static(node, config_domain, add=True):
             config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain)
 
 
-def config_subint(node, add=True):
+def config_subint(node, vrf=None, add=True):
     vars = st.get_testbed_vars()
 
     idx_rm = vars.D1D3P1.index("ernet")
@@ -100,11 +100,17 @@ def config_subint(node, add=True):
     if add:
         st.config(node, "config subinterface add {}{} {}".format(short_name, subint_id1, subint_vlan1))
         st.config(node, "config subinterface add {}{} {}".format(short_name, subint_id2, subint_vlan2))
+        if vrf:
+            st.config(node, "config interface vrf bind {}{} {}".format(short_name, subint_id1, vrf))
+            st.config(node, "config interface vrf bind {}{} {}".format(short_name, subint_id2, vrf))
         st.config(node, "config interface ip add {}{} {}".format(short_name, subint_id1, subint_prefix1))
         st.config(node, "config interface ip add {}{} {}".format(short_name, subint_id2, subint_prefix2))
     else:
         st.config(node, "config interface ip remove {}{} {}".format(short_name, subint_id2, subint_prefix2))
         st.config(node, "config interface ip remove {}{} {}".format(short_name, subint_id1, subint_prefix1))
+        if vrf:
+            st.config(node, "config interface vrf unbind {}{}".format(short_name, subint_id2))
+            st.config(node, "config interface vrf unbind {}{}".format(short_name, subint_id1))
         st.config(node, "config subinterface del {}{}".format(short_name, subint_id2))
         st.config(node, "config subinterface del {}{}".format(short_name, subint_id1))
 
@@ -144,7 +150,7 @@ def subint_config_hooks():
 
     yield subint_config_hooks
 
-    config_subint(vars.D1, add=False)
+    config_subint(vars.D1, vrf=None, add=False)
 
     with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
@@ -152,30 +158,45 @@ def subint_config_hooks():
             config_static(node, 'sonic', add=False)
             st.wait(2)
 
-    #router_preconfig_cleanup()
     vxlan_obj.remove_temp_config(updated_config_file)
-    
-    
-def run_subint_ping_test():
 
-    st.wait(30)
-    ###Get TGEN Handles ###
-    handles = vxlan_obj.tgen_preconfig({"src_endpoint": {"port" : "T1D3P1", "host_ip": data.t1d3p1_ip_addr, "gateway": data.d3t1p1_ip_addr, "mac" : data.t1d3p1_mac_addr }, 
-                                        "dst_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d3t1p2_ip_addr, "mac" : data.t1d3p2_mac_addr }},
-                                        "raw",data)
-    if handles == False:
-        st.report_fail('tgen1 subint ping failed')
 
-    st.wait(30)
-    ###Get TGEN Handles ###
-    handles = vxlan_obj.tgen_preconfig({"src_endpoint": {"port" : "T1D3P2", "host_ip": data.t1d3p2_ip_addr, "gateway": data.d3t1p2_ip_addr, "mac" : data.t1d3p2_mac_addr }, 
-                                        "dst_endpoint": {"port" : "T1D3P1", "host_ip": data.t1d3p1_ip_addr, "gateway": data.d3t1p1_ip_addr, "mac" : data.t1d3p1_mac_addr }},
-                                        "raw",data)
+def traffic_setup_subint():
+    global handles
+    ### Config tgen interface and get tg handle, port handle and interface handles ###
+    int_dict = {"T1D3P1": {"host_ip": data.t1d3p1_ip_addr, "gateway": data.d3t1p1_ip_addr, "mac" : data.t1d3p1_mac_addr },
+                "T1D3P2": {"host_ip": data.t1d3p2_ip_addr, "gateway": data.d3t1p2_ip_addr, "mac" : data.t1d3p2_mac_addr }}
+
+    handles = vxlan_obj.config_tgen_interface(int_dict, 'ipv4')
+
+    ### Generate Traffic item and Ping test , get tg handle, stream id and port handles ###
+    # T1D3P1 --- subint --- T1D3P2
+
+    stream_list = [("T1D3P1", "T1D3P2")]
+    streams = vxlan_obj.config_traffic_item(stream_list, handles, int_dict, data, ping=True)
+    return streams, handles
     
-    if handles == False:
-        st.report_fail('tgen2 subint ping failed')
+    
+def run_subint_traffic_test():
+
+    st.wait(15)
+
+    ###Get TGEN Handles ###
+    streams, handles = traffic_setup_subint()
+
+    st.wait(15)
+    st.log("subint with streams {}".format(streams))
+
+    ## Run Traffic: Bi-directional Ping and Burst of 500 Packets
+    result = vxlan_obj.check_traffic(streams, timeout=10)
+
+    if result:
+        st.log("subint with one or more traffic test passed {}".format(result))
+        return True
     else:
-        st.report_pass('test_case_passed')  
+        st.log("subint with one or more traffic test failed {}".format(result))
+        return False
+
     
     
 def test_l2vni_subint_basic():
@@ -187,8 +208,13 @@ def test_l2vni_subint_basic():
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
     
-    run_subint_ping_test()
-    
+    result = run_subint_traffic_test()
+
+    if result:
+        st.report_pass("test_case_passed", "test_case_pass_subint_basic")
+    else:
+        st.report_fail("test_case_failed", "test_case_failed_subint_basic")
+
 
 def test_l2vni_subint_delete_add():
     vars = st.get_testbed_vars()
@@ -200,13 +226,61 @@ def test_l2vni_subint_delete_add():
     nodes['leaf1'] = vars.D4
 
     test_node = 'spine0'
-    config_subint(vars.D1, add=False)
+    config_subint(vars.D1, vrf=None, add=False)
     config_static(test_node, 'sonic', add=False)
 
     st.wait(10)
-    config_subint(vars.D1)
     config_static(test_node, 'sonic', add=True)
+    config_subint(vars.D1)
    
-    run_subint_ping_test()
+    result = run_subint_traffic_test()
+
+    if result:
+        st.report_pass("test_case_passed", "test_case_pass_subint_delete_add")
+    else:
+        st.report_fail("test_case_failed", "test_case_failed_subint_delete_add")
 
 
+def test_subint_vrf_cli_traffic():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+
+    config_subint(vars.D1, vrf=None, add=False)
+
+
+    vrf = 'Vrf40000'
+    vxlan_obj.config_vrf(nodes['spine0'], vrf)
+
+    # cli stress test
+    for i in range(5):
+        config_subint(vars.D1, vrf=vrf)
+        st.wait(5)
+        config_subint(vars.D1, vrf=vrf, add=False)
+        st.wait(5)
+
+    config_subint(vars.D1, vrf=vrf)
+
+    # ping test
+    result = run_subint_traffic_test()
+
+    for dut in st.get_dut_names():
+        if "spine0" in dut:
+            output = st.config(dut, "show subinterface status")
+            st.log(output)
+
+    config_subint(vars.D1, vrf=vrf, add=False)
+
+    vxlan_obj.config_vrf(nodes['spine0'], vrf, add=False)
+
+    config_subint(vars.D1)
+
+
+    if result:
+        st.report_pass("test_case_passed", "test_case_pass_subint_vrf_cli_traffic")
+    else:
+        st.report_fail("test_case_failed", "test_case_failed_subint_vrf_cli_traffic")

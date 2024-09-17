@@ -161,6 +161,8 @@ def dhcp_setup_verify_ipv4(linksel=False):
     cont1 = tg1.tg_emulation_dhcp_control(port_handle=tg_ph_1, action="bind", handle=group1['handle'])
     st.log("dhcp relay ipv4 basic client bind {}".format(cont1))
 
+    st.wait(5)
+
     rst1 = tg1.tg_emulation_dhcp_stats(port_handle=tg_ph_1, handle=conf1['handles'], mode='session', ip_version='4')
     st.log("dhcp relay ipv4 basic client result {}".format(rst1))
 
@@ -250,7 +252,12 @@ def test_dhcp_relay_ipv4_2vlans():
     nodes['spine1'] = vars.D2
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
-    
+
+    for dut in st.get_dut_names():
+        output = st.config(dut, "show vlan brief")
+        st.log(output)
+        st.wait(3)
+
     vxlan_obj.config_vlan(nodes['leaf0'], dhcprelay_vlan1, members=[vars.D3T1P1], vrf=None, add=True, tagged=True)    
     vxlan_obj.config_vlan(nodes['leaf0'], dhcprelay_vlan2, members=[vars.D3T1P2], vrf=None, add=True, tagged=True)    
     
@@ -292,7 +299,13 @@ def test_dhcp_relay_ipv4_single_vrf():
     nodes['spine1'] = vars.D2
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
-   
+
+    for dut in st.get_dut_names():
+        output = st.config(dut, "show vlan brief")
+        st.log(output)
+        output = st.config(dut, "show vrf")
+        st.log(output)
+
     vrf = 'Vrf01'
     
     vxlan_obj.config_vrf(nodes['leaf0'], vrf) 
