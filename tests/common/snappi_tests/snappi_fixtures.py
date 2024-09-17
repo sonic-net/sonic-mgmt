@@ -1272,35 +1272,38 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
 
 def clear_fabric_counters(duthost):
     """
-    Clears the fabric counters for the duthost.
+    Clears the fabric counters for the duthost based on broadcom-DNX platform.
     Args:
         duthost(obj): dut host object
     Returns:
         None
     """
-    logger.info('Clearing fabric counters for DUT:{}'.format(duthost.hostname))
-    duthost.shell('sonic-clear fabriccountersport \n')
-    time.sleep(1)
+    if "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
+        logger.info('Clearing fabric counters for DUT:{}'.format(duthost.hostname))
+        duthost.shell('sonic-clear fabriccountersport \n')
+        time.sleep(1)
 
 
 def check_fabric_counters(duthost):
     """
-    Check for the fabric counters for the duthosts.
+    Check for the fabric counters for the duthost based on broadcom-DNX platform.
     Test assert if the value of CRC, and FEC_UNCORRECTABLE.
     Args:
         duthost(obj): dut host object
     Returns:
         None
     """
-    raw_out = duthost.shell("show fabric counters port | grep -Ev 'ASIC|---|down'")['stdout']
-    logger.info('Verifying fabric counters for DUT:{}'.format(duthost.hostname))
-    for line in raw_out.split('\n'):
-        # Checking if the port is UP.
-        if 'up' in line:
-            val_list = line.split()
-            crc_errors = int(val_list[7].replace(',', ''))
-            fec_uncor_err = int(val_list[9].replace(',', ''))
-            pytest_assert(crc_errors == 0, 'CRC errors:{} for DUT:{}, ASIC:{}, Port:{}'.
-                          format(crc_errors, duthost.hostname, val_list[0], val_list[1]))
-            pytest_assert(fec_uncor_err == 0, 'Forward Uncorrectable errors:{} for DUT:{}, ASIC:{}, Port:{}'.
-                          format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
+    if "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
+        raw_out = duthost.shell("show fabric counters port | grep -Ev 'ASIC|---|down'")['stdout']
+        logger.info('Verifying fabric counters for DUT:{}'.format(duthost.hostname))
+        for line in raw_out.split('\n'):
+            # Checking if the port is UP.
+            if 'up' in line:
+                val_list = line.split()
+                crc_errors = int(val_list[7].replace(',', ''))
+                fec_uncor_err = int(val_list[9].replace(',', ''))
+                # Assert if CRC or FEC uncorrected errors are non-zero.
+                pytest_assert(crc_errors == 0, 'CRC errors:{} for DUT:{}, ASIC:{}, Port:{}'.
+                              format(crc_errors, duthost.hostname, val_list[0], val_list[1]))
+                pytest_assert(fec_uncor_err == 0, 'Forward Uncorrectable errors:{} for DUT:{}, ASIC:{}, Port:{}'.
+                              format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
