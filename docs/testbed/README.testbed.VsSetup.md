@@ -122,6 +122,7 @@ You need to create a valid SONiC image named `sonic-vs.img` in the `~/veos-vm/im
 ## Download the sonic-vs image
 To run the tests with a virtual SONiC device, we need a virtual SONiC image. The simplest way to do so is to download the latest succesful build.
 
+### Option 1: Download sonic-vs image
 1. Download the sonic-vs image from [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz)
 
 ```
@@ -138,6 +139,18 @@ mkdir -p ~/veos-vm/images
 mv sonic-vs.img ~/veos-vm/images
 ```
 
+### Option 2: Download sonic-vpp image
+1. Download the sonic-vs image from [here](https://github.com/cisco-mt-fuji/Sonic-Vpp).
+Note that the link is currently a private repo for internal use only, we will update the url with latest successful build soon.
+2. Unzip the image, rename the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
+```
+gzip -d sonic-vpp.img.gz
+mv sonic-vpp.img sonic-vs.img
+mkdir -p ~/sonic-vm/images
+cp sonic-vs.img ~/sonic-vm/images
+mkdir -p ~/veos-vm/images
+mv sonic-vs.img ~/veos-vm/images
+```
 ## Setup sonic-mgmt docker
 All testbed configuration steps and tests are run from a `sonic-mgmt` docker container. This container has all the necessary packages and tools for SONiC testing so that test behavior is consistent between different developers and lab setups.
 
