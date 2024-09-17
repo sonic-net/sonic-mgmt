@@ -143,7 +143,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
             pytest.fail("FEC uncorrectable errors are non-zero for interface {}: {}"
                         .format(intf_name, fec_uncorr_int))
 
-        # Check for valid FEC correctable errors > FEC symbol errors
+        # Check for valid FEC correctable codeword errors > FEC symbol errors
         if fec_symbol_err_int > fec_corr_int:
             pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
                         .format(intf_name, fec_symbol_err_int, fec_corr_int))
