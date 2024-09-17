@@ -21,6 +21,8 @@ CONSOLE_TELNET = "console_telnet"
 CONSOLE_SSH = "console_ssh"
 # Console login via SSH, then login to devices by 'menu ports'
 CONSOLE_SSH_MENU_PORTS = "console_ssh_menu_ports"
+# Console login via SSH, no stage 2 login (Digi Config Menu)
+CONSOLE_SSH_DIGI_CONFIG = "console_ssh_digi_config"
 
 
 class BaseConsoleConn(CiscoBaseConnection):

@@ -58,6 +58,8 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
+from tests.common.connections.base_console_conn import CONSOLE_SSH_DIGI_CONFIG
+from tests.common.connections.ssh_console_conn import PortInUseException
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
@@ -1867,15 +1869,79 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
         "ansible_altpassword")
-    host = ConsoleHost(console_type=console_type,
-                       console_host=console_host,
-                       console_port=console_port,
-                       sonic_username=creds['sonicadmin_user'],
-                       sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
-                       console_username=console_username,
-                       console_password=creds['console_password'][console_type])
+
+    # Set up console host
+    host = None
+    try:
+        host = ConsoleHost(console_type=console_type,
+                           console_host=console_host,
+                           console_port=console_port,
+                           sonic_username=creds['sonicadmin_user'],
+                           sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
+                           console_username=console_username,
+                           console_password=creds['console_password'][console_type])
+    except PortInUseException:
+        # Clear the console port, then attempt setup again
+        duthost_clear_console_port(
+            console_host=console_host,
+            console_port=console_port,
+            console_password=creds['console_password'][console_type]
+        )
+
+        host = ConsoleHost(console_type=console_type,
+                           console_host=console_host,
+                           console_port=console_port,
+                           sonic_username=creds['sonicadmin_user'],
+                           sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
+                           console_username=console_username,
+                           console_password=creds['console_password'][console_type])
+
+    if host is None:
+        raise Exception("DUT console host was not setup correctly.")
+
     yield host
     host.disconnect()
+
+
+def duthost_clear_console_port(console_host, console_port, console_password):
+    """
+    Helper function to clear the console port for a given DUT.
+    Useful when a device has an occupied console port, preventing dut_console tests from running.
+    This function uses the default 'admin' account to log in to the Digi CM 48 config page,
+    so it does not require a username being passed to it.
+
+    Parameters:
+        console_host (str): DUT host's console IP address
+        console_port (str): DUT host's console port, to be cleared
+        console_password (str): Password for the 'admin' account
+    """
+    # Helper function to send a command and optionally wait for pattern
+    def send_command(host, command_str, pattern=""):
+        host.write_channel(command_str + host.RETURN)
+        host.read_until_prompt_or_pattern(pattern=pattern)
+
+    # Command list per the Digi CM 48 configuration page
+    ENTER_SERIAL_PORT_CONFIG = '2'
+    CHOOSE_DUT_CONSOLE_PORT = console_port
+    ENTER_PORT_MANAGEMENT = 'a'
+    RESET_PORT = '1'
+
+    duthost_config_menu = ConsoleHost(
+        console_type=CONSOLE_SSH_DIGI_CONFIG,
+        console_host=console_host,
+        console_port=console_port,
+        console_username='admin',
+        console_password=console_password,
+        sonic_username=None,
+        sonic_password=None
+    )
+
+    send_command(duthost_config_menu, ENTER_SERIAL_PORT_CONFIG)
+    send_command(duthost_config_menu, CHOOSE_DUT_CONSOLE_PORT)
+    send_command(duthost_config_menu, ENTER_PORT_MANAGEMENT)
+    send_command(duthost_config_menu, RESET_PORT, f"Port #{console_port} has been reset successfully.")
+
+    duthost_config_menu.disconnect()
 
 
 @pytest.fixture(scope='session')

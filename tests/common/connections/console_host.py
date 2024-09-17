@@ -1,11 +1,12 @@
-from .base_console_conn import CONSOLE_SSH, CONSOLE_SSH_MENU_PORTS, CONSOLE_TELNET
+from .base_console_conn import CONSOLE_SSH, CONSOLE_SSH_MENU_PORTS, CONSOLE_TELNET, CONSOLE_SSH_DIGI_CONFIG
 from .telnet_console_conn import TelnetConsoleConn
 from .ssh_console_conn import SSHConsoleConn
 
 ConsoleTypeMapper = {
     CONSOLE_TELNET: TelnetConsoleConn,
     CONSOLE_SSH: SSHConsoleConn,
-    CONSOLE_SSH_MENU_PORTS: SSHConsoleConn
+    CONSOLE_SSH_MENU_PORTS: SSHConsoleConn,
+    CONSOLE_SSH_DIGI_CONFIG: SSHConsoleConn
 }
 
 
