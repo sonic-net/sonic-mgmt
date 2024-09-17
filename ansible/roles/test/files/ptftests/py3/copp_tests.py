@@ -356,15 +356,12 @@ class DHCPTest(PolicyTest):
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
             self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
         else:
             self.PPS_LIMIT = 100
-        if self.asic_type == "cisco-8000" and any(platform in self.platform
-                                                  for platform in ["8102", "8101", "8111"]):
-            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.8
-            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
-        else:
-            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
-            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("DHCPTest")
@@ -408,15 +405,12 @@ class DHCP6Test(PolicyTest):
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
             self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
         else:
             self.PPS_LIMIT = 100
-        if self.asic_type == "cisco-8000" and any(platform in self.platform
-                                                  for platform in ["8102", "8101", "8111"]):
-            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.8
-            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
-        else:
-            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
-            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("DHCP6Test")
@@ -479,15 +473,12 @@ class LLDPTest(PolicyTest):
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
             self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
         else:
             self.PPS_LIMIT = 100
-        if self.asic_type == "cisco-8000" and any(platform in self.platform
-                                                  for platform in ["8102", "8101", "8111"]):
-            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.8
-            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
-        else:
-            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
-            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("LLDPTest")
@@ -518,15 +509,12 @@ class UDLDTest(PolicyTest):
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
             self.PPS_LIMIT = 600
+        elif self.asic_type == "cisco-8000":
+            self.PPS_LIMIT = 400
         else:
             self.PPS_LIMIT = 100
-        if self.asic_type == "cisco-8000" and any(platform in self.platform
-                                                  for platform in ["8102", "8101", "8111"]):
-            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.8
-            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
-        else:
-            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
-            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("UDLDTest")
