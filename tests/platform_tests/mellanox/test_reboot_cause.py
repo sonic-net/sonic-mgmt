@@ -2,7 +2,7 @@ import allure
 import logging
 import pytest
 from tests.common.reboot import REBOOT_TYPE_BIOS, REBOOT_TYPE_ASIC, check_reboot_cause
-from tests.platform_tests.thermal_control_test_helper import mocker_factory  # noqa: F401
+from tests.common.helpers.thermal_control_test_helper import mocker_factory  # noqa: F401
 
 pytestmark = [
     pytest.mark.asic('mellanox'),

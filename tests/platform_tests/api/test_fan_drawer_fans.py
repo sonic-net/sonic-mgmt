@@ -5,7 +5,7 @@ import time
 import pytest
 
 from tests.common.helpers.platform_api import chassis, fan_drawer, fan_drawer_fan
-from tests.platform_tests.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
+from tests.common.helpers.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
 from .platform_api_test_base import PlatformApiTestBase
 
 ###################################################

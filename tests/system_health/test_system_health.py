@@ -9,7 +9,7 @@ from tests.common import config_reload
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.platform_tests.thermal_control_test_helper import disable_thermal_policy     # noqa F401
+from tests.common.helpers.thermal_control_test_helper import disable_thermal_policy     # noqa F401
 from .device_mocker import device_mocker_factory        # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.duthost_utils import is_support_mock_asic    # noqa F401

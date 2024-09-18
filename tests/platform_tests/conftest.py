@@ -14,7 +14,7 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
-from .mellanox.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
+from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
 
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(
