@@ -15,8 +15,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -146,7 +145,7 @@ EOF
     yield
 
     duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True)
 
 
 def is_mellanox_devices(hwsku):
@@ -354,9 +353,15 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
 
 
 @pytest.fixture(params=["port_channel_members", "vlan_members", "rif_members"])
-def tx_dut_ports(request, setup):
+def tx_dut_ports(request, setup, tbinfo):
     """ Fixture for getting port members of specific port group """
-    return setup[request.param] if setup[request.param] else pytest.skip("No {} available".format(request.param))
+    if not setup[request.param]:
+        reason = "No {} available".format(request.param)
+        if tbinfo["topo"]["type"] != "t0" and request.param == "vlan_members":
+            reason = "Test case is only suitable for t0 type topology since it requires vlan interfaces"
+        pytest.skip(reason)
+    else:
+        return setup[request.param]
 
 
 @pytest.fixture
@@ -937,9 +942,6 @@ def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_por
     """
     @summary: Create an IP packet with TTL=0.
     """
-    if "x86_64-mlnx_msn" in duthost.facts["platform"] or "x86_64-nvidia_sn" in duthost.facts["platform"]:
-        pytest.skip("Not supported on Mellanox devices")
-
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"],
                    pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 

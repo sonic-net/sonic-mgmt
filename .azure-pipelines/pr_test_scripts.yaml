@@ -5,7 +5,6 @@ t0:
   - acl/test_acl_outer_vlan.py
   - acl/test_stress_acl.py
   - arp/test_arp_extended.py
-  - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
   - arp/test_stress_arp.py
   - arp/test_tagged_arp.py
@@ -85,7 +84,6 @@ t0:
   - http/test_http_copy.py
   - iface_loopback_action/test_iface_loopback_action.py
   - iface_namingmode/test_iface_namingmode.py
-  - ip/test_mgmt_ipv6_only.py
   - ip/test_ip_packet.py
   - ipfwd/test_dip_sip.py
   - ipfwd/test_dir_bcast.py
@@ -172,9 +170,7 @@ t0:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
-  # Temporarily skip test_events due to test issue with high failure rate
-  # - telemetry/test_events.py
-  - telemetry/test_telemetry.py
+  - telemetry/test_events.py
   - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
   - test_interfaces.py
@@ -209,6 +205,17 @@ t0:
   - sub_port_interfaces/test_sub_port_interfaces.py
   - hash/test_generic_hash.py
   - span/test_port_mirroring.py
+  - route/test_route_bgp_ecmp.py
+  - drop_packets/test_drop_counters.py
+  - copp/test_copp.py
+  - crm/test_crm.py
+  - test_nbr_health.py
+  - dhcp_server/test_dhcp_server.py
+  - dhcp_server/test_dhcp_server_multi_vlans.py
+  - dhcp_server/test_dhcp_server_stress.py
+  - platform_tests/test_idle_driver.py
+  - wol/test_wol.py
+  - dhcp_relay/test_dhcp_pkt_fwd.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -235,6 +242,7 @@ dualtor:
   - dualtor/test_tunnel_memory_leak.py
   - dualtor_io/test_heartbeat_failure.py
   - dualtor_io/test_link_drop.py
+  - dualtor_io/test_link_failure.py
   - dualtor_io/test_tor_bgp_failure.py
   - dualtor_mgmt/test_grpc_periodical_sync.py
   - dualtor_mgmt/test_ingress_drop.py
@@ -245,6 +253,7 @@ t1-lag:
   - acl/test_acl.py
   - acl/test_stress_acl.py
   - arp/test_arpall.py
+  - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
   - bgp/test_bgp_allow_list.py
   - bgp/test_bgp_bbr.py
@@ -269,7 +278,6 @@ t1-lag:
   - http/test_http_copy.py
   - iface_namingmode/test_iface_namingmode.py
   - ip/test_ip_packet.py
-  - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dip_sip.py
   - ipfwd/test_mtu.py
   - lldp/test_lldp.py
@@ -387,14 +395,26 @@ t1-lag:
   - system_health/test_system_status.py
   - system_health/test_watchdog.py
   - tacacs/test_ro_disk.py
-  - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
   - test_features.py
   - test_procdockerstatsd.py
   - platform_tests/test_reload_config.py
   - hash/test_generic_hash.py
   - sub_port_interfaces/test_sub_port_interfaces.py
+  - telemetry/test_events.py
   - show_techsupport/test_auto_techsupport.py
+  - vxlan/test_vxlan_bfd_tsa.py
+  - vxlan/test_vxlan_ecmp_switchover.py
+  - copp/test_copp.py
+  - stress/test_stress_routes.py
+  - drop_packets/test_drop_counters.py
+  - crm/test_crm.py
+  - bgp/test_bgp_sentinel.py
+  - bgp/test_bgp_suppress_fib.py
+  - test_nbr_health.py
+  - platform_tests/test_link_down.py
+  - gnmi/test_gnmi_countersdb.py
+  - generic_config_updater/test_cacl.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -405,6 +425,7 @@ multi-asic-t1-lag:
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_pfc_counters.py
   - snmp/test_snmp_queue.py
+  - snmp/test_snmp_queue_counters.py
   - tacacs/test_accounting.py
   - tacacs/test_authorization.py
   - tacacs/test_jit_user.py
@@ -419,34 +440,11 @@ multi-asic-t1-lag:
   - container_checker/test_container_checker.py
   - http/test_http_copy.py
 
-t2:
-  - test_vs_chassis_setup.py
-  - voq/test_voq_init.py
-
-wan-pub:
-  - system_health/test_system_status.py
-  - snmp/test_snmp_cpu.py
-  - snmp/test_snmp_interfaces.py
-  - snmp/test_snmp_lldp.py
-  - snmp/test_snmp_pfc_counters.py
-  - snmp/test_snmp_queue.py
-  - snmp/test_snmp_v2mib.py
-  - arp/test_arpall.py
-  - telemetry/test_telemetry.py
-  - tacacs/test_jit_user.py
-  - tacacs/test_ro_user.py
-  - tacacs/test_rw_user.py
-  - tacacs/test_ro_disk.py
-  - tacacs/test_authorization.py
-  - tacacs/test_accounting.py
-
 dpu:
   - dash/test_dash_vnet.py
 
 onboarding_t0:
   - bgp/test_bgp_stress_link_flap.py
-  - copp/test_copp.py
-  - crm/test_crm.py
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
@@ -454,28 +452,16 @@ onboarding_t0:
   - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
-  - route/test_route_bgp_ecmp.py
   - snmp/test_snmp_link_local.py
-  - drop_packets/test_drop_counters.py
+  - lldp/test_lldp_syncd.py
+
 
 onboarding_t1:
   - bgp/test_bgp_stress_link_flap.py
-  - copp/test_copp.py
-  - crm/test_crm.py
-  - generic_config_updater/test_cacl.py
-  - gnmi/test_gnmi_countersdb.py
-  - platform_tests/test_link_down.py
-  - vxlan/test_vxlan_bfd_tsa.py
-  - vxlan/test_vxlan_ecmp_switchover.py
-  - stress/test_stress_routes.py
-  - drop_packets/test_drop_counters.py
-  - bgp/test_bgp_sentinel.py
-  - bgp/test_bgp_suppress_fib.py
   - snmp/test_snmp_link_local.py
-  - telemetry/test_events.py
+  - lldp/test_lldp_syncd.py
 
 onboarding_dualtor:
-  - dualtor_io/test_link_failure.py
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
 
 specific_param:

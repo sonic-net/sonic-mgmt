@@ -17,14 +17,8 @@ from socket import socket, AF_PACKET, SOCK_RAW
 logger = logging.getLogger('MyLogger')
 logger.setLevel(logging.DEBUG)
 
-# Minimum number of processes to be created
-MIN_PROCESS_NUM = 2
-
 # Maximum number of processes to be created
 MAX_PROCESS_NUM = 4
-
-# Minimum number of packets for enabling multiple processes
-MIN_PACKET_NUM_MP = 10000
 
 
 class PacketSender():
@@ -178,14 +172,7 @@ def main():
                 packet = packet + b"\x00\x00"
 
     pre_str = 'GLOBAL_PF' if options.global_pf else 'PFC'
-    logger.debug(pre_str + '_STORM_START')
-
-    # Send PFC pause with multiple processes even if only one interface is provided
-    # if packet number is smaller than the threshold, then it's not necessary to use multiple processes
-    if options.num >= MIN_PACKET_NUM_MP:
-        while len(interfaces) < MIN_PROCESS_NUM:
-            interfaces.extend(interfaces)
-            options.num /= 2
+    logger.debug(pre_str + '_STORM_DEBUG')
 
     # Start sending PFC pause frames
     senders = []
@@ -199,6 +186,7 @@ def main():
             s.start()
             senders.append(s)
 
+    logger.debug(pre_str + '_STORM_START')
     # Wait PFC packets to be sent
     for sender in senders:
         sender.stop()

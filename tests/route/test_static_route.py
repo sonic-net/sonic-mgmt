@@ -23,7 +23,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 from tests.common import constants
-from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # noqa F811
+from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # noqa F811
 
 
 pytestmark = [
@@ -159,7 +159,7 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
                 return False
         return True
 
-    assert wait_until(60, 15, 0, _check_routes)
+    assert (wait_until(60, 15, 0, _check_routes))
 
 
 # output example of ip [-6] route show

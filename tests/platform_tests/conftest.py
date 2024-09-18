@@ -14,7 +14,7 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
-from .mellanox.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
+from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
 
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(
@@ -44,7 +44,11 @@ def _parse_timestamp(timestamp):
             return time
         except ValueError:
             continue
-    raise ValueError("Unable to parse {} with any known format".format(timestamp))
+    # Handling leap year FEB29 case, where year not provided causing exception
+    # if strptime fails for all format, check if its leap year
+    # ValueError exception will be raised for invalid cases for strptime
+    time = datetime.strptime(str(datetime.now().year) + " " + timestamp, FMT_YEAR)
+    return time
 
 
 @pytest.fixture(autouse=True, scope="module")
