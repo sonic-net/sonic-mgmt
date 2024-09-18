@@ -1420,34 +1420,39 @@ def get_convergence_for_process_flap(duthosts,
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
-def exec_tsa_tsb_cmd_on_linecard(duthost, creds, tsa_tsb_cmd):
+def exec_tsa_tsb_cmd(duthost, creds, tsa_tsb_cmd, is_supervisor):
     """
     @summary: Issue TSA/TSB command on supervisor card using user credentials
     Verify command is executed on supervisor card
     @returns: None
     """
-    try:
-        dut_ip = duthost.mgmt_ip
-        sonic_username = creds['sonicadmin_user']
-        sonic_password = creds['sonicadmin_password']
-        logger.info('sonic-username: {}, sonic_password: {}'.format(sonic_username, sonic_password))
-        ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {}@{}".format(sonic_username, dut_ip)
-        connect = pexpect.spawn(ssh_cmd)
+    if is_supervisor:
+        try:
+            dut_ip = duthost.mgmt_ip
+            sonic_username = creds['sonicadmin_user']
+            sonic_password = creds['sonicadmin_password']
+            logger.info('sonic-username: {}, sonic_password: {}'.format(sonic_username, sonic_password))
+            ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {}@{}".format(sonic_username, dut_ip)
+            connect = pexpect.spawn(ssh_cmd)
+            time.sleep(10)
+            connect.expect('.*[Pp]assword:')
+            connect.sendline(sonic_password)
+            time.sleep(10)
+            connect.sendline(tsa_tsb_cmd)
+            time.sleep(10)
+            connect.expect('.*[Pp]assword for username \'{}\':'.format(sonic_username))
+            connect.sendline(sonic_password)
+            time.sleep(20)
+        except pexpect.exceptions.EOF:
+            pytest_assert(False, "EOF reached")
+        except pexpect.exceptions.TIMEOUT:
+            pytest_assert(False, "Timeout reached")
+        except Exception as e:
+            pytest_assert(False, "Cannot connect to DUT {} host via SSH: {}".format(duthost.hostname, e))
+    else:
+        duthost.command(tsa_tsb_cmd)
+        logger.info('Executed {} command on {}'.format(tsa_tsb_cmd, duthost.hostname))
         time.sleep(10)
-        connect.expect('.*[Pp]assword:')
-        connect.sendline(sonic_password)
-        time.sleep(10)
-        connect.sendline(tsa_tsb_cmd)
-        time.sleep(10)
-        connect.expect('.*[Pp]assword for username \'{}\':'.format(sonic_username))
-        connect.sendline(sonic_password)
-        time.sleep(20)
-    except pexpect.exceptions.EOF:
-        pytest_assert(False, "EOF reached")
-    except pexpect.exceptions.TIMEOUT:
-        pytest_assert(False, "Timeout reached")
-    except Exception as e:
-        pytest_assert(False, "Cannot connect to DUT {} host via SSH: {}".format(duthost.hostname, e))
 
 
 def get_convergence_for_tsa_tsb(duthosts,
@@ -1495,10 +1500,8 @@ def get_convergence_for_tsa_tsb(duthosts,
     logger.info('Issuing TSB before starting test to ensure DUT to be in proper state')
     for duthost in duthosts:
         if duthost.hostname == device_name:
-            if is_supervisor is True:
-                exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-            else:
-                duthost.command('sudo TSB')
+            exec_tsa_tsb_cmd(duthost, creds, "sudo TSB", is_supervisor)
+
     wait(DUT_TRIGGER, "For TSB")
     try:
         for i in range(0, iteration):
@@ -1540,10 +1543,8 @@ def get_convergence_for_tsa_tsb(duthosts,
             logger.info('Issuing TSA on {}'.format(device_name))
             for duthost in duthosts:
                 if duthost.hostname == device_name:
-                    if is_supervisor is True:
-                        exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSA")
-                    else:
-                        duthost.command('sudo TSA')
+                    exec_tsa_tsb_cmd(duthost, creds, "sudo TSA", is_supervisor)
+
             wait(DUT_TRIGGER, "For TSA")
             flow_stats = get_flow_stats(api)
             for i in range(0, len(traffic_type)):
@@ -1567,10 +1568,7 @@ def get_convergence_for_tsa_tsb(duthosts,
             logger.info('Issuing TSB on {}'.format(device_name))
             for duthost in duthosts:
                 if duthost.hostname == device_name:
-                    if is_supervisor is True:
-                        exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-                    else:
-                        duthost.command('sudo TSB')
+                    exec_tsa_tsb_cmd(duthost, creds, "sudo TSB", is_supervisor)
 
             wait(DUT_TRIGGER, "For TSB")
             logger.info('\n')
@@ -1611,10 +1609,7 @@ def get_convergence_for_tsa_tsb(duthosts,
         logger.info('Since an exception occurred, Issuing TSB, to ensure DUT to be in proper state')
         for duthost in duthosts:
             if duthost.hostname == device_name:
-                if is_supervisor is True:
-                    exec_tsa_tsb_cmd_on_linecard(duthost, creds, "sudo TSB")
-                else:
-                    duthost.command('sudo TSB')
+                exec_tsa_tsb_cmd(duthost, creds, "sudo TSB", is_supervisor)
         wait(DUT_TRIGGER, "For TSB")
 
 
@@ -1939,23 +1934,14 @@ def get_convergence_for_ungraceful_restart(duthosts,
         logger.info('Delta Frames : {}'.format(delta_frames))
         logger.info('PACKET LOSS DURATION  After Device is DOWN (ms): {}'.format(pkt_loss_duration))
         avg_pld.append(pkt_loss_duration)
-
+ 
         logger.info('Clearing Stats')
         ixnetwork.ClearStats()
         for duthost in duthosts:
             if duthost.hostname == device_name:
                 ping_device(duthost, timeout=180)
-        wait(SNAPPI_TRIGGER, "Contaniers on the DUT to stabalize after restart")
-        if is_supervisor is True:
-            exec_tsa_tsb_cmd_on_linecard(duthosts[3], creds, "sudo TSB")
-            wait(600, "Issued TSB 1")
-        port_stats = get_port_stats(api)
-        logger.info('Rx Snappi Port Name : Rx Frame Rate')
-        for port_stat in port_stats:
-            if 'Snappi_Tx_Port' not in port_stat.name:
-                logger.info('{} : {}'.format(port_stat.name, port_stat.frames_rx_rate))
-                pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving any packet'.format(port_stat.name))
-
+        wait(DUT_TRIGGER, "Contaniers on the DUT to stabalize after restart")
+       
         flow_stats = get_flow_stats(api)
         delta_frames = 0
         for i in range(0, len(traffic_type)):
@@ -1964,21 +1950,25 @@ def get_convergence_for_ungraceful_restart(duthosts,
         logger.info('Delta Frames : {}'.format(delta_frames))
         logger.info('PACKET LOSS DURATION  After device is UP (ms): {}'.format(pkt_loss_duration))
         avg_pld2.append(pkt_loss_duration)
-
+ 
+        for duthost in duthosts:
+            if duthost.hostname == device_name:
+                exec_tsa_tsb_cmd(duthost, creds, "sudo TSB", is_supervisor)
         logger.info('Stopping Traffic')
         ts = api.transmit_state()
         ts.state = ts.STOP
         api.set_transmit_state(ts)
-
+ 
         logger.info("Stopping all protocols ...")
         ps = api.protocol_state()
         ps.state = ps.STOP
         api.set_protocol_state(ps)
         logger.info('\n')
-
+ 
     columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
                'Avg Calculated Packet Loss Duration (ms)']
     logger.info("\n%s" % tabulate([[test_name+' (DOWN))', iteration, traffic_type, portchannel_count,
                                   total_routes, mean(avg_pld)], [test_name+' (UP)', iteration,
                                   traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
                                   tablefmt="psql"))
+ 
