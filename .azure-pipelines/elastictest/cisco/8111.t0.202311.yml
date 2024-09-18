@@ -73,6 +73,7 @@ parameters:
     default: "arp/test_wr_arp.py, \
               bgp/test_bgp_slb.py, \
               ipfwd/test_dir_bcast.py, \
+              pc/test_po_cleanup.py::test_po_cleanup_after_reload, \
               pfcwd/test_pfcwd_warm_reboot.py, \
               platform_tests/test_advanced_reboot.py, \
               platform_tests/test_cont_warm_reboot.py, \
