@@ -1,36 +1,110 @@
 # ASIC DB / SAI validation for test cases
 
-## Background
-
-ASIC_DB stores data plane configuration in an ASIC-friendly format. SONiC control plane test cases make configuration changes in CONFIG_DB or APP_DB could indirectly affect ASIC_DB object types or data plane tests configure the ASIC directly. In either of the cases these tests do not explicitly verify that the ASIC_DB has been setup correctly before the tests are executed.
-
 ## Purpose
 
-The purpose of ASIC_DB or SAI validation is to design a intuitive, simple, easy-to-use set of libraries / methods which allow tests to verify ASIC_DB object types are valid and have been setup correctly.
+The purpose of this document is to state the requirement for SAI validation, describe the design of a simple, intuitive, easy-to-use set of libraries which allow tests to verify SAI object types have been setup correctly.
 
 ## High Level Design Document
-
-### Revision: Draft
-
-## Revision
 
 | Rev      | Date        | Author                   | Change Description            |
 |----------|-------------|--------------------------|-------------------------------|
 | Draft    | 14-08-2024  | Sai Kiran Gummaraj       | Initial version               |
 
-
-## About this document
-
-The aim of this document is to:
-
-1. Evaluate all the SONiC test cases
-2. Identify the tests that qualify for ASIC_DB validation
-3. Record any findings of the existing test setup phase and identify the ASIC_DB SAI object types that are affected by the test case
-4. Identify and document design principles from [SWSS VS Test](https://github.com/sonic-net/sonic-swss/blob/master/tests/README.md)
-5. Document different design techniques for performing ASIC_DB / SAI validation
-6. Identify the suitable, simple and easy-to-use design technique to perform ASIC_DB validation.
-
 ## Introduction
+
+SONiC management tests are Pytest modules running in the SONiC management container on the developer/CI/test environment and PTF tests running from the PTF container on the testbed server. As part of the setup and tear down activities the tests make configuration changes to SONiC, run the tests and verify if the tests ran successfully by making additional configuration checks and finally tear down the configuration changes. The tests use command line utilities on the DUT like `config`, `sonic-db-cli` or `redis-cli` to set and get configuration values. In some cases tests export / dump the contents of the database to examine its results and verify if tests ran successfully. These configuration changes are propogated to the ASIC through ASIC_DB. The aim of this design document is to identify a mechanism for tests to validate the configuration changes against ASIC_DB entries or SAI object types.
+
+## Design Choices
+
+These are some of the major factors to consider while evaluating design choices for SAI validation:
+
+1. The tests need to connect to the database on the DUT to access the configuration data.
+2. After accessing the configuration data the tests may have to poll the data set for changes (set / modified / deleted keys etc.)
+3. All the data from the database or keyspace may have to be exported.
+
+### Current Design / Approach
+
+Currently the tests connect to the database by using Ansible (SSH) to run commands directly on the DUT or run tests from the PTF host via ptf_runner which again uses Ansible (SSH) to run `sonic-db-cli` or `redis-cli`.
+
+![Current setup to access database on DUT](images/current_scenario_1.png)
+
+| **Advantages**
+
+- Easy to implement.
+- Uses existing ansible infrastructure and [SonicDbCli](../../tests/common/helpers/sonic_db.py) to run commands and fetch output.
+
+**Drawbacks**
+
+- Each access to database runs a SSH shell command.
+- Output from CLI must be parsed.
+- Not intuitive to implement features that require waiting on key/value changes.
+- Slower performance when used for polling keyspace changes
+
+### Enhance current library
+
+Enhance the currently available library [SonicDbCli](../../tests/common/helpers/sonic_db.py) to query / set DB values. Add features to poll for values etc. by writing scripts around `sonic-db-cli`.
+
+### Use Redis-py library (Copy to DUT)
+
+Use [redis-py](https://redis.io/docs/latest/develop/connect/clients/python/redis-py/) to develop client library to access the database. Write a wrapper around the library to access different key-values and copy that to the DUT. The tests invoke the library wrapper.
+
+**Advantages**
+
+- Lightweight library can access all features of Redis DB easy to implement polling natively in Python using threading.
+
+**Drawbacks**
+
+- The library needs to be copied to the DUT and executed on the DUT.
+- Performance may be similar to CLI as each test runs the library wrapper
+- Standard output parsing may be required.
+- Could lead to cumbersome error handling in the tests/caller by observing `rc` codes, `stdout` and `stderr`.
+
+### Use Redis-Py library (Connect remotely)
+
+Build the library using Redis-py and enable accessing the Redis server on the DUT over the network. This can be accomplished by -
+
+- **Re-configure Redis**: Change the `/etc/redis/redis.conf` and `/etc/supervisord/conf.d/supervisord.conf` to listen on `0.0.0.0:6379` instead of `127.0.0.1:6379` on the testbed. Then run `sudo supervisorctl reread`, `sudo supervisorctl update` and `sudo supervisorctl restart all`.
+- **Setup Port-forwarding on DUT**: Install and run `socat` on DUT to port-forward all traffic from `<mgmt_ip>:<port-of-your-choice>` to `localhost:6379` to Redis on the database container.
+
+The first approach to **re-configure Redis** does not work and is __not recommended__. CPU usage spikes and commands like `show` or `config` begin to hang and journal logs are flooded with swsscommon errors indicating it is unable to connect to Redis. The second approach of installing `socat` is easy to setup and does not require the tests to change SONiC environment.
+
+Considering tests need to poll / observe for key value changes in ASIC_DB this can be implemented using -
+
+- **Using threading and polling** as implemented in [SWSS VS Tests](https://github.com/sonic-net/sonic-swss/blob/master/tests/README.md), [conftest](https://github.com/sonic-net/sonic-swss/blob/master/tests/conftest.py), [dvslib/dvs_database](https://github.com/sonic-net/sonic-swss/blob/master/tests/dvslib/dvs_database.py)
+- **Using Redis pubsub** This approach takes advantage of Redis pubsub to get notification of keyspace changes instead of using threading or polling to watch for key value changes. This mechanism improves performance and predictability of watching for keyspace changes. The tests don't have to rely on threads or sleep timers to check for value changes. The keyspace notifications are enabled by default for `ASIC_DB`. Keyspace notifications are enabled by default (`AKE`) for ASIC_DB. Based on checks in `202305` and `202205`. Sample code that was tested on a DUT to notify for a specific key change can be used in tests -
+
+```
+import redis
+
+rconn = None
+
+def main():
+    rconn = redis.Redis(host='127.0.0.1', port=6379, decode_responses=True, db=1)
+
+    # rconn.config_set('notify-keyspace-events', 'KEA')
+    pubsub = rconn.pubsub()
+    pubsub.psubscribe('__keyspace@1__:ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*')
+
+    print('listening for notifications...')
+    for message in pubsub.listen():
+        if message['type'] == 'pmessage':
+            print(f"Key: {message['channel']} - Event: {message['data']}")
+
+if __name__ == '__main__':
+    main()
+```
+
+**Advantages**
+
+- Lightweight library can access all features of Redis DB
+- Better performance as each call to database to get/set database does not require running a shell command.
+- Better error handling.
+
+**Drawbacks**
+
+- Requires opening port in firewalls (if closed in the test environment)
+
+## Test and SAI object types
 
 The table below lists each test feature along with notes on whether the test makes configuration changes that set/change ASIC_DB object types. The column "ASIC/SAI Validation" is set to 'Yes' if there are configuration changes that impact SAI objects.
 
