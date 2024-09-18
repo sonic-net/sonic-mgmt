@@ -2,7 +2,6 @@
 
 """
 Script to generate PFC packets.
-
 """
 import binascii
 import sys
@@ -11,10 +10,52 @@ import logging
 import logging.handlers
 import time
 import multiprocessing
-import platform
-import ctypes
-
 from socket import socket, AF_PACKET, SOCK_RAW
+from ctypes import (
+    CDLL,
+    POINTER,
+    Structure,
+    c_int,
+    c_size_t,
+    c_uint,
+    c_uint32,
+    c_void_p,
+    cast,
+    get_errno,
+    pointer,
+)
+
+
+class struct_iovec(Structure):
+    _fields_ = [
+        ("iov_base", c_void_p),
+        ("iov_len", c_size_t),
+    ]
+
+
+class struct_msghdr(Structure):
+    _fields_ = [
+        ("msg_name", c_void_p),
+        ("msg_namelen", c_uint32),
+        ("msg_iov", POINTER(struct_iovec)),
+        ("msg_iovlen", c_size_t),
+        ("msg_control", c_void_p),
+        ("msg_controllen", c_size_t),
+        ("msg_flags", c_int),
+    ]
+
+
+class struct_mmsghdr(Structure):
+    _fields_ = [
+        ("msg_hdr", struct_msghdr),
+        ("msg_len", c_uint)
+    ]
+
+
+libc = CDLL("libc.so.6")
+_sendmmsg = libc.sendmmsg
+_sendmmsg.argtypes = [c_int, POINTER(struct_mmsghdr), c_uint, c_int]
+_sendmmsg.restype = c_int
 
 logger = logging.getLogger('MyLogger')
 logger.setLevel(logging.DEBUG)
@@ -32,70 +73,65 @@ class PacketSender():
         self.sockets = []
         self.interfaces = interfaces
         self.use_c_function = use_c_function
-        if self.use_c_function:
-            try:
-                # Load the C library
-                arch, _ = platform.architecture()
-                if arch == '32bit':
-                    lib_name = './send_packets_c_bit32.so'
-                elif arch == '64bit':
-                    lib_name = './send_packets_c_bit64.so'
 
-                self.packet_sender_lib = ctypes.CDLL(lib_name)
-                self.packet_sender_lib.send_packets_c.argtypes = [
-                    ctypes.c_char_p,
-                    ctypes.POINTER(ctypes.c_ubyte),
-                    ctypes.c_int,
-                    ctypes.c_int,
-                    ctypes.c_int
-                ]
-            except Exception as e:
-                print("load lib failed, ignore using c function: %s" % e)
-                self.use_c_function = False
+        try:
+            for interface in interfaces:
+                s = socket(AF_PACKET, SOCK_RAW)
+                s.bind((interface, 0))
+                self.sockets.append(s)
+        except Exception as e:
+            print("Unable to create socket. Check your permissions: %s" % e)
+            sys.exit(1)
 
-        if not self.use_c_function:
-            try:
-                for interface in interfaces:
-                    s = socket(AF_PACKET, SOCK_RAW)
-                    s.bind((interface, 0))
-                    self.sockets.append(s)
-            except Exception as e:
-                print("Unable to create socket. Check your permissions: %s" % e)
-                sys.exit(1)
         self.packet_num = num
         self.packet_interval = interval
         self.process = None
         self.packet = packet
 
     def send_packets(self):
-        if self.use_c_function:
-            for interface in self.interfaces:
-                self._send_packets_c(interface)
-        else:
-            iteration = self.packet_num
-            while iteration > 0:
-                for s in self.sockets:
-                    s.send(self.packet)
-                    if self.packet_interval > 0:
-                        time.sleep(self.packet_interval)
-                iteration -= 1
-
-    def _send_packets_c(self, interface):
         iteration = self.packet_num
-        packet_size = len(self.packet)
-        # Create a ctypes array for the packet
-        packet_array = (ctypes.c_ubyte * packet_size).from_buffer_copy(self.packet)
-        # Call the C function
-        self.packet_sender_lib.send_packets_c(
-            interface.encode('utf-8'),  # Change to your interface name
-            packet_array,
-            packet_size,
-            iteration,
-            int(self.packet_interval * 1000)  # Convert seconds to milliseconds
-        )
+        while iteration > 0:
+            for s in self.sockets:
+                s.send(self.packet)
+                if self.packet_interval > 0:
+                    time.sleep(self.packet_interval)
+            iteration -= 1
+
+    def send_packets_mmsg(self):
+        total_packets = self.packet_num
+        batch_size = 1024
+        m_msghdr = (struct_mmsghdr * batch_size)()
+
+        iov = struct_iovec(cast(self.packet, c_void_p), len(self.packet))
+
+        msg_iov = pointer(iov)
+        msg_iovlen = 1
+        msg_control = 0
+        msg_controllen = 0
+
+        msg_namelen = 0
+        msg_name = cast(None, c_void_p)
+
+        for i in range(batch_size):
+            msghdr = struct_msghdr(
+                        msg_name, msg_namelen, msg_iov, msg_iovlen,
+                        msg_control, msg_controllen, 0)
+            m_msghdr[i] = struct_mmsghdr(msghdr)
+
+        for s in self.sockets:
+            packets_sent = 0
+            while packets_sent < total_packets:
+                num_sent = _sendmmsg(s.fileno(), m_msghdr, min(batch_size, total_packets - packets_sent), 0)
+                if num_sent < 0:
+                    errno = get_errno()
+                    print('sendmmsg got errno {} for socket {}'.format(errno, s.getsockname()))
+                    break
+                else:
+                    packets_sent += num_sent
 
     def start(self):
-        self.process = multiprocessing.Process(target=self.send_packets)
+        self.process = multiprocessing.Process(
+            target=self.send_packets_mmsg if self.use_c_function else self.send_packets)
         self.process.start()
 
     def stop(self, timeout=None):
@@ -109,7 +145,7 @@ def main():
     usage = "usage: %prog [options] arg1 arg2"
     parser = optparse.OptionParser(usage=usage)
     parser.add_option("-i", "--interface", type="string", dest="interface",
-                      help="Interface list to send packets, seperated by ','", metavar="Interface")
+                      help="Interface list to send packets, separated by ','", metavar="Interface")
     parser.add_option('-p', "--priority", type="int", dest="priority",
                       help="PFC class enable bitmap.", metavar="Priority", default=-1)
     parser.add_option("-t", "--time", type="int", dest="time",

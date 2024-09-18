@@ -41,7 +41,7 @@ class PFCStorm(object):
         self.fanout_info = fanout_graph_facts
         self.fanout_hosts = fanouthosts
         self.pfc_gen_file = kwargs.pop('pfc_gen_file', "pfc_gen.py")
-        self.pfc_gen_c_files = kwargs.pop('pfc_gen_c_files', [])
+        self.pfc_gen_c_function_used = kwargs.pop('pfc_gen_c_function_used', False)
         self.pfc_queue_idx = kwargs.pop('pfc_queue_index', 3)
         self.pfc_frames_number = kwargs.pop('pfc_frames_number', 100000)
         self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
@@ -131,15 +131,6 @@ class PFCStorm(object):
                 cmd = f"docker cp {self._PFC_GEN_DIR[self.peer_device.os]}/{self.pfc_gen_file} syncd:/root/"
                 self.peer_device.shell(cmd)
 
-            pfc_gen_c_files = self.pfc_gen_c_files if isinstance(self.pfc_gen_c_files, list) else [self.pfc_gen_c_files]
-            for pfc_gen_c_file in pfc_gen_c_files:
-                logger.info("pfc_gen_c_file {}".format(pfc_gen_c_file))
-                logger.info("fanout_asic_type {}".format(self.fanout_asic_type))
-                self.peer_device.copy(
-                    src="pfcwd/files/{}".format(pfc_gen_c_file),
-                    dest=self._PFC_GEN_DIR[self.peer_device.os]
-                )
-
     def update_queue_index(self, q_idx):
         """
         Update the queue index. Can be invoked after the class init to change the queue index
@@ -193,8 +184,8 @@ class PFCStorm(object):
             self.extra_vars.update({"pfc_asym": self.pfc_asym})
         if self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.extra_vars.update({"pfc_fanout_label_port": self._generate_mellanox_label_ports()})
-        if len(self.pfc_gen_c_files) > 0:
-            self.extra_vars.update({"pfc_gen_c_files_enabled": True})
+        if self.pfc_gen_c_function_used:
+            self.extra_vars.update({"pfc_gen_c_function_used": True})
 
     def _prepare_start_template(self):
         """
