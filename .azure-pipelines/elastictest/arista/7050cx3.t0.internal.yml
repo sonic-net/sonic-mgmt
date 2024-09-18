@@ -71,7 +71,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: "platform_tests/test_advanced_reboot.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE

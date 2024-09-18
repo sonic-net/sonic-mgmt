@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 12 * * 3"
+  - cron: "0 4 * * 3"
     displayName: Nightly Scheduler
     branches:
       include:

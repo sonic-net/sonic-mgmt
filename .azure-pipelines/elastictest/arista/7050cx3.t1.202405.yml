@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 0"
+  - cron: "0 14 * * 1"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,25 +37,17 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms20-t0-7050cx3-1, vms20-t0-7050cx3-2"
+    default: "vms20-t1-7050cx3-3"
     displayName: "Testbed Name"
-
-  - name: MIN_WORKER
-    type: string
-    default: "1"
-
-  - name: MAX_WORKER
-    type: string
-    default: "2"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202012)
+    default: $(IMAGE_BRCM_ABOOT_202405)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202012
+    default: internal-202405
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -81,7 +73,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_202012)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -97,7 +89,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.t0.202012.NightlyTest_by_Elastictest
+    displayName: 7050cx3.t1.202405.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -113,5 +105,3 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        MIN_WORKER: ${{ parameters.MIN_WORKER }}
-        MAX_WORKER: ${{ parameters.MAX_WORKER }}
