@@ -17,8 +17,8 @@ pdu-120,47,str2-7050cx3-acs-10,PSU1
 pdu-119,47,str2-7050cx3-acs-10,PSU2
 pdu-120,37,str2-7050cx3-acs-11,PSU1
 pdu-119,37,str2-7050cx3-acs-11,PSU2
-pdu-84,1,str2-7050cx3-acs-12,PSU1
-pdu-85,1,str2-7050cx3-acs-12,PSU2
+pdu-125,40,str2-7050cx3-acs-12,PSU1
+pdu-124,34,str2-7050cx3-acs-12,PSU2
 pdu-117,24,str2-7050cx3-acs-13,PSU1
 pdu-118,24,str2-7050cx3-acs-13,PSU2
 pdu-117,33,str2-7050cx3-acs-14,PSU1
