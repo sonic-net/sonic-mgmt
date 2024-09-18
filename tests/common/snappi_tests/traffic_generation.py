@@ -1,7 +1,6 @@
 """
 This module allows various snappi based tests to generate various traffic configurations.
 """
-import math
 import time
 import logging
 from tests.common.helpers.assertions import pytest_assert
@@ -527,7 +526,7 @@ def verify_basic_test_flow(flow_metrics,
 
 def verify_in_flight_buffer_pkts(duthost,
                                  flow_metrics,
-                                 snappi_extra_params):
+                                 snappi_extra_params, asic_value=None):
     """
     Verify in-flight TX bytes of test flows should be held by switch buffer unless PFC delay is applied
     for when test traffic is expected to be paused
@@ -561,7 +560,7 @@ def verify_in_flight_buffer_pkts(duthost,
 
         for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
-                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
+                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets > 0,
                               "Total TX dropped packets {} should be more than 0".
                               format(dropped_packets))
@@ -572,7 +571,7 @@ def verify_in_flight_buffer_pkts(duthost,
 
         for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
-                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
+                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets == 0,
                               "Total TX dropped packets {} should be 0".
                               format(dropped_packets))
@@ -770,66 +769,3 @@ def verify_egress_queue_frame_count(duthost,
                 total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
                 pytest_assert(total_egress_packets == test_tx_frames[prio],
                               "Queue counters should increment for invalid PFC pause frames")
-
-
-def verify_m2o_oversubscribtion_results(rows,
-                                        test_flow_name,
-                                        bg_flow_name,
-                                        flag):
-    """
-    Verify if we get expected experiment results
-
-    Args:
-        rows (list): per-flow statistics
-        test_flow_name (str): name of test flows
-        bg_flow_name (str): name of background flows
-        flag (dict): Comprises of flow name and its loss criteria ,loss criteria value can be integer values
-                     of string type for definite results or 'continuing' for non definite loss value results
-                     example:{
-                                'Test Flow 1 -> 0 Rate:40': {
-                                    'loss': '0'
-                                },
-                                'PFC Pause': {
-                                    'loss': '100'
-                                },
-                                'Background Flow 1 -> 0 Rate:20': {
-                                    'loss': '5'
-                                },
-                                'Background Flow 2 -> 0 Rate:40': {
-                                    'loss': 'continuing'
-                                },
-                            }
-
-    Returns:
-        N/A
-    """
-
-    for flow_type, criteria in flag.items():
-        for row in rows:
-            tx_frames = row.frames_tx
-            rx_frames = row.frames_rx
-            if flow_type in row.name:
-                try:
-                    if isinstance(criteria, dict) and isinstance(criteria['loss'], str) and int(criteria['loss']) == 0:
-                        logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
-                        pytest_assert(tx_frames == rx_frames,
-                                      '{} should not have any dropped packet'.format(row.name))
-                        pytest_assert(row.loss == 0,
-                                      '{} should not have traffic loss'.format(row.name))
-                    elif (isinstance(criteria, dict) and isinstance(criteria['loss'], str)
-                          and int(criteria['loss']) != 0):
-                        pytest_assert(math.ceil(float(row.loss)) == float(flag[flow_type]['loss']) or
-                                      math.floor(float(row.loss)) == float(flag[flow_type]['loss']),
-                                      '{} should have traffic loss close to {} percent but got {}'.
-                                      format(row.name, float(flag[flow_type]['loss']), float(row.loss)))
-                    else:
-                        pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
-                                      string for loss criteria')
-                except Exception:
-                    if (isinstance(criteria, dict) and isinstance(criteria['loss'], str)
-                       and criteria['loss'] == 'continuing'):
-                        pytest_assert(int(row.loss) > 0, "{} should have continuing traffic loss greater than 0".
-                                      format(row.name))
-                    else:
-                        pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
-                                      string for loss criteria')

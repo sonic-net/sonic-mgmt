@@ -15,8 +15,7 @@ from sub_ports_helpers import remove_vlan
 from sub_ports_helpers import check_sub_port
 from sub_ports_helpers import remove_sub_port
 from sub_ports_helpers import create_sub_port_on_dut
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 't1')

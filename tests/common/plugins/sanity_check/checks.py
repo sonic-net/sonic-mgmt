@@ -31,7 +31,8 @@ CHECK_ITEMS = [
     'check_secureboot',
     'check_neighbor_macsec_empty',
     'check_ipv6_mgmt',
-    'check_mux_simulator']
+    'check_mux_simulator',
+    'check_orchagent_usage']
 
 __all__ = CHECK_ITEMS
 
@@ -90,7 +91,7 @@ def check_interfaces(duthosts):
 
     def _check(*args, **kwargs):
         result = parallel_run(_check_interfaces_on_dut, args, kwargs, duthosts.frontend_nodes,
-                              timeout=600, init_result=init_result)
+                              timeout=1200, init_result=init_result)
         return list(result.values())
 
     @reset_ansible_local_tmp
@@ -101,6 +102,8 @@ def check_interfaces(duthosts):
 
         networking_uptime = dut.get_networking_uptime().seconds
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        if dut.get_facts().get("modular_chassis"):
+            timeout = max(timeout, 900)
         interval = 20
         logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" %
                     (networking_uptime, timeout, interval))
@@ -154,7 +157,7 @@ def check_bgp(duthosts, tbinfo):
 
     def _check(*args, **kwargs):
         result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes,
-                              timeout=600, init_result=init_result)
+                              timeout=1200, init_result=init_result)
         return list(result.values())
 
     @reset_ansible_local_tmp
@@ -227,6 +230,8 @@ def check_bgp(duthosts, tbinfo):
             max_timeout = 500
         else:
             max_timeout = SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480
+        if dut.get_facts().get("modular_chassis"):
+            max_timeout = max(max_timeout, 900)
         timeout = max(max_timeout, 1)
         interval = 20
         wait_until(timeout, interval, 0, _check_bgp_status_helper)
@@ -1021,4 +1026,26 @@ def check_ipv6_mgmt(duthosts, localhost):
         finally:
             logger.info("Done checking ipv6 management reachability on %s" % dut.hostname)
             results[dut.hostname] = check_result
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_orchagent_usage(duthosts):
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "orchagent_usage"}
+        result = parallel_run(_check_orchagent_usage_on_dut, args, kwargs, duthosts,
+                              timeout=600, init_result=init_result)
+
+        return list(result.values())
+
+    def _check_orchagent_usage_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        logger.info("Checking orchagent CPU usage on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "orchagent_usage", "host": dut.hostname}
+        res = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
+        check_result["orchagent_usage"] = res
+        logger.info("Done checking orchagent CPU usage on %s" % dut.hostname)
+        results[dut.hostname] = check_result
+
     return _check

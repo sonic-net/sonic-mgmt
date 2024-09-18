@@ -59,7 +59,7 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
                               enum_frontend_asic_index, conn_graph_facts):
     """
     @Summary: Configure the FEC operational mode for all the interfaces, then check
-    FEC operational mode is retored to default FEC mode
+    FEC operational mode is restored to 'rs' FEC mode
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -72,8 +72,9 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         if sfp_presence:
             presence = sfp_presence[0].get('presence', '').lower()
             oper = intf.get('oper', '').lower()
+            speed = intf.get('speed', '')
 
-            if presence == "not present" or oper != "up":
+            if presence == "not present" or oper != "up" or speed not in SUPPORTED_SPEEDS:
                 continue
 
         config_status = duthost.command("sudo config interface fec {} rs"
@@ -129,15 +130,20 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         fec_symbol_err = intf.get('fec_symbol_err', '').lower()
         # Check if fec_corr, fec_uncorr, and fec_symbol_err are valid integers
         try:
-            int(fec_corr)
+            fec_corr_int = int(fec_corr)
             fec_uncorr_int = int(fec_uncorr)
-            int(fec_symbol_err)
+            fec_symbol_err_int = int(fec_symbol_err)
         except ValueError:
             pytest.fail("FEC stat counters are not valid integers for interface {}, \
                         fec_corr: {} fec_uncorr: {} fec_symbol_err: {}"
                         .format(intf_name, fec_corr, fec_uncorr, fec_symbol_err))
 
-        # Check for uncorrectable FEC errors
+        # Check for non-zero FEC uncorrectable errors
         if fec_uncorr_int > 0:
             pytest.fail("FEC uncorrectable errors are non-zero for interface {}: {}"
                         .format(intf_name, fec_uncorr_int))
+
+        # Check for valid FEC correctable codeword errors > FEC symbol errors
+        if fec_symbol_err_int > fec_corr_int:
+            pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
+                        .format(intf_name, fec_symbol_err_int, fec_corr_int))

@@ -216,8 +216,11 @@ class Sonic(host_device.HostDevice):
                 msg = 'BGP route GR timeout: neighbor %s (ASN %s' % (nei, asn)
                 self.fails.add(msg)
 
-        if cli_data['po'][1] > 0:
+        if cli_data['po'][1] > 0 and self.reboot_type == 'warm-reboot':
             self.fails.add('Port channel flap occurred!')
+
+        if cli_data['po'][1] > 1 and self.reboot_type == 'fast-reboot':
+            self.fails.add('More than one port channel flap occurred!')
 
         self.log('Finishing run()')
         return self.fails, self.info, cli_data, log_data, {

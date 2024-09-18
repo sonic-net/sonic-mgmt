@@ -287,9 +287,10 @@ def run_pfc_test(api,
 
     if test_traffic_pause:
         # Verify in flight TX packets count relative to switch buffer size
-        verify_in_flight_buffer_pkts(duthost=duthost,
+        verify_in_flight_buffer_pkts(duthost=egress_duthost,
                                      flow_metrics=in_flight_flow_metrics,
-                                     snappi_extra_params=snappi_extra_params)
+                                     snappi_extra_params=snappi_extra_params,
+                                     asic_value=rx_port['asic_value'])
     else:
         # Verify zero pause frames are counted when the PFC class enable vector is not set
         verify_unset_cev_pause_frame_count(duthost=duthost,

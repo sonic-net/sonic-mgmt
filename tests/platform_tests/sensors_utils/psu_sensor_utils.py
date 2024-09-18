@@ -9,6 +9,11 @@ PSU_SENSORS_JSON_FILE = "psu_sensors.json"
 MISSING_PSU = "N/A"
 PSU_NUM_SENSOR_PATTERN = r'PSU-(\d+)(?:\([A-Z]\))?'
 SKIPPED_CHECK_TYPES = ["psu_skips", "sensor_skip_per_version"]
+PSU_FAN_DIR_PATTERN = r'-(PSF|PSR)-'
+# PSUs in this dictionary are only supported with the specified manufacturers
+PSU_MANUFACTURER_SUPPORT = {'MTEF-AC-G': ['ACBEL']}
+VPD_DATA_PATH_FORMAT = "/var/run/hw-management/eeprom/psu{PSU_INDEX}_vpd"
+PSU_VPD_MANUFACTURER_FIELD = 'MFR_NAME'
 logger = logging.getLogger()
 
 
@@ -106,6 +111,20 @@ def update_sensor_data(alarm_data, psu_platform_data, psu_numbers):
     return updated_alarm_data
 
 
+def parse_psu_manufacturer(duthost, psu_index):
+    """
+    The function parses the psu manufacturer of the psu installed at the given index from the vpd_data
+    :param duthost: duthost fixture
+    :param psu_index: Index of the psu
+    :return: The psu manufacturer name as it appears in the psu vpd_data
+    """
+    vpd_data_path = VPD_DATA_PATH_FORMAT.format(PSU_INDEX=psu_index)
+    manufacturer_cmd = f"cat {vpd_data_path} | grep {PSU_VPD_MANUFACTURER_FIELD}"
+    psu_manufacturer_line = duthost.shell(manufacturer_cmd)["stdout"]
+    manufacturer_name_ind = 1
+    return psu_manufacturer_line.split(':')[manufacturer_name_ind].strip()
+
+
 class SensorHelper:
     """
     Helper class to the test_sensors tests
@@ -159,16 +178,17 @@ class SensorHelper:
         self.missing_psus = set()
         if self.supports_dynamic_psus:
             psu_data = json.loads(self.duthost.shell('show platform psu --json')['stdout'])
-            covered_psus = set(self.psu_sensors_checks.keys())
             for psu in psu_data:
                 psu_index, psu_model = psu["index"], psu["model"]
-                if psu_model in covered_psus:
-                    self.psu_dict[psu_index] = psu_model
+                # Ignore PSR/PSF part, as we don't care if the fan is reversed (PSR) or not (PSF)
+                psu_model_no_fan_dir = re.sub(PSU_FAN_DIR_PATTERN, '-', psu_model)
+                if self.is_supported_psu_model(psu_index, psu_model_no_fan_dir):
+                    self.psu_dict[psu_index] = psu_model_no_fan_dir
                 elif psu["model"] == MISSING_PSU:
                     self.missing_psus.add(psu_index)
                     logger.warning(f"Slot {psu_index} is missing a PSU.")
                 else:
-                    self.uncovered_psus.add(psu_model)
+                    self.uncovered_psus.add(psu_model_no_fan_dir)
 
     def platform_supports_dynamic_psu(self):
         """
@@ -277,3 +297,28 @@ class SensorHelper:
                     bus_number = bus_data[0].split('-')[1]
                 psu_json_data[psu_num] = (bus_number, bus_address, psu_side)
         return psu_json_data
+
+    def is_supported_psu_model(self, psu_index, psu_model):
+        """
+        This function returns whether the given psu_model should be supported or not
+        :param psu_index: The index the psu is installed in
+        :param psu_model: A psu model (without fan direction)
+        :returns: A boolean stating whether the psu dynamic feature is supported with this psu model
+        """
+        covered_psus = set(self.psu_sensors_checks.keys())
+
+        return psu_model in covered_psus and self.is_psu_manufacturer_supported(psu_index, psu_model)
+
+    def is_psu_manufacturer_supported(self, psu_index, psu_model):
+        """
+        This function returns whether the given psu_model is installed with supported manufacturers
+        :param psu_index: The index the psu is installed in
+        :param psu_model: A psu model (without fan direction)
+        :returns: A boolean stating whether the psu dynamic feature is supported with this psu model its manufacturer
+        """
+        manufacturer_supported = True
+        if psu_model in PSU_MANUFACTURER_SUPPORT:
+            supported_psu_manufacturers = PSU_MANUFACTURER_SUPPORT[psu_model]
+            psu_manufacturer = parse_psu_manufacturer(self.duthost, psu_index)
+            manufacturer_supported &= psu_manufacturer in supported_psu_manufacturers
+        return manufacturer_supported

@@ -13,9 +13,7 @@ from tests.common.helpers.assertions import pytest_require
 
 from .everflow_test_utilities import setup_info, EVERFLOW_DSCP_RULES    # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
-# from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa: F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa: F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("any")

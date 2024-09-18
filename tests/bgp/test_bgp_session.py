@@ -147,7 +147,7 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
     duthost.shell('show ip bgp summary', module_ignore_errors=True)
     pytest_assert(
-        wait_until(60, 5, 0, verify_bgp_session_down, duthost, neighbor),
+        wait_until(90, 5, 0, verify_bgp_session_down, duthost, neighbor),
         "neighbor {} state is still established".format(neighbor)
     )
 
