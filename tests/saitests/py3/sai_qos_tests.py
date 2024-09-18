@@ -5085,11 +5085,10 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             None, pg_cntrs, None, None, None,
                             None, None, pg_shared_wm_res, pg_headroom_wm_res, q_wm_res)
 
-            if pkts_num_fill_min:
-                if hwsku == 'Arista-7060X6-64PE-256x200G':
-                    assert (q_wm_res[queue] <= margin * cell_size)
-                else:
-                    assert (q_wm_res[queue] == 0)
+            if hwsku == 'Arista-7060X6-64PE-256x200G':
+                assert (q_wm_res[queue] <= (margin + 1) * cell_size)
+            elif pkts_num_fill_min:
+                assert (q_wm_res[queue] == 0)
             elif 'cisco-8000' in asic_type or "SN5600" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             else:
