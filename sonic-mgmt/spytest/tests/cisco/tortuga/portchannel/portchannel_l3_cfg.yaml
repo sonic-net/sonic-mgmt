@@ -1,12 +1,17 @@
 spine0:
     sonic:
       config: |
+        sudo config interface startup D1D3P1
+        sudo config interface startup D1D3P2
         sudo config interface startup D1D4P1
         sudo config interface ip add D1D4P1 12.1.1.1/24
         sudo config interface ip add D1D4P1 12:1:1::1/120
       deconfig: |
         sudo config interface ip rem D1D4P1 12.1.1.1/24
         sudo config interface ip rem D1D4P1 12:1:1::1/120
+        sudo config interface startup D1D4P1
+        sudo config interface startup D1D3P1
+        sudo config interface startup D1D3P2
     bgp:
       config: |
         no router bgp
@@ -16,11 +21,17 @@ spine0:
         bgp disable-ebgp-connected-route-check
         bgp bestpath as-path multipath-relax
         neighbor 100.10.1.2 remote-as 1002
-        neighbor 100.10.1.2 update-source 100.10.1.1
         neighbor 100.10.1.2 timers 3 10
+        neighbor 100.10.1.2 timers connect 10
         neighbor 12.1.1.2 remote-as 1003
-        neighbor 12.1.1.2 update-source 12.1.1.1
         neighbor 12.1.1.2 timers 3 10
+        neighbor 12.1.1.2 timers connect 10
+        neighbor 100:10:1::2 remote-as 1002
+        neighbor 100:10:1::2 timers 3 10
+        neighbor 100:10:1::2 timers connect 10
+        neighbor 12:1:1::2 remote-as 1003
+        neighbor 12:1:1::2 timers 3 10
+        neighbor 12:1:1::2 timers connect 10
         address-family ipv4 unicast
         redistribute connected
         neighbor 100.10.1.2 activate
@@ -28,9 +39,21 @@ spine0:
         exit-address-family
         address-family ipv6 unicast
         redistribute connected
-        neighbor 100.10.1.2 activate
-        neighbor 12.1.1.2 activate
+        neighbor 100:10:1::2 activate
+        neighbor 100:10:1::2 route-map FROM_BGP_PEER_V6 in
+        neighbor 100:10:1::2 route-map TO_BGP_PEER_V6 out
+        neighbor 12:1:1::2 activate
+        neighbor 12:1:1::2 route-map FROM_BGP_PEER_V6 in
+        neighbor 12:1:1::2 route-map TO_BGP_PEER_V6 out
         exit-address-family
+        exit
+        route-map FROM_BGP_PEER_V6 permit 1
+        on-match next
+        set ipv6 next-hop prefer-global
+        exit
+        route-map FROM_BGP_PEER_V6 permit 100
+        exit
+        route-map TO_BGP_PEER_V6 permit 100
         exit
       deconfig: |
         no router bgp 1001
@@ -38,12 +61,17 @@ spine0:
 leaf0:
     sonic:
       config: |
+        sudo config interface startup D3D1P1
+        sudo config interface startup D3D1P2
         sudo config interface startup D3T1P1
         sudo config interface ip add D3T1P1 10.1.1.1/24
         sudo config interface ip add D3T1P1 10:1:1::1/120
       deconfig: |
         sudo config interface ip rem D3T1P1 10.1.1.1/24
         sudo config interface ip rem D3T1P1 10:1:1::1/120
+        sudo config interface startup D3D1P1
+        sudo config interface startup D3D1P2
+        sudo config interface startup D3T1P1
     bgp:
       config: |
         no router bgp
@@ -53,16 +81,29 @@ leaf0:
         bgp disable-ebgp-connected-route-check
         bgp bestpath as-path multipath-relax
         neighbor 100.10.1.1 remote-as 1001
-        neighbor 100.10.1.1 update-source 100.10.1.2
         neighbor 100.10.1.1 timers 3 10
+        neighbor 100.10.1.1 timers connect 10
+        neighbor 100:10:1::1 remote-as 1001
+        neighbor 100:10:1::1 timers 3 10
+        neighbor 100:10:1::1 timers connect 10
         address-family ipv4 unicast
         redistribute connected
         neighbor 100.10.1.1 activate
         exit-address-family
         address-family ipv6 unicast
         redistribute connected
-        neighbor 100.10.1.1 activate
+        neighbor 100:10:1::1 activate
+        neighbor 100:10:1::1 route-map FROM_BGP_PEER_V6 in
+        neighbor 100:10:1::1 route-map TO_BGP_PEER_V6 out
         exit-address-family
+        exit
+        route-map FROM_BGP_PEER_V6 permit 1
+        on-match next
+        set ipv6 next-hop prefer-global
+        exit
+        route-map FROM_BGP_PEER_V6 permit 100
+        exit
+        route-map TO_BGP_PEER_V6 permit 100
         exit
       deconfig: |
         no router bgp 1002
@@ -72,15 +113,18 @@ leaf1:
       config: |
         sudo config interface startup D4D1P1
         sudo config interface startup D4T1P1
-        sudo config interface ip add D4D1P1 12.1.1.2/24
-        sudo config interface ip add D4D1P1 12:1:1::2/120
         sudo config interface ip add D4T1P1 11.1.1.1/24
         sudo config interface ip add D4T1P1 11:1:1::1/120
+        sudo config interface startup D4D1P1
+        sudo config interface ip add D4D1P1 12.1.1.2/24
+        sudo config interface ip add D4D1P1 12:1:1::2/120
       deconfig: |
         sudo config interface ip rem D4T1P1 11.1.1.1/24
         sudo config interface ip rem D4T1P1 11:1:1::1/120
         sudo config interface ip rem D4D1P1 12.1.1.2/24
         sudo config interface ip rem D4D1P1 12:1:1::2/120
+        sudo config interface startup D4D1P1
+        sudo config interface startup D4T1P1
     bgp:
       config: |
         no router bgp
@@ -90,16 +134,29 @@ leaf1:
         bgp disable-ebgp-connected-route-check
         bgp bestpath as-path multipath-relax
         neighbor 12.1.1.1 remote-as 1001
-        neighbor 12.1.1.1 update-source 12.1.1.2
         neighbor 12.1.1.1 timers 3 10
+        neighbor 12.1.1.1 timers connect 10
+        neighbor 12:1:1::1 remote-as 1001
+        neighbor 12:1:1::1 timers 3 10
+        neighbor 12:1:1::1 timers connect 10
         address-family ipv4 unicast
         redistribute connected
         neighbor 12.1.1.1 activate
         exit-address-family
         address-family ipv6 unicast
         redistribute connected
-        neighbor 12.1.1.1 activate
+        neighbor 12:1:1::1 activate
+        neighbor 12:1:1::1 route-map FROM_BGP_PEER_V6 in
+        neighbor 12:1:1::1 route-map TO_BGP_PEER_V6 out
         exit-address-family
+        exit
+        route-map FROM_BGP_PEER_V6 permit 1
+        on-match next
+        set ipv6 next-hop prefer-global
+        exit
+        route-map FROM_BGP_PEER_V6 permit 100
+        exit
+        route-map TO_BGP_PEER_V6 permit 100
         exit
       deconfig: |
         no router bgp 1003

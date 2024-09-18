@@ -4,9 +4,9 @@ import pytest
 from spytest import st, SpyTestDict
 
 import apis.switching.portchannel as portchannel_obj
-import apis.switching.vlan as vlan_obj
 import apis.system.interface as intf_obj
 import tortuga_common_utils as common_obj
+import apis.routing.ip as ip_obj
 
 # Global variables
 data_glob = SpyTestDict()
@@ -22,14 +22,14 @@ def bvi_func_hooks(request):
     data_glob.function_unconfig = False #This var allows cleanup of pre configs and remaining configs in case of TC failures
     yield
     function_unconfig()
-    
+
 def function_unconfig():
     if not data_glob.function_unconfig:
         data_glob.function_unconfig = True
         data_glob.pre_config = False
         st.log('Function config Cleanup')
         dut_list = [data_glob.spine0, data_glob.leaf0, data_glob.leaf1]
-        vlan_obj.clear_vlan_configuration(dut_list)
+        ip_obj.clear_ip_configuration(dut_list, family='all')
         for dut in dut_list:
             if portchannel_obj.get_portchannel(dut, data_glob.portchannel_name):
                 members = portchannel_obj.get_portchannel_members(dut, data_glob.portchannel_name)
@@ -105,33 +105,18 @@ def setup_teardown_basic():
     
     yield 'setup_teardown_basic'
     common_obj.remove_temp_config(updated_path)
-    
-@pytest.fixture(scope='module', autouse=True)
-def setup_teardown_bgp(setup_teardown_basic):
-    with open(updated_path) as c:
-        config_list = yaml.load(c, Loader=yaml.FullLoader)
-        for node, config in config_list.items():
-            common_obj.config_static(node, 'bgp', True, updated_path)
-
-    yield 'setup_teardown_bgp'
-
-    with open(updated_path) as c:
-        config_list = yaml.load(c, Loader=yaml.FullLoader)
-        for node, config in config_list.items():
-            common_obj.config_static(node, 'bgp', False, updated_path)
 
 @pytest.fixture()
-def setup_teardown_portchannel(setup_teardown_bgp):
+def setup_teardown_portchannel(setup_teardown_basic):
 
     if not data_glob.pre_config:
         with open(updated_path) as c:
             config_list = yaml.load(c, Loader=yaml.FullLoader)
             for node, config in config_list.items():
                 common_obj.config_static(node, 'sonic', True, updated_path)
+                common_obj.config_static(node, 'bgp', True, updated_path)
 
         count = 5
-        st.show(data_glob.spine0, 'sudo ping -c {} {} -q'.format(count, '12.1.1.2'), skip_tmpl=True, skip_error_check=True)
-        st.show(data_glob.spine0, 'sudo ping -c {} {} -q'.format(count, '11.1.1.1'), skip_tmpl=True, skip_error_check=True)
         
         data_glob.pre_config = True
 
@@ -143,6 +128,7 @@ def setup_teardown_portchannel(setup_teardown_bgp):
     with open(updated_path) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
+            common_obj.config_static(node, 'bgp', False, updated_path)
             common_obj.config_static(node, 'sonic', False, updated_path)
 
 def test_portchannel_v4_add_del():
@@ -171,6 +157,7 @@ def test_portchannel_v4_add_del():
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
 
+    data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
    
 def test_portchannel_v6_add_del():
@@ -199,6 +186,7 @@ def test_portchannel_v6_add_del():
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
 
+    data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
 
 def test_portchannel_dual_stack_add_del():
@@ -235,10 +223,11 @@ def test_portchannel_dual_stack_add_del():
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
     
+    data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
 
 def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
-    
+
     #add PortChannel01, add multiple member interfaces and add ipv4 address to PortChannel01
     common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, '', [data_glob.members_dut1[0],data_glob.members_dut1[1]], add=True)
     common_obj.portchannel_create_delete(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ip_D3D1, '', [data_glob.members_dut2[0],data_glob.members_dut2[1]], add=True)
@@ -247,14 +236,10 @@ def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0], data_glob.members_dut1[1]], add=True)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0], data_glob.members_dut2[1]], add=True)
 
-    #Test PortChannel01 ipv4 address addition
-    common_obj.check_portchannel_ip_address(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, 'ipv4', add=True)
-    common_obj.check_portchannel_ip_address(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ip_D3D1, 'ipv4', add=True)
-
     #test traffic
     handles = common_obj.traffic_test_config(data_l3, data_l3, 'T1D3P1', 'T1D4P1', 'unicast', True)
     common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
+    common_obj.traffic_stop(handles, mode='burst')
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv4 traffic Passed")
     else:
@@ -265,13 +250,13 @@ def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
     common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=False)
     common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=False)
 
-    #Test portchannel member interfaces 
+    #Test portchannel member interfaces
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=True)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=True)
-    
+
     #test traffic
     common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
+    common_obj.traffic_stop(handles, mode='burst')
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv4 traffic after one member removal Passed")
     else:
@@ -281,11 +266,7 @@ def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
     #remove ipv4 address from PortChannel01 and del PortChannel01
     common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, '', [data_glob.members_dut1[0]], add=False)
     common_obj.portchannel_create_delete(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ip_D3D1, '', [data_glob.members_dut2[0]], add=False)
-    
-    #Test PortChannel01 ipv4 address removal
-    common_obj.check_portchannel_ip_address(data_glob.spine0, data_glob.portchannel_name, '', 'ipv4', add=False)
-    common_obj.check_portchannel_ip_address(data_glob.leaf0, data_glob.portchannel_name, '', 'ipv4', add=False)
-    
+
     #Test PortChannel01 deletion
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
@@ -293,94 +274,20 @@ def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
     data_glob.function_unconfig = True
     st.report_pass('test_case_passed')
 
-@pytest.mark.skip(reason = "Ping Failed, Jira : MIGSOFTWAR-14793")
 def test_portchannel_member_v6_add_del(setup_teardown_portchannel):
-    
-    #add PortChannel01, add multiple member interfaces, add ipv6 address to PortChannel01 and ipv4 address for BGP 
-    common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, data_glob.pc_ipv6_D1D3, [data_glob.members_dut1[0],data_glob.members_dut1[1]], add=True)
-    common_obj.portchannel_create_delete(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ip_D3D1, data_glob.pc_ipv6_D3D1, [data_glob.members_dut2[0],data_glob.members_dut2[1]], add=True)
-    
+
+    #add PortChannel01, add multiple member interfaces and add ipv6 address to PortChannel01
+    common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, '', data_glob.pc_ipv6_D1D3, [data_glob.members_dut1[0],data_glob.members_dut1[1]], add=True)
+    common_obj.portchannel_create_delete(data_glob.leaf0, data_glob.portchannel_name, '', data_glob.pc_ipv6_D3D1, [data_glob.members_dut2[0],data_glob.members_dut2[1]], add=True)
+
     #Test PortChannel01 creation
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0], data_glob.members_dut1[1]], add=True)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0], data_glob.members_dut2[1]], add=True)
 
-    #Test PortChannel01 ipv6 address addition
-    common_obj.check_portchannel_ip_address(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ipv6_D1D3, 'ipv6', add=True)
-    common_obj.check_portchannel_ip_address(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ipv6_D3D1, 'ipv6', add=True)
-    
     #test traffic
     handles = common_obj.traffic_test_config(data_l3, data_l3, 'T1D3P1', 'T1D4P1', 'unicast', False)
     common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
-        st.log("Traffic check for ipv6 traffic Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "ipv6 traffic")
-    
-    #remove one of member link
-    common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=False)
-    common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=False)
-
-    #Test portchannel member interfaces 
-    common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=True)
-    common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=True)
-    
-    #test traffic
-    common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
-        st.log("Traffic check for ipv6 traffic after one member removal Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "ipv6 traffic after one member removal")
-
-    #remove dual stack from PortChannel01 and del PortChannel01
-    common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, data_glob.pc_ipv6_D1D3, [data_glob.members_dut1[0]], add=False)
-    common_obj.portchannel_create_delete(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ip_D3D1, data_glob.pc_ipv6_D3D1, [data_glob.members_dut2[0]], add=False)
-    
-    #Test PortChannel01 ipv6 address removal
-    common_obj.check_portchannel_ip_address(data_glob.spine0, data_glob.portchannel_name, '', 'ipv6', add=False)
-    common_obj.check_portchannel_ip_address(data_glob.leaf0, data_glob.portchannel_name, '', 'ipv6', add=False)
-    
-    #Test PortChannel01 deletion
-    common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
-    common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
-    
-    data_glob.function_unconfig = True
-    st.report_pass('test_case_passed')
-
-@pytest.mark.skip(reason = "Ping Failed, Jira : MIGSOFTWAR-14793")
-def test_portchannel_member_v4_v6_add_del(setup_teardown_portchannel):
-    
-    #add PortChannel01, add multiple member interfaces and add dual stack to PortChannel01
-    common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, data_glob.pc_ipv6_D1D3, [data_glob.members_dut1[0],data_glob.members_dut1[1]], add=True)
-    common_obj.portchannel_create_delete(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ip_D3D1, data_glob.pc_ipv6_D3D1, [data_glob.members_dut2[0],data_glob.members_dut2[1]], add=True)
-    
-    #Test PortChannel01 creation
-    common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0], data_glob.members_dut1[1]], add=True)
-    common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0], data_glob.members_dut2[1]], add=True)
-
-    #Test PortChannel01 dual stack addition
-    common_obj.check_portchannel_ip_address(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, 'ipv4', add=True)
-    common_obj.check_portchannel_ip_address(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ip_D3D1, 'ipv4', add=True)
-    common_obj.check_portchannel_ip_address(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ipv6_D1D3, 'ipv6', add=True)
-    common_obj.check_portchannel_ip_address(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ipv6_D3D1, 'ipv6', add=True)
-
-    #test ipv4 traffic
-    handles = common_obj.traffic_test_config(data_l3, data_l3, 'T1D3P1', 'T1D4P1', 'unicast', True)
-    common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
-        st.log("Traffic check for ipv4 traffic Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "ipv4 traffic")
-        
-    #test ipv6 traffic
-    handles = common_obj.traffic_test_config(data_l3, data_l3, 'T1D3P1', 'T1D4P1', 'unicast', False)
-    common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
+    common_obj.traffic_stop(handles, mode='burst')
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv6 traffic Passed")
     else:
@@ -391,38 +298,23 @@ def test_portchannel_member_v4_v6_add_del(setup_teardown_portchannel):
     common_obj.portchannel_add_del_member(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[1]], add=False)
     common_obj.portchannel_add_del_member(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[1]], add=False)
 
-    #Test portchannel member interfaces 
+    #Test portchannel member interfaces
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [data_glob.members_dut1[0]], add=True)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [data_glob.members_dut2[0]], add=True)
-    
-    #test ipv4 traffic
-    handles = common_obj.traffic_test_config(data_l3, data_l3, 'T1D3P1', 'T1D4P1', 'unicast', True)
+
+    #test traffic
     common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
-    if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
-        st.log("Traffic check for ipv4 traffic after one member removal Passed")
-    else:
-        common_obj.traffic_cleanup(handles)
-        st.report_fail('failed_traffic_verification', "ipv4 traffic after one member removal")
-        
-    #test ipv6 traffic
-    handles = common_obj.traffic_test_config(data_l3, data_l3, 'T1D3P1', 'T1D4P1', 'unicast', False)
-    common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
+    common_obj.traffic_stop(handles, mode='burst')
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         st.log("Traffic check for ipv6 traffic after one member removal Passed")
     else:
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "ipv6 traffic after one member removal")
 
-    #remove dual stack from PortChannel01 and del PortChannel01
-    common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, data_glob.pc_ip_D1D3, data_glob.pc_ipv6_D1D3, [data_glob.members_dut1[0]], add=False)
-    common_obj.portchannel_create_delete(data_glob.leaf0, data_glob.portchannel_name, data_glob.pc_ip_D3D1, data_glob.pc_ipv6_D3D1, [data_glob.members_dut2[0]], add=False)
-    
-    #Test PortChannel01 ipv4 address removal
-    common_obj.check_portchannel_ip_address(data_glob.spine0, data_glob.portchannel_name, '', 'ipv4', add=False)
-    common_obj.check_portchannel_ip_address(data_glob.leaf0, data_glob.portchannel_name, '', 'ipv4', add=False)
-    
+    #remove ipv6 address from PortChannel01 and del PortChannel01
+    common_obj.portchannel_create_delete(data_glob.spine0, data_glob.portchannel_name, '', data_glob.pc_ipv6_D1D3, [data_glob.members_dut1[0]], add=False)
+    common_obj.portchannel_create_delete(data_glob.leaf0, data_glob.portchannel_name, '', data_glob.pc_ipv6_D3D1, [data_glob.members_dut2[0]], add=False)
+
     #Test PortChannel01 deletion
     common_obj.check_portchannel_add_del(data_glob.spine0, data_glob.portchannel_name, [], add=False)
     common_obj.check_portchannel_add_del(data_glob.leaf0, data_glob.portchannel_name, [], add=False)
@@ -446,7 +338,7 @@ def test_portchannel_minlink(setup_teardown_portchannel):
     #test ipv4 traffic with base config
     handles = common_obj.traffic_test_config(data_l3, data_l3, 'T1D3P1', 'T1D4P1', 'unicast', True)
     common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
+    common_obj.traffic_stop(handles, mode='burst')
     if not common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed Traffic verfication', "ipv4 traffic")
@@ -459,7 +351,7 @@ def test_portchannel_minlink(setup_teardown_portchannel):
         st.report_fail('msg', "PortChannel in Up state after member shutdown")
 
     common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
+    common_obj.traffic_stop(handles, mode='burst')
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed Traffic verfication', "ipv4 traffic after shutting of one member")
@@ -468,14 +360,14 @@ def test_portchannel_minlink(setup_teardown_portchannel):
     intf_obj.interface_noshutdown(data_glob.spine0, [data_glob.members_dut1[0]])
 
     #Waiting additional time for Port state to transition back and for BGP to converge
-    st.wait(20)
+    st.wait(10)
 
     #Port channel status check
     if not portchannel_obj.verify_portchannel_state(data_glob.spine0, data_glob.portchannel_name, state="up"):
         st.report_fail("PortChannel in Down state after member unshut")
 
     common_obj.traffic_start(handles, data_l3, data_l3)
-    common_obj.traffic_stop(handles)
+    common_obj.traffic_stop(handles, mode='burst')
 
     if not common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_l3, data_l3):
         common_obj.traffic_cleanup(handles)

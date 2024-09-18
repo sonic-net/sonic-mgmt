@@ -153,21 +153,7 @@ def setup_teardown_basic():
     
     yield 'setup_teardown_basic'
     common_obj.remove_temp_config(updated_path)
-    
-@pytest.fixture(scope='module', autouse=True)
-def setup_teardown_bgp(setup_teardown_basic):
-    with open(updated_path) as c:
-        config_list = yaml.load(c, Loader=yaml.FullLoader)
-        for node, config in config_list.items():
-            common_obj.config_static(node, 'bgp', True, updated_path)
 
-    yield 'setup_teardown_bgp'
-
-    with open(updated_path) as c:
-        config_list = yaml.load(c, Loader=yaml.FullLoader)
-        for node, config in config_list.items():
-            common_obj.config_static(node, 'bgp', False, updated_path)
-       
 # Using Portchannel between spine0 and leaf0 as vlan 10 member
 # Multiple Vlans
 #
@@ -236,7 +222,7 @@ def setup_teardown_bvi_pc(setup_teardown_basic):
 # |--------------------|  |---------------------|  |-------------------|
 #
 @pytest.fixture()
-def setup_teardown_bvi_bd(setup_teardown_bgp):
+def setup_teardown_bvi_bd(setup_teardown_basic):
     if not data_glob.pre_config:
         #Set mac address for intra vlan traffic
         data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
@@ -246,6 +232,7 @@ def setup_teardown_bvi_bd(setup_teardown_bgp):
             config_list = yaml.load(c, Loader=yaml.FullLoader)
             for node, config in config_list.items():
                 common_obj.config_static(node, 'sonic_bd', True, updated_path)
+                common_obj.config_static(node, 'bgp', True, updated_path)
 
         data_glob.pre_config = True
     
@@ -256,6 +243,7 @@ def setup_teardown_bvi_bd(setup_teardown_bgp):
     with open(updated_path) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
+            common_obj.config_static(node, 'bgp', False, updated_path)
             common_obj.config_static(node, 'sonic_bd', False, updated_path)
             
 # Using Portchannel between spine0 and leaf0 as vlan 10 member
@@ -281,7 +269,7 @@ def setup_teardown_bvi_bd(setup_teardown_bgp):
 # |--------------------|  |---------------------|  |-------------------|
 #
 @pytest.fixture()
-def setup_teardown_bvi_bd_pc(setup_teardown_bgp):
+def setup_teardown_bvi_bd_pc(setup_teardown_basic):
     if not data_glob.pre_config:
         #Set mac address for intra vlan traffic
         data_vid_10.t1d3_dest_mac_addr = data_vid_10.t1d4_mac_addr
@@ -291,6 +279,7 @@ def setup_teardown_bvi_bd_pc(setup_teardown_bgp):
             config_list = yaml.load(c, Loader=yaml.FullLoader)
             for node, config in config_list.items():
                 common_obj.config_static(node, 'sonic_bd_pc', True, updated_path)
+                common_obj.config_static(node, 'bgp', True, updated_path)
 
         data_glob.pre_config = True
 
@@ -302,6 +291,7 @@ def setup_teardown_bvi_bd_pc(setup_teardown_bgp):
     with open(updated_path) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
+            common_obj.config_static(node, 'bgp', False, updated_path)
             common_obj.config_static(node, 'sonic_bd_pc', False, updated_path)
 
 
@@ -451,7 +441,6 @@ def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
 # Verify v6 intra vlan and L2<--->L3 traffic
 # Tgen Stream 1: 10:0:1::1 (T1D3P1) <------> 10:0:1::2 (T1D4P1)
 # Tgen Stream 2: 10:0:1::1 (T1D3P1) <------> 11:1:1::2 (T1D4P2)
-@pytest.mark.skip(reason = "Ping Failed for L2<--->L3 Traffic, Jira : MIGSOFTWAR-14793")
 def test_bvi_v6_intra_vlan_and_l2_l3(setup_teardown_bvi_bd):
     
     #leaf0 (10:0:1::1) -----> leaf1(10:0:1::2)

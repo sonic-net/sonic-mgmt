@@ -99,11 +99,17 @@ spine0:
         bgp disable-ebgp-connected-route-check
         bgp bestpath as-path multipath-relax
         neighbor 12.1.1.2 remote-as 1002
-        neighbor 12.1.1.2 update-source 12.1.1.1
         neighbor 12.1.1.2 timers 3 10
+        neighbor 12.1.1.2 timers connect 10
         neighbor 13.1.1.2 remote-as 1003
-        neighbor 13.1.1.2 update-source 13.1.1.1
         neighbor 13.1.1.2 timers 3 10
+        neighbor 13.1.1.2 timers connect 10
+        neighbor 12:1:1::2 remote-as 1002
+        neighbor 12:1:1::2 timers 3 10
+        neighbor 12:1:1::2 timers connect 10
+        neighbor 13:1:1::2 remote-as 1003
+        neighbor 13:1:1::2 timers 3 10
+        neighbor 13:1:1::2 timers connect 10
         address-family ipv4 unicast
         redistribute connected
         neighbor 12.1.1.2 activate
@@ -111,9 +117,21 @@ spine0:
         exit-address-family
         address-family ipv6 unicast
         redistribute connected
-        neighbor 12.1.1.2 activate
-        neighbor 13.1.1.2 activate
+        neighbor 12:1:1::2 activate
+        neighbor 12:1:1::2 route-map FROM_BGP_PEER_V6 in
+        neighbor 12:1:1::2 route-map TO_BGP_PEER_V6 out
+        neighbor 13:1:1::2 activate
+        neighbor 13:1:1::2 route-map FROM_BGP_PEER_V6 in
+        neighbor 13:1:1::2 route-map TO_BGP_PEER_V6 out
         exit-address-family
+        exit
+        route-map FROM_BGP_PEER_V6 permit 1
+        on-match next
+        set ipv6 next-hop prefer-global
+        exit
+        route-map FROM_BGP_PEER_V6 permit 100
+        exit
+        route-map TO_BGP_PEER_V6 permit 100
         exit
       deconfig: |
         no router bgp 1001
@@ -149,7 +167,7 @@ leaf0:
     sonic_bd_pc:
       config: |
         sudo config vlan add 10
-        sudo config portchannel add PortChannel01 
+        sudo config portchannel add PortChannel01
         sudo config interface startup D3D1P2
         sudo config acl remove table TORTUGA_ACL_INGRESS
         sudo config acl remove table TORTUGA_ACL_INGRESS_V6
@@ -237,16 +255,29 @@ leaf0:
         bgp disable-ebgp-connected-route-check
         bgp bestpath as-path multipath-relax
         neighbor 12.1.1.1 remote-as 1001
-        neighbor 12.1.1.1 update-source 12.1.1.2
         neighbor 12.1.1.1 timers 3 10
+        neighbor 12.1.1.1 timers connect 10
+        neighbor 12:1:1::1 remote-as 1001
+        neighbor 12:1:1::1 timers 3 10
+        neighbor 12:1:1::1 timers connect 10
         address-family ipv4 unicast
         redistribute connected
         neighbor 12.1.1.1 activate
         exit-address-family
         address-family ipv6 unicast
         redistribute connected
-        neighbor 12.1.1.1 activate
+        neighbor 12:1:1::1 activate
+        neighbor 12:1:1::1 route-map FROM_BGP_PEER_V6 in
+        neighbor 12:1:1::1 route-map TO_BGP_PEER_V6 out
         exit-address-family
+        exit
+        route-map FROM_BGP_PEER_V6 permit 1
+        on-match next
+        set ipv6 next-hop prefer-global
+        exit
+        route-map FROM_BGP_PEER_V6 permit 100
+        exit
+        route-map TO_BGP_PEER_V6 permit 100
         exit
       deconfig: |
         no router bgp 1002
@@ -328,16 +359,29 @@ leaf1:
         bgp disable-ebgp-connected-route-check
         bgp bestpath as-path multipath-relax
         neighbor 13.1.1.1 remote-as 1001
-        neighbor 13.1.1.1 update-source 13.1.1.2
         neighbor 13.1.1.1 timers 3 10
+        neighbor 13.1.1.1 timers connect 10
+        neighbor 13:1:1::1 remote-as 1001
+        neighbor 13:1:1::1 timers 3 10
+        neighbor 13:1:1::1 timers connect 10
         address-family ipv4 unicast
         redistribute connected
         neighbor 13.1.1.1 activate
         exit-address-family
         address-family ipv6 unicast
         redistribute connected
-        neighbor 13.1.1.1 activate
+        neighbor 13:1:1::1 activate
+        neighbor 13:1:1::1 route-map FROM_BGP_PEER_V6 in
+        neighbor 13:1:1::1 route-map TO_BGP_PEER_V6 out
         exit-address-family
+        exit
+        route-map FROM_BGP_PEER_V6 permit 1
+        on-match next
+        set ipv6 next-hop prefer-global
+        exit
+        route-map FROM_BGP_PEER_V6 permit 100
+        exit
+        route-map TO_BGP_PEER_V6 permit 100
         exit
       deconfig: |
         no router bgp 1003
