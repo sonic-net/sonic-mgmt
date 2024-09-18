@@ -147,3 +147,57 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         if fec_symbol_err_int > fec_corr_int:
             pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
                         .format(intf_name, fec_symbol_err_int, fec_corr_int))
+
+
+def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+        enum_frontend_asic_index, conn_graph_facts):
+    """
+    @Summary: Verify the FEC histogram is valid and check for errors
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    logging.info("Get output of 'show interface status'")
+    intf_status = duthost.show_and_parse("show interface status")
+
+    for intf in intf_status:
+        intf_name = intf['interface']
+        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}".format(intf_name))
+        if sfp_presence:
+            presence = sfp_presence[0].get('presence', '').lower()
+            oper = intf.get('oper', '').lower()
+
+            # Skip interfaces that are not up or have no SFP module present
+            if presence == "not present" or oper != "up":
+                continue
+
+            # Verify the FEC histogram
+            logging.info("Get output of 'show interfaces counters fec-histogram {}'".format(intf_name))
+            fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {}".format(intf_name))
+
+            # Check if the FEC histogram data is present
+            if not fec_hist:
+                pytest.fail("No FEC histogram data found for interface {}".format(intf_name))
+
+            # Check and log FEC histogram bins
+            logging.info("FEC histogram for interface {}: {}".format(intf_name, fec_hist))
+
+            # Set thresholds for FEC histogram validation
+            acceptable_error_threshold = 100
+            critical_bins = range(8, 16)  # Higher bins indicating serious transmission issues
+
+            # Validate FEC histogram counters
+            for bin_index in range(16):
+                bin_label = fec_hist[bin_index].get('symbol errors per codeword')
+                bin_value = fec_hist[bin_index].get('codewords')
+
+                # Log the bin values
+                logging.info("Interface {}: {} -> {}".format(intf_name, bin_label, bin_value))
+
+                # Fail the test if any bin contains a negative value (unexpected)
+                if int(bin_value) < 0:
+                    pytest.fail("Negative symbol error count found in {} on interface {}".format(bin_label, intf_name))
+
+                # Fail the test if the error count in higher bins exceeds the acceptable threshold
+                if bin_index in critical_bins and int(bin_value) > acceptable_error_threshold:
+                    pytest.fail("Excessive symbol errors found in bin {} ({} errors) on interface {}".format(
+                        bin_label, bin_value, intf_name))
