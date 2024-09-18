@@ -1,5 +1,6 @@
 import logging
 import pytest
+from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,10 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
 
     config_facts = duthost.asic_instance(
         enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    internal_port_list = get_dpu_npu_ports_from_hwsku(duthost)
     lldpctl_facts = duthost.lldpctl_facts(
         asic_instance_id=enum_frontend_asic_index,
-        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
+        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)['ansible_facts']
     if not list(lldpctl_facts['lldpctl'].items()):
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
     for k, v in list(lldpctl_facts['lldpctl'].items()):
@@ -57,9 +59,10 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
     res = duthost.shell(
         "docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
     dut_system_description = res['stdout']
+    internal_port_list = get_dpu_npu_ports_from_hwsku(duthost)
     lldpctl_facts = duthost.lldpctl_facts(
         asic_instance_id=enum_frontend_asic_index,
-        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"])['ansible_facts']
+        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)['ansible_facts']
     config_facts = duthost.asic_instance(enum_frontend_asic_index).config_facts(host=duthost.hostname,
                                                                                 source="running")['ansible_facts']
     if not list(lldpctl_facts['lldpctl'].items()):
