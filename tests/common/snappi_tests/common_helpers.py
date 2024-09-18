@@ -18,6 +18,8 @@ from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
+from tests.common.portstat_utilities import parse_portstat
+from collections import defaultdict
 
 
 def increment_ip_address(ip, incr=1):
@@ -105,15 +107,30 @@ def get_lossless_buffer_size(host_ans):
     Returns:
         total switch buffer size in byte (int)
     """
-    config_facts = host_ans.config_facts(host=host_ans.hostname,
+    dut_asic = host_ans.asic_instance()
+    config_facts = dut_asic.config_facts(host=host_ans.hostname,
                                          source="running")['ansible_facts']
+
     is_cisco8000_platform = True if 'cisco-8000' in host_ans.facts['platform_asic'] else False
+
+    # Checking if platform is Broadcom-DNX.
+    is_broadcom_dnx = (
+            True
+            if "platform_asic" in host_ans.facts and host_ans.facts["platform_asic"] == "broadcom-dnx"
+            else False
+            )
 
     if "BUFFER_POOL" not in list(config_facts.keys()):
         return None
 
     buffer_pools = config_facts['BUFFER_POOL']
-    profile_name = 'ingress_lossless_pool' if is_cisco8000_platform else 'egress_lossless_pool'
+
+    # Added check to select ingress_lossles_pool for Nokia7250 platform.
+    profile_name = (
+            'ingress_lossless_pool'
+            if (is_cisco8000_platform or is_broadcom_dnx)
+            else 'egress_lossless_pool'
+            )
 
     if profile_name not in list(buffer_pools.keys()):
         return None
@@ -122,7 +139,7 @@ def get_lossless_buffer_size(host_ans):
     return int(lossless_pool['size'])
 
 
-def get_pg_dropped_packets(duthost, phys_intf, prio):
+def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
     """
     Get number of ingress packets dropped on a specific priority
     of a physical interface
@@ -133,14 +150,22 @@ def get_pg_dropped_packets(duthost, phys_intf, prio):
     Returns:
         total number of dropped packets (int)
     """
-    oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+    if asic_value is None:
+        oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+    else:
+        oid_cmd = "sudo ip netns exec {} sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP ".format(asic_value) \
+                  + phys_intf + ":" + str(prio)
     oid_out = duthost.command(oid_cmd)
     oid_str = str(oid_out["stdout_lines"][0] or 1)
 
     if oid_str == "1":
         return None
 
-    cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
+    if asic_value is None:
+        cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
+    else:
+        cmd = "sudo ip netns exec {} sonic-db-cli COUNTERS_DB HGET COUNTERS:".format(asic_value) \
+              + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
     out = duthost.command(cmd)
     dropped_packets = int(out["stdout_lines"][0] or -1)
 
@@ -229,7 +254,13 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     if len(peer_devices) == 1:
         return peer_devices[0]
     else:
-        return None
+        # in case there are other fanout devices (Arista, SONiC, etc) defined in the inventory file,
+        # try to filter out the other device based on the name for now.
+        peer_snappi_devices = list(filter(lambda dut_name: ('ixia' in dut_name), peer_devices))
+        if len(peer_snappi_devices) == 1:
+            return peer_snappi_devices[0]
+        else:
+            return None
 
 
 def get_peer_port(conn_data, dut_hostname, dut_intf):
@@ -490,7 +521,7 @@ def enable_ecn(host_ans, prio, asic_value=None):
             return True
     else:
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
-        results = host_ans.shell('sudo ip netns exec {} ecnconfig {}'.format(asic_value, prio))
+        results = host_ans.shell('sudo ip netns exec {} ecnconfig -q {}'.format(asic_value, prio))
         if re.search("queue {}: on".format(prio), results['stdout']):
             return True
     return False
@@ -945,14 +976,22 @@ def get_egress_queue_count(duthost, port, priority):
     Returns:
         tuple (int, int): total count of packets and bytes in the queue
     """
-    raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
-    total_pkts = raw_out.split()[2] if 2 < len(raw_out.split()) else "0"
-    if total_pkts == "N/A":
-        total_pkts = "0"
+    # If DUT is multi-asic, asic will be used.
+    if duthost.is_multi_asic:
+        asic = duthost.get_port_asic_instance(port).get_asic_namespace()
+        raw_out = duthost.shell("sudo ip netns exec {} show queue counters {} | sed -n '/UC{}/p'".
+                                format(asic, port, priority))['stdout']
+        total_pkts = "0" if raw_out.split()[2] == "N/A" else raw_out.split()[2]
+        total_bytes = "0" if raw_out.split()[3] == "N/A" else raw_out.split()[3]
+    else:
+        raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
+        total_pkts = raw_out.split()[2] if 2 < len(raw_out.split()) else "0"
+        if total_pkts == "N/A":
+            total_pkts = "0"
 
-    total_bytes = raw_out.split()[3] if 3 < len(raw_out.split()) else "0"
-    if total_bytes == "N/A":
-        total_bytes = "0"
+        total_bytes = raw_out.split()[3] if 3 < len(raw_out.split()) else "0"
+        if total_bytes == "N/A":
+            total_bytes = "0"
 
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
 
@@ -1047,3 +1086,120 @@ def start_pfcwd_fwd(duthost, asic_value=None):
         stop_pfcwd(duthost, asic_value)
         duthost.shell('sudo ip netns exec {} pfcwd start --action forward 200 --restoration-time 200'.
                       format(asic_value))
+
+
+def clear_counters(duthost, port):
+    """
+    Clear PFC, Queuecounters, Drop and generic counters from SONiC CLI.
+    Args:
+        duthost (Ansible host instance): Device under test
+        port (str): port name
+    Returns:
+        None
+    """
+
+    duthost.shell("sudo sonic-clear counters \n")
+    duthost.shell("sudo sonic-clear pfccounters \n")
+    duthost.shell("sudo sonic-clear priority-group drop counters \n")
+    duthost.shell("sonic-clear counters \n")
+    duthost.shell("sonic-clear pfccounters \n")
+
+    if (duthost.is_multi_asic):
+        asic = duthost.get_port_asic_instance(port).get_asic_namespace()
+        duthost.shell("sudo ip netns exec {} sonic-clear queuecounters \n".format(asic))
+        duthost.shell("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
+    else:
+        duthost.shell("sonic-clear queuecounters \n")
+        duthost.shell("sonic-clear dropcounters \n")
+
+
+def get_interface_stats(duthost, port):
+    """
+    Get the Rx and Tx port failures, throughput and pkts from SONiC CLI.
+    This is the equivalent of the "show interface counters" command.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+    Returns:
+        i_stats (dict): Returns various parameters for given DUT and port.
+    """
+    # Initializing nested dictionary i_stats
+    i_stats = defaultdict(dict)
+    i_stats[duthost.hostname][port] = {}
+
+    n_out = parse_portstat(duthost.command('portstat -i {}'.format(port))['stdout_lines'])[port]
+    # rx_err, rx_ovr and rx_drp are counted in single counter rx_fail
+    # tx_err, tx_ovr and tx_drp are counted in single counter tx_fail
+    rx_err = ['rx_err', 'rx_ovr', 'rx_drp']
+    tx_err = ['tx_err', 'tx_ovr', 'tx_drp']
+    rx_fail = 0
+    tx_fail = 0
+    for m in rx_err:
+        rx_fail = rx_fail + int(n_out[m].replace(',', ''))
+    for m in tx_err:
+        tx_fail = tx_fail + int(n_out[m].replace(',', ''))
+
+    # Any throughput below 1MBps is measured as 0 for simplicity.
+    thrput = n_out['rx_bps']
+    if thrput.split(' ')[1] == 'MB/s' and (thrput.split(' ')[0]) != '0.00':
+        i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
+    else:
+        i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = 0
+    thrput = n_out['tx_bps']
+    if thrput.split(' ')[1] == 'MB/s' and (thrput.split(' ')[0]) != '0.00':
+        i_stats[duthost.hostname][port]['tx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
+    else:
+        i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = 0
+
+    i_stats[duthost.hostname][port]['rx_pkts'] = int(n_out['rx_ok'].replace(',', ''))
+    i_stats[duthost.hostname][port]['tx_pkts'] = int(n_out['tx_ok'].replace(',', ''))
+    i_stats[duthost.hostname][port]['rx_fail'] = rx_fail
+    i_stats[duthost.hostname][port]['tx_fail'] = tx_fail
+
+    return i_stats
+
+
+def get_queue_count_all_prio(duthost, port):
+    """
+    Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
+    This is the equivalent of the "show queue counters" command.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+    Returns:
+        queue_dict (dict): key-value with key=dut+port+prio and value=queue count
+    """
+    # Initializing nested dictionary queue_dict
+    queue_dict = defaultdict(dict)
+    queue_dict[duthost.hostname][port] = {}
+
+    # Preparing the dictionary for all 7 priority queues.
+    for priority in range(7):
+        total_pkts, _ = get_egress_queue_count(duthost, port, priority)
+        queue_dict[duthost.hostname][port]['prio_' + str(priority)] = total_pkts
+
+    return queue_dict
+
+
+def get_pfc_count(duthost, port):
+    """
+    Get the PFC frame count for a given port from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+    Returns:
+        pfc_dict (dict) : Returns Rx and Tx PFC for the given DUT and interface.
+    """
+    pfc_dict = defaultdict(dict)
+    pfc_dict[duthost.hostname][port] = {}
+    raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep '{} '".format(port))['stdout']
+    pause_frame_count = raw_out.split()
+    for m in range(1, len(pause_frame_count)):
+        pfc_dict[duthost.hostname][port]['tx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
+
+    raw_out = duthost.shell("show pfc counters | sed -n '/Port Rx/,/^$/p' | grep '{} '".format(port))['stdout']
+    pause_frame_count = raw_out.split()
+    for m in range(1, len(pause_frame_count)):
+        pfc_dict[duthost.hostname][port]['rx_pfc_'+str(m-1)] = int(pause_frame_count[m].replace(',', ''))
+
+    return pfc_dict
