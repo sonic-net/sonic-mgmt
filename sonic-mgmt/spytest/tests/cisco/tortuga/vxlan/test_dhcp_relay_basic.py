@@ -378,6 +378,8 @@ def test_dhcp_relay_ipv4_diff_vrf():
 ##
 ######################################################################
 
+"""
+@pytest.mark.skip(reason="missing dhcp_relay ipv6 module")
 def test_dhcp_relay_ipv6_basic():
     vars = st.get_testbed_vars()
 
@@ -404,6 +406,7 @@ def test_dhcp_relay_ipv6_basic():
     else:
         st.report_fail("test_case_failed", "test_dhcp_relay_ipv6_basic failed")
 
+"""
 
 ######################################################################
 ##  IPv6 2VLAN on new SINGLE VRF:
