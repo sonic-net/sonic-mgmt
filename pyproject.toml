@@ -1,7 +1,7 @@
 # Local pre-commit hook config
 [project]
 name = "sonic-mgmt-pre-commit-hooks"
-version = "1.0.0+pre_commit"
+version = "1.0.1+pre_commit"
 description = "Some hooks for pre-commit in sonic-mgmt repo."
 classifiers = [
     "Programming Language :: Python :: 3",

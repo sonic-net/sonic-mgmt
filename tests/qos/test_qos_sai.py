@@ -37,7 +37,7 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
+from tests.common.helpers.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
@@ -890,7 +890,7 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         if ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
-                get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True"):
+                get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
             if dutConfig['dstDutAsic'] != "pac":
                 pytest.skip("This test is skipped since not enough ports on cisco-8000 "
                             "T2 Q200.")
@@ -1232,7 +1232,7 @@ class TestQosSai(QosSaiBase):
             pytest.skip("Lossy Queue Voq test is only supported on cisco-8000 single-asic")
         if "lossy_queue_voq_1" in LossyVoq:
             if ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
-                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True"):
+                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
                 if get_src_dst_asic_and_duts['src_dut'].facts['platform'] != 'x86_64-88_lc0_36fh-r0':
                     pytest.skip("LossyQueueVoq: This test is skipped since cisco-8000 T2 "
                                 "doesn't support split-voq.")
@@ -1241,7 +1241,7 @@ class TestQosSai(QosSaiBase):
                 pytest.skip("LossyQueueVoq: lossy_queue_voq_2 test is not applicable "
                             "for x86_64-88_lc0_36fh-r0, with split-voq.")
             if not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
-                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True"):
+                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"]):
                 pytest.skip("LossyQueueVoq: lossy_queue_voq_2 test is not applicable "
                             "for split-voq.")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
@@ -1311,7 +1311,8 @@ class TestQosSai(QosSaiBase):
             raise
 
     def testQosSaiDscpQueueMapping(
-        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps # noqa F811
+        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
+        tc_to_dscp_count
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1323,6 +1324,7 @@ class TestQosSai(QosSaiBase):
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
                 dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
+                tc_to_dscp_count(Fixture): A fixture, return tc to dscp_count map on DUT host
             Returns:
                 None
 
@@ -1346,7 +1348,8 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "hwsku": dutTestParams['hwsku'],
             "dual_tor": dutConfig['dualTor'],
-            "dual_tor_scenario": dutConfig['dualTorScenario']
+            "dual_tor_scenario": dutConfig['dualTorScenario'],
+            "tc_to_dscp_count_map": tc_to_dscp_count
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1723,8 +1726,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        _check_ingress_speed_gte_400g
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, skip_400g_longlink
     ):
         """
             Test QoS SAI PG drop counter

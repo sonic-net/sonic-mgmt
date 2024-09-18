@@ -5,9 +5,17 @@
 #Hence, it is not dropped by default in Cisco-8000. For dropping link local address, it should be done through security/DATA ACL
 drop_packets/test_configurable_drop_counters.py::test_dip_link_local:
   skip:
-    reason: "Some mlx platforms does not drop DIP link local packets"
+    reason: "Cisco 8000 platform and some mlx platforms does not drop DIP link local packets"
+    conditions_logical_operator: or
     conditions:
       - "'Mellanox' in hwsku"
+      - asic_type=='cisco-8000'
+
+drop_packets/test_configurable_drop_counters.py::test_neighbor_link_down:
+  skip:
+    reason: "This test case requires a T0 topology because it is mocking a server within VLAN."
+    conditions:
+      - "topo_type not in ['t0']"
 
 drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
   skip:
@@ -16,8 +24,6 @@ drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
     conditions:
       - asic_type=="cisco-8000"
       - "'Mellanox' in hwsku"
-
-
 #######################################
 #####     test_drop_counters.py   #####
 #######################################
@@ -83,35 +89,48 @@ drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-dst]:
   skip:
-    reason: "Image issue on Boradcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
+    reason:
+    - "Image issue on Broadcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
+    - "Test case requires topology type t0 for vlan testing"
     strict: True
+    conditions_logical_operator: or
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000']"
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "asic_type in ['broadcom', 'cisco-8000'] and topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - topo_type not in ['t0']
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv4-src]:
   skip:
-    reason: "Image issue on Boradcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
+    reason:
+    - "Image issue on Broadcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
+    - "Test case requires topology type t0 for vlan testing"
     strict: True
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000']"
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "asic_type in ['broadcom', 'cisco-8000'] and topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - topo_type not in ['t0']
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-dst]:
   skip:
-    reason: "Image issue on Boradcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
+    reason:
+    - "Image issue on Broadcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
+    - "Test case requires topology type t0 for vlan testing"
+    strict: True
+    conditions:
+      - "asic_type in ['broadcom', 'cisco-8000'] and topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - topo_type not in ['t0']
+
+drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-src]:
+  skip:
+    reason: "Image issue on Broadcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
     strict: True
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
 
-drop_packets/test_drop_counters.py::test_ip_is_zero_addr[vlan_members-ipv6-src]:
+drop_packets/test_drop_counters.py::test_ip_pkt_with_expired_ttl:
   skip:
-    reason: "Image issue on Boradcom dualtor testbeds. Cisco 8000 platform does not drop packets with 0.0.0.0 source or destination IP address"
-    strict: True
+    reason: "Not supported on Mellanox devices"
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000']"
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "asic_type in ['mellanox']"
 
 drop_packets/test_drop_counters.py::test_loopback_filter:
   # Test case is skipped, because SONiC does not have a control to adjust loop-back filter settings.
