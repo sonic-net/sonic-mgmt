@@ -1552,6 +1552,12 @@ syslog/test_syslog.py:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 33"
 
+syslog/test_syslog_source_ip.py:
+  skip:
+    reason: "Vs setup doesn't work when creating mgmt vrf"
+    conditions:
+      - "asic_type in ['vs']"
+
 syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_config_work_after_reboot:
   skip:
     reason: "Testcase consistent failed, raised issue to track"
