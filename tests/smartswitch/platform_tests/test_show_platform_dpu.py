@@ -17,30 +17,6 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope='function', autouse=True)
-def dpu_poweron(duthosts, enum_rand_one_per_hwsku_hostname,
-                request, platform_api_conn):
-    """
-    Executes power on all DPUs
-    Returns:
-        Returns True or False based on all DPUs powered on or not
-    """
-
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    num_modules = int(chassis.get_num_modules(platform_api_conn))
-    ip_address_list = []
-
-    for index in range(num_modules):
-        dpu = module.get_name(platform_api_conn, index)
-        ip_address_list.append(
-                module.get_midplane_ip(platform_api_conn, index))
-        duthosts.shell("config chassis modules startup %s" % (dpu))
-        time.sleep(2)
-
-    pytest_assert(wait_until(180, 60, 0, check_dpu_ping_status,  # noqa: F405
-                  duthost, ip_address_list), "Not all DPUs operationally up")
-
-
 def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname,
                      platform_api_conn):
     """

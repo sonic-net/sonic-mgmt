@@ -4,61 +4,69 @@ Helper script for DPU  operations
 import logging
 import pytest
 from tests.common.devices.sonic import *  # noqa: F403, F401
+from tests.platform_tests.api.conftest import *  # noqa: F403
+from pkg_resources import parse_version
 
 
 @pytest.fixture(scope='function')
-def skip_test_smartswitch(duthost):
+def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
+                          platform_api_conn):
     """
     Checks whethere given testbed is smartswitch or not
     If not smartswitch, then skip tests
     else, checks for darkmode of dpus
     If dpus are in dark mode, then skip tests
     else, proceeds to run test cases scripts
-
-    Args:
-        duthost : Host handle
     """
 
-    python_script_smartswitch = '''
-    python -c 'import json
-    import subprocess
-    cmd = "cat /host/machine.conf | grep onie_platform | cut -d '=' -f 2"
-    pin = subprocess.Popen(cmd,
-                           shell=True,
-                           stdout=subprocess.PIPE,
-                           stderr=subprocess.STDOUT)
-    id = pin.communicate()[0]
-    id = id.strip()
-    platform_file = "/usr/share/sonic/device/" + \
-                    id.decode() + \
-                    "/platform.json"
-    fp = open(platform_file, "r")
-    data = json.load(fp)
-    fp.close()
-    print("DPUS" in data)'
-    '''
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    python_script_dark_mode = '''
-    python -c 'import json
-    fp = open("/etc/sonic/config_db.json", "r")
-    data = json.load(fp)
-    fp.close()
-    data_dict = [(key,value) for key, value in data["CHASSIS_MODULE"].items()]
-    dpus = [x[1]  for x in data_dict]
-    admin_status = ([(dpu["admin_status"]=="down") for dpu in dpus])
-    print(admin_status.count(admin_status[0]) == len(admin_status))'
-    '''
-
-    output_smartswitch = duthost.command(python_script_smartswitch)
-
-    if output_smartswitch["stdout"] is False:
+    if not duthost.facts["DPUS"] and parse_version(duthost.os_version) <= parse_version("202405"):
         pytest.skip("It is not a smartswitch")
-    else:
-        output_dark_mode = duthost.command(python_script_dark_mode)
-        if output_dark_mode["stdout"] is True:
-            pytest.skip("Smartswitch is in darkmode")
 
-    logging.info("Testbed is smartswitch and not in dark mode")
+    darkmode = is_dark_mode(duthost, platform_api_conn)
+
+    if darkmode:
+        dpu_power_on(duthost, platform_api_conn)
+
+
+def is_dark_mode(duthost, platform_api_conn):
+
+    num_modules = int(chassis.get_num_modules(platform_api_conn))
+    count_admin_down = 0
+
+    for index in range(num_modules):
+        output_config_db = duthost.command(
+                           redis-cli -p 6379 -h 127.0.0.1 \
+                           -n 4 hgetall "CHASSIS_MODULE|DPU%s", % (index))
+        if 'down' in output_config_db['stdout']:
+             count_admin_down += 1
+
+    if count_admin_down == num_modules:
+            return True
+
+    return False
+
+
+def dpu_poweron(duthost, platform_api_conn):
+    """
+    Executes power on all DPUs
+    Returns:
+        Returns True or False based on all DPUs powered on or not
+    """
+
+    num_modules = int(chassis.get_num_modules(platform_api_conn))
+    ip_address_list = []
+
+    for index in range(num_modules):
+        dpu = module.get_name(platform_api_conn, index)
+        ip_address_list.append(
+                module.get_midplane_ip(platform_api_conn, index))
+        duthosts.shell("config chassis modules startup %s" % (dpu))
+        time.sleep(2)
+
+    pytest_assert(wait_until(180, 60, 0, check_dpu_ping_status,  # noqa: F405
+                  duthost, ip_address_list), "Not all DPUs operationally up")
 
 
 def check_dpu_ping_status(duthost, ip_address_list):
