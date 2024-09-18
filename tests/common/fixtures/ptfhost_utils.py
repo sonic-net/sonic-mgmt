@@ -179,6 +179,60 @@ def copy_arp_responder_py(ptfhost):
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
 
 
+@pytest.fixture(scope="module", autouse=True)
+def setup_vlan_arp_responder(config_facts, ptfhost, rand_selected_dut, tbinfo):
+    arp_responder_cfg = {}
+    vlan_intf_config = config_facts['VLAN_INTERFACE']
+    for vlan, attrs in vlan_intf_config.items():
+        for val in attrs:
+            try:
+                ip = ip_interface(val)
+                if ip.version == 4:
+                    ipv4_base = ip
+                else:
+                    ipv6_base = ip
+            except ValueError:
+                continue
+        break
+    vlan_members = list(config_facts['VLAN_MEMBER'][vlan].keys())
+
+    dut_to_ptf_port_map = rand_selected_dut.get_extended_minigraph_facts(
+        tbinfo
+    )['minigraph_ptf_indices']
+
+    for port in vlan_members:
+        ptf_index = dut_to_ptf_port_map[port]
+        ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
+        arp_responder_cfg['eth{}'.format(ptf_index)] = [
+            str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
+        ]
+
+    CFG_FILE = '/tmp/arp_responder_vlan.json'
+    with open(CFG_FILE, 'w') as file:
+        json.dump(arp_responder_cfg, file)
+    ptfhost.copy(src=CFG_FILE, dest=CFG_FILE)
+
+    extra_vars = {
+            'arp_responder_args': '--conf {}'.format(CFG_FILE)
+    }
+
+    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    ptfhost.template(src='templates/arp_responder.conf.j2',
+                     dest='/etc/supervisor/conf.d/arp_responder.conf')
+    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ARP_RESPONDER_PY),
+                 dest=OPT_DIR)
+
+    ptfhost.command('supervisorctl reread')
+    ptfhost.command('supervisorctl update')
+
+    logger.info("Start arp_responder")
+    ptfhost.command('supervisorctl start arp_responder')
+
+    yield vlan, ipv4_base, ipv6_base
+
+    ptfhost.command('supervisorctl stop arp_responder')
+
+
 def _ptf_portmap_file(duthost, ptfhost, tbinfo):
     """
         Prepare and copys port map file to PTF host
