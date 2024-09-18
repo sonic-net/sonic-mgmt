@@ -103,6 +103,13 @@ parameters:
     ]'
     displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[
+      {"name": "test_posttest.py", "param": "--posttest_show_tech_since='5 days ago'"}
+    ]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
@@ -135,3 +142,4 @@ stages:
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
         AFFINITY: ${{ parameters.AFFINITY }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
