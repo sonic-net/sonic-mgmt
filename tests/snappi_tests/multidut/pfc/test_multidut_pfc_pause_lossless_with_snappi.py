@@ -74,7 +74,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
             snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
                                                      tx_port_count, rx_port_count, MULTIDUT_TESTBED)
         else:
-            snappi_ports = snappi_port_list
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
                                                                                 snappi_ports,
                                                                                 snappi_api)
@@ -153,8 +153,11 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
                       testbed {}, subtype {} in variables.py'.
                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
                                                                                 snappi_ports,
                                                                                 snappi_api)
@@ -235,8 +238,11 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
                       testbed {}, subtype {} in variables.py'.
                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
                                                                                 snappi_ports,
                                                                                 snappi_api)
@@ -329,8 +335,11 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
                       testbed {}, subtype {} in variables.py'.
                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
                                                                                 snappi_ports,
                                                                                 snappi_api)
