@@ -347,7 +347,7 @@ class DHCPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # M0 devices have CIR of 300 for DHCP
-        if self.hw_sku in {"Celestica-E1031-T48S4"}:
+        if self.hw_sku in {"Celestica-E1031-T48S4", "Arista-720DT-G48S4"}:
             self.PPS_LIMIT = 300
         # Marvell based platforms have cir/cbs in steps of 125
         elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
@@ -391,7 +391,7 @@ class DHCP6Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # M0 devices have CIR of 300 for DHCPv6
-        if self.hw_sku in {"Celestica-E1031-T48S4"}:
+        if self.hw_sku in {"Celestica-E1031-T48S4", "Arista-720DT-G48S4"}:
             self.PPS_LIMIT = 300
         # Marvell based platforms have cir/cbs in steps of 125
         elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
@@ -454,7 +454,7 @@ class LLDPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # M0 devices have CIR of 300 for LLDP
-        if self.hw_sku in {"Celestica-E1031-T48S4"}:
+        if self.hw_sku in {"Celestica-E1031-T48S4", "Arista-720DT-G48S4"}:
             self.PPS_LIMIT = 300
         # Marvell based platforms have cir/cbs in steps of 125
         elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
@@ -485,7 +485,7 @@ class UDLDTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # M0 devices have CIR of 300 for UDLD
-        if self.hw_sku in {"Celestica-E1031-T48S4"}:
+        if self.hw_sku in {"Celestica-E1031-T48S4", "Arista-720DT-G48S4"}:
             self.PPS_LIMIT = 300
         # Marvell based platforms have cir/cbs in steps of 125
         elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
