@@ -26,12 +26,12 @@ from ipaddress import ip_network, IPv6Network, IPv4Network
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses     # noqa F401
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
-from tests.generic_config_updater.gu_utils import expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import expect_op_success, expect_op_failure
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import apply_formed_json_patch
+from tests.common.gu_utils import expect_acl_rule_match, expect_acl_rule_removed
+from tests.common.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
-from tests.generic_config_updater.gu_utils import apply_formed_json_patch
-from tests.generic_config_updater.gu_utils import expect_acl_rule_match, expect_acl_rule_removed
-from tests.generic_config_updater.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor # noqa F401
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, \

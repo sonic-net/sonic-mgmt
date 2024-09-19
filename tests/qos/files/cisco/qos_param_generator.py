@@ -135,6 +135,9 @@ class QosParamCisco(object):
                     self.reduced_pause_thr = 3 * (1024 ** 2)
                 else:
                     self.reduced_pause_thr = 2.25 * (1024 ** 2)
+                if dutAsic == "gr":
+                    self.reduced_pause_thr = self.gr_get_hw_thr_buffs(self.reduced_pause_thr
+                                                                      // self.buffer_size) * self.buffer_size
                 self.log("Reduced pause thr bytes:   {}".format(self.reduced_pause_thr))
                 self.hysteresis_bytes = int(self.pause_thr - self.reduced_pause_thr -
                                             (2 * self.buffer_size * buffer_occupancy))

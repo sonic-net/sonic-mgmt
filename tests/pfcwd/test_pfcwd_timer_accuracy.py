@@ -6,10 +6,10 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from .files.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
-from .files.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import send_background_traffic
 
 
 pytestmark = [
@@ -227,19 +227,29 @@ class TestPfcwdAllTimer(object):
         logger.info("all restore time {}".format(self.all_restore_time))
 
         check_point = ITERATION_NUM // 2 - 1
+        config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
         # Loose the check if two conditions are met
-        # 1. Device is Mellanox plaform
-        # 2. Leaf-fanout is Non-Onyx or non-Mellanox SONiC devices
+        # 1. Leaf-fanout is Non-Onyx or non-Mellanox SONiC devices
+        # 2. Device is Mellanox plaform, Loose the check
+        # 3. Device is broadcom plaform, add half of polling time as compensation for the detect config time
         # It's because the pfc_gen.py running on leaf-fanout can't guarantee the PFCWD is triggered consistently
-        if self.dut.facts['asic_type'] == "mellanox":
-            for fanouthost in list(self.fanout.values()):
-                if fanouthost.get_fanout_os() != "onyx" or \
-                        fanouthost.get_fanout_os() == "sonic" and fanouthost.facts['asic_type'] != "mellanox":
+        logger.debug("dut asic_type {}".format(self.dut.facts['asic_type']))
+        for fanouthost in list(self.fanout.values()):
+            if fanouthost.get_fanout_os() != "onyx" or \
+                    fanouthost.get_fanout_os() == "sonic" and fanouthost.facts['asic_type'] != "mellanox":
+                if self.dut.facts['asic_type'] == "mellanox":
                     logger.info("Loose the check for non-Onyx or non-Mellanox leaf-fanout testbed")
                     check_point = ITERATION_NUM // 3 - 1
                     break
+                elif self.dut.facts['asic_type'] == "broadcom":
+                    logger.info("Configuring detect time for broadcom DUT")
+                    config_detect_time = (
+                        self.timers['pfc_wd_detect_time'] +
+                        self.timers['pfc_wd_poll_time'] +
+                        (self.timers['pfc_wd_poll_time'] // 2)
+                    )
+                    break
 
-        config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
                    "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[check_point],
                                                                          config_detect_time))
