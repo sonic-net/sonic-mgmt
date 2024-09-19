@@ -10,6 +10,7 @@ from tests.snappi_tests.multidut.pfcwd.files.\
     pfcwd_multidut_runtime_traffic_helper import run_pfcwd_runtime_traffic_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
+
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
