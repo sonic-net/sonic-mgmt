@@ -52,7 +52,9 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "swap_syncd",
                                   "topo",
                                   "myip",
+                                  "myip6",
                                   "peerip",
+                                  "peerip6",
                                   "nn_target_interface",
                                   "nn_target_namespace",
                                   "send_rate_limit",
@@ -82,7 +84,8 @@ class TestCOPP(object):
                                           "BGP",
                                           "LACP",
                                           "LLDP",
-                                          "UDLD"])
+                                          "UDLD",
+                                          "Default"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                      ptfhost, copp_testbed, dut_type, skip_traffic_test):   # noqa F811
         """
@@ -98,6 +101,20 @@ class TestCOPP(object):
                      copp_testbed,
                      dut_type,
                      skip_traffic_test=skip_traffic_test)
+
+    @pytest.mark.disable_loganalyzer
+    def test_trap_neighbor_miss(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                          ptfhost, check_image_version, copp_testbed, dut_type,
+                          ip_versions, packet_type):
+        """
+        Validates that neighbor miss (subnet hit) packets are rate-limited
+
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        logger.info("Verify IPV{} {} packets are rate limited".format(ip_versions, packet_type))
+        pytest_assert(
+            wait_until(60, 20, 0, _copp_runner, duthost, ptfhost, packet_type, copp_testbed, dut_type,
+            ip_version=ip_versions), "Traffic check for {} packets failed".format(packet_type))
 
     @pytest.mark.disable_loganalyzer
     def test_add_new_trap(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -279,20 +296,27 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
 
-def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True, skip_traffic_test=False):    # noqa F811
+def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True, \
+                    skip_traffic_test=False, ip_version="4"):
     """
         Configures and runs the PTF test cases.
     """
 
+    is_ipv4 = True if ip_version == "4" else False
+
     params = {"verbose": False,
               "target_port": test_params.nn_target_port,
-              "myip": test_params.myip,
+              "myip": test_params.myip if is_ipv4 else test_params.myip6,
+              "peerip": test_params.peerip if is_ipv4 else test_params.peerip6,
+              "vlanip": copp_utils.get_vlan_ip(dut, ip_version),
+              "loopbackip": copp_utils.get_lo_ipv4(dut),
               "peerip": test_params.peerip,
               "send_rate_limit": test_params.send_rate_limit,
               "has_trap": has_trap,
               "hw_sku": dut.facts["hwsku"],
               "asic_type": dut.facts["asic_type"],
-              "topo_type": test_params.topo_type}
+              "topo_type": test_params.topo_type,
+              "ip_version": ip_version}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
@@ -357,7 +381,8 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
         if nn_target_interface not in mg_facts["minigraph_neighbors"]:
             continue
         for bgp_peer in mg_facts["minigraph_bgp"]:
-            if bgp_peer["name"] == mg_facts["minigraph_neighbors"][nn_target_interface]["name"] \
+            if myip is None and \
+                    bgp_peer["name"] == mg_facts["minigraph_neighbors"][nn_target_interface]["name"] \
                                    and ipaddr.IPAddress(bgp_peer["addr"]).version == 4:
                 myip = bgp_peer["addr"]
                 peerip = bgp_peer["peer_addr"]
@@ -365,6 +390,10 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                 is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
                 if is_backend_topology and len(mg_facts["minigraph_vlan_sub_interfaces"]) > 0:
                     nn_target_vlanid = mg_facts["minigraph_vlan_sub_interfaces"][0]["vlan"]
+            elif bgp_peer["name"] == mg_facts["minigraph_neighbors"][nn_target_interface]["name"] \
+                                   and ipaddr.IPAddress(bgp_peer["addr"]).version == 6:
+                myip6 = bgp_peer["addr"]
+                peerip6 = bgp_peer["peer_addr"]
                 break
 
     logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}"
@@ -374,7 +403,9 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                                swap_syncd=swap_syncd,
                                topo=topo,
                                myip=myip,
+                               myip6=myip6,
                                peerip=peerip,
+                               peerip6=peerip6,
                                nn_target_interface=nn_target_interface,
                                nn_target_namespace=nn_target_namespace,
                                send_rate_limit=send_rate_limit,

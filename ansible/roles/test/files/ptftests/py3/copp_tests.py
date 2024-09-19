@@ -26,6 +26,8 @@
 # SSHTest
 # IP2METest
 # DefaultTest
+# VlanSubnetTest
+# VlanSubnetIPinIPTest
 
 import datetime
 import os
@@ -34,6 +36,7 @@ import signal
 import threading
 import time
 
+import ptf.packet as scapy
 import ptf.testutils as testutils
 
 from ptf.base_tests import BaseTest
@@ -69,6 +72,8 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.myip = test_params.get('myip', None)
         self.peerip = test_params.get('peerip', None)
+        self.vlanip = test_params.get('vlanip', None)
+        self.loopbackip = test_params.get('loopbackip', None)
         self.default_server_send_rate_limit_pps = test_params.get(
             'send_rate_limit', 2000)
 
@@ -82,6 +87,7 @@ class ControlPlaneBaseTest(BaseTest):
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
         self.asic_type = test_params.get('asic_type', None)
         self.topo_type = test_params.get('topo_type', None)
+        self.ip_version = test_params.get('ip_version', None)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -218,14 +224,14 @@ class ControlPlaneBaseTest(BaseTest):
 
         return send_count, recv_count, time_delta, time_delta_ms, tx_pps, rx_pps
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         raise NotImplementedError
 
     def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
         raise NotImplementedError
 
     def one_port_test(self, port_number):
-        packet = self.contruct_packet(port_number)
+        packet = self.construct_packet(port_number)
         send_count, recv_count, time_delta, time_delta_ms, tx_pps, rx_pps = \
             self.copp_test(bytes(packet), (0, port_number), (1, port_number))
 
@@ -288,7 +294,7 @@ class ARPTest(PolicyTest):
         self.log("ARPTest")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         src_ip = self.myip
         dst_ip = self.peerip
@@ -318,7 +324,7 @@ class DHCPTopoT1Test(PolicyTest):
         self.log("DHCPTopoT1Test")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
         packet = testutils.simple_udp_packet(
@@ -362,7 +368,7 @@ class DHCPTest(PolicyTest):
         self.log("DHCPTest")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
         packet = testutils.simple_udp_packet(
@@ -406,7 +412,7 @@ class DHCP6Test(PolicyTest):
         self.log("DHCP6Test")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
         packet = testutils.simple_udpv6_packet(
@@ -434,7 +440,7 @@ class DHCP6TopoT1Test(PolicyTest):
         self.log("DHCP6TopoT1Test")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
         packet = testutils.simple_udpv6_packet(
@@ -469,7 +475,7 @@ class LLDPTest(PolicyTest):
         self.log("LLDPTest")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
         packet = testutils.simple_eth_packet(
@@ -504,7 +510,7 @@ class UDLDTest(PolicyTest):
     # as its destination MAC address. eth_type is to indicate
     # the length of the data in Ethernet 802.3 frame. pktlen
     # = 117 = 103 (0x67) + 6 (dst MAC) + 6 (dst MAC) + 2 (len)
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
         packet = testutils.simple_eth_packet(
@@ -526,7 +532,7 @@ class BGPTest(PolicyTest):
         self.log("BGPTest")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
         dst_ip = self.peerip
 
@@ -585,7 +591,7 @@ class LACPTest(PolicyTest):
         self.log("LACPTest")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         packet = testutils.simple_eth_packet(
             pktlen=14,
             eth_dst='01:80:c2:00:00:02',
@@ -605,7 +611,7 @@ class SNMPTest(PolicyTest):  # FIXME: trapped as ip2me. mellanox should add supp
         self.log("SNMPTest")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
         dst_ip = self.peerip
@@ -629,7 +635,7 @@ class SSHTest(PolicyTest):
         self.log("SSHTest")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
         src_ip = self.myip
         dst_ip = self.peerip
@@ -660,7 +666,7 @@ class IP2METest(PolicyTest):
             if port[0] == 0:
                 continue
 
-            packet = self.contruct_packet(port[1])
+            packet = self.construct_packet(port[1])
             send_count, recv_count, time_delta, time_delta_ms, tx_pps, rx_pps = \
                 self.copp_test(bytes(packet), (0, port_number), (1, port_number))
 
@@ -668,7 +674,7 @@ class IP2METest(PolicyTest):
             self.check_constraints(
                 send_count, recv_count, time_delta_ms, rx_pps)
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         dst_mac = self.peer_mac[port_number]
         dst_ip = self.peerip
@@ -682,6 +688,7 @@ class IP2METest(PolicyTest):
         return packet
 
 
+# Verify policer functionality for TTL 1 packets
 class DefaultTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
@@ -690,7 +697,7 @@ class DefaultTest(PolicyTest):
         self.log("DefaultTest")
         self.run_suite()
 
-    def contruct_packet(self, port_number):
+    def construct_packet(self, port_number):
         dst_mac = self.peer_mac[port_number]
         src_ip = self.myip
         dst_ip = self.peerip
@@ -703,5 +710,85 @@ class DefaultTest(PolicyTest):
             tcp_dport=10000,
             ip_ttl=1
         )
+
+        return packet
+
+
+# Verify policer functionality for Vlan subnet packets
+class VlanSubnetTest(PolicyTest):
+    def __init__(self):
+        PolicyTest.__init__(self)
+
+    def runTest(self):
+        self.log("VlanSubnetTest")
+        self.run_suite()
+
+    def construct_packet(self, port_number):
+        dst_mac = self.peer_mac[port_number]
+        src_ip = self.myip
+        dst_ip = self.vlanip
+
+        if self.ip_version == "4":
+            packet = testutils.simple_tcp_packet(
+                eth_dst=dst_mac,
+                ip_dst=dst_ip,
+                ip_src=src_ip,
+                ip_ttl=25,
+                tcp_sport=5000,
+                tcp_dport=8000
+            )
+        else:
+            packet = testutils.simple_tcpv6_packet(
+                eth_dst=dst_mac,
+                ipv6_dst=dst_ip,
+                ipv6_src=src_ip,
+                ipv6_hlim = 25,
+                tcp_sport=5000,
+                tcp_dport=8000
+            )
+        return packet
+
+
+# Verify policer functionality for Vlan subnet IPinIP packets
+class VlanSubnetIPinIPTest(PolicyTest):
+    def __init__(self):
+        PolicyTest.__init__(self)
+
+    def runTest(self):
+        self.log("VlanSubnetIpinIPTest")
+        self.run_suite()
+
+    def construct_packet(self, port_number):
+        dst_mac = self.peer_mac[port_number]
+        inner_src_ip = self.myip
+        inner_dst_ip = self.vlanip
+        outer_dst_ip = self.loopbackip
+
+        if self.ip_version == "4":
+            inner_packet = testutils.simple_tcp_packet(
+                ip_dst=inner_dst_ip,
+                ip_src=inner_src_ip,
+                ip_ttl=25,
+                tcp_sport=5000,
+                tcp_dport=8000
+            ).getlayer(scapy.IP)
+        else:
+            inner_packet = testutils.simple_tcpv6_packet(
+                ipv6_dst=inner_dst_ip,
+                ipv6_src=inner_src_ip,
+                ipv6_hlim=25,
+                tcp_sport=5000,
+                tcp_dport=8000
+            ).getlayer(scapy.IPv6)
+
+        packet = testutils.simple_ipv4ip_packet(
+            eth_dst=dst_mac,
+            ip_src='1.1.1.1',
+            ip_dst=outer_dst_ip,
+            ip_ttl=40,
+            inner_frame=inner_packet
+        )
+
+        self.log("Packet = {}".format(testutils.inspect_packet(packet)))
 
         return packet
