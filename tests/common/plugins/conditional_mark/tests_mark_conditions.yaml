@@ -256,6 +256,11 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
       - "build_version.split('.')[0].isdigit() and int(build_version.split('.')[0]) > 20220531 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
       - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
 
+copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
+  skip:
+    reason: "Copp test_trap_neighbor_miss is not supported on this topology"
+    conditions:
+      - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116'])"
 
 #######################################
 #####            crm              #####
