@@ -622,19 +622,6 @@
             "upper_class": "true"
         }
     },
-    "RESTAPI": {
-        "certs": {
-            "ca_crt": "/etc/sonic/credentials/AME_ROOT_CERTIFICATE.pem",
-            "client_crt_cname": "client.restapi.sonic.gbl,vnetds.prod.int.azure-int.net",
-            "server_crt": "/etc/sonic/credentials/restapiserver.crt",
-            "server_key": "/etc/sonic/credentials/restapiserver.key"
-        },
-        "config": {
-            "allow_insecure": "false",
-            "client_auth": "true",
-            "log_level": "info"
-        }
-    },
     "SCHEDULER": {
         "scheduler.0": {
             "type": "DWRR",
@@ -654,9 +641,6 @@
         "public": {
             "TYPE": "RO"
         }
-    },
-    "SYSLOG_SERVER": {
-        "10.64.246.95": {}
     },
     "TC_TO_PRIORITY_GROUP_MAP": {
         "AZURE": {
@@ -680,18 +664,6 @@
             "5": "5",
             "6": "6",
             "7": "7"
-        }
-    },
-    "TELEMETRY": {
-        "certs": {
-            "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer",
-            "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer",
-            "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key"
-        },
-        "gnmi": {
-            "client_auth": "true",
-            "log_level": "2",
-            "port": "50051"
         }
     },
     "VERSIONS": {
