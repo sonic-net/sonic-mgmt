@@ -150,7 +150,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
 
 def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-        enum_frontend_asic_index, conn_graph_facts):
+                              enum_frontend_asic_index, conn_graph_facts):
     """
     @Summary: Verify the FEC histogram is valid and check for errors
     """
