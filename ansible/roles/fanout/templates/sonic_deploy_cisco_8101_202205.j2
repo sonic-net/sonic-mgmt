@@ -1,0 +1,715 @@
+{
+    "DEVICE_METADATA": {
+        "localhost": {
+            "default_pfcwd_status": "disable",
+            "hwsku": "{{ device_info["HwSku"] }}",
+            "hostname": "{{ inventory_hostname }}"
+        }
+    },
+    "VLAN": {
+{% for vlanid in device_vlan_list | unique %}
+        "Vlan{{ vlanid }}": {
+            "vlanid": "{{ vlanid }}"
+        }{% if not loop.last %},{% endif %}
+
+{% endfor %}
+    },
+{% set ns = {"notFirstPrinted": False} %}
+    "VLAN_MEMBER": {
+{% for port_name in device_port_vlans %}
+{% if device_port_vlans[port_name]["mode"].lower() == "access" %}
+{% if ns.notFirstPrinted %},
+{% endif %}
+        "Vlan{{ device_port_vlans[port_name]["vlanids"] }}|{{ port_name }}": {
+            "tagging_mode": "untagged"
+        }{% if ns.update({"notFirstPrinted": True}) %} {% endif %}
+{% elif device_port_vlans[port_name]["mode"].lower() == "trunk" %}
+{% for vlanid in device_port_vlans[port_name]["vlanlist"] %}
+{% if ns.notFirstPrinted %},
+{% endif %}
+        "Vlan{{ vlanid }}|{{ port_name }}": {
+            "tagging_mode": "tagged"
+        }{% if ns.update({"notFirstPrinted": True}) %} {% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+    },
+    "MGMT_INTERFACE": {
+        "eth0|{{ device_info["ManagementIp"] }}": {
+            "gwaddr": "{{ device_info["ManagementGw"] }}"
+        }
+    },
+    "PORT": {
+{% for port_name in device_port_vlans %}
+{% set ns = {"port_name": port_name} %}
+{% if ns.update({"peerport": device_conn[port_name]["peerport"], "peerdevice": device_conn[port_name]["peerdevice"], "speed": device_conn[port_name]["speed"]})%}{% endif %}
+{% if "root" in ns.peerdevice %}
+{% if ns.update({"fullspeed": "400000"}) %}{% endif %}
+{% else %}
+{% if ns.update({"fullspeed": ns.speed})%}{% endif %}
+{% endif %}
+        "{{ lookup("cisco_8101_port_convert", port_name, speed=ns.fullspeed, output="sonic") }}": {
+            "admin_status": "up",
+            "alias": "{{ lookup("cisco_8101_port_convert", port_name, speed=ns.fullspeed, output="alias") }}",
+            "description": "{{ ns.peerdevice }}-{{ ns.peerport }}",
+{% if ns.speed == "100000" %}
+            "fec": "rs",
+{% endif %}
+            "index": "{{ lookup("cisco_8101_port_convert", port_name, speed=ns.speed, output="index") }}",
+            "lanes": "{{ lookup("cisco_8101_port_convert", port_name, speed=ns.speed, output="lanes") }}",
+            "pfc_asym": "off",
+            "speed": "{{ ns.speed }}",
+            "subport": "{{ lookup("cisco_8101_port_convert", port_name, speed=ns.fullspeed, output="subport") }}",
+{% if device_port_vlans[port_name]["mode"].lower() == "access" %}
+            "tpid": "0x9100",
+{% endif %}
+            "mtu": "9100"
+        }{% if not loop.last %},
+{% endif %}
+{% endfor %}
+
+    },
+    "AAA": {
+        "authentication": {
+            "failthrough": "True",
+            "fallback": "True",
+            "login": "tacacs+"
+        }
+    },
+    "ACL_TABLE": {
+        "DATAACL": {
+            "policy_desc": "DATAACL",
+            "services": [
+                "DataPlane"
+            ],
+            "stage": "ingress",
+            "type": "CTRLPLANE"
+        },
+        "NTP_ACL": {
+            "policy_desc": "NTP_ACL",
+            "services": [
+                "NTP"
+            ],
+            "stage": "ingress",
+            "type": "CTRLPLANE"
+        },
+        "SNMP_ACL": {
+            "policy_desc": "SNMP_ACL",
+            "services": [
+                "SNMP"
+            ],
+            "stage": "ingress",
+            "type": "CTRLPLANE"
+        },
+        "SSH_ONLY": {
+            "policy_desc": "SSH_ONLY",
+            "services": [
+                "SSH"
+            ],
+            "stage": "ingress",
+            "type": "CTRLPLANE"
+        }
+    },
+    "AUTO_TECHSUPPORT": {
+        "GLOBAL": {
+            "available_mem_threshold": "10.0",
+            "max_core_limit": "5.0",
+            "max_techsupport_limit": "10.0",
+            "min_available_mem": "200",
+            "rate_limit_interval": "180",
+            "since": "2 days ago",
+            "state": "enabled"
+        }
+    },
+    "AUTO_TECHSUPPORT_FEATURE": {
+        "acms": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "bgp": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "database": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "dhcp_relay": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "lldp": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "macsec": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "mux": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "pmon": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "radv": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "restapi": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "snmp": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "swss": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "syncd": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "teamd": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "telemetry": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "vnet-monitor": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        }
+    },
+    "BGP_DEVICE_GLOBAL": {
+        "STATE": {
+            "tsa_enabled": "false"
+        }
+    },
+    "CONSOLE_SWITCH": {
+        "console_mgmt": {
+            "enabled": "no"
+        }
+    },
+    "CRM": {
+        "Config": {
+            "acl_counter_high_threshold": "85",
+            "acl_counter_low_threshold": "70",
+            "acl_counter_threshold_type": "percentage",
+            "acl_entry_high_threshold": "85",
+            "acl_entry_low_threshold": "70",
+            "acl_entry_threshold_type": "percentage",
+            "acl_group_high_threshold": "85",
+            "acl_group_low_threshold": "70",
+            "acl_group_threshold_type": "percentage",
+            "acl_table_high_threshold": "85",
+            "acl_table_low_threshold": "70",
+            "acl_table_threshold_type": "percentage",
+            "dnat_entry_high_threshold": "85",
+            "dnat_entry_low_threshold": "70",
+            "dnat_entry_threshold_type": "percentage",
+            "fdb_entry_high_threshold": "85",
+            "fdb_entry_low_threshold": "70",
+            "fdb_entry_threshold_type": "percentage",
+            "ipmc_entry_high_threshold": "85",
+            "ipmc_entry_low_threshold": "70",
+            "ipmc_entry_threshold_type": "percentage",
+            "ipv4_neighbor_high_threshold": "85",
+            "ipv4_neighbor_low_threshold": "70",
+            "ipv4_neighbor_threshold_type": "percentage",
+            "ipv4_nexthop_high_threshold": "85",
+            "ipv4_nexthop_low_threshold": "70",
+            "ipv4_nexthop_threshold_type": "percentage",
+            "ipv4_route_high_threshold": "85",
+            "ipv4_route_low_threshold": "70",
+            "ipv4_route_threshold_type": "percentage",
+            "ipv6_neighbor_high_threshold": "85",
+            "ipv6_neighbor_low_threshold": "70",
+            "ipv6_neighbor_threshold_type": "percentage",
+            "ipv6_nexthop_high_threshold": "85",
+            "ipv6_nexthop_low_threshold": "70",
+            "ipv6_nexthop_threshold_type": "percentage",
+            "ipv6_route_high_threshold": "85",
+            "ipv6_route_low_threshold": "70",
+            "ipv6_route_threshold_type": "percentage",
+            "mpls_inseg_high_threshold": "85",
+            "mpls_inseg_low_threshold": "70",
+            "mpls_inseg_threshold_type": "percentage",
+            "mpls_nexthop_high_threshold": "85",
+            "mpls_nexthop_low_threshold": "70",
+            "mpls_nexthop_threshold_type": "percentage",
+            "nexthop_group_high_threshold": "85",
+            "nexthop_group_low_threshold": "70",
+            "nexthop_group_member_high_threshold": "85",
+            "nexthop_group_member_low_threshold": "70",
+            "nexthop_group_member_threshold_type": "percentage",
+            "nexthop_group_threshold_type": "percentage",
+            "polling_interval": "300",
+            "snat_entry_high_threshold": "85",
+            "snat_entry_low_threshold": "70",
+            "snat_entry_threshold_type": "percentage"
+        }
+    },
+    "DHCP_SERVER": {
+        "192.0.0.1": {},
+        "192.0.0.2": {},
+        "192.0.0.3": {},
+        "192.0.0.4": {},
+        "192.0.0.5": {},
+        "192.0.0.6": {},
+        "192.0.0.7": {},
+        "192.0.0.8": {},
+        "192.0.0.9": {},
+        "192.0.0.10": {},
+        "192.0.0.11": {},
+        "192.0.0.12": {},
+        "192.0.0.13": {},
+        "192.0.0.14": {},
+        "192.0.0.15": {},
+        "192.0.0.16": {},
+        "192.0.0.17": {},
+        "192.0.0.18": {},
+        "192.0.0.19": {},
+        "192.0.0.20": {},
+        "192.0.0.21": {},
+        "192.0.0.22": {},
+        "192.0.0.23": {},
+        "192.0.0.24": {},
+        "192.0.0.25": {},
+        "192.0.0.26": {},
+        "192.0.0.27": {},
+        "192.0.0.28": {},
+        "192.0.0.29": {},
+        "192.0.0.30": {},
+        "192.0.0.31": {},
+        "192.0.0.32": {},
+        "192.0.0.33": {},
+        "192.0.0.34": {},
+        "192.0.0.35": {},
+        "192.0.0.36": {},
+        "192.0.0.37": {},
+        "192.0.0.38": {},
+        "192.0.0.39": {},
+        "192.0.0.40": {},
+        "192.0.0.41": {},
+        "192.0.0.42": {},
+        "192.0.0.43": {},
+        "192.0.0.44": {},
+        "192.0.0.45": {},
+        "192.0.0.46": {},
+        "192.0.0.47": {},
+        "192.0.0.48": {}
+    },
+    "DSCP_TO_TC_MAP": {
+        "AZURE": {
+            "0": "1",
+            "1": "1",
+            "10": "1",
+            "11": "1",
+            "12": "1",
+            "13": "1",
+            "14": "1",
+            "15": "1",
+            "16": "1",
+            "17": "1",
+            "18": "1",
+            "19": "1",
+            "2": "1",
+            "20": "1",
+            "21": "1",
+            "22": "1",
+            "23": "1",
+            "24": "1",
+            "25": "1",
+            "26": "1",
+            "27": "1",
+            "28": "1",
+            "29": "1",
+            "3": "3",
+            "30": "1",
+            "31": "1",
+            "32": "1",
+            "33": "1",
+            "34": "1",
+            "35": "1",
+            "36": "1",
+            "37": "1",
+            "38": "1",
+            "39": "1",
+            "4": "4",
+            "40": "1",
+            "41": "1",
+            "42": "1",
+            "43": "1",
+            "44": "1",
+            "45": "1",
+            "46": "5",
+            "47": "1",
+            "48": "6",
+            "49": "1",
+            "5": "2",
+            "50": "1",
+            "51": "1",
+            "52": "1",
+            "53": "1",
+            "54": "1",
+            "55": "1",
+            "56": "1",
+            "57": "1",
+            "58": "1",
+            "59": "1",
+            "6": "1",
+            "60": "1",
+            "61": "1",
+            "62": "1",
+            "63": "1",
+            "7": "1",
+            "8": "0",
+            "9": "1"
+        }
+    },
+    "FEATURE": {
+        "acms": {
+            "auto_restart": "enabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "enabled"
+        },
+        "bgp": {
+            "auto_restart": "enabled",
+            "check_up_status": "false",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "enabled"
+        },
+        "database": {
+            "auto_restart": "always_enabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "True",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "always_enabled"
+        },
+        "dhcp_relay": {
+            "auto_restart": "enabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "disabled"
+        },
+        "lldp": {
+            "auto_restart": "disabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "True",
+            "has_timer": "True",
+            "high_mem_alert": "disabled",
+            "set_owner": "kube",
+            "state": "disabled"
+        },
+        "macsec": {
+            "auto_restart": "enabled",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "disabled"
+        },
+        "mux": {
+            "auto_restart": "enabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "always_disabled"
+        },
+        "pmon": {
+            "auto_restart": "enabled",
+            "check_up_status": "false",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "kube",
+            "state": "enabled"
+        },
+        "radv": {
+            "auto_restart": "enabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "kube",
+            "state": "enabled"
+        },
+        "restapi": {
+            "auto_restart": "enabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "enabled"
+        },
+        "snmp": {
+            "auto_restart": "enabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "True",
+            "high_mem_alert": "disabled",
+            "set_owner": "kube",
+            "state": "enabled"
+        },
+        "swss": {
+            "auto_restart": "enabled",
+            "check_up_status": "false",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "enabled"
+        },
+        "syncd": {
+            "auto_restart": "enabled",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "enabled"
+        },
+        "teamd": {
+            "auto_restart": "enabled",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "enabled"
+        },
+        "telemetry": {
+            "auto_restart": "enabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "True",
+            "high_mem_alert": "disabled",
+            "set_owner": "kube",
+            "state": "enabled"
+        },
+        "vnet-monitor": {
+            "auto_restart": "enabled",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "has_timer": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "disabled"
+        }
+    },
+    "FLEX_COUNTER_TABLE": {
+        "ACL": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "enable",
+            "POLL_INTERVAL": "10000"
+        },
+        "BUFFER_POOL_WATERMARK": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PFCWD": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PG_DROP": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PG_WATERMARK": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PORT": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PORT_BUFFER_DROP": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "QUEUE": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "QUEUE_WATERMARK": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "RIF": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "enable"
+        }
+    },
+    "KDUMP": {
+        "config": {
+            "enabled": "false",
+            "memory": "0M-2G:256M,2G-4G:320M,4G-8G:384M,8G-:448M",
+            "num_dumps": "3"
+        }
+    },
+    "MAP_PFC_PRIORITY_TO_QUEUE": {
+        "AZURE": {
+            "0": "0",
+            "1": "1",
+            "2": "2",
+            "3": "3",
+            "4": "4",
+            "5": "5",
+            "6": "6",
+            "7": "7"
+        }
+    },
+    "NTP_SERVER": {
+{% for ntp_server in ntp_servers %}
+        "{{ ntp_server }}": {}{% if not loop.last %},{% endif %}
+{% endfor %}
+
+    },
+    "PASSW_HARDENING": {
+        "POLICIES": {
+            "digits_class": "true",
+            "expiration": "180",
+            "expiration_warning": "15",
+            "history_cnt": "10",
+            "len_min": "8",
+            "lower_class": "true",
+            "reject_user_passw_match": "true",
+            "special_class": "true",
+            "state": "disabled",
+            "upper_class": "true"
+        }
+    },
+    "RESTAPI": {
+        "certs": {
+            "ca_crt": "/etc/sonic/credentials/AME_ROOT_CERTIFICATE.pem",
+            "client_crt_cname": "client.restapi.sonic.gbl,vnetds.prod.int.azure-int.net",
+            "server_crt": "/etc/sonic/credentials/restapiserver.crt",
+            "server_key": "/etc/sonic/credentials/restapiserver.key"
+        },
+        "config": {
+            "allow_insecure": "false",
+            "client_auth": "true",
+            "log_level": "info"
+        }
+    },
+    "SCHEDULER": {
+        "scheduler.0": {
+            "type": "DWRR",
+            "weight": "14"
+        },
+        "scheduler.1": {
+            "type": "DWRR",
+            "weight": "15"
+        }
+    },
+    "SNMP": {
+        "LOCATION": {
+            "Location": "public"
+        }
+    },
+    "SNMP_COMMUNITY": {
+        "public": {
+            "TYPE": "RO"
+        }
+    },
+    "SYSLOG_SERVER": {
+        "10.64.246.95": {}
+    },
+    "TC_TO_PRIORITY_GROUP_MAP": {
+        "AZURE": {
+            "0": "0",
+            "1": "0",
+            "2": "0",
+            "3": "3",
+            "4": "4",
+            "5": "0",
+            "6": "0",
+            "7": "7"
+        }
+    },
+    "TC_TO_QUEUE_MAP": {
+        "AZURE": {
+            "0": "0",
+            "1": "1",
+            "2": "2",
+            "3": "3",
+            "4": "4",
+            "5": "5",
+            "6": "6",
+            "7": "7"
+        }
+    },
+    "TELEMETRY": {
+        "certs": {
+            "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer",
+            "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer",
+            "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key"
+        },
+        "gnmi": {
+            "client_auth": "true",
+            "log_level": "2",
+            "port": "50051"
+        }
+    },
+    "VERSIONS": {
+        "DATABASE": {
+            "VERSION": "version_3_0_7"
+        }
+    },
+    "WRED_PROFILE": {
+        "AZURE_LOSSLESS": {
+            "ecn": "ecn_green_yellow",
+            "green_drop_probability": "5",
+            "green_max_threshold": "4194304",
+            "green_min_threshold": "1048576",
+            "wred_green_enable": "true",
+            "wred_yellow_enable": "true",
+            "yellow_drop_probability": "0",
+            "yellow_max_threshold": "6144000",
+            "yellow_min_threshold": "0"
+        }
+    }
+}
