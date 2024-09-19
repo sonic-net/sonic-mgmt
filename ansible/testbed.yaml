@@ -96,7 +96,7 @@
   topo: t0-116
   ptf_image_name: docker-ptf
   ptf: ptf_vms3-1
-  ptf_ip: 10.255.2.18010.255.2.180/24
+  ptf_ip: 10.255.2.180/24
   ptf_ipv6:
   server: server_1
   vm_base: VM0100
