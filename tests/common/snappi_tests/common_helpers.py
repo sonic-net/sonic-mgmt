@@ -470,34 +470,43 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
     if profile is not None and profile not in profiles:
         return False
 
+    color = 'green'
+
+    # Broadcom ASIC only supports RED.
+    if asic_type == 'broadcom':
+        color = 'red'
+
+    kmax_arg = '-{}max' % color[0]
+    kmin_arg = '-{}min' % color[0]
+
     for p in profiles:
         """ This is not the profile to configure """
         if profile is not None and profile != p:
             continue
 
-        kmin_old = int(profiles[p]['green_min_threshold'])
-        kmax_old = int(profiles[p]['green_max_threshold'])
+        kmin_old = int(profiles[p]['{}_min_threshold' % color])
+        kmax_old = int(profiles[p]['{}_max_threshold' % color])
 
         if kmin_old > kmax_old:
             return False
 
         """ Ensure that Kmin is no larger than Kmax during the update """
 
-        gmax_cmd = 'sudo ecnconfig -p {} -gmax {}'
-        gmin_cmd = 'sudo ecnconfig -p {} -gmin {}'
+        kmax_cmd = ' '.join(['sudo ecnconfig -p {}', kmax_arg, '{}'])
+        kmin_cmd = ' '.join(['sudo ecnconfig -p {}', kmin_arg, '{}'])
 
         if asic_value is not None:
-            gmax_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmax {}' % asic_value
-            gmin_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmin {}' % asic_value
+            kmax_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kmax_arg, '{}'])
+            kmin_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kmin_arg, '{}'])
             if asic_type == 'broadcom':
                 disable_packet_aging(host_ans, asic_value)
 
         if kmin > kmin_old:
-            host_ans.shell(gmax_cmd.format(p, kmax))
-            host_ans.shell(gmin_cmd.format(p, kmin))
+            host_ans.shell(kmax_cmd.format(p, kmax))
+            host_ans.shell(kmin_cmd.format(p, kmin))
         else:
-            host_ans.shell(gmin_cmd.format(p, kmin))
-            host_ans.shell(gmax_cmd.format(p, kmax))
+            host_ans.shell(kmin_cmd.format(p, kmin))
+            host_ans.shell(kmax_cmd.format(p, kmax))
 
     return True
 
