@@ -11,9 +11,11 @@ from collections import defaultdict
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py # noqa F811
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.mux_simulator_control import mux_server_url # noqa F811
+from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m # noqa F811
 from tests.common.utilities import wait_until, get_intf_by_sub_intf
 from tests.common.utilities import get_neighbor_ptf_port_list
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 from tests.common import config_reload
@@ -195,6 +197,12 @@ def check_static_route(duthost, prefix, nexthop_addrs, ipv6):
     )
 
 
+def check_mux_status(duthost, expected_status):
+    show_mux_status_ret = show_muxcable_status(duthost)
+    status_values = set([intf_status['status'] for intf_status in show_mux_status_ret.values()])
+    return status_values == {expected_status}
+
+
 def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
                           prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces,
                           is_route_flow_counter_supported, ipv6=False, config_reload_test=False): # noqa F811
@@ -248,6 +256,15 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
                 config_reload(duthost, wait=500)
             else:
                 config_reload(duthost, wait=450)
+            # On dualtor, config_reload can result in a switchover (active tor can become standby and viceversa).
+            # So we need to make sure rand_selected_dut is in active state before verifying traffic.
+            if is_dual_tor:
+                duthost.shell("config mux mode active all")
+                unselected_duthost.shell("config mux mode standby all")
+                pytest_assert(wait_until(60, 5, 0, check_mux_status, duthost, 'active'),
+                              "Could not config ports to active on {}".format(duthost.hostname))
+                pytest_assert(wait_until(60, 5, 0, check_mux_status, unselected_duthost, 'standby'),
+                              "Could not config ports to standby on {}".format(unselected_duthost.hostname))
             # FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
             # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)
@@ -339,6 +356,7 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
 
 
 def test_static_route(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                      setup_standby_ports_on_rand_unselected_tor, # noqa F811
                       toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
@@ -349,6 +367,7 @@ def test_static_route(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhos
 
 @pytest.mark.disable_loganalyzer
 def test_static_route_ecmp(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                           setup_standby_ports_on_rand_unselected_tor, # noqa F811
                            toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
@@ -359,6 +378,7 @@ def test_static_route_ecmp(rand_selected_dut, rand_unselected_dut, ptfadapter, p
 
 
 def test_static_route_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                           setup_standby_ports_on_rand_unselected_tor, # noqa F811
                            toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
@@ -370,6 +390,7 @@ def test_static_route_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, p
 
 @pytest.mark.disable_loganalyzer
 def test_static_route_ecmp_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
+                                setup_standby_ports_on_rand_unselected_tor, # noqa F811
                                 toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
