@@ -60,6 +60,9 @@ def test_kernel_asic_mac_mismatch(
     )['stdout']
     pt_assert(neighbor_info[4].lower() == asic_db_mac.lower())
 
+    logger.info(f"Neighbor {target_ip} has been learned, APPL_DB and kernel are in sync")
+
+    logger.info("Manually setting APPL_DB MAC address")
     rand_selected_dut.shell(
         f"sonic-db-cli APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"
     )
@@ -67,6 +70,7 @@ def test_kernel_asic_mac_mismatch(
         f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"
     )['stdout']
     pt_assert(neighbor_info[4].lower() != asic_db_mac.lower())
+    logger.info("APPL_DB and kernel are out of sync (expected)")
 
     rand_selected_dut.shell("docker exec swss supervisorctl start arp_update")
 
