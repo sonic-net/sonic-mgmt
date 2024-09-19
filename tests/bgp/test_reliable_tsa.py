@@ -8,8 +8,8 @@ from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes, _all_critical_processes_healthy
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.bgp.bgp_helpers import get_tsa_chassisdb_config, get_sup_cfggen_tsa_value, verify_dut_configdb_tsa_value
-from traffic_checker import get_traffic_shift_state
-from route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
+from tests.bgp.traffic_checker import get_traffic_shift_state
+from tests.bgp.route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
     verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.bgp.test_startup_tsa_tsb_service import get_tsa_tsb_service_uptime, get_tsa_tsb_service_status, \
