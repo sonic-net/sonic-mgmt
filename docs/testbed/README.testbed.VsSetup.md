@@ -139,9 +139,8 @@ mkdir -p ~/veos-vm/images
 mv sonic-vs.img ~/veos-vm/images
 ```
 
-### Option 2: Download sonic-vpp image
-1. Download the sonic-vs image from [here](https://github.com/cisco-mt-fuji/Sonic-Vpp).
-Note that the link is currently a private repo for internal use only, we will update the url with latest successful build soon.
+### Option 2: Use sonic-vpp image
+1. Follow the instructions from [sonic-platform-vpp](https://github.com/sonic-net/sonic-platform-vpp?tab=readme-ov-file#building-a-kvm-vm-image) and build a **kvm** vm image.
 2. Unzip the image, rename the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
 ```
 gzip -d sonic-vpp.img.gz
