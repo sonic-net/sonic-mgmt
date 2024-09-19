@@ -18,6 +18,8 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEI
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
+from tests.bgp.traffic_checker import get_traffic_shift_state
+from tests.bgp.constants import TS_NORMAL
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -879,3 +881,27 @@ def verify_dut_configdb_tsa_value(duthost):
         tsa_enabled = 'true'
 
     return tsa_enabled
+
+
+def initial_tsa_check_before_and_after_test(duthosts):
+    """
+    @summary: Common method to make sure the supervisor and line cards are in normal state before and after the test
+    """
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            # Initially make sure both supervisor and line cards are in BGP operational normal state
+            if get_tsa_chassisdb_config(duthost) != 'false' or get_sup_cfggen_tsa_value(duthost) != 'false':
+                duthost.shell('TSB')
+                duthost.shell('sudo config save -y')
+                pytest_assert('false' == get_tsa_chassisdb_config(duthost),
+                              "Supervisor {} tsa_enabled config is enabled".format(duthost.hostname))
+
+    for linecard in duthosts.frontend_nodes:
+        # Issue TSB on the line card before proceeding further
+        if verify_dut_configdb_tsa_value(linecard) != 'false' or get_tsa_chassisdb_config(linecard) != 'false' or \
+                get_traffic_shift_state(linecard, cmd='TSC no-stats') != TS_NORMAL:
+            linecard.shell('TSB')
+            linecard.shell('sudo config save -y')
+            # Ensure that the DUT is not in maintenance already before start of the test
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+                          "DUT is not in normal state")
