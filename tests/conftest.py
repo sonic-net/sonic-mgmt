@@ -214,6 +214,12 @@ def pytest_addoption(parser):
     ##############################
     parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
 
+    ##############################
+    #  BFD static route options  #
+    ##############################
+    parser.addoption("--bfd_flap_iterations", action="store", default=0, type=int,
+                     help="Number of BFD flap iterations")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):

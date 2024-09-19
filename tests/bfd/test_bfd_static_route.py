@@ -355,7 +355,10 @@ class TestBfdStaticRoute(BfdBase):
         if completeness_level is None:
             completeness_level = "debug"
 
-        total_iterations = self.COMPLETENESS_TO_ITERATIONS[completeness_level]
+        total_iterations = request.config.getoption("--bfd_flap_iterations")
+        if total_iterations <= 0:
+            total_iterations = self.COMPLETENESS_TO_ITERATIONS[completeness_level]
+
         successful_iterations = 0  # Counter for successful iterations
         for i in range(total_iterations):
             logger.info("Iteration {}".format(i))
