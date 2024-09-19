@@ -496,6 +496,9 @@ def test_root_guard(setup_teardown_stp):
     else:
         st.report_fail('msg','Spine0 configuration as root for Vlan 10 failed.')
 
+    st.log("ADD wait for STP params convergence via BPDU from ROOT")
+    st.wait(10)
+
     st.log("Configure Root Guard on D3D2P1, D4D2P1 and D4D2P2")
     rg_intf_list = [
         (vars.D3D2P1, data_glob.leaf0),
@@ -685,7 +688,7 @@ def test_traffic_multiple_vlans(setup_teardown_stp):
     '''
     Test Description:
     Verify Traffic flows without looping for Vlan10.
-    While traffic is running, verify traffic doesn't loop when Root change takes place from Leaf0 to Leaf1 for Vlan 10.
+    Verify traffic after Root changes from to Leaf0 from Leaf1 for Vlan 10.
     Verify traffic after Root changes back to Leaf0 from Leaf1 for Vlan 10.
     Verify traffic for Vlan10 when STP is disabled/enabled on Vlan 30.
     Verify Traffic flows without looping for Vlan30.
@@ -715,9 +718,6 @@ def test_traffic_multiple_vlans(setup_teardown_stp):
     else:
         st.report_fail('failed_traffic_verification', "for Vlan {}.".format(data_glob.vlan[0]))
 
-    st.log("Verify traffic while Root Change")
-    common_obj.traffic_start(handles, data_glob.vlan_stream[data_glob.vlan[0]], data_glob.vlan_stream[data_glob.vlan[0]])
-
     st.log("Change Root Bridge for Vlan10 from Leaf0 to Leaf1")
     if pvst_obj.config_stp_vlan_parameters(data_glob.leaf1, data_glob.vlan[0], priority=0):
         st.log('Configured {} as root for vlan {} successfully.'.format(data_glob.leaf1,data_glob.vlan[0]))
@@ -727,6 +727,8 @@ def test_traffic_multiple_vlans(setup_teardown_stp):
     st.log("Wait for STP to converge")
     st.wait(2*data_glob.default_forward_delay)
 
+    st.log("Verify traffic after Root Change")
+    common_obj.traffic_start(handles, data_glob.vlan_stream[data_glob.vlan[0]], data_glob.vlan_stream[data_glob.vlan[0]])
     common_obj.traffic_stop(handles)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_glob.vlan_stream[data_glob.vlan[0]], data_glob.vlan_stream[data_glob.vlan[0]]):
         st.log("Traffic verification for Vlan {} Passed after Root Node Change".format(data_glob.vlan[0]))
