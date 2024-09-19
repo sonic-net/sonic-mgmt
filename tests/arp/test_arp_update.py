@@ -28,13 +28,18 @@ def setup(rand_selected_dut):
 
 
 def neighbor_learned(dut, target_ip):
-    neigh_output = dut.shell(f"ip neigh show {target_ip}")['stdout']
-    return "REACHABLE" in neigh_output or "STALE" in neigh_output
+    neigh_output = dut.shell(f"ip neigh show {target_ip}")['stdout'].strip()
+    logger.info(f"DUT neighbor entry: {neigh_output}")
+    return neigh_output and ("REACHABLE" in neigh_output or "STALE" in neigh_output)
 
 
-@pytest.mark.parametrize("ip_version", [4, 6])
+def ip_version_string(version):
+    return f"ipv{version}"
+
+
+@pytest.mark.parametrize("ip_version", [4, 6], ids=ip_version_string)
 def test_kernel_asic_mac_mismatch(
-    toggle_all_simulator_ports_to_rand_selected_tor, config_facts,  # noqa: F811
+    toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
     rand_selected_dut, ip_version, setup_vlan_arp_responder  # noqa: F811
 ):
     vlan_name, ipv4_base, ipv6_base = setup_vlan_arp_responder

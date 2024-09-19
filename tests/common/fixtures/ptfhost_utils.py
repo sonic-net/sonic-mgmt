@@ -180,8 +180,11 @@ def copy_arp_responder_py(ptfhost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_vlan_arp_responder(config_facts, ptfhost, rand_selected_dut, tbinfo):
+def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     arp_responder_cfg = {}
+    config_facts = rand_selected_dut.config_facts(
+        host=rand_selected_dut.hostname, source="running"
+    )['ansible_facts']
     vlan_intf_config = config_facts['VLAN_INTERFACE']
     for vlan, attrs in vlan_intf_config.items():
         for val in attrs:
