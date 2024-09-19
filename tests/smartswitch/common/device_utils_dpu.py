@@ -36,9 +36,10 @@ def is_dark_mode(duthost, platform_api_conn):
     count_admin_down = 0
 
     for index in range(num_modules):
+        dpu = module.get_name(platform_api_conn, index)
         output_config_db = duthost.command(
                            'redis-cli -p 6379 -h 127.0.0.1 \
-                            -n 4 hgetall "CHASSIS_MODULE|DPU%s"', % (index))
+                            -n 4 hgetall "CHASSIS_MODULE|{}"'.format(dpu))
         if 'down' in output_config_db['stdout']:
              count_admin_down += 1
 
