@@ -4,7 +4,7 @@ from utilities import set_base_image_a, cleanup_prev_images, sonic_update_firmwa
 from postupgrade_helper import run_postupgrade_actions
 from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common import reboot
-from tests.upgrade_path.upgrade_helpers import install_sonic, upgrade_test_helper
+from tests.upgrade_path.upgrade_helpers import install_sonic, upgrade_test_helper, add_pfc_storm_table
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
 from tests.platform_tests.conftest import advanceboot_loganalyzer, advanceboot_neighbor_restore
@@ -103,6 +103,9 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image,
         sonic_update_firmware(duthost, localhost, to_image, upgrade_type)
     else:
         install_sonic(duthost, to_image, tbinfo)
+
+    logger.info("Add pfc storm table to duthost.")
+    add_pfc_storm_table(duthost)
 
     if allow_fail and modify_reboot_script:
         # add fail step to reboot script

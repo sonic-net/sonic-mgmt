@@ -318,3 +318,13 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
 
     if enable_cpa and "warm-reboot" in reboot_type:
         ptfhost.shell('supervisorctl stop ferret')
+
+
+def add_pfc_storm_table(duthost):
+    COUNTER_OID_3 = duthost.command('redis-cli -n 2 hget "COUNTERS_QUEUE_NAME_MAP"  "Ethernet4:3"')['stdout'].rstrip('\n')
+    duthost.command('redis-cli -n 2 hset "COUNTERS:{}" "DEBUG_STORM" "enabled"'.format(COUNTER_OID_3))
+    COUNTER_OID_4 = duthost.command('redis-cli -n 2 hget "COUNTERS_QUEUE_NAME_MAP"  "Ethernet4:4"')['stdout'].rstrip('\n')
+    duthost.command('redis-cli -n 2 hset "COUNTERS:{}" "DEBUG_STORM" "enabled"'.format(COUNTER_OID_4))
+
+    duthost.command('redis-cli -n 2 hset "COUNTERS:{}" "DEBUG_STORM" "disabled"'.format(COUNTER_OID_3))
+    duthost.command('redis-cli -n 2 hset "COUNTERS:{}" "DEBUG_STORM" "disabled"'.format(COUNTER_OID_4))
