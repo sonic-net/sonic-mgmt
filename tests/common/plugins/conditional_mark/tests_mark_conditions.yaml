@@ -230,11 +230,25 @@ copp/test_copp.py::TestCOPP::test_add_new_trap:
     conditions:
       - "is_multi_asic==True"
 
+  xfail:
+    reason: "Can't install trap on broadcom 7050CX3 SKUs successfully"
+    conditions:
+      - "hwsku in ['Arista-7050CX3-32C-C32', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']"
+      - "release in ['202405']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/20081
+
 copp/test_copp.py::TestCOPP::test_remove_trap:
   skip:
     reason: "Copp test_remove_trap is not yet supported on multi-asic platform"
     conditions:
       - "is_multi_asic==True"
+
+  xfail:
+    reason: "Can't uninstall trap on broadcom 7050CX3 SKUs successfully"
+    conditions:
+      - "hwsku in ['Arista-7050CX3-32C-C32', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']"
+      - "release in ['202405']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/20081
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
