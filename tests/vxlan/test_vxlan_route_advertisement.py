@@ -6,7 +6,6 @@
 
 import time
 import logging
-import re
 import pytest
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
@@ -24,6 +23,7 @@ pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
     pytest.mark.topology("t1", "vs")
 ]
+
 
 @pytest.fixture(
     name="encap_type",
@@ -79,13 +79,13 @@ def fixture_setUp(duthosts,
             delete, modify, the routes while testing the advertisement.
     '''
     data = {}
-    nbrnames =list(nbrhosts.keys())
+    nbrnames = list(nbrhosts.keys())
 
     for name in nbrnames:
         if 'T2' in name:
             data['t2'] = nbrhosts[name]
             break
-    
+
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
     if asic_type not in ["cisco-8000", "mellanox", "vs"]:
         raise RuntimeError("Pls update this script for your platform.")
@@ -161,11 +161,11 @@ def fixture_setUp(duthosts,
         prefix_type = 'v6'
     if 'active_routes' in data:
         ecmp_utils.set_routes_in_dut(data['duthost'],
-                            data['active_routes'],
-                            prefix_type,
-                            'DEL',
-                            bfd=False,
-                            mask=prefix_mask)
+                                     data['active_routes'],
+                                     prefix_type,
+                                     'DEL',
+                                     bfd=False,
+                                     mask=prefix_mask)
 
     # This script's setup code re-uses same vnets for v4inv4 and v6inv4.
     # There will be same vnet in multiple encap types.
@@ -181,39 +181,40 @@ def fixture_setUp(duthosts,
 
 
 class Test_VxLAN_route_Advertisement():
+
     '''
         Class for all the Vxlan tunnel cases where primary and secondary next hops are configured.
     '''
     def create_bgp_profile(self, name, community):
-        #sonic-db-cli APPL_DB HSET "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES" "community_id" "1234:1235"
+        # sonic-db-cli APPL_DB HSET "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES" "community_id" "1234:1235"
         self.duthost.shell("sonic-db-cli APPL_DB HSET 'BGP_PROFILE_TABLE:{}' 'community_id' '{}'"
-                      .format(name, community))
+                           .format(name, community))
 
     def remove_bgp_profile(self, name):
-        #sonic-db-cli APPL_DB DEL "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES"
+        # sonic-db-cli APPL_DB DEL "BGP_PROFILE_TABLE:FROM_SDN_SLB_ROUTES"
         self.duthost.shell("sonic-db-cli APPL_DB DEL 'BGP_PROFILE_TABLE:{}' "
-                      .format(name))
+                           .format(name))
 
-    def gnenrate_vnet_routes(self,encap_type, num_routes):
+    def gnenrate_vnet_routes(self, encap_type, num_routes):
         # We are not aiming to test the vnet route functionality so we shall stick to 4 nexthops for all prefixes.
-        nexthops = ['202.1.1.1','202.1.1.2','202.1.1.3','202.1.1.4',]
+        nexthops = ['202.1.1.1', '202.1.1.2', '202.1.1.3', '202.1.1.4']
         if num_routes > 4000:
             py_assert("Routes more than 4000 are not suppored.")
         routes = {}
         vnet = list(self.vxlan_test_setup[encap_type]['vnet_vni_map'].keys())[0]
         routes[vnet] = {}
-        count =0;
+        count = 0
         if self.prefix_type == 'v4':
-            for i in range(1,250):
-                for j in range(2,250):
+            for i in range(1, 250):
+                for j in range(2, 250):
                     key = f"99.{i}.{j}.0"
                     routes[vnet][key] = nexthops.copy()
                     count = count + 1
                     if count >= num_routes:
                         return routes
         else:
-            for i in range(1,250):
-                for j in range(2,250):
+            for i in range(1, 250):
+                for j in range(2, 250):
                     key = f"dc4a:{i}:{j}::"
                     routes[vnet][key] = nexthops.copy()
                     count = count + 1
@@ -227,29 +228,29 @@ class Test_VxLAN_route_Advertisement():
             prefix_mask = 24
         else:
             prefix_mask = 64
-        self.vxlan_test_setup['active_routes'] = routes.copy()            
+        self.vxlan_test_setup['active_routes'] = routes.copy()
         ecmp_utils.set_routes_in_dut(self.duthost,
-                          routes,
-                          self.prefix_type,
-                          'SET',
-                          bfd=False,
-                          mask=prefix_mask,
-                          profile=profile)
+                                     routes,
+                                     self.prefix_type,
+                                     'SET',
+                                     bfd=False,
+                                     mask=prefix_mask,
+                                     profile=profile)
 
     def remove_unmonitored_vnet_route(self, routes):
         if self.prefix_type == 'v4':
             prefix_mask = 24
         else:
             prefix_mask = 64
-        del self.vxlan_test_setup['active_routes']            
+        del self.vxlan_test_setup['active_routes']
         ecmp_utils.set_routes_in_dut(self.duthost,
-                          routes,
-                          self.prefix_type,
-                          'DEL',
-                          bfd=False,
-                          mask=prefix_mask)
+                                     routes,
+                                     self.prefix_type,
+                                     'DEL',
+                                     bfd=False,
+                                     mask=prefix_mask)
 
-    def verify_nighbor_has_routes(self, routes, community="" ):
+    def verify_nighbor_has_routes(self, routes, community=""):
         if self.prefix_type == 'v4':
             prefix_mask = 24
         else:
@@ -258,13 +259,13 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 result = self.vxlan_test_setup['t2']['host'].get_route(route)
-                py_assert( route in result['vrfs']['default']['bgpRouteEntries'],
+                py_assert(route in result['vrfs']['default']['bgpRouteEntries'],
                           "Route not propogated to the T2")
                 if community != "":
                     py_assert(community in str(result), "community not propogated.")
         return
 
-    def verify_nighbor_doesnt_have_routes(self, routes, community="" ):
+    def verify_nighbor_doesnt_have_routes(self, routes, community=""):
         if self.prefix_type == 'v4':
             prefix_mask = 24
         else:
@@ -273,13 +274,13 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 result = self.vxlan_test_setup['t2']['host'].get_route(route)
-                py_assert( route not in result['vrfs']['default']['bgpRouteEntries'],
+                py_assert(route not in result['vrfs']['default']['bgpRouteEntries'],
                           "Route not propogated to the T2")
                 if community != "":
                     py_assert(community not in str(result), "community is still getting propogated.")
         return
 
-    def verify_nighbor_has_routes_scale(self, routes, community="" ):
+    def verify_nighbor_has_routes_scale(self, routes, community=""):
         if self.prefix_type == 'v4':
             prefix_mask = 24
             cmd = "show ip bgp "
@@ -321,7 +322,7 @@ class Test_VxLAN_route_Advertisement():
             cmd = cmd + "community " + community
         cmd = cmd + grepdata
         result = self.vxlan_test_setup['t2']['host'].run_command(cmd)
- 
+
         for vnet in routes:
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
@@ -348,7 +349,7 @@ class Test_VxLAN_route_Advertisement():
         time.sleep(WAIT_TIME)
         self.verify_nighbor_doesnt_have_routes(routes, "")
         return
-    
+
     def test_basic_route_advertisement_with_community(self, setUp, encap_type, duthost):  # noqa F811
         '''
         Create a tunnel route and advertise the tunnel route to all neighbor with community id.
@@ -370,7 +371,7 @@ class Test_VxLAN_route_Advertisement():
         time.sleep(WAIT_TIME)
         self.verify_nighbor_doesnt_have_routes(routes, "1234:4321")
         self.remove_bgp_profile("FROM_SDN_SLB_ROUTES")
-        return   
+        return
 
     def test_basic_route_advertisement_with_community_change(self, setUp, encap_type, duthost):  # noqa F811
         '''
@@ -402,7 +403,7 @@ class Test_VxLAN_route_Advertisement():
         Create a tunnel route and advertise the tunnel route to all neighbor with BGP profile,
         but create the profile later
         Result: All BGP neighbors can recieve the advertised BGP routes without community id first,
-        after the profile table created, the community id would be added and all BGP neighbors can 
+        after the profile table created, the community id would be added and all BGP neighbors can
         recieve this update and associate the community id with the route
         '''
         self.vxlan_test_setup = setUp
@@ -427,7 +428,7 @@ class Test_VxLAN_route_Advertisement():
     def test_scale_route_advertisement_with_community(self, setUp, encap_type, duthost):  # noqa F811
         '''
         Create 4k tunnel routes and advertise all tunnel routes to all neighbor with community id.
-		Result: All BGP neighbors can recieve 4k advertised BGP routes with community id and record the time.
+        Result: All BGP neighbors can recieve 4k advertised BGP routes with community id and record the time.
         2nd part:
         Update BGP_PROFILE_TABLE with new community id for 4k tunnel routes and advertise all tunnel routes.
         Result:	All BGP neighbors can recieve 4k advertised BGP routes with new community id and record the time
@@ -439,13 +440,13 @@ class Test_VxLAN_route_Advertisement():
         else:
             self.prefix_type = 'v6'
 
-        #Part 1
+        # Part 1
         routes = self.gnenrate_vnet_routes(encap_type, 4000)
         self.create_bgp_profile("FROM_SDN_SLB_ROUTES", "9999:8888")
         self.add_unmonitored_vnet_route(routes, "FROM_SDN_SLB_ROUTES")
         self.verify_nighbor_has_routes_scale(routes, "9999:8888")
 
-        #Part 2
+        # Part 2
         self.create_bgp_profile("FROM_SDN_SLB_ROUTES", "1234:4321")
         time.sleep(WAIT_TIME_EXTRA*20)
         self.verify_nighbor_has_routes_scale(routes, "1234:4321")
