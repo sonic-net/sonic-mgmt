@@ -1,5 +1,16 @@
 set -x
 
-# Disable BFD
-sudo find /usr -name minigraph.py | xargs sed -i 's/"bfd":"true"/"bfd": "false"/g'
+CARD_TYPE=$(/opt/cisco/bin/xr_sysctl -n bootstrap.card_type)
+if [ $CARD_TYPE == "RP" ]; then
+    output=$(container_checker)
+    echo $output
+    container_list=$(echo "$output" | awk '{for (i=4; i<=NF; i++) print $i}')
 
+    for str in $container_list; do
+        # Check if the string starts with "bgp"
+        if [[ $str == bgp* ]]; then
+            echo "Executing: docker stop $str"
+            docker stop "$str"
+        fi
+    done
+fi

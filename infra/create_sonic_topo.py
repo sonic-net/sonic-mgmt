@@ -999,9 +999,6 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
         print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
         change_dut_passwd(data[dut_name])
 
-    if apply_wa and device_type in wa_file_map:
-        run_sim_workaround(data, wa_file_map[device_type])
-
     if add_sim_patch:
         add_sim_patches(data)
     # Start docker container, deploy DUT minigraph
@@ -1011,6 +1008,7 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
     if apply_wa and device_type in wa_file_map:
         #sleep sometime to let deploy-mg load_minigraph complete
         time.sleep(300)
+        run_sim_workaround(data, wa_file_map[device_type])
         run_config_reload(data)
         
     # Add vEOS config
