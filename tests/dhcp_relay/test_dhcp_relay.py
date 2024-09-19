@@ -8,8 +8,8 @@ import re
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.generic_config_updater.gu_utils import generate_tmpfile, apply_patch, expect_op_success, delete_tmpfile, \
-    create_checkpoint, rollback_or_reload, delete_checkpoint
+from tests.generic_config_updater.gu_utils import generate_tmpfile, apply_patch, delete_tmpfile, \
+    create_checkpoint, rollback_or_reload, delete_checkpoint, expect_op_success
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_link_status
