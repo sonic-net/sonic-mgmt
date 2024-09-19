@@ -5,6 +5,7 @@ import logging
 import pytest
 from tests.common.devices.sonic import *  # noqa: F403, F401
 from tests.platform_tests.api.conftest import *  # noqa: F403
+from tests.common.helpers.platform_api import chassis, module
 from pkg_resources import parse_version
 
 
@@ -21,7 +22,8 @@ def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    if not duthost.facts["DPUS"] and parse_version(duthost.os_version) <= parse_version("202405"):
+    if not duthost.facts["DPUS"] and \
+            parse_version(duthost.os_version) <= parse_version("202405"):
         pytest.skip("It is not a smartswitch")
 
     darkmode = is_dark_mode(duthost, platform_api_conn)
@@ -41,15 +43,15 @@ def is_dark_mode(duthost, platform_api_conn):
                            'redis-cli -p 6379 -h 127.0.0.1 \
                             -n 4 hgetall "CHASSIS_MODULE|{}"'.format(dpu))
         if 'down' in output_config_db['stdout']:
-             count_admin_down += 1
+            count_admin_down += 1
 
     if count_admin_down == num_modules:
-            return True
+        return True
 
     return False
 
 
-def dpu_poweron(duthost, platform_api_conn):
+def dpu_power_on(duthost, platform_api_conn):
     """
     Executes power on all DPUs
     Returns:
@@ -63,8 +65,7 @@ def dpu_poweron(duthost, platform_api_conn):
         dpu = module.get_name(platform_api_conn, index)
         ip_address_list.append(
                 module.get_midplane_ip(platform_api_conn, index))
-        duthosts.shell("config chassis modules startup %s" % (dpu))
-        time.sleep(2)
+        duthost.shell("config chassis modules startup %s" % (dpu))
 
     pytest_assert(wait_until(180, 60, 0, check_dpu_ping_status,  # noqa: F405
                   duthost, ip_address_list), "Not all DPUs operationally up")
