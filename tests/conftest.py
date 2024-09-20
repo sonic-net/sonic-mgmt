@@ -66,9 +66,9 @@ try:
 except ImportError as e:
     logging.error(e)
 
-from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
-from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
-from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
+from tests.common.platform.args.advanced_reboot_args import add_advanced_reboot_args
+from tests.common.platform.args.cont_warm_reboot_args import add_cont_warm_reboot_args
+from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
