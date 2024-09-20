@@ -23,7 +23,7 @@ def pytest_addoption(parser):
         "--stress_restart_pps",
         action="store",
         type=int,
-        default=20,
+        default=100,
         help="Set custom restart rounds",
     )
 
