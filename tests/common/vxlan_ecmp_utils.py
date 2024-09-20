@@ -609,7 +609,7 @@ class Ecmp_Utils(object):
             op             : Operation to be done: SET or DEL.
             bfd            : Enable BFD or not (True/False).
         '''
-        if mask is "":
+        if mask == "":
             mask = self.HOST_MASK[dest_af]
         config_list = []
         for vnet in dest_to_nh_map:
