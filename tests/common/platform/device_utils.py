@@ -13,7 +13,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.platform.transceiver_utils import parse_transceiver_info
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, \
@@ -928,4 +927,5 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
     """
     yield
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
     neighbor_vm_restore(duthost, nbrhosts, tbinfo)
