@@ -29,6 +29,23 @@ NEI_IPv6_AGG_ROUTE = "1:1:1::/48"
 establish_bgp_session_time = 120
 
 
+def create_loopbacks(gather_info):
+    gather_info['duthost'].shell("sudo config loopback add Loopback11")
+    gather_info['duthost'].shell("sudo config interface ip add Loopback11 1.1.1.1/24")
+    gather_info['duthost'].shell("sudo config interface ip add Loopback11 1:1:1:1::/64")
+    gather_info['duthost'].shell("sudo config loopback add Loopback12")
+    gather_info['duthost'].shell("sudo config interface ip add Loopback12 1.1.2.1/24")
+    gather_info['duthost'].shell("sudo config interface ip add Loopback12 1:1:1:2::/64")
+    gather_info['duthost'].shell("sudo config loopback add Loopback13")
+    gather_info['duthost'].shell("sudo config interface ip add Loopback13 1.1.3.1/24")
+    gather_info['duthost'].shell("sudo config interface ip add Loopback13 1:1:1:3::/64")
+    gather_info['duthost'].shell("sudo config loopback add Loopback14")
+    gather_info['duthost'].shell("sudo config interface ip add Loopback14 1.1.4.1/24")
+    gather_info['duthost'].shell("sudo config interface ip add Loopback14 1:1:1:4::/64")
+    gather_info['duthost'].shell("sudo config loopback add Loopback15")
+    gather_info['duthost'].shell("sudo config interface ip add Loopback15 1.1.5.1/24")
+    gather_info['duthost'].shell("sudo config interface ip add Loopback15 1:1:1:5::/64")
+
 def agg_configuration(config, asn, duthost, cli_options, commandv4, commandv6):
     remove_tag = ""
     if not config:
@@ -90,26 +107,14 @@ def test_ebgp_route_aggregation(gather_info):
         gather_info['neigh_ip_v6']))['stdout']
 
     # Configure and Advertise Loopback Networks on DUT
-    gather_info['duthost'].shell("sudo config loopback add Loopback11")
-    gather_info['duthost'].shell("sudo config interface ip add Loopback11 1.1.1.1/24")
-    gather_info['duthost'].shell("sudo config interface ip add Loopback11 1:1:1:1::/64")
-    gather_info['duthost'].shell("sudo config loopback add Loopback12")
-    gather_info['duthost'].shell("sudo config interface ip add Loopback12 1.1.2.1/24")
-    gather_info['duthost'].shell("sudo config interface ip add Loopback12 1:1:1:2::/64")
-    gather_info['duthost'].shell("sudo config loopback add Loopback13")
-    gather_info['duthost'].shell("sudo config interface ip add Loopback13 1.1.3.1/24")
-    gather_info['duthost'].shell("sudo config interface ip add Loopback13 1:1:1:3::/64")
-    gather_info['duthost'].shell("sudo config loopback add Loopback14")
-    gather_info['duthost'].shell("sudo config interface ip add Loopback14 1.1.4.1/24")
-    gather_info['duthost'].shell("sudo config interface ip add Loopback14 1:1:1:4::/64")
-    gather_info['duthost'].shell("sudo config loopback add Loopback15")
-    gather_info['duthost'].shell("sudo config interface ip add Loopback15 1.1.5.1/24")
-    gather_info['duthost'].shell("sudo config interface ip add Loopback15 1:1:1:5::/64")
+    create_loopbacks()
 
+    # Create the route maps to be used
     cmd = 'vtysh -c "config" -c "route-map AGG_TEST_1 permit 10" -c "set as-path prepend 11111" -c "exit" -c "end"'
     logger.debug(gather_info['duthost'].shell(cmd, module_ignore_errors=True))
     cmd = 'vtysh -c "config" -c "route-map AGG_TEST_2 permit 10" -c "set as-path prepend 22222" -c "exit" -c "end"'
     logger.debug(gather_info['duthost'].shell(cmd, module_ignore_errors=True))
+    # Assign the route maps to networks
     cmd = 'vtysh{} -c "config" -c "router bgp {}" -c "address-family ipv4 unicast" \
           -c "network 1.1.1.0/24 route-map AGG_TEST_1" -c "network 1.1.2.0/24 route-map AGG_TEST_1" \
           -c "network 1.1.3.0/24 route-map AGG_TEST_2" -c "network 1.1.4.0/24 route-map AGG_TEST_2" \
