@@ -1,3 +1,4 @@
+import pytest
 import time
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -6,6 +7,11 @@ from tests.dhcp_relay.dhcp_relay_utils import restart_dhcp_service
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
+
+pytestmark = [
+    pytest.mark.topology('t0', 'm0'),
+    pytest.mark.device_type('vs')
+]
 
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
