@@ -5,6 +5,7 @@ import time
 from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, send_server_to_t1_with_action      # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                                      # noqa F401
+from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                                        # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor                      # noqa F401
 from tests.common.dualtor.tor_failure_utils import reboot_tor, tor_blackhole_traffic, wait_for_device_reachable     # noqa F401
 from tests.common.dualtor.tor_failure_utils import wait_for_mux_container                                           # noqa F401

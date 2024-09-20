@@ -177,3 +177,20 @@ r, ".*WARNING kernel: .*linux_knet_cb.*linux_bcm_knet.*linux_user_bde.*linux_ker
 r, ".* ERR .*CounterCheck: Invalid port oid.*"
 
 r, ".*ERR syncd[0-9]*#SDK.*sai_get_attributes: Failed to get attribute.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/24564189
+r, ".* ERR pmon#sensord: Error getting sensor data: dps.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/25018599
+r, ".* ERROR: Failed to parse lldp age.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/25833053
+r, ".* ERR dualtor_neighbor_check.py: .*"
+
+# https://github.com/sonic-net/sonic-buildimage/issues/17683
+r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
+r, ".*ERR kernel: \[.*\] firmware_class: See https:\/\/wiki.debian.org\/Firmware for information about missing firmware.*"
+r, ".*ERR kernel: \[.*\] snd_hda_intel.*no codecs found!.*"
+
+# https://github.com/sonic-net/sonic-mgmt/issues/10384
+r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"

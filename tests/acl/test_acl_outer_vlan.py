@@ -25,12 +25,14 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0'),
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 
+DUT_LAG_NAME = "PortChannel1"
+PTF_LAG_NAME = "bond1"
 DEFAULT_VLANID = 1000
-ACL_COUNTERS_UPDATE_INTERVAL = 10
+ACL_COUNTERS_UPDATE_INTERVAL = 15
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -126,51 +128,66 @@ def vlan_setup_info(rand_selected_dut, tbinfo):
     minigraph_vlan = list(mg_facts['minigraph_vlans'].values())[0]
     minigraph_ptf_indices = mg_facts['minigraph_ptf_indices']
     vlan_setup['default_vlan'] = minigraph_vlan['name']
-    # 3 interfaces are required to cover all test scenarios
-    pytest_require(len(minigraph_vlan['members']) >= 3, "There is no sufficient ports for testing")
-    ports_for_test = minigraph_vlan['members'][:3]
+    # 4 interfaces are required to cover all test scenarios
+    pytest_require(len(minigraph_vlan['members']) >= 4, "There is no sufficient ports for testing")
+    ports_for_test = minigraph_vlan['members'][:4]
 
+    portchannel_setup = {
+        DUT_LAG_NAME: {
+            'member': [
+                ports_for_test[0], ports_for_test[1]
+            ],
+            'ptf_member': [
+                minigraph_ptf_indices[ports_for_test[0]], minigraph_ptf_indices[ports_for_test[1]]
+            ]
+        }
+    }
     vlan_setup[100] = {
         "vlan_id": 100,
         "vlan_ip": {IPV4: "192.100.0.1/28", IPV6: "fc02:100::1/120"},
-        "tagged_ports": (ports_for_test[0], minigraph_ptf_indices[ports_for_test[0]], "192.100.0.2"),
-        "untagged_ports": (ports_for_test[2], minigraph_ptf_indices[ports_for_test[2]], "192.100.0.3"),
+        "tagged_ports": (DUT_LAG_NAME, portchannel_setup[DUT_LAG_NAME]['ptf_member'], "192.100.0.2"),
+        "untagged_ports": (ports_for_test[2], [minigraph_ptf_indices[ports_for_test[2]]], "192.100.0.3"),
     }
     vlan_setup[200] = {
         "vlan_id": 200,
         "vlan_ip": {IPV4: "192.200.0.1/28", IPV6: "fc02:200::1/120"},
-        "tagged_ports": (ports_for_test[2], minigraph_ptf_indices[ports_for_test[2]], "192.200.0.2"),
-        "untagged_ports": (ports_for_test[1], minigraph_ptf_indices[ports_for_test[1]], "192.200.0.3"),
+        "tagged_ports": (DUT_LAG_NAME, portchannel_setup[DUT_LAG_NAME]['ptf_member'], "192.200.0.2"),
+        "untagged_ports": (ports_for_test[3], [minigraph_ptf_indices[ports_for_test[3]]], "192.200.0.3"),
     }
-    testing_ports = {}
+    original_ports = {}
     for port in ports_for_test:
-        testing_ports[port] = minigraph_ptf_indices[port]
+        original_ports[port] = minigraph_ptf_indices[port]
+    new_ports = {
+        DUT_LAG_NAME: {},
+        ports_for_test[2]: {},
+        ports_for_test[3]: {}
+    }
 
-    return vlan_setup, testing_ports
+    return vlan_setup, original_ports, new_ports, portchannel_setup
 
 
-def setup_vlan(rand_selected_dut, vlan_setup_info):
+def setup_vlan(rand_selected_dut, vlan_setup_info, ptfhost):
     """
     Create vlan 100 and 200 on DUT for testing.
-    - port1 belongs to Vlan100, tagged
-    - port2 belongs to Vlan200, untagged
-    - port3 belongs to both Vlan100 (untagged) and Vlan200 (tagged)
+    - port1 belongs to both Vlan100 (tagged) and Vlan200 (tagged)
+    - port2 belongs to Vlan100, untagged
+    - port3 belongs to Vlan200, untagged
     +-----------+-----------------+-------------+----------------+-----------------------+-------------+
     |   VLAN ID | IP Address      | Ports       | Port Tagging   | DHCP Helper Address   | Proxy ARP   |
     +===========+=================+=============+================+=======================+=============+
-    |       100 | 192.100.0.1/24  | Ethernet24  | tagged         |                       | disabled    |
+    |       100 | 192.100.0.1/24  | PortChannel1| tagged         |                       | disabled    |
     |           | fc02:100::1/96  | Ethernet32  | untagged       |                       |             |
     +-----------+-----------------+-------------+----------------+-----------------------+-------------+
-    |       200 | fc02:200::1/96  | Ethernet28  | untagged       |                       | disabled    |
-    |           | 192.200.0.1/24  | Ethernet32  | tagged         |                       |             |
+    |       200 | fc02:200::1/96  | PortChannel1| tagged         |                       | disabled    |
+    |           | 192.200.0.1/24  | Ethernet36  | untagged       |                       |             |
     +-----------+-----------------+-------------+----------------+-----------------------+-------------+
     """
     logger.info("Creating Vlan for testing")
-    vlan_setup, test_ports = vlan_setup_info
+    vlan_setup, test_ports, _, portchannel_setup = vlan_setup_info
     default_vlan_id = vlan_setup['default_vlan'].replace("Vlan", "")
     # Remove interface from default Vlan
     cmds = []
-    for port in test_ports.keys():
+    for port in list(test_ports.keys()):
         cmds.append('config vlan member del {} {}'.format(default_vlan_id, port))
     rand_selected_dut.shell_cmds(cmds=cmds)
     time.sleep(10)
@@ -181,6 +198,25 @@ def setup_vlan(rand_selected_dut, vlan_setup_info):
         cmds.append('config vlan add {}'.format(new_vlan))
     rand_selected_dut.shell_cmds(cmds=cmds)
     time.sleep(10)
+
+    # Create portchannel
+    # Port in acl table can't be added to port channel, and acl table can only be updated by json file
+    rand_selected_dut.remove_acl_table("EVERFLOW")
+    rand_selected_dut.remove_acl_table("EVERFLOWV6")
+    rand_selected_dut.shell_cmds(cmds=["config portchannel add {}".format(DUT_LAG_NAME)])
+    cmds = []
+    for port_name in portchannel_setup[DUT_LAG_NAME]['member']:
+        cmds.append("config portchannel member add {} {}".format(DUT_LAG_NAME, port_name))
+    rand_selected_dut.shell_cmds(cmds=cmds)
+
+    # Add ptf lag
+    lag_ip = '192.100.0.2/28'
+    ptfhost.create_lag(PTF_LAG_NAME, lag_ip, "802.3ad")
+    for idx in portchannel_setup[DUT_LAG_NAME]['ptf_member']:
+        ptf_lag_member = 'eth%u' % idx
+        ptfhost.add_intf_to_lag(PTF_LAG_NAME, ptf_lag_member)
+    ptfhost.startup_lag(PTF_LAG_NAME)
+    ptfhost.ptf_nn_agent()
 
     # Assign IP to Vlan interface
     cmds = []
@@ -203,58 +239,29 @@ def setup_vlan(rand_selected_dut, vlan_setup_info):
     time.sleep(10)
 
 
-def teardown_vlan(rand_selected_dut, vlan_setup_info):
-    """
-    Remove testing vlan
-    """
-    logger.info("Removing Vlan for testing")
-    vlan_setup, test_ports = vlan_setup_info
-    # Remove ports from test vlan
-    cmds = []
-    for new_vlan in TEST_VLAN_LIST:
-        tagged_port = vlan_setup[new_vlan].get('tagged_ports', None)
-        untagged_port = vlan_setup[new_vlan].get('untagged_ports', None)
-        if tagged_port:
-            cmds.append("config vlan member del {} {}".format(new_vlan, tagged_port[0]))
-        if untagged_port:
-            cmds.append("config vlan member del {} {}".format(new_vlan, untagged_port[0]))
-    rand_selected_dut.shell_cmds(cmds=cmds)
-    time.sleep(10)
-
-    # Remove IP from Vlan interface
-    cmds = []
-    for new_vlan in TEST_VLAN_LIST:
-        cmds.append('config interface ip remove Vlan{} {}'.format(new_vlan, vlan_setup[new_vlan]['vlan_ip'][IPV4]))
-        cmds.append('config interface ip remove Vlan{} {}'.format(new_vlan, vlan_setup[new_vlan]['vlan_ip'][IPV6]))
-    rand_selected_dut.shell_cmds(cmds=cmds)
-    time.sleep(10)
-
-    # Remove testing vlan
-    cmds = []
-    for new_vlan in TEST_VLAN_LIST:
-        cmds.append('config vlan del {}'.format(new_vlan))
-    rand_selected_dut.shell_cmds(cmds=cmds)
-    time.sleep(10)
-
-    default_vlan_id = vlan_setup['default_vlan'].replace("Vlan", "")
-    # Add back interface to default Vlan
-    cmds = []
-    for port in test_ports.keys():
-        cmds.append('config vlan member add {} {} --untagged'.format(default_vlan_id, port))
-    rand_selected_dut.shell_cmds(cmds=cmds)
-    time.sleep(10)
-
-
 @pytest.fixture(scope='module', autouse=True)
-def vlan_setup_teardown(rand_selected_dut, ptfadapter, vlan_setup_info, tbinfo):
+def vlan_setup_teardown(rand_selected_dut, vlan_setup_info, ptfhost):
     try:
-        setup_vlan(rand_selected_dut, vlan_setup_info)
+        setup_vlan(rand_selected_dut, vlan_setup_info, ptfhost)
         yield
     finally:
-        teardown_vlan(rand_selected_dut, vlan_setup_info)
+        _, _, _, portchannel_setup = vlan_setup_info
+        # Restore ptf configuration
+        ptfhost.set_dev_no_master(PTF_LAG_NAME)
+        for _, lag_data in portchannel_setup.items():
+            for idx in lag_data['ptf_member']:
+                ptf_lag_member = 'eth%u' % idx
+                ptfhost.set_dev_no_master(ptf_lag_member)
+                ptfhost.set_dev_up_or_down(ptf_lag_member, True)
+
+        ptfhost.shell("ip link del {}".format(PTF_LAG_NAME))
+        ptfhost.ptf_nn_agent()
+        # Wait for lag sync
+        time.sleep(10)
+        config_reload(rand_selected_dut, safe_reload=True, check_intf_up_ports=True)
 
 
-def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port, dst_port, pkt_action=ACTION_FORWARD):
+def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port_list, dst_port_list, pkt_action=ACTION_FORWARD):
     """
     Send traffic and verify that traffic was received
 
@@ -262,19 +269,18 @@ def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port, dst_port, pkt_ac
         ptfadapter: PTF adapter
         pkt: Packet that should be sent
         exp_pkt: Expected packet
-        src_port: Source port
-        dst_port: Destination port
+        src_port_list: Source port
+        dst_port_list: Destination port
         pkt_action: Packet action (forward or drop)
     """
-
-    ptfadapter.dataplane.flush()
-    logger.info("Send packet from port {} to port {}".format(src_port, dst_port))
-    testutils.send(ptfadapter, src_port, pkt)
+    ptfadapter.reinit()
+    logger.info("Send packet from port {} to port {}".format(src_port_list, dst_port_list))
+    testutils.send(ptfadapter, src_port_list[0], pkt)
 
     if pkt_action == ACTION_FORWARD:
-        testutils.verify_packet(ptfadapter, exp_pkt, dst_port)
+        testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_port_list, timeout=20)
     elif pkt_action == ACTION_DROP:
-        testutils.verify_no_packet(ptfadapter, exp_pkt, dst_port)
+        testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=dst_port_list)
 
 
 def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL):
@@ -396,18 +402,23 @@ def check_rule_counters(duthost):
         return True
 
 
-@pytest.fixture(scope="module", autouse=True)
-def teardown(duthosts, rand_one_dut_hostname):
+def check_arp_status(duthost, ip):
     """
-    Teardown fixture to clean up DUT to initial state
+    Check if arp table has expected ip
 
     Args:
-        duthosts: All DUTs objects belonging to the testbed
-        rand_one_dut_hostname: Hostname of a random chosen dut to run test
+        duthost: DUT host object
+        ip: expected ip address
+    Returns:
+        Bool value
     """
-    yield
-    duthost = duthosts[rand_one_dut_hostname]
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    # Populate ARP table on DUT
+    duthost.shell("ping -c 1 {}".format(ip), module_ignore_errors=True)
+    # Get DUT arp table
+    switch_arptable = duthost.switch_arptable()['ansible_facts']
+    if ip in switch_arptable['arptable']['v4']:
+        return True
+    return False
 
 
 class AclVlanOuterTest_Base(object):
@@ -503,7 +514,7 @@ class AclVlanOuterTest_Base(object):
             self.post_running_hook(rand_selected_dut, ptfhost, ip_version)
 
     def _do_verification(self, ptfadapter, duthost, tbinfo, vlan_setup_info, ip_version, tagged_mode, action):
-        vlan_setup, _ = vlan_setup_info
+        vlan_setup, _, _, _ = vlan_setup_info
         test_setup_config = self.setup_cfg(duthost, tbinfo, vlan_setup, tagged_mode, ip_version)
 
         stage = test_setup_config['stage']
@@ -517,8 +528,12 @@ class AclVlanOuterTest_Base(object):
                     tagged_mode, outer_vlan_id, vlan_id, action))
 
         pkt_type = QINQ if stage == INGRESS else None
-        src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-        dst_mac = test_setup_config.get('dst_mac', ptfadapter.dataplane.get_mac(0, dst_port))
+        src_mac = ptfadapter.dataplane.get_mac(0, src_port[0])
+        if stage == INGRESS:
+            # Use broadcast for ingress test
+            dst_mac = "ff:ff:ff:ff:ff:ff"
+        else:
+            dst_mac = test_setup_config.get('dst_mac', ptfadapter.dataplane.get_mac(0, dst_port[0]))
         pkt, exp_pkt = craft_packet(src_mac=src_mac,
                                     dst_mac=dst_mac,
                                     dst_ip=dst_ip,
@@ -528,6 +543,15 @@ class AclVlanOuterTest_Base(object):
                                     pkt_type=pkt_type,
                                     tagged_mode=tagged_mode,
                                     stage=stage)
+        if stage == EGRESS:
+            # Wait arp
+            pytest_assert(wait_until(30, 1, 0, check_arp_status, duthost, dst_ip), "arp table is not updated")
+            # Learn MAC on leaf-fanout to avoid unknown unicast traffic
+            switch_arptable = duthost.switch_arptable()['ansible_facts']
+            mac = switch_arptable['arptable']['v4'][dst_ip]['macaddress']
+            mac_pkt = testutils.simple_tcp_packet(eth_src=mac)
+            for port in dst_port:
+                testutils.send(ptfadapter, port, mac_pkt)
 
         table_name = ACL_TABLE_NAME_TEMPLATE.format(stage, ip_version)
         try:
@@ -545,6 +569,7 @@ class AclVlanOuterTest_Base(object):
         finally:
             self._remove_acl_rules(duthost, stage, ip_version)
 
+    @pytest.mark.po2vlan
     def test_tagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                               ):
@@ -554,6 +579,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_TAGGED, ACTION_FORWARD)
 
+    @pytest.mark.po2vlan
     def test_tagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                             ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                             ):
@@ -563,6 +589,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_TAGGED, ACTION_DROP)
 
+    @pytest.mark.po2vlan
     def test_untagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                                 ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                                 ):
@@ -572,6 +599,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_UNTAGGED, ACTION_FORWARD)
 
+    @pytest.mark.po2vlan
     def test_untagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                               ):
@@ -581,6 +609,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_UNTAGGED, ACTION_DROP)
 
+    @pytest.mark.po2vlan
     def test_combined_tagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                                        ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                                        ):
@@ -590,6 +619,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_COMBINE_TAGGED, ACTION_FORWARD)
 
+    @pytest.mark.po2vlan
     def test_combined_tagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                                      ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                                      ):
@@ -599,6 +629,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_COMBINE_TAGGED, ACTION_DROP)
 
+    @pytest.mark.po2vlan
     def test_combined_untagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                                          ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                                          ):
@@ -608,6 +639,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_COMBINE_UNTAGGED, ACTION_FORWARD)
 
+    @pytest.mark.po2vlan
     def test_combined_untagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                                        ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                                        ):
@@ -644,7 +676,8 @@ class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):
     Verify ACL rule matching outer vlan id in ingress
     """
     def pre_running_hook(self, duthost, ptfhost, ip_version, vlan_setup_info):
-        self._setup_acl_table(duthost, INGRESS, ip_version, vlan_setup_info[1])
+        pytest_assert(len(vlan_setup_info) == 4, "Invalid Vlan setup")
+        self._setup_acl_table(duthost, INGRESS, ip_version, vlan_setup_info[2])
 
     def post_running_hook(self, duthost, ptfhost, ip_version):
         self._remove_acl_table(duthost, INGRESS, ip_version)
@@ -682,18 +715,19 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
     def _setup_arp_responder(self, ptfhost, vlan_setup_info):
         ip_list = []
         arp_responder_cfg = {}
-        vlan_setup, bind_ports = vlan_setup_info
+        vlan_setup, _, _, _ = vlan_setup_info
         for new_vlan in TEST_VLAN_LIST:
             keys = ['tagged_ports', 'untagged_ports']
             for key in keys:
                 port_info = vlan_setup[new_vlan].get(key, None)
                 if port_info:
-                    _, idx, ip = port_info
-                    eth = 'eth{}'.format(idx)
-                    if eth not in arp_responder_cfg:
-                        arp_responder_cfg[eth] = []
-                    arp_responder_cfg[eth].append(ip)
+                    _, idx_list, ip = port_info
                     ip_list.append(ip)
+                    for idx in idx_list:
+                        eth = 'eth{}'.format(idx)
+                        if eth not in arp_responder_cfg:
+                            arp_responder_cfg[eth] = []
+                        arp_responder_cfg[eth].append(ip)
 
         CFG_FILE = '/tmp/acl_outer_vlan_test.json'
         with open(CFG_FILE, 'w') as file:
@@ -731,7 +765,8 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
         pytest_require(ip_version == IPV4,
                        "IPV6 EGRESS test not supported")
 
-        self._setup_acl_table(duthost, EGRESS, ip_version, vlan_setup_info[1])
+        pytest_assert(len(vlan_setup_info) == 4, "Invalid Vlan setup")
+        self._setup_acl_table(duthost, EGRESS, ip_version, vlan_setup_info[2])
         self.testing_acl_table_created = True
         ip_list = self._setup_arp_responder(ptfhost, vlan_setup_info)
         # Populate ARP table on DUT
@@ -754,7 +789,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
         # interface we setup
         upstream_neightbor_name = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]]
         ptf_src_ports = get_neighbor_ptf_port_list(duthost, upstream_neightbor_name, tbinfo)
-        cfg['src_port'] = ptf_src_ports[-1]
+        cfg['src_port'] = [ptf_src_ports[-1]]
         if TYPE_TAGGED == tagged_mode:
             cfg['dst_port'] = vlan_setup[100]['tagged_ports'][1]
             cfg['outer_vlan_id'] = 100

@@ -136,7 +136,7 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
     ptf_interface = "eth" + str(peer_ports[rcvd_port_index])
     res = ptfhost.shell('cat /sys/class/net/{}/address'.format(ptf_interface))
     original_mac = res['stdout']
-    ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, Ether(rcvd_pkt).dst))
+    ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, scapy.Ether(rcvd_pkt).dst))
     ptfhost.shell("ip add add %s dev %s" % (peer_addr + "/24", ptf_interface))
     ptfhost.exabgp(name=BGP_MONITOR_NAME,
                        state="started",

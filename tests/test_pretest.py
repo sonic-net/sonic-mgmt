@@ -335,6 +335,7 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
     except IOError as e:
         logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
 
+
 def test_generate_running_golden_config(duthosts):
     """
     Generate running golden config after pre test.
@@ -346,3 +347,13 @@ def test_generate_running_golden_config(duthosts):
                 asic_ns = 'asic{}'.format(asic_index)
                 duthost.shell("sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".
                               format(asic_ns, asic_index))
+
+
+def test_install_mergecap_on_ptf(ptfhost):
+    """
+    Temporary fixture which will install "wireshark-common" package on PTF host which has "mergecap" application inside
+    """
+    try:
+        ptfhost.shell("export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get install wireshark-common -y")
+    except Exception as err:
+        logger.warning('Unable to install "wireshark-common" on PTF host. Got error: {}'.format(err))

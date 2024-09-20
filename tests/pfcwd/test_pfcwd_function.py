@@ -3,6 +3,9 @@ import logging
 import os
 import pytest
 import time
+import six
+import re
+import six
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -49,6 +52,15 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
+
+
+def is_longlink(dut, profile):
+    if dut.sonichost._facts['platform'] in \
+            ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        match = re.search("_([0-9]*)m_", profile)
+        if match:
+            return int(match.group(1)) > 2000
+    return False
 
 
 class PfcCmd(object):
@@ -116,15 +128,16 @@ class PfcCmd(object):
         )
 
     @staticmethod
-    def update_alpha(dut, port, profile, value):
+    def update_alpha(dut, port, profile, value, static_th):
         """
-        Update dynamic threshold value in buffer profile
+        Update dynamic threshold value or static_th value in buffer profile
 
         Args:
             dut(AnsibleHost) : dut instance
             port(string) : port name
             profile(string) : profile name
             value(int) : dynamic threshold value to update
+            static_th(int) : or static threshold value to update
         """
         logger.info("Updating dynamic threshold for {} to {}".format(profile, value))
         asic = dut.get_port_asic_instance(port)
@@ -135,11 +148,18 @@ class PfcCmd(object):
             db = "4"
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        asic.run_redis_cmd(
-            argv = [
-                "redis-cli", "-n", db, "HSET", table_template.format(profile), "dynamic_th", value
-            ]
-        )
+        if is_longlink(dut, profile):
+            asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", db, "HSET", table_template.format(profile), "static_th", static_th
+                ]
+            )
+        else:
+            asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", db, "HSET", table_template.format(profile), "dynamic_th", value
+                ]
+            )
 
     @staticmethod
     def get_mmu_params(dut, port, dual_tor_ports):
@@ -180,13 +200,21 @@ class PfcCmd(object):
             pg_profile = pg_profile.split(DB_SEPARATORS[db])[-1][:-1]
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        alpha = asic.run_redis_cmd(
-            argv = [
-                "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "dynamic_th"
-            ]
-        )[0].encode("utf-8")
+        static_th = 0
+        if is_longlink(dut, pg_profile):
+            static_th = six.text_type(asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "static_th"
+                ]
+            )[0])
+        else:
+            alpha = six.text_type(asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "dynamic_th"
+                ]
+            )[0])
 
-        return pg_profile, alpha
+        return pg_profile, alpha, static_th
 
 
 class PfcPktCntrs(object):
@@ -357,9 +385,9 @@ class SetupPfcwdFunc(object):
         Args:
             port(string) : DUT port
         """
-        self.pg_profile, self.alpha = PfcCmd.get_mmu_params(self.dut, port, dual_tor_ports)
+        self.pg_profile, self.alpha, self.static_th = PfcCmd.get_mmu_params(self.dut, port, dual_tor_ports)
 
-    def update_mmu_params(self, mmu_action, port):
+    def update_mmu_params(self, dut, mmu_action, port):
         """
         Update dynamic threshold value
 
@@ -368,17 +396,23 @@ class SetupPfcwdFunc(object):
                                 for value "restore", set back to original threshold
             port(string) : port name
         """
-        if int(self.alpha) <= -6:
-            new_alpha = -5
-        elif int(self.alpha) >= 3:
-            new_alpha = 2
+        new_alpha = self.alpha
+        new_static_th = self.static_th
+        if is_longlink(dut, self.pg_profile):
+            if int(self.static_th) > 0:
+                new_static_th = int(int(self.static_th) / 2)
         else:
-            new_alpha = int(self.alpha) + 1
+            if int(self.alpha) <= -6:
+                new_alpha = -5
+            elif int(self.alpha) >= 3:
+                new_alpha = 2
+            else:
+                new_alpha = int(self.alpha) + 1
 
         if mmu_action == "change":
-            PfcCmd.update_alpha(self.dut, port, self.pg_profile, new_alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, new_alpha, new_static_th)
         elif mmu_action == "restore":
-            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha, self.static_th)
         time.sleep(2)
 
     def resolve_arp(self, vlan, is_dualtor=False):
@@ -416,11 +450,20 @@ class SetupPfcwdFunc(object):
                         }
             self.peer_dev_list[self.peer_device] = peer_info['hwsku']
 
+            if self.dut.topo_type == 't2' and self.fanout[self.peer_device].os == 'sonic':
+                gen_file = 'pfc_gen_t2.py'
+                pfc_send_time = 60
+            else:
+                gen_file = 'pfc_gen.py'
+                pfc_send_time = None
+
             # get pfc storm handle
             if init and detect:
                 self.storm_hndle = PFCStorm(self.dut, self.fanout_info, self.fanout,
                                             pfc_queue_idx=self.pfc_wd['queue_index'],
                                             pfc_frames_number=self.pfc_wd['frames_number'],
+                                            pfc_send_period=pfc_send_time,
+                                            pfc_gen_file=gen_file,
                                             peer_info=peer_info)
             self.storm_hndle.update_queue_index(self.pfc_wd['queue_index'])
             self.storm_hndle.update_peer_info(peer_info)
@@ -439,7 +482,7 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic():
     """ PTF test """
-    def __init__(self, ptf, router_mac, pfc_params, is_dualtor):
+    def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
@@ -448,6 +491,7 @@ class SendVerifyTraffic():
         """
         self.ptf = ptf
         self.router_mac = router_mac
+        self.tx_mac = tx_mac
         self.pfc_queue_index = pfc_params['queue_index']
         self.pfc_wd_test_pkt_count = pfc_params['test_pkt_count']
         self.pfc_wd_rx_port_id = pfc_params['rx_port_id']
@@ -510,8 +554,8 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
+        ptf_params = {'router_mac': self.tx_mac,
+                      'vlan_mac': self.tx_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -572,12 +616,12 @@ class SendVerifyTraffic():
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
 
         if self.pfc_queue_index == 4:
-             other_pg = self.pfc_queue_index - 1
+            other_pg = self.pfc_queue_index - 1
         else:
-             other_pg = self.pfc_queue_index + 1
+            other_pg = self.pfc_queue_index + 1
 
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
+        ptf_params = {'router_mac': self.tx_mac,
+                      'vlan_mac': self.tx_mac,
                       'queue_index': other_pg,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -725,7 +769,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.log_handle[port] = loganalyzer
 
         if mmu_action is not None:
-            self.update_mmu_params(mmu_action, port)
+            self.update_mmu_params(dut, mmu_action, port)
 
         if restore:
             loganalyzer = self.log_handle[port]
@@ -782,6 +826,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                 self.pfc_wd,
                 self.is_dualtor)
 
@@ -872,6 +917,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.traffic_inst = SendVerifyTraffic(
                                                           self.ptf,
                                                           duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                                                          duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                                                           self.pfc_wd,
                                                           self.is_dualtor)
                     self.run_test(self.dut, port, "drop", restore=False)
@@ -944,6 +990,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
                     duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                    duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                     self.pfc_wd,
                     self.is_dualtor)
                 pfc_wd_restore_time_large = request.config.getoption("--restore-time")
@@ -955,6 +1002,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
                     duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                    duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                     self.pfc_wd,
                     self.is_dualtor)
                 self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
@@ -968,7 +1016,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("--- Stop pfc storm on port {}".format(port))
                 self.storm_hndle.stop_storm()
             # restore alpha
-            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha, self.static_th)
             logger.info("--- Stop PFC WD ---")
             self.dut.command("pfcwd stop")
 
@@ -1025,6 +1073,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                 self.pfc_wd,
                 self.is_dualtor)
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")

@@ -42,7 +42,7 @@ def test_power_redis_db(duthosts, enum_supervisor_dut_hostname, tbinfo):
                     logger.debug("psu {} in skip list skipping check".format(n_psu))
 
             elif re.match('Consumed Power', out_val):
-                mod_name = (re.split('Consumed Power', out_val))[1]
+                mod_name = (re.split('Consumed Power', out_val))[1].strip()
                 cons_power = float(out_dict[pb_name]['value'][out_val])
                 exp_total_cons_power += cons_power
                 if mod_name not in skip_mod_list:

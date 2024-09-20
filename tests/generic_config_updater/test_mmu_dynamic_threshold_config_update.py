@@ -130,7 +130,7 @@ def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation):
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_platform_and_version(duthost, "BUFFER_PROFILE", "PG headroom modification"):
+        if is_valid_platform_and_version(duthost, "BUFFER_PROFILE", "PG headroom modification", operation):
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, new_dynamic_th, pg_lossless_profiles)
         else:

@@ -120,7 +120,8 @@ def verify_icmp_packets(ptfadapter, send_pkt, vlan_ports_list, vlan_port, vlan_i
                 tagged_dst_ports += port["port_index"]
 
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, vlan_port["port_index"][0], send_pkt)
+    for src_port in vlan_port["port_index"]:
+        testutils.send(ptfadapter, src_port, send_pkt)
     verify_packets_with_portchannel(test=ptfadapter,
                                     pkt=untagged_pkt,
                                     ports=untagged_dst_ports,
@@ -131,9 +132,10 @@ def verify_icmp_packets(ptfadapter, send_pkt, vlan_ports_list, vlan_port, vlan_i
                                     portchannel_ports=tagged_dst_pc_ports)
 
 
-def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_port, dst_ports, timeout=None):
+def verify_unicast_packets(ptfadapter, send_pkt, exp_pkt, src_ports, dst_ports, timeout=None):
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, src_port, send_pkt)
+    for src_port in src_ports:
+        testutils.send(ptfadapter, src_port, send_pkt)
     try:
         testutils.verify_packets_any(ptfadapter, exp_pkt, ports=dst_ports, timeout=timeout)
     except AssertionError as detail:
@@ -174,7 +176,8 @@ def test_vlan_tc1_send_untagged(ptfadapter, duthosts, rand_one_dut_hostname, ran
             dst_ports = []
             for port in vlan_ports_list:
                 dst_ports += port["port_index"] if port != vlan_port else []
-            testutils.send(ptfadapter, vlan_port["port_index"][0], untagged_pkt)
+            for src_port in vlan_port["port_index"]:
+                testutils.send(ptfadapter, src_port, untagged_pkt)
             logger.info("Check on " + str(dst_ports) + "...")
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ports)
 
@@ -227,14 +230,15 @@ def test_vlan_tc3_send_invalid_vid(ptfadapter, duthosts, rand_one_dut_hostname, 
     masked_invalid_tagged_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
     for vlan_port in vlan_ports_list:
         dst_ports = []
-        src_port = vlan_port["port_index"][0]
         for port in vlan_ports_list:
             dst_ports += port["port_index"] if port != vlan_port else []
+        src_ports = vlan_port["port_index"]
         logger.info("Send invalid tagged packet " +
-                    " from " + str(src_port) + "...")
+                    " from " + str(src_ports) + "...")
         logger.info(invalid_tagged_pkt.sprintf(
             "%Ether.src% %IP.src% -> %Ether.dst% %IP.dst%"))
-        testutils.send(ptfadapter, src_port, invalid_tagged_pkt)
+        for src_port in src_ports:
+            testutils.send(ptfadapter, src_port, invalid_tagged_pkt)
         logger.info("Check on " + str(dst_ports) + "...")
         testutils.verify_no_packet_any(
             ptfadapter, masked_invalid_tagged_pkt, dst_ports)
@@ -276,7 +280,7 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, ra
             tagged_test_vlan, src_port, dst_port))
 
         verify_unicast_packets(
-            ptfadapter, transmit_tagged_pkt, transmit_tagged_pkt, src_port[0],
+            ptfadapter, transmit_tagged_pkt, transmit_tagged_pkt, src_port,
             dst_port, timeout=5)
 
         logger.info("One Way Tagged Packet Transmission Works")
@@ -287,7 +291,7 @@ def test_vlan_tc4_tagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, ra
             tagged_test_vlan, dst_port, src_port))
 
         verify_unicast_packets(ptfadapter, return_transmit_tagged_pkt,
-                               return_transmit_tagged_pkt, dst_port[0], src_port, timeout=5)
+                               return_transmit_tagged_pkt, dst_port, src_port, timeout=5)
 
         logger.info("Two Way Tagged Packet Transmission Works")
         logger.info("Tagged({}) packet successfully sent from port {} to port {}".format(
@@ -331,7 +335,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, 
             untagged_test_vlan, src_port, dst_port))
 
         verify_unicast_packets(
-            ptfadapter, transmit_untagged_pkt, transmit_untagged_pkt, src_port[0],
+            ptfadapter, transmit_untagged_pkt, transmit_untagged_pkt, src_port,
             dst_port, timeout=5)
 
         logger.info("One Way Untagged Packet Transmission Works")
@@ -342,7 +346,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, 
             untagged_test_vlan, dst_port, src_port))
 
         verify_unicast_packets(ptfadapter, return_transmit_untagged_pkt,
-                               return_transmit_untagged_pkt, dst_port[0], src_port, timeout=5)
+                               return_transmit_untagged_pkt, dst_port, src_port, timeout=5)
 
         logger.info("Two Way Untagged Packet Transmission Works")
         logger.info("Untagged({}) packet successfully sent from port {} to port {}".format(
@@ -399,7 +403,7 @@ def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hos
             test_vlan, src_port, dst_port))
 
         verify_unicast_packets(
-            ptfadapter, transmit_untagged_pkt, exp_tagged_pkt, src_port[0], dst_port)
+            ptfadapter, transmit_untagged_pkt, exp_tagged_pkt, src_port, dst_port)
 
         logger.info("One Way Untagged Packet Transmission Works")
         logger.info("Untagged({}) packet successfully sent from port {} to port {}".format(
@@ -409,7 +413,7 @@ def test_vlan_tc6_tagged_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hos
             test_vlan, dst_port, src_port))
 
         verify_unicast_packets(
-            ptfadapter, return_transmit_tagged_pkt, exp_untagged_pkt, dst_port[0], src_port)
+            ptfadapter, return_transmit_tagged_pkt, exp_untagged_pkt, dst_port, src_port)
 
         logger.info("Two Way tagged Packet Transmission Works")
         logger.info("Tagged({}) packet successfully sent from port {} to port {}".format(
@@ -447,6 +451,6 @@ def test_vlan_tc7_tagged_qinq_switch_on_outer_tag(ptfadapter, duthosts, rand_one
             tagged_test_vlan, src_port, dst_port))
 
         verify_unicast_packets(ptfadapter, transmit_qinq_pkt,
-                               transmit_qinq_pkt, src_port[0], dst_port)
+                               transmit_qinq_pkt, src_port, dst_port)
 
         logger.info("QinQ packet switching worked successfully...")

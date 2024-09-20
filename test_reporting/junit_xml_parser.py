@@ -388,7 +388,7 @@ def _extract_test_summary(test_cases):
             # The result field is unique per test case, either error or failure.
             # xfails is the counter for all kinds of xfail results (include success/failure/error/skipped)
             test_result_summary["tests"] += 1
-            test_result_summary["failures"] += case["result"] == "failure" or case["result"] == "error"
+            test_result_summary["failures"] += case["result"] == "failure"
             test_result_summary["skipped"] += case["result"] == "skipped"
             test_result_summary["errors"] += case["error"]
             test_result_summary["time"] += float(case["time"])

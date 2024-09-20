@@ -64,6 +64,12 @@ def xcvr_skip_list(duthosts):
             logging.debug(
                 "hwsku.json absent or port_type for interfaces not included for hwsku {}".format(hwsku))
 
+        # No hwsku.json for Arista-7050-QX-32S/Arista-7050QX-32S-S4Q31
+        if hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX-32S-S4Q31']:
+            sfp_list = ['Ethernet0', 'Ethernet1', 'Ethernet2', 'Ethernet3']
+            logging.debug('Skipping sfp interfaces: {}'.format(sfp_list))
+            intf_skip_list[dut.hostname].extend(sfp_list)
+
     return intf_skip_list
 
 
@@ -409,9 +415,13 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_name = request.node.name
-    if "warm" in test_name:
+    if "upgrade_path" in test_name:
+        reboot_type_source = request.config.getoption("--upgrade_type")
+    else:
+        reboot_type_source = test_name
+    if "warm" in reboot_type_source:
         reboot_type = "warm"
-    elif "fast" in test_name:
+    elif "fast" in reboot_type_source:
         reboot_type = "fast"
     else:
         reboot_type = "unknown"

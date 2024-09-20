@@ -564,8 +564,18 @@ class TestTableValidation(object):
         ipv4_routes = asic_cmd(asic_to_use, "ip -4 route")["stdout_lines"]
         ipv6_routes = asic_cmd(asic_to_use, "ip -6 route")["stdout_lines"]
 
+        cfgd_dev_neigh_md = cfg_facts['DEVICE_NEIGHBOR_METADATA'] if 'DEVICE_NEIGHBOR_METADATA' in cfg_facts else {}
+        dev_rh_neigh = [neigh for neigh in cfgd_dev_neigh_md
+                        if cfgd_dev_neigh_md[neigh]["type"] == "RegionalHub"]
+
         # get attached neighbors
         neighs = cfg_facts['BGP_NEIGHBOR']
+
+        # Remove the neighbor if BGP neighbor is of type RegionalHub
+        for k, v in neighs.items():
+            if v['name'] in dev_rh_neigh:
+                neighs.pop(k)
+
         for neighbor in neighs:
             local_ip = neighs[neighbor]['local_addr']
 

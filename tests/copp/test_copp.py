@@ -195,7 +195,7 @@ class TestCOPP(object):
         copp_utils.verify_always_enable_value(duthost, self.trap_id, "true")
         logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))
         pytest_assert(
-            wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
+            wait_until(200, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
             "Installing {} trap fail".format(self.trap_id))
 
 

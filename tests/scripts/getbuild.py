@@ -62,16 +62,24 @@ def validate_url_or_abort(url):
             sys.exit(1)
 
 
-def get_download_url(buildid, artifact_name, url_prefix, access_token):
+def get_download_url(buildid, artifact_name, url_prefix, access_token, token):
     """get download url"""
 
     artifact_req = Request("https://dev.azure.com/{}/_apis/build/builds/{}/artifacts?artifactName={}&api-version=5.0"
                            .format(url_prefix, buildid, artifact_name))
 
-    # If access token is not empty, set headers
-    if access_token:
-        artifact_req.add_header('Authorization',
-                                'Basic {}'.format(base64.b64encode(access_token.encode('utf-8')).decode('utf-8')))
+    # Here "access_token" indeed is Azure DevOps PAT token.
+    # "token" should be the actual bearer token for Azure DevOps.
+    # PAT should be deprecated. below logic is to handle both cases for smooth transition from PAT to bearer token.
+    if token:
+        artifact_req.add_header(
+            'Authorization', 'Bearer {}'.format(token)
+        )
+    elif access_token:
+        artifact_req.add_header(
+            'Authorization',
+            'Basic {}'.format(base64.b64encode(access_token.encode('utf-8')).decode('utf-8'))
+        )
 
     resp = urlopen(artifact_req)
 
@@ -83,7 +91,7 @@ def get_download_url(buildid, artifact_name, url_prefix, access_token):
     return (download_url, artifact_size)
 
 
-def download_artifacts(url, content_type, platform, buildid, num_asic, access_token):
+def download_artifacts(url, content_type, platform, buildid, num_asic, access_token, token):
     """find latest successful build id for a branch"""
 
     if content_type == 'image':
@@ -109,13 +117,27 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
             try:
                 print('Downloading {} from build {}...'.format(filename, buildid))
                 download_times += 1
-                # If access token is not empty, set headers
-                if access_token:
+                opener = build_opener()
+                # Here "access_token" indeed is Azure DevOps PAT token.
+                # "token" should be the actual bearer token for Azure DevOps.
+                # PAT should be deprecated.
+                # Below logic is to handle both cases for smooth transition from PAT to bearer token.
+                if token:
+                    opener.addheaders = [
+                        (
+                            "Authorization",
+                            "Bearer {}".format(token)
+                         )
+                    ]
+                elif access_token:
                     opener = build_opener()
                     opener.addheaders = [
-                        ('Authorization',
-                         'Basic {}'.format(base64.b64encode(access_token.encode('utf-8')).decode('utf-8')))]
-                    install_opener(opener)
+                        (
+                            'Authorization',
+                            'Basic {}'.format(base64.b64encode(access_token.encode('utf-8')).decode('utf-8'))
+                        )
+                    ]
+                install_opener(opener)
                 urlretrieve(url, filename, reporthook)
                 print('\nDownload finished!')
                 break
@@ -165,8 +187,12 @@ def main():
     parser.add_argument('--num_asic', metavar='num_asic', type=int,
                         default=1,
                         help='Specifiy number of asics')
-    parser.add_argument('--url_prefix', metavar='url_prefix', type=str, default='mssonic/build', help='url prefix')
-    parser.add_argument('--access_token', metavar='access_token', type=str, default='', nargs='?', const='', required=False, help='access token')
+    parser.add_argument('--url_prefix', metavar='url_prefix',
+                        type=str, default='mssonic/build', help='url prefix')
+    parser.add_argument('--access_token', metavar='access_token', type=str,
+                        default='', nargs='?', const='', required=False, help='access token (PAT)')
+    parser.add_argument('--token', metavar='token', type=str,
+                        default='', nargs='?', const='', required=False, help='bearer token')
 
     args = parser.parse_args()
 
@@ -184,9 +210,11 @@ def main():
 
     (dl_url, artifact_size) = get_download_url(buildid, artifact_name,
                                                url_prefix=args.url_prefix,
-                                               access_token=args.access_token)
+                                               access_token=args.access_token,
+                                               token=args.token)
 
-    download_artifacts(dl_url, args.content, args.platform, buildid, args.num_asic, access_token=args.access_token)
+    download_artifacts(dl_url, args.content, args.platform,
+                       buildid, args.num_asic, access_token=args.access_token, token=args.token)
 
 
 if __name__ == '__main__':

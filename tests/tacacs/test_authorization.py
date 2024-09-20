@@ -228,10 +228,10 @@ def test_authorization_tacacs_and_local(
     pytest_assert(exit_code == 1)
     check_ssh_output(stderr, 'Root privileges are required for this operation')
 
-    # Verify TACACS+ user can run command not in server side whitelist, but have local permission.
+    # Verify TACACS+ user can't run command not in server side whitelist but have local permission.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd")
-    pytest_assert(exit_code == 0)
-    check_ssh_output(stdout, 'root:x:0:0:root:/root:/bin/bash')
+    pytest_assert(exit_code == 1)
+    check_ssh_output_any_of(stdout, ['/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing'])
 
     # Verify Local user can't login.
     dutip = duthost.mgmt_ip

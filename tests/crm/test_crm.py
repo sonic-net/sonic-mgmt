@@ -630,6 +630,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
             nexthop_del_cmd = "config route del prefix 3001::0/64 nexthop {}".format(nexthop)
         asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
         asichost.shell(ip_add_cmd)
+        asichost.shell("config interface startup Ethernet1")
     else:
         nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
@@ -766,19 +767,19 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
 
     nhg_del_template="""
         %s
-        ip -4 {{ns_prefix}} route del 3.3.3.0/24 dev {{iface}}
+        ip -4 {{ns_prefix}} route del 5.5.5.0/24 dev {{iface}}
         ip -4 {{ns_prefix}} route del 4.4.4.0/24 dev {{iface2}}
-        ip {{ns_prefix}} neigh del 3.3.3.1 lladdr 11:22:33:44:55:66 dev {{iface}}
+        ip {{ns_prefix}} neigh del 5.5.5.1 lladdr 11:22:33:44:55:66 dev {{iface}}
         ip {{ns_prefix}} neigh del 4.4.4.1 lladdr 77:22:33:44:55:66 dev {{iface2}}
-        ip -4 {{ns_prefix}} route del {{prefix}} nexthop via 3.3.3.1 nexthop via 4.4.4.1""" %(NS_PREFIX_TEMPLATE)
+        ip -4 {{ns_prefix}} route del {{prefix}} nexthop via 5.5.5.1 nexthop via 4.4.4.1""" % (NS_PREFIX_TEMPLATE)
 
     nhg_add_template="""
         %s
-        ip -4 {{ns_prefix}} route add 3.3.3.0/24 dev {{iface}}
+        ip -4 {{ns_prefix}} route add 5.5.5.0/24 dev {{iface}}
         ip -4 {{ns_prefix}} route add 4.4.4.0/24 dev {{iface2}}
-        ip {{ns_prefix}} neigh replace 3.3.3.1 lladdr 11:22:33:44:55:66 dev {{iface}}
+        ip {{ns_prefix}} neigh replace 5.5.5.1 lladdr 11:22:33:44:55:66 dev {{iface}}
         ip {{ns_prefix}} neigh replace 4.4.4.1 lladdr 77:22:33:44:55:66 dev {{iface2}}
-        ip -4 {{ns_prefix}} route add {{prefix}} nexthop via 3.3.3.1 nexthop via 4.4.4.1""" %(NS_PREFIX_TEMPLATE)
+        ip -4 {{ns_prefix}} route add {{prefix}} nexthop via 5.5.5.1 nexthop via 4.4.4.1""" % (NS_PREFIX_TEMPLATE)
 
     add_template = Template(nhg_add_template)
     del_template = Template(nhg_del_template)
@@ -991,6 +992,9 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
         # PCs are a single bind point
         portToLag = {}
         for lag, lagData in mg_facts["minigraph_portchannels"].items():
+            # Check if Portchannel belongs to this namespace
+            if duthost.sonichost.is_multi_asic and lagData['namespace'] != asichost.namespace:
+                continue
             for member in lagData['members']:
                 portToLag[member] = lag
         aclBindings = mg_facts["minigraph_acls"]["DataAcl"]

@@ -1,12 +1,12 @@
-import json 
+import json
 import logging
 import paramiko
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.tacacs.test_authorization import ssh_connect_remote
-from tests.tacacs.conftest import tacacs_creds
+from tests.tacacs.conftest import tacacs_creds      # noqa F401
 from tests.tacacs.utils import setup_local_user
+from tests.common.utilities import paramiko_ssh
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -56,13 +56,12 @@ def modify_templates(duthost, tacacs_creds, creds):
     type = get_device_type(duthost)
     user = tacacs_creds['local_user']
 
-    try:
-        # Duthost shell not support run command with J2 template in command text.
-        admin_session = ssh_connect_remote(dut_ip, creds['sonicadmin_user'], creds['sonicadmin_password'])
-    except paramiko.AuthenticationException:
-        # try ssh with ansible_altpassword again
-        sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
-        admin_session = ssh_connect_remote(dut_ip, creds['sonicadmin_user'], sonic_admin_alt_password)
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
+        "ansible_altpassword")
+    # Duthost shell not support run command with J2 template in command text.
+    admin_session = paramiko_ssh(ip_address=dut_ip, username=creds['sonicadmin_user'],
+                                 passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
+                                 + creds["ansible_altpasswords"])
 
     # Backup and change /usr/share/sonic/templates/pam_limits.j2
     additional_content = "session  required  pam_limits.so"
@@ -138,14 +137,14 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
     local_user_password = tacacs_creds['local_user_passwd']
 
     # Create multiple login session to test maxlogins limit, first session will success
-    ssh_session_1 = ssh_connect_remote(dut_ip, local_user, local_user_password)
+    ssh_session_1 = paramiko_ssh(dut_ip, local_user, local_user_password)
     login_message_1 = get_login_result(ssh_session_1)
 
     logging.debug("Login session 1 result:\n{0}\n".format(login_message_1))
     pytest_assert("There were too many logins for" not in login_message_1)
 
     # The second session will be disconnect by device
-    ssh_session_2 = ssh_connect_remote(dut_ip, local_user, local_user_password)
+    ssh_session_2 = paramiko_ssh(dut_ip, local_user, local_user_password)
     login_message_2 = get_login_result(ssh_session_2)
 
     logging.debug("Login session 2 result:\n{0}\n".format(login_message_2))

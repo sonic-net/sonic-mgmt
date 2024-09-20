@@ -4,7 +4,6 @@ import pytest
 import logging
 import os
 from random import randrange
-import subprocess
 from fwutil_common import show_firmware
 
 logger = logging.getLogger(__name__)
@@ -32,17 +31,31 @@ def pytest_generate_tests(metafunc):
 def fw_pkg(fw_pkg_name):
     if fw_pkg_name is None:
         pytest.skip("No fw package specified.")
-    logger.info("Unpacking firmware package to ./firmware")
-    try:
-        os.mkdir("firmware")
-    except OSError:
-        pass  # Already exists, thats fine
-    with tarfile.open(fw_pkg_name, "r:gz") as f:
-        f.extractall("./firmware/")
-        with open('./firmware/firmware.json', 'r') as fw:
+
+    yield extract_fw_data(fw_pkg_name)
+
+
+def extract_fw_data(fw_pkg_path):
+    """
+    Extract fw data from updated-fw.tar.gz file or firmware.json file
+    :param fw_pkg_path: the path to tar.gz file or firmware.json file
+    :return: fw_data in dictionary
+    """
+    if tarfile.is_tarfile(fw_pkg_path):
+        path = "/tmp/firmware"
+        isExist = os.path.exists(path)
+        if not isExist:
+            os.mkdir(path)
+        with tarfile.open(fw_pkg_path, "r:gz") as f:
+            f.extractall(path)
+            json_file = os.path.join(path, "firmware.json")
+            with open(json_file, 'r') as fw:
+                fw_data = json.load(fw)
+    else:
+        with open(fw_pkg_path, 'r') as fw:
             fw_data = json.load(fw)
-            yield fw_data
-    subprocess.call("rm -rf firmware", shell=True)
+
+    return fw_data
 
 
 @pytest.fixture(scope='function')

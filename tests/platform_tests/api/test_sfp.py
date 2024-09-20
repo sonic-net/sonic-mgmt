@@ -8,8 +8,8 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import wait_until
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
-from tests.common.fixtures.duthost_utils import shutdown_ebgp
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa F401
+from tests.common.fixtures.duthost_utils import shutdown_ebgp  # noqa F401
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -30,8 +30,9 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 @pytest.fixture(scope="class")
-def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, conn_graph_facts, shutdown_ebgp):
+def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, conn_graph_facts, shutdown_ebgp):  # noqa F811
     sfp_setup = {}
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -64,6 +65,7 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, c
 
     if request.cls is not None:
         request.cls.sfp_setup = sfp_setup
+
 
 @pytest.mark.usefixtures("setup")
 class TestSfpApi(PlatformApiTestBase):
@@ -441,6 +443,10 @@ class TestSfpApi(PlatformApiTestBase):
                     if info_dict["type_abbrv_name"] == "QSFP-DD":
                         expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
                         if 'ZR' in info_dict["media_interface_code"]:
+                            if 'INPHI CORP' in info_dict['manufacturer'] and 'IN-Q3JZ1-TC' in info_dict['model']:
+                                logger.info("INPHI CORP Transceiver is not populating the associated threshold fields \
+                                             in redis TRANSCEIVER_DOM_THRESHOLD table. Skipping this transceiver")
+                                continue
                             expected_keys += self.QSFPZR_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
 
                     missing_keys = set(expected_keys) - set(actual_keys)
@@ -690,8 +696,8 @@ class TestSfpApi(PlatformApiTestBase):
                     expected_mask = expected_mask >> 1
         self.assert_expectations()
 
-    def _check_lpmode_status(self, sfp,platform_api_conn, i, state):
-        return state ==  sfp.get_lpmode(platform_api_conn, i)
+    def _check_lpmode_status(self, sfp, platform_api_conn, i, state):
+        return state == sfp.get_lpmode(platform_api_conn, i)
 
     def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_lpmode() and set_lpmode() APIs"""

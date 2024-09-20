@@ -14,7 +14,7 @@ from util import parse_eeprom
 from util import parse_output
 from util import get_dev_conn
 from tests.common.utilities import skip_release
-from tests.common.fixtures.duthost_utils import shutdown_ebgp
+from tests.common.fixtures.duthost_utils import shutdown_ebgp  # noqa F401
 
 cmd_sfp_presence = "sudo sfputil show presence"
 cmd_sfp_eeprom = "sudo sfputil show eeprom"
@@ -27,7 +27,9 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
+
+def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                                conn_graph_facts, xcvr_skip_list):
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """
@@ -44,13 +46,14 @@ def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
             assert intf in parsed_presence, "Interface is not in output of '{}'".format(cmd_sfp_presence)
             assert parsed_presence[intf] == "Present", "Interface presence is not 'Present'"
 
-@pytest.mark.parametrize("cmd_sfp_error_status", ["sudo sfputil show error-status", "sudo sfputil show error-status --fetch-from-hardware"])
-def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, cmd_sfp_error_status, xcvr_skip_list):
-    """
-    @summary: Check SFP error status using 'sfputil show error-status' and 'sfputil show error-status --fetch-from-hardware'
-              This feature is supported on 202106 and above
 
-    @param: cmd_sfp_error_status: fixture representing the command used to test
+@pytest.mark.parametrize("cmd_sfp_error_status",
+                         ["sudo sfputil show error-status", "sudo sfputil show error-status --fetch-from-hardware"])
+def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                                    conn_graph_facts, cmd_sfp_error_status, xcvr_skip_list):
+    """
+    @summary: Check SFP error status using 'sfputil show error-status' and
+     'sfputil show error-status --fetch-from-hardware' This feature is supported on 202106 and above
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     skip_release(duthost, ["201811", "201911", "202012"])
@@ -68,7 +71,8 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
             assert parsed_presence[intf] == "OK", "Interface error status is not 'OK'"
 
 
-def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
+def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                              conn_graph_facts, xcvr_skip_list):
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """
@@ -86,7 +90,8 @@ def test_check_sfputil_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
 
-def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list, shutdown_ebgp):
+def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                             conn_graph_facts, tbinfo, xcvr_skip_list, shutdown_ebgp):  # noqa F811
     """
     @summary: Check SFP presence using 'sfputil show presence'
     """
@@ -99,9 +104,9 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         if intf not in xcvr_skip_list[duthost.hostname]:
             phy_intf = portmap[intf][0]
             if phy_intf in tested_physical_ports:
-               logging.info(
-                "skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
-               continue
+                logging.info(
+                    "skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
+                continue
             tested_physical_ports.add(phy_intf)
             logging.info("resetting {} physical interface {}".format(intf, phy_intf))
             reset_result = duthost.command("{} {}".format(cmd_sfp_reset, intf))
@@ -129,7 +134,8 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         "Some interfaces are down: {}".format(intf_facts["ansible_interface_link_down_ports"])
 
 
-def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, conn_graph_facts, tbinfo, xcvr_skip_list, shutdown_ebgp):
+def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                                      conn_graph_facts, tbinfo, xcvr_skip_list, shutdown_ebgp):  # noqa F811
     """
     @summary: Check SFP low power mode
 
@@ -192,9 +198,11 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     for intf in dev_conn:
-        if intf not in xcvr_skip_list[duthost.hostname]:
+        if intf not in xcvr_skip_list[duthost.hostname] and portmap[intf][0] not in not_supporting_lpm_physical_ports:
             assert intf in parsed_lpmode, "Interface is not in output of '{}'".format(cmd_sfp_show_lpmode)
-            assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
+            expected_lpmode = "off" if original_lpmode[intf].lower() == "on" else "on"
+            assert parsed_lpmode[intf].lower() == expected_lpmode, \
+                "Unexpected SFP lpmode, actual:{}, expected:{}".format(parsed_lpmode[intf].lower(), expected_lpmode)
 
     logging.info("Try to change SFP lpmode")
     tested_physical_ports = set()
@@ -221,7 +229,9 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_lpmode, "Interface is not in output of '{}'".format(cmd_sfp_show_lpmode)
-            assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
+            assert parsed_lpmode[intf].lower() == original_lpmode[intf].lower(),\
+                "Unexpected SFP lpmode. actual:{}, expected:{}".format(
+                    parsed_lpmode[intf].lower(), original_lpmode[intf].lower())
 
     logging.info("Check sfp presence again after setting lpmode")
     sfp_presence = duthost.command(cmd_sfp_presence)

@@ -138,6 +138,9 @@ class MacsecPlugin(object):
             if ((tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"])
                     or (tbinfo["topo"]["type"] == "t2" and "T1" in neighbor["name"])):
                 port = mg_facts["minigraph_neighbors"][interface]["port"]
+                if interface not in mg_facts["minigraph_ptf_indices"]:
+                    logger.info("Interface {} not in minigraph_ptf_indices".format(interface))
+                    return
                 links[interface] = {
                     "name": neighbor["name"],
                     "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
@@ -161,6 +164,9 @@ class MacsecPlugin(object):
                             # The address of DUT
                             peer_ipv4_addr = item["peer_addr"]
                             break
+                if interface not in mg_facts["minigraph_ptf_indices"]:
+                    logger.info("Interface {} not in minigraph_ptf_indices".format(interface))
+                    return
                 port = mg_facts["minigraph_neighbors"][interface]["port"]
                 links[interface] = {
                     "name": neighbor["name"],

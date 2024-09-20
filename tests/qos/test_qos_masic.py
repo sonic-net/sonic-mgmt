@@ -1,6 +1,7 @@
 import json
 import logging
 import pytest
+import time
 
 from tests.common.utilities import wait_until
 
@@ -258,7 +259,7 @@ class QosSaiBaseMasic:
            .
            .
         }
-        """ 
+        """
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")

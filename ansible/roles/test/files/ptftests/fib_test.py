@@ -197,6 +197,8 @@ class FibTest(BaseTest):
                 # Because the MACsec is session based channel but the injected ports are stateless ports
                 if src_port in macsec.MACSEC_INFOS.keys():
                     continue
+                if self.switch_type == "chassis-packet":
+                    exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
                 logging.info('src_port={}, exp_port_lists={}, active_dut_indexes={}'.format(src_port, exp_port_lists, active_dut_indexes))
                 break
         return src_port, exp_port_lists, next_hops
@@ -260,7 +262,7 @@ class FibTest(BaseTest):
                     hit_count_map[matched_port] = hit_count_map.get(matched_port, 0) + 1
                 for next_hop in next_hops:
                     # only check balance on a DUT
-                    self.check_hit_count_map(next_hop.get_next_hop(), hit_count_map)
+                    self.check_hit_count_map(next_hop.get_next_hop(), hit_count_map, src_port)
                     self.balancing_test_count += 1
                 if self.balancing_test_count >= self.balancing_test_number:
                     break
@@ -349,7 +351,7 @@ class FibTest(BaseTest):
 
         dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_ports)
+            rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports, timeout=1)
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
@@ -438,7 +440,7 @@ class FibTest(BaseTest):
 
         dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports)
+            rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports, timeout=1)
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
@@ -472,7 +474,34 @@ class FibTest(BaseTest):
         percentage = (actual - expected) / float(expected)
         return (percentage, abs(percentage) <= self.balancing_range)
 
-    def check_hit_count_map(self, dest_port_list, port_hit_cnt):
+    def check_same_asic(self, src_port, exp_port_list):
+        updated_exp_port_list = list()
+        for port in exp_port_list:
+            if type(port) == list:
+                per_port_list = list()
+                for per_port in port:
+                    if self.ptf_test_port_map[str(per_port)]['target_dut'] \
+                            != self.ptf_test_port_map[str(src_port)]['target_dut']:
+                        return exp_port_list
+                    else:
+                        if self.ptf_test_port_map[str(per_port)]['asic_idx'] \
+                                == self.ptf_test_port_map[str(src_port)]['asic_idx']:
+                            per_port_list.append(per_port)
+                if per_port_list:
+                    updated_exp_port_list.append(per_port_list)
+            else:
+                if self.ptf_test_port_map[str(port)]['target_dut'] \
+                        != self.ptf_test_port_map[str(src_port)]['target_dut']:
+                    return exp_port_list
+                else:
+                    if self.ptf_test_port_map[str(port)]['asic_idx'] \
+                            == self.ptf_test_port_map[str(src_port)]['asic_idx']:
+                        updated_exp_port_list.append(port)
+        if updated_exp_port_list:
+            exp_port_list = updated_exp_port_list
+        return exp_port_list
+
+    def check_hit_count_map(self, dest_port_list, port_hit_cnt, src_port):
         '''
         @summary: Check if the traffic is balanced across the ECMP groups and the LAG members
         @param dest_port_list : a list of ECMP entries and in each ECMP entry a list of ports
@@ -481,6 +510,8 @@ class FibTest(BaseTest):
         '''
         logging.info("%-10s \t %-10s \t %10s \t %10s \t %10s" % ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
         result = True
+        if self.switch_type == "chassis-packet":
+            dest_port_list = self.check_same_asic(src_port, dest_port_list)
 
         asic_list = defaultdict(list)
         if self.switch_type == "voq":
@@ -508,7 +539,7 @@ class FibTest(BaseTest):
         for ecmp_entry in dest_port_list:
             for member in ecmp_entry:
                 total_hit_cnt += port_hit_cnt.get(member, 0)
-        
+
         total_hit_cnt = total_hit_cnt//len(asic_list.keys())
 
         for asic_member in asic_list.values():

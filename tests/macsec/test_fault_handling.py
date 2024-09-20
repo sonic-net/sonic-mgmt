@@ -43,8 +43,8 @@ class TestFaultHandling():
             while retry > 0:
                 retry -= 1
                 try:
-                    nbr["host"].shell("ifconfig {} down && sleep 1 && ifconfig {} up".format(
-                        nbr_eth_port, nbr_eth_port))
+                    nbr["host"].shell("config interface shutdown {}  && sleep 1 && config interface startup {}".format(
+                        nbr["port"], nbr["port"]))
                     _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
                         duthost, port_name, nbr["host"], nbr["port"])
                     assert dut_egress_sa_table_orig == dut_egress_sa_table_new
@@ -61,8 +61,8 @@ class TestFaultHandling():
             sleep(TestFaultHandling.MKA_TIMEOUT)
             nbr["host"].no_shutdown(nbr_eth_port)
         else:
-            nbr["host"].shell("ifconfig {} down && sleep {} && ifconfig {} up".format(
-                nbr_eth_port, TestFaultHandling.MKA_TIMEOUT, nbr_eth_port))
+            nbr["host"].shell("config interface shutdown {}  && sleep {} && config interface startup {}".format(
+                nbr["port"], TestFaultHandling.MKA_TIMEOUT, nbr["port"]))
 
         def check_new_mka_session():
             _, _, _, dut_egress_sa_table_new, dut_ingress_sa_table_new = get_appl_db(
@@ -129,3 +129,4 @@ class TestFaultHandling():
         disable_macsec_port(duthost, port_name)
         disable_macsec_port(nbr["host"], nbr["port"])
         delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
+        sleep(300)

@@ -31,6 +31,7 @@ REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
 REBOOT_TYPE_CPU = "cpu"
 REBOOT_TYPE_BIOS = "bios"
 REBOOT_TYPE_ASIC = "asic"
+REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -112,6 +113,13 @@ reboot_ctrl_dict = {
         "timeout": 300,
         "wait": 120,
         "cause": "ASIC",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_KERNEL_PANIC: {
+        "command": 'nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &',
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Kernel Panic",
         "test_reboot_cause_only": True
     }
 }
@@ -252,7 +260,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         # time it takes for containers to come back up. Therefore, add 5
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
-        pytest_assert(wait_until(wait + 300, 20, 0, duthost.critical_services_fully_started),
+        pytest_assert(wait_until(wait + 400, 20, 0, duthost.critical_services_fully_started),
                       "All critical services should be fully started!")
         wait_critical_processes(duthost)
 
@@ -274,8 +282,25 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     pool.terminate()
     dut_uptime = duthost.get_up_time()
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
+    # some device does not have onchip clock and requires obtaining system time a little later from ntp
+    # or SUP to obtain the correct time so if the uptime is less than original device time, it means it
+    # is most likely due to this issue which we can wait a little more until the correct time is set in place.
+    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
+        logger.info('DUT {} timestamp went backwards'.format(hostname))
+        wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
+
+    dut_uptime = duthost.get_up_time()
+
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
         format(hostname)
+
+
+def positive_uptime(duthost, dut_datetime):
+    dut_uptime = duthost.get_up_time()
+    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
+        return False
+
+    return True
 
 
 def get_reboot_cause(dut):

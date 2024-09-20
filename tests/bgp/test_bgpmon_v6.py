@@ -149,7 +149,7 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
                    local_asn=asn,
                    peer_asn=asn,
                    port=BGP_MONITOR_PORT, passive=True)
-    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, duthost.facts["router_mac"], ptf_interface))
+    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, asichost.get_router_mac(), ptf_interface))
     ptfhost.shell("ip -6 route add %s dev %s" % (local_addr + "/128", ptf_interface))
     try:
         pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),

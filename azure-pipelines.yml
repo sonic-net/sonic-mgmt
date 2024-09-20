@@ -35,7 +35,7 @@ stages:
     displayName: "Validate Test Cases"
     timeoutInMinutes: 20
     continueOnError: false
-    pool: ubuntu-20.04
+    pool: sonic-common
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
 
@@ -52,7 +52,7 @@ stages:
 
   jobs:
   - job: t0_elastictest
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     displayName: "kvmtest-t0 by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
@@ -66,7 +66,7 @@ stages:
         MGMT_BRANCH: "202205"
 
   - job: t0_2vlans_elastictest
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     displayName: "kvmtest-t0-2vlans by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
@@ -82,7 +82,7 @@ stages:
         MGMT_BRANCH: "202205"
 
   - job: t1_lag_elastictest
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     displayName: "kvmtest-t1-lag by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
@@ -96,7 +96,7 @@ stages:
         MGMT_BRANCH: "202205"
 
   - job: sonic_t0_elastictest
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     displayName: "kvmtest-t0-sonic by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
@@ -111,10 +111,9 @@ stages:
         VM_TYPE: vsonic
         KVM_IMAGE_BRANCH: "202205"
         MGMT_BRANCH: "202205"
-        SCRIPTS_EXCLUDE: "bgp/test_bgp_fact.py"
 
   - job: dualtor_elastictest
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     displayName: "kvmtest-dualtor-t0 by Elastictest"
     timeoutInMinutes: 240
     continueOnError: false
@@ -129,7 +128,7 @@ stages:
         MGMT_BRANCH: "202205"
 
   - job: multi_asic_elastictest
-    pool: ubuntu-20.04
+    pool: sonic-ubuntu-1c
     displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
     timeoutInMinutes: 1080
     continueOnError: false

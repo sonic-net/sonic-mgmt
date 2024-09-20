@@ -149,4 +149,15 @@ def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
                 assert arp_cnt == DUMMY_ARP_COUNT, "Expect {} entries, but {} found".format(DUMMY_ARP_COUNT, arp_cnt)
             except Exception as detail:
                 logger.error("Except: {}".format(detail))
+                # Dump status for debug
+                import time
+                time.sleep(10)
+                res = duthost.command('show mac')
+                logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+                res = duthost.command('show arp')
+                logger.info('"show arp" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+                res = duthost.command('show int counter')
+                logger.info('"show int counter" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+                res = duthost.command('show int portchannel')
+                logger.info('"show int portchannel" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
                 raise

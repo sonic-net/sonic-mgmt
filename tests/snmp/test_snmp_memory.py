@@ -128,6 +128,9 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     mem_free = int(outputs['results'][1]['stdout'])
     mem_total = int(outputs['results'][2]['stdout'])
     percentage = get_percentage_threshold(int(mem_total))
+    # if total mem less than 2G
+    if mem_total <= 2 * 1024 * 1024:
+        pytest.skip("Total memory is too small for percentage.")
     logger.info("SNMP Free Memory: {}".format(snmp_free_memory))
     logger.info("DUT Free Memory: {}".format(mem_free))
     logger.info("Difference: {}".format(CALC_DIFF(int(snmp_free_memory), mem_free)))
@@ -144,6 +147,9 @@ def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
     total_swap = duthost.shell("grep SwapTotal /proc/meminfo | awk '{print $2}'")['stdout']
     free_swap = duthost.shell("grep SwapFree /proc/meminfo | awk '{print $2}'")['stdout']
 
+    mem_total = duthost.shell("grep MemTotal /proc/meminfo | awk '{print $2}'")['stdout']
+    percentage = get_percentage_threshold(int(mem_total))
+
     if total_swap == "0":
         pytest.skip("Swap is not on for this device, snmp does not support swap related queries when swap isn't on")
 
@@ -154,8 +160,8 @@ def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
 
     logging.info("total_swap {}, free_swap {}, snmp_total_swap {}, snmp_free_swap {}".format(total_swap, free_swap, snmp_total_swap, snmp_free_swap))
 
-    pytest_assert(CALC_DIFF(snmp_total_swap, total_swap) < percent,
-                  "sysTotalSwap differs by more than {}: expect {} received {}".format(percent, total_swap, snmp_total_swap))
+    pytest_assert(CALC_DIFF(snmp_total_swap, total_swap) < percentage,
+                  "sysTotalSwap differs by more than {}: expect {} received {}".format(percentage, total_swap, snmp_total_swap))
 
     if snmp_free_swap == 0 or snmp_total_swap / snmp_free_swap >= 2:
         """
@@ -163,9 +169,9 @@ def test_snmp_swap(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
         The comparison could get inaccurate if the number to compare is close to 0,
         so we test only one of used/free swap space.
         """
-        pytest_assert(CALC_DIFF(snmp_total_swap - snmp_free_swap, int(total_swap) - int(free_swap)) < percent,
+        pytest_assert(CALC_DIFF(snmp_total_swap - snmp_free_swap, int(total_swap) - int(free_swap)) < percentage,
                       "Used Swap (calculated using sysTotalFreeSwap) differs by more than {}: expect {} received {}".format(
-                          percent, snmp_total_swap - snmp_free_swap, int(total_swap) - int(free_swap)))
+                          percentage, snmp_total_swap - snmp_free_swap, int(total_swap) - int(free_swap)))
     else:
-        pytest_assert(CALC_DIFF(snmp_free_swap, free_swap) < percent,
-                      "sysTotalFreeSwap differs by more than {}: expect {} received {}".format(percent, snmp_free_swap, free_swap))
+        pytest_assert(CALC_DIFF(snmp_free_swap, free_swap) < percentage,
+                      "sysTotalFreeSwap differs by more than {}: expect {} received {}".format(percentage, snmp_free_swap, free_swap))

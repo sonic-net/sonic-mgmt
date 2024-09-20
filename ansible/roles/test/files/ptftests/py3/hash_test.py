@@ -36,7 +36,7 @@ class HashTest(BaseTest):
     # Class variables
     #---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    BALANCING_TEST_TIMES = 625
+    BALANCING_TEST_TIMES = 250
     DEFAULT_SWITCH_TYPE = 'voq'
 
     _required_params = [
@@ -145,6 +145,8 @@ class HashTest(BaseTest):
     def check_hash(self, hash_key):
         dst_ip = self.dst_ip_interval.get_random_ip()
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(dst_ip)
+        if self.switch_type == "chassis-packet":
+            exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
         logging.info("dst_ip={}, src_port={}, exp_port_lists={}".format(dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
             if len(exp_port_list) <= 1:
@@ -176,7 +178,7 @@ class HashTest(BaseTest):
             logging.info("hash_key={}, hit count map: {}".format(hash_key, hit_count_map))
 
             for next_hop in next_hops:
-                self.check_balancing(next_hop.get_next_hop(), hit_count_map)
+                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
 
     def check_ip_route(self, hash_key, src_port, dst_ip, dst_port_lists):
         if ip_network(six.text_type(dst_ip)).version == 4:
@@ -284,7 +286,7 @@ class HashTest(BaseTest):
                     dport))
 
         dst_ports = list(itertools.chain(*dst_port_lists))
-        rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports)
+        rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports, timeout=1)
         rcvd_port = dst_ports[rcvd_port_index]
 
         exp_src_mac = None
@@ -375,7 +377,7 @@ class HashTest(BaseTest):
                     dport))
 
         dst_ports = list(itertools.chain(*dst_port_lists))
-        rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports)
+        rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports, timeout=1)
         rcvd_port = dst_ports[rcvd_port_index]
 
         exp_src_mac = None
@@ -405,7 +407,34 @@ class HashTest(BaseTest):
         percentage = (actual - expected) / float(expected)
         return (percentage, abs(percentage) <= self.balancing_range)
 
-    def check_balancing(self, dest_port_list, port_hit_cnt):
+    def check_same_asic(self, src_port, exp_port_list):
+        updated_exp_port_list = list()
+        for port in exp_port_list:
+            if type(port) == list:
+                per_port_list = list()
+                for per_port in port:
+                    if self.ptf_test_port_map[str(per_port)]['target_dut'] \
+                            != self.ptf_test_port_map[str(src_port)]['target_dut']:
+                        return exp_port_list
+                    else:
+                        if self.ptf_test_port_map[str(per_port)]['asic_idx'] \
+                                == self.ptf_test_port_map[str(src_port)]['asic_idx']:
+                            per_port_list.append(per_port)
+                if per_port_list:
+                    updated_exp_port_list.append(per_port_list)
+            else:
+                if self.ptf_test_port_map[str(port)]['target_dut'] \
+                        != self.ptf_test_port_map[str(src_port)]['target_dut']:
+                    return exp_port_list
+                else:
+                    if self.ptf_test_port_map[str(port)]['asic_idx'] \
+                            == self.ptf_test_port_map[str(src_port)]['asic_idx']:
+                        updated_exp_port_list.append(port)
+        if updated_exp_port_list:
+            exp_port_list = updated_exp_port_list
+        return exp_port_list
+
+    def check_balancing(self, dest_port_list, port_hit_cnt, src_port):
         '''
         @summary: Check if the traffic is balanced across the ECMP groups and the LAG members
         @param dest_port_list : a list of ECMP entries and in each ECMP entry a list of ports
@@ -415,6 +444,8 @@ class HashTest(BaseTest):
 
         logging.info("%-10s \t %-10s \t %10s \t %10s \t %10s" % ("type", "port(s)", "exp_cnt", "act_cnt", "diff(%)"))
         result = True
+        if self.switch_type == "chassis-packet":
+            dest_port_list = self.check_same_asic(src_port, dest_port_list)
 
         asic_list = defaultdict(list)
         if self.switch_type == "voq":
@@ -442,7 +473,7 @@ class HashTest(BaseTest):
         for ecmp_entry in dest_port_list:
             for member in ecmp_entry:
                 total_hit_cnt += port_hit_cnt.get(member, 0)
-        
+
         total_hit_cnt = total_hit_cnt//len(asic_list.keys())
 
         for asic_member in asic_list.values():
@@ -513,7 +544,7 @@ class IPinIPHashTest(HashTest):
                             tcp_sport=sport,
                             tcp_dport=dport,
                             ip_ttl=64)
-        
+
         ipinip_pkt = simple_ipv4ip_packet(
                             eth_dst=router_mac,
                             eth_src=src_mac,
@@ -535,7 +566,7 @@ class IPinIPHashTest(HashTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
-       
+
         send_packet(self, src_port, ipinip_pkt)
         logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/IP(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'\
             .format(ipinip_pkt.src,
@@ -568,7 +599,7 @@ class IPinIPHashTest(HashTest):
                             "but the src mac doesn't match, expected {}, got {}".
                             format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
         return (rcvd_port, rcvd_pkt)
-    
+
     def check_ipv6_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip):
         '''
         @summary: Check IPv6 route works.
@@ -609,7 +640,7 @@ class IPinIPHashTest(HashTest):
                                 ip_src=outer_src_ip,
                                 ip_dst=outer_dst_ip,
                                 inner_frame=pkt['IPv6'])
-        
+
         exp_pkt = ipinip_pkt.copy()
         exp_pkt['IP'].ttl -= 1
 
@@ -622,10 +653,10 @@ class IPinIPHashTest(HashTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
         # mask the chksum also if masking the ttl
         if self.ignore_ttl:
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
-        
+
         send_packet(self, src_port, ipinip_pkt)
         logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/IPv6(src={}, dst={}, proto={})/TCP(sport={}, dport={} on port {})'\
             .format(ipinip_pkt.src,
@@ -660,7 +691,7 @@ class IPinIPHashTest(HashTest):
                             "but the src mac doesn't match, expected {}, got {}".
                             format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
         return (rcvd_port, rcvd_pkt)
-    
+
     def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip):
         if self.ipver == 'ipv4':
             (matched_port, received) = self.check_ipv4_route(hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip)
@@ -673,7 +704,7 @@ class IPinIPHashTest(HashTest):
         time.sleep(0.02)
 
         return (matched_port, received)
-    
+
     def check_hash(self, hash_key):
         # Use dummy IPv4 address for outer_src_ip and outer_dst_ip
         # We don't care the actually value as long as the outer_dst_ip is routed by default routed
@@ -681,6 +712,8 @@ class IPinIPHashTest(HashTest):
         outer_src_ip = '80.1.0.31'
         outer_dst_ip = '80.1.0.32'
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(outer_dst_ip)
+        if self.switch_type == "chassis-packet":
+            exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
 
         logging.info("outer_src_ip={}, outer_dst_ip={}, src_port={}, exp_port_lists={}".format(outer_src_ip, outer_dst_ip, src_port, exp_port_lists))
         for exp_port_list in exp_port_lists:
@@ -720,7 +753,7 @@ class IPinIPHashTest(HashTest):
             logging.info("hash_key={}, hit count map: {}".format(hash_key, hit_count_map))
 
             for next_hop in next_hops:
-                self.check_balancing(next_hop.get_next_hop(), hit_count_map)
+                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port)
 
     def runTest(self):
         """

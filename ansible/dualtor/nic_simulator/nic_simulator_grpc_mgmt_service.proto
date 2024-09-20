@@ -11,7 +11,11 @@ service DualTorMgmtService {
 
   rpc SetDrop(ListOfDropRequest) returns (ListOfDropReply) {}
 
-  rpc SetNicServerAdminState(ListOfNiCServerAdminStateRequest) returns (ListOfNiCServerAdminStateReply) {}
+  rpc SetNicServerAdminState(ListOfNiCServerAdminStateRequest) returns(ListOfNiCServerAdminStateReply) {}
+
+  rpc QueryFlapCounter(ListOfFlapCounterRequest) returns(ListOfFlapCounterReply) {}
+
+  rpc ResetFlapCounter(ListOfFlapCounterRequest) returns(ListOfFlapCounterReply) {}
 }
 
 message ListOfAdminRequest {
@@ -54,3 +58,13 @@ message ListOfNiCServerAdminStateReply {
   repeated bool admin_states = 2;
   repeated bool successes = 3;
 }
+
+message ListOfFlapCounterRequest {
+    repeated string nic_addresses = 1;
+    repeated FlapCounterRequest flap_counter_requests = 2;
+};
+
+message ListOfFlapCounterReply {
+    repeated string nic_addresses = 1;
+    repeated FlapCounterReply flap_counter_replies = 2;
+};

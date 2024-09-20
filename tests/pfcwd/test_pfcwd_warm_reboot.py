@@ -171,7 +171,7 @@ class SetupPfcwdFunc(object):
         # Added 10 sec to max_wait as sometimes it's not enough and test fail due to runtime error
         self.max_wait = max(self.max_wait, self.pfc_wd['storm_stop_defer']) + 10
 
-    def storm_setup(self, port, queue, storm_defer=False):
+    def storm_setup(self, port, queue, send_pfc_frame_interval, storm_defer=False):
         """
         Prepare fanout for the storm generation
 
@@ -191,12 +191,14 @@ class SetupPfcwdFunc(object):
                                                       pfc_frames_number=self.pfc_wd['frames_number'],
                                                       peer_info=peer_info,
                                                       pfc_storm_defer_time=self.pfc_wd['storm_start_defer'],
-                                                      pfc_storm_stop_defer_time=self.pfc_wd['storm_stop_defer'])
+                                                      pfc_storm_stop_defer_time=self.pfc_wd['storm_stop_defer'],
+                                                      send_pfc_frame_interval=send_pfc_frame_interval)
         else:
             self.storm_handle[port][queue] = PFCStorm(self.dut, self.fanout_info, self.fanout,
                                                       pfc_queue_idx=queue,
                                                       pfc_frames_number=self.pfc_wd['frames_number'],
-                                                      peer_info=peer_info)
+                                                      peer_info=peer_info,
+                                                      send_pfc_frame_interval=send_pfc_frame_interval)
         # new peer device
         if not self.peer_dev_list or self.peer_device not in self.peer_dev_list:
             self.peer_dev_list[self.peer_device] = peer_info['hwsku']
@@ -496,9 +498,17 @@ class TestPfcwdWb(SetupPfcwdFunc):
 
         for t_idx, test_action in enumerate(testcase_actions):
             if 'warm-reboot' in test_action:
-                reboot(self.dut, localhost, reboot_type="warm")
+                reboot(self.dut, localhost, reboot_type="warm", wait_warmboot_finalizer=True)
                 continue
 
+            # Need to wait some time after warm-reboot for the counters to be created
+            # if create_only_config_db_buffers is not enabled
+            if t_idx > 0 and test_action == 'detect' and testcase_actions[t_idx - 1] == "warm-reboot":
+                config_facts = duthost.get_running_config_facts()
+                if config_facts["DEVICE_METADATA"]['localhost'].get("create_only_config_db_buffers") != 'true':
+                    time.sleep(20)
+                    logger.info("Wait 20s before the first detect after the warm-reboot "
+                                "for the counters to be created")
             # one of the factors to decide if the storm needs to be started
             storm_restored = bitmask and (bitmask & 2)
             # if the action prior to the warm-reboot was a 'storm_defer', ensure that all the storms are
@@ -514,6 +524,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
             for p_idx, port in enumerate(self.ports):
                 logger.info("")
                 logger.info("--- Testing on {} ---".format(port))
+                send_pfc_frame_interval = calculate_send_pfc_frame_interval(duthost, port) \
+                    if self.fanout[self.ports[port]['peer_device']].os == 'onyx' else 0
                 self.setup_test_params(port, setup_info['vlan'], p_idx)
                 for q_idx, queue in enumerate(self.pfc_wd['queue_indices']):
                     if not t_idx or storm_deferred:
@@ -526,7 +538,9 @@ class TestPfcwdWb(SetupPfcwdFunc):
                             self.storm_defer_setup()
 
                         if not self.pfc_wd['fake_storm']:
-                            self.storm_setup(port, queue, storm_defer=(bitmask & 4))
+                            self.storm_setup(port, queue,
+                                             send_pfc_frame_interval=send_pfc_frame_interval,
+                                             storm_defer=(bitmask & 4))
                         else:
                             self.oid_map[(port, queue)] = PfcCmd.get_queue_oid(self.dut, port, queue)
 
@@ -577,3 +591,13 @@ class TestPfcwdWb(SetupPfcwdFunc):
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
                              enum_fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues)
+
+
+def calculate_send_pfc_frame_interval(duthost, port):
+    speed = float(duthost.get_speed(port))/1000*1024*1024*1024
+    pfc_frame_len = 512.0
+    quatta_number = 65535
+    sleep_proportion = 0.7
+    send_pfc_frame_interval = sleep_proportion*quatta_number*pfc_frame_len/speed
+    logger.info("send pfc frame interval of {} is: {}".format(port, send_pfc_frame_interval))
+    return send_pfc_frame_interval

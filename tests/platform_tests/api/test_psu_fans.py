@@ -1,10 +1,9 @@
 import logging
 import random
-import re
+import os
 import time
 
 import pytest
-import yaml
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, psu, psu_fan
@@ -107,7 +106,7 @@ class TestPsuFans(PlatformApiTestBase):
 
                 if self.expect(name is not None, "Unable to retrieve psu {} fan {} name".format(j, i)):
                     self.expect(isinstance(name, STRING_TYPE), "psu {} fan {} name appears incorrect".format(j, i))
-		    self.expect(duthost._facts.get("platform") is not None, "Unable to retrieve platform name")
+                    self.expect(duthost._facts.get("platform") is not None, "Unable to retrieve platform name")
                     #
                     # Check whether platform.json file exists for this specific platform. If yes compare names.
                     # If not, skip comparison.
@@ -287,7 +286,7 @@ class TestPsuFans(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
-            
+
             for i in range(num_fans):
                 speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
                 if not speed_controllable:

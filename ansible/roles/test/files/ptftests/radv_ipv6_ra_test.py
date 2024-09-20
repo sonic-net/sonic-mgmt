@@ -1,5 +1,6 @@
 # Packet Test Framework imports
 import logging
+import os
 
 import ptf
 import ptf.testutils as testutils

@@ -5,7 +5,7 @@ import ptf.testutils as testutils
 from ptf import mask, packet
 from collections import defaultdict
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
-from tests.common.utilities import wait
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "m0", "mx"),
@@ -69,7 +69,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     # Get the list of upstream ports
     upstream_ports = defaultdict(list)
     upstream_port_ids = []
-    for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+    for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
         port_id = mg_facts["minigraph_ptf_indices"][interface]
         if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or \
                 (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]):
@@ -84,7 +84,7 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
 
     for acl_id in acl_rule_list:
         ip_addr1 = acl_id % 256
-        ip_addr2 = acl_id / 256
+        ip_addr2 = int(acl_id / 256)
 
         src_ip_addr = "20.0.{}.{}".format(ip_addr2, ip_addr1)
         dst_ip_addr = "10.0.0.1"
@@ -115,6 +115,17 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port,
             testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
 
 
+def acl_rule_loaded(rand_selected_dut, acl_rule_list):
+    acl_rule_infos = rand_selected_dut.show_and_parse("show acl rule")
+    acl_id_list = []
+    for acl_info in acl_rule_infos:
+        acl_id = int(acl_info['rule'][len('RULE_'):])
+        acl_id_list.append(acl_id)
+    if sorted(acl_id_list) != sorted(acl_rule_list):
+        return False
+    return True
+
+
 def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_file,
                             prepare_test_port, get_function_conpleteness_level,
                             toggle_all_simulator_ports_to_rand_selected_tor):   # noqa F811
@@ -130,7 +141,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
     if normalized_level is None:
         normalized_level = 'basic'
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-    wait_time = 2
+    wait_timeout = 15
 
     rand_selected_dut.shell(cmd_create_table)
     acl_rule_list = list(range(1, ACL_RULE_NUMS + 1))
@@ -144,20 +155,22 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
             else:
                 readd_id = loops + ACL_RULE_NUMS
                 ip_addr1 = readd_id % 256
-                ip_addr2 = readd_id / 256
+                ip_addr2 = int(readd_id / 256)
                 rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "ACL_RULE|STRESS_ACL| RULE_{}" \
                                         "SRC_IP" "20.0.{}.{}/32" "PACKET_ACTION" "DROP" "PRIORITY" "{}"'
                                         .format(readd_id, ip_addr2, ip_addr1, readd_id))
                 acl_rule_list.append(readd_id)
 
-            wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
+            wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
             verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "drop")
 
             del_rule_id = random.choice(acl_rule_list)
             rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
-            wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
-            verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, del_rule_id, "drop")
             acl_rule_list.remove(del_rule_id)
+
+            wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
+            verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
+                             acl_rule_list, del_rule_id, "drop")
 
             loops += 1
     finally:

@@ -36,8 +36,8 @@ def check_services(duthost):
     Perform a health check of services
     """
     logging.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(330, 30, 0, duthost.critical_services_fully_started),
-                  "dut.critical_services_fully_started is False")
+    if not wait_until(330, 30, 0, duthost.critical_services_fully_started):
+        raise RebootHealthError("dut.critical_services_fully_started is False")
 
     logging.info("Check critical service status")
     for service in duthost.critical_services:
@@ -141,8 +141,8 @@ def verify_dut_health(request, duthosts, rand_one_dut_hostname, tbinfo):
         pre_existing_cores = duthost.shell('ls /var/core/ | grep -v python | wc -l')['stdout']
     else:
         pre_existing_cores = duthost.shell('ls /var/core/ | wc -l')['stdout']
-    pytest_assert(all(list(test_report.values())), "DUT not ready for test. Health check failed before reboot: {}"
-        .format(test_report))
+    check_all = all([check is True for check in list(test_report.values())])
+    pytest_assert(check_all, "DUT not ready for test. Health check failed before reboot: {}".format(test_report))
 
     yield
 

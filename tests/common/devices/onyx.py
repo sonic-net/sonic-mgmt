@@ -80,11 +80,13 @@ class OnyxHost(AnsibleHostBase):
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
-    def get_supported_speeds(self, interface_name):
+    def get_supported_speeds(self, interface_name, raw_data=False):
         """Get supported speeds for a given interface
 
         Args:
             interface_name (str): Interface name
+            raw_data (bool): when it is True ,
+            return raw data, else return the data which has been handled
 
         Returns:
             list: A list of supported speed strings or None
@@ -98,6 +100,8 @@ class OnyxHost(AnsibleHostBase):
 
         out = show_int_result['stdout'][0].strip()
         logger.debug('Get supported speeds for port {} from onyx: {}'.format(interface_name, out))
+        if raw_data:
+            return out.split(':')[-1].strip().split()
         if not out:
             return None
 
@@ -173,6 +177,19 @@ class OnyxHost(AnsibleHostBase):
             speed = 'auto'
         else:
             speed = speed[:-3] + 'G'
+            # The speed support list for onyx is like '1G 10G 25G 40G 50Gx1 50Gx2 100Gx2 100Gx4 200Gx4'.
+            # We need to set the speed according to the speed support list.
+            # For example, when dut and fanout all support 50G,
+            # if support speed list of fanout just includes 50Gx1 not 50G,
+            # we need to set the speed with 50Gx1 instead of 50G, otherwise, the port can not be up.
+            all_support_speeds = self.get_supported_speeds(interface_name, raw_data=True)
+            for support_speed in all_support_speeds:
+                if speed in support_speed:
+                    logger.info("Speed {} find the matched support speed:{} ".format(speed, support_speed))
+                    speed = support_speed
+                    break
+            logger.info("set speed is {}".format(speed))
+
         if autoneg_mode or speed == 'auto':
             out = self.host.onyx_config(
                     lines=['shutdown', 'speed {}'.format(speed), 'no shutdown'],

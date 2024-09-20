@@ -2,7 +2,7 @@ qos_params:
     j2c+:
         topo-any:
             100000_300m:
-                pkts_num_leak_out: 51
+                pkts_num_leak_out: 5
                 internal_hdr_size: 48
                 xoff_1:
                     dscp: 3
@@ -55,7 +55,7 @@ qos_params:
                     ecn: 1
                     pg: 0
                     pkts_num_trig_egr_drp: 2396745
-                    pkts_num_margin: 20
+                    pkts_num_margin: 200
                 wm_pg_shared_lossless:
                     dscp: 3
                     ecn: 1
@@ -220,15 +220,15 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 35108
-                    pkts_num_trig_ingr_drp: 38619
+                    pkts_num_trig_pfc: 93622
+                    pkts_num_trig_ingr_drp: 97133
                     pkts_num_margin: 100
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 35108
-                    pkts_num_trig_ingr_drp: 38619
+                    pkts_num_trig_pfc: 93622
+                    pkts_num_trig_ingr_drp: 97133
                     pkts_num_margin: 100
                 hdrm_pool_size:
                     dscps: [ 3, 4 ]
@@ -237,29 +237,30 @@ qos_params:
                     src_port_ids: [ 0, 2, 4, 6, 8, 10, 12, 14, 16 ]
                     dst_port_id: 18
                     pgs_num: 18
-                    pkts_num_trig_pfc: 35208
-                    pkts_num_hdrm_full: 362
-                    pkts_num_hdrm_partial: 182
+                    pkts_num_trig_pfc: 93635
+                    pkts_num_hdrm_full: 3510
+                    pkts_num_hdrm_partial: 3500
+                    margin: 5
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 35108
-                    pkts_num_trig_ingr_drp: 38619
+                    pkts_num_trig_pfc: 93622
+                    pkts_num_trig_ingr_drp: 97133
                     cell_size: 4096
                     pkts_num_margin: 30
                 xon_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 35108
+                    pkts_num_trig_pfc: 93622
                     pkts_num_dismiss_pfc: 200
                     pkts_num_margin: 150
                 xon_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 35108
+                    pkts_num_trig_pfc: 93622
                     pkts_num_dismiss_pfc: 200
                     pkts_num_margin: 150
                 lossy_queue_1:
@@ -273,7 +274,7 @@ qos_params:
                     ecn: 1
                     pg: 3
                     pkts_num_fill_min: 51
-                    pkts_num_trig_pfc: 9874
+                    pkts_num_trig_pfc: 93622
                     packet_size: 64
                     cell_size: 4096
                     pkts_num_margin: 40
@@ -291,7 +292,7 @@ qos_params:
                     ecn: 1
                     queue: 3
                     pkts_num_fill_min: 0
-                    pkts_num_trig_ingr_drp: 38619
+                    pkts_num_trig_ingr_drp: 97133
                     cell_size: 4096
                 wm_buf_pool_lossless:
                     dscp: 3
@@ -326,15 +327,15 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 37449
-                    pkts_num_trig_ingr_drp: 55808
+                    pkts_num_trig_pfc: 93622
+                    pkts_num_trig_ingr_drp: 272237
                     pkts_num_margin: 100
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 37449
-                    pkts_num_trig_ingr_drp: 55808
+                    pkts_num_trig_pfc: 93622
+                    pkts_num_trig_ingr_drp: 272237
                     pkts_num_margin: 100
                 hdrm_pool_size:
                     dscps: [ 3, 4 ]
@@ -343,29 +344,30 @@ qos_params:
                     src_port_ids: [ 0, 2, 4, 6, 8, 10, 12, 14, 16 ]
                     dst_port_id: 18
                     pgs_num: 18
-                    pkts_num_trig_pfc: 37549
-                    pkts_num_hdrm_full: 362
-                    pkts_num_hdrm_partial: 182
+                    pkts_num_trig_pfc: 93635
+                    pkts_num_hdrm_full: 176849
+                    pkts_num_hdrm_partial: 176749
+                    margin: 100
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 37449
-                    pkts_num_trig_ingr_drp: 55808
+                    pkts_num_trig_pfc: 93622
+                    pkts_num_trig_ingr_drp: 272237
                     cell_size: 4096
                     pkts_num_margin: 30
                 xon_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 37449
+                    pkts_num_trig_pfc: 93622
                     pkts_num_dismiss_pfc: 200
                     pkts_num_margin: 150
                 xon_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 37449
+                    pkts_num_trig_pfc: 93622
                     pkts_num_dismiss_pfc: 200
                     pkts_num_margin: 150
                 lossy_queue_1:
@@ -379,7 +381,7 @@ qos_params:
                     ecn: 1
                     pg: 3
                     pkts_num_fill_min: 51
-                    pkts_num_trig_pfc: 37449
+                    pkts_num_trig_pfc: 93622
                     packet_size: 64
                     cell_size: 4096
                     pkts_num_margin: 40
@@ -397,7 +399,7 @@ qos_params:
                     ecn: 1
                     queue: 3
                     pkts_num_fill_min: 0
-                    pkts_num_trig_ingr_drp: 55808
+                    pkts_num_trig_ingr_drp: 272237
                     cell_size: 4096
                 wm_buf_pool_lossless:
                     dscp: 3
@@ -406,7 +408,7 @@ qos_params:
                     queue: 3
                     pkts_num_fill_ingr_min: 0
                     pkts_num_trig_pfc: 37549
-                    pkts_num_trig_ingr_drp: 55808
+                    pkts_num_trig_ingr_drp: 216064
                     pkts_num_fill_egr_min: 8
                     cell_size: 4096
                 wm_q_shared_lossy:
@@ -432,15 +434,15 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 37449
-                    pkts_num_trig_ingr_drp: 750848
+                    pkts_num_trig_pfc: 93622
+                    pkts_num_trig_ingr_drp: 807021
                     pkts_num_margin: 100
                 xoff_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 37449
-                    pkts_num_trig_ingr_drp: 750848
+                    pkts_num_trig_pfc: 93622
+                    pkts_num_trig_ingr_drp: 807021
                     pkts_num_margin: 100
                 hdrm_pool_size:
                     dscps: [ 3, 4 ]
@@ -449,30 +451,30 @@ qos_params:
                     src_port_ids: [ 0, 2, 4, 6, 8, 10, 12, 14, 16 ]
                     dst_port_id: 18
                     pgs_num: 18
-                    pkts_num_trig_pfc: 37549
-                    pkts_num_hdrm_full: 362
-                    pkts_num_hdrm_partial: 182
-                    margin: 1
+                    pkts_num_trig_pfc: 93635
+                    pkts_num_hdrm_full: 713000
+                    pkts_num_hdrm_partial: 712950
+                    margin: 300
                 wm_pg_headroom:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 37449
-                    pkts_num_trig_ingr_drp: 750848
+                    pkts_num_trig_pfc: 93622
+                    pkts_num_trig_ingr_drp: 807021
                     cell_size: 4096
                     pkts_num_margin: 30
                 xon_1:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 37449
+                    pkts_num_trig_pfc: 93622
                     pkts_num_dismiss_pfc: 200
                     pkts_num_margin: 150
                 xon_2:
                     dscp: 4
                     ecn: 1
                     pg: 4
-                    pkts_num_trig_pfc: 37449
+                    pkts_num_trig_pfc: 93622
                     pkts_num_dismiss_pfc: 200
                     pkts_num_margin: 150
                 lossy_queue_1:
@@ -504,7 +506,7 @@ qos_params:
                     ecn: 1
                     queue: 3
                     pkts_num_fill_min: 0
-                    pkts_num_trig_ingr_drp: 750848
+                    pkts_num_trig_ingr_drp: 807021
                     cell_size: 4096
                 wm_buf_pool_lossless:
                     dscp: 3

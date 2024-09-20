@@ -181,7 +181,7 @@ class OVSGroup(StrObj):
 class OVSFlow(StrObj):
     """Object to represent an OVS flow."""
 
-    __slots__ = ("in_port", "output_ports", "group", "priority", "_str_prefix")
+    __slots__ = ("in_port", "packet_filter", "output_ports", "group", "priority", "_str_prefix", "drop")
 
     def __init__(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None):
         self.in_port = in_port
@@ -294,6 +294,8 @@ class UpstreamECMPGroup(OVSGroup):
         self.group_str_cache = {}
 
     def set_upper_tor_forwarding_state(self, state):
+        if state == self.upper_tor_forwarding_state:
+            return False
         if state == ForwardingState.ACTIVE:
             if self.upper_tor_forwarding_state == ForwardingState.STANDBY:
                 self.output_ports.add(self.upper_tor_port)
@@ -304,8 +306,11 @@ class UpstreamECMPGroup(OVSGroup):
                 self.output_ports.remove(self.upper_tor_port)
                 self.upper_tor_forwarding_state = ForwardingState.STANDBY
                 self.reset()
+        return True
 
     def set_lower_tor_forwarding_state(self, state):
+        if state == self.lower_tor_forwarding_state:
+            return False
         if state == ForwardingState.ACTIVE:
             if self.lower_tor_forwarding_state == ForwardingState.STANDBY:
                 self.output_ports.add(self.lower_tor_port)
@@ -316,6 +321,7 @@ class UpstreamECMPGroup(OVSGroup):
                 self.output_ports.remove(self.lower_tor_port)
                 self.lower_tor_forwarding_state = ForwardingState.STANDBY
                 self.reset()
+        return True
 
     def __str__(self):
         return self.group_str_cache.setdefault(
@@ -333,10 +339,10 @@ class UpstreamECMPFlow(OVSFlow):
         super(UpstreamECMPFlow, self).__init__(in_port, group=group, priority=priority)
 
     def set_upper_tor_forwarding_state(self, state):
-        self.group.set_upper_tor_forwarding_state(state)
+        return self.group.set_upper_tor_forwarding_state(state)
 
     def set_lower_tor_forwarding_state(self, state):
-        self.group.set_lower_tor_forwarding_state(state)
+        return self.group.set_lower_tor_forwarding_state(state)
 
     def get_upper_tor_forwarding_state(self):
         return self.group.upper_tor_forwarding_state
@@ -376,7 +382,8 @@ class OVSBridge(object):
         "upstream_nic_flow",
         "upstream_icmp_flow",
         "upstream_arp_flow",
-        "upstream_icmpv6_flow"
+        "upstream_icmpv6_flow",
+        "flap_counter"
     )
 
     def __init__(self, bridge_name):
@@ -404,6 +411,10 @@ class OVSBridge(object):
         self.downstream_flows = {
             1: self.downstream_upper_tor_flow,
             0: self.downstream_lower_tor_flow
+        }
+        self.flap_counter = {
+            1: 0,
+            0: 0
         }
 
     def _init_ports(self):
@@ -497,9 +508,11 @@ class OVSBridge(object):
         """Set forwarding state."""
         with self.lock:
             for portid, state in zip(portids, states):
-                logging.info("Set bridge %s port %s forwarding state: %s", self.bridge_name, portid, ForwardingState.STATE_LABELS[state])
-                self.states_setter[portid](state)
-            OVSCommand.ovs_ofctl_mod_groups(self.bridge_name, self.upstream_ecmp_group)
+                logging.info("Set bridge %s port %s forwarding state: %s",
+                             self.bridge_name, portid, ForwardingState.STATE_LABELS[state])
+                self.flap_counter[portid] += self.states_setter[portid](state)
+            OVSCommand.ovs_ofctl_mod_groups(
+                self.bridge_name, self.upstream_ecmp_group)
             return self.query_forwarding_state(portids)
 
     def query_forwarding_state(self, portids):
@@ -581,6 +594,25 @@ class OVSBridge(object):
                         raise ValueError("Invalid direction %s, please use 0 for downstream and 1 for upstream" % (direction))
                 result.append(True)
             return result
+
+    def query_flap_counter(self, portids):
+        """Query flap counter."""
+        with self.lock:
+            flap_counter = [self.flap_counter[portid] for portid in portids]
+            logging.info("Query bridge %s flap counter for ports %s: %s",
+                         self.bridge_name, portids, flap_counter)
+            return flap_counter
+
+    def reset_flap_counter(self, portids):
+        """Reset flap counter."""
+        with self.lock:
+            flap_counter = []
+            for portid in portids:
+                self.flap_counter[portid] = 0
+                flap_counter.append(0)
+            logging.info("Reset bridge %s flap counter for ports %s: %s",
+                         self.bridge_name, portids, flap_counter)
+            return flap_counter
 
 
 class InterruptableThread(threading.Thread):
@@ -675,6 +707,30 @@ class NiCServer(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
         logging.debug("SetDrop: response to client %s from server %s\n%s", context.peer(), self.nic_addr, response)
         return response
 
+    def QueryFlapCounter(self, request, context):
+        logging.debug("QueryFlapCounter: request to server %s from client %s\n",
+                      self.nic_addr, context.peer())
+        portids = request.portid
+        response = nic_simulator_grpc_service_pb2.FlapCounterReply(
+            portid=portids,
+            flaps=self.ovs_bridge.query_flap_counter(portids)
+        )
+        logging.debug("QueryFlapCounter: response to client %s from server %s:\n%s",
+                      context.peer(), self.nic_addr, response)
+        return response
+
+    def ResetFlapCounter(self, request, context):
+        logging.debug("ResetFlapCounter: request to server %s from client %s\n",
+                      self.nic_addr, context.peer())
+        portids = request.portid
+        response = nic_simulator_grpc_service_pb2.FlapCounterReply(
+            portid=portids,
+            flaps=self.ovs_bridge.reset_flap_counter(portids)
+        )
+        logging.debug("ResetFlapCounter: response to client %s from server %s:\n%s",
+                      context.peer(), self.nic_addr, response)
+        return response
+
     def _run_server(self, binding_port):
         """Run the gRPC server."""
         self.server = grpc.server(
@@ -730,16 +786,15 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
 
     def QueryAdminForwardingPortState(self, request, context):
         nic_addresses = request.nic_addresses
-        logging.debug("QueryAdminForwardingPortState[mgmt]: request query admin port state for %s\n", nic_addresses)
+        admin_requests = request.admin_requests
+        logging.debug(
+            "QueryAdminForwardingPortState[mgmt]: request query admin port state for %s\n", nic_addresses)
         query_responses = []
-        for nic_address in nic_addresses:
+        for nic_address, admin_request in zip(nic_addresses, admin_requests):
             client_stub = self._get_client_stub(nic_address)
             try:
                 state = client_stub.QueryAdminForwardingPortState(
-                    nic_simulator_grpc_service_pb2.AdminRequest(
-                        portid=[0, 1],
-                        state=[True, True]
-                    ),
+                    admin_request,
                     timeout=GRPC_TIMEOUT
                 )
                 query_responses.append(state)
@@ -840,6 +895,64 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
             successes=successes
         )
         logging.debug("SetNicServerAdminState[mgmt]: response of set nic server admin state:%s\n", response)
+        return response
+
+    def QueryFlapCounter(self, request, context):
+        nic_addresses = request.nic_addresses
+        flap_counter_requests = request.flap_counter_requests
+        logging.debug(
+            "QueryFlapCounter[mgmt]: request query port flap counter for %s\n", nic_addresses)
+
+        query_responses = []
+        for nic_address, flap_counter_request in zip(nic_addresses, flap_counter_requests):
+            client_stub = self._get_client_stub(nic_address)
+            try:
+                flap_counter_reply = client_stub.QueryFlapCounter(
+                    flap_counter_request,
+                    timeout=GRPC_TIMEOUT
+                )
+                query_responses.append(flap_counter_reply)
+            except Exception as e:
+                context.set_code(grpc.StatusCode.ABORTED)
+                context.set_details(
+                    "Error in QueryFlapCounter to %s: %s" % (nic_address, repr(e)))
+                return nic_simulator_grpc_mgmt_service_pb2.ListOfFlapCounterReply()
+
+        response = nic_simulator_grpc_mgmt_service_pb2.ListOfFlapCounterReply(
+            nic_addresses=nic_addresses,
+            flap_counter_replies=query_responses
+        )
+        logging.debug(
+            "QueryFlapCounter[mgmt]: response of query: %s", response)
+        return response
+
+    def ResetFlapCounter(self, request, context):
+        nic_addresses = request.nic_addresses
+        flap_counter_requests = request.flap_counter_requests
+        logging.debug(
+            "ResetFlapCounter[mgmt]: request reset port flap counter for %s\n", nic_addresses)
+
+        reset_responses = []
+        for nic_address, flap_counter_request in zip(nic_addresses, flap_counter_requests):
+            client_stub = self._get_client_stub(nic_address)
+            try:
+                flap_counter_reply = client_stub.ResetFlapCounter(
+                    flap_counter_request,
+                    timeout=GRPC_TIMEOUT
+                )
+                reset_responses.append(flap_counter_reply)
+            except Exception as e:
+                context.set_code(grpc.StatusCode.ABORTED)
+                context.set_details(
+                    "Error in ResetFlapCounter to %s: %s" % (nic_address, repr(e)))
+                return nic_simulator_grpc_mgmt_service_pb2.ListOfFlapCounterReply()
+
+        response = nic_simulator_grpc_mgmt_service_pb2.ListOfFlapCounterReply(
+            nic_addresses=nic_addresses,
+            flap_counter_replies=reset_responses
+        )
+        logging.debug(
+            "ResetFlapCounter[mgmt]: response of reset: %s", response)
         return response
 
     def start(self):

@@ -216,6 +216,29 @@ def parse_int_to_tcp_flags(hex_value):
     return tcp_flags_str
 
 
+def get_token_ranges(separator_line):
+    token_ranges = []
+    start = 0
+    while start != -1:
+        end = separator_line.find(' ', start)
+        if end == -1:
+            token_ranges.append((start, len(separator_line)))
+            break
+        token_ranges.append((start, end))
+        start = separator_line.find('-', end)
+    return token_ranges
+
+
+def get_token_values(line, token_ranges):
+
+    token_values = []
+    for tk_rng in token_ranges:
+        fld_value = line[tk_rng[0]:tk_rng[1]]
+        token_values.append(fld_value)
+
+    return token_values
+
+
 def get_cacl_tables_and_rules(duthost):
     """
     Gathers control plane ACL tables and rules configured on the device via
@@ -265,15 +288,17 @@ def get_cacl_tables_and_rules(duthost):
     # Process the rules for each table
     for table in cacl_tables:
         stdout_lines = duthost.shell("show acl rule {}".format(table["name"]))["stdout_lines"]
+        fld_rngs = get_token_ranges(stdout_lines[1])
         # First two lines make up the table header. Get rid of them.
         stdout_lines = stdout_lines[2:]
         for line in stdout_lines:
-            tokens = line.strip().split()
-            if len(tokens) == 7 and tokens[0] == table["name"]:
-                table["rules"].append({"name": tokens[1], "priority": tokens[2], "action": tokens[3]})
+            tokens = get_token_values(line, fld_rngs)
+            if len(tokens) == len(fld_rngs) and tokens[0] == table["name"]:
+                table["rules"].append({"name": tokens[1], "priority": tokens[2].strip(), "action": tokens[3].strip()})
+                key, val = tokens[4].split()
                 # Strip the trailing colon from the key name
-                key = tokens[4][:-1]
-                table["rules"][-1][key] = tokens[5]
+                key = key[:-1]
+                table["rules"][-1][key] = val
             elif len(tokens) == 2:
                 # If the line only contains two tokens, they must be additional rule data.
                 # So we add them to the last rule we appended, stripping the trailing colon from the key name
@@ -323,11 +348,13 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
                         pytest.fail("Unrecognized IP address type on interface '{}': {}".format(iface_name, ip_ntwrk))
 
 def append_midplane_traffic_rules(duthost, iptables_rules):
-    result = duthost.shell('ip link show | grep -w "eth1-midplane"', module_ignore_errors=True)['stdout']
+    # Get the kernel intf name in the event that eth1-midplane is an altname
+    result = duthost.shell('ip link show eth1-midplane | awk \'NR==1{print$2}\' | cut -f1 -d"@" | cut -f1 -d":"',
+                           module_ignore_errors=True)['stdout']
     if result:
         midplane_ip = duthost.shell('ip -4 -o addr show eth1-midplane | awk \'{print $4}\' | cut -d / -f1 | head -1',
                                     module_ignore_errors=True)['stdout']
-        iptables_rules.append("-A INPUT -i eth1-midplane -j ACCEPT")
+        iptables_rules.append("-A INPUT -i {} -j ACCEPT".format(result))
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(midplane_ip, midplane_ip))
 
 def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby):

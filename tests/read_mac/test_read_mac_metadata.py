@@ -47,11 +47,13 @@ def cleanup_read_mac(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localh
 
 class ReadMACMetadata():
     def __init__(self, request):
-        image1 = request.config.getoption("--image1")
-        image2 = request.config.getoption("--image2")
-        self.iteration = request.config.getoption("--iteration")
-        self.minigraph1 = request.config.getoption("--minigraph1")
-        self.minigraph2 = request.config.getoption("--minigraph2")
+        image1 = request.config.getoption("--image1", default=None)
+        image2 = request.config.getoption("--image2", default=None)
+        self.iteration = request.config.getoption("--iteration", default=1)
+        self.minigraph1 = request.config.getoption("--minigraph1", default=None)
+        self.minigraph2 = request.config.getoption("--minigraph2", default=None)
+        if not image1 or not image2:
+            pytest.skip("Skip test due to missing --image1 or --image2")
 
         if self.iteration < 1:
             pytest.fail("Please specify --iteration in correct range")

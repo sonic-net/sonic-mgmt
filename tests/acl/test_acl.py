@@ -533,6 +533,8 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
             logger.info("Removing ACL table \"{}\" in namespace {} on device {}"
                         .format(acl_table_config["table_name"], namespace, duthost))
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
+    # Give the dut some time for the ACL to be applied and LOG message generated
+    time.sleep(30)
 
 
 @pytest.fixture(scope="module")
@@ -671,6 +673,8 @@ class BaseAclTest(object):
                 loganalyzer.ignore_regex = [r".*"]
                 with loganalyzer:
                     self.setup_rules(duthost, acl_table, ip_version)
+                    # Give the dut some time for the ACL rules to be applied and LOG message generated
+                    time.sleep(30)
 
                 self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
 

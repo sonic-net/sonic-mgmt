@@ -117,7 +117,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
         testutils.send(ptfadapter, src_port, pkt)
         # Verify encaped packet
         try:
-            testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports)
+            testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports, timeout=20)
             logger.info("Verified DSCP combination {}".format(str(dscp_combination)))
         except AssertionError:
             logger.info("Failed to verify packet on DSCP combination {}".format(str(dscp_combination)))
@@ -201,6 +201,9 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
     try:
         # Walk through all DSCP values
         for inner_dscp in range(0, 64):
+            # For Nvidia platforms, the inner dscp 2 and 6 are considered invalid use cases, skip the test
+            if 'mellanox' == rand_selected_dut.facts["asic_type"] and inner_dscp in [2, 6]:
+                continue
             outer_dscp = tunnel_qos_maps['inner_dscp_to_outer_dscp_map'][inner_dscp]
             _, exp_packet = build_testing_packet(src_ip=DUMMY_IP,
                                                     dst_ip=dualtor_meta['target_server_ip'],
@@ -452,12 +455,16 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
                                     pfc_frames_number=PFC_PKT_COUNT,
                                     peer_info=peer_info)
 
+        dst_ports = dualtor_meta['target_server_port']
+        if not isinstance(dualtor_meta['target_server_port'], list):
+            dst_ports = [dualtor_meta['target_server_port']]
+
         retry = 0
         while retry < PFC_PAUSE_TEST_RETRY_MAX:
             try:
                 if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut,
                                   dualtor_meta['selected_port'], queue, tunnel_pkt.exp_pkt, src_port, exp_pkt,
-                                  [dualtor_meta['target_server_port']]):
+                                  dst_ports):
                     break
             except AssertionError as err:
                 retry += 1
@@ -659,7 +666,7 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
 
 
 @pytest.mark.disable_loganalyzer
-def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module, tunnel_qos_maps):     # noqa F811
+def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module, tunnel_qos_maps, creds):     # noqa F811
     """
     Test steps:
     1. Toggle all ports to active on randomly selected ToR
@@ -698,7 +705,9 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
             "sonic_asic_type": dut_config["asic_type"],
             "platform_asic": dut_config["platform_asic"],
             "packet_size": packet_size,
-            "cell_size": cell_size
+            "cell_size": cell_size,
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
         })
 
     run_ptf_test(
@@ -710,7 +719,7 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("xoff_profile", ["pcbb_xoff_1", "pcbb_xoff_2", "pcbb_xoff_3", "pcbb_xoff_4"])
-def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module):
+def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module, creds):
     """
     The test is to verify xoff threshold for PCBB (Priority Control for Bounced Back traffic)
     Test steps
@@ -736,6 +745,8 @@ def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_
             "port_map_file_ini": dut_config["port_map_file_ini"],
             "platform_asic": dut_config["platform_asic"],
             "sonic_asic_type": dut_config["asic_type"],
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
         })
     if dut_config["asic_type"] == 'mellanox':
         test_params.update({'cell_size': 144, 'packet_size': 300})

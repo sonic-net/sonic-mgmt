@@ -7,6 +7,10 @@ from tests.flow_counter.flow_counter_utils import is_route_flow_counter_supporte
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology("any")
+]
+
 test_update_route_pattern_para = [
     {
         'is_ipv6': False,
@@ -38,7 +42,7 @@ def skip_if_not_supported(is_route_flow_counter_supported):
 
 
 @pytest.fixture(scope='function', autouse=True)
-def clear_route_flow_counter(rand_selected_dut):
+def clear_route_flow_counter(rand_selected_dut, skip_if_not_supported):
     """Clear route flow counter configuration
 
     Args:

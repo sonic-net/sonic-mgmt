@@ -1,0 +1,37 @@
+diff a/tests/qos/test_qos_sai.py b/tests/qos/test_qos_sai.py	(rejected hunks)
+@@ -714,20 +714,8 @@ def testQosSaiLosslessVoq(
+             qosConfig = dutQosConfig["param"][portSpeedCableLength]
+         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[LosslessVoqProfile])
+ 
+-        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+-        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+-
+         testParams = dict()
+         testParams.update(dutTestParams["basicParams"])
+-        all_src_ports = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+-        all_src_port_ids = set(all_src_ports.keys())
+-        if get_src_dst_asic_and_duts['single_asic_test']:
+-            all_src_port_ids = set(all_src_ports.keys()) - \
+-                    set([dutConfig["testPorts"]["src_port_id"],
+-                        dutConfig["testPorts"]["dst_port_id"],
+-                        dutConfig["testPorts"]["dst_port_2_id"],
+-                        dutConfig["testPorts"]["dst_port_3_id"]])
+-        all_src_port_ids = list(all_src_port_ids)
+         # Swapping the src_port_*_id with all available src ports, src_port* are
+         # not available in this structure anymore.
+         testParams.update({
+@@ -738,10 +726,10 @@ def testQosSaiLosslessVoq(
+             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+             "src_port_id": dutConfig["testPorts"]["src_port_id"],
+             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+-            "src_port_1_id": all_src_port_ids[0],
+-            "src_port_1_ip": all_src_ports[all_src_port_ids[0]]['peer_addr'],
+-            "src_port_2_id": all_src_port_ids[1],
+-            "src_port_2_ip":  all_src_ports[all_src_port_ids[1]]['peer_addr'],
++            "src_port_1_id": dutConfig["testPorts"]["dst_port_2_id"],
++            "src_port_1_ip": dutConfig["testPorts"]["dst_port_2_ip"],
++            "src_port_2_id": dutConfig["testPorts"]["dst_port_3_id"],
++            "src_port_2_ip": dutConfig["testPorts"]["dst_port_3_ip"],
+             "num_of_flows": qosConfig[LosslessVoqProfile]["num_of_flows"],
+             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
+             "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]

@@ -588,16 +588,17 @@ def _get_transceiver_sensor_data(duthost, name):
 @pytest.mark.disable_loganalyzer
 def test_turn_off_psu_and_check_psu_info(duthosts, enum_supervisor_dut_hostname,
                                          localhost, creds_all_duts,
-                                         pdu_controller):
+                                         get_pdu_controller):
     """
     Turn off one PSU and check all PSU sensor entity being removed because it can no longer get any value
     :param duthost: DUT host object
     :param localhost: localhost object
     :param creds_all_duts: Credential for snmp
-    :param pdu_controller: PDU controller
+    :param get_pdu_controller: PDU controller
     :return:
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
+    pdu_controller = get_pdu_controller(duthost)
     if not pdu_controller:
         pytest.skip('psu_controller is None, skipping this test')
     outlet_status = pdu_controller.get_outlet_status()

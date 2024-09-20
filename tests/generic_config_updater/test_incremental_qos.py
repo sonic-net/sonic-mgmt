@@ -199,28 +199,32 @@ def ensure_application_of_updated_config(duthost, configdb_field, value):
     )
 
 
-@pytest.mark.parametrize("configdb_field", ["ingress_lossless_pool/xoff", "ingress_lossless_pool/size", "egress_lossy_pool/size"])
-@pytest.mark.parametrize("operation", ["add", "replace", "remove"])
-def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, configdb_field, operation):
+@pytest.mark.parametrize("configdb_field", ["ingress_lossless_pool/xoff",
+                                            "ingress_lossless_pool/size", "egress_lossy_pool/size"])
+@pytest.mark.parametrize("op", ["add", "replace", "remove"])
+def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, configdb_field, op):
     tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {} created for json patch of field: {} and operation: {}".format(tmpfile, configdb_field, operation))
+    logger.info("tmpfile {} created for json patch of field: {} and operation: {}"
+                .format(tmpfile, configdb_field, op))
 
-    if operation == "remove":
-        value= ""
+    field_value = duthost.shell('sonic-db-cli CONFIG_DB hget "BUFFER_POOL|{}" {}'
+                                .format(configdb_field.split("/")[0], configdb_field.split("/")[1]))['stdout']
+    if op == "remove":
+        value = ""
     else:
         value = calculate_field_value(duthost, tbinfo, configdb_field)
-    logger.info("value to be added to json patch: {} operation: {} field: {}".format(value, operation, configdb_field))
+    logger.info("value to be added to json patch: {} operation: {} field: {}".format(value, op, configdb_field))
 
     json_patch = [
         {
-            "op": "{}".format(operation),
+            "op": "{}".format(op),
             "path": "/BUFFER_POOL/{}".format(configdb_field),
             "value": "{}".format(value)
         }]
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_platform_and_version(duthost, "BUFFER_POOL", "Shared/headroom pool size changes"):
+        if is_valid_platform_and_version(duthost, "BUFFER_POOL", "Shared/headroom pool size changes", op, field_value):
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, configdb_field, value)
         else:

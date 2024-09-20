@@ -17,7 +17,8 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
     unpatch_lldpctl(localhost, duthost)
 
 
-def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, collect_techsupport_all_duts, enum_frontend_asic_index):
+def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
+              collect_techsupport_all_duts, enum_frontend_asic_index, request):
     """ verify the LLDP message on DUT """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -29,11 +30,15 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, co
         # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
         assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
         # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
-        assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
+        if request.config.getoption("--neighbor_type") == 'eos':
+            assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
+        else:
+            # Dealing with KVM that advertises port description
+            assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
 
 
-def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
-                       collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index, tbinfo):
+def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos, sonic,
+                       collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index, tbinfo, request):
     """ verify LLDP information on neighbors """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -72,15 +77,23 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
             logger.info("Neighbor device {} does not sent management IP via lldp".format(v['chassis']['name']))
             hostip = nei_meta[v['chassis']['name']]['mgmt_addr']
 
-        nei_lldp_facts = localhost.lldp_facts(host=hostip, version='v2c', community=eos['snmp_rocommunity'])['ansible_facts']
-        neighbor_interface = v['port']['ifname']
-        logger.info("lldp facts for interface {}:{}".format(neighbor_interface,
-                                                            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]))
+        if request.config.getoption("--neighbor_type") == 'eos':
+            nei_lldp_facts = localhost.lldp_facts(host=hostip, version='v2c', community=eos['snmp_rocommunity'])[
+                'ansible_facts']
+            neighbor_interface = v['port']['ifname']
+        else:
+            nei_lldp_facts = localhost.lldp_facts(host=hostip, version='v2c', community=sonic['snmp_rocommunity'])[
+                'ansible_facts']
+            neighbor_interface = v['port']['local']
         # Verify the published DUT system name field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname
         # Verify the published DUT chassis id field is not empty
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == \
-               "0x%s" % (switch_mac.replace(':', ''))
+        if request.config.getoption("--neighbor_type") == 'eos':
+            assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == \
+                "0x%s" % (switch_mac.replace(':', ''))
+        else:
+            assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == switch_mac
+
         # Verify the published DUT system description field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc'] == dut_system_description
         # Verify the published DUT port id field is correct

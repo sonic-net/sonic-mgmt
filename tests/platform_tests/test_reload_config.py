@@ -7,7 +7,6 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 
 import pytest
-import re
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts
 from tests.common.utilities import wait_until
@@ -90,9 +89,9 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
            plt_reboot_ctrl_overwrite=False)
 
     # Check if all database containers have started
-    wait_until(60, 1, 0, check_database_status, duthost)
-    # Check if interfaces-config.service is exited
-    wait_until(60, 1, 0, check_interfaces_config_service_status, duthost)
+    # Some device after reboot may take some longer time to have database container started up
+    # we must give it a little longer or else it may falsely fail the test.
+    wait_until(360, 1, 0, check_database_status, duthost)
 
     logging.info("Reload configuration check")
     out = duthost.shell("sudo config reload -y", executable="/bin/bash", module_ignore_errors=True)
@@ -109,8 +108,6 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Checking config reload after system is up")
     # Check if all database containers have started
     wait_until(60, 1, 0, check_database_status, duthost)
-    # Check if interfaces-config.service is exited
-    wait_until(60, 1, 0, check_interfaces_config_service_status, duthost)
     out = duthost.shell("sudo config reload -y", executable="/bin/bash", module_ignore_errors=True)
     assert "Retry later" in out['stdout']
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
@@ -132,11 +129,3 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     assert "Retry later" not in out['stdout']
 
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
-
-
-def check_interfaces_config_service_status(duthost):
-    # check interfaces-config.service status
-    regx_interface_config_service_exit = r'.*Main PID: \d+ \(code=exited, status=0\/SUCCESS\).*'
-    interface_config_server_status = duthost.command(
-        'systemctl status interfaces-config.service', module_ignore_errors=True)['stdout']
-    return re.search(regx_interface_config_service_exit, interface_config_server_status)

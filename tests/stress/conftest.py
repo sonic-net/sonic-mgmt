@@ -1,8 +1,10 @@
 import logging
+import time
+
 import pytest
 
 from tests.common.utilities import wait_until
-from utils import get_crm_resources, check_queue_status, sleep_to_wait
+from utils import get_crm_resource_status, check_queue_status, sleep_to_wait
 
 CRM_POLLING_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
@@ -17,7 +19,8 @@ def get_function_conpleteness_level(pytestconfig):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthost):
+def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     wait_time = 2
     duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
@@ -31,7 +34,12 @@ def set_polling_interval(duthost):
 
 
 @pytest.fixture(scope='module')
-def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo):
+def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
+                                          enum_rand_one_frontend_asic_index):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    namespace = asichost.namespace
+
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
 
@@ -40,8 +48,8 @@ def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo):
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") == True)
     sleep_to_wait(CRM_POLLING_INTERVAL * 100)
-    ipv4_route_used_before = get_crm_resources(duthost, "ipv4_route", "used")
-    ipv6_route_used_before = get_crm_resources(duthost, "ipv6_route", "used")
+    ipv4_route_used_before = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
+    ipv6_route_used_before = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
     logger.info("ipv4 route used {}".format(ipv4_route_used_before))
     logger.info("ipv6 route used {}".format(ipv6_route_used_before))
 
@@ -52,6 +60,5 @@ def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo):
 
     wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") == True)
     sleep_to_wait(CRM_POLLING_INTERVAL * 5)
-    logger.info("ipv4 route used {}".format(get_crm_resources(duthost, "ipv4_route", "used")))
-    logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
-
+    logger.info("ipv4 route used {}".format(get_crm_resource_status(duthost, "ipv4_route", "used", namespace)))
+    logger.info("ipv6 route used {}".format(get_crm_resource_status(duthost, "ipv6_route", "used", namespace)))

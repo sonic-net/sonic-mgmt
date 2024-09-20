@@ -3,10 +3,13 @@ import pytest
 from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, send_server_to_t1_with_action, send_soc_to_t1_with_action, send_t1_to_soc_with_action                                  # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, shutdown_fanout_upper_tor_intfs, \
-                                                shutdown_fanout_lower_tor_intfs, upper_tor_fanouthosts, lower_tor_fanouthosts, \
-                                                shutdown_upper_tor_downlink_intfs, shutdown_lower_tor_downlink_intfs                   # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor                                                  # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
+                                                shutdown_fanout_lower_tor_intfs, upper_tor_fanouthosts, \
+                                                lower_tor_fanouthosts, shutdown_upper_tor_downlink_intfs, \
+                                                shutdown_lower_tor_downlink_intfs                   # noqa F401
+from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
+                                                copy_ptftests_directory, change_mac_addresses       # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa F401
 from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
@@ -354,6 +357,69 @@ def config_interface_admin_status(duthost, ports, admin_status="up"):
 
 
 @pytest.mark.disable_loganalyzer
+@pytest.mark.enable_active_active
+@pytest.mark.skip_active_standby
+def test_active_link_admin_down_config_reload_upstream(
+    upper_tor_host, lower_tor_host, send_server_to_t1_with_action,       # noqa F811
+    cable_type, active_active_ports                                      # noqa F811
+):
+    if cable_type == CableType.active_active:
+        try:
+            config_interface_admin_status(upper_tor_host, active_active_ports, "down")
+
+            upper_tor_host.shell("config save -y")
+
+            send_server_to_t1_with_action(
+                lower_tor_host, verify=True, allowed_disruption=0,
+                action=lambda: config_reload(upper_tor_host, wait=0)
+            )
+
+            verify_tor_states(
+                expected_active_host=lower_tor_host,
+                expected_standby_host=upper_tor_host,
+                expected_standby_health='unhealthy',
+                cable_type=cable_type,
+                skip_state_db=True  # state db will be 'unknown'
+            )
+
+        finally:
+            config_interface_admin_status(upper_tor_host, active_active_ports, "up")
+            upper_tor_host.shell("config save -y")
+
+
+@pytest.mark.enable_active_active
+@pytest.mark.skip_active_standby
+def test_active_link_admin_down_config_reload_downstream(
+    upper_tor_host, lower_tor_host, send_t1_to_server_with_action,       # noqa F811
+    cable_type, active_active_ports                                      # noqa F811
+):
+    if cable_type == CableType.active_active:
+        try:
+            config_interface_admin_status(upper_tor_host, active_active_ports, "down")
+
+            upper_tor_host.shell("config save -y")
+            config_reload(upper_tor_host, wait=60)
+
+            verify_tor_states(
+                expected_active_host=lower_tor_host,
+                expected_standby_host=upper_tor_host,
+                expected_standby_health='unhealthy',
+                cable_type=cable_type,
+                skip_state_db=True
+            )
+
+            send_t1_to_server_with_action(
+                upper_tor_host, verify=True,
+                stop_after=180,
+                allowed_disruption=0,
+                allow_disruption_before_traffic=True
+            )
+
+        finally:
+            config_interface_admin_status(upper_tor_host, active_active_ports, "up")
+            upper_tor_host.shell("config save -y")
+
+
 @pytest.mark.enable_active_active
 @pytest.mark.skip_active_standby
 def test_active_link_admin_down_config_reload_link_up_upstream(

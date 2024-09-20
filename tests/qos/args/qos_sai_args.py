@@ -53,3 +53,14 @@ def add_qos_sai_args(parser):
         default=False,
         help="Test QoS on dual ToR ports"
     )
+
+    qos_group.addoption(
+        "--port_target_speed",
+        action="store",
+        type=str,
+        default=None,
+        help="port_target_speed is only for testQosSaiDwrr."
+             "When it is None, test will do nothing,"
+             "When it is set a value of port speed, the tested dst port and the corresponding fanout port"
+             "will be changed to the set value. It can be set to like 50000, 10000"
+    )
