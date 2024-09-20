@@ -20,6 +20,19 @@ CONFIGS_FILE = 'bgp_basic_cfg.yaml'
 #                  #
 ####################
 
+def config_frr(dut, commands):
+
+    if not isinstance(commands, list):
+        commands = [commands]
+
+    st.log("Configuring on frr: {}".format(commands))
+    with open("/tmp/spytest_frr.conf", "w") as fd:
+        fd.write("\n".join(commands))
+    st.upload_file_to_dut(dut, "/tmp/spytest_frr.conf", "/tmp/spytest_frr.conf")
+
+    st.config(dut, "docker cp /tmp/spytest_frr.conf bgp:/")
+    st.config(dut, "docker exec bgp bash -c 'vtysh -f /spytest_frr.conf'")
+
 ######################################################################
 #          eBGP             eBGP           iBGP                      #
 #  spine0 ---default--- leaf0 ---Vrf01--- spine1 ---Vrf02--- leaf1             #
@@ -43,7 +56,7 @@ def setup_teardown_bgp_vrf():
     with open(dir_path + '/' + CONFIGS_FILE) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
-            common_obj.config_static(node, 'bgp', True, update_path)
+            config_frr(node, config['bgp']['config'])
             common_obj.config_static(node, 'sonic', True, update_path)
 
     count = 5    
@@ -58,7 +71,7 @@ def setup_teardown_bgp_vrf():
     with open(dir_path + '/' + CONFIGS_FILE) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
-            common_obj.config_static(node, 'bgp', False, update_path)
+            config_frr(node, config['bgp']['deconfig'])
             common_obj.config_static(node, 'sonic', False, update_path)
 
 def test_bgp_vrf_interface_flap_check():
@@ -126,7 +139,7 @@ def test_bgp_vrf_delete_vrf_instance():
     nodes['leaf1'] = vars.D4
 
     cmd = 'no router bgp 2002 vrf Vrf01'
-    st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmd)
  
     cmd = 'sudo config vrf del Vrf01'
     st.config(nodes['leaf0'], cmd)
@@ -165,8 +178,7 @@ def test_bgp_vrf_delete_vrf_instance():
         'exit-address-family',
         'exit']
 
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmds)
 
     time.sleep(5)
 
@@ -208,14 +220,13 @@ def test_bgp_vrf_verify_route_map_change_in_vrf():
         'address-family ipv4 unicast',
         'neighbor 20.1.1.2 route-map ALLOW_PREFIX in']
 
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmds)
 
     time.sleep(5)
 
     #validate incoming route is prepend with 9009 as value
     cmd = 'show bgp vrf Vrf01 ipv4 unicast neighbors 20.1.1.2 routes'
-    cmd_output = st.vtysh(nodes['leaf0'], cmd)
+    cmd_output = st.show(nodes['leaf0'], "vtysh -c '{}'".format(cmd))
     if "9009 1003" not in str(cmd_output):
         st.report_fail("test_case_failed", nodes['leaf0'])
 
@@ -223,14 +234,13 @@ def test_bgp_vrf_verify_route_map_change_in_vrf():
     cmds = ['route-map ALLOW_PREFIX permit 10',
         'set as-path prepend 8008']
 
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmds)
 
     time.sleep(5)
 
     #validate incoming route is prepend with 8008 as value
     cmd = 'show bgp vrf Vrf01 ipv4 unicast neighbors 20.1.1.2 routes'
-    cmd_output = st.vtysh(nodes['leaf0'], cmd)
+    cmd_output = st.show(nodes['leaf0'], "vtysh -c '{}'".format(cmd))
     if "8008 1003" not in str(cmd_output):
         st.report_fail("test_case_failed", nodes['leaf0'])
 
@@ -258,8 +268,8 @@ def test_bgp_vrf_verify_dynamic_imported_routes_adv_to_iBGP():
         'import vrf Vrf01',
         'exit-address-family',
         'exit']
-    for cmd in cmds:
-        st.vtysh_config(nodes['spine1'], cmd)
+
+    config_frr(nodes['spine1'], cmds)
 
     time.sleep(2)
 
@@ -294,7 +304,7 @@ def test_bgp_verify_local_routes_as_bestpath_over_eBGP():
     # check best path for 192.168.1.3 is set as 20.1.1.2
     prefix_present = False
     cmd = 'show ip route vrf Vrf01'
-    cmd_output = st.vtysh(nodes['leaf0'], cmd)
+    cmd_output = st.show(nodes['leaf0'], "vtysh -c '{}'".format(cmd))
     parsed_output = st.parse_show(nodes['leaf0'], cmd, cmd_output, 'show_ip_route.tmpl')
     for path in parsed_output:
         if ((path['type'] == 'B') and (path['selected'] == '>') and (path['ip_address'] == "192.168.1.3/32") and (path['nexthop'] == "20.1.1.2")):
@@ -315,7 +325,7 @@ def test_bgp_verify_local_routes_as_bestpath_over_eBGP():
 
     # check BGP route is un-selected local route is seleted.
     cmd = 'show ip route vrf Vrf01'
-    cmd_output = st.vtysh(nodes['leaf0'], cmd)
+    cmd_output = st.show(nodes['leaf0'], "vtysh -c '{}'".format(cmd))
     parsed_output = st.parse_show(nodes['leaf0'], cmd, cmd_output, 'show_ip_route.tmpl')
     for path in parsed_output:
         if ((path['type'] == 'C') and (path['selected'] == '>') and (path['ip_address'] == "192.168.1.3/32") and (path['nexthop'] != "20.1.1.2")):
@@ -349,7 +359,7 @@ def test_bgp_vrf_bestpath_selection_algo_for_import():
     # check best path for 192.168.1.3 is set as 20.1.1.2
     cmd = 'show ip route vrf Vrf01'
     prefix_present = False
-    cmd_output = st.vtysh(nodes['leaf0'], cmd)
+    cmd_output = st.show(nodes['leaf0'], "vtysh -c '{}'".format(cmd))
     parsed_output = st.parse_show(nodes['leaf0'], cmd, cmd_output, 'show_ip_route.tmpl')
     for path in parsed_output:
         if ((path['type'] == 'B') and (path['ip_address'] == "192.168.1.3/32") and (path['nexthop'] == "20.1.1.2")):
@@ -369,8 +379,7 @@ def test_bgp_vrf_bestpath_selection_algo_for_import():
             'address-family ipv4 unicast',
             'import vrf default']
 
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmds)
 
     prefix_present = False
     cmd = 'show ip route vrf Vrf01'
@@ -427,8 +436,7 @@ def test_bgp_vrf_verify_ecmp_on_vrf():
             'address-family ipv4 unicast',
             'import vrf default']
 
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmds)
 
     time.sleep(1)
 
@@ -450,8 +458,7 @@ def test_bgp_vrf_verify_ecmp_on_vrf():
             'address-family ipv4 unicast',
             'maximum-paths 1']
 
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmds)
 
     time.sleep(1)
 
@@ -480,7 +487,7 @@ def test_bgp_vrf_changing_vrf_locally():
     nodes['leaf1'] = vars.D4
 
     cmd = 'no router bgp 2002 vrf Vrf01'
-    st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmd)
 
     time.sleep(1)
 
@@ -537,8 +544,7 @@ def test_bgp_vrf_changing_vrf_locally():
         'exit-address-family'
     ]
 
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmds)
 
     time.sleep(10)
     cmd = 'show ip route vrf Vrf10'
@@ -554,7 +560,7 @@ def test_bgp_vrf_changing_vrf_locally():
 
     # clean Vrf10 from router, since it is not cleaned as a part of default cleanup
     cmd = 'no router bgp 2002 vrf Vrf10'
-    st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmd)
 
     time.sleep(1)
 
@@ -602,8 +608,7 @@ def test_bgp_vrf_changing_vrf_locally():
         'exit'
     ]
 
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    config_frr(nodes['leaf0'], cmds)
 
     st.report_pass('test_case_passed', nodes['spine0'])
     st.report_pass('test_case_passed', nodes['spine1'])
