@@ -88,10 +88,9 @@ bfd/test_bfd.py::test_bfd_scale:
 
 bfd/test_bfd_static_route.py:
   skip:
-    reason: "Only supported on chassis system & cisco platform."
+    reason: "Only supported on multi-asic system & Cisco LCs."
     conditions:
-      - "is_multi_asic is False"
-      - "asic_type in ['cisco-8000']"
+      - "(is_multi_asic is False) or (hwsku not in ['Cisco-88-LC0-36FH-M-O36', 'Cisco-8800-LC-48H-C48', 'Cisco-88-LC0-36FH-O36'])"
 
 bfd/test_bfd_traffic.py:
   skip:
