@@ -16,7 +16,7 @@ def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
     Checks whethere given testbed is smartswitch or not
     If not smartswitch, then skip tests
     else, checks for darkmode of dpus
-    If dpus are in dark mode, then skip tests
+    If dpus are in dark mode, then power up the DPUs
     else, proceeds to run test cases scripts
     """
 
@@ -33,6 +33,14 @@ def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def is_dark_mode(duthost, platform_api_conn):
+
+    """
+    Checks whether the tested is in dark mode or not
+    based on the redis dump of admin status of the DPUs
+    Returns:
+        True if all DPUs admin status are down
+        else False
+    """
 
     num_modules = int(chassis.get_num_modules(platform_api_conn))
     count_admin_down = 0
