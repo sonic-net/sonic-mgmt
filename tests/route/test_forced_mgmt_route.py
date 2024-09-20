@@ -5,9 +5,9 @@ import pytest
 
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
 from tests.common.utilities import wait_until, wait_for_file_changed, backup_config, \
     restore_config, reload_minigraph_with_golden_config, FORCED_MGMT_ROUTE_PRIORITY
-from tests.syslog.syslog_utils import is_mgmt_vrf_enabled
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,

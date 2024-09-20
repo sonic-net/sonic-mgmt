@@ -3,19 +3,15 @@ import logging
 import pytest
 import re
 
-from tests.common.utilities import get_mgmt_ipv6
-from tests.common.helpers.assertions import pytest_assert
-from tests.tacacs.utils import check_output
-from tests.bgp.test_bgp_fact import run_bgp_facts
-from tests.test_features import run_show_features
-from tests.tacacs.test_ro_user import ssh_remote_run_retry
-from tests.ntp.test_ntp import run_ntp, setup_ntp_func # noqa F401
-from tests.common.helpers.assertions import pytest_require
-from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6_func # noqa F401
-from tests.syslog.test_syslog import run_syslog, check_default_route # noqa F401
-from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
+from tests.common.utilities import get_mgmt_ipv6, check_output, run_show_features
+from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.bgp import run_bgp_facts
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry
+from tests.common.helpers.ntp_helper import run_ntp
+from tests.common.helpers.syslog_helpers import run_syslog, check_default_route   # noqa F401
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from tests.telemetry.conftest import gnxi_path, setup_streaming_telemetry_func # noqa F401
+from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
+
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
