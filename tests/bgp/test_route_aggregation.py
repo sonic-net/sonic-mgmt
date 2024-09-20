@@ -46,6 +46,7 @@ def create_loopbacks(gather_info):
     gather_info['duthost'].shell("sudo config interface ip add Loopback15 1.1.5.1/24")
     gather_info['duthost'].shell("sudo config interface ip add Loopback15 1:1:1:5::/64")
 
+
 def agg_configuration(config, asn, duthost, cli_options, commandv4, commandv6):
     remove_tag = ""
     if not config:
