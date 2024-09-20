@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common.reboot import get_reboot_cause
 from tests.common.utilities import wait_until
-from tests.upgrade_path.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause,\
+from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
     check_services, install_sonic, multi_hop_warm_upgrade_test_helper
 from tests.platform_tests.conftest import multihop_advanceboot_loganalyzer_factory
 from tests.platform_tests.verify_dut_health import verify_dut_health, check_neighbors   # lgtm[py/unused-import]

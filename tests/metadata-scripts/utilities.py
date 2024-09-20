@@ -6,7 +6,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common.reboot import REBOOT_TYPE_COLD, REBOOT_TYPE_SOFT
-from tests.upgrade_path.upgrade_helpers import install_sonic, check_sonic_version, reboot
+from tests.common.helpers.upgrade_helpers import install_sonic, check_sonic_version, reboot
 
 logger = logging.getLogger(__name__)
 
