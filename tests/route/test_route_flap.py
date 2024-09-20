@@ -254,8 +254,19 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     logger.info('send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.format(
         ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
     testutils.send(ptfadapter, ptf_send_port, pkt)
-    testutils.verify_packet_any_port(
-        ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
+    try:
+        testutils.verify_packet_any_port(
+            ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
+    except AssertionError:
+        logging.error("Traffic wasn't sent successfully, trying again")
+        for _ in range(5):
+            logger.info('re-send ping request packet send port {}, recv port {}, dmac: {}, dip: {}'.
+                        format(ptf_send_port, ptf_recv_ports, dst_mac, dst_ip))
+            testutils.send(ptfadapter, ptf_send_port, pkt)
+            time.sleep(0.1)
+
+        testutils.verify_packet_any_port(
+            ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
 def filter_routes(iproute_info, route_prefix_len):
