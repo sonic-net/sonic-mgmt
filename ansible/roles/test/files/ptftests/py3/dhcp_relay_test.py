@@ -799,6 +799,9 @@ class DHCPTest(DataplaneBaseTest):
 
 
 class DHCPContinuousStressTest(DHCPTest):
+    """
+    Keep sending packets, but don't verify form ptf side.
+    """
     def __init__(self):
         DHCPTest.__init__(self)
 

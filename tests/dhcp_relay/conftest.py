@@ -1,6 +1,33 @@
 import pytest
 
 
+def pytest_addoption(parser):
+    """
+    Adds options to pytest that are used by the COPP tests.
+    """
+    parser.addoption(
+        "--stress_restart_round",
+        action="store",
+        type=int,
+        default=10,
+        help="Set custom restart rounds",
+    )
+    parser.addoption(
+        "--stress_restart_duration",
+        action="store",
+        type=int,
+        default=90,
+        help="Set custom restart rounds",
+    )
+    parser.addoption(
+        "--stress_restart_pps",
+        action="store",
+        type=int,
+        default=20,
+        help="Set custom restart rounds",
+    )
+
+
 @pytest.fixture(scope="module", autouse=True)
 def skip_dhcp_relay_tests(tbinfo):
     """
