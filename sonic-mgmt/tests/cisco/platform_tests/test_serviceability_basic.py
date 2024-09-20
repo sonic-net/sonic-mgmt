@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any')
+    pytest.mark.topology('t2')
 ]
 
 npu_cli_dict = {
@@ -28,8 +28,8 @@ npu_cli_dict = {
         "router": ["route-table", "entries", "ports", "port-counters", "details"],
         "switch": ["entries", "ports"],
         "temperatures": " ",
-        "trap": " "
-
+        "trap": " ",
+        "bp-interface-map" : " "
 }
 
 def get_asic_str(duthost):
