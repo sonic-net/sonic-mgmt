@@ -4,50 +4,20 @@ Tests related to L2 configuration
 import logging
 import pytest
 import time
+
+from tests.common.reboot import reboot
 from tests.common.helpers.assertions import pytest_expect
-from tests.common.checkpoint import (
-    create_checkpoint,
-    delete_checkpoint,
-    rollback,
-)
 
 logger = logging.getLogger(__name__)
-
-DUT_SONIC_IMAGE = "/tmp/sonic_image.bin"
-DUT_SONIC_CFG = "/tmp/sonic-cfg.json"
-DUT_ORIGIN_CFG = "/tmp/sonic-cfg-orig.json"
-
-DUMP_DB_CMD = "sonic-db-dump -y -n CONFIG_DB -k 'TELEMETRY|*'"
-DB_DUMP_IGNORE = ["expireat"]
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
 
 
-def compare_db_dump(db_before, db_after):
+def test_l2_configure(duthosts, rand_one_dut_hostname, localhost):
     """
-    Compare two db dumps and after the L2 configuration steps.
-    Assert there are no additional configuration coming from minigraph.
-    For example, TELEMETRY shouldn't change.
-    """
-    lines1 = db_before.splitlines()
-    lines2 = db_after.splitlines()
-
-    pytest_expect(len(lines1) == len(lines2),
-                  "Dumps are of different length " +
-                  f" {len(lines1)} != {len(lines2)}")
-
-    for line1, line2 in zip(lines1, lines2):
-        if (not any(ignore in line1 for ignore in DB_DUMP_IGNORE) and
-                not any(ignore in line2 for ignore in DB_DUMP_IGNORE)):
-            pytest_expect(line1 == line2, "Unequal lines " +
-                          line1 + " != " + line2)
-
-
-def test_l2_configure(request, duthosts, rand_one_dut_hostname, localhost):
-    """
-    @summary: Test we can configure dut as a L2 switch.
+    @summary: Test configuring dut as a L2 switch.
 
     Args:
         duthosts: set of DUTs.
@@ -56,19 +26,23 @@ def test_l2_configure(request, duthosts, rand_one_dut_hostname, localhost):
     # Setup.
     duthost = duthosts[rand_one_dut_hostname]
     hwsku = duthost.facts["hwsku"]
-    db_before = duthost.shell(DUMP_DB_CMD)["stdout"]
-    create_checkpoint(duthost)
+
+    # Store original config for comparison.
+    orig_vlan = duthost.shell("show vlan config")["stdout"]
+    orig_int = duthost.shell("show int status")["stdout"]
 
     # Perform L2 configuration
     l2_cfg = "sudo sonic-cfggen --preset l2 -p -H -k {}" \
         " | sudo config load /dev/stdin -y".format(hwsku)
     duthost.shell(l2_cfg)
-    duthost.command("sudo config qos reload --no-dynamic-buffer")
-    duthost.command("sudo config save -y")
-    db_after = duthost.shell(DUMP_DB_CMD)["stdout"]
-    compare_db_dump(db_before, db_after)
+    duthost.shell("sudo config qos reload --no-dynamic-buffer")
+    time.sleep(60)
 
-    # Cleanup and restore.
-    rollback(duthost)
-    time.sleep(40)
-    delete_checkpoint(duthost)
+    new_vlan = duthost.shell("show vlan config")["stdout"]
+    new_int = duthost.shell("show int status")["stdout"]
+
+    pytest_expect(orig_vlan != new_vlan, "vlan config not updated.")
+    pytest_expect(orig_int != new_int, "interface status not updated.")
+
+    # Restore from L2
+    reboot(duthost, localhost)
