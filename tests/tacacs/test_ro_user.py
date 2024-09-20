@@ -1,7 +1,8 @@
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert
-from .utils import check_output, tacacs_running, start_tacacs_server
+from tests.common.utilities import check_output
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry
 
 import logging
 
@@ -15,14 +16,6 @@ logger = logging.getLogger(__name__)
 
 SLEEP_TIME = 10
 TIMEOUT_LIMIT = 120
-
-
-def ssh_remote_run(localhost, remote_ip, username, password, cmd):
-    res = localhost.shell("sshpass -p {} ssh "\
-                          "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "\
-                          "{}@{} '{}'".format(
-            password, username, remote_ip, cmd), module_ignore_errors=True)
-    return res
 
 
 def does_command_exist(localhost, remote_ip, username, password, command):
@@ -79,21 +72,6 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
                 current_attempt += 1
 
 
-def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=3):
-    while retry_count > 0:
-        res = ssh_remote_run(localhost, dutip, user,
-                             password, command)
-
-        # TACACS server randomly crash after receive authorization request from IPV6
-        if not tacacs_running(ptfhost):
-            start_tacacs_server(ptfhost)
-            retry_count -= 1
-        else:
-            return res
-
-    pytest_assert(False, "cat command failed because TACACS server not running")
-
-
 def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
@@ -136,7 +114,7 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
         "lldpctl": ["sudo lldpctl"],
         "vtysh": ['sudo vtysh -c "show version"', 'sudo vtysh -c "show bgp ipv4 summary json"', 'sudo vtysh -c "show bgp ipv6 summary json"'],
         "rvtysh": [
-            'sudo rvtysh -c "show ip bgp su"', 
+            'sudo rvtysh -c "show ip bgp su"',
             'sudo rvtysh -c "show history"',
             'sudo rvtysh -c "show ip bgp neighbors"',
             'sudo rvtysh -c "show ip bgp 0.0.0.0/0 longer-prefixes"',
