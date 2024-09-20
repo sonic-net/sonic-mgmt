@@ -1,7 +1,7 @@
 import pytest
 
 from .test_ro_user import ssh_remote_run, ssh_remote_run_retry
-from .utils import check_output
+from tests.common.utilities import check_output
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
