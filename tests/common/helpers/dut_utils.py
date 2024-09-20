@@ -181,6 +181,20 @@ def get_program_info(duthost, container_name, program_name):
     return program_status, program_pid
 
 
+def kill_process_by_pid(duthost, container_name, program_name, program_pid):
+    """
+    @summary: Kill a process in the specified container by its pid
+    """
+    kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
+
+    # Get the exit code of 'kill' command
+    exit_code = kill_cmd_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
+
+    logger.info("Program '{}' in container '{}' was stopped successfully"
+                .format(program_name, container_name))
+
+
 def get_disabled_container_list(duthost):
     """Gets the container/service names which are disabled.
 
