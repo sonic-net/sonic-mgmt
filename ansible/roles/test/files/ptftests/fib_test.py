@@ -199,7 +199,17 @@ class FibTest(BaseTest):
                     continue
                 if self.switch_type == "chassis-packet":
                     exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
-                logging.info('src_port={}, exp_port_lists={}, active_dut_indexes={}'.format(src_port, exp_port_lists, active_dut_indexes))
+                elif self.switch_type == "voq" and exp_port_lists[0]:
+                    dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
+                    src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]
+                    if src_port_dut_index == 0 and dest_port_dut_index == 0:
+                        ptf_non_upstream_ports = []
+                        for ptf_port, ptf_port_info in self.ptf_test_port_map.items():
+                            if ptf_port_info['target_dut'][0] != 0:
+                                ptf_non_upstream_ports.append(ptf_port)
+                        src_port = int(random.choice(ptf_non_upstream_ports))
+                logging.info('src_port={}, exp_port_lists={}, active_dut_indexes={}'.format(
+                    src_port, exp_port_lists, active_dut_indexes))
                 break
         return src_port, exp_port_lists, next_hops
 
