@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 9 * * 3,5,0"
+  - cron: "0 9 * * 3,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -85,6 +85,13 @@ parameters:
     default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202311)"
     displayName: "Common test parameters"
 
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[
+      {"name": "pc/test_po_cleanup.py", "param": "--deselect=pc/test_po_cleanup.py::test_po_cleanup_after_reload"}
+    ]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
@@ -114,5 +121,6 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
