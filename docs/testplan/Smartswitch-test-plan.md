@@ -772,38 +772,24 @@ root@sonic:/home/admin#
 #### Sample Output
 ```
 On Switch:
-root@sonic:/home/cisco# ifconfig eth1 down 
+root@sonic:/home/cisco# ifconfig dpu0 down 
 root@sonic:/home/cisco#
 root@sonic:/home/cisco# show ip interface
 Interface     Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
 ------------  --------  -------------------  ------------  --------------  -------------
 eth0                    172.25.42.56/24      up/up         N/A             N/A
-eth1                    169.254.200.1/24     up/up         N/A             N/A
-eth2                    169.254.200.2/24     up/up         N/A             N/A
-eth3                    169.254.200.3/24     up/up         N/A             N/A
-eth4                    169.254.200.4/24     up/up         N/A             N/A
-eth5                    169.254.200.5/24     up/up         N/A             N/A
-eth6                    169.254.200.6/24     up/up         N/A             N/A
-eth7                    169.254.200.7/24     up/up         N/A             N/A
-eth8                    169.254.200.8/24     up/up         N/A             N/A
+bridge-midplane         169.254.200.254/24   up/up         N/A             N/A
 lo                      127.0.0.1/16         up/up         N/A             N/A
 root@sonic:/home/cisco#
 root@sonic:/home/cisco# show system-health dpu DPU0
 root@sonic:/home/cisco#
-root@sonic:/home/cisco# ifconfig eth1 up 
+root@sonic:/home/cisco# ifconfig dpu0 up 
 root@sonic:/home/cisco#
 root@sonic:/home/cisco# show ip interface
 Interface     Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
 ------------  --------  -------------------  ------------  --------------  -------------
 eth0                    172.25.42.56/24      up/up         N/A             N/A
-eth1                    169.254.200.1/24     up/up         N/A             N/A
-eth2                    169.254.200.2/24     up/up         N/A             N/A
-eth3                    169.254.200.3/24     up/up         N/A             N/A
-eth4                    169.254.200.4/24     up/up         N/A             N/A
-eth5                    169.254.200.5/24     up/up         N/A             N/A
-eth6                    169.254.200.6/24     up/up         N/A             N/A
-eth7                    169.254.200.7/24     up/up         N/A             N/A
-eth8                    169.254.200.8/24     up/up         N/A             N/A
+bridge-midplane         169.254.200.254/24   up/up         N/A             N/A
 lo                      127.0.0.1/16         up/up         N/A             N/A
 
 root@sonic:/home/cisco# show system-health dpu DPU0
