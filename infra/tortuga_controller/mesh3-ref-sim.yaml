@@ -55,7 +55,7 @@ devices:
         24..31: 4x10
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.42/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.43/npl
         ConfigS1NpsuiteVer: 1.137.1
         ConfigCardPidOverride: HF6100-32D
     linux_password: cisco123

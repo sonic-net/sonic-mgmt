@@ -38,7 +38,7 @@ fi
 
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:32398
 START_TIME=$(date +%s)
-TEST_TAGS=sonic-test
+TEST_TAGS="sonic-test,beta2,ipv4,ipv6,loopback"
 CGEN_TEST=extended
 ORG_NAME="Test"
 
@@ -88,7 +88,7 @@ cleanup "SONiC regression tests"
   --subInterfaces "${SUBINFS1x3}" \
   --ports "${PORTS1x3}" \
   --routes "${ROUTES1x3}" \
-  --tags "${TEST_TAGS},ipv4,ipv6,loopback"
+  --tags "${TEST_TAGS}"
 
 end=$(date +%s)
 stm=$((end-START_TIME))

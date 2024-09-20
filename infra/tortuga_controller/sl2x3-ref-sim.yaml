@@ -36,6 +36,12 @@ devices:
     <<: *host
   trex6:
     <<: *host
+  trex7:
+    <<: *host
+  trex8:
+    <<: *host
+  trex9:
+    <<: *host
 
   L0: &switch
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -49,7 +55,7 @@ devices:
         24..31: 4x10
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.42/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.43/npl
         ConfigS1NpsuiteVer: 1.137.1
         ConfigCardPidOverride: HF6100-32D
     linux_password: cisco123
@@ -150,18 +156,27 @@ connections:
     L0_trex2:
       - L0.Ethernet1_8
       - trex2.eth1
-    L1_trex3:
-      - L1.Ethernet1_7
+    L0_trex3:
+      - L0.Ethernet1_9
       - trex3.eth1
     L1_trex4:
-      - L1.Ethernet1_8
+      - L1.Ethernet1_7
       - trex4.eth1
-    L2_trex5:
-      - L2.Ethernet1_7
+    L1_trex5:
+      - L1.Ethernet1_8
       - trex5.eth1
-    L2_trex6:
-      - L2.Ethernet1_8
+    L1_trex6:
+      - L1.Ethernet1_9
       - trex6.eth1
+    L2_trex7:
+      - L2.Ethernet1_7
+      - trex7.eth1
+    L2_trex8:
+      - L2.Ethernet1_8
+      - trex8.eth1
+    L2_trex9:
+      - L2.Ethernet1_9
+      - trex9.eth1
     S0_L0_conn1:
       - S0.Ethernet1_1
       - L0.Ethernet1_1

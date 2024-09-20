@@ -110,6 +110,57 @@ devices:
     xr_port_redir:
       - 22
     console_ports: [60006]
+  trex7:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60007]
+  trex8:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60008]
+  trex9:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /auto/vxr/images/linux/ubuntu22.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60009]
 
   L0:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -319,18 +370,27 @@ connections:
     L0_trex2:
       - L0.Ethernet1_8
       - trex2.eth1
-    L1_trex3:
-      - L1.Ethernet1_7
+    L0_trex3:
+      - L0.Ethernet1_9
       - trex3.eth1
     L1_trex4:
-      - L1.Ethernet1_8
+      - L1.Ethernet1_7
       - trex4.eth1
-    L2_trex5:
-      - L2.Ethernet1_7
+    L1_trex5:
+      - L1.Ethernet1_8
       - trex5.eth1
-    L2_trex6:
-      - L2.Ethernet1_8
+    L1_trex6:
+      - L1.Ethernet1_9
       - trex6.eth1
+    L2_trex7:
+      - L2.Ethernet1_7
+      - trex7.eth1
+    L2_trex8:
+      - L2.Ethernet1_8
+      - trex8.eth1
+    L2_trex9:
+      - L2.Ethernet1_9
+      - trex9.eth1
     S0_L0_conn1:
       - S0.Ethernet1_1
       - L0.Ethernet1_1
