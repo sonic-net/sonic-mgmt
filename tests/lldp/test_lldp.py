@@ -1,6 +1,9 @@
 import logging
 import pytest
 from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
+from tests.common.helpers.dut_utils import get_program_info, kill_process_by_pid, is_container_running
+
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +19,24 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
     patch_lldpctl(localhost, duthost)
     yield
     unpatch_lldpctl(localhost, duthost)
+
+
+@pytest.fixture(scope="function")
+def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = duthost.asic_instance(enum_frontend_asic_index)
+    container_name = asic.get_docker_name("swss")
+    program_name = "orchagent"
+
+    logger.info("Restarting program '{}' in container '{}'".format(program_name, container_name))
+
+    duthost.shell("sudo config feature autorestart {} disabled".format(container_name))
+    _, program_pid = get_program_info(duthost, container_name, program_name)
+    kill_process_by_pid(duthost, container_name, program_name, program_pid)
+    is_running = is_container_running(duthost, container_name)
+    pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
+    duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
+    yield
 
 
 def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
@@ -42,19 +63,9 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
             assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
 
 
-def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos, sonic,
-                       collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index, tbinfo, request):
+def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
+                        enum_frontend_asic_index, tbinfo, request):
     """ verify LLDP information on neighbors """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-    if loganalyzer:
-        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend([
-            ".*ERR syncd#syncd: :- check_fdb_event_notification_data.*",
-            ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb \
-                notifications, NOT translating and NOT storing in ASIC DB.*",
-            ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was \
-                not sent since it contain invalid OIDs, bug.*",
-        ])
 
     res = duthost.shell(
         "docker exec -i lldp lldpcli show chassis | grep \"SysDescr:\" | sed -e 's/^\\s*SysDescr:\\s*//g'")
@@ -112,3 +123,28 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
         # Verify the published DUT port description field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == \
             config_facts['PORT'][k]['description']
+
+
+def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos, sonic,
+                       collect_techsupport_all_duts, loganalyzer, enum_frontend_asic_index, tbinfo, request):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if loganalyzer:
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend([
+            ".*ERR syncd#syncd: :- check_fdb_event_notification_data.*",
+            ".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb \
+                notifications, NOT translating and NOT storing in ASIC DB.*",
+            ".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was \
+                not sent since it contain invalid OIDs, bug.*",
+        ])
+    check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
+                        enum_frontend_asic_index, tbinfo, request)
+
+
+@pytest.mark.disable_loganalyzer
+def test_lldp_neighbor_post_orchagent_reboot(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
+                                             sonic, collect_techsupport_all_duts,
+                                             enum_frontend_asic_index, tbinfo, request, restart_orchagent):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
+                        enum_frontend_asic_index, tbinfo, request)
