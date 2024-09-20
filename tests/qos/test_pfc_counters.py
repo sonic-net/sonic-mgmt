@@ -59,6 +59,9 @@ def setup_testbed(fanouthosts, duthost, leaf_fanouts):           # noqa F811
 
     """ Copy the PFC generator to all the leaf fanout switches """
     for peer_device in leaf_fanouts:
+        if peer_device not in fanouthosts:
+            continue
+
         peerdev_ans = fanouthosts[peer_device]
         file_src = os.path.join(os.path.dirname(
             __file__), PFC_GEN_FILE_RELATIVE_PATH)
@@ -92,6 +95,10 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
         for intf in active_phy_intfs:
             peer_device = conn_facts[intf]['peerdevice']
             peer_port = conn_facts[intf]['peerport']
+
+            if peer_device not in fanouthosts:
+                continue
+
             peerdev_ans = fanouthosts[peer_device]
             fanout_os = peerdev_ans.get_fanout_os()
             fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
@@ -147,6 +154,10 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
 
                 peer_device = conn_facts[intf]['peerdevice']
                 peer_port = conn_facts[intf]['peerport']
+
+                if peer_device not in fanouthosts:
+                    continue
+
                 peerdev_ans = fanouthosts[peer_device]
                 fanout_os = peerdev_ans.get_fanout_os()
                 fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
