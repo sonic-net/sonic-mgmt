@@ -8,12 +8,12 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot           # noqa F401
 from tests.platform_tests.verify_dut_health import verify_dut_health            # noqa F401
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot      # noqa F401
-from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
+from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
+from tests.common.platform.device_utils import advanceboot_loganalyzer       # noqa F401
 
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service    # noqa F401
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip, show_muxcable_status
-from tests.common.dualtor.mux_simulator_control import get_mux_status, check_mux_status, validate_check_result,\
-    toggle_all_simulator_ports, toggle_simulator_port_to_upper_tor              # noqa F401
+from tests.common.dualtor.mux_simulator_control import get_mux_status, check_mux_status, validate_check_result  # noqa F401
 from tests.common.dualtor.constants import LOWER_TOR
 from tests.common.utilities import wait_until
 
@@ -79,7 +79,8 @@ def pytest_generate_tests(metafunc):
 
 # Tetcases to verify normal reboot procedure ###
 def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,           # noqa F811
-                     advanceboot_loganalyzer, capture_interface_counters):
+                     advanceboot_loganalyzer,   # noqa F811
+                     capture_interface_counters):
     '''
     Fast reboot test case is run using advanced reboot test fixture
 
@@ -93,7 +94,8 @@ def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,           
 
 def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request,
                                        get_advanced_reboot, verify_dut_health,      # noqa F811
-                                       advanceboot_loganalyzer, capture_interface_counters):
+                                       advanceboot_loganalyzer,  # noqa F811
+                                       capture_interface_counters):
     '''
     Fast reboot test from other vendor case is run using advanced reboot test fixture
 
@@ -110,7 +112,8 @@ def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request
 
 @pytest.mark.device_type('vs')
 def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_health,           # noqa F811
-                     duthosts, advanceboot_loganalyzer, capture_interface_counters,
+                     duthosts, advanceboot_loganalyzer,     # noqa F811
+                     capture_interface_counters,
                      toggle_all_simulator_ports, enum_rand_one_per_hwsku_frontend_hostname,     # noqa F811
                      toggle_simulator_port_to_upper_tor):                                       # noqa F811
     '''
@@ -133,12 +136,14 @@ def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_he
             toggle_simulator_port_to_upper_tor(itfs)
 
     advancedReboot = get_advanced_reboot(rebootType='warm-reboot',
-                                         advanceboot_loganalyzer=advanceboot_loganalyzer)
+                                         advanceboot_loganalyzer=advanceboot_loganalyzer    # noqa F811
+                                         )
     advancedReboot.runRebootTestcase()
 
 
 def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,          # noqa F811
-                              advanceboot_loganalyzer, capture_interface_counters):
+                              advanceboot_loganalyzer,  # noqa F811
+                              capture_interface_counters):
     '''
     Warm reboot testcase with one MAC address (00-06-07-08-09-0A) jumping from
     all VLAN ports.
