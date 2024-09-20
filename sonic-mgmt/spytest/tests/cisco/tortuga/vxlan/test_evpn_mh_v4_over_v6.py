@@ -35,7 +35,7 @@ def initial_setup():
 
     if  dut_type == "sim":
         data.transmit_mode = "single_burst"
-        data.pkts_per_burst = "500"
+        data.pkts_per_burst = "1000"
         ### Using lower line rate for SIM tgen ###
         data.rate_percent = "0.01"
         data.circuit_endpoint_type = "ipv4"
