@@ -15,8 +15,8 @@ from tests.common.platform.transceiver_utils import parse_transceiver_info
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
-from constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, OFFSET_ITEMS, \
-    TIME_SPAN_ITEMS, REQUIRED_PATTERNS
+from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
+    OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 
 """
 Helper script for fanout switch operations
