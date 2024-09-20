@@ -9,8 +9,19 @@ def pytest_assert(condition, message=None):
         pytest.fail(message)
 
 
+def pytest_expect(condition, message=None):
+    """
+    Same as pytest_assert, but does not halt execution.
+    """
+    if not condition:
+        if not isinstance(message, str):
+            message = str(message)
+        pytest.xfail(message)
+
+
 def pytest_require(condition, skip_message="", allow_module_level=True):
     if not condition:
         # We can't use pytest.skip here because pytest after 3.0
         # doesn't allow to call skip outside a test case or fixture.
-        raise pytest.skip.Exception(skip_message, allow_module_level=allow_module_level)
+        raise pytest.skip.Exception(
+            skip_message, allow_module_level=allow_module_level)
