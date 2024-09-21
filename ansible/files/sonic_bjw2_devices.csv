@@ -42,10 +42,10 @@ bjw2-can-8101-leaf-2,10.150.22.58/23,Cisco-8101-O32,FanoutLeafSonic,,sonic
 bjw2-can-8101-leaf-3,10.150.22.60/23,Cisco-8101-O8C48,FanoutLeafSonic,,sonic
 bjw2-can-8101-leaf-4,10.150.22.61/23,Cisco-8101-O32,FanoutLeafSonic,,sonic
 bjw2-can-8101-leaf-5,10.150.22.63/23,Cisco-8101-O8C48,FanoutLeafSonic,,sonic
-bjw2-can-7215-1,10.150.22.167/23,Nokia-M0-7215,DevSonic,,sonic
-bjw2-can-7215-2,10.150.22.169/23,Nokia-M0-7215,DevSonic,,sonic
-bjw2-can-7215-3,10.150.22.171/23,Nokia-M0-7215,DevSonic,,sonic
-bjw2-can-7215-4,10.150.22.173/23,Nokia-M0-7215,DevSonic,,sonic
+bjw2-can-7215-1,10.150.22.167/23,Nokia-7215,DevSonic,,sonic
+bjw2-can-7215-2,10.150.22.169/23,Nokia-7215,DevSonic,,sonic
+bjw2-can-7215-3,10.150.22.171/23,Nokia-7215,DevSonic,,sonic
+bjw2-can-7215-4,10.150.22.173/23,Nokia-7215,DevSonic,,sonic
 bjw2-can-7215-5,10.150.22.175/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-6,10.150.22.177/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-7,10.150.22.179/23,Nokia-M0-7215,DevSonic,,sonic
