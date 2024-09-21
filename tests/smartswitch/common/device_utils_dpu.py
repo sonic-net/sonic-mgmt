@@ -25,8 +25,7 @@ def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
 
     if not duthost.facts["DPUS"] and \
             parse_version(duthost.os_version) <= parse_version("202405"):
-        pytest.skip("Test is not supported for this testbed and
-                     os version")
+        pytest.skip("Test is not supported for this testbed and os version")
 
     darkmode = is_dark_mode(duthost, platform_api_conn)
 
