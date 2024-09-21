@@ -7,7 +7,7 @@ from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # no
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.fixtures.ptfhost_utils import pause_garp_service          # noqa F401
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from .files.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
+from tests.common.helpers.pfcwd_helper import TrafficPorts, set_pfc_timers, select_test_ports
 from tests.common.utilities import str2bool
 
 logger = logging.getLogger(__name__)

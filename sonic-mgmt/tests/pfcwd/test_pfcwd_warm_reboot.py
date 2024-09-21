@@ -16,9 +16,9 @@ from tests.common.reboot import DUT_ACTIVE
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
-from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
-from .files.pfcwd_helper import send_background_traffic
-from .files.pfcwd_helper import has_neighbor_device
+from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
+from tests.common.helpers.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import has_neighbor_device
 from tests.common.utilities import wait_until
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")

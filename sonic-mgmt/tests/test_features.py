@@ -1,6 +1,6 @@
 # Helper Functions
 import pytest
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import run_show_features
 
 pytestmark = [
     pytest.mark.topology('any')

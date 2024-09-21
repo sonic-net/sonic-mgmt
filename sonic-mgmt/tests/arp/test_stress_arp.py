@@ -2,13 +2,13 @@ import logging
 import time
 import pytest
 from .arp_utils import MacToInt, IntToMac, get_crm_resources, fdb_cleanup, \
-                      clear_dut_arp_cache, increment_ipv6_addr, get_fdb_dynamic_mac_count
+                      clear_dut_arp_cache, get_fdb_dynamic_mac_count
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
                       in6_getnsma, inet_pton, inet_ntop, socket
 from ipaddress import ip_address, ip_network
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, increment_ipv6_addr
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test   # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 

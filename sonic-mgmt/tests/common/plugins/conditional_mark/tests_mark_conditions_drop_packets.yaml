@@ -27,12 +27,6 @@ drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
 #######################################
 #####     test_drop_counters.py   #####
 #######################################
-drop_packets/test_drop_counters.py:
-  xfail:
-    reason: "Xfail for KVM t1-lag platform"
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14512"
-
 drop_packets/test_drop_counters.py::test_absent_ip_header:
   skip:
     reason: "Test case not supported on Broadcom DNX platform"
@@ -161,12 +155,11 @@ drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop[vlan_members
       - "asic_type in ['broadcom']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
   xfail:
-    reason: "Xfail for image issue on broadcom platforms - CS00012209080 or KVM t1-lag platform"
+    reason: "Image issue on broadcom platforms - CS00012209080"
     strict: True
-    conditions_logical_operator: or
     conditions:
-      - "asic_type in ['broadcom'] and topo_name in ['t0-backend']"
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14512"
+      - "asic_type in ['broadcom']"
+      - "topo_name in ['t0-backend']"
 
 drop_packets/test_drop_counters.py::test_src_ip_is_class_e:
   skip:

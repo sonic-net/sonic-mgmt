@@ -279,9 +279,7 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                 ][0]
 
             self.existing = existing
-            self.inner_packet = None
-            if self.existing:
-                self.inner_packet = inner_packet
+            self.inner_packet = inner_packet
             self.exp_pkt = self._build_tunnel_packet(self.standby_tor_lo_addr, self.active_tor_lo_addr,
                                                      inner_packet=self.inner_packet)
             self.rec_pkt = None

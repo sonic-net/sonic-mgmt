@@ -47,6 +47,8 @@ class GenerateGoldenConfigDBModule(object):
         ori_config_db = json.loads(out)
         if "FEATURE" not in ori_config_db or "dhcp_server" not in ori_config_db["FEATURE"]:
             return "{}"
+
+        ori_config_db["FEATURE"]["dhcp_server"]["state"] = "enabled"
         gold_config_db = {
             "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
             "PORT": copy.deepcopy(ori_config_db["PORT"])

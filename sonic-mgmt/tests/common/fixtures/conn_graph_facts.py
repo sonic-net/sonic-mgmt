@@ -32,11 +32,17 @@ def fanout_graph_facts_multidut(localhost, duthosts, conn_graph_facts):
     if not dev_conn:
         return facts
 
+    fanout_set = set()
     for duthost in duthosts:
         for _, val in list(dev_conn[duthost.hostname].items()):
-            fanout = val["peerdevice"]
-            if fanout not in facts:
-                facts[fanout] = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
+            fanout_set.add(val["peerdevice"])
+
+    # Only take IXIA/SNAPPI testers into fanout_facts
+    for fanout in fanout_set:
+        fanout_data = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
+        if fanout_data['device_info']['HwSku'] in ('SNAPPI-tester', 'IXIA-tester'):
+            facts[fanout] = fanout_data
+
     return facts
 
 

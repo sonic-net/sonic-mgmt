@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, create_ext_conf
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME
-from tests.generic_config_updater.gu_utils import create_checkpoint, rollback
+from tests.common.gu_utils import create_checkpoint, rollback
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"

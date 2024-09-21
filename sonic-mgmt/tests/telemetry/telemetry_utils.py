@@ -52,30 +52,6 @@ def skip_201911_and_older(duthost):
         pytest.skip("Test not supported for 201911 images. Skipping the test")
 
 
-def setup_telemetry_forpyclient(duthost):
-    """ Set client_auth=false. This is needed for pyclient to successfully set up channel with gnmi server.
-        Restart telemetry process
-    """
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
-                                    module_ignore_errors=False)['stdout_lines']
-    client_auth = str(client_auth_out[0])
-    return client_auth
-
-
-def restore_telemetry_forpyclient(duthost, default_client_auth):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
-                                    module_ignore_errors=False)['stdout_lines']
-    client_auth = str(client_auth_out[0])
-    if client_auth != default_client_auth:
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" %s'
-                      % (env.gnmi_config_table, default_client_auth),
-                      module_ignore_errors=False)
-        duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
-        duthost.service(name=env.gnmi_container, state="restarted")
-
-
 def check_gnmi_cli_running(ptfhost):
     program_list = ptfhost.shell("pgrep -f 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py'")["stdout"]
     return len(program_list) > 0

@@ -3,8 +3,8 @@ import logging
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.tacacs.conftest import tacacs_creds      # noqa F401
-from tests.tacacs.utils import setup_local_user
+from tests.common.fixtures.tacacs import tacacs_creds     # noqa F401
+from tests.common.helpers.tacacs.tacacs_helper import setup_local_user
 from tests.common.utilities import paramiko_ssh
 from tests.common.fixtures.tacacs import get_aaa_sub_options_value
 

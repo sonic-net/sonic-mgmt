@@ -6,6 +6,7 @@ This script contains re-usable functions for checking status of interfaces on SO
 
 import re
 import logging
+import json
 from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
 
@@ -185,3 +186,20 @@ def get_physical_port_indices(duthost, logical_intfs=None):
             physical_port_index_dict[intf] = (int(index))
 
     return physical_port_index_dict
+
+
+def get_dpu_npu_ports_from_hwsku(duthost):
+    dpu_npu_port_list = []
+    platform, hwsku = duthost.facts["platform"], duthost.facts["hwsku"]
+    hwsku_file = f'/usr/share/sonic/device/{platform}/{hwsku}/hwsku.json'
+    if duthost.shell(f"ls {hwsku_file}", module_ignore_errors=True)['rc'] != 0:
+        return dpu_npu_port_list
+    hwsku_content = duthost.shell(f"cat {hwsku_file}")["stdout"]
+    hwsku_dict = json.loads(hwsku_content)
+    dpu_npu_role_value = "Dpc"
+
+    for intf, intf_config in hwsku_dict.get("interfaces").items():
+        if intf_config.get("role") == dpu_npu_role_value:
+            dpu_npu_port_list.append(intf)
+    logging.info(f"DPU NPU ports in hwsku.json are {dpu_npu_port_list}")
+    return dpu_npu_port_list

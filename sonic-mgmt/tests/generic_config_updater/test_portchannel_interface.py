@@ -4,10 +4,10 @@ import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import create_path, check_show_ip_intf
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import create_path, check_show_ip_intf
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # "PORTCHANNEL_INTERFACE": {

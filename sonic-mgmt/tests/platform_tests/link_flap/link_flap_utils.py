@@ -1,54 +1,12 @@
 """
 Test utils used by the link flap tests.
 """
-import time
 import logging
 import random
 
-from tests.common.platform.device_utils import fanout_switch_port_lookup
-from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.device_utils import fanout_switch_port_lookup, __get_dut_if_status
 
 logger = logging.getLogger(__name__)
-
-
-def __get_dut_if_status(dut, ifname=None):
-    """
-    Get interface status on the DUT.
-
-    Args:
-        dut: DUT host object
-        ifname: Interface of DUT
-        exp_state: State of DUT's port ('up' or 'down')
-        verbose: Logging port state.
-
-    Returns:
-        Interface state
-    """
-    if not ifname:
-        status = dut.show_interface(command='status')['ansible_facts']['int_status']
-    else:
-        status = dut.show_interface(command='status', interfaces=[ifname])['ansible_facts']['int_status']
-    return status
-
-
-def __check_if_status(dut, dut_port, exp_state, verbose=False):
-    """
-    Check interface status on the DUT.
-
-    Args:
-        dut: DUT host object
-        dut_port: Port of DUT
-        exp_state: State of DUT's port ('up' or 'down')
-        verbose: Logging port state.
-
-    Returns:
-        Bool value which confirm port state
-    """
-    status = __get_dut_if_status(dut, dut_port)[dut_port]
-    if verbose:
-        logger.debug("Interface status : %s", status)
-    return status['oper_state'] == exp_state
 
 
 def __build_candidate_list(candidates, fanout, fanout_port, dut_port, status):
@@ -132,71 +90,6 @@ def check_portchannel_status(dut, dut_port_channel, exp_state, verbose=False):
     if verbose:
         logger.debug("Portchannel status : %s", status)
     return status['oper_state'] == exp_state
-
-
-def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False, check_status=True):
-    """
-    Toggle one link on the fanout.
-
-    Args:
-        dut: DUT host object
-        dut_port: Port of DUT
-        fanout: Fanout host object
-        fanout_port: Port of fanout
-        watch: Logging system state
-    """
-
-    sleep_time = 90
-    logger.info("Testing link flap on %s", dut_port)
-    if check_status:
-        pytest_assert(__check_if_status(dut, dut_port, 'up', verbose=True),
-                      "Fail: dut port {}: link operational down".format(dut_port))
-
-    logger.info("Shutting down fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
-
-    need_recovery = True
-    try:
-        fanout.shutdown(fanout_port)
-        if check_status:
-            pytest_assert(wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'down', True),
-                          "dut port {} didn't go down as expected".format(dut_port))
-
-        if watch:
-            time.sleep(1)
-            watch_system_status(dut)
-
-        logger.info("Bring up fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
-        fanout.no_shutdown(fanout_port)
-        need_recovery = False
-
-        if check_status:
-            pytest_assert(wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'up', True),
-                          "dut port {} didn't go up as expected".format(dut_port))
-    finally:
-        if need_recovery:
-            fanout.no_shutdown(fanout_port)
-            if check_status:
-                wait_until(sleep_time, 1, 0, __check_if_status, dut, dut_port, 'up', True)
-
-
-def watch_system_status(dut):
-    """
-    Watch DUT's system status
-
-    Args:
-        dut: DUT host object
-    """
-    # Watch memory status
-    memory_output = dut.shell("show system-memory")["stdout"]
-    logger.info("Memory Status: %s", memory_output)
-
-    # Watch orchagent CPU utilization
-    orch_cpu = dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
-    logger.info("Orchagent CPU Util: %s", orch_cpu)
-
-    # Watch Redis Memory
-    redis_memory = dut.shell("redis-cli info memory | grep used_memory_human")["stdout"]
-    logger.info("Redis Memory: %s", redis_memory)
 
 
 def check_orch_cpu_utilization(dut, orch_cpu_threshold):

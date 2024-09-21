@@ -5,8 +5,8 @@ from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.utilities import wait_until
-from test_traffic_shift import verify_only_loopback_routes_are_announced_to_neighs, parse_routes_on_neighbors
-from test_traffic_shift import verify_current_routes_announced_to_neighs, check_and_log_routes_diff
+from route_checker import verify_only_loopback_routes_are_announced_to_neighs, parse_routes_on_neighbors
+from route_checker import verify_current_routes_announced_to_neighs, check_and_log_routes_diff
 
 pytestmark = [
     pytest.mark.topology('t2')

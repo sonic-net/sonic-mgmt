@@ -166,14 +166,23 @@ class Sonic(host_device.HostDevice):
         log_data = {}
 
         self.log('Collecting logs')
-        log_lines = self.do_cmd("sudo cat "
-                                "/var/log/syslog{,.1} "
-                                "/var/log/teamd.log{,.1} "
-                                "/var/log/frr/bgpd.log "
-                                "/var/log/frr/zebra.log").split('\n')
-        syslog_regex_r = r'^(\S+\s+\d+\s+\d+:\d+:\d+)\.\d+ \S+ [A-Z]+ ([a-z\-]+#[/a-zA-Z0-9_]+)' \
+        log_files = [
+            "/var/log/syslog{.1,}",
+            "/var/log/teamd.log{.1,}",
+            "/var/log/frr/bgpd.log",
+            "/var/log/frr/zebra.log"
+        ]
+
+        logs_to_output = {log_file: self.do_cmd("sudo cat {}".format(log_file)).split('\n')
+                          for log_file in log_files}
+        log_lines = [line for output in logs_to_output.values() for line in output]
+        syslog_regex_r = r'^(?:\d{4}\s+)?(\S+\s+\d+\s+\d+:\d+:\d+)\.\d+ \S+ [A-Z]+ ([a-z\-]+#[/a-zA-Z0-9_]+)' \
             r'(?:\s+\d+-\d+-\d+\s+\d+:\d+:\d+,\d+\s+[A-Z]+\s+\w+)?(?:\[\d+\])?: (.+)$'
-        parsed_logs = self.extract_from_logs(syslog_regex_r, log_lines, min_timestamp=start_time)
+        parsed_logs = {}
+        total_lag_flaps = 0
+        for _, output in logs_to_output.items():
+            parsed_logs.update(self.extract_from_logs(syslog_regex_r, output, min_timestamp=start_time))
+            total_lag_flaps += self.check_lag_flaps("PortChannel1", output, start_time)[1]
         self.log('Log output "{}"'.format('\n'.join(["{} {} {}".format(k[0], j, k[1])
                                                     for j in parsed_logs for k in parsed_logs[j]])))
         log_data = self.parse_logs(parsed_logs)
@@ -204,7 +213,7 @@ class Sonic(host_device.HostDevice):
         cli_data['lacp'] = (0, 0)
         cli_data['bgp_v4'] = self.check_series_status(data, "bgp_route_v4", "BGP v4 routes")
         cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
-        cli_data['po'] = self.check_lag_flaps("PortChannel1", log_lines, start_time)
+        cli_data['po'] = (0, total_lag_flaps)
 
         if 'route_timeout' in log_data:
             route_timeout = log_data['route_timeout']
@@ -228,22 +237,21 @@ class Sonic(host_device.HostDevice):
             }
 
     def extract_from_logs(self, regexp, data, min_timestamp=None):
-        raw_data = []
         result = defaultdict(list)
         re_compiled = re.compile(regexp)
-        for line in data:
+        current_year = datetime.datetime.now().year
+        for line in reversed(data):
             m = re_compiled.match(line)
             if not m:
                 continue
-            log_time = datetime.datetime.strptime(str(datetime.datetime.now().year) + " " + m.group(1), "%Y %b %d %X")
+            log_time = datetime.datetime.strptime(str(current_year) + " " + m.group(1), "%Y %b %d %X")
             # Python 3 version (Python 2 doesn't have timestamp():
-            # raw_data.append((log_time.timestamp(), m.group(2), m.group(3)))
-            raw_data.append((time.mktime(log_time.timetuple()), m.group(2), m.group(3)))
-
-        if len(raw_data) > 0:
-            for when, what, status in raw_data:
-                if min_timestamp and when >= min_timestamp:
-                    result[what].append((when, status))
+            # when, what, status = log_time.timestamp(), m.group(2), m.group(3)
+            when, what, status = time.mktime(log_time.timetuple()), m.group(2), m.group(3)
+            if min_timestamp and when >= min_timestamp:
+                result[what].insert(0, (when, status))
+            else:
+                break
 
         return result
 
