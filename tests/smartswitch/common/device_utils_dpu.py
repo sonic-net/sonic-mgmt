@@ -13,18 +13,20 @@ from pkg_resources import parse_version
 def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
                           platform_api_conn):
     """
-    Checks whethere given testbed is smartswitch or not
-    If not smartswitch, then skip tests
-    else, checks for darkmode of dpus
+    Checks whether given testbed is running
+    202405 image or below versions
+    If True, then skip the script
+    else checks if dpus are in darkmode
     If dpus are in dark mode, then power up the DPUs
-    else, proceeds to run test cases scripts
+    else, proceeds to run all test cases
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     if not duthost.facts["DPUS"] and \
             parse_version(duthost.os_version) <= parse_version("202405"):
-        pytest.skip("It is not a smartswitch")
+        pytest.skip("Test is not supported for this testbed and
+                     os version")
 
     darkmode = is_dark_mode(duthost, platform_api_conn)
 
@@ -35,8 +37,7 @@ def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
 def is_dark_mode(duthost, platform_api_conn):
 
     """
-    Checks whether the tested is in dark mode or not
-    based on the redis dump of admin status of the DPUs
+    Checks the liveliness of DPU
     Returns:
         True if all DPUs admin status are down
         else False
