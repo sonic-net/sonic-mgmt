@@ -17,6 +17,7 @@ from tests.common.dualtor.mux_simulator_control import get_mux_status, check_mux
 from tests.common.dualtor.constants import LOWER_TOR
 from tests.common.utilities import wait_until
 
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0'),
@@ -77,6 +78,18 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("sad_case_type", sad_cases, scope="module")
 
 
+@pytest.fixture(scope="function")
+def skip_on_low_cpu_platform(request, duthosts, rand_one_dut_hostname):
+    '''
+    skip the test on some low CPU platform if the neighbor is not vsonic
+    '''
+    LOW_CPU_PLATFORMS = ["x86_64-mlnx_msn2700-r0"]
+    duthost = duthosts[rand_one_dut_hostname]
+    platform = duthost.facts["platform"]
+    if platform in LOW_CPU_PLATFORMS and request.config.getoption("neighbor_type") != "sonic":
+        pytest.skip("Skip the test on low performance CPU platform with Non-vSONiC neighbors")
+
+
 # Tetcases to verify normal reboot procedure ###
 def test_fast_reboot(request, get_advanced_reboot, verify_dut_health,           # noqa F811
                      advanceboot_loganalyzer, capture_interface_counters):
@@ -112,7 +125,7 @@ def test_fast_reboot_from_other_vendor(duthosts,  rand_one_dut_hostname, request
 def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_health,           # noqa F811
                      duthosts, advanceboot_loganalyzer, capture_interface_counters,
                      toggle_all_simulator_ports, enum_rand_one_per_hwsku_frontend_hostname,     # noqa F811
-                     toggle_simulator_port_to_upper_tor):                                       # noqa F811
+                     toggle_simulator_port_to_upper_tor, skip_on_low_cpu_platform):            # noqa F811
     '''
     Warm reboot test case is run using advacned reboot test fixture
 
@@ -138,7 +151,8 @@ def test_warm_reboot(request, testing_config, get_advanced_reboot, verify_dut_he
 
 
 def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,          # noqa F811
-                              advanceboot_loganalyzer, capture_interface_counters):
+                              advanceboot_loganalyzer, capture_interface_counters,
+                              skip_on_low_cpu_platform): # noqa F811
     '''
     Warm reboot testcase with one MAC address (00-06-07-08-09-0A) jumping from
     all VLAN ports.
@@ -162,7 +176,7 @@ def test_warm_reboot_mac_jump(request, get_advanced_reboot, verify_dut_health,  
 def test_warm_reboot_sad(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, vmhost, tbinfo,
                          get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,           # noqa F811
                          backup_and_restore_config_db, advanceboot_neighbor_restore,                # noqa F811
-                         sad_case_type):
+                         sad_case_type, skip_on_low_cpu_platform): # noqa F811
     '''
     Warm reboot with sad path
     @param get_advanced_reboot: Fixture located in advanced_reboot.py
