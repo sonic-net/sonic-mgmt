@@ -770,6 +770,39 @@ generic_config_updater/test_pg_headroom_update.py:
       - "topo_type in ['m0', 'mx']"
 
 #######################################
+#####           hash              #####
+#######################################
+hash/test_generic_hash.py::test_ecmp_and_lag_hash:
+  skip:
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    conditions:
+      - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_lag_member_flap:
+  skip:
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    conditions:
+      - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_lag_member_remove_add:
+  skip:
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    conditions:
+      - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_nexthop_flap:
+  skip:
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    conditions:
+      - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_reboot:
+  skip:
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
+    conditions:
+      - "asic_gen == 'spc1'"
+
+#######################################
 #####           http              #####
 #######################################
 http/test_http_copy.py:
