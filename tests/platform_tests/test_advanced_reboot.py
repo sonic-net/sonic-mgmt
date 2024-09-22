@@ -63,18 +63,24 @@ def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
 
 
 def pytest_generate_tests(metafunc):
-    input_sad_cases = metafunc.config.getoption("sad_case_list")
-    input_sad_list = list()
-    for input_case in input_sad_cases.split(","):
-        input_case = input_case.strip()
+    if "sad_case_type" not in metafunc.fixturenames:
+        return
+    
+    input_sad_cases_str = metafunc.config.getoption("sad_case_list")
+    input_sad_cases = [suitename.strip() for suitename in input_sad_cases_str.split(",")]
+    if metafunc.config.option.single_sad_only:
+        input_sad_cases.remove("multi_sad")
+    if metafunc.config.option.multi_sad_only:
+        input_sad_cases.remove("sad")
+
+    selected_sad_list = []
+    for input_case in input_sad_cases:
         if input_case.lower() not in SAD_CASE_LIST:
             logging.warn(
                 "Unknown SAD case ({}) - skipping it.".format(input_case))
             continue
-        input_sad_list.append(input_case.lower())
-    if "sad_case_type" in metafunc.fixturenames:
-        sad_cases = input_sad_list
-        metafunc.parametrize("sad_case_type", sad_cases, scope="module")
+        selected_sad_list.append(input_case.lower())
+    metafunc.parametrize("sad_case_type", selected_sad_list, scope="module")
 
 
 # Tetcases to verify normal reboot procedure ###

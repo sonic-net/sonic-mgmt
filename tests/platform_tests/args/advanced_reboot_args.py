@@ -181,3 +181,15 @@ def add_advanced_reboot_args(parser):
         "sonic_version is a template token that will be replaced with the actual sonic version of the device under " +
         "test. e.g. 202311"
     )
+
+    parser.addoption(
+        "--single_sad_only",
+        action="store_true",
+        default=False
+    )
+
+    parser.addoption(
+        "--multi_sad_only",
+        action="store_true",
+        default=False
+    )
