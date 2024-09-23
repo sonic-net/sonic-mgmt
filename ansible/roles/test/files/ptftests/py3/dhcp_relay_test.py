@@ -134,9 +134,9 @@ class DHCPTest(DataplaneBaseTest):
             0, self.server_port_indices[0])
 
         self.relay_iface_ip = self.test_params['relay_iface_ip']
-        self.relay_iface_mac = self.test_params['relay_iface_mac']
+        self.relay_iface_mac = self.test_params.get('relay_iface_mac', '')
 
-        self.client_iface_alias = self.test_params['client_iface_alias']
+        self.client_iface_alias = self.test_params.get('client_iface_alias', '')
         self.client_port_index = int(self.test_params['client_port_index'])
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
 
