@@ -1,6 +1,6 @@
 import pytest
 
-from .test_ro_user import ssh_remote_run, ssh_remote_run_retry
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry
 from tests.common.utilities import check_output
 
 pytestmark = [
