@@ -84,8 +84,8 @@ pdu-229,45,strtk5-msn2700-01,PSU1
 pdu-230,44,strtk5-msn2700-01,PSU2
 pdu-230,11,strtk5-7260-fanout-24,PSU1
 pdu-231,12,strtk5-7260-fanout-24,PSU2
-pdu-230,13,strtk5-7260-fanout-22,PSU1
-pdu-231,14,strtk5-7260-fanout-22,PSU2
+pdu-230,13,strtk5-7260-7,PSU1
+pdu-231,14,strtk5-7260-7,PSU2
 pdu-230,15,strtk5-e1031-fan-4,PSU1
 pdu-231,16,strtk5-e1031-fan-4,PSU2
 pdu-230,17,strtk5-e1031-acs-3,PSU1
