@@ -11,7 +11,7 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import wait
 from tests.common.utilities import pdu_reboot
 from tests.common.reboot import reboot
-from .test_ro_user import ssh_remote_run
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
 from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_client
 from .utils import change_and_wait_aaa_config_update
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
