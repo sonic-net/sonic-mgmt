@@ -5,11 +5,7 @@ import random
 
 from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import *                                # noqa F403
-from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
-from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
-from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder              # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
@@ -23,7 +19,9 @@ pytestmark = [
     pytest.mark.topology("dualtor")
 ]
 
+
 ZERO_MAC_ADDR = "00:00:00:00:00:00"
+
 
 @pytest.fixture(scope="function")
 def send_zero_mac_packets(ptfadapter, rand_selected_dut, tbinfo):
@@ -68,4 +66,5 @@ def test_zero_src_mac_handling(send_zero_mac_packets, apply_active_state_to_orch
     logging.info("MAC table: %s", pprint.pformat(mac_table))
     pytest_assert(ZERO_MAC_ADDR not in mac_table["stdout"], "MAC table contains zero source MAC address")
     logging.info("Zero source MAC handling test completed.")
+
 
