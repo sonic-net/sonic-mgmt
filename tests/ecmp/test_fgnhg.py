@@ -275,9 +275,8 @@ def static_neighbor_entry(duthost, ip, mac, prefix_list):
             logger.info("adding ipv4 static arp entry for ip %s on DUT" % (ip))
             duthost.shell("sudo arp -s {0} {1}".format(ip, mac))
     else:
-        vlan_name = "Vlan" + str(DEFAULT_VLAN_ID)
         logger.info("adding ipv6 static arp entry for ip %s on DUT" % (ip))
-        duthost.shell("sudo ip -6 neigh add {0} lladdr {1} dev Vlan{2}".format(ip, mac, vlan_name))
+        duthost.shell("sudo ip -6 neigh replace {0} lladdr {1} dev Vlan{2}".format(ip, mac, DEFAULT_VLAN_ID))
 
 def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix_list):
 
