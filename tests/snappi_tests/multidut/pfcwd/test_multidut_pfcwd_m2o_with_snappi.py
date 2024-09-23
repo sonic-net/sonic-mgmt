@@ -76,6 +76,7 @@ def test_pfcwd_many_to_one(snappi_api,              # noqa: F811
                                                                                 snappi_api)
 
     lossless_prio = random.sample(lossless_prio_list, 1)
+    lossless_prio = int(lossless_prio[0])
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports

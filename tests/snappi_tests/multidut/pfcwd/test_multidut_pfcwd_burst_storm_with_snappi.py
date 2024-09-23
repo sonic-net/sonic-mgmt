@@ -73,6 +73,7 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,             # noqa: 
                                                                                 snappi_api)
 
     lossless_prio = random.sample(lossless_prio_list, 1)
+    lossless_prio = int(lossless_prio[0])
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 

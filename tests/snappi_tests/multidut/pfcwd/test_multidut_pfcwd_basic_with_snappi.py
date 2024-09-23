@@ -76,7 +76,7 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
     skip_pfcwd_test(duthost=snappi_ports[1]['duthost'], trigger_pfcwd=trigger_pfcwd)
 
     lossless_prio = random.sample(lossless_prio_list, 1)
-    lossless_prio = int(lossless_prio)
+    lossless_prio = int(lossless_prio[0])
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
@@ -223,7 +223,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
                                                                                 snappi_api)
 
     lossless_prio = random.sample(lossless_prio_list, 1)
-    lossless_prio = int(lossless_prio)
+    lossless_prio = int(lossless_prio[0])
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
@@ -385,7 +385,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
                                                                                 snappi_ports,
                                                                                 snappi_api)
     lossless_prio = random.sample(lossless_prio_list, 1)
-    lossless_prio = int(lossless_prio)
+    lossless_prio = int(lossless_prio[0])
 
     if (snappi_ports[0]['duthost'].is_multi_asic):
         ports_dict = defaultdict(list)
