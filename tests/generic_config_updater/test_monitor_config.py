@@ -51,7 +51,7 @@ def get_valid_acl_ports(rand_selected_dut, rand_asic_namespace):
                     ports.add(key)
         return list(ports)
 
-    return _get_valid_acl_ports(asic_namespace)
+    return _get_valid_acl_ports()
 
 
 def bgp_monitor_config_cleanup(duthost, namespace=None):

@@ -195,7 +195,7 @@ def check_config_update(duthost, expected_count, namespace=None):
         expected_count: number of pfcwd entries expected in the updated config
         namespace: namespace to be used for the command
     """
-    def _confirm_value_in_flex_db(duthost, expected_count):
+    def _confirm_value_in_flex_db():
         pfcwd_entries_count = get_flex_db_count(duthost, namespace)
         logger.info("Actual number of entries: {}".format(pfcwd_entries_count))
         return pfcwd_entries_count == expected_count
@@ -206,10 +206,7 @@ def check_config_update(duthost, expected_count, namespace=None):
             READ_FLEXDB_TIMEOUT,
             READ_FLEXDB_INTERVAL,
             0,
-            _confirm_value_in_flex_db,
-            duthost,
-            expected_count,
-            namespace
+            _confirm_value_in_flex_db
         ),
         "FLEX DB does not properly reflect Pfcwd status: Expected number of entries {}".format(expected_count)
     )
