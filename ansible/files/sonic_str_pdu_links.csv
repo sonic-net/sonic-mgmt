@@ -76,8 +76,6 @@ pdu-99,34,str-7260-18,PSU1
 pdu-98,34,str-7260-18,PSU2
 pdu-102,24,str-7260-24,PSU1
 pdu-103,24,str-7260-24,PSU2
-pdu-104,8,str-7260-26,PSU1
-pdu-105,8,str-7260-26,PSU2
 pdu-107,10,str-7260cx3-fan-06,PSU1
 pdu-107,31,str-e1031-acs-2,PSU1
 pdu-108,31,str-e1031-acs-2,PSU2

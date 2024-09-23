@@ -818,9 +818,6 @@ fanout:
       ansible_host: 10.64.247.25
       ansible_hostv6: 2a01:111:e210:b000::a40:f719
       os: sonic
-    str-7260-26:
-      ansible_host: 10.3.146.160
-      ansible_hostv6: 2a01:111:e210:3000::a03:92a0
     str-msn4700-fanout-01:
       ansible_host: 10.3.146.204
       ansible_hostv6: 2a01:111:e210:3000::a03:92cc
