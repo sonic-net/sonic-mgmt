@@ -88,7 +88,7 @@ def test_wr_arp(request, duthost, ptfhost, creds, skip_traffic_test):   # noqa F
     testWrArp(request, duthost, ptfhost, creds, skip_traffic_test)
 
 
-def test_wr_arp_advance(self, request, duthost, ptfhost, creds, skip_traffic_test):    # noqa F811
+def test_wr_arp_advance(request, duthost, ptfhost, creds, skip_traffic_test):    # noqa F811
     testDuration = request.config.getoption('--test_duration', default=DEFAULT_TEST_DURATION)
     ptfIp = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
