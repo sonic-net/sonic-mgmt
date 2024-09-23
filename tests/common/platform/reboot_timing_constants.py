@@ -1,16 +1,5 @@
 import re
 
-REQUIRED_PATTERNS = {
-    "time_span": [
-        "SAI_CREATE_SWITCH",
-        "APPLY_VIEW"
-    ],
-    "offset_from_kexec": [
-        "LAG_READY",
-        "PORT_READY"
-    ]
-}
-
 SERVICE_PATTERNS = {
     "LATEST": {
         "Stopping": re.compile(r'.*Stopping.*(service|container).*'),
@@ -106,3 +95,14 @@ TIME_SPAN_ITEMS = ['RADV', 'BGP', 'SYNCD', 'SWSS', 'TEAMD', 'DATABASE',
                    'SYNCD_CREATE_SWITCH', 'SAI_CREATE_SWITCH', 'APPLY_VIEW', 'INIT_VIEW',
                    'NEIGHBOR_ENTRY', 'PORT_INIT', 'PORT_READY', 'FINALIZER', 'LAG_READY',
                    'FPMSYNCD_RECONCILIATION', 'ROUTE_DEFERRAL_TIMER', 'FDB_RESTORE']
+
+REQUIRED_PATTERNS = {
+    "time_span": [
+        "SAI_CREATE_SWITCH",
+        "APPLY_VIEW"
+    ],
+    "offset_from_kexec": [
+        "LAG_READY",
+        "PORT_READY"
+    ]
+}
