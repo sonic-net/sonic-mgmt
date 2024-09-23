@@ -10,27 +10,55 @@ import optparse
 import logging
 import logging.handlers
 import time
+import multiprocessing
+
 from socket import socket, AF_PACKET, SOCK_RAW
 
 logger = logging.getLogger('MyLogger')
 logger.setLevel(logging.DEBUG)
 
+# Maximum number of processes to be created
+MAX_PROCESS_NUM = 4
 
-def checksum(msg):
-    s = 0
 
-    # loop taking 2 characters at a time
-    for i in range(0, len(msg), 2):
-        w = ord(msg[i]) + (ord(msg[i+1]) << 8)
-        s = s + w
+class PacketSender():
+    """
+    A class to send PFC pause frames
+    """
+    def __init__(self, interfaces, packet, num, interval):
+        # Create RAW socket to send PFC pause frames
+        self.sockets = []
+        try:
+            for interface in interfaces:
+                s = socket(AF_PACKET, SOCK_RAW)
+                s.bind((interface, 0))
+                self.sockets.append(s)
+        except Exception as e:
+            print("Unable to create socket. Check your permissions: %s" % e)
+            sys.exit(1)
+        self.packet_num = num
+        self.packet_interval = interval
+        self.process = None
+        self.packet = packet
 
-    s = (s >> 16) + (s & 0xffff)
-    s = s + (s >> 16)
+    def send_packets(self):
+        iteration = self.packet_num
+        while iteration > 0:
+            for s in self.sockets:
+                s.send(self.packet)
+                if self.packet_interval > 0:
+                    time.sleep(self.packet_interval)
+            iteration -= 1
 
-    # complement and mask to 4 byte short
-    s = ~s & 0xffff
+    def start(self):
+        self.process = multiprocessing.Process(target=self.send_packets)
+        self.process.start()
 
-    return s
+    def stop(self, timeout=None):
+        if self.process:
+            self.process.join(timeout)
+        for s in self.sockets:
+            s.close()
 
 
 def main():
@@ -77,20 +105,9 @@ def main():
 
     interfaces = options.interface.split(',')
 
-    try:
-        sockets = []
-        for i in range(0, len(interfaces)):
-            sockets.append(socket(AF_PACKET, SOCK_RAW))
-    except Exception:
-        print("Unable to create socket. Check your permissions")
-        sys.exit(1)
-
     # Configure logging
     handler = logging.handlers.SysLogHandler(address=(options.rsyslog_server, 514))
     logger.addHandler(handler)
-
-    for s, interface in zip(sockets, interfaces):
-        s.bind((interface, 0))
 
     """
     Set PFC defined fields and generate the packet
@@ -155,14 +172,25 @@ def main():
                 packet = packet + b"\x00\x00"
 
     pre_str = 'GLOBAL_PF' if options.global_pf else 'PFC'
-    print(("Generating %s Packet(s)" % options.num))
+    logger.debug(pre_str + '_STORM_DEBUG')
+
+    # Start sending PFC pause frames
+    senders = []
+    interface_slices = [[] for i in range(MAX_PROCESS_NUM)]
+    for i in range(0, len(interfaces)):
+        interface_slices[i % MAX_PROCESS_NUM].append(interfaces[i])
+
+    for interface_slice in interface_slices:
+        if (interface_slice):
+            s = PacketSender(interface_slice, packet, options.num, options.send_pfc_frame_interval)
+            s.start()
+            senders.append(s)
+
     logger.debug(pre_str + '_STORM_START')
-    iteration = options.num
-    while iteration > 0:
-        for s in sockets:
-            s.send(packet)
-            time.sleep(options.send_pfc_frame_interval)
-        iteration -= 1
+    # Wait PFC packets to be sent
+    for sender in senders:
+        sender.stop()
+
     logger.debug(pre_str + '_STORM_END')
 
 

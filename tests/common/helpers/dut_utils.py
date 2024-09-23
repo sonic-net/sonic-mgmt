@@ -1,12 +1,17 @@
 import logging
 import allure
+import os
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
+from tests.common.errors import RunAnsibleModuleFail
 from collections import defaultdict
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+# Ansible config files
+LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
+
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +181,20 @@ def get_program_info(duthost, container_name, program_name):
     return program_status, program_pid
 
 
+def kill_process_by_pid(duthost, container_name, program_name, program_pid):
+    """
+    @summary: Kill a process in the specified container by its pid
+    """
+    kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
+
+    # Get the exit code of 'kill' command
+    exit_code = kill_cmd_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
+
+    logger.info("Program '{}' in container '{}' was stopped successfully"
+                .format(program_name, container_name))
+
+
 def get_disabled_container_list(duthost):
     """Gets the container/service names which are disabled.
 
@@ -340,3 +359,42 @@ def get_sai_sdk_dump_file(duthost, dump_file_name):
 
     duthost.fetch(src=compressed_dump_file, dest="/tmp/", flat=True)
     allure.attach.file(compressed_dump_file, dump_file_name, extension=".tar.gz")
+
+
+def is_mellanox_devices(hwsku):
+    """
+    A helper function to check if a given sku is Mellanox device
+    """
+    hwsku = hwsku.lower()
+    return 'mellanox' in hwsku \
+        or 'msn' in hwsku \
+        or 'mlnx' in hwsku
+
+
+def is_mellanox_fanout(duthost, localhost):
+    # Ansible localhost fixture which calls ansible playbook on the local host
+
+    if duthost.facts.get("asic_type") == "vs":
+        return False
+
+    try:
+        dut_facts = \
+            localhost.conn_graph_facts(host=duthost.hostname, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+    except RunAnsibleModuleFail as e:
+        logger.info("Get dut_facts failed, reason:{}".format(e.results['msg']))
+        return False
+
+    intf = list(dut_facts["device_conn"][duthost.hostname].keys())[0]
+    fanout_host = dut_facts["device_conn"][duthost.hostname][intf]["peerdevice"]
+
+    try:
+        fanout_facts = \
+            localhost.conn_graph_facts(host=fanout_host, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+    except RunAnsibleModuleFail:
+        return False
+
+    fanout_sku = fanout_facts['device_info'][fanout_host]['HwSku']
+    if not is_mellanox_devices(fanout_sku):
+        return False
+
+    return True

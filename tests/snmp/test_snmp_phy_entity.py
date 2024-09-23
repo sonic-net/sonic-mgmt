@@ -7,7 +7,7 @@ from enum import Enum, unique
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.snmp_helpers import get_snmp_facts
-from tests.platform_tests.thermal_control_test_helper import mocker_factory     # noqa F401
+from tests.common.helpers.thermal_control_test_helper import mocker_factory     # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),

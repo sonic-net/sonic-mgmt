@@ -59,6 +59,9 @@ def setup_testbed(fanouthosts, duthost, leaf_fanouts):           # noqa F811
 
     """ Copy the PFC generator to all the leaf fanout switches """
     for peer_device in leaf_fanouts:
+        if peer_device not in fanouthosts:
+            continue
+
         peerdev_ans = fanouthosts[peer_device]
         file_src = os.path.join(os.path.dirname(
             __file__), PFC_GEN_FILE_RELATIVE_PATH)
@@ -92,6 +95,10 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
         for intf in active_phy_intfs:
             peer_device = conn_facts[intf]['peerdevice']
             peer_port = conn_facts[intf]['peerport']
+
+            if peer_device not in fanouthosts:
+                continue
+
             peerdev_ans = fanouthosts[peer_device]
             fanout_os = peerdev_ans.get_fanout_os()
             fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
@@ -147,6 +154,10 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
 
                 peer_device = conn_facts[intf]['peerdevice']
                 peer_port = conn_facts[intf]['peerport']
+
+                if peer_device not in fanouthosts:
+                    continue
+
                 peerdev_ans = fanouthosts[peer_device]
                 fanout_os = peerdev_ans.get_fanout_os()
                 fanout_hwsku = fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
@@ -182,40 +193,40 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
                     assert pfc_rx[intf]['Rx'][i] == '0'
 
 
-def test_pfc_pause(fanouthosts, duthosts, rand_one_dut_hostname,
+def test_pfc_pause(fanouthosts, duthosts, rand_one_tgen_dut_hostname,
                    conn_graph_facts, fanout_graph_facts, leaf_fanouts):          # noqa F811
     """ @Summary: Run PFC pause frame (pause time quanta > 0) tests """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_tgen_dut_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
              fanout_graph_facts, leaf_fanouts)
 
 
-def test_pfc_unpause(fanouthosts, duthosts, rand_one_dut_hostname,
+def test_pfc_unpause(fanouthosts, duthosts, rand_one_tgen_dut_hostname,
                      conn_graph_facts, fanout_graph_facts, leaf_fanouts):        # noqa F811
     """ @Summary: Run PFC unpause frame (pause time quanta = 0) tests """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_tgen_dut_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
              fanout_graph_facts, leaf_fanouts, pause_time=0)
 
 
-def test_fc_pause(fanouthosts, duthosts, rand_one_dut_hostname,
+def test_fc_pause(fanouthosts, duthosts, rand_one_tgen_dut_hostname,
                   conn_graph_facts, fanout_graph_facts, leaf_fanouts):           # noqa F811
     """ @Summary: Run FC pause frame (pause time quanta > 0) tests """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_tgen_dut_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
              fanout_graph_facts, leaf_fanouts, is_pfc=False)
 
 
-def test_fc_unpause(fanouthosts, duthosts, rand_one_dut_hostname,
+def test_fc_unpause(fanouthosts, duthosts, rand_one_tgen_dut_hostname,
                     conn_graph_facts, fanout_graph_facts, leaf_fanouts):         # noqa F811
     """ @Summary: Run FC pause frame (pause time quanta = 0) tests """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_tgen_dut_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
              fanout_graph_facts, leaf_fanouts, is_pfc=False, pause_time=0)
 
 
-def test_continous_pfc(fanouthosts, duthosts, rand_one_dut_hostname,
+def test_continous_pfc(fanouthosts, duthosts, rand_one_tgen_dut_hostname,
                        conn_graph_facts, fanout_graph_facts, leaf_fanouts):     # noqa F811
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_tgen_dut_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
              fanout_graph_facts, leaf_fanouts, check_continous_pfc=True)
