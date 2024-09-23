@@ -1,15 +1,16 @@
 import pytest
 import logging
-from tests.common.fixtures.advanced_reboot import get_advanced_reboot                   # noqa F401
+from tests.common.fixtures.advanced_reboot import get_advanced_reboot                                   # noqa F401
+from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import get_reboot_cause
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import check_neighbors, \
     multihop_advanceboot_loganalyzer_factory, verify_dut_health                                         # noqa F401
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
-    check_services, install_sonic, multi_hop_warm_upgrade_test_helper
+    check_services, install_sonic, multi_hop_warm_upgrade_test_helper, check_asic_and_db_consistency
 from tests.upgrade_path.utilities import cleanup_prev_images, set_base_image_a
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                 # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request,
                                 get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,  # noqa F811
-                                verify_dut_health):                                             # noqa F811
+                                verify_dut_health, consistency_checker_provider):               # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     multi_hop_upgrade_path = request.config.getoption('multi_hop_upgrade_path')
     upgrade_type = request.config.getoption('upgrade_type')
@@ -63,6 +64,7 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         check_services(duthost)
         check_neighbors(duthost, tbinfo)
         check_copp_config(duthost)
+        check_asic_and_db_consistency(request.config, duthost, consistency_checker_provider)
         logger.info("Finished post hop teardown for hop {} image {}".format(hop_index, to_image))
 
     multi_hop_warm_upgrade_test_helper(
