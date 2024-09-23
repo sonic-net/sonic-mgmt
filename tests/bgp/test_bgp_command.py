@@ -5,7 +5,10 @@ import re
 from tests.common.helpers.assertions import pytest_assert
 
 
-pytestmark = [pytest.mark.topology("any")]
+pytestmark = [
+    pytest.mark.topology("t0", "t1", "m0", "mx"),
+    pytest.mark.device_type('vs')
+]
 
 logger = logging.getLogger(__name__)
 
