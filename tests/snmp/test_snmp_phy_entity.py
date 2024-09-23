@@ -808,8 +808,6 @@ def redis_hgetall(duthost, db_id, key):
         return {}
     # fix to make literal_eval() work with nested dictionaries
     content = content.replace("'{", '"{').replace("}'", '}"')
-    # Remove any null characters
-    content = content.replace('\x00', '')
     return ast.literal_eval(content)
 
 
