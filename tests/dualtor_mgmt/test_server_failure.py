@@ -17,6 +17,8 @@ from tests.common.dualtor.nic_simulator_control import simulator_server_down_act
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 run_icmp_responder                                      # noqa: F401
 from tests.common.utilities import wait_until
+from tests.common.dualtor.icmp_responder_control import shutdown_icmp_responder                         # noqa: F401
+from tests.common.dualtor.icmp_responder_control import start_icmp_responder                            # noqa: F401
 
 
 pytestmark = [
@@ -90,3 +92,42 @@ def test_server_down(cable_type, duthosts, tbinfo, active_active_ports, active_s
                       "mux_cable status is unexpected. Should be (standby, unhealthy)")
         pytest_assert(wait_until(30, 1, 0, lower_tor_mux_state_verfication, 'standby', 'unhealthy'),
                       "mux_cable status is unexpected. Should be (standby, unhealthy)")
+
+
+@pytest.mark.enable_active_active
+def test_server_reboot(cable_type, start_icmp_responder, shutdown_icmp_responder,  # noqa: F811
+                       active_active_ports, upper_tor_host, lower_tor_host):       # noqa: F811
+
+    def upper_tor_mux_state_verification(state, health):
+        mux_state_upper_tor = show_muxcable_status(upper_tor_host)
+        return (mux_state_upper_tor[test_iface]['status'] == state and
+                mux_state_upper_tor[test_iface]['health'] == health)
+
+    def lower_tor_mux_state_verfication(state, health):
+        mux_state_lower_tor = show_muxcable_status(lower_tor_host)
+        return (mux_state_lower_tor[test_iface]['status'] == state and
+                mux_state_lower_tor[test_iface]['health'] == health)
+
+    if cable_type == CableType.active_active:
+        test_iface = random.choice(active_active_ports)
+
+        pytest_assert(upper_tor_mux_state_verification('active', 'healthy'),
+                      "mux_cable status is unexpected. Should be (active, healthy)")
+        pytest_assert(lower_tor_mux_state_verfication('active', 'healthy'),
+                      "mux_cable status is unexpected. Should be (active, healthy)")
+
+        # simulate reboot by stopping and starting icmp_responder
+
+        shutdown_icmp_responder()
+
+        pytest_assert(wait_until(30, 1, 0, upper_tor_mux_state_verification, 'standby', 'unhealthy'),
+                      "mux_cable status is unexpected. Should be (standby, unhealthy)")
+        pytest_assert(wait_until(30, 1, 0, lower_tor_mux_state_verfication, 'standby', 'unhealthy'),
+                      "mux_cable status is unexpected. Should be (standby, unhealthy)")
+
+        start_icmp_responder()
+
+        pytest_assert(wait_until(30, 1, 0, upper_tor_mux_state_verification, 'active', 'healthy'),
+                      "mux_cable status is unexpected. Should be (active, healthy)")
+        pytest_assert(wait_until(30, 1, 0, lower_tor_mux_state_verfication, 'active', 'healthy'),
+                      "mux_cable status is unexpected. Should be (active, healthy)")
