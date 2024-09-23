@@ -1,7 +1,6 @@
 StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode
-str-7260cx3-11,Ethernet3/1,str-7260cx3-fan-06,Ethernet64/1,100000,"2525-2556",Trunk
+str-7260cx3-11,Ethernet3/1,str-7260cx3-fan-06,Ethernet64/1,100000,"2525-2556,3905-3934",Trunk
 str-7260cx3-11,Ethernet7/1,str-7260cx3-64-19,Ethernet1/1,100000,"2457-2460",Trunk
-str-7260cx3-11,Ethernet10/1,str-7260cx3-fan-06,Ethernet64/1,100000,"3905-3934",Trunk
 str-7260cx3-11,Ethernet11/1,str-7260-26,Ethernet64/1,40000,"2557-2619",Trunk
 str-7260cx3-11,Ethernet14/1,str-acs-serv-11,p4p1,40000,,Trunk
 str-7260cx3-11,Ethernet15/1,str-acs-serv-12,ens4f0,40000,,Trunk
