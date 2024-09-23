@@ -1,5 +1,5 @@
 from tests.common.utilities import str2bool
-from tests.platform_tests.warmboot_sad_cases import SAD_CASE_LIST
+from tests.common.platform.warmboot_sad_cases import SAD_CASE_LIST
 
 
 def add_advanced_reboot_args(parser):
