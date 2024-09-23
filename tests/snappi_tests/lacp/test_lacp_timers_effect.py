@@ -9,12 +9,12 @@ import pytest
 pytestmark = [pytest.mark.topology('tgen')]
 
 
-@pytest.mark.parametrize('port_count', [4])
+@pytest.mark.parametrize('port_count', [3])
 @pytest.mark.parametrize('number_of_routes', [1000])
 @pytest.mark.parametrize('iterations', [1])
-@pytest.mark.parametrize('port_speed', ['speed_100_gbps'])
 @pytest.mark.parametrize('lacpdu_interval_period', [1])
 @pytest.mark.parametrize('lacpdu_timeout', [90])
+@pytest.mark.parametrize('traffic_type', ['IPv4'])
 def test_lacp_timers(cvg_api,                       # noqa F811
                      duthost,
                      tgen_ports,                    # noqa F811
@@ -23,9 +23,9 @@ def test_lacp_timers(cvg_api,                       # noqa F811
                      fanout_graph_facts,            # noqa F811
                      port_count,
                      number_of_routes,
-                     port_speed,
                      lacpdu_interval_period,
-                     lacpdu_timeout,):
+                     lacpdu_timeout,
+                     traffic_type):
     """
     Topo:
     LAG1 --- DUT --- LAG2 (N-1 TGEN Ports)
@@ -54,11 +54,11 @@ def test_lacp_timers(cvg_api,                       # noqa F811
         port_count: Total no of ports used in the test
         iterations: no of iterations to run the link flap test
         number_of_routes:  Number of IPv4/IPv6 Routes
-        port_speed: speed of the port used for test
         lacpdu_interval_period: LACP update packet interval ( 0 - Auto, 1- Fast, 30 - Slow )
         lacpdu_timeout: LACP Timeout value (0 - Auto, 3 - Short, 90 - Long)
+        traffic_type: IPv4 or IPv6 traffic flow
     """
-    # port_count, number_of_routes ,iterations, port_speed, lacpdu_interval_period,
+    # port_count, number_of_routes ,iterations lacpdu_interval_period,
     # lacpdu_timeout parameters can be modified as per user preference
     run_lacp_timers_effect(cvg_api,
                            duthost,
@@ -66,6 +66,6 @@ def test_lacp_timers(cvg_api,                       # noqa F811
                            iterations,
                            port_count,
                            number_of_routes,
-                           port_speed,
                            lacpdu_interval_period,
-                           lacpdu_timeout,)
+                           lacpdu_timeout,
+                           traffic_type)

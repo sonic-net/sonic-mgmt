@@ -18,7 +18,7 @@ def run_lacp_add_remove_link_from_dut(api,
                                       iteration,
                                       port_count,
                                       number_of_routes,
-                                      port_speed,):
+                                      traffic_type):
     """
     Run Local link failover test
 
@@ -29,7 +29,7 @@ def run_lacp_add_remove_link_from_dut(api,
         iteration: number of iterations for running convergence test on a port
         port_count: total number of ports used in test
         number_of_routes:  Number of IPv4/IPv6 Routes
-        port_speed: speed of the port used for test
+        traffic_type: IPv4 or IPv6 traffic flow
     """
 
     """ Create bgp config on dut """
@@ -41,7 +41,7 @@ def run_lacp_add_remove_link_from_dut(api,
     tgen_bgp_config = __tgen_bgp_config(api,
                                         port_count,
                                         number_of_routes,
-                                        port_speed,)
+                                        traffic_type)
 
     """
         Run the convergence test by flapping all the rx
@@ -53,9 +53,6 @@ def run_lacp_add_remove_link_from_dut(api,
                                       iteration,
                                       port_count,
                                       number_of_routes,)
-
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
 
 
 def duthost_bgp_config(duthost,
@@ -133,7 +130,7 @@ def duthost_bgp_config(duthost,
 def __tgen_bgp_config(api,
                       port_count,
                       number_of_routes,
-                      port_speed,):
+                      traffic_type):
     """
     Creating  BGP config on TGEN
 
@@ -141,7 +138,7 @@ def __tgen_bgp_config(api,
         api (pytest fixture): snappi API
         port_count: total number of ports used in test
         number_of_routes:  Number of IPv4/IPv6 Routes
-        port_speed: speed of the port used for test
+        traffic_type: IPv4 or IPv6 traffic flow
     """
     config = api.config()
     for i in range(1, port_count+1):
@@ -171,7 +168,7 @@ def __tgen_bgp_config(api,
     layer1.ieee_media_defaults = False
     layer1.auto_negotiation.rs_fec = True
     layer1.auto_negotiation.link_training = False
-    layer1.speed = port_speed
+    layer1.speed = temp_tg_port[0]['speed']
     layer1.auto_negotiate = False
 
     # Source
@@ -249,8 +246,10 @@ def __tgen_bgp_config(api,
         flow1.rate.percentage = 50
         flow1.metrics.enable = True
         flow1.metrics.loss = True
-    createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name)
-    createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name)
+    if traffic_type == 'IPv4':
+        createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name)
+    else:
+        createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name)
     return config
 
 
@@ -372,19 +371,3 @@ def get_lacp_add_remove_link_from_dut(api,
             tgen_port_name, dut_port_name))
     columns = ['Event Name', 'No. of Routes', 'Iterations', 'Loss%']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
-
-
-def cleanup_config(duthost):
-    """
-    Cleaning up dut config at the end of the test
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-    """
-    logger.info('Cleaning up config')
-    duthost.command("sudo cp {} {}".format(
-        "/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
-    duthost.shell("sudo config reload -y \n")
-    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-    logger.info('Convergence Test Completed')
