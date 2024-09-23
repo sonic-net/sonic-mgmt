@@ -762,24 +762,12 @@ fanout:
     str-7260-18:
       ansible_host: 10.3.146.251
       ansible_hostv6: 2a01:111:e210:3000::a03:92fb
-    str-7260-23:
-      ansible_host: 10.64.247.253
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7fd
     str-7260-24:
       ansible_host: 10.64.247.254
       ansible_hostv6: 2a01:111:e210:b000::a40:f7fe
     str-7260-02:
       ansible_host: 10.3.146.168
       ansible_hostv6: 2a01:111:e210:3000::a03:92a8
-    str-7260-20:
-      ansible_host: 10.64.247.249
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7f9
-    str-7260-21:
-      ansible_host: 10.64.247.248
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7f8
-    str-7260-22:
-      ansible_host: 10.64.247.247
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7f7
     str-7060cx-32s-02:
       ansible_host: 10.64.247.229
       ansible_hostv6: 2a01:111:e210:b000::a40:f7e5
@@ -823,21 +811,6 @@ fanout:
     str-7060cx-32s-22:
       ansible_host: 10.64.246.34
       ansible_hostv6: 2a01:111:e210:b000::a40:f622
-    str-7260cx3-64-16:
-      ansible_host: 10.3.146.147
-      ansible_hostv6: 2a01:111:e210:3000::a03:9293
-    str-7260cx3-64-17:
-      ansible_host: 10.3.146.148
-      ansible_hostv6: 2a01:111:e210:3000::a03:9294
-    str-7260cx3-64-18:
-      ansible_host: 10.3.146.149
-      ansible_hostv6: 2a01:111:e210:3000::a03:9295
-    str-7260cx3-fan-03:
-      ansible_host: 10.64.246.47
-      ansible_hostv6: 2a01:111:e210:b000::a40:f62f
-    str-7260cx3-fan-04:
-      ansible_host: 10.64.246.74
-      ansible_hostv6: 2a01:111:e210:b000::a40:f64a
     str-7260cx3-fan-06:
       ansible_host: 10.3.146.25
       ansible_hostv6: 2a01:111:e210:3000::a03:9219
@@ -845,22 +818,9 @@ fanout:
       ansible_host: 10.64.247.25
       ansible_hostv6: 2a01:111:e210:b000::a40:f719
       os: sonic
-    str-e1031-acs-4:
-      ansible_host: 10.3.146.181
-      ansible_hostv6: 2a01:111:e210:3000::a03:92b5
-      os: sonic
-    str-7260cx3-acs-fan-05:
-      ansible_host: 10.64.246.76
-      ansible_hostv6: 2a01:111:e210:b000::a40:f64c
-    str-7260cx3-64-20:
-      ansible_host: 10.3.146.151
-      ansible_hostv6: 2a01:111:e210:3000::a03:9297
     str-7260cx3-64-19:
       ansible_host: 10.3.146.150
       ansible_hostv6: 2a01:111:e210:3000::a03:9296
-    str-7260-25:
-      ansible_host: 10.3.146.234
-      ansible_hostv6: 2a01:111:e210:3000::a03:92ea
     str-7260-26:
       ansible_host: 10.3.146.160
       ansible_hostv6: 2a01:111:e210:3000::a03:92a0
