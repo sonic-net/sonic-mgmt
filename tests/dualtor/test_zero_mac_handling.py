@@ -6,7 +6,6 @@ import random
 from ptf import testutils
 from tests.common.dualtor.dual_tor_mock import *                                # noqa F403
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor    # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder              # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_garp_service                # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
@@ -56,7 +55,7 @@ def test_zero_src_mac_handling(send_zero_mac_packets, apply_active_state_to_orch
     tor = rand_selected_dut
     # select two random mux ports for testing
     mux_configs = mux_cable_server_ip(tor)
-    test_ports = random.sample(list(mux_configs.keys()),2)
+    test_ports = random.sample(list(mux_configs.keys()), 2)
     logging.info("Selected test ports: %s", pprint.pformat(test_ports))
     # send zero source MAC ICMP packets from the selected ports
     zero_mac_packet_sender = send_zero_mac_packets(test_ports)
@@ -66,5 +65,3 @@ def test_zero_src_mac_handling(send_zero_mac_packets, apply_active_state_to_orch
     logging.info("MAC table: %s", pprint.pformat(mac_table))
     pytest_assert(ZERO_MAC_ADDR not in mac_table["stdout"], "MAC table contains zero source MAC address")
     logging.info("Zero source MAC handling test completed.")
-
-
