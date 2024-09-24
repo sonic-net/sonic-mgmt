@@ -1210,9 +1210,9 @@ sonic_arista_lc_100G:
     num_asics: 1
   hosts:
     str2-7804-lc3-1:
-      hwsku: Arista-7800R3-48CQ2-C4
+      hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
-      sonic_hwsku: Arista-7800R3-48CQ2-C4
+      sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       slot_num: slot3
       switchids: [0]
@@ -1266,8 +1266,8 @@ sonic_arista_lc_100G:
         "0x2E": "Aboot-norcal10-10.0.0-22087069"
         "0x2F": "SSN20150382"
     str2-7804-lc7-1:
-      hwsku: Arista-7800R3-48CQ2-C4
-      sonic_hwsku: Arista-7800R3-48CQ2-C4
+      hwsku: Arista-7800R3-48CQ2-C48
+      sonic_hwsku: Arista-7800R3-48CQ2-C48
       sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       slot_num: slot7
       switchids: [8]
