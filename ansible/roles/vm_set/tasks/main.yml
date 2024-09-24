@@ -341,10 +341,13 @@
 
   when: vm_required is defined and vm_required == True
 
-- block:
-    - name: Generate DPU list of target DPUs
-      set_fact: dpu_targets={{ VM_hosts | filter_vm_targets(topology['DPUs'], VM_base) | sort }}
+- name: Generate DPU list of target DPUs
+  set_fact: dpu_targets={{ VM_hosts | filter_vm_targets(topology['DPUs'], VM_base) | sort }}
   when: topology['DPUs'] is defined
+
+- name: Set fallback default value for dpu_targets
+  set_fact: dpu_targets={{ [] }}
+  when: dpu_targets is not defined
 
 - name: Add topology
   include_tasks: add_topo.yml

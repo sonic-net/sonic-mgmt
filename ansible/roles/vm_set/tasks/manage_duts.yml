@@ -31,4 +31,4 @@
     - name: Start SONiC DPU VM
       include_tasks: start_dpu_vm.yml
 
-  when: dpu_targets is defined
+  when: dpu_targets is defined and dpu_targets | length > 0

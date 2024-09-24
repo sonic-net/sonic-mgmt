@@ -18,7 +18,7 @@ topology:
       vm_offset: 3
   DPUs:
     SONIC01DPU:
-      dpu_intfs:
+      vlans:
         - 4
       vm_offset: 4
 

@@ -3,7 +3,7 @@
   when: topo is defined
 
 - name: Filter VMs for specified topology
-  set_fact: VM_hosts={{ VM_hosts | filter_vm_targets(topology['DPUs'], VM_base) | sort }}
+  set_fact: DPU_hosts={{ VM_hosts | filter_vm_targets(topology['DPUs'], VM_base) | sort }}
   when: topology['DPUs'] is defined and VM_base is defined
 
 - name: Create directory for vm images and vm disks
@@ -85,9 +85,10 @@
   become: yes
   vm_topology:
     cmd:          'create'
-    vm_names:     "{{ VM_hosts }}"
+    vm_names:     "{{ DPU_hosts }}"
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
+    topo:         "{{ topology }}"
 
 - name: Default autostart to yes when it is not defined
   set_fact:
@@ -96,7 +97,7 @@
 
 - name: Default batch_size to 1 when it is not defined
   set_fact:
-    batch_size: "{{ VM_hosts|length }}"
+    batch_size: "{{ DPU_hosts|length }}"
   when: batch_size is not defined
 
 - name: Default wait interval to 0 if it is not defined
@@ -116,7 +117,7 @@
     cdrom_image: "{{ root_path }}/images/{{ veos_cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
     backplane_tap: "{{ vm_name }}-back"
-  with_items: "{{ VM_hosts }}"
+  with_items: "{{ DPU_hosts }}"
 
 - set_fact:
     kickstart_failed_vms: []
@@ -133,7 +134,7 @@
     cdrom_image: "{{ root_path }}/images/{{ veos_cd_image_filename }}"
     mgmt_tap:  "{{ vm_name }}-m"
     backplane_tap: "{{ vm_name }}-back"
-  with_items: "{{ VM_hosts }}"
+  with_items: "{{ DPU_hosts }}"
 
 - block:
     - name: Log all kickstart failed VMs
