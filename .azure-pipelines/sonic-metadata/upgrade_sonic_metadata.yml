@@ -153,7 +153,7 @@ steps:
                 echo From URL is $from_url
                 echo To URL is $to_url
 
-                EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
+                EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
 
                 if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                     EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
@@ -196,7 +196,7 @@ steps:
             hop_upgrade_image_urls=$(cat /tmp/upgrade-path-image-urls.csv)
             popd
 
-            EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
+            EXTRA_PARAMS="--showlocals --assert plain -rav --enable_cpa --upgrade_type=warm --skip_sanity --multi_hop_upgrade_path=$hop_upgrade_image_urls $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option"
 
             if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                 EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"

@@ -25,9 +25,10 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope="module")
 def upgrade_path_lists(request, upgrade_type_params, base_image, target_image):
     restore_to_image = request.config.getoption('restore_to_image')
+    enable_cpa = request.config.getoption('enable_cpa')
     if not base_image or not target_image:
         pytest.skip("base_image_list or target_image_list is empty")
-    return upgrade_type_params, base_image, target_image, restore_to_image
+    return upgrade_type_params, base_image, target_image, restore_to_image, enable_cpa
 
 
 @pytest.fixture
@@ -117,7 +118,7 @@ def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
                                 get_advanced_reboot, advanceboot_loganalyzer,
                                 add_fail_step_to_reboot, verify_dut_health):
     duthost = duthosts[rand_one_dut_hostname]
-    upgrade_type, from_image, to_image, _ = upgrade_path_lists
+    upgrade_type, from_image, to_image, _, _ = upgrade_path_lists
     modify_reboot_script = add_fail_step_to_reboot
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
@@ -142,7 +143,7 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
                       upgrade_path_lists, tbinfo, request, get_advanced_reboot,
                       advanceboot_loganalyzer, verify_dut_health):
     duthost = duthosts[rand_one_dut_hostname]
-    upgrade_type, from_image, to_image, _ = upgrade_path_lists
+    upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
 
@@ -153,9 +154,6 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
     def upgrade_path_postboot_setup():
         run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions)
         patch_rsyslog(duthost)
-
-    # Disable CPA for Arista 7260 as its currently unsupported
-    enable_cpa = duthost.facts['platform'] != 'x86_64-arista_7260cx3_64'
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
@@ -168,7 +166,7 @@ def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost
                             upgrade_path_lists, tbinfo, request, get_advanced_reboot,
                             advanceboot_loganalyzer, verify_dut_health):
     duthost = duthosts[rand_one_dut_hostname]
-    upgrade_type, from_image, to_image, _ = upgrade_path_lists
+    upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
 
@@ -179,9 +177,6 @@ def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost
     def upgrade_path_postboot_setup():
         run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions)
         patch_rsyslog(duthost)
-
-    # Disable CPA for Arista 7260 as its currently unsupported
-    enable_cpa = duthost.facts['platform'] != 'x86_64-arista_7260cx3_64'
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
@@ -196,7 +191,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfho
                                verify_dut_health, nbrhosts, fanouthosts, vmhost, backup_and_restore_config_db,
                                advanceboot_neighbor_restore, sad_case_type):
     duthost = duthosts[rand_one_dut_hostname]
-    upgrade_type, from_image, to_image, _ = upgrade_path_lists
+    upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
     sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts,
@@ -209,9 +204,6 @@ def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfho
     def upgrade_path_postboot_setup():
         run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions)
         patch_rsyslog(duthost)
-
-    # Disable CPA for Arista 7260 as its currently unsupported
-    enable_cpa = duthost.facts['platform'] != 'x86_64-arista_7260cx3_64'
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,

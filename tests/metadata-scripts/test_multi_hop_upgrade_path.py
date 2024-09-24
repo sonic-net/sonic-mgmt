@@ -28,11 +28,9 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
     multi_hop_upgrade_path = request.config.getoption('multi_hop_upgrade_path')
+    enable_cpa = request.config.getoption('enable_cpa')
     upgrade_type = request.config.getoption('upgrade_type')
     assert upgrade_type == "warm", "test_multi_hop_upgrade_path only supports warm upgrade"
-
-    # Disable CPA for Arista 7260 as its currently unsupported
-    enable_cpa = duthost.facts['platform'] != 'x86_64-arista_7260cx3_64'
 
     upgrade_path_urls = multi_hop_upgrade_path.split(",")
     if len(upgrade_path_urls) < 2:
