@@ -56,7 +56,7 @@ stages:
     ${{ else }}:
       value: $(Build.SourceBranchName)
 
-jobs:
+  jobs:
   - job: t0_elastictest_partly
     displayName: "kvmtest-t0 by Elastictest(partly)"
     timeoutInMinutes: 240
