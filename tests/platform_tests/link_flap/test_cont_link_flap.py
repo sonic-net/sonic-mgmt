@@ -34,7 +34,7 @@ class TestContLinkFlap(object):
     """
 
     def get_frr_daemon_memory_usage(self, duthost, daemon):
-        frr_daemon_memory_per_asics = []
+        frr_daemon_memory_per_asics = {}
 
         for asic in duthost.asics:
             frr_daemon_memory_output = asic.run_vtysh(f'-c "show memory {daemon}"')["stdout"]
@@ -48,7 +48,7 @@ class TestContLinkFlap(object):
                 f'-c "show memory {daemon}" | grep "Used ordinary blocks"'
             )["stdout"].split()[-2]
 
-            frr_daemon_memory_per_asics.append(frr_daemon_memory)
+            frr_daemon_memory_per_asics[asic.asic_index] = frr_daemon_memory
 
         return frr_daemon_memory_per_asics
 
@@ -164,13 +164,14 @@ class TestContLinkFlap(object):
 
         # Check the FRR daemons memory usage at end
         end_time_frr_daemon_memory = {}
-        incr_frr_daemon_memory_threshold = defaultdict(lambda: [])
+        incr_frr_daemon_memory_threshold = defaultdict(lambda: {})
 
         for daemon in frr_demons_to_check:
-            for asic_index, asic_frr_memory in enumerate(start_time_frr_daemon_memory[daemon]):
-                incr_frr_daemon_memory_threshold[daemon].append(10 if tbinfo["topo"]["type"] in ["m0", "mx"] else 5)
+            for asic_index, asic_frr_memory in start_time_frr_daemon_memory[daemon].items():
+                incr_frr_daemon_memory_threshold[daemon][asic_index] = 10 if tbinfo["topo"]["type"] in ["m0", "mx"]\
+                                                                       else 5
 
-                min_threshold_percent = 1 / float(start_time_frr_daemon_memory[daemon][asic_index]) * 100
+                min_threshold_percent = 1 / float(asic_frr_memory) * 100
 
                 if min_threshold_percent > incr_frr_daemon_memory_threshold[daemon][asic_index]:
                     incr_frr_daemon_memory_threshold[daemon][asic_index] = math.ceil(min_threshold_percent)
@@ -184,11 +185,10 @@ class TestContLinkFlap(object):
             logging.info(f"{daemon} memory usage at end: \n%s", end_time_frr_daemon_memory[daemon])
 
             # Calculate diff in FRR daemon memory
-            for asic_index, asic in enumerate(duthost.asics):
-                incr_frr_daemon_memory = float(end_time_frr_daemon_memory[daemon][asic_index]) - \
-                    float(start_time_frr_daemon_memory[daemon][asic_index])
+            for asic_index, end_frr_memory in end_time_frr_daemon_memory[daemon].items():
+                incr_frr_daemon_memory = float(end_frr_memory) - float(start_time_frr_daemon_memory[daemon][asic_index])
 
-                daemon_name = daemon if not duthost.is_multi_asic else f"{daemon}-{asic.namespace}"
+                daemon_name = daemon if not duthost.is_multi_asic else f"{daemon}-asic{asic_index}"
                 logging.info(f"{daemon_name} absolute difference: %d", incr_frr_daemon_memory)
 
                 # Check FRR daemon memory only if it is increased else default to pass
