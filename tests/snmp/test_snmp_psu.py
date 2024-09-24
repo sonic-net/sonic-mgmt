@@ -45,7 +45,6 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, localhost, cred
         localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
-    psu_keys = natsorted(redis_get_keys(duthost, 'STATE_DB', 'PSU_INFO|*'))
     psus_on = 0
     msg = "Unexpected operstatus results {} != {} for PSU {}"
 
@@ -54,6 +53,7 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, localhost, cred
         logging.info("No snmp psu info on kvm testbed.")
         return
 
+    psu_keys = natsorted(redis_get_keys(duthost, 'STATE_DB', 'PSU_INFO|*'))
     for psu_indx, operstatus in snmp_facts['snmp_psu'].items():
         get_presence = duthost.shell(
             "redis-cli -n 6 hget '{}' presence".format(psu_keys[int(psu_indx)-1]))
