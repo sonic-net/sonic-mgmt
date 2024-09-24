@@ -14,6 +14,7 @@ TIMEOUT_LIMIT = 120
 
 DEVICE_UNREACHABLE_MAX_RETRIES = 3
 
+
 @pytest.fixture
 def ensure_tacacs_server_running_after_ut(duthosts, enum_rand_one_per_hwsku_hostname):
     """make sure tacacs server running after UT finish"""
