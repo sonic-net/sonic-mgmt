@@ -6,13 +6,13 @@ import time
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from .files.pfcwd_helper import start_wd_on_ports
-from .files.pfcwd_helper import has_neighbor_device
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports
+from tests.common.helpers.pfcwd_helper import has_neighbor_device
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
-from .files.pfcwd_helper import send_background_traffic, check_pfc_storm_state, parser_show_pfcwd_stat
+from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state, parser_show_pfcwd_stat
 from tests.common.utilities import wait_until
 
 pytestmark = [
