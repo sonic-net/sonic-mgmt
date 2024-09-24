@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 READ_FLEXDB_TIMEOUT = 20
 READ_FLEXDB_INTERVAL = 5
+FLEXDB_COUNTERS_PER_PORT = 3
 
 
 @pytest.fixture(autouse=True)
@@ -82,7 +83,7 @@ def set_default_pfcwd_config(duthost):
 
 
 @pytest.fixture
-def ensure_dut_readiness(duthost):
+def ensure_dut_readiness(duthost, extract_pfcwd_config):
     """
     Verify dut health/create and rollback checkpoint
 
@@ -91,6 +92,10 @@ def ensure_dut_readiness(duthost):
     """
     verify_orchagent_running_or_assert(duthost)
     create_checkpoint(duthost)
+
+    pfcwd_config = extract_pfcwd_config
+    number_of_ports = len(pfcwd_config)
+    check_config_update(duthost, number_of_ports * FLEXDB_COUNTERS_PER_PORT)
 
     yield
 
@@ -223,9 +228,10 @@ def test_stop_pfcwd(duthost, rand_asic_namespace, extract_pfcwd_config, ensure_d
     """
     asic_namespace, asic_id = rand_asic_namespace
     pfcwd_config = extract_pfcwd_config
+    initial_count = len(pfcwd_config) * FLEXDB_COUNTERS_PER_PORT
 
     if port == 'single':
-        expected_count = get_flex_db_count(duthost, asic_namespace) - 3
+        expected_count = initial_count - FLEXDB_COUNTERS_PER_PORT
     else:
         expected_count = 0
     json_patch = list()
@@ -273,9 +279,9 @@ def test_start_pfcwd(duthost, rand_asic_namespace, extract_pfcwd_config, ensure_
     pfcwd_config = extract_pfcwd_config
 
     if port == 'single':
-        expected_count = 3
+        expected_count = FLEXDB_COUNTERS_PER_PORT
     else:
-        expected_count = len(pfcwd_config) * 3
+        expected_count = len(pfcwd_config) * FLEXDB_COUNTERS_PER_PORT
     json_patch = list()
     exp_str = 'Ethernet'
     op = 'add'
