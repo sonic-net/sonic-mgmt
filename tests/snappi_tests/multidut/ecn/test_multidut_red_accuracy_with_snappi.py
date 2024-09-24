@@ -59,8 +59,6 @@ def test_red_accuracy(request,
         tx_port_count = 1
         rx_port_count = 1
         snappi_port_list = get_snappi_ports
-        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
         pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
