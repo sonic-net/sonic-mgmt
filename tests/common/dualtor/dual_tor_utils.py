@@ -1891,3 +1891,4 @@ def disable_timed_oscillation_active_standby(duthosts, tbinfo):
 
     for duthost in duthosts:
         duthost.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|TIMED_OSCILLATION" "oscillation_enabled" "false"')
+        duthost.shell("config save -y")

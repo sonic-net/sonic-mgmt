@@ -1,7 +1,7 @@
 from ..device_mocker import DeviceMocker
 from pkg_resources import parse_version
 from tests.common.mellanox_data import get_platform_data, get_hw_management_version
-from tests.platform_tests.mellanox.mellanox_thermal_control_test_helper import MockerHelper, FanDrawerData, FanData, \
+from tests.common.helpers.mellanox_thermal_control_test_helper import MockerHelper, FanDrawerData, FanData, \
     FAN_NAMING_RULE
 
 HW_MANAGE_VER = '7.0030.2003'

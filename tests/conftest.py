@@ -66,9 +66,9 @@ try:
 except ImportError as e:
     logging.error(e)
 
-from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
-from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
-from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
+from tests.common.platform.args.advanced_reboot_args import add_advanced_reboot_args
+from tests.common.platform.args.cont_warm_reboot_args import add_cont_warm_reboot_args
+from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
@@ -2506,3 +2506,22 @@ def rotate_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         logger.debug("Exception occurred in thread {}".format(str(e)))
 
     logger.info("rotate_syslog exit {}".format(thread))
+
+
+@pytest.fixture(scope="module")
+def gnxi_path(ptfhost):
+    """
+    gnxi's location is updated from /gnxi to /root/gnxi
+    in RP https://github.com/sonic-net/sonic-buildimage/pull/10599.
+    But old docker-ptf images don't have this update,
+    test case will fail for these docker-ptf images,
+    because it should still call /gnxi files.
+    For avoiding this conflict, check gnxi path before test and set GNXI_PATH to correct value.
+    Add a new gnxi_path module fixture to make sure to set GNXI_PATH before test.
+    """
+    path_exists = ptfhost.stat(path="/root/gnxi/")
+    if path_exists["stat"]["exists"] and path_exists["stat"]["isdir"]:
+        gnxipath = "/root/gnxi/"
+    else:
+        gnxipath = "/gnxi/"
+    return gnxipath

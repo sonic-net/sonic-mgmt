@@ -4,14 +4,14 @@ import pytest
 from _pytest.outcomes import Failed
 import time
 
-from tests.tacacs.utils import stop_tacacs_server, start_tacacs_server
-from tests.tacacs.utils import per_command_authorization_skip_versions, \
-        remove_all_tacacs_server, get_ld_path, change_and_wait_aaa_config_update, \
-        ensure_tacacs_server_running_after_ut                             # noqa: F401
+from tests.common.helpers.tacacs.tacacs_helper import stop_tacacs_server, start_tacacs_server, \
+    per_command_authorization_skip_versions, remove_all_tacacs_server, get_ld_path
+from tests.tacacs.utils import change_and_wait_aaa_config_update, ensure_tacacs_server_running_after_ut, \
+    ssh_connect_remote_retry, ssh_run_command, TIMEOUT_LIMIT       # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until, paramiko_ssh
 from .utils import check_server_received
-from tests.override_config_table.utilities import backup_config, restore_config, \
+from tests.common.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
 from tests.common.helpers.dut_utils import is_container_running
 from .utils import duthost_shell_with_unreachable_retry
@@ -24,24 +24,6 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-TIMEOUT_LIMIT = 120
-
-
-def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthost):
-    retry_count = 3
-    while retry_count > 0:
-        try:
-            return paramiko_ssh(remote_ip, remote_username, remote_password)
-        except paramiko.ssh_exception.AuthenticationException as e:
-            logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
-
-            # get syslog for debug
-            recent_syslog = duthost.shell('sudo tail -100 /var/log/syslog')['stdout']
-            logger.debug("Target device syslog: {}".format(recent_syslog))
-
-        time.sleep(1)
-        retry_count -= 1
-
 
 def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password):
     login_failed = False
@@ -52,12 +34,6 @@ def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password)
         logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
 
     pytest_assert(login_failed)
-
-
-def ssh_run_command(ssh_client, command):
-    stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
-    exit_code = stdout.channel.recv_exit_status()
-    return exit_code, stdout, stderr
 
 
 def check_ssh_output_any_of(res_stream, exp_vals, timeout=10):
