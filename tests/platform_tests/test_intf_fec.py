@@ -165,9 +165,10 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         if sfp_presence:
             presence = sfp_presence[0].get('presence', '').lower()
             oper = intf.get('oper', '').lower()
+            speed = intf.get('speed', '')
 
-            # Skip interfaces that are not up or have no SFP module present
-            if presence == "not present" or oper != "up":
+            # Skip interfaces that are not up or have no SFP module present or for unsupported speeds
+            if presence == "not present" or oper != "up" or speed not in SUPPORTED_SPEEDS:
                 continue
 
             # Verify the FEC histogram
