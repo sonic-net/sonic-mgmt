@@ -65,7 +65,7 @@ def main():
     usage = "usage: %prog [options] arg1 arg2"
     parser = optparse.OptionParser(usage=usage)
     parser.add_option("-i", "--interface", type="string", dest="interface",
-                      help="Interface list to send packets, seperated by ','", metavar="Interface")
+                      help="Interface list to send packets, separated by ','", metavar="Interface")
     parser.add_option('-p', "--priority", type="int", dest="priority",
                       help="PFC class enable bitmap.", metavar="Priority", default=-1)
     parser.add_option("-t", "--time", type="int", dest="time",
@@ -78,6 +78,8 @@ def main():
                       help="Send global pause frames (not PFC)", default=False)
     parser.add_option("-s", "--send_pfc_frame_interval", type="float", dest="send_pfc_frame_interval",
                       help="Interval sending pfc frame", metavar="send_pfc_frame_interval", default=0)
+    parser.add_option("-m", "--multiprocess", action="store_true", dest="multiprocess",
+                      help="Use multiple processes to send packets", default=False)
 
     (options, args) = parser.parse_args()
 
@@ -175,21 +177,26 @@ def main():
     logger.debug(pre_str + '_STORM_DEBUG')
 
     # Start sending PFC pause frames
-    senders = []
-    interface_slices = [[] for i in range(MAX_PROCESS_NUM)]
-    for i in range(0, len(interfaces)):
-        interface_slices[i % MAX_PROCESS_NUM].append(interfaces[i])
+    if options.multiprocess:
+        senders = []
+        interface_slices = [[] for i in range(MAX_PROCESS_NUM)]
+        for i in range(0, len(interfaces)):
+            interface_slices[i % MAX_PROCESS_NUM].append(interfaces[i])
 
-    for interface_slice in interface_slices:
-        if (interface_slice):
-            s = PacketSender(interface_slice, packet, options.num, options.send_pfc_frame_interval)
-            s.start()
-            senders.append(s)
+        for interface_slice in interface_slices:
+            if interface_slice:
+                s = PacketSender(interface_slice, packet, options.num, options.send_pfc_frame_interval)
+                s.start()
+                senders.append(s)
 
-    logger.debug(pre_str + '_STORM_START')
-    # Wait PFC packets to be sent
-    for sender in senders:
-        sender.stop()
+        logger.debug(pre_str + '_STORM_START')
+        # Wait PFC packets to be sent
+        for sender in senders:
+            sender.stop()
+    else:
+        sender = PacketSender(interfaces, packet, options.num, options.send_pfc_frame_interval)
+        logger.debug(pre_str + '_STORM_START')
+        sender.send_packets()
 
     logger.debug(pre_str + '_STORM_END')
 
