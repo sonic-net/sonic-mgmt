@@ -80,7 +80,7 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo):
         create_checkpoint(duthost, check_point)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        duthost.restart_service("dhcp_relay")
+        restart_dhcp_service(duthost)
 
         def dhcp_ready(enable_source_port_ip_in_relay):
             dhcp_relay_running = duthost.is_service_fully_started("dhcp_relay")
@@ -98,7 +98,7 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo):
         logger.info("Rolled back to original checkpoint")
         rollback_or_reload(duthost, check_point)
         delete_checkpoint(duthost, check_point)
-        duthost.restart_service("dhcp_relay")
+        restart_dhcp_service(duthost)
         pytest_assert(wait_until(60, 2, 0, dhcp_ready, False), "Source port ip in relay is not disabled!")
 
 
