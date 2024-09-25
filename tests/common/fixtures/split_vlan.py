@@ -44,7 +44,7 @@ def setup_multiple_vlans_and_teardown(rand_selected_dut, rand_unselected_dut, tb
             create_checkpoint(rand_unselected_dut, checkpoint_name)
             apply_config_patch(rand_unselected_dut, config_patch)
 
-        yield duthost, sub_vlans_info
+        yield sub_vlans_info
     finally:
         rollback_or_reload(duthost, checkpoint_name)
         delete_checkpoint(duthost, checkpoint_name)
