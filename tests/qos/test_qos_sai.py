@@ -1311,7 +1311,8 @@ class TestQosSai(QosSaiBase):
             raise
 
     def testQosSaiDscpQueueMapping(
-        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps # noqa F811
+        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
+        tc_to_dscp_count
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1323,6 +1324,7 @@ class TestQosSai(QosSaiBase):
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
                 dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
+                tc_to_dscp_count(Fixture): A fixture, return tc to dscp_count map on DUT host
             Returns:
                 None
 
@@ -1346,7 +1348,8 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "hwsku": dutTestParams['hwsku'],
             "dual_tor": dutConfig['dualTor'],
-            "dual_tor_scenario": dutConfig['dualTorScenario']
+            "dual_tor_scenario": dutConfig['dualTorScenario'],
+            "tc_to_dscp_count_map": tc_to_dscp_count
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1723,8 +1726,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        _check_ingress_speed_gte_400g
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, skip_400g_longlink
     ):
         """
             Test QoS SAI PG drop counter
@@ -2262,3 +2264,89 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.LossyQueueVoqMultiSrcTest",
             testParams=testParams
         )
+
+    def testQosSaiFullMeshTrafficSanity(
+            self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            get_src_dst_asic_and_duts, dut_qos_maps, # noqa F811
+            set_static_route_ptf64
+    ):
+        """
+            Test QoS SAI traffic sanity
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        # Execution with a specific set of dst port
+        def run_test_for_dst_port(start, end):
+            test_params = dict()
+            test_params.update(dutTestParams["basicParams"])
+            test_params.update({
+                "testbed_type": dutTestParams["topo"],
+                "all_src_port_id_to_ip": all_src_port_id_to_ip,
+                "all_src_port_id_to_name": all_src_port_id_to_name,
+                "all_dst_port_id_to_ip": {port_id: all_dst_port_id_to_ip[port_id] for port_id in range(start, end)},
+                "all_dst_port_id_to_name": {port_id: all_dst_port_id_to_name[port_id] for port_id in range(start, end)},
+                "dscp_to_q_map": dscp_to_q_map,
+                # Add a log_suffix to have separate log and pcap file name
+                "log_suffix": "_".join([str(port_id) for port_id in range(start, end)]),
+                "hwsku": dutTestParams['hwsku']
+            })
+
+            self.runPtfTest(ptfhost, testCase="sai_qos_tests.FullMeshTrafficSanity", testParams=test_params)
+
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+
+        src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+
+        # Fetch all port IDs and IPs
+        all_src_port_id_to_ip = {port_id: src_testPortIps[port_id]['peer_addr'] for port_id in src_testPortIps.keys()}
+
+        all_src_port_id_to_name = {
+                                    port_id: dutConfig["dutInterfaces"][port_id]
+                                    for port_id in all_src_port_id_to_ip.keys()
+                                  }
+
+        all_dst_port_id_to_ip = {
+                                    port_id: set_static_route_ptf64[port_id]['generated_ip']
+                                    for port_id in dst_testPortIps.keys()
+                                }
+
+        all_dst_port_id_to_name = {
+                                    port_id: dutConfig["dutInterfaces"][port_id]
+                                    for port_id in all_dst_port_id_to_ip.keys()
+                                  }
+
+        try:
+            tc_to_q_map = dut_qos_maps['tc_to_queue_map']['AZURE']
+            tc_to_dscp_map = {v: k for k, v in dut_qos_maps['dscp_to_tc_map']['AZURE'].items()}
+        except KeyError:
+            pytest.skip(
+                "Need both TC_TO_PRIORITY_GROUP_MAP and DSCP_TO_TC_MAP"
+                "and key AZURE to run this test.")
+
+        dscp_to_q_map = {tc_to_dscp_map[tc]: tc_to_q_map[tc] for tc in tc_to_dscp_map if tc != 7}
+
+        # Define the number of splits
+        # for the dst port list
+        num_splits = 4
+
+        # Get all keys and sort them
+        all_keys = sorted(all_dst_port_id_to_ip.keys())
+
+        # Calculate the split points
+        split_points = [all_keys[i * len(all_keys) // num_splits] for i in range(1, num_splits)]
+
+        # Execute with one set of dst port at a time,  avoids ptf run getting timed out
+        for start, end in zip([0] + split_points, split_points + [len(all_keys)]):
+            run_test_for_dst_port(start, end)

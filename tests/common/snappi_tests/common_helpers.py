@@ -139,7 +139,7 @@ def get_lossless_buffer_size(host_ans):
     return int(lossless_pool['size'])
 
 
-def get_pg_dropped_packets(duthost, phys_intf, prio):
+def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
     """
     Get number of ingress packets dropped on a specific priority
     of a physical interface
@@ -150,14 +150,22 @@ def get_pg_dropped_packets(duthost, phys_intf, prio):
     Returns:
         total number of dropped packets (int)
     """
-    oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+    if asic_value is None:
+        oid_cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP " + phys_intf + ":" + str(prio)
+    else:
+        oid_cmd = "sudo ip netns exec {} sonic-db-cli COUNTERS_DB HGET COUNTERS_QUEUE_NAME_MAP ".format(asic_value) \
+                  + phys_intf + ":" + str(prio)
     oid_out = duthost.command(oid_cmd)
     oid_str = str(oid_out["stdout_lines"][0] or 1)
 
     if oid_str == "1":
         return None
 
-    cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
+    if asic_value is None:
+        cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS:" + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
+    else:
+        cmd = "sudo ip netns exec {} sonic-db-cli COUNTERS_DB HGET COUNTERS:".format(asic_value) \
+              + oid_str + " SAI_QUEUE_STAT_DROPPED_PACKETS"
     out = duthost.command(cmd)
     dropped_packets = int(out["stdout_lines"][0] or -1)
 
@@ -246,7 +254,13 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     if len(peer_devices) == 1:
         return peer_devices[0]
     else:
-        return None
+        # in case there are other fanout devices (Arista, SONiC, etc) defined in the inventory file,
+        # try to filter out the other device based on the name for now.
+        peer_snappi_devices = list(filter(lambda dut_name: ('ixia' in dut_name), peer_devices))
+        if len(peer_snappi_devices) == 1:
+            return peer_snappi_devices[0]
+        else:
+            return None
 
 
 def get_peer_port(conn_data, dut_hostname, dut_intf):
@@ -456,34 +470,43 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
     if profile is not None and profile not in profiles:
         return False
 
+    color = 'green'
+
+    # Broadcom ASIC only supports RED.
+    if asic_type == 'broadcom':
+        color = 'red'
+
+    kmax_arg = '-{}max' % color[0]
+    kmin_arg = '-{}min' % color[0]
+
     for p in profiles:
         """ This is not the profile to configure """
         if profile is not None and profile != p:
             continue
 
-        kmin_old = int(profiles[p]['green_min_threshold'])
-        kmax_old = int(profiles[p]['green_max_threshold'])
+        kmin_old = int(profiles[p]['{}_min_threshold' % color])
+        kmax_old = int(profiles[p]['{}_max_threshold' % color])
 
         if kmin_old > kmax_old:
             return False
 
         """ Ensure that Kmin is no larger than Kmax during the update """
 
-        gmax_cmd = 'sudo ecnconfig -p {} -gmax {}'
-        gmin_cmd = 'sudo ecnconfig -p {} -gmin {}'
+        kmax_cmd = ' '.join(['sudo ecnconfig -p {}', kmax_arg, '{}'])
+        kmin_cmd = ' '.join(['sudo ecnconfig -p {}', kmin_arg, '{}'])
 
         if asic_value is not None:
-            gmax_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmax {}' % asic_value
-            gmin_cmd = 'sudo ip netns exec %s ecnconfig -p {} -gmin {}' % asic_value
+            kmax_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kmax_arg, '{}'])
+            kmin_cmd = ' '.join(['sudo ip netns exec', asic_value, 'ecnconfig -p {}', kmin_arg, '{}'])
             if asic_type == 'broadcom':
                 disable_packet_aging(host_ans, asic_value)
 
         if kmin > kmin_old:
-            host_ans.shell(gmax_cmd.format(p, kmax))
-            host_ans.shell(gmin_cmd.format(p, kmin))
+            host_ans.shell(kmax_cmd.format(p, kmax))
+            host_ans.shell(kmin_cmd.format(p, kmin))
         else:
-            host_ans.shell(gmin_cmd.format(p, kmin))
-            host_ans.shell(gmax_cmd.format(p, kmax))
+            host_ans.shell(kmin_cmd.format(p, kmin))
+            host_ans.shell(kmax_cmd.format(p, kmax))
 
     return True
 
@@ -507,7 +530,7 @@ def enable_ecn(host_ans, prio, asic_value=None):
             return True
     else:
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
-        results = host_ans.shell('sudo ip netns exec {} ecnconfig {}'.format(asic_value, prio))
+        results = host_ans.shell('sudo ip netns exec {} ecnconfig -q {}'.format(asic_value, prio))
         if re.search("queue {}: on".format(prio), results['stdout']):
             return True
     return False
