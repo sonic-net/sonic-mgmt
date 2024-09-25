@@ -272,10 +272,9 @@ def k8s_config_update(duthost, test_data):
         logger.info("tmpfile {}".format(tmpfile))
 
         if duthost.is_multi_asic:
-            json_namespace = '/localhost'
             for patch in json_patch:
                 if 'path' in patch:
-                    patch['path'] = re.sub(r'^/', f'/{json_namespace}/', patch['path'])
+                    patch['path'] = re.sub(r'^/', '/localhost/', patch['path'])
 
             target_config = [add_namespace_indentation(item) for item in target_config]
 
