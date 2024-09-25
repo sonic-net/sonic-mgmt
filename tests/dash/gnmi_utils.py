@@ -23,7 +23,7 @@ class GNMIEnvironment(object):
         self.gnmi_client_cert = "gnmiclient.crt"
         self.gnmi_client_key = "gnmiclient.key"
         self.gnmi_server_start_wait_time = 30
-        #self.enable_zmq = duthost.shell("netstat -na | grep -w 8100", module_ignore_errors=True)['rc'] == 0
+        # self.enable_zmq = duthost.shell("netstat -na | grep -w 8100", module_ignore_errors=True)['rc'] == 0
         self.enable_zmq = True
         cmd = "docker images | grep -w sonic-gnmi"
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
@@ -268,6 +268,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     cmd += '--xpath ' + xpath
     cmd += ' '
     cmd += '--value ' + xvalue
+    logger.info(f"PTF GNMI command: {cmd}")
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     error = "GRPC error\n"
     if error in output['stdout']:
@@ -307,6 +308,7 @@ def gnmi_get(duthost, ptfhost, path_list):
     for path in path_list:
         path = path.replace('sonic-db:', '')
         cmd += " " + path
+    logger.info(f"Running command on PTF: {cmd}")
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         raise Exception("error:" + output['stderr'])
@@ -323,6 +325,31 @@ def gnmi_get(duthost, ptfhost, path_list):
             return [msg.strip("\n") for msg in msg_list]
         else:
             raise Exception("error:" + msg)
+
+
+def apply_messages(localhost, duthost, ptfhost, messages, set=True, wait_after_apply=5, max_updates_in_single_cmd=1024):
+    env = GNMIEnvironment(duthost)
+    update_list = []
+    delete_list = []
+    for i, (key, message) in enumerate(messages.items()):
+        keys = key.split(":", 1)
+        k = keys[0] + "[key=" + keys[1] + "]"
+        filename = f"update{i}"
+
+        if set:
+            if proto_utils.ENABLE_PROTO:
+                path = f"/APPL_DB/dpu0/{k}:$/root/{filename}"
+            else:
+                path = f"/APPL_DB/dpu0/{k}:@/root/{filename}"
+            with open(env.work_dir+filename, "wb") as file:
+                file.write(message.SerializeToString())
+            update_list.append(path)
+        else:
+            path = f"/APPL_DB/dpu0/{filename}"
+            delete_list.append(path)
+
+    write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list, max_updates_in_single_cmd)
+    time.sleep(wait_after_apply)
 
 
 def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=None,
@@ -386,6 +413,11 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])
+    write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list, max_updates_in_single_cmd)
+    time.sleep(wait_after_apply)
+
+
+def write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list, max_updates_in_single_cmd):
     localhost.shell(f'tar -zcvf /tmp/updates.tar.gz -C {env.work_dir} .')
     ptfhost.copy(src='/tmp/updates.tar.gz', dest='~')
     ptfhost.shell('tar -xf updates.tar.gz')
@@ -407,8 +439,7 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
         for update_list in update_list_group:
             gnmi_set(duthost, ptfhost, [], update_list, [])
 
-    localhost.shell('rm -f /tmp/updates.tar.gz')
-    ptfhost.shell('rm -f updates.tar.gz')
-    localhost.shell(f'rm -f {env.work_dir}update*')
-    ptfhost.shell('rm -f update*')
-    time.sleep(wait_after_apply)
+    # localhost.shell('rm -f /tmp/updates.tar.gz')
+    # ptfhost.shell('rm -f updates.tar.gz')
+    # localhost.shell(f'rm -f {env.work_dir}update*')
+    # ptfhost.shell('rm -f update*')
