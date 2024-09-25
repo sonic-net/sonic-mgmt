@@ -21,7 +21,7 @@ def run_bgp_local_link_failover_test(cvg_api,
                                      multipath,
                                      number_of_routes,
                                      route_type,
-                                     port_speed,):
+                                     ):
     """
     Run Local link failover test
 
@@ -33,7 +33,6 @@ def run_bgp_local_link_failover_test(cvg_api,
         multipath: ecmp value for BGP config
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     port_count = multipath+1
 
@@ -48,7 +47,7 @@ def run_bgp_local_link_failover_test(cvg_api,
                                         port_count,
                                         number_of_routes,
                                         route_type,
-                                        port_speed,)
+                                        )
 
     """
         Run the convergence test by flapping all the rx
@@ -61,9 +60,6 @@ def run_bgp_local_link_failover_test(cvg_api,
                                             number_of_routes,
                                             route_type,)
 
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
-
 
 def run_bgp_remote_link_failover_test(cvg_api,
                                       duthost,
@@ -72,7 +68,7 @@ def run_bgp_remote_link_failover_test(cvg_api,
                                       multipath,
                                       number_of_routes,
                                       route_type,
-                                      port_speed,):
+                                      ):
     """
     Run Remote link failover test
 
@@ -83,7 +79,6 @@ def run_bgp_remote_link_failover_test(cvg_api,
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     port_count = multipath+1
     """ Create bgp config on dut """
@@ -97,7 +92,7 @@ def run_bgp_remote_link_failover_test(cvg_api,
                                         port_count,
                                         number_of_routes,
                                         route_type,
-                                        port_speed,)
+                                        )
 
     """
         Run the convergence test by withdrawing all the route ranges
@@ -110,9 +105,6 @@ def run_bgp_remote_link_failover_test(cvg_api,
                                              number_of_routes,
                                              route_type,)
 
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
-
 
 def run_rib_in_convergence_test(cvg_api,
                                 duthost,
@@ -121,7 +113,7 @@ def run_rib_in_convergence_test(cvg_api,
                                 multipath,
                                 number_of_routes,
                                 route_type,
-                                port_speed,):
+                                ):
     """
     Run RIB-IN Convergence test
 
@@ -133,7 +125,6 @@ def run_rib_in_convergence_test(cvg_api,
         multipath: ecmp value for BGP config
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     port_count = multipath+1
 
@@ -148,7 +139,7 @@ def run_rib_in_convergence_test(cvg_api,
                                         port_count,
                                         number_of_routes,
                                         route_type,
-                                        port_speed,)
+                                        )
 
     """
         Run the convergence test by withdrawing all routes at once and
@@ -161,9 +152,6 @@ def run_rib_in_convergence_test(cvg_api,
                            number_of_routes,
                            route_type,)
 
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
-
 
 def run_RIB_IN_capacity_test(cvg_api,
                              duthost,
@@ -172,7 +160,7 @@ def run_RIB_IN_capacity_test(cvg_api,
                              start_value,
                              step_value,
                              route_type,
-                             port_speed,):
+                             ):
     """
     Run RIB-IN Capacity test
 
@@ -184,7 +172,6 @@ def run_RIB_IN_capacity_test(cvg_api,
         start_value: start value of number of routes
         step_value: step value of routes to be incremented at every iteration
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     port_count = multipath+1
     """ Create bgp config on dut """
@@ -199,10 +186,7 @@ def run_RIB_IN_capacity_test(cvg_api,
                         start_value,
                         step_value,
                         route_type,
-                        port_speed,)
-
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
+                        )
 
 
 def duthost_bgp_config(duthost,
@@ -295,7 +279,7 @@ def __tgen_bgp_config(cvg_api,
                       port_count,
                       number_of_routes,
                       route_type,
-                      port_speed,):
+                      ):
     """
     Creating  BGP config on TGEN
 
@@ -304,7 +288,6 @@ def __tgen_bgp_config(cvg_api,
         port_count: multipath + 1
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     global NG_LIST
     conv_config = cvg_api.convergence_config()
@@ -331,7 +314,7 @@ def __tgen_bgp_config(cvg_api,
     layer1.ieee_media_defaults = False
     layer1.auto_negotiation.rs_fec = True
     layer1.auto_negotiation.link_training = False
-    layer1.speed = port_speed
+    layer1.speed = temp_tg_port[0]['speed']
     layer1.auto_negotiate = False
 
     def create_v4_topo():
@@ -751,7 +734,7 @@ def get_RIB_IN_capacity(cvg_api,
                         start_value,
                         step_value,
                         route_type,
-                        port_speed,):
+                        ):
     """
     Args:
         cvg_api (pytest fixture): snappi API
@@ -760,7 +743,6 @@ def get_RIB_IN_capacity(cvg_api,
         start_value:  Start value of the number of BGP routes
         step_value: Step value of the number of BGP routes to be incremented
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used in test
     """
     def tgen_capacity(routes):
         conv_config = cvg_api.convergence_config()
@@ -787,7 +769,7 @@ def get_RIB_IN_capacity(cvg_api,
         layer1.ieee_media_defaults = False
         layer1.auto_negotiation.rs_fec = True
         layer1.auto_negotiation.link_training = False
-        layer1.speed = port_speed
+        layer1.speed = temp_tg_port[0]['speed']
         layer1.auto_negotiate = False
 
         def create_v4_topo():
@@ -980,19 +962,3 @@ def get_RIB_IN_capacity(cvg_api,
         columns = ['Test Name', 'Maximum no. of Routes']
         logger.info("\n%s" % tabulate(
             [['RIB-IN Capacity Test', max_routes]], headers=columns, tablefmt="psql"))
-
-
-def cleanup_config(duthost):
-    """
-    Cleaning up dut config at the end of the test
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-    """
-    duthost.command("sudo cp {} {}".format(
-        "/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
-    duthost.shell("sudo config reload -y \n")
-    logger.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-    logger.info('Convergence Test Completed')
