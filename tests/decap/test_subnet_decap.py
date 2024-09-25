@@ -11,11 +11,12 @@ from ptf.mask import Mask
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa F401
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1')
+    pytest.mark.topology('t0', 't1', 'dualtor')
 ]
 
 DECAP_IPINIP_SUBNET_CONFIG_TEMPLATE = "decap/template/decap_ipinip_subnet_config.j2"
@@ -25,27 +26,28 @@ DECAP_IPINIP_SUBNET_DEL_JSON = "decap_ipinip_subnet_delete.json"
 
 SUBNET_DECAP_SRC_IP_V4 = "20.20.20.0/24"
 SUBNET_DECAP_SRC_IP_V6 = "fc01::/120"
-OUTER_DST_IP_V4 = "192.168.0.10"
-OUTER_DST_IP_V6 = "fc02:1000::10"
+OUTER_DST_IP_V4 = "192.168.0.200"
+OUTER_DST_IP_V6 = "fc02:1000::200"
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='module')
 def prepare_subnet_decap_config(rand_selected_dut):
     logger.info("Prepare subnet decap config")
     rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "SUBNET_DECAP|subnet_type" \
                             "status" "enable" "src_ip" "{}" "src_ip_v6" "{}"'
                             .format(SUBNET_DECAP_SRC_IP_V4, SUBNET_DECAP_SRC_IP_V6))
     rand_selected_dut.shell('sudo config save -y')
-    rand_selected_dut.shell('sudo config reload -y')
+    config_reload(rand_selected_dut)
     #  Wait for all processes come up
     time.sleep(120)
 
     yield
     rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "SUBNET_DECAP|subnet_type"')
     rand_selected_dut.shell('sudo config save -y')
-    rand_selected_dut.shell('sudo config reload -y')
+    config_reload(rand_selected_dut, config_source='minigraph')
 
 
+@pytest.fixture(scope='module')
 def prepare_vlan_subnet_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
@@ -69,25 +71,22 @@ def prepare_vlan_subnet_test_port(rand_selected_dut, tbinfo):
     return ptf_src_port, downstream_port_ids, upstream_port_ids
 
 
-def generate_negative_ip_port_map(ip_version, ptf_target_port):
-    if ip_version == "IPv4":
-        ip_to_port = {
-            OUTER_DST_IP_V4: ptf_target_port
-        }
-    elif ip_version == "IPv6":
-        ip_to_port = {
-            OUTER_DST_IP_V6: ptf_target_port
-        }
-    return ip_to_port
+@pytest.fixture(scope='module')
+def prepare_negative_ip_port_map(prepare_vlan_subnet_test_port):
+    _, downstream_port_ids, _ = prepare_vlan_subnet_test_port
+    ptf_target_port = random.choice(downstream_port_ids)
+    ip_to_port = {
+        OUTER_DST_IP_V4: ptf_target_port,
+        OUTER_DST_IP_V6: ptf_target_port
+    }
+    return ptf_target_port, ip_to_port
 
 
-def setup_arp_responder(ptfhost, ip_version, stage, ptf_target_port):
-    if stage == "positive":
-        logger.info("Positive test, skip arp_responder")
-        return
+@pytest.fixture
+def setup_arp_responder(rand_selected_dut, ptfhost, prepare_negative_ip_port_map):
     ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
 
-    ip_to_port = generate_negative_ip_port_map(ip_version, ptf_target_port)
+    _, ip_to_port = prepare_negative_ip_port_map
     arp_responder_cfg = defaultdict(list)
     ip_list = []
 
@@ -115,11 +114,8 @@ def setup_arp_responder(ptfhost, ip_version, stage, ptf_target_port):
     ptfhost.command('supervisorctl start arp_responder')
     time.sleep(10)
 
+    yield
 
-def stop_arp_responder(rand_selected_dut, ptfhost, stage):
-    if stage == "positive":
-        logger.info("Positive test, skip arp_responder")
-        return
     ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
     ptfhost.file(path='/tmp/arp_responder.json', state="absent")
     rand_selected_dut.command('sonic-clear arp')
@@ -210,17 +206,20 @@ def verify_packet_with_expected(ptfadapter, stage, pkt, exp_pkt, send_port,
 
 @pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
 @pytest.mark.parametrize("stage", ["positive", "negative"])
-def test_vlan_subnet_decap(rand_selected_dut, tbinfo, ptfhost, ptfadapter, ip_version, stage, skip_traffic_test):  # noqa F811
-    ptf_src_port, downstream_port_ids, upstream_port_ids = prepare_vlan_subnet_test_port(rand_selected_dut, tbinfo)
+def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapter, ip_version, stage,
+                           prepare_subnet_decap_config, prepare_vlan_subnet_test_port,
+                           prepare_negative_ip_port_map, setup_arp_responder, skip_traffic_test):     # noqa F811
+    ptf_src_port, _, upstream_port_ids = prepare_vlan_subnet_test_port
 
     encapsulated_packet = build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_version, stage)
     exp_pkt = build_expected_vlan_subnet_packet(encapsulated_packet, ip_version, stage, decrease_ttl=True)
 
-    ptf_target_port = random.choice(downstream_port_ids)
-    setup_arp_responder(ptfhost, ip_version, stage, ptf_target_port)
+    if stage == "negative":
+        ptf_target_port, _ = prepare_negative_ip_port_map
+        request.getfixturevalue('setup_arp_responder')
+    else:
+        ptf_target_port = None
 
     verify_packet_with_expected(ptfadapter, stage, encapsulated_packet, exp_pkt,
                                 ptf_src_port, recv_ports=upstream_port_ids, recv_port=ptf_target_port,
                                 skip_traffic_test=skip_traffic_test)
-
-    stop_arp_responder(rand_selected_dut, ptfhost, stage)
