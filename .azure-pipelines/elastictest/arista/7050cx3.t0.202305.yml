@@ -28,7 +28,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms20-t0-7050cx3-1, vms20-t0-7050cx3-2"
+    default: "vms20-t0-7050cx3-2"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
