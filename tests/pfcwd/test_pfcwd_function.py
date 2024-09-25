@@ -735,13 +735,19 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             if self.pfc_wd['fake_storm']:
                 PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
 
-            PFC_STORM_TIMEOUT = 30
-            pytest_assert(
-                wait_until(
-                    PFC_STORM_TIMEOUT, 2, 5, check_pfc_storm_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"
-                ),
-                "PFC storm state did not change as expected"
-            )
+            if dut.facts['asic_type'] == "mellanox":
+                # On Mellanox platform, more time is required for PFC storm being triggered
+                # as PFC pause sent from Non-Mellanox leaf fanout is not continuous sometimes.
+                PFC_STORM_TIMEOUT = 30
+                pytest_assert(
+                    wait_until(
+                        PFC_STORM_TIMEOUT, 2, 5,
+                        check_pfc_storm_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"
+                    ),
+                    "PFC storm state did not change as expected"
+                )
+            else:
+                time.sleep(5)
 
         # storm detect
         logger.info("Verify if PFC storm is detected on port {}".format(port))
