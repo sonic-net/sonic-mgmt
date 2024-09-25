@@ -101,7 +101,7 @@ def do_reboot(duthost, localhost, duthosts):
 
 
 def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
-    timeout=300
+    timeout = 300
     if duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node():
         wait_time = max(wait_time, 900)
         timeout = max(timeout, 600)
