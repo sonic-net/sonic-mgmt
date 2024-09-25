@@ -120,16 +120,28 @@ root_path: /data/veos-vm
 You need to create a valid SONiC image named `sonic-vs.img` in the `~/veos-vm/images/` directory. Currently, we don’t support downloading a pre-built SONiC image. However, for testing purposes, you can refer to the section Download the sonic-vs image to obtain an available image and place it in the `~/veos-vm/images/` directory.
 
 ## Download the sonic-vs image
-To run the tests with a virtual SONiC device, we need a virtual SONiC image. The simplest way to do so is to download the latest succesful build.
 
-### Option 1: Download sonic-vs image
-1. Download the sonic-vs image from [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz)
+### 1. To run the tests with a virtual SONiC device, we need a virtual SONiC image.
+
+#### Option 1: Download sonic-vs image
+
+The simplest way to do so is to download the latest succesful build. Download the sonic-vs image from [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz)
 
 ```
 wget "https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz" -O sonic-vs.img.gz
 ```
 
-2. Unzip the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
+#### Option 2: Build sonic-vpp image
+
+Follow the instructions from [sonic-platform-vpp](https://github.com/sonic-net/sonic-platform-vpp?tab=readme-ov-file#building-a-kvm-vm-image) and build a **kvm** vm image.
+
+__Note: make sure you rename the vpp image to `sonic-vs.img`.__
+
+```
+mv sonic-vpp.img.gz sonic-vs.img.gz
+```
+
+### 2. Unzip the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
 
 ```
 gzip -d sonic-vs.img.gz
@@ -139,17 +151,6 @@ mkdir -p ~/veos-vm/images
 mv sonic-vs.img ~/veos-vm/images
 ```
 
-### Option 2: Use sonic-vpp image
-1. Follow the instructions from [sonic-platform-vpp](https://github.com/sonic-net/sonic-platform-vpp?tab=readme-ov-file#building-a-kvm-vm-image) and build a **kvm** vm image.
-2. Unzip the image, rename the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
-```
-gzip -d sonic-vpp.img.gz
-mv sonic-vpp.img sonic-vs.img
-mkdir -p ~/sonic-vm/images
-cp sonic-vs.img ~/sonic-vm/images
-mkdir -p ~/veos-vm/images
-mv sonic-vs.img ~/veos-vm/images
-```
 ## Setup sonic-mgmt docker
 All testbed configuration steps and tests are run from a `sonic-mgmt` docker container. This container has all the necessary packages and tools for SONiC testing so that test behavior is consistent between different developers and lab setups.
 
