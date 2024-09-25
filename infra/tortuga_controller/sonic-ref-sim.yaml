@@ -11,7 +11,6 @@ devices:
     data_ports:
       - eth1
       - eth2
-      - eth3
     data_port_attributes:
       transport: e1000
     linux_username: vxr
@@ -50,10 +49,7 @@ devices:
       - 8101-32FH
     port_breakout:
       lc0:
-        0..7: 1x400
-        8..15: 1x100
-        16..23: 4x25
-        24..31: 4x10
+        0..31: 1x400
     vxr_sim_config:
       shelf:
         ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.43/npl
