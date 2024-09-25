@@ -39,15 +39,32 @@ def test_bgp_network_command(
         bgp_network_cmd = "show ipv6 bgp network"
         bgp_docker_cmd = 'docker exec -i bgp vtysh -c "show bgp ipv6 all"'
 
-    bgp_network_output = duthost.shell(bgp_network_cmd)["stdout"]
+    bgp_network_result = duthost.shell(bgp_network_cmd)
+    bgp_network_output = bgp_network_result["stdout"]
     pytest_assert(
-        "*=" in bgp_network_output, "Failed to run '{}' command".format(bgp_network_cmd)
+        bgp_network_result["rc"] == 0,
+        "{} return value is not 0, output={}".format(
+            bgp_network_cmd, bgp_network_output
+        ),
+    )
+    pytest_assert(
+        "*=" in bgp_network_output,
+        "Failed to run '{}' command, output={}".format(
+            bgp_network_cmd, bgp_network_output
+        ),
     )
 
-    bgp_docker_output = duthost.shell(bgp_docker_cmd)["stdout"]
+    bgp_docker_result = duthost.shell(bgp_docker_cmd)
+    bgp_docker_output = bgp_docker_result["stdout"]
+    pytest_assert(
+        bgp_docker_result["rc"] == 0,
+        "{} return value is not 0, output:{}".format(bgp_docker_cmd, bgp_docker_output),
+    )
     pytest_assert(
         "*=" in bgp_docker_output,
-        "Failed to run '{}' command".format(bgp_docker_output),
+        "Failed to run '{}' command, output={}".format(
+            bgp_docker_cmd, bgp_docker_output
+        ),
     )
     # Remove the first two lines from the docker command output
     bgp_docker_output_lines = bgp_docker_output.splitlines()[2:]
