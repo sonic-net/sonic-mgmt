@@ -16,7 +16,7 @@ from tests.common.snappi_tests.traffic_generation import setup_base_traffic_conf
     generate_background_flows, generate_pause_flows, run_traffic, verify_pause_flow, verify_basic_test_flow, \
     verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count, \
     verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, verify_tx_frame_count_dut, \
-    verify_rx_frame_count_dut
+    verify_rx_frame_count_dut, verify_ingress_lossless_buffer_capacity
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame
 
@@ -100,8 +100,8 @@ def run_pfc_test(api,
     tx_dut = duthost
 
     # Rate percent must be an integer
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list)) if bg_prio_list else 0
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list)) if test_prio_list else 0
 
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
@@ -259,6 +259,9 @@ def run_pfc_test(api,
                                speed_gbps=speed_gbps,
                                tolerance=TOLERANCE_THRESHOLD,
                                snappi_extra_params=snappi_extra_params)
+    else:
+        verify_ingress_lossless_buffer_capacity(duthost=duthost,
+                                                snappi_extra_params=snappi_extra_params)
 
     # Verify basic test flows metrics from ixia
     verify_basic_test_flow(flow_metrics=tgen_flow_stats,
