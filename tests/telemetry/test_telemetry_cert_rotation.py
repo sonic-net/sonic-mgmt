@@ -29,13 +29,13 @@ Testing cert rotation by telemetry
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_telemetry_not_exit(duthosts, rand_one_dut_hostname, setup_streaming_telemetry, localhost):
+def test_telemetry_not_exit(duthosts, enum_rand_one_per_hwsku_hostname, setup_streaming_telemetry, localhost):
     """ Test that telemetry server will not exit when certs are missing. We will shutdown telemetry,
     remove certs and verify that telemetry is up and running.
     """
     logger.info("Testing telemetry server will startup without certs")
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     # Shutting down telemetry
@@ -60,13 +60,15 @@ def test_telemetry_not_exit(duthosts, rand_one_dut_hostname, setup_streaming_tel
     wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
 
 
-def test_telemetry_post_cert_del(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path, localhost):
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
+def test_telemetry_post_cert_del(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, localhost,
+                                 setup_streaming_telemetry):
     """ Test that telemetry server with certificates will accept requests.
     When certs are deleted, subsequent requests will not work.
     """
     logger.info("Testing telemetry server post cert add")
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     # Initial request should pass with certs
@@ -92,13 +94,15 @@ def test_telemetry_post_cert_del(duthosts, rand_one_dut_hostname, ptfhost, gnxi_
     wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
 
 
-def test_telemetry_post_cert_add(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path, localhost):
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
+def test_telemetry_post_cert_add(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, localhost,
+                                 setup_streaming_telemetry):
     """ Test that telemetry server with no certificates will reject requests.
     When certs are rotated, subsequent requests will work.
     """
     logger.info("Testing telemetry server post cert add")
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     # Remove certs
@@ -124,13 +128,15 @@ def test_telemetry_post_cert_add(duthosts, rand_one_dut_hostname, ptfhost, gnxi_
     assert ret == 0, "Telemetry server request should complete with certs"
 
 
-def test_telemetry_cert_rotate(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path, localhost):
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
+def test_telemetry_cert_rotate(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path, localhost,
+                               setup_streaming_telemetry):
     """ Test that telemetry server with certs will serve requests.
     When certs are rotated, subsequent requests will work.
     """
     logger.info("Testing telemetry server cert rotate")
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     # Initial request should complete with certs
