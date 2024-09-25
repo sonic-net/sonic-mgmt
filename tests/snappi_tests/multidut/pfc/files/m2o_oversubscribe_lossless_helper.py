@@ -120,14 +120,14 @@ def run_m2o_oversubscribe_lossless_test(api,
                                                    all_flow_names=all_flow_names,
                                                    exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                    snappi_extra_params=snappi_extra_params)
-    interface_stats = get_interface_stats
+
     tx_port1 = tx_port[0]['peer_port']
     tx_port2 = tx_port[1]['peer_port']
     # Fetch relevant statistics
-    pkt_drop1 = interface_stats(ingress_duthost, tx_port1)[ingress_duthost.hostname][tx_port1]['rx_fail']
-    pkt_drop2 = interface_stats(ingress_duthost, tx_port2)[ingress_duthost.hostname][tx_port2]['rx_fail']
-    rx_pkts_1 = interface_stats(ingress_duthost, tx_port1)[ingress_duthost.hostname][tx_port1]['rx_pkts']
-    rx_pkts_2 = interface_stats(ingress_duthost, tx_port2)[ingress_duthost.hostname][tx_port2]['rx_pkts']
+    pkt_drop1 = get_interface_stats(ingress_duthost, tx_port1)[ingress_duthost.hostname][tx_port1]['rx_fail']
+    pkt_drop2 = get_interface_stats(ingress_duthost, tx_port2)[ingress_duthost.hostname][tx_port2]['rx_fail']
+    rx_pkts_1 = get_interface_stats(ingress_duthost, tx_port1)[ingress_duthost.hostname][tx_port1]['rx_pkts']
+    rx_pkts_2 = get_interface_stats(ingress_duthost, tx_port2)[ingress_duthost.hostname][tx_port2]['rx_pkts']
     # Calculate the total packet drop
     pkt_drop = pkt_drop1 + pkt_drop2
     # Calculate the total received packets
