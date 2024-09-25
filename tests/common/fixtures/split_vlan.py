@@ -2,6 +2,7 @@ import pytest
 import logging
 import ipaddress
 import json
+import re
 from math import log, ceil
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
@@ -9,6 +10,7 @@ from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete
 
 @pytest.fixture(scope="module")
 def setup_multiple_vlans_and_teardown(rand_selected_dut, rand_unselected_dut, tbinfo):
+    is_dualtor = 'dualtor' in tbinfo['topo']['name']
     duthost = rand_selected_dut
     vlan_brief = duthost.get_vlan_brief()
     first_vlan_name = list(vlan_brief.keys())[0]
@@ -22,6 +24,10 @@ def setup_multiple_vlans_and_teardown(rand_selected_dut, rand_unselected_dut, tb
     connected_ptf_ports_idx = [interface for interface in
                                tbinfo['topo']['properties']['topology'].get('host_interfaces', [])
                                if interface not in disabled_host_interfaces]
+    if is_dualtor:
+        pattern = r'0.(\d+)'
+        connected_ptf_ports_idx = [int(re.findall(pattern, index)[0])
+                                   for index in connected_ptf_ports_idx if re.match(pattern, index)]
     dut_intf_to_ptf_index = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
     connected_dut_intf_to_ptf_index = {k: v for k, v in dut_intf_to_ptf_index.items() if v in connected_ptf_ports_idx}
     vlan_members = first_vlan_info['members']
@@ -40,7 +46,7 @@ def setup_multiple_vlans_and_teardown(rand_selected_dut, rand_unselected_dut, tb
         logging.info("The patch for setup is %s" % config_patch)
         apply_config_patch(duthost, config_patch)
         logging.info("The sub_vlans_info after setup is %s" % sub_vlans_info)
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             create_checkpoint(rand_unselected_dut, checkpoint_name)
             apply_config_patch(rand_unselected_dut, config_patch)
 
@@ -48,7 +54,7 @@ def setup_multiple_vlans_and_teardown(rand_selected_dut, rand_unselected_dut, tb
     finally:
         rollback_or_reload(duthost, checkpoint_name)
         delete_checkpoint(duthost, checkpoint_name)
-        if 'dualtor' in tbinfo['topo']['name']:
+        if is_dualtor:
             rollback_or_reload(rand_unselected_dut, checkpoint_name)
             delete_checkpoint(rand_unselected_dut, checkpoint_name)
 
