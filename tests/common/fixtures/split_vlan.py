@@ -24,15 +24,15 @@ def setup_multiple_vlans_and_teardown(rand_selected_dut, rand_unselected_dut, tb
     connected_ptf_ports_idx = [interface for interface in
                                tbinfo['topo']['properties']['topology'].get('host_interfaces', [])
                                if interface not in disabled_host_interfaces]
+    if is_dualtor:
+        pattern = r'0.(\d+)'
+        connected_ptf_ports_idx = [int(re.findall(pattern, index)[0])
+                                   for index in connected_ptf_ports_idx if re.match(pattern, index)]
     dut_intf_to_ptf_index = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
     connected_dut_intf_to_ptf_index = {k: v for k, v in dut_intf_to_ptf_index.items() if v in connected_ptf_ports_idx}
     vlan_members = first_vlan_info['members']
     vlan_member_with_ptf_idx = [(member, connected_dut_intf_to_ptf_index[member])
                                 for member in vlan_members if member in connected_dut_intf_to_ptf_index]
-    if is_dualtor:
-        pattern = r'0.(\d+)'
-        vlan_member_with_ptf_idx = [(dut_int, int(re.findall(pattern, ptf_indx)[0]))
-                                    for (dut_int, ptf_indx) in vlan_member_with_ptf_idx if re.match(pattern, ptf_indx)]
     logging.info("The first_vlan_info before test is %s" % first_vlan_info)
     sub_vlans_info, config_patch = generate_sub_vlans_config_patch(
         first_vlan_name,
