@@ -63,13 +63,13 @@ def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname,
     dpu_db_before = \
         count_dpu_modules_in_system_health_cli(duthost)
 
-    output_interface_cmd = duthost.show_and_parse('show ip interface')
+    output_interface_cmd = duthost.show_and_parse('brctl show bridge-midplane')
     for index in range(len(output_interface_cmd)):
         parse_output = output_interface_cmd[index]
-        interface = parse_output['interface']
+        interface = parse_output['interfaces']
 
-        if interface != "eth0" and 'eth' in interface:
-            duthost.shell("ifconfig %s down" % (interface))["stdout_lines"]
+        if 'dpu' in interface:
+            duthost.shell("ifconfig %s down" % (interface))
             time.sleep(1)
 
     # Deleting the DB table entry after bringing down the interface
@@ -86,25 +86,24 @@ def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname,
 
     pytest_assert(dpu_db == 0, "Link is not down'{}'".format(duthost.hostname))
 
-    output_interface_cmd = duthost.show_and_parse('show ip interface')
     for index in range(len(output_interface_cmd)):
         parse_output = output_interface_cmd[index]
-        interface = parse_output['interface']
-        status = parse_output['admin/oper']
+        interface = parse_output['interfaces']
 
-        if interface != "eth0" and 'eth' in interface:
-            if status == "down/down":
+        if 'dpu' in interface:
+            status = duthost.command('ifconfig %s' % (interface))
+            if 'UP' not in status['stdout']:
                 count_down += 1
-            duthost.shell("ifconfig %s up" % (interface))["stdout_lines"]
+                duthost.shell("ifconfig %s up" % (interface))
 
-    output_interface_cmd = duthost.show_and_parse('show ip interface')
+    output_interface_cmd = duthost.show_and_parse('brctl show bridge-midplane')
     for index in range(len(output_interface_cmd)):
         parse_output = output_interface_cmd[index]
-        interface = parse_output['interface']
-        status = parse_output['admin/oper']
+        interface = parse_output['interfaces']
 
-        if interface != "eth0" and 'eth' in interface:
-            if status == "up/up":
+        if 'dpu' in interface:
+            status = duthost.command('ifconfig %s' % (interface))
+            if 'UP' in status['stdout']:
                 logging.info("Link to '{}' is up ...".format(interface))
                 count_up += 1
             else:
