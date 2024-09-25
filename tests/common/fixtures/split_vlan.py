@@ -8,7 +8,8 @@ from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete
 
 
 @pytest.fixture(scope="module")
-def setup_multiple_vlans_and_teardown(duthost, tbinfo):
+def setup_multiple_vlans_and_teardown(rand_selected_dut, rand_unselected_dut, tbinfo):
+    duthost = rand_selected_dut
     vlan_brief = duthost.get_vlan_brief()
     first_vlan_name = list(vlan_brief.keys())[0]
     first_vlan_info = list(vlan_brief.values())[0]
@@ -39,11 +40,17 @@ def setup_multiple_vlans_and_teardown(duthost, tbinfo):
         logging.info("The patch for setup is %s" % config_patch)
         apply_config_patch(duthost, config_patch)
         logging.info("The sub_vlans_info after setup is %s" % sub_vlans_info)
+        if 'dualtor' in tbinfo['topo']['name']:
+            create_checkpoint(rand_unselected_dut, checkpoint_name)
+            apply_config_patch(rand_unselected_dut, config_patch)
 
-        yield sub_vlans_info
+        yield duthost, sub_vlans_info
     finally:
         rollback_or_reload(duthost, checkpoint_name)
         delete_checkpoint(duthost, checkpoint_name)
+        if 'dualtor' in tbinfo['topo']['name']:
+            rollback_or_reload(rand_unselected_dut, checkpoint_name)
+            delete_checkpoint(rand_unselected_dut, checkpoint_name)
 
 
 def generate_sub_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx, count=2):
