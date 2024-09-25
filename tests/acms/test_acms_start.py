@@ -5,6 +5,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.acms.helper import container_name
+from tests.acms.helper import generate_pfx_cert
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,9 @@ def test_acms_start(duthosts, rand_one_dut_hostname, creds, test_data):
     logger.info("cloudtype: %s, region: %s, url: %s" % (cloudtype, region, url))
     dut_command = "sonic-db-cli CONFIG_DB hset 'DEVICE_METADATA|localhost' 'cloudtype' '%s'" % cloudtype
     duthost.shell(dut_command, module_ignore_errors=True)
-    duthost.copy(src='acms/clientCert.pfx', dest='/etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx'%region)
+    generate_pfx_cert(duthost, "acms")
+    dut_command = "cp /tmp/acms.pfx /etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx" % region
+    duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl start start" % container_name
     duthost.shell(dut_command, module_ignore_errors=True)
     pytest_assert(
