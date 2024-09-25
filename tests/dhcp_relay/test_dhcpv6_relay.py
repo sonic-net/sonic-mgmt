@@ -1,12 +1,17 @@
 import ipaddress
 import pytest
+import scapy
+import random
 import time
 import netaddr
 import logging
 
+import ptf.packet as packet
+import ptf.testutils as testutils
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
-from tests.common.utilities import skip_release
+from tests.common.fixtures.split_vlan import setup_multiple_vlans_and_teardown  # noqa F401
+from tests.common.utilities import skip_release, capture_and_check_packet_on_dut
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -22,6 +27,9 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+IPv6 = scapy.layers.inet6.IPv6
+DHCP6_Solicit = scapy.layers.dhcp6.DHCP6_Solicit
+DHCP6_RelayForward = scapy.layers.dhcp6.DHCP6_RelayForward
 SINGLE_TOR_MODE = 'single'
 DUAL_TOR_MODE = 'dual'
 NEW_COUNTER_VALUE_FORMAT = (
@@ -487,3 +495,42 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
                            "is_dualtor": str(dhcp_relay['is_dualtor'])},
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
+
+
+def test_dhcp_relay_link_addr_with_multiple_vlan(
+    duthost,
+    ptfadapter,
+    setup_multiple_vlans_and_teardown # noqa F811
+):
+    '''
+        Test DHCP relay should set correct link address when relay packet to DHCP server
+    '''
+    BROADCAST_MAC = '33:33:00:01:00:02'
+    BROADCAST_IP = 'ff02::1:2'
+    FAKE_SRC_IP = 'fe80::1'
+    DHCP_CLIENT_PORT = 546
+    DHCP_SERVER_PORT = 547
+    vlans_info = setup_multiple_vlans_and_teardown
+
+    for info in vlans_info:
+        _, ptf_port_index = random.choice(info['members_with_ptf_idx'])
+        pkts_filter = "udp src port %s and dst port %s" % (DHCP_SERVER_PORT, DHCP_SERVER_PORT)
+        exp_link_addr = info['interface_ipv6'].split('/')[0]
+
+        def pkts_validator(pkts):
+            pytest_assert(len(pkts) > 1, "No DHCPv6 packet relayed to DHCP server")
+            pytest_assert(pkts[0][DHCP6_RelayForward].linkaddr == exp_link_addr)
+
+        with capture_and_check_packet_on_dut(
+            duthost=duthost,
+            interface='any',
+            pkts_filter=pkts_filter,
+            pkts_validator=pkts_validator,
+            wait_time=3
+        ):
+            client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
+            solicit_packet = packet.Ether(src=client_mac, dst=BROADCAST_MAC)
+            solicit_packet /= IPv6(src=FAKE_SRC_IP, dst=BROADCAST_IP)
+            solicit_packet /= packet.UDP(sport=DHCP_CLIENT_PORT, dport=DHCP_SERVER_PORT)
+            solicit_packet /= DHCP6_Solicit(trid=12345)
+            testutils.send_packet(ptfadapter, ptf_port_index, solicit_packet)
