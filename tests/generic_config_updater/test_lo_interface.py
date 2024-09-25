@@ -79,7 +79,8 @@ def setup_env(duthosts, rand_one_dut_hostname, lo_intf):
 def cleanup_lo_interface_config(duthost, cfg_facts):
     lo_interfaces = cfg_facts.get('LOOPBACK_INTERFACE', {})
     for lo_interface in lo_interfaces:
-        # bypass special Loopback4096 that is being used for t2 as this will be recognized as 'invalid name' for Loopback interfaces, as the recommended is LoopbackXXX
+        # bypass special Loopback4096 that is being used for t2 as this will be recognized as 'invalid name'
+        # for Loopback interfaces, as the recommended is LoopbackXXX
         if lo_interface == 'Loopback4096':
             continue
         del_loopback_interface = duthost.shell(

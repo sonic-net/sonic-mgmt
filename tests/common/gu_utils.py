@@ -470,3 +470,58 @@ def expect_acl_rule_removed(duthost, rulename, setup):
         removed = len(output) == 0
 
         pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
+
+
+def save_backup_test_config(duthost, file_postfix="bkp"):
+    """Save test env before a test case starts.
+
+    Back up the existing config_db.json file(s).
+
+    Args:
+        duthost: Device Under Test (DUT)
+        file_postfix: Postfix string to be used for the backup files.
+
+    Returns:
+        None.
+    """
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.{}".format(file_postfix)
+
+    logger.info("Backup {} to {} on {}".format(
+        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
+    duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BACKUP))
+    if duthost.is_multi_asic:
+        for n in range(len(duthost.asics)):
+            asic_config_db = "/etc/sonic/config_db{}.json".format(n)
+            asic_config_db_backup = "/etc/sonic/config_db{}.json.{}".format(n, file_postfix)
+            logger.info("Backup {} to {} on {}".format(
+                asic_config_db, asic_config_db_backup, duthost.hostname))
+            duthost.shell("cp {} {}".format(asic_config_db, asic_config_db_backup))
+
+
+def restore_backup_test_config(duthost, file_postfix="bkp", config_reload=True):
+    """Restore test env after a test case finishes.
+
+    Args:
+        duthost: Device Under Test (DUT)
+        file_postfix: Postfix string to be used for restoring the saved backup files.
+
+    Returns:
+        None.
+    """
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.{}".format(file_postfix)
+
+    logger.info("Restore {} with {} on {}".format(
+        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
+    duthost.shell("mv {} {}".format(CONFIG_DB_BACKUP, CONFIG_DB))
+    if duthost.is_multi_asic:
+        for n in range(len(duthost.asics)):
+            asic_config_db = "/etc/sonic/config_db{}.json".format(n)
+            asic_config_db_backup = "/etc/sonic/config_db{}.json.{}".format(n, file_postfix)
+            logger.info("Restore {} with {} on {}".format(
+                asic_config_db, asic_config_db_backup, duthost.hostname))
+            duthost.shell("mv {} {}".format(asic_config_db_backup, asic_config_db))
+
+    if config_reload:
+        config_reload(duthost)
