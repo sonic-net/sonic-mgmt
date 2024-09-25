@@ -6,6 +6,7 @@ from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.acms.helper import container_name
+from tests.acms.helper import generate_pfx_cert
 
 logger = logging.getLogger(__name__)
 
@@ -46,18 +47,6 @@ def setup_certs(duthosts, rand_one_dut_hostname):
     duthost.shell(dut_command, module_ignore_errors=True)
 
 
-def generate_pfx_cert(localhost, cert_name):
-    """
-    Generate a pfx cert file on the DUT.
-    """
-    command = "openssl genrsa -out %s.key 2048" % (cert_name)
-    localhost.shell(command)
-    command = "openssl req -new -x509 -key %s.key -out %s.crt -subj '/CN=test.server.restapi.sonic' -days 3650" % (cert_name, cert_name)
-    localhost.shell(command)
-    command = "openssl pkcs12 -export -out %s.pfx -inkey %s.key -in %s.crt -password pass:" % (cert_name, cert_name, cert_name)
-    localhost.shell(command)
-
-
 def check_converted_cert(duthost, postfix):
     ret1 = duthost.stat(path="%s%s.key%s" % (certs_path, certs_name, postfix)).get('stat', {}).get('exists', False)
     ret2 = duthost.stat(path="%s%s.crt%s" % (certs_path, certs_name, postfix)).get('stat', {}).get('exists', False)
@@ -77,10 +66,10 @@ def test_acms_cert_converter(duthosts, rand_one_dut_hostname, localhost):
     dut_command = "touch %s" % uber_notify_file_path
     duthost.shell(dut_command, module_ignore_errors=True)
     # Generate a pfx cert file
-    generate_pfx_cert(localhost, "acms")
+    generate_pfx_cert(duthost, "acms")
     # Copy the pfx cert file to the DUT
     for i in range(MIN_TEST_CERT_POSTFIX, MAX_TEST_CERT_POSTFIX):
-        duthost.copy(src="acms.pfx", dest="%s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)))
+        duthost.shell("cp /tmp/acms.pfx %s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)), module_ignore_errors=True)
         # Update the notify file
         dut_command = "echo %s%s.pfx.%s > %s%s.pfx.notify" % (acms_certs_path, certs_name, str(i), acms_certs_path, certs_name)
         duthost.shell(dut_command, module_ignore_errors=True)
@@ -102,7 +91,7 @@ def test_acms_cert_converter(duthosts, rand_one_dut_hostname, localhost):
         dut_command = "sudo rm /etc/sonic/credentials/restapiserver.key." + str(i)
         duthost.shell(dut_command, module_ignore_errors=True)
     i = 100
-    duthost.copy(src="acms.pfx", dest="%s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)))
+    duthost.shell("cp /tmp/acms.pfx %s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)), module_ignore_errors=True)
     # Update the notify file
     with open("pfx.notify", "w+") as fp:
         fp.write("%s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)))
@@ -141,10 +130,10 @@ def test_acms_cert_converter_clean(duthosts, rand_one_dut_hostname, localhost):
     dut_command = "touch %s" % uber_notify_file_path
     duthost.shell(dut_command, module_ignore_errors=True)
     # Generate a pfx cert file
-    generate_pfx_cert(localhost, "acms")
+    generate_pfx_cert(duthost, "acms")
     # Copy the pfx cert file to the DUT
     for i in range(MIN_TEST_CERT_POSTFIX, MAX_TEST_CERT_POSTFIX):
-        duthost.copy(src="acms.pfx", dest="%s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)))
+        duthost.shell("cp /tmp/acms.pfx %s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)), module_ignore_errors=True)
         # Update the notify file
         dut_command = "echo %s%s.pfx.%s > %s%s.pfx.notify" % (acms_certs_path, certs_name, str(i), acms_certs_path, certs_name)
         duthost.shell(dut_command, module_ignore_errors=True)
@@ -209,10 +198,10 @@ def test_acms_cert_converter_upgrade(duthosts, rand_one_dut_hostname, localhost)
     dut_command = "ln -s %s%s.crt.%s %s%s.crt" % (certs_path, certs_name, str(i), certs_path, certs_name)
     duthost.shell(dut_command, module_ignore_errors=True)
     # Generate a pfx cert file
-    generate_pfx_cert(localhost, "acms")
+    generate_pfx_cert(duthost, "acms")
     # Copy the pfx cert file to the DUT
     for i in range(MIN_TEST_CERT_POSTFIX, MAX_TEST_CERT_POSTFIX):
-        duthost.copy(src="acms.pfx", dest="%s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)))
+        duthost.shell("cp /tmp/acms.pfx %s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)), module_ignore_errors=True)
         # Update the notify file
         dut_command = "echo %s%s.pfx.%s > %s%s.pfx.notify" % (acms_certs_path, certs_name, str(i), acms_certs_path, certs_name)
         duthost.shell(dut_command, module_ignore_errors=True)

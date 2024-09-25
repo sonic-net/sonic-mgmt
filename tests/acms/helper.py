@@ -24,3 +24,14 @@ def create_acms_conf(region, cloudtype, duthost, filename):
     text = re.sub("BootstrapCert=.*", "BootstrapCert="+cert_path, text)
     duthost.copy(content=text, dest=filename)
     return
+
+def generate_pfx_cert(duthost, cert_name):
+    """
+    Generate a pfx cert file on the DUT.
+    """
+    command = "openssl genrsa -out /tmp/%s.key 2048" % (cert_name)
+    duthost.shell(command, module_ignore_errors=True)
+    command = "openssl req -new -x509 -key /tmp/%s.key -out /tmp/%s.crt -subj '/CN=test.server.restapi.sonic' -days 3650" % (cert_name, cert_name)
+    duthost.shell(command, module_ignore_errors=True)
+    command = "openssl pkcs12 -export -out /tmp/%s.pfx -inkey /tmp/%s.key -in /tmp/%s.crt -password pass:" % (cert_name, cert_name, cert_name)
+    duthost.shell(command, module_ignore_errors=True)

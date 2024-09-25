@@ -3,6 +3,7 @@ import pytest
 
 from tests.acms.helper import container_name
 from tests.acms.helper import create_acms_conf
+from tests.acms.helper import generate_pfx_cert
 
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
     if ("http" not in http_proxy):
         pytest.skip("ACMS does not work without http proxy: " + http_proxy)
     duthost = duthosts[rand_one_dut_hostname]
+    generate_pfx_cert(duthost, "acms")
     dut_command = "docker exec %s supervisorctl stop start" % container_name
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl stop acms" % container_name
@@ -55,7 +57,8 @@ def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
         create_acms_conf(region, cloudtype, duthost, "/var/opt/msft/client/acms_secrets.ini")
         dut_command = "rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
         duthost.shell(dut_command, module_ignore_errors=True)
-        duthost.copy(src='acms/clientCert.pfx', dest='/etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx'%region)
+        dut_command = "cp /tmp/acms.pfx /etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx" % region
+        duthost.shell(dut_command, module_ignore_errors=True)
         dut_command = 'docker exec -e http_proxy="%s" -e https_proxy="%s" %s \
                         acms -Bootstrap -Dependant client -BaseDirPath /var/opt/msft/ -Console yes' % (http_proxy, https_proxy, container_name)
         command_result = duthost.shell(dut_command, module_ignore_errors=True)
@@ -69,7 +72,3 @@ def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
         else:
             logger.info("Unknown error: cloud %s, region %s, %s" % (cloudtype, region, command_result['stdout']))
     pytest.fail("All regions failed: " + ','.join(region_list))
-
-
-
-
