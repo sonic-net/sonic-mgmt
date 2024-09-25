@@ -10,12 +10,10 @@ from datetime import datetime
 import json
 import pytest
 
-from tests.common.fixtures.ptfhost_utils \
-    import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 from tests.ptf_runner import ptf_runner
-from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
+from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
