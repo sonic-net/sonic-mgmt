@@ -217,6 +217,7 @@ t0:
   - platform_tests/test_idle_driver.py
   - wol/test_wol.py
   - dhcp_relay/test_dhcp_pkt_fwd.py
+  - telemetry/test_telemetry.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -417,6 +418,7 @@ t1-lag:
   - platform_tests/test_link_down.py
   - gnmi/test_gnmi_countersdb.py
   - generic_config_updater/test_cacl.py
+  - telemetry/test_telemetry.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
