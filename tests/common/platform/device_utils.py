@@ -43,6 +43,8 @@ FMT_YEAR = "%Y %b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
 
+test_report = dict()
+
 
 def fanout_switch_port_lookup(fanout_switches, dut_name, dut_port):
     """
