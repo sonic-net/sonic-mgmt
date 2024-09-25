@@ -7,8 +7,8 @@ import pytest
 import time
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.smartswitch.common.platform.device_utils_dpu import *  # noqa: F403
-from tests.common.helpers.platform_api import chassis, module
+from tests.smartswitch.common.platform.device_utils_dpu import *  # noqa: F403,F401,E501
+from tests.common.helpers.platform_api import chassis, module  # noqa: F401
 from tests.platform_tests.api.conftest import *  # noqa: F403
 from tests.common.devices.sonic import *  # noqa: 403
 
@@ -18,7 +18,7 @@ pytestmark = [
 
 
 def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname,
-                     platform_api_conn):
+                     platform_api_conn, check_dpu_ping_status):
     """
     @summary: Verify `Midplane ip address between NPU and DPU`
     """
@@ -35,11 +35,12 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname,
                 ip_address_list.append(
                       module.get_midplane_ip(platform_api_conn, index))
 
-    ping_status = check_dpu_ping_status(duthost, ip_address_list)  # noqa: F405
+    ping_status = check_dpu_ping_status(duthost, ip_address_list)
     pytest_assert(ping_status == 1, "Ping to DPU has been tested")
 
 
-def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname,
+                   count_dpu_modules_in_system_health_cli):
     """
     @summary: Verify `Link flap between NPU and DPU`
     - Bringing all DPU interfaces down.
@@ -60,7 +61,7 @@ def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname):
 
     # Checking the state of dpu health before the flap
     dpu_db_before = \
-        count_dpu_modules_in_system_health_cli(duthost)  # noqa: F405
+        count_dpu_modules_in_system_health_cli(duthost)
 
     output_interface_cmd = duthost.show_and_parse('show ip interface')
     for index in range(len(output_interface_cmd)):
@@ -80,7 +81,7 @@ def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname):
     # Checking the state of dpu health again after bringing down interface
     # and deleting db entry
     dpu_db = wait_until(60, 60, 0,
-                        count_dpu_modules_in_system_health_cli,  # noqa: F405
+                        count_dpu_modules_in_system_health_cli,
                         duthost)
 
     pytest_assert(dpu_db == 0, "Link is not down'{}'".format(duthost.hostname))
@@ -113,7 +114,7 @@ def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname):
     # interface and waiting for db entry to get populated
     dpu_db_after = wait_until(
                    60, 60, 0,
-                   count_dpu_modules_in_system_health_cli,  # noqa: F405
+                   count_dpu_modules_in_system_health_cli,
                    duthost)
 
     pytest_assert(dpu_db_before == count_up == count_down == dpu_db_after,
@@ -121,7 +122,8 @@ def test_link_flap(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
-                               platform_api_conn):
+                               platform_api_conn, num_dpu_modules,
+                               check_dpu_module_status):
     """
     @summary: Verify `shut down and power up DPU`
     """
@@ -132,7 +134,7 @@ def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
         dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules shutdown %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
-                      check_dpu_module_status,  # noqa: F405
+                      check_dpu_module_status,
                       duthost, "off", dpu_name),
                       "DPU is not operationally down")
 
@@ -140,13 +142,14 @@ def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
         dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules startup %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
-                      check_dpu_module_status,  # noqa: F405
+                      check_dpu_module_status,
                       duthost, "on", dpu_name),
                       "DPU is not operationally up")
 
 
 def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn):
+                      platform_api_conn, num_dpu_modules,
+                      check_dpu_module_status, check_dpu_reboot_cause):
     """
     @summary: Verify `Reboot Cause`
     """
@@ -158,7 +161,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
         duthost.shell("config chassis \
                        module shutdown %s" % (dpu_name))["stdout_lines"]
         pytest_assert(wait_until(180, 60, 0,
-                                 check_dpu_module_status,  # noqa: F405
+                                 check_dpu_module_status,
                                  duthost, "off",
                                  dpu_name), "DPU is not operationally down")
 
@@ -166,13 +169,14 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
         dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules startup %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
-                                 check_dpu_reboot_cause,  # noqa: F405
+                                 check_dpu_reboot_cause,
                                  duthost,
                                  dpu_name), "DPU is not operationally up")
 
 
 def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
-                   platform_api_conn):
+                   platform_api_conn, num_dpu_modules,
+                   check_dpu_module_status):
     """
     @summary: Verify `PCIe link`
     """
@@ -193,7 +197,7 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
         dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules shutdown %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
-                      check_dpu_module_status,  # noqa: F405
+                      check_dpu_module_status,
                       duthost, "off", dpu_name),
                       "DPU is not operationally down")
 
@@ -206,7 +210,7 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
         dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules startup %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
-                      check_dpu_module_status,  # noqa: F405
+                      check_dpu_module_status,
                       duthost, "on", dpu_name), "DPU is not operationally up")
 
     logging.info("Verifying output of '{}' on '{}'..."

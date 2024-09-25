@@ -3,9 +3,11 @@ Helper script for DPU  operations
 """
 import logging
 import pytest
-from tests.common.devices.sonic import *  # noqa: F403, F401
-from tests.platform_tests.api.conftest import *  # noqa: F403
+from tests.common.devices.sonic import *  # noqa: F401,F403
+from tests.platform_tests.api.conftest import *  # noqa: F401,F403
 from tests.common.helpers.platform_api import chassis, module
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 from pkg_resources import parse_version
 
 
@@ -70,7 +72,7 @@ def is_dark_mode(duthost, platform_api_conn):
     return False
 
 
-def dpu_power_on(duthost, platform_api_conn):
+def dpu_power_on(duthost, platform_api_conn, check_dpu_ping_status):
     """
     Executes power on all DPUs
     Returns:
@@ -86,7 +88,7 @@ def dpu_power_on(duthost, platform_api_conn):
                 module.get_midplane_ip(platform_api_conn, index))
         duthost.shell("config chassis modules startup %s" % (dpu))
 
-    pytest_assert(wait_until(180, 60, 0, check_dpu_ping_status,  # noqa: F405
+    pytest_assert(wait_until(180, 60, 0, check_dpu_ping_status,
                   duthost, ip_address_list), "Not all DPUs operationally up")
 
 
