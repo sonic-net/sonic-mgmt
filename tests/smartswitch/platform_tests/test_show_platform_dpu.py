@@ -126,7 +126,7 @@ def test_shutdown_power_up_dpu(duthosts, enum_rand_one_per_hwsku_hostname,
     @summary: Verify `shut down and power up DPU`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    num_modules = int(chassis.get_num_modules(platform_api_conn))
+    num_modules = num_dpu_modules(platform_api_conn)
 
     for index in range(num_modules):
         dpu_name = module.get_name(platform_api_conn, index)
@@ -151,7 +151,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
     @summary: Verify `Reboot Cause`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    num_modules = int(chassis.get_num_modules(platform_api_conn))
+    num_modules = num_dpu_modules(platform_api_conn)
 
     for index in range(num_modules):
         dpu_name = module.get_name(platform_api_conn, index)
@@ -171,7 +171,8 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
                                  dpu_name), "DPU is not operationally up")
 
 
-def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname,
+                   platform_api_conn):
     """
     @summary: Verify `PCIe link`
     """
@@ -186,10 +187,10 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname):
                   'PCIe Device Checking All Test ----------->>> PASSED',
                   "PCIe Link is good'{}'".format(duthost.hostname))
 
-    num_modules = int(chassis.get_num_modules(platform_api_conn))  # noqa: F405
+    num_modules = num_dpu_modules(platform_api_conn)
 
     for index in range(num_modules):
-        dpu_name = module.get_name(platform_api_conn, index)  # noqa: F405
+        dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules shutdown %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
                       check_dpu_module_status,  # noqa: F405
@@ -202,7 +203,7 @@ def test_pcie_link(duthosts, enum_rand_one_per_hwsku_hostname):
                   "PCIe Link is good'{}'".format(duthost.hostname))
 
     for index in range(num_modules):
-        dpu_name = module.get_name(platform_api_conn, index)  # noqa: F405
+        dpu_name = module.get_name(platform_api_conn, index)
         duthosts.shell("config chassis modules startup %s" % (dpu_name))
         pytest_assert(wait_until(180, 60, 0,
                       check_dpu_module_status,  # noqa: F405

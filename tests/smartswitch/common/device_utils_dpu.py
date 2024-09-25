@@ -10,6 +10,17 @@ from pkg_resources import parse_version
 
 
 @pytest.fixture(scope='function')
+def num_dpu_modules(platform_api_conn):
+
+    """
+    Returns the number of DPU modules
+    """
+
+    num_modules = int(chassis.get_num_modules(platform_api_conn))
+    return num_modules
+
+
+@pytest.fixture(scope='function')
 def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
                           platform_api_conn):
     """
@@ -42,7 +53,7 @@ def is_dark_mode(duthost, platform_api_conn):
         else False
     """
 
-    num_modules = int(chassis.get_num_modules(platform_api_conn))
+    num_modules = num_dpu_modules(platform_api_conn)
     count_admin_down = 0
 
     for index in range(num_modules):
@@ -66,7 +77,7 @@ def dpu_power_on(duthost, platform_api_conn):
         Returns True or False based on all DPUs powered on or not
     """
 
-    num_modules = int(chassis.get_num_modules(platform_api_conn))
+    num_modules = num_dpu_modules(platform_api_conn)
     ip_address_list = []
 
     for index in range(num_modules):

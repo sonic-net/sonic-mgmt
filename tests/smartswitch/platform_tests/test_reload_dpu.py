@@ -28,7 +28,7 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ip_address_list = []
-    num_modules = int(chassis.get_num_modules(platform_api_conn))
+    num_modules = num_dpu_modules(platform_api_conn)
 
     reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
            wait_for_ssh=False)
@@ -57,7 +57,7 @@ def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
               after configuration reload on NPU
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    num_modules = int(chassis.get_num_modules(platform_api_conn))
+    num_modules = num_dpu_modules(platform_api_conn)
     ip_address_list = []
 
     for index in range(num_modules):
