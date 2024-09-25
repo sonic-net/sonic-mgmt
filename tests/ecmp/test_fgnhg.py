@@ -272,8 +272,8 @@ def setup_static_neighbor_entry(duthost, ip, mac, prefix_list):
     Performs addition of static entries of ipv4 and v6 neighbors in DUT
     """
     if isinstance(ipaddress.ip_network(prefix_list[0]), ipaddress.IPv4Network):
-            logger.info("adding ipv4 static arp entry for ip %s on DUT" % (ip))
-            duthost.shell("sudo arp -s {0} {1}".format(ip, mac))
+        logger.info("adding ipv4 static arp entry for ip %s on DUT" % (ip))
+        duthost.shell("sudo arp -s {0} {1}".format(ip, mac))
     else:
         logger.info("adding ipv6 static arp entry for ip %s on DUT" % (ip))
         duthost.shell("sudo ip -6 neigh replace {0} lladdr {1} dev Vlan{2}".format(ip, mac, DEFAULT_VLAN_ID))
@@ -286,7 +286,7 @@ def link_startup(duthost, ip_to_port, prefix_list, shutdown_link):
     dut_if_shutdown = ptf_to_dut_port_map[shutdown_link]
     configure_dut(duthost, "config interface startup " + dut_if_shutdown)
 
-    #add static neighbor
+    # add static neighbor
     for nexthop, port in list(ip_to_port.items()):
         if port == shutdown_link:
             setup_static_neighbor_entry(duthost, nexthop, ptf_to_dut_mac_map[port], prefix_list)
