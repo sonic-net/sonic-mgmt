@@ -31,6 +31,8 @@ mux_simulator_http_port:
 
     #### Add your own port assignment after here ###
 
+    vms20-dual-t0-4700-7: 8080
+
     vms21-dual-t0-7050-3: 8080
     vms21-dual-t0-7260: 8082
 

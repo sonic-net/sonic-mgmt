@@ -40,6 +40,10 @@ str2-msn2700-spy-2,10.3.146.88/24,Mellanox-SN2700,DevSonic,,sonic
 str2-7060cx-32s-29,10.3.146.57/24,Arista-7060CX-32S-Q32,DevSonic,,sonic
 str2-sn3800-azd,10.3.146.183/24,ACS-MSN3800,DevSonic,,sonic
 str2-sn3800-02,10.3.146.232/24,Mellanox-SN3800-D112C8,DevSonic,,sonic
+str2-msn4700-05,10.3.146.221/24,Mellanox-SN4700-V64,DevSonic,,sonic
+str2-msn4700-06,10.3.146.80/24,Mellanox-SN4700-V64,DevSonic,,sonic
+str2-msn4700-fanout-05,10.3.146.45/24,Mellanox-SN4700-V64,FanoutLeafSonic,,sonic
+str2-msn4700-fanout-06,10.3.146.89/24,Mellanox-SN4700-V64,FanoutLeafSonic,,sonic
 str2-n3164-acs-4,10.3.146.124/24,Nexus-3164,DevSonic,,sonic
 str2-n3164-acs-3,10.3.146.132/24,Nexus-3164,DevSonic,,sonic
 str2-n3164-acs-1,10.3.146.164/24,Nexus-3164,DevSonic,,sonic

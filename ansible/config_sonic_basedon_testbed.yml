@@ -100,6 +100,12 @@
     become: true
     when: hwsku == 'Cisco-8111-O64' and 't0' in topo
 
+  - name: Port speed adjust for 4700 dualtor t0
+    shell: sed -i 's/200000/100000/g' /usr/share/sonic/device/x86_64-mlnx_msn4700-r0/Mellanox-SN4700-V64/port_config.ini
+    become: true
+    when: testbed_name == 'vms20-dual-t0-4700-7'
+    # when: hwsku == 'Mellanox-SN4700-V64' and 'dualtor' in topo
+
   - name: get connection graph if defined for dut (ignore any errors)
     conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
     delegate_to: localhost
@@ -208,7 +214,7 @@
 
   - name: gather hwsku for LeafRouter that supports dualtor deployment
     set_fact:
-      hwsku_list_dualtor_t1: "['Mellanox-SN4600C-C64', 'ACS-MSN4600C', 'Arista-7260CX3-C64', 'Cisco-8102-C64', 'Cisco-8101-O8C48', 'Mellanox-SN4700-O8C48', 'Mellanox-SN4700-O32']"
+      hwsku_list_dualtor_t1: "['Mellanox-SN4600C-C64', 'ACS-MSN4600C', 'Arista-7260CX3-C64', 'Cisco-8102-C64', 'Cisco-8101-O8C48', 'Mellanox-SN4700-O8C48', 'Mellanox-SN4700-O32', 'Mellanox-SN4700-V64']"
 
   - name: enable tunnel_qos_remap for T1 in dualtor deployment
     set_fact:

@@ -209,6 +209,7 @@ all:
           - dualtor-mixed-120
           - dualtor-aa
           - dualtor-aa-56
+          - dualtor-aa-64-breakout
           - dualtor-aa-120
           - appliance
           - m0
@@ -4726,6 +4727,14 @@ vms_20:
       ansible_host: 172.16.137.126
     VM20095:
       ansible_host: 172.16.137.127
+    VM20096:
+      ansible_host: 172.16.137.128
+    VM20097:
+      ansible_host: 172.16.137.129
+    VM20098:
+      ansible_host: 172.16.137.130
+    VM20099:
+      ansible_host: 172.16.137.131
 
 vms_21:
   hosts:

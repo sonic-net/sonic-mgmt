@@ -217,3 +217,11 @@ pdu-109,24,str2-8800-sup-3,PSU3
 pdu-108,47,str2-8800-sup-3,PSU4
 pdu-109,46,str2-8800-sup-3,PSU5
 pdu-109,47,str2-8800-sup-3,PSU6
+pdu-105,12,str2-msn4700-05,PSU1
+pdu-106,12,str2-msn4700-05,PSU2
+pdu-105,33,str2-msn4700-fanout-05,PSU1
+pdu-106,33,str2-msn4700-fanout-05,PSU2
+pdu-105,34,str2-msn4700-06,PSU1
+pdu-106,34,str2-msn4700-06,PSU2
+pdu-105,35,str2-msn4700-fanout-06,PSU1
+pdu-106,35,str2-msn4700-fanout-06,PSU2

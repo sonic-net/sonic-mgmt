@@ -2091,6 +2091,23 @@
   auto_recover: 'True'
   comment: yanmo
 
+- conf-name: vms20-dual-t0-4700-7
+  group-name: vms20-10
+  topo: dualtor-aa-64-breakout
+  ptf_image_name: docker-ptf
+  ptf: vms20-10
+  ptf_ip: 10.64.246.250/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6fa/64
+  netns_mgmt_ip: 10.64.246.251/23
+  server: server_20
+  vm_base: VM20096
+  dut:
+  - str2-msn4700-05
+  - str2-msn4700-06
+  inv_name: str2
+  auto_recover: 'True'
+  comment: yanmo
+
 - conf-name: vms66-t0-7060x6-1
   group-name: vms66-6
   topo: t0-standalone-32

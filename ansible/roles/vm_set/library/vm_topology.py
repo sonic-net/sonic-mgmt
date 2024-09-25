@@ -1176,13 +1176,17 @@ class VMTopology(object):
                     else:
                         nic_if = None
 
-                    upper_tor_if = self.duts_fp_ports[self.duts_name[intf[0][0]]][str(
-                        intf[0][1])]
-                    lower_tor_if = self.duts_fp_ports[self.duts_name[intf[1][0]]][str(
-                        intf[1][1])]
-                    # create muxy cable or active_active_cable for dualtor
-                    self.create_dualtor_cable(
-                        host_ifindex, dual_if, upper_tor_if, lower_tor_if, nic_if=nic_if)
+
+                    if str(intf[0][1]) in self.duts_fp_ports[self.duts_name[intf[0][0]]]:
+                        upper_tor_if = self.duts_fp_ports[self.duts_name[intf[0][0]]][str(intf[0][1])]
+
+                        lower_tor_if = self.duts_fp_ports[self.duts_name[intf[1][0]]][str(
+                            intf[1][1])]
+                        # create muxy cable or active_active_cable for dualtor
+                        self.create_dualtor_cable(
+                            host_ifindex, dual_if, upper_tor_if, lower_tor_if, nic_if=nic_if)
+                    else:
+                        logging.warning("Key %s not found in duts_fp_ports for %s", str(intf[0][1]), self.duts_name[intf[0][0]])
                 else:
                     host_ifindex = intf[2] if len(intf) == 3 else i
                     fp_port = self.duts_fp_ports[self.duts_name[intf[0]]][str(
