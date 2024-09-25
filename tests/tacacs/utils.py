@@ -6,10 +6,13 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tacacs.tacacs_helper import start_tacacs_server
 from tests.common.utilities import wait_until, paramiko_ssh
+from ansible.errors import AnsibleConnectionFailure
 
 logger = logging.getLogger(__name__)
 
 TIMEOUT_LIMIT = 120
+
+DEVICE_UNREACHABLE_MAX_RETRIES = 3
 
 
 @pytest.fixture
@@ -108,3 +111,16 @@ def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthos
 
         time.sleep(1)
         retry_count -= 1
+
+
+def duthost_shell_with_unreachable_retry(duthost, command):
+    retries = 0
+    while True:
+        try:
+            return duthost.shell(command)
+        except AnsibleConnectionFailure as e:
+            retries += 1
+            logger.warning("retry_when_dut_unreachable exception： {}, retry {}/{}"
+                           .format(e, retries, DEVICE_UNREACHABLE_MAX_RETRIES))
+            if retries > DEVICE_UNREACHABLE_MAX_RETRIES:
+                raise e
