@@ -1280,7 +1280,7 @@ class QosSaiBase(QosBase):
         swapSyncd_on_selected_duts, enable_container_autorestart, disable_container_autorestart, get_mux_status, # noqa F811
         tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports):  # noqa F811
         """
-            Stop services (lldp-syncs, lldpd, bgpd) on DUT host prior to test start
+            Stop services and dockers(lldp, bgpd, etc.) on DUT host prior to test start
 
             Args:
                 duthost (AnsibleHost): Device Under Test (DUT)
@@ -1317,6 +1317,27 @@ class QosSaiBase(QosBase):
             )
             logger.info("{}ed {}".format(action, service))
 
+        def updateFeatureState(host, feature="", state=""):  # noqa: F811
+            """
+                Helper function to update feature state
+
+                Args:
+                    host (AnsibleHost): Ansible host that is running the feature
+                    feature (str): feature name
+                    state (str): state to set the feature running on the host
+
+                Returns:
+                    None
+            """
+            host.command(
+                "sudo config feature state {feature} {state}".format(
+                    feature=feature,
+                    state=state,
+                ),
+                module_ignore_errors=True
+            )
+            logger.info("Changed feature {} state to {}".format(feature, state))
+
         """ Stop mux container for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
             file = "/usr/local/bin/write_standby.py"
@@ -1334,22 +1355,18 @@ class QosSaiBase(QosBase):
             except Exception as e:
                 pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
 
-            upper_tor_host.shell('sudo config feature state mux disabled')
-            lower_tor_host.shell('sudo config feature state mux disabled')
+            updateFeatureState(upper_tor_host, "mux", "disabled")
+            updateFeatureState(lower_tor_host, "mux", "disabled")
 
         src_services = [
-            {"docker": src_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
-            {"docker": src_asic.get_docker_name("lldp"), "service": "lldpd"},
-            {"docker": src_asic.get_docker_name("bgp"),  "service": "bgpd"},
-            {"docker": src_asic.get_docker_name("bgp"),  "service": "bgpmon"},
+            {"docker": src_asic.get_docker_name("bgp"), "service": "bgpd"},
+            {"docker": src_asic.get_docker_name("bgp"), "service": "bgpmon"},
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
             {"docker": src_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
         dst_services = []
         if src_asic != dst_asic:
             dst_services = [
-                {"docker": dst_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
-                {"docker": dst_asic.get_docker_name("lldp"), "service": "lldpd"},
                 {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpd"},
                 {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpmon"},
                 {"docker": dst_asic.get_docker_name("radv"), "service": "radvd"},
@@ -1362,17 +1379,22 @@ class QosSaiBase(QosBase):
                 upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
+        updateFeatureState(src_dut, "lldp", "disabled")
+
         for service in src_services:
             updateDockerService(src_dut, action="stop", **service)
         if src_asic != dst_asic:
             disable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
+            updateFeatureState(dst_dut, "lldp", "disabled")
             for service in dst_services:
                 updateDockerService(dst_dut, action="stop", **service)
         yield
 
+        updateFeatureState(src_dut, "lldp", "enabled")
         for service in src_services:
             updateDockerService(src_dut, action="start", **service)
         if src_asic != dst_asic:
+            updateFeatureState(dst_asic, "lldp", "enabled")
             for service in dst_services:
                 updateDockerService(dst_dut, action="start", **service)
 
@@ -1386,8 +1408,8 @@ class QosSaiBase(QosBase):
             except Exception as e:
                 pytest.skip('file {} not found. Exception {}'.format(backup_file, str(e)))
 
-            lower_tor_host.shell('sudo config feature state mux enabled')
-            upper_tor_host.shell('sudo config feature state mux enabled')
+            updateFeatureState(upper_tor_host, "mux", "enabled")
+            updateFeatureState(lower_tor_host, "mux", "enabled")
             logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
