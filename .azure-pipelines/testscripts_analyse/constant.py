@@ -18,6 +18,7 @@ PR_TOPOLOGY_MAPPING = {
         "t1-lag": "t1",
         "multi-asic-t1-lag": "t1",
         "t2": "t2",
+        "wan-pub": "wan",
         "dpu": "dpu",
         "tgen": "tgen",
         "multidut-tgen": "tgen",
