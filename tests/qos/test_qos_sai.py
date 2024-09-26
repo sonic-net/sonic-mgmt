@@ -1203,7 +1203,7 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
-    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
+    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
@@ -2180,5 +2180,79 @@ class TestQosSai(QosSaiBase):
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.QWatermarkAllPortTest",
+            testParams=testParams
+        )
+
+    def testQosSaiLossyQueueVoqMultiSrc(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            get_src_dst_asic_and_duts, skip_longlink
+    ):
+        """
+            Test QoS SAI Lossy queue with multiple source ports, applicable for fair-voq and split-voq
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if not get_src_dst_asic_and_duts['single_asic_test']:
+            pytest.skip("LossyQueueVoqMultiSrc: This test is skipped on multi-asic,"
+                        "since same ingress backplane port will be used on egress asic.")
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        LossyVoq = "lossy_queue_voq_3"
+        if LossyVoq in dutQosConfig["param"][portSpeedCableLength].keys():
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        else:
+            qosConfig = dutQosConfig["param"]
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[LossyVoq])
+
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        all_src_ports = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        all_src_port_ids = set(all_src_ports.keys())
+        if get_src_dst_asic_and_duts['single_asic_test']:
+            all_src_port_ids = set(all_src_ports.keys()) - \
+                    set([dutConfig["testPorts"]["src_port_id"],
+                        dutConfig["testPorts"]["dst_port_id"],
+                        dutConfig["testPorts"]["dst_port_2_id"],
+                        dutConfig["testPorts"]["dst_port_3_id"]])
+        all_src_port_ids = list(all_src_port_ids)
+        testParams.update({
+            "dscp": qosConfig[LossyVoq]["dscp"],
+            "ecn": qosConfig[LossyVoq]["ecn"],
+            "pg": qosConfig[LossyVoq]["pg"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_2_id": all_src_port_ids[0],
+            "src_port_2_ip":  all_src_ports[all_src_port_ids[0]]['peer_addr'],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "pkts_num_trig_egr_drp": qosConfig[LossyVoq]["pkts_num_trig_egr_drp"]
+        })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "packet_size" in qosConfig[LossyVoq].keys():
+            testParams["packet_size"] = qosConfig[LossyVoq]["packet_size"]
+            testParams["cell_size"] = qosConfig[LossyVoq]["cell_size"]
+
+        if "pkts_num_margin" in qosConfig[LossyVoq].keys():
+            testParams["pkts_num_margin"] = qosConfig[LossyVoq]["pkts_num_margin"]
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.LossyQueueVoqMultiSrcTest",
             testParams=testParams
         )

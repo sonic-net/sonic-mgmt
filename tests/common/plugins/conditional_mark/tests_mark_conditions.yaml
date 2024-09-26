@@ -1298,6 +1298,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
     conditions:
       - "asic_type not in ['cisco-8000'] or platform in ['x86_64-8122_64eh_o-r0']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
+  skip:
+    reason: "Lossy Queue Voq multiple source test is not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
   skip:
     reason: "PG drop size test is not supported."
