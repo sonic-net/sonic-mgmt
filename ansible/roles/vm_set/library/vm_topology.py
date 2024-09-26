@@ -673,8 +673,8 @@ class VMTopology(object):
             VMTopology.cmd("ip link add %s type veth peer name %s" %
                            (ext_if, t_int_if))
             if create_vlan_subintf:
-                VMTopology.cmd("vconfig add %s %s" %
-                               (t_int_if, vlan_subintf_vlan_id))
+                VMTopology.cmd("ip link add link %s name %s type vlan id %d" %
+                               (t_int_if,t_int_sub_if ,vlan_subintf_vlan_id))
 
         if self.fp_mtu != DEFAULT_MTU:
             VMTopology.cmd("ip link set dev %s mtu %d" % (ext_if, self.fp_mtu))
