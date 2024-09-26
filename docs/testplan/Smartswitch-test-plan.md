@@ -981,6 +981,7 @@ root@sonic:/home/cisco#
 root@sonic:/home/cisco# nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &
 .
 (Going for reboot)
+.
 root@sonic:/home/cisco# show chassis modules status
   Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
 ------  --------------------  ---------------  -------------  --------------  ---------------
