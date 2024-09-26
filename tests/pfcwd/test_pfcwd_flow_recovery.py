@@ -72,7 +72,6 @@ def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts, 
     peer_params = populate_peer_info(port_list, neighbors, pfc_queue_index, pfc_frames_number)
     random.sample(peer_params['bjw-can-slx-8']['intfs'].split(","), 2)
     # peer_params = random.sample(peer_params, num_peers)
-    import pdb; pdb.set_trace()
     storm_handle = set_storm_params(duthost, enum_fanout_graph_facts, fanouthosts, peer_params)
     start_wd_on_ports(duthost, ports, pfc_wd_restore_time, pfc_wd_detect_time)
 
