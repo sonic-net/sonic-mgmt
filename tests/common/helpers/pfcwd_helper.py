@@ -4,6 +4,8 @@ import sys
 import random
 import pytest
 import contextlib
+import time
+import logging
 
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
@@ -22,6 +24,8 @@ VENDOR_SPEC_ADDITIONAL_INFO_RE = {
     }
 
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
+
+logger = logging.getLogger(__name__)
 
 
 class TrafficPorts(object):
@@ -491,6 +495,8 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
                                                                        selected_test_ports,
                                                                        test_ports_info)
         background_traffic_log = _send_background_traffic(ptfhost, background_traffic_params)
+        # Ensure the background traffic is running before moving on
+        time.sleep(1)
     yield
     if is_mellanox_device(duthost):
         _stop_background_traffic(ptfhost, background_traffic_log)
@@ -559,3 +565,62 @@ def has_neighbor_device(setup_pfc_test):
                 (not details.get('rx_port_id') or None in details['rx_port_id']):
             return False  # neighbor devices are not present
     return True
+
+
+def check_pfc_storm_state(dut, port, queue, expected_state):
+    """
+    Helper function to check if PFC storm is detected/restored on a given queue
+    """
+    pfcwd_stat = parser_show_pfcwd_stat(dut, port, queue)
+    if expected_state == "storm":
+        if ("storm" in pfcwd_stat[0]['status']) and \
+                int(pfcwd_stat[0]['storm_detect_count']) > int(pfcwd_stat[0]['restored_count']):
+            return True
+    else:
+        if ("storm" not in pfcwd_stat[0]['status']) and \
+                int(pfcwd_stat[0]['storm_detect_count']) == int(pfcwd_stat[0]['restored_count']):
+            return True
+    return False
+
+
+def parser_show_pfcwd_stat(dut, select_port, select_queue):
+    """
+    CLI "show pfcwd stats" output:
+    admin@bjw-can-7060-1:~$ show pfcwd stats
+            QUEUE    STATUS    STORM DETECTED/RESTORED    TX OK/DROP    RX OK/DROP    TX LAST OK/DROP    RX LAST OK/DROP # noqa: E501
+    -------------  --------  -------------------------  ------------  ------------  -----------------  ----------------- # noqa: E501
+    Ethernet112:4       N/A                        2/2       100/100       100/100              100/0              100/0 # noqa: E501
+    admin@bjw-can-7060-1:~$
+    """
+    logger.info("port {} queue {}".format(select_port, select_queue))
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+
+    pfcwd_stat = []
+    for item in pfcwd_stat_output:
+        port, queue = item['queue'].split(':')
+        if port != select_port or int(queue) != int(select_queue):
+            continue
+        storm_detect_count, restored_count = item['storm detected/restored'].split('/')
+        tx_ok_count, tx_drop_count = item['tx ok/drop'].split('/')
+        rx_ok_count, rx_drop_count = item['rx ok/drop'].split('/')
+        tx_last_ok_count, tx_last_drop_count = item['tx last ok/drop'].split('/')
+        rx_last_ok_count, rx_last_drop_count = item['rx last ok/drop'].split('/')
+
+        parsed_dict = {
+            'port': port,
+            'queue': queue,
+            'status': item['status'],
+            'storm_detect_count': storm_detect_count,
+            'restored_count': restored_count,
+            'tx_ok_count': tx_ok_count,
+            'tx_drop_count': tx_drop_count,
+            'rx_ok_count': rx_ok_count,
+            'rx_drop_count': rx_drop_count,
+            'tx_last_ok_count': tx_last_ok_count,
+            'tx_last_drop_count': tx_last_drop_count,
+            'rx_last_ok_count': rx_last_ok_count,
+            'rx_last_drop_count': rx_last_drop_count
+        }
+        pfcwd_stat.append(parsed_dict)
+
+    return pfcwd_stat
