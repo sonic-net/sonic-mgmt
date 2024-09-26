@@ -316,40 +316,31 @@ devices:
 
 connections:
   hubs:
-    L0_trex1_1:
+    L0_trex1:
       - L0.Ethernet48
       - trex1.eth1
-    L0_trex1_2:
-      - L0.Ethernet72
-      - trex1.eth2
-    L0_trex2_1:
+    L0_trex2:
       - L0.Ethernet56
       - trex2.eth1
-    L0_trex3_1:
+    L0_trex3:
       - L0.Ethernet64
       - trex3.eth1
-    L1_trex4_1:
+    L1_trex4:
       - L1.Ethernet48
       - trex4.eth1
-    L1_trex4_2:
-      - L1.Ethernet72
-      - trex4.eth2
-    L1_trex5_1:
+    L1_trex5:
       - L1.Ethernet56
       - trex5.eth1
-    L1_trex6_1:
+    L1_trex6:
       - L1.Ethernet64
       - trex6.eth1
-    L2_trex7_1:
+    L2_trex7:
       - L2.Ethernet48
       - trex7.eth1
-    L2_trex7_2:
-      - L2.Ethernet72
-      - trex7.eth2
-    L2_trex8_1:
+    L2_trex8:
       - L2.Ethernet56
       - trex8.eth1
-    L2_trex9_1:
+    L2_trex9:
       - L2.Ethernet64
       - trex9.eth1
     S0_L0_conn1:
