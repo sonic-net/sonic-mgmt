@@ -3,6 +3,14 @@ name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev
 trigger: none
 pr: none
 
+schedules:
+  - cron: "0 9 * * 1"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
 resources:
   repositories:
     - repository: sonic-mgmt
@@ -28,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms21-t1-8102-01, testbed-bjw-can-8102-1"
+    default: "vms21-t1-8102-01"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER

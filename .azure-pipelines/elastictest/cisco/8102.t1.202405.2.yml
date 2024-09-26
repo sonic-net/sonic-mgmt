@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 9 * * 4"
+  - cron: "0 9 * * 3,6"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms28-t1-8102-02"
+    default: "testbed-bjw2-can-t1-8102-1, testbed-bjw2-can-t1-8102-2, testbed-bjw-can-8102-1"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -45,7 +45,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "3"
+    default: "4"
 
   - name: IMAGE_URL
     type: string
