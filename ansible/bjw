@@ -331,7 +331,7 @@ sonic_arista_7050qx_32s_s4q31:
       ansible_hostv6: 2404:f801:10:2200::a96:1677
       hwsku: Arista-7050-QX-32S
       model: DCS-7050QX-32S
-      serial: SSJ18381373
+      serial: JPE15260340
       base_mac: 44:4c:a8:05:07:0e
       syseeprom_info:   # needs to update eeprom info
         "0x21": "DCS-7050QX-32S"
