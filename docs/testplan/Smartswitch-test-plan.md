@@ -705,7 +705,7 @@ root@sonic:/home/admin#
 
 #### Pass/Fail Criteria
 
- * Verify that no process should cross specified threshold value of CPU usage.
+ * Verify that no process should cross specified threshold value (70) of CPU usage.
 
 
 ### 1.14 Check Memory on DPU
@@ -751,7 +751,7 @@ root@sonic:/home/admin#
 
 #### Pass/Fail Criteria
 
- * Verify that no process should cross the specified threshold value of memory usage.
+ * Verify that no process should cross the specified threshold value (60) of memory usage.
 
 
 ### 1.15 Check flapping of NPU and DPU interface
@@ -795,7 +795,7 @@ lo                      127.0.0.1/16         up/up         N/A             N/A
 root@sonic:/home/cisco# show system-health dpu DPU0
 Name    ID    Oper-Status     State-Detail             State-Value    Time               Reason
 ------  ----  --------------  -----------------------  -------------  -----------------  --------------------------------------------------------------------------------------------------------------------------
-DPU0    0     Partial Online  dpu_midplane_link_state  UP             20240723 18:56:12  INTERNAL-MGMT : admin state - UP, oper_state - UP, status - OK, HOST-MGMT : admin state - UP, oper_state - UP, status - OK
+DPU0    0     Online          dpu_midplane_link_state  UP             20240723 18:56:12  INTERNAL-MGMT : admin state - UP, oper_state - UP, status - OK, HOST-MGMT : admin state - UP, oper_state - UP, status - OK
                               dpu_control_plane_state  UP             20240723 18:56:12  All containers are up and running, host-ethlink-status: Uplink1/1 is UP
 root@sonic:/home/cisco#
 
