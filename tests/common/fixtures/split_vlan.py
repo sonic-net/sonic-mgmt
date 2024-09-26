@@ -8,8 +8,19 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 
 
-@pytest.fixture(scope="module")
-def setup_multiple_vlans_and_teardown(rand_selected_dut, rand_unselected_dut, tbinfo):
+def parse_request_param(param):
+    vlan_count = int(param)
+    return vlan_count
+
+
+@pytest.fixture(scope="class")
+def setup_multiple_vlans_and_teardown(request, rand_selected_dut, rand_unselected_dut, tbinfo):
+    '''
+        This fixture will split the first vlan into multiple sub vlans and return the sub vlans info.
+        The count of sub vlans is determined by the parameter vlan_count which is passed to the test.
+        It will split prefix and members evenly to each sub vlan.
+    '''
+    vlan_count = parse_request_param(request.param)
     is_dualtor = 'dualtor' in tbinfo['topo']['name']
     duthost = rand_selected_dut
     vlan_brief = duthost.get_vlan_brief()
@@ -37,7 +48,8 @@ def setup_multiple_vlans_and_teardown(rand_selected_dut, rand_unselected_dut, tb
     sub_vlans_info, config_patch = generate_sub_vlans_config_patch(
         first_vlan_name,
         first_vlan_info,
-        vlan_member_with_ptf_idx
+        vlan_member_with_ptf_idx,
+        vlan_count
     )
     try:
         checkpoint_name = 'mutiple_vlans_test'
@@ -59,10 +71,10 @@ def setup_multiple_vlans_and_teardown(rand_selected_dut, rand_unselected_dut, tb
             delete_checkpoint(rand_unselected_dut, checkpoint_name)
 
 
-def generate_sub_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx, count=2):
+def generate_sub_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_idx, count):
     pytest_assert(len(vlan_info['interface_ipv4']) > 0, "Expected at least one ipv4 address prefix")
     pytest_assert(len(vlan_info['interface_ipv6']) > 0, "Expected at least one ipv6 address prefix")
-    pytest_assert(len(vlan_member_with_ptf_idx) > count, "Expected vlan member count more than sub vlan count")
+    pytest_assert(len(vlan_member_with_ptf_idx) >= count, "Expected member count greater or equal to sub vlan count")
 
     sub_vlans_info, config_patch = [], []
     config_patch += remove_vlan_patch(vlan_name) \
