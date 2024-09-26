@@ -829,7 +829,22 @@ root@sonic:/home/cisco#
 .
 (Going for reboot)
 .
-root@sonic:/home/cisco
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A        Offline            down  154226463179136
+  DPU1  Data Processing Unit              N/A        Offline            down  154226463179152
+  DPU2  Data Processing Unit              N/A        Offline            down  154226463179168
+  DPUX  Data Processing Unit              N/A        Offline            down  154226463179184
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# config chassis startup DPU0
+root@sonic:/home/cisco# config chassis startup DPU1
+root@sonic:/home/cisco# config chassis startup DPU2
+root@sonic:/home/cisco# config chassis startup DPUX
+root@sonic:/home/cisco# 
 root@sonic:/home/cisco# show chassis modules status
   Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
 ------  --------------------  ---------------  -------------  --------------  ---------------
@@ -869,6 +884,26 @@ root@sonic:/home/cisco#
 #### Sample Output
 
 ```
+root@sonic:/home/cisco# sudo systemctl restart swss
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# sudo systemctl restart syncd
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
+
+root@sonic:/home/cisco# ping 169.254.200.1
+PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
+64 bytes from 169.254.200.1: icmp_seq=1 ttl=64 time=0.160 ms
+^C
+--- 169.254.28.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
+root@sonic:/home/cisco# 
 root@sonic:/home/cisco# show chassis modules status
   Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
 ------  --------------------  ---------------  -------------  --------------  ---------------
