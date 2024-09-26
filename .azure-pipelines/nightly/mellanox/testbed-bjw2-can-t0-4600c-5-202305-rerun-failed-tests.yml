@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "bjw2-can-t0-4600c-5"
+    default: "testbed-bjw2-can-t0-4600c-5"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
