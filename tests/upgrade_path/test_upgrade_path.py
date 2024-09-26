@@ -12,17 +12,15 @@ from tests.common.helpers.upgrade_helpers import install_sonic, check_sonic_vers
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa F401
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
-from tests.platform_tests.verify_dut_health import verify_dut_health    # noqa F401
+from tests.common.platform.device_utils import verify_dut_health    # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
-
-from tests.platform_tests.conftest import advanceboot_loganalyzer, advanceboot_neighbor_restore  # noqa F401
+from tests.common.platform.device_utils import advanceboot_loganalyzer, advanceboot_neighbor_restore # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
-
-from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
+from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 
 
 pytestmark = [

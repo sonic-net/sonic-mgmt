@@ -11,7 +11,7 @@ from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
-from tests.platform_tests.verify_dut_health import check_neighbors
+from tests.common.platform.device_utils import check_neighbors
 
 # internal only import - used by ferret functions
 import json
