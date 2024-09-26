@@ -158,11 +158,7 @@ def verify_static_route(
         )
 
 
-def control_interface_state(dut, asic, interface, action):
-    int_status = dut.show_interface(
-        command="status", include_internal_intfs=True, asic_index=asic.asic_index
-    )["ansible_facts"]["int_status"][interface]
-    oper_state = int_status["oper_state"]
+def batch_control_interface_state(dut, asic, interfaces, action):
     if action == "shutdown":
         target_state = "down"
     elif action == "startup":
@@ -170,29 +166,53 @@ def control_interface_state(dut, asic, interface, action):
     else:
         raise ValueError("Invalid action specified")
 
-    if oper_state != target_state:
-        command = "shutdown" if action == "shutdown" else "startup"
-        exec_cmd = (
-            "sudo ip netns exec asic{} config interface -n asic{} {} {}".format(
-                asic.asic_index, asic.asic_index, command, interface
+    int_status = get_interfaces_status(dut, asic)
+    cmds = []
+    for interface in interfaces:
+        oper_state = int_status[interface]["oper_state"]
+        if oper_state != target_state:
+            command = "shutdown" if action == "shutdown" else "startup"
+            exec_cmd = "sudo ip netns exec asic{} config interface -n asic{} {} {}".format(
+                asic.asic_index,
+                asic.asic_index,
+                command,
+                interface,
             )
-        )
-        logger.info("Command: {}".format(exec_cmd))
-        logger.info("Target state: {}".format(target_state))
-        dut.shell(exec_cmd)
+
+            cmds.append(exec_cmd)
+            logger.info("Target state for interface {} is {}. Command: {}".format(
+                interface,
+                target_state,
+                exec_cmd,
+            ))
+        else:
+            raise ValueError("Invalid action specified for interface {}".format(interface))
+
+    if cmds:
+        dut.shell_cmds(cmds=cmds)
         assert wait_until(
             180,
             10,
             0,
-            lambda: dut.show_interface(
-                command="status",
-                include_internal_intfs=True,
-                asic_index=asic.asic_index,
-            )["ansible_facts"]["int_status"][interface]["oper_state"]
-            == target_state,
+            lambda: check_interfaces_oper_state(dut, asic, interfaces, target_state),
         )
-    else:
-        raise ValueError("Invalid action specified")
+
+
+def check_interfaces_oper_state(dut, asic, interfaces, target_state):
+    int_status = get_interfaces_status(dut, asic)
+    for interface in interfaces:
+        if int_status[interface]["oper_state"] != target_state:
+            return False
+
+    return True
+
+
+def get_interfaces_status(dut, asic):
+    return dut.show_interface(
+        command="status",
+        include_internal_intfs=True,
+        asic_index=asic.asic_index,
+    )["ansible_facts"]["int_status"]
 
 
 def check_bgp_status(request):
@@ -459,31 +479,26 @@ def extract_routes(static_route_output, version):
     return asic_routes
 
 
-def ensure_interface_is_up(dut, asic, interface):
-    int_oper_status = dut.show_interface(
-        command="status", include_internal_intfs=True, asic_index=asic.asic_index
-    )["ansible_facts"]["int_status"][interface]["oper_state"]
-    if int_oper_status == "down":
-        logger.info(
-            "Starting downed interface {} on {} asic{}".format(interface, dut, asic.asic_index)
-        )
-        exec_cmd = (
-            "sudo ip netns exec asic{} config interface -n asic{} startup {}".format(
-                asic.asic_index, asic.asic_index, interface
+def ensure_interfaces_are_up(dut, asic, interfaces):
+    int_status = get_interfaces_status(dut, asic)
+    cmds = []
+    for interface in interfaces:
+        if int_status[interface]["oper_state"] == "down":
+            cmds.append(
+                "sudo ip netns exec asic{} config interface -n asic{} startup {}".format(
+                    asic.asic_index,
+                    asic.asic_index,
+                    interface,
+                )
             )
-        )
 
-        logger.info("Command: {}".format(exec_cmd))
-        dut.shell(exec_cmd)
+    if cmds:
+        dut.shell_cmds(cmds=cmds)
         assert wait_until(
             180,
             10,
             0,
-            lambda: dut.show_interface(
-                command="status",
-                include_internal_intfs=True,
-                asic_index=asic.asic_index,
-            )["ansible_facts"]["int_status"][interface]["oper_state"] == "up",
+            lambda: check_interfaces_oper_state(dut, asic, interfaces, "up"),
         )
 
 
@@ -728,7 +743,7 @@ def toggle_port_channel_or_member(
     request.config.selected_portchannels = [target_to_toggle]
     request.config.asic = asic
 
-    control_interface_state(dut, asic, target_to_toggle, action)
+    batch_control_interface_state(dut, asic, [target_to_toggle], action)
     if action == "shutdown":
         time.sleep(120)
 
