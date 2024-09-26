@@ -172,8 +172,6 @@ def test_authorization_tacacs_only(
     # check commands used by scripts
     commands = [
         "show interfaces counters -a -p 3",
-        "show ip bgp neighbor",
-        "show ipv6 bgp neighbor",
         "touch testfile",
         "chmod +w testfile",
         "echo \"test\" > testfile",
@@ -184,10 +182,7 @@ def test_authorization_tacacs_only(
         "rm -f testfi*",
         "mkdir -p test",
         "portstat -c",
-        "show ip bgp summary",
-        "show ipv6 bgp summary",
         "show interfaces portchannel",
-        "show muxcable firmware",
         "show platform summary",
         "show version",
         "show lldp table",
@@ -196,7 +191,17 @@ def test_authorization_tacacs_only(
         "sonic-db-cli  CONFIG_DB HGET \"FEATURE|macsec\" state"
     ]
 
+    frontend_commands = [
+        "show ip bgp neighbor",
+        "show ipv6 bgp neighbor",
+        "show ip bgp summary",
+        "show ipv6 bgp summary",
+        "show muxcable firmware",
+    ]
+
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.sonichost.is_frontend_node():
+        commands.extend(frontend_commands)
     telemetry_is_running = is_container_running(duthost, 'telemetry')
     gnmi_is_running = is_container_running(duthost, 'gnmi')
     if not telemetry_is_running and gnmi_is_running:
