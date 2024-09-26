@@ -308,7 +308,6 @@ def gnmi_get(duthost, ptfhost, path_list):
     for path in path_list:
         path = path.replace('sonic-db:', '')
         cmd += " " + path
-    logger.info(f"Running command on PTF: {cmd}")
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         raise Exception("error:" + output['stderr'])
@@ -327,7 +326,16 @@ def gnmi_get(duthost, ptfhost, path_list):
             raise Exception("error:" + msg)
 
 
-def apply_messages(localhost, duthost, ptfhost, messages, set=True, wait_after_apply=5, max_updates_in_single_cmd=1024):
+def apply_messages(
+    localhost,
+    duthost,
+    ptfhost,
+    messages,
+    dpu_index,
+    set=True,
+    wait_after_apply=5,
+    max_updates_in_single_cmd=1024,
+):
     env = GNMIEnvironment(duthost)
     update_list = []
     delete_list = []
@@ -338,14 +346,14 @@ def apply_messages(localhost, duthost, ptfhost, messages, set=True, wait_after_a
 
         if set:
             if proto_utils.ENABLE_PROTO:
-                path = f"/APPL_DB/dpu0/{k}:$/root/{filename}"
+                path = f"/APPL_DB/dpu{dpu_index}/{k}:$/root/{filename}"
             else:
-                path = f"/APPL_DB/dpu0/{k}:@/root/{filename}"
-            with open(env.work_dir+filename, "wb") as file:
+                path = f"/APPL_DB/dpu{dpu_index}/{k}:@/root/{filename}"
+            with open(env.work_dir + filename, "wb") as file:
                 file.write(message.SerializeToString())
             update_list.append(path)
         else:
-            path = f"/APPL_DB/dpu0/{filename}"
+            path = f"/APPL_DB/dpu{dpu_index}/{filename}"
             delete_list.append(path)
 
     write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list, max_updates_in_single_cmd)
@@ -439,7 +447,7 @@ def write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list,
         for update_list in update_list_group:
             gnmi_set(duthost, ptfhost, [], update_list, [])
 
-    # localhost.shell('rm -f /tmp/updates.tar.gz')
-    # ptfhost.shell('rm -f updates.tar.gz')
-    # localhost.shell(f'rm -f {env.work_dir}update*')
-    # ptfhost.shell('rm -f update*')
+    localhost.shell('rm -f /tmp/updates.tar.gz')
+    ptfhost.shell('rm -f updates.tar.gz')
+    localhost.shell(f'rm -f {env.work_dir}update*')
+    ptfhost.shell('rm -f update*')

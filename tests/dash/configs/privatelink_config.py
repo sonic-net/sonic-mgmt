@@ -18,13 +18,13 @@ VNET_DIRECT = "vnet_direct"
 PRIVATELINK = "privatelink"
 DECAP = "decap"
 
-SIP = "10.0.0.1"
+SIP = "10.2.0.1"
 INBOUND_UNDERLAY_IP = "25.1.1.1"
 OUTBOUND_UNDERLAY_IP = "101.1.2.3"
-VNET_MAP_IP1 = "10.1.1.1"
-VNET_MAP_IP2 = "10.1.1.2"
-OUTBOUND_ROUTE_PREFIX1 = "10.1.0.8/32"
-OUTBOUND_ROUTE_PREFIX2 = "10.1.0.9/32"
+VNET_MAP_IP1 = "10.1.1.5"
+VNET_MAP_IP2 = "10.1.2.5"
+OUTBOUND_ROUTE_PREFIX1 = "10.1.1.0/24"
+OUTBOUND_ROUTE_PREFIX2 = "10.1.2.0/24"
 OVERLAY_IP = "10.0.0.6"
 PL_ENCODING_IP = "::56b2:0:ff71:0:0"
 PL_ENCODING_MASK = "::ffff:ffff:ffff:0:0"
@@ -41,8 +41,10 @@ ENCAP_VNI = 100
 VNET1 = "Vnet1"
 VNET1_VNI = "45654"
 VNET1_GUID = "559c6ce8-26ab-4193-b946-ccc6e8f930b2"
-MAC_STRING = "F4939FEFC47E"
-MAC_ADDRESS = "F4:93:9F:EF:C4:7E"
+ENI_MAC = "F4:93:9F:EF:C4:7E"
+ENI_MAC_STRING = ENI_MAC.replace(":", "")
+REMOTE_MAC = "43:BE:65:25:FA:67"
+REMOTE_MAC_STRING = REMOTE_MAC.replace(":", "")
 ENI_ID = "497f23d7-f0ac-4c99-a98f-59b470e8c7bd"
 ROUTE_GROUP1 = "RouteGroup1"
 ROUTE_GROUP2 = "RouteGroup2"
@@ -76,7 +78,7 @@ ENI_CONFIG = {
             "underlay_ip": {
                 "ipv4": socket.htonl(int(IP(INBOUND_UNDERLAY_IP)))
             },
-            "mac_address": bytes.fromhex(MAC_STRING),
+            "mac_address": base64.b64encode(bytes.fromhex(ENI_MAC_STRING)),
             "eni_id": ENI_ID,
             "admin_state": State.STATE_ENABLED,
             "pl_underlay_sip": {
@@ -96,7 +98,7 @@ ENI_CONFIG = {
 VNET_MAPPING_CONFIG = {
     f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VNET_MAP_IP1}":
         ParseDict({
-            "mac_address": bytes.fromhex(MAC_STRING),
+            "mac_address": base64.b64encode(bytes.fromhex(REMOTE_MAC_STRING)),
             "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
             "underlay_ip": {
                 "ipv4": socket.htonl(int(IP(OUTBOUND_UNDERLAY_IP)))
@@ -140,7 +142,7 @@ ROUTE_VNET_CONFIG_UNDERLAY_SIP = {
 }
 
 ROUTING_TYPE_PL_CONFIG = {
-    f"DASH_ROUTE_TYPE_TABLE:{PRIVATELINK}":
+    f"DASH_ROUTING_TYPE_TABLE:{PRIVATELINK}":
         ParseDict({
             "items": [
                 {

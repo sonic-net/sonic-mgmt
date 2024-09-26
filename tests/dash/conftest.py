@@ -126,6 +126,24 @@ def use_underlay_route(request):
     return request.param == "with-underlay-route"
 
 
+@pytest.fixture
+def dash_pl_config(duthost, config_facts, minigraph_facts):
+    dash_info = {
+        DUT_MAC: config_facts["DEVICE_METADATA"]["localhost"]["mac"],
+        LOCAL_CA_IP: "10.2.2.2",
+    }
+
+    neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
+    for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
+        if ip_interface(neigh_ip).version == 4:
+            if config["name"].endswith("T0"):
+                intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
+                dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
+                dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+                break
+    return dash_info
+
+
 @pytest.fixture(scope="function")
 def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
     dash_info = {
@@ -364,3 +382,8 @@ def acl_default_rule(localhost, duthost, ptfhost, dash_config_info):
         default_acl_rule.teardown()
         del default_acl_group
         time.sleep(WAIT_AFTER_CONFIG)
+
+
+@pytest.fixture(scope="module")
+def dpu_index():
+    return 0
