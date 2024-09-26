@@ -1,6 +1,5 @@
 import ipaddress
 import pytest
-import scapy
 import random
 import time
 import netaddr
@@ -25,9 +24,6 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-IPv6 = scapy.layers.inet6.IPv6
-DHCP6_Solicit = scapy.layers.dhcp6.DHCP6_Solicit
-DHCP6_RelayForward = scapy.layers.dhcp6.DHCP6_RelayForward
 SINGLE_TOR_MODE = 'single'
 DUAL_TOR_MODE = 'dual'
 NEW_COUNTER_VALUE_FORMAT = (
@@ -495,44 +491,64 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
 
 
-def test_dhcp_relay_default_with_multiple_vlan(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
-                                               toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
-                                               setup_active_active_as_active_standby,             # noqa F811
-                                               setup_multiple_vlans_and_teardown):                # noqa F811
-    '''
-        Test DHCP relay should set correct link address when relay packet to DHCP server
-    '''
-    vlans_info = setup_multiple_vlans_and_teardown
-    _, duthost = testing_config
-    skip_release(duthost, ["201811", "201911", "202106"])  # TO-DO: delete skip release on 201811 and 201911
+class TestDhcpv6RelayWithMultipleVlan:
 
-    # Please note: relay interface always means vlan interface
-    pytest_assert(len(dut_dhcp_relay_data) > 0, "No VLAN data")
-    common_dhcp_relay_data = dut_dhcp_relay_data[0]
-    for vlan_info in vlans_info:
-        vlan_name = vlan_info['vlan_name']
-        exp_link_addr = vlan_info['interface_ipv6'].split('/')[0]
-        _, ptf_port_index = random.choice(vlan_info['members_with_ptf_idx'])
-        command = "ip addr show {} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1" \
-            .format(vlan_name)
-        down_interface_link_local = duthost.shell(command)['stdout']
-        vlan_mac = duthost.shell('cat /sys/class/net/{}/address'.format(vlan_name))['stdout']
-        # Run the DHCP relay test on the PTF host
-        ptf_runner(ptfhost,
-                   "ptftests",
-                   "dhcpv6_relay_test.DHCPTest",
-                   platform_dir="ptftests",
-                   params={"hostname": duthost.hostname,
-                           "client_port_index": ptf_port_index,
-                           "leaf_port_indices": repr(common_dhcp_relay_data['uplink_port_indices']),
-                           "num_dhcp_servers":
-                               len(common_dhcp_relay_data['downlink_vlan_iface']['dhcpv6_server_addrs']),
-                           "server_ip": str(common_dhcp_relay_data['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
-                           "relay_iface_ip": str(exp_link_addr),
-                           "relay_iface_mac": str(vlan_mac),
-                           "relay_link_local": str(down_interface_link_local),
-                           "vlan_ip": str(exp_link_addr),
-                           "uplink_mac": str(common_dhcp_relay_data['uplink_mac']),
-                           "loopback_ipv6": str(common_dhcp_relay_data['loopback_ipv6']),
-                           "is_dualtor": str(common_dhcp_relay_data['is_dualtor'])},
-                   log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
+    def restart_dhcp_relay_and_wait(self, duthost):
+        duthost.restart_service("dhcp_relay")
+
+        def verify_dhcpv6_relayd_running():
+            cmd = 'docker exec dhcp_relay supervisorctl status | grep dhcp6relay'
+            return "RUNNING" in duthost.shell(cmd)["stdout"]
+        wait_until(60, 3, 0, verify_dhcpv6_relayd_running)
+
+    @pytest.fixture(scope="class", autouse=True)
+    def teardown(self, duthost):
+
+        yield
+        self.restart_dhcp_relay_and_wait(duthost)
+
+    @pytest.mark.parametrize("setup_multiple_vlans_and_teardown", ["3"], indirect=True)
+    def test_dhcp_relay_default(self, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                                                toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
+                                                setup_active_active_as_active_standby,             # noqa F811
+                                                setup_multiple_vlans_and_teardown):                # noqa F811
+        '''
+            Test DHCP relay should set correct link address when relay packet to DHCP server
+        '''
+        vlans_info = setup_multiple_vlans_and_teardown
+        _, duthost = testing_config
+        skip_release(duthost, ["201811", "201911", "202106"])  # TO-DO: delete skip release on 201811 and 201911
+        # Please note: relay interface always means vlan interface
+        pytest_assert(len(dut_dhcp_relay_data) > 0, "No VLAN data")
+        common_dhcp_relay_data = dut_dhcp_relay_data[0]
+
+        self.restart_dhcp_relay_and_wait(duthost)  # restart dhcp_relay to make new vlans config take into effect
+        for vlan_info in vlans_info:
+            vlan_name = vlan_info['vlan_name']
+            exp_link_addr = vlan_info['interface_ipv6'].split('/')[0]
+            _, ptf_port_index = random.choice(vlan_info['members_with_ptf_idx'])
+            logger.info("Randomly selected PTF port index: {}".format(ptf_port_index))
+            command = "ip addr show {} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1" \
+                .format(vlan_name)
+            down_interface_link_local = duthost.shell(command)['stdout']
+            vlan_mac = duthost.shell('cat /sys/class/net/{}/address'.format(vlan_name))['stdout']
+            # Run the DHCP relay test on the PTF host
+            ptf_runner(ptfhost,
+                       "ptftests",
+                       "dhcpv6_relay_test.DHCPTest",
+                       platform_dir="ptftests",
+                       params={"hostname": duthost.hostname,
+                               "client_port_index": ptf_port_index,
+                               "leaf_port_indices": repr(common_dhcp_relay_data['uplink_port_indices']),
+                               "num_dhcp_servers":
+                                   len(common_dhcp_relay_data['downlink_vlan_iface']['dhcpv6_server_addrs']),
+                               "server_ip":
+                                   str(common_dhcp_relay_data['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
+                               "relay_iface_ip": str(exp_link_addr),
+                               "relay_iface_mac": str(vlan_mac),
+                               "relay_link_local": str(down_interface_link_local),
+                               "vlan_ip": str(exp_link_addr),
+                               "uplink_mac": str(common_dhcp_relay_data['uplink_mac']),
+                               "loopback_ipv6": str(common_dhcp_relay_data['loopback_ipv6']),
+                               "is_dualtor": str(common_dhcp_relay_data['is_dualtor'])},
+                       log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
