@@ -149,7 +149,6 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     if duthost.is_supervisor_node():
         pytest.skip(
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
-
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
 
