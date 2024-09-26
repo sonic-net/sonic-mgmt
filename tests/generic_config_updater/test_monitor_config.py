@@ -12,6 +12,10 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+not_support_mirror_via_policer_platform_list = [
+    "x86_64-accton_as9716_32d-r0",
+]
+
 MONITOR_CONFIG_TEST_CP = "monitor_config_test"
 MONITOR_CONFIG_INITIAL_CP = "monitor_config_initial"
 MONITOR_CONFIG_ACL_TABLE = "EVERFLOW_DSCP"
@@ -47,11 +51,16 @@ def bgp_monitor_config_cleanup(duthost):
     Clean up current monitor config if existed
     """
     cmds = []
-    cmds.append('sonic-db-cli CONFIG_DB del "ACL_TABLE|{}"'.format(MONITOR_CONFIG_ACL_TABLE))
+    cmds.append(
+        'sonic-db-cli CONFIG_DB del "ACL_TABLE|{}"'.format(MONITOR_CONFIG_ACL_TABLE))
     cmds.append('sonic-db-cli CONFIG_DB del "ACL_RULE|{}|{}"'
                 .format(MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
-    cmds.append('sonic-db-cli CONFIG_DB del "MIRROR_SESSION|{}"'.format(MONITOR_CONFIG_MIRROR_SESSION))
-    cmds.append('sonic-db-cli CONFIG_DB del "POLICER|{}"'.format(MONITOR_CONFIG_POLICER))
+    cmds.append(
+        'sonic-db-cli CONFIG_DB del "MIRROR_SESSION|{}"'.format(MONITOR_CONFIG_MIRROR_SESSION))
+
+    if duthost.facts['platform'] not in not_support_mirror_via_policer_platform_list:
+        cmds.append(
+            'sonic-db-cli CONFIG_DB del "POLICER|{}"'.format(MONITOR_CONFIG_POLICER))
 
     output = duthost.shell_cmds(cmds=cmds)['results']
     for res in output:
@@ -110,16 +119,23 @@ def verify_monitor_config(duthost):
     table = duthost.shell("show acl table {}".format(MONITOR_CONFIG_ACL_TABLE))
     expect_res_success(duthost, table, [MONITOR_CONFIG_ACL_TABLE], [])
 
-    rule = duthost.shell("show acl rule {} {}".format(MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
+    rule = duthost.shell("show acl rule {} {}".format(
+        MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
     expect_res_success(duthost, rule, [
         MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE, MONITOR_CONFIG_MIRROR_SESSION], [])
 
-    policer = duthost.shell("show policer {}".format(MONITOR_CONFIG_POLICER))
-    expect_res_success(duthost, policer, [MONITOR_CONFIG_POLICER], [])
+    mirror_session_match_fields = [MONITOR_CONFIG_MIRROR_SESSION]
 
-    mirror_session = duthost.shell("show mirror_session {}".format(MONITOR_CONFIG_MIRROR_SESSION))
-    expect_res_success(duthost, mirror_session, [
-        MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER], [])
+    if duthost.facts['platform'] not in not_support_mirror_via_policer_platform_list:
+        policer = duthost.shell(
+            "show policer {}".format(MONITOR_CONFIG_POLICER))
+        expect_res_success(duthost, policer, [MONITOR_CONFIG_POLICER], [])
+        mirror_session_match_fields += [MONITOR_CONFIG_POLICER]
+
+    mirror_session = duthost.shell(
+        "show mirror_session {}".format(MONITOR_CONFIG_MIRROR_SESSION))
+    expect_res_success(duthost, mirror_session,
+                       mirror_session_match_fields, [])
 
 
 def verify_no_monitor_config(duthost):
@@ -129,16 +145,23 @@ def verify_no_monitor_config(duthost):
     table = duthost.shell("show acl table {}".format(MONITOR_CONFIG_ACL_TABLE))
     expect_res_success(duthost, table, [], [MONITOR_CONFIG_ACL_TABLE])
 
-    rule = duthost.shell("show acl rule {} {}".format(MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
+    rule = duthost.shell("show acl rule {} {}".format(
+        MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
     expect_res_success(duthost, rule, [], [
         MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE, MONITOR_CONFIG_MIRROR_SESSION])
 
-    policer = duthost.shell("show policer {}".format(MONITOR_CONFIG_POLICER))
-    expect_res_success(duthost, policer, [], [MONITOR_CONFIG_POLICER])
+    mirror_session_match_fields = [MONITOR_CONFIG_MIRROR_SESSION]
 
-    mirror_session = duthost.shell("show mirror_session {}".format(MONITOR_CONFIG_MIRROR_SESSION))
-    expect_res_success(duthost, mirror_session, [], [
-        MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER])
+    if duthost.facts['platform'] not in not_support_mirror_via_policer_platform_list:
+        policer = duthost.shell(
+            "show policer {}".format(MONITOR_CONFIG_POLICER))
+        expect_res_success(duthost, policer, [], [MONITOR_CONFIG_POLICER])
+        mirror_session_match_fields += [MONITOR_CONFIG_POLICER]
+
+    mirror_session = duthost.shell(
+        "show mirror_session {}".format(MONITOR_CONFIG_MIRROR_SESSION))
+    expect_res_success(duthost, mirror_session, [],
+                       mirror_session_match_fields)
 
 
 def monitor_config_add_config(duthost, get_valid_acl_ports):
@@ -170,30 +193,35 @@ def monitor_config_add_config(duthost, get_valid_acl_ports):
             "op": "add",
             "path": "/MIRROR_SESSION",
             "value": {
-               "{}".format(MONITOR_CONFIG_MIRROR_SESSION): {
+                "{}".format(MONITOR_CONFIG_MIRROR_SESSION): {
                     "dscp": "5",
                     "dst_ip": "2.2.2.2",
-                    "policer": "{}".format(MONITOR_CONFIG_POLICER),
                     "src_ip": "1.1.1.1",
                     "ttl": "32",
                     "type": "ERSPAN"
-               }
-            }
-        },
-        {
-            "op": "add",
-            "path": "/POLICER",
-            "value": {
-                "{}".format(MONITOR_CONFIG_POLICER): {
-                    "meter_type": "bytes",
-                    "mode": "sr_tcm",
-                    "cir": "12500000",
-                    "cbs": "12500000",
-                    "red_packet_action": "drop"
                 }
             }
         }
     ]
+    if duthost.facts['platform'] not in not_support_mirror_via_policer_platform_list:
+        json_patch[2]["value"][MONITOR_CONFIG_MIRROR_SESSION].setdefault(
+            "policer", "{}".format(MONITOR_CONFIG_POLICER))
+        mirror_session_policer = [
+            {
+                "op": "add",
+                "path": "/POLICER",
+                "value": {
+                    "{}".format(MONITOR_CONFIG_POLICER): {
+                        "meter_type": "bytes",
+                        "mode": "sr_tcm",
+                        "cir": "12500000",
+                        "cbs": "12500000",
+                        "red_packet_action": "drop"
+                    }
+                }
+            }
+        ]
+        json_patch += mirror_session_policer
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
