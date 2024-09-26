@@ -52,10 +52,21 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
     KVMIgnoreRegex = [
         ".*ERR kernel.*Reset adapter.*",
     ]
+    # Ignore time span WD exceeded error, and contextual log event messages
+    SAISwitchIgnoreRegex = [
+        ".* ERR syncd.*#syncd.*logEventData:.*SAI_SWITCH_ATTR.*",
+        ".* ERR syncd.*#syncd.*logEventData:.*SAI_OBJECT_TYPE_SWITCH.*"
+    ]
+    # Ignore syslog error from xcvrd while using copper cables
+    CopperCableIgnoreRegex = [
+        ".* ERR pmon#xcvrd.*no suitable app for the port appl.*host_lane_count.*host_speed.*"
+    ]
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is disabled
         if duthost.facts["asic_type"] == "vs":
             loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+        loganalyzer[duthost.hostname].ignore_regex.extend(SAISwitchIgnoreRegex)
+        loganalyzer[duthost.hostname].ignore_regex.extend(CopperCableIgnoreRegex)
 
 
 @pytest.fixture(autouse=True, scope="module")

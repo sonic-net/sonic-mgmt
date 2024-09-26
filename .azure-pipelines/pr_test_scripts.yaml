@@ -34,6 +34,7 @@ t0:
   - decap/test_decap.py
   - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
+  - dhcp_relay/test_dhcp_relay_stress.py
   - dhcp_relay/test_dhcpv6_relay.py
   - disk/test_disk_exhaustion.py
   - dns/static_dns/test_static_dns.py
@@ -216,9 +217,11 @@ t0:
   - platform_tests/test_idle_driver.py
   - wol/test_wol.py
   - dhcp_relay/test_dhcp_pkt_fwd.py
+  - telemetry/test_telemetry.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
+  - dhcp_relay/test_dhcp_relay_stress.py
   - dhcp_relay/test_dhcpv6_relay.py
   - vlan/test_host_vlan.py
   - vlan/test_vlan_ping.py
@@ -415,6 +418,7 @@ t1-lag:
   - platform_tests/test_link_down.py
   - gnmi/test_gnmi_countersdb.py
   - generic_config_updater/test_cacl.py
+  - telemetry/test_telemetry.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -453,11 +457,13 @@ onboarding_t0:
   # - platform_tests/test_advanced_reboot.py
   - platform_tests/test_cont_warm_reboot.py
   - snmp/test_snmp_link_local.py
+  - lldp/test_lldp_syncd.py
 
 
 onboarding_t1:
   - bgp/test_bgp_stress_link_flap.py
   - snmp/test_snmp_link_local.py
+  - lldp/test_lldp_syncd.py
 
 onboarding_dualtor:
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py

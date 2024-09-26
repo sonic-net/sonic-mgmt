@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
-from tests.syslog.syslog_utils import is_mgmt_vrf_enabled
+from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
 
 
 pytestmark = [
