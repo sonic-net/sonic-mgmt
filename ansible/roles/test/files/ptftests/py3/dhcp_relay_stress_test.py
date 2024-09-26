@@ -44,7 +44,7 @@ class DHCPContinuousStressTest(DHCPTest):
 class DHCPStressDiscoverTest(DHCPTest):
     def __init__(self):
         DHCPTest.__init__(self)
-    
+
     def setUp(self):
         DHCPTest.setUp(self)
         self.packets_send_duration = self.test_params["packets_send_duration"]
@@ -103,7 +103,7 @@ class DHCPStressDiscoverTest(DHCPTest):
 class DHCPStressOfferTest(DHCPTest):
     def __init__(self):
         DHCPTest.__init__(self)
-    
+
     def setUp(self):
         DHCPTest.setUp(self)
         self.packets_send_duration = self.test_params["packets_send_duration"]
@@ -159,7 +159,7 @@ class DHCPStressOfferTest(DHCPTest):
 class DHCPStressRequestTest(DHCPTest):
     def __init__(self):
         DHCPTest.__init__(self)
-    
+
     def setUp(self):
         DHCPTest.setUp(self)
         self.packets_send_duration = self.test_params["packets_send_duration"]
@@ -215,10 +215,10 @@ class DHCPStressRequestTest(DHCPTest):
             result_file.write(str(request_cnt))
 
 
-class DHCPStressAckTest(DHCPTest):   
+class DHCPStressAckTest(DHCPTest):
     def __init__(self):
         DHCPTest.__init__(self)
-    
+
     def setUp(self):
         DHCPTest.setUp(self)
         self.packets_send_duration = self.test_params["packets_send_duration"]

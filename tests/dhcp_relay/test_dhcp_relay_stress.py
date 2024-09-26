@@ -171,14 +171,14 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == test_xid])
             lower_bound = int(exp_count * 0.9)
             upper_bound = int(exp_count * 1.1)
-            pytest_assert(lower_bound <= actual_count * num_dhcp_servers <= upper_bound, 
+            pytest_assert(lower_bound <= actual_count * num_dhcp_servers <= upper_bound,
                           "Mismatch: Actual count = {}, Expected count = {}.".format(actual_count, exp_count))
 
         def verify_client_packets(pkts):
             actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == test_xid])
             lower_bound = int(exp_count * 0.9)
             upper_bound = int(exp_count * 1.1)
-            pytest_assert(lower_bound <= actual_count <= upper_bound, 
+            pytest_assert(lower_bound <= actual_count <= upper_bound,
                           "Mismatch: Actual count = {}, Expected count = {}.".format(actual_count, exp_count))
 
         with capture_and_check_packet_on_dut(
