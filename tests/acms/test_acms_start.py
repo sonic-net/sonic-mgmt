@@ -78,7 +78,7 @@ def test_acms_start(duthosts, rand_one_dut_hostname, creds, test_data):
     dut_command = "sonic-db-cli CONFIG_DB hset 'DEVICE_METADATA|localhost' 'cloudtype' '%s'" % cloudtype
     duthost.shell(dut_command, module_ignore_errors=True)
     generate_pfx_cert(duthost, "acms")
-    dut_command = "cp /tmp/acms.pfx /etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx" % region
+    dut_command = "docker exec acms cp /tmp/acms.pfx /etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx" % region
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl start start" % container_name
     duthost.shell(dut_command, module_ignore_errors=True)
