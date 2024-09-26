@@ -1740,6 +1740,12 @@ telemetry/test_telemetry.py::test_osbuild_version:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/12021
 
+telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
+  skip:
+    reason: "Testcase ignored due to switch type is voq"
+    conditions:
+      - "(switch_type=='voq')"
+
 #######################################
 #####        neighbor health      #####
 #######################################
