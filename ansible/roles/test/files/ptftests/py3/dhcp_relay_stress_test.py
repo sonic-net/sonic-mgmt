@@ -4,6 +4,7 @@ import ptf.packet as scapy
 from ptf.mask import Mask
 from dhcp_relay_test import DHCPTest
 
+
 class DHCPContinuousStressTest(DHCPTest):
     """
     Keep sending packets, but don't verify form ptf side.
