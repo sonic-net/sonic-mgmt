@@ -1,0 +1,36 @@
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "*/10 * * * *"
+    displayName: NightlyTest Trigger Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+  - name: PIPELINE_NAME
+    type: string
+    displayName: "Pipeline Name to run, defined in elastictest_nightlytests.csv"
+    default: ""
+
+jobs:
+  - job: TriggerPipelinesJob
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - script: |
+          set -ex
+          python3 -m pip install croniter requests pandas
+        displayName: 'Install required packages'
+
+      - script: |
+          set -ex
+          cd .azure-pipelines/elastictest
+          python3 elastictest_nightlytest_trigger.py -n ${{ parameters.PIPELINE_NAME}}
+        displayName: "Trigger Elastictest NightlyTest Pipelines"
+        env:
+          ACCESS_TOKEN: $(System.AccessToken)

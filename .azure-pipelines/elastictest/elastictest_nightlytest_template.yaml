@@ -1,0 +1,163 @@
+name: ${{ parameters.PIPELINE_NAME }}_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+
+parameters:
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+      - nightly-tk5
+    displayName: "AGENT POOL"
+
+  - name: PIPELINE_NAME
+    type: string
+    default: "NightlyTest"
+    displayName: "Pipeline name"
+
+  - name: TESTBED_NAME
+    type: string
+    default: ""
+    displayName: "Testbed Name"
+
+  - name: IMAGE_URL
+    type: string
+    default: ""
+    displayName: "Image URL"
+
+  - name: UPGRADE_IMAGE_PARAM
+    type: string
+    default: ""
+    displayName: "Upgrade image parameter"
+
+  - name: DEPLOY_MG_EXTRA_PARAMS
+    type: string
+    default: ""
+    displayName: "Deploy minigraph parameter"
+
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: ""
+    displayName: "Common test param"
+
+  - name: MGMT_BRANCH
+    type: string
+    default: ""
+
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
+  - name: SCRIPTS
+    type: string
+    default: ""
+    displayName: "Scripts to be included"
+
+  - name: FEATURES
+    type: string
+    default: ""
+    displayName: "Features to be included"
+
+  # Custom skip scripts
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: ""
+    displayName: "Scripts to be excluded"
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: ""
+    displayName: "Features to be excluded"
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: "[]"
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
+
+  - name: AFFINITY
+    type: string
+    default: "[]"
+    displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
+
+  # Test timeout
+  - name: MAX_RUN_TEST_MINUTES
+    type: string
+    default: 1800
+
+  - name: LOCK_WAIT_TIMEOUT_SECONDS
+    type: string
+    default: 7200
+
+  - name: RETRY_TIMES
+    type: string
+    default: 0
+
+  # If the number of available testbeds exceeds {MIN_WORKER}, then use {MIN_WORKER} testbeds to run tests
+  - name: MIN_WORKER
+    type: string
+    default: ""
+
+  # If the number of available testbeds exceeds {MAX_WORKER}, then use {MAX_WORKER} testbeds to run tests
+  - name: MAX_WORKER
+    type: string
+    default: ""
+
+  - name: STOP_ON_FAILURE
+    type: string
+    default: "False"
+
+stages:
+- stage: Test
+
+  variables:
+    - group: SONiC-Elastictest
+
+  jobs:
+  - job:
+    displayName: NightlyTest_by_Elastictest
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    continueOnError: false
+    pool: ${{ parameters.AGENT_POOL }}
+
+    steps:
+      - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
+        parameters:
+          TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+          SCRIPTS: ${{ parameters.SCRIPTS }}
+          FEATURES: ${{ parameters.FEATURES }}
+          SCRIPTS_EXCLUDE: "${{ parameters.SCRIPTS_EXCLUDE }}, vrf/test_vrf.py, vrf/test_vrf_attr.py, mvrf/test_mgmtvrf.py, platform_tests/test_auto_negotiation.py, sflow/test_sflow.py, nat/test_dynamic_nat.py, nat/test_static_nat.py"
+          FEATURES_EXCLUDE: "${{ parameters.FEATURES_EXCLUDE }}, ptftests, acstests, saitests, scripts, k8s, sai_qualify"
+          COMMON_EXTRA_PARAMS: "${{ parameters.COMMON_EXTRA_PARAMS }} --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+          MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          LOCK_WAIT_TIMEOUT_SECONDS: ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}
+          IMAGE_URL: ${{ parameters.IMAGE_URL }}
+          UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+          DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
+          SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+          AFFINITY: ${{ parameters.AFFINITY }}
+          REPO_NAME: "sonic-mgmt-int"
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_TYPE: "NIGHTLY"
+          PLATFORM: "PHYSICAL"
+          DUMP_KVM_IF_FAIL: "False"
+          REQUESTER: "Nightly Test"
+          MIN_WORKER: ${{ parameters.MIN_WORKER }}
+          MAX_WORKER: ${{ parameters.MAX_WORKER }}
