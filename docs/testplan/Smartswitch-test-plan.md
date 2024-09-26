@@ -811,7 +811,7 @@ root@sonic:/home/cisco#
 
 #### Steps
 
- * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py#L54
+ * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py
  * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
  * Power on DPUs after switch goes for reboot and comes back
  
@@ -857,8 +857,8 @@ root@sonic:/home/cisco#
 ### 1.17 Check DPU status and Link after restart swss and syncd
 
 #### Steps
- * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_sequential_restart.py#L101
-                                     https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_sequential_restart.py#L121
+ * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_sequential_restart.py
+                                     https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_sequential_restart.py
  * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
  * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
  * Use `show chassis modules status` to check status of the DPUs.
@@ -934,7 +934,7 @@ root@sonic:/home/cisco#
 ### 1.19 Check DPU status and Link after kernel panic
 
 #### Steps
- * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py#L58
+ * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
  * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
  * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
  * Use `show chassis modules status` to check status of the DPUs.
@@ -971,7 +971,7 @@ root@sonic:/home/cisco#
 ### 1.20 Check DPU status and Link after power off reboot
 
 #### Steps
- * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_power_off_reboot.py#L72
+ * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_power_off_reboot.py
  * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
  * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
  * Use `show chassis modules status` to check status of the DPUs.
