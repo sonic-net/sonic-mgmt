@@ -1,0 +1,165 @@
+simulation:
+  slurm_flags:
+        hours: 120
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+  staggered_boot_delay: 60
+
+devices:
+  SD1: &sonic_router
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types: [8101-32FH]
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: http://172.29.93.10/sonic-images/10652/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    xr_port_redir:
+    - 22
+    pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth
+
+
+  SD2:
+      <<: *sonic_router
+
+  SD3:
+      <<: *sonic_router
+
+  SD4:
+      <<: *sonic_router
+
+  SD5: 
+      <<: *sonic_router
+  
+  SD6: 
+      <<: *sonic_router
+
+  SD7: 
+      <<: *sonic_router
+
+  SD8: 
+      <<: *sonic_router
+
+  ixia:
+    platform: ixia-web
+    ixia_images:
+      windows: /auto/vxr/images/ixia/IxNetworkWeb_KVM_9.20.2206.28.qcow2
+      chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_9.20_KVM.qcow2
+      load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_9.20_KVM.qcow2
+    data_ports:
+      - data[0..7]
+  
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 4
+    memory: '4G'
+
+  host1:
+    platform: linux
+    image: /auto/vxr/images/linux/ubuntu-kne.qcow2
+    linux_username: vxr
+    linux_password: "cisco123"
+    linux_prompt: 'vxr@vxr-vm:~\$'
+    xr_port_redir: [22]
+
+connections:
+  hubs:
+  #Spine0 to leafs
+    hub0:
+      - SD1.Ethernet0
+      - SD5.Ethernet0
+    hub1:
+      - SD1.Ethernet1
+      - SD6.Ethernet0
+    hub2:
+      - SD1.Ethernet2
+      - SD7.Ethernet0
+    hub3:
+      - SD1.Ethernet3
+      - SD8.Ethernet0
+  #Spine1 to leafs
+    hub4:
+      - SD2.Ethernet0
+      - SD5.Ethernet1
+    hub5:
+      - SD2.Ethernet1
+      - SD6.Ethernet1
+    hub6:
+      - SD2.Ethernet2
+      - SD7.Ethernet1
+    hub7:
+      - SD2.Ethernet3
+      - SD8.Ethernet1
+#Spine2 to leafs
+    hub8:
+      - SD3.Ethernet0
+      - SD5.Ethernet2
+    hub9:
+      - SD3.Ethernet1
+      - SD6.Ethernet2
+    hub10:
+      - SD3.Ethernet2
+      - SD7.Ethernet2
+    hub11:
+      - SD3.Ethernet3
+      - SD8.Ethernet2
+#Spine3 to leafs
+    hub12:
+      - SD4.Ethernet0
+      - SD5.Ethernet3
+    hub13:
+      - SD4.Ethernet1
+      - SD6.Ethernet3
+    hub14:
+      - SD4.Ethernet2
+      - SD7.Ethernet3
+    hub15:
+      - SD4.Ethernet3
+      - SD8.Ethernet3
+#ixia to leaf0
+    hub16:
+      - SD5.Ethernet6
+      - ixia.data0
+    hub17:
+      - SD5.Ethernet7
+      - ixia.data1
+#ixia to leaf1
+    hub18:
+      - SD6.Ethernet6
+      - ixia.data2
+    hub19:
+      - SD6.Ethernet7
+      - ixia.data3
+#ixia to leaf2
+    hub20:
+      - SD7.Ethernet6
+      - ixia.data4
+    hub21:
+      - SD7.Ethernet7
+      - ixia.data5
+#ixia to leaf3
+    hub22:
+      - SD8.Ethernet6
+      - ixia.data6
+    hub23:
+      - SD8.Ethernet7
+      - ixia.data7
+#host1 to Leaf3
+    hub24:
+      - SD8.Ethernet8
+      - host1.eth1
+#leaf2 to leaf3
+    hub25:
+      - SD7.Ethernet12
+      - SD8.Ethernet12

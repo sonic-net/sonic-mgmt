@@ -157,7 +157,9 @@ show_acl_rule_qa.tmpl, .*, sonic, show acl rule
 show_mac_aging_time.tmpl, .*, sonic, show mac aging-time
 show_ip_interfaces.tmpl, .*, sonic, show (ip|ipv6) interface
 show_qos_map_tc_dscp.tmpl, .*, sonic, show qos map tc-dscp
-show_vxlan_tunnel.tmpl, .*, sonic, show vxlan (tunnel|remotevtep)
+show_vxlan_tunnel.tmpl, .*, sonic, show vxlan tunnel
+show_vxlan_remotevtep.tmpl, .*, sonic, show vxlan remotevtep
+show_vxlan_remotemac_all.tmpl, .*, sonic, show vxlan remotemac all
 show_mac_address_table.tmpl, .*, sonic, show mac address-table
 show_mac_count.tmpl, .*, sonic, show mac count
 show_ip_access_lists.tmpl, .*, sonic, show (ip|ipv6|mac){1} access-lists
@@ -286,6 +288,9 @@ show_bgp_l2vpn_evpn_route_type_prefix.tmpl, .*, sonic, show bgp l2vpn evpn route
 show_bgp_l2vpn_evpn_route_type_macip.tmpl, .*, sonic, show bgp l2vpn evpn route type macip
 show_bgp_l2vpn_evpn_route_detail_type_prefix.tmpl, .*, sonic, show bgp l2vpn evpn route detail type prefix
 show_bgp_l2vpn_evpn_route.tmpl, .*, sonic, show bgp l2vpn evpn route
+show_bgp_l2vpn_evpn_route_type_2.tmpl, .*, sonic, show bgp l2vpn evpn route type 2
+show_bgp_l2vpn_evpn_route_type_3.tmpl, .*, sonic, show bgp l2vpn evpn route type 3
+show_bgp_l2vpn_evpn_route_type_5.tmpl, .*, sonic, show bgp l2vpn evpn route type 5
 show_radius.tmpl, .*, sonic, show radius.*
 show_sflow.tmpl, .*, sonic, show sflow$
 show_sflow_interface.tmpl, .*, sonic, show sflow interface.*

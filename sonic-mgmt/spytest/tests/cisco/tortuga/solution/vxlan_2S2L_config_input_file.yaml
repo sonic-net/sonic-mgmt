@@ -1,0 +1,21 @@
+# Spine Nodes (no parameters required)
+spine0:
+spine1:
+
+# Leaf Nodes 
+leaf0:
+    l2vni:
+        vlan_start_range: 2   
+        count: 8
+    l3vni:
+        l3_dummy:
+            start_vlan: 101
+            count: 4     
+leaf1:
+    l2vni:
+        vlan_start_range: 2
+        count: 8
+    l3vni:
+        l3_dummy:
+            start_vlan: 101
+            count: 4

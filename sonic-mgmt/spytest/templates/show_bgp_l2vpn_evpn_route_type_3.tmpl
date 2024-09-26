@@ -1,0 +1,21 @@
+Value RouteDistinguisher (\S+:\d+)
+Value Prefix1 (\[(?:\d|.)+])
+Value Prefix2 (\[(?:\d|.)+])
+Value Prefix3 (\[(?:\d|.)+])
+Value Prefix4 (\[(?:\d|.)+])
+Value NextHop (\S+)
+Value Metric (\d*)
+Value loc (\d*)
+Value weight (\d*)
+Value path (\S+)
+Value path1 (\S+)
+Value ExtendedCommunityPre (.*:\d+)
+Value ExtendedCommunityPost (.*)
+
+Start
+^Route\s+Distinguisher:\s+${RouteDistinguisher} -> WithinEntry
+
+WithinEntry
+^\*> ${Prefix1}:${Prefix2}:${Prefix3}:${Prefix4}
+^\s+${NextHop}\s+${Metric}\s+${loc}\s+${weight}\s+${path}\s+${path1}
+^\s+${ExtendedCommunityPre}\s${ExtendedCommunityPost} -> Record Start

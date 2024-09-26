@@ -1,0 +1,14 @@
+Value Required VRF (\S+)
+Value Required VNI (\d+)
+ 
+Start
+  ^\+\-+\+\-+\+ -> Begin
+ 
+Begin
+  ^\| VRF\s*\|\s*VNI \|\s*$$ -> Capture
+ 
+Capture
+  ^\| ${VRF}\s*\|\s*${VNI}\s*\|\s*$$ -> Record
+  ^Total count -> End
+ 
+End

@@ -1,0 +1,13 @@
+Value SRC_VTEP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)
+Value DST_VTEP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)
+Value TUN_SRC (EVPN)
+Value TUN_STATUS (oper_up|oper_down)
+Value VLAN (Vlan\d+)
+Value REMOTE_MAC (..:..:..:..:..:..)
+Value REMOTE_VTEP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)
+Value VNI (\d+)
+Value TOTAL_COUNT (\d+)
+
+Start
+  ^[|\s]*${SRC_VTEP}[|\s]*${DST_VTEP}[|\s]*${TUN_SRC}[|\s]*${TUN_STATUS} -> Record
+  ^[|\s]*${VLAN}[|\s]*${REMOTE_MAC}[|\s]*${REMOTE_VTEP}[|\s]*${VNI} -> Record Start
