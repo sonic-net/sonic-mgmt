@@ -67,7 +67,7 @@ General convention of DPU0, DPU1, DPU2 and DPUX has been followed to represent D
 | 1.7 | Check removal of pcie link between NPU and DPU       | To Verify the PCie hot plug functinality        | |
 | 1.8 | Check the NTP date and timezone between DPU and NPU       | To Verify NPU and DPU are in sync with respect to timezone and logs timestamp | |
 | 1.9 | Check the State of DPUs      | To Verify DPU state details during online and offline      | |
-| 1.10 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU | |
+| 1.10 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU | Phase:2 |
 | 1.11 | Check reboot cause history       | To Verify reboot cause history cli | |
 | 1.12 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot | |
 | 1.13 | Check CPU process on DPU       | To verify CPU Process and its threshold on all the DPUs  |
@@ -875,7 +875,6 @@ root@sonic:/home/cisco#
  * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_sequential_restart.py
                                      https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_sequential_restart.py
  * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
- * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
  * Use `show chassis modules status` to check status of the DPUs.
  
 #### Verify in
@@ -931,7 +930,6 @@ root@sonic:/home/cisco#
 
 #### Steps
 * Use `config reload -y` to reload the configurations in the switch.
-* Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
 * Use `show chassis modules status` to check status of the DPUs.
  
 #### Verify in
@@ -980,6 +978,24 @@ root@sonic:/home/cisco#
 #### Sample Output
 
 ```
+root@sonic:/home/cisco# nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &
+.
+(Going for reboot)
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A        Offline            down  154226463179136
+  DPU1  Data Processing Unit              N/A        Offline            down  154226463179152
+  DPU2  Data Processing Unit              N/A        Offline            down  154226463179168
+  DPUX  Data Processing Unit              N/A        Offline            down  154226463179184
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# config chassis startup DPU0
+root@sonic:/home/cisco# config chassis startup DPU1
+root@sonic:/home/cisco# config chassis startup DPU2
+root@sonic:/home/cisco# config chassis startup DPUX
+root@sonic:/home/cisco# 
 root@sonic:/home/cisco# show chassis modules status
   Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
 ------  --------------------  ---------------  -------------  --------------  ---------------
@@ -1019,6 +1035,29 @@ root@sonic:/home/cisco#
 After power cycle of the testbed, 
 
 ```
+root@sonic:/home/cisco#
+root@sonic:/home/cisco#
+.
+(Going for power off reboot using pdu controller)
+.
+root@sonic:/home/cisco#
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A        Offline            down  154226463179136
+  DPU1  Data Processing Unit              N/A        Offline            down  154226463179152
+  DPU2  Data Processing Unit              N/A        Offline            down  154226463179168
+  DPUX  Data Processing Unit              N/A        Offline            down  154226463179184
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# config chassis startup DPU0
+root@sonic:/home/cisco# config chassis startup DPU1
+root@sonic:/home/cisco# config chassis startup DPU2
+root@sonic:/home/cisco# config chassis startup DPUX
+root@sonic:/home/cisco#
+root@sonic:/home/cisco#
 root@sonic:/home/cisco# config chassis modules startup <DPU_NUMBER>
 root@sonic:/home/cisco#
 root@sonic:/home/cisco# show chassis modules status
