@@ -25,7 +25,6 @@ def setup(duthosts, tbinfo, localhost):
 
     dut_topo_info = tbinfo['topo']['properties']['topology']['DUT']
     if 'vs_chassis' not in dut_topo_info:
-        pytest.skip("Topology is not 'vs_chassis'")
         return
 
     for dut_index, duthost in enumerate(duthosts):
