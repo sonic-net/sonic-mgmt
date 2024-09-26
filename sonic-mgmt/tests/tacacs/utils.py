@@ -1,12 +1,18 @@
 import binascii
 import logging
 import pytest
-from tests.common.utilities import wait_until
+import paramiko
+import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tacacs.tacacs_helper import start_tacacs_server
-
+from tests.common.utilities import wait_until, paramiko_ssh
+from ansible.errors import AnsibleConnectionFailure
 
 logger = logging.getLogger(__name__)
+
+TIMEOUT_LIMIT = 120
+
+DEVICE_UNREACHABLE_MAX_RETRIES = 3
 
 
 @pytest.fixture
@@ -83,3 +89,38 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
+
+
+def ssh_run_command(ssh_client, command):
+    stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
+    exit_code = stdout.channel.recv_exit_status()
+    return exit_code, stdout, stderr
+
+
+def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthost):
+    retry_count = 3
+    while retry_count > 0:
+        try:
+            return paramiko_ssh(remote_ip, remote_username, remote_password)
+        except paramiko.ssh_exception.AuthenticationException as e:
+            logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
+
+            # get syslog for debug
+            recent_syslog = duthost.shell('sudo tail -100 /var/log/syslog')['stdout']
+            logger.debug("Target device syslog: {}".format(recent_syslog))
+
+        time.sleep(1)
+        retry_count -= 1
+
+
+def duthost_shell_with_unreachable_retry(duthost, command):
+    retries = 0
+    while True:
+        try:
+            return duthost.shell(command)
+        except AnsibleConnectionFailure as e:
+            retries += 1
+            logger.warning("retry_when_dut_unreachable exception： {}, retry {}/{}"
+                           .format(e, retries, DEVICE_UNREACHABLE_MAX_RETRIES))
+            if retries > DEVICE_UNREACHABLE_MAX_RETRIES:
+                raise e

@@ -1,6 +1,6 @@
 import logging
 import pytest
-from .test_ro_user import ssh_remote_run
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
 from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_server
 from tests.common.utilities import check_output
 

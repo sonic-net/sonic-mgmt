@@ -134,9 +134,9 @@ class DHCPTest(DataplaneBaseTest):
             0, self.server_port_indices[0])
 
         self.relay_iface_ip = self.test_params['relay_iface_ip']
-        self.relay_iface_mac = self.test_params['relay_iface_mac']
+        self.relay_iface_mac = self.test_params.get('relay_iface_mac', '')
 
-        self.client_iface_alias = self.test_params['client_iface_alias']
+        self.client_iface_alias = self.test_params.get('client_iface_alias', '')
         self.client_port_index = int(self.test_params['client_port_index'])
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
 
@@ -186,6 +186,7 @@ class DHCPTest(DataplaneBaseTest):
 
         self.dest_mac_address = self.test_params['dest_mac_address']
         self.client_udp_src_port = self.test_params['client_udp_src_port']
+        self.enable_source_port_ip_in_relay = self.test_params.get('enable_source_port_ip_in_relay', False)
 
     def tearDown(self):
         DataplaneBaseTest.tearDown(self)
@@ -229,7 +230,12 @@ class DHCPTest(DataplaneBaseTest):
         #       be loopback. We could pull from minigraph and check here.
         ether = scapy.Ether(dst=self.BROADCAST_MAC,
                             src=self.uplink_mac, type=0x0800)
-        ip = scapy.IP(src=self.DEFAULT_ROUTE_IP,
+
+        source_ip = self.switch_loopback_ip
+        if self.enable_source_port_ip_in_relay:
+            source_ip = self.relay_iface_ip
+
+        ip = scapy.IP(src=source_ip,
                       dst=self.BROADCAST_IP, len=328, ttl=64)
         udp = scapy.UDP(sport=self.DHCP_SERVER_PORT,
                         dport=self.DHCP_SERVER_PORT, len=308)
@@ -420,7 +426,11 @@ class DHCPTest(DataplaneBaseTest):
         #       be loopback. We could pull from minigraph and check here.
         ether = scapy.Ether(dst=self.BROADCAST_MAC,
                             src=self.uplink_mac, type=0x0800)
-        ip = scapy.IP(src=self.DEFAULT_ROUTE_IP,
+
+        source_ip = self.switch_loopback_ip
+        if self.enable_source_port_ip_in_relay:
+            source_ip = self.relay_iface_ip
+        ip = scapy.IP(src=source_ip,
                       dst=self.BROADCAST_IP, len=336, ttl=64)
         udp = scapy.UDP(sport=self.DHCP_SERVER_PORT,
                         dport=self.DHCP_SERVER_PORT, len=316)
@@ -562,7 +572,6 @@ class DHCPTest(DataplaneBaseTest):
         masked_discover.set_do_not_care_scapy(scapy.IP, "ttl")
         masked_discover.set_do_not_care_scapy(scapy.IP, "proto")
         masked_discover.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_discover.set_do_not_care_scapy(scapy.IP, "src")
         masked_discover.set_do_not_care_scapy(scapy.IP, "dst")
         masked_discover.set_do_not_care_scapy(scapy.IP, "options")
 
@@ -639,7 +648,6 @@ class DHCPTest(DataplaneBaseTest):
         masked_request.set_do_not_care_scapy(scapy.IP, "ttl")
         masked_request.set_do_not_care_scapy(scapy.IP, "proto")
         masked_request.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_request.set_do_not_care_scapy(scapy.IP, "src")
         masked_request.set_do_not_care_scapy(scapy.IP, "dst")
         masked_request.set_do_not_care_scapy(scapy.IP, "options")
 

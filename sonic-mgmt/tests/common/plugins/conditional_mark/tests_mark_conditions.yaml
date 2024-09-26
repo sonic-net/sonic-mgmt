@@ -298,6 +298,14 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
   skip:
     reason: "Not supported uniform ttl mode"
 
+decap/test_subnet_decap.py::test_vlan_subnet_decap:
+  skip:
+    reason: "Supported only on T0 topology with KVM or broadcom td3 asic, and available for 202405 release and later"
+    conditions:
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['vs'] or asic_gen not in ['td3']"
+      - "release in ['202012', '202205', '202305', '202311']"
+
 #######################################
 #####         dhcp_relay        #####
 #######################################

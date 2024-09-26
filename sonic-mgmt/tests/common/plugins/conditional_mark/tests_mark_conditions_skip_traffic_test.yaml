@@ -70,6 +70,12 @@ decap/test_decap.py:
     conditions:
       - "asic_type in ['vs']"
 
+decap/test_subnet_decap.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####         drop_packets        #####
 #######################################
