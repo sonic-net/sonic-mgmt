@@ -79,8 +79,8 @@ def trigger_pipeline(pipeline_info):
             "FEATURES": pipeline_info["features"] if pipeline_info["features"] else " ",
             "SCRIPTS_EXCLUDE": pipeline_info["scripts_exclude"] if pipeline_info["scripts_exclude"] else " ",
             "FEATURES_EXCLUDE": pipeline_info["features_exclude"] if pipeline_info["features_exclude"] else " ",
-            "COMMON_EXTRA_PARAMS": pipeline_info["common_extra_params"] if pipeline_info[
-                "common_extra_params"] else " ",
+            "COMMON_EXTRA_PARAMS": pipeline_info["common_extra_params"] if pipeline_info["common_extra_params"] else " ",
+            "SPECIFIC_PARAM": pipeline_info["specific_param"].replace("'", "\"") if pipeline_info["specific_param"] else " ",
             "MAX_RUN_TEST_MINUTES": pipeline_info["max_run_test_minutes"],
             "AFFINITY": pipeline_info["affinity"].replace("'", "\"") if pipeline_info["affinity"] else "[]"
         },
