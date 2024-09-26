@@ -158,11 +158,11 @@ def trigger_pipelines_by_schedule():
 
         pipeline_name = row["pipeline_name"]
 
-        # If pipeline is enabled
-        enabled = row["enabled"]
+        # If pipeline is enabled auto-schedule
+        enabled = row["auto_schedule"]
 
         if not enabled:
-            print(f"{pipeline_name} is not enabled. Skipped.")
+            print(f"{pipeline_name} is not enabled auto-schedule. Skipped.")
             continue
         # If it's time to run the scheduled pipeline
         cron_expression = row["cron"]
