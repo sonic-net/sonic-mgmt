@@ -47,8 +47,10 @@ def get_valid_acl_ports(rand_selected_dut, rand_asic_namespace):
         port_dict = cfg_facts.get('PORT', {})
         for key in port_dict:
             if key not in portchannel_members:
-                if cfg_facts['PORT'][key]['role'] == 'Ext':         # ensure port is front-panel port
-                    ports.add(key)
+                port_role = cfg_facts['PORT'][key].get('role')
+                if port_role and port_role != 'Ext':    # ensure port is front-panel port
+                    continue
+                ports.add(key)
         return list(ports)
 
     return _get_valid_acl_ports()

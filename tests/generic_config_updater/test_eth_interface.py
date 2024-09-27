@@ -146,9 +146,11 @@ def get_ethernet_port_not_in_portchannel(duthost, namespace=None):
             port_channel_members.append(member)
     for port in ports:
         if port not in port_channel_members:
-            if config_facts['PORT'][port]['role'] == 'Ext':         # ensure port is front-panel port
-                port_name = port
-                break
+            port_role = config_facts['PORT'][port].get('role')
+            if port_role and port_role != 'Ext':    # ensure port is front-panel port
+                continue
+            port_name = port
+            break
     return port_name
 
 

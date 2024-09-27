@@ -178,7 +178,7 @@ def portchannel_interface_tc1_xfail(duthost, rand_asic_namespace, rand_portchann
                 po_ipv6
             ]) if asic_namespace is not None else create_path([
                 "PORTCHANNEL_INTERFACE",
-                po_ip
+                po_ipv6
             ])
         )
         json_patch = [
@@ -228,7 +228,7 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table, rand_asic_n
             "{}|{}".format(rand_portchannel_name, org_ipv6.upper())
         ]) if asic_namespace is not None else create_path([
             "PORTCHANNEL_INTERFACE",
-            "{}|{}".format(rand_portchannel_name, org_ip)
+            "{}|{}".format(rand_portchannel_name, org_ipv6.upper())
         ])
     )
     path_rep_ip = (
@@ -245,10 +245,10 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table, rand_asic_n
         create_path([
             asic_namespace,
             "PORTCHANNEL_INTERFACE",
-            "{}|{}".format(rand_portchannel_name, rep_ipv6)
+            "{}|{}".format(rand_portchannel_name, rep_ipv6.upper())
         ]) if asic_namespace is not None else create_path([
             "PORTCHANNEL_INTERFACE",
-            "{}|{}".format(rand_portchannel_name, rep_ipv6)
+            "{}|{}".format(rand_portchannel_name, rep_ipv6.upper())
         ])
     )
     json_patch = [
