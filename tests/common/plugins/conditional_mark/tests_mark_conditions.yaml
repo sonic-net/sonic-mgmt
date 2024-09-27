@@ -298,6 +298,14 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
   skip:
     reason: "Not supported uniform ttl mode"
 
+decap/test_subnet_decap.py::test_vlan_subnet_decap:
+  skip:
+    reason: "Supported only on T0 topology with KVM or broadcom td3 asic, and available for 202405 release and later"
+    conditions:
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['vs'] or asic_gen not in ['td3']"
+      - "release in ['202012', '202205', '202305', '202311']"
+
 #######################################
 #####         dhcp_relay        #####
 #######################################
@@ -1130,6 +1138,13 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
+
+pfcwd/test_pfcwd_all_port_storm.py:
+   skip:
+     reason: "Slow pfc generation rate on 7060x6 200Gb,
+              pfc generation function on the Arista fanout device need to be improved by Arista"
+     conditions:
+      - "hwsku in ['Arista-7060X6-64PE-256x200G']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
