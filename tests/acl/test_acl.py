@@ -16,11 +16,11 @@ from collections import defaultdict
 from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.helpers.sonic_db import AsicDbCli
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.config_reload import config_reload
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, get_upstream_neigh_type, get_downstream_neigh_type, check_msg_in_syslog
@@ -151,25 +151,31 @@ def remove_dataacl_table(duthosts):
     The change is written to configdb as we don't want DATAACL recovered after reboot
     """
     TABLE_NAME = "DATAACL"
-    for duthost in duthosts:
-        lines = duthost.shell(cmd="show acl table {}".format(TABLE_NAME))['stdout_lines']
-        data_acl_existing = False
-        for line in lines:
-            if TABLE_NAME in line:
-                data_acl_existing = True
-                break
-        if data_acl_existing:
-            # Remove DATAACL
-            logger.info("Removing ACL table {}".format(TABLE_NAME))
-            cmds = [
-                "config acl remove table {}".format(TABLE_NAME),
-                "config save -y"
-            ]
-            duthost.shell_cmds(cmds=cmds)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(remove_dataacl_table_single_dut, TABLE_NAME, duthost)
     yield
-    # Recover DUT by reloading minigraph
-    for duthost in duthosts:
-        config_reload(duthost, config_source="minigraph")
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        # Recover DUT by reloading minigraph
+        for duthost in duthosts:
+            executor.submit(config_reload, duthost, config_source="minigraph", safe_reload=True)
+
+
+def remove_dataacl_table_single_dut(table_name, duthost):
+    lines = duthost.shell(cmd="show acl table {}".format(table_name))['stdout_lines']
+    data_acl_existing = False
+    for line in lines:
+        if table_name in line:
+            data_acl_existing = True
+            break
+    if data_acl_existing:
+        # Remove DATAACL
+        logger.info("{} Removing ACL table {}".format(duthost.hostname, table_name))
+        cmds = [
+            "config acl remove table {}".format(table_name),
+            "config save -y"
+        ]
+        duthost.shell_cmds(cmds=cmds)
 
 
 def get_t2_info(duthosts, tbinfo):
@@ -430,7 +436,6 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     global DOWNSTREAM_IP_PORT_MAP
     # For m0 topo, need to refresh this constant for two different scenario
     DOWNSTREAM_IP_PORT_MAP = {}
-    duthost = duthosts[rand_one_dut_hostname]
     if setup["topo"] not in ["t0", "mx", "m0_vlan"]:
         def noop():
             pass
@@ -469,7 +474,8 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
             dut.command("sonic-clear arp")
             dut.command("sonic-clear ndp")
             # Wait some time to ensure the async call of clear is completed
-            time.sleep(20)
+        time.sleep(20)
+        for dut in duthosts:
             for addr in addr_list:
                 dut.command("ping {} -c 3".format(addr), module_ignore_errors=True)
 
@@ -480,9 +486,10 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     logging.info("Stopping ARP responder")
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
-    duthost.command("sonic-clear fdb all")
-    duthost.command("sonic-clear arp")
-    duthost.command("sonic-clear ndp")
+    for dut in duthosts:
+        dut.command("sonic-clear fdb all")
+        dut.command("sonic-clear arp")
+        dut.command("sonic-clear ndp")
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
@@ -533,8 +540,6 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
             logger.info("Removing ACL table \"{}\" in namespace {} on device {}"
                         .format(acl_table_config["table_name"], namespace, duthost))
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
-    # Give the dut some time for the ACL to be applied and LOG message generated
-    time.sleep(30)
 
 
 @pytest.fixture(scope="module")
@@ -568,34 +573,44 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo,
 
     dut_to_analyzer_map = {}
 
-    for duthost in duthosts:
-        if duthost.is_supervisor_node():
-            continue
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
-        loganalyzer.load_common_config()
-        dut_to_analyzer_map[duthost] = loganalyzer
-
-        try:
-            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-            # Ignore any other errors to reduce noise
-            loganalyzer.ignore_regex = [r".*"]
-            with loganalyzer:
-                create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
-                wait_until(300, 20, 0, check_msg_in_syslog,
-                           duthost, LOG_EXPECT_ACL_TABLE_CREATE_RE)
-        except LogAnalyzerError as err:
-            # Cleanup Config DB if table creation failed
-            logger.error("ACL table creation failed, attempting to clean-up...")
-            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
-            raise err
-
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(set_up_acl_table_single_dut, acl_table_config, dut_to_analyzer_map, duthost, setup, topo)
     try:
         yield acl_table_config
     finally:
-        for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
-            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
-            with loganalyzer:
-                create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
+                executor.submit(tear_down_acl_table_single_dut, acl_table_config, duthost, loganalyzer, setup, topo)
+
+
+def tear_down_acl_table_single_dut(acl_table_config, duthost, loganalyzer, setup, topo):
+    loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
+    with loganalyzer:
+        create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
+        wait_until(60, 10, 0, check_msg_in_syslog,
+                   duthost, LOG_EXPECT_ACL_TABLE_REMOVE_RE)
+
+
+def set_up_acl_table_single_dut(acl_table_config, dut_to_analyzer_map, duthost, setup, topo):
+    if duthost.is_supervisor_node():
+        return
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
+    loganalyzer.load_common_config()
+    dut_to_analyzer_map[duthost] = loganalyzer
+    try:
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+        # Ignore any other errors to reduce noise
+        loganalyzer.ignore_regex = [r".*"]
+        with loganalyzer:
+            create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
+            wait_until(300, 20, 0, check_msg_in_syslog,
+                       duthost, LOG_EXPECT_ACL_TABLE_CREATE_RE)
+    except LogAnalyzerError as err:
+        # Cleanup Config DB if table creation failed
+        logger.error("ACL table creation failed, attempting to clean-up...")
+        create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
+        raise err
 
 
 class BaseAclTest(six.with_metaclass(ABCMeta, object)):
@@ -663,47 +678,66 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
         """
         dut_to_analyzer_map = {}
-        for duthost in duthosts:
-            if duthost.is_supervisor_node():
-                continue
-            loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
-            loganalyzer.load_common_config()
-            dut_to_analyzer_map[duthost] = loganalyzer
 
-            try:
-                loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-                # Ignore any other errors to reduce noise
-                loganalyzer.ignore_regex = [r".*"]
-                with loganalyzer:
-                    self.setup_rules(duthost, acl_table, ip_version)
-                    # Give the dut some time for the ACL rules to be applied and LOG message generated
-                    wait_until(300, 20, 0, check_msg_in_syslog,
-                               duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
-
-                self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
-
-                assert self.check_rule_counters(duthost), "Rule counters should be ready!"
-                asic_db = AsicDbCli(duthost)
-                asic_db.get_acl_entries(refresh=True)
-                asic_db.get_acl_range_entries(refresh=True)
-                request.config.asic_db[duthost.hostname] = asic_db
-
-            except LogAnalyzerError as err:
-                # Cleanup Config DB if rule creation failed
-                logger.error("ACL rule application failed, attempting to clean-up...")
-                self.teardown_rules(duthost)
-                raise err
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in duthosts:
+                executor.submit(self.set_up_acl_rules_single_dut, request, acl_table, conn_graph_facts,
+                                dut_to_analyzer_map, duthost, ip_version, localhost,
+                                populate_vlan_arp_entries, tbinfo)
+        logger.info("Set up acl_rules finished")
 
         try:
             yield
         finally:
-            for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
-                if duthost.is_supervisor_node():
-                    continue
-                loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-                with loganalyzer:
-                    logger.info("Removing ACL rules")
-                    self.teardown_rules(duthost)
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
+                    executor.submit(self.tear_down_acl_rule_single_dut, duthost, loganalyzer)
+            logger.info("Tear down acl_rules finished")
+
+    def tear_down_acl_rule_single_dut(self, duthost, loganalyzer):
+        if duthost.is_supervisor_node():
+            return
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+        with loganalyzer:
+            logger.info("Removing ACL rules")
+            self.teardown_rules(duthost)
+            wait_until(60, 10, 0, check_msg_in_syslog,
+                       duthost, LOG_EXPECT_ACL_RULE_REMOVE_RE)
+
+    def set_up_acl_rules_single_dut(self, request, acl_table,
+                                    conn_graph_facts, dut_to_analyzer_map, duthost, # noqa F811
+                                    ip_version, localhost,
+                                    populate_vlan_arp_entries, tbinfo):
+        logger.info("{}: ACL rule application started".format(duthost.hostname))
+        if duthost.is_supervisor_node():
+            return
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
+        loganalyzer.load_common_config()
+        dut_to_analyzer_map[duthost] = loganalyzer
+        try:
+            loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+            # Ignore any other errors to reduce noise
+            loganalyzer.ignore_regex = [r".*"]
+            with loganalyzer:
+                self.setup_rules(duthost, acl_table, ip_version)
+                # Give the dut some time for the ACL rules to be applied and LOG message generated
+                wait_until(300, 20, 0, check_msg_in_syslog,
+                           duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
+
+            self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
+
+            assert self.check_rule_counters(duthost), "Rule counters should be ready!"
+            asic_db = AsicDbCli(duthost)
+            asic_db.get_acl_entries(refresh=True)
+            asic_db.get_acl_range_entries(refresh=True)
+            request.config.asic_db[duthost.hostname] = asic_db
+
+        except LogAnalyzerError as err:
+            # Cleanup Config DB if rule creation failed
+            logger.error("ACL rule application failed, attempting to clean-up...")
+            self.teardown_rules(duthost)
+            raise err
+        logger.info("{}: ACL rule application finished".format(duthost.hostname))
 
     @pytest.yield_fixture(scope="class", autouse=True)
     def counters_sanity_check(self, duthosts, acl_rules, acl_table):

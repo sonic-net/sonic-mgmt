@@ -82,6 +82,7 @@ class ControlPlaneBaseTest(BaseTest):
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
         self.asic_type = test_params.get('asic_type', None)
         self.platform = test_params.get('platform', None)
+        self.topo_type = test_params.get('topo_type', None)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -347,17 +348,17 @@ class DHCPTopoT1Test(PolicyTest):
 class DHCPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        # M0 devices have CIR of 300 for DHCP
-        if self.hw_sku in {"Celestica-E1031-T48S4"}:
-            self.PPS_LIMIT = 300
         # Marvell based platforms have cir/cbs in steps of 125
-        elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
             self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
+        # M0 devices have CIR of 300 for DHCP
+        elif self.topo_type in {"m0", "mx"}:
+            self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
@@ -396,17 +397,17 @@ class DHCPTest(PolicyTest):
 class DHCP6Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        # M0 devices have CIR of 300 for DHCPv6
-        if self.hw_sku in {"Celestica-E1031-T48S4"}:
-            self.PPS_LIMIT = 300
         # Marvell based platforms have cir/cbs in steps of 125
-        elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
             self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
+        # M0 devices have CIR of 300 for DHCP
+        elif self.topo_type in {"m0", "mx"}:
+            self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
@@ -464,17 +465,17 @@ class DHCP6TopoT1Test(PolicyTest):
 class LLDPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        # M0 devices have CIR of 300 for LLDP
-        if self.hw_sku in {"Celestica-E1031-T48S4"}:
-            self.PPS_LIMIT = 300
         # Marvell based platforms have cir/cbs in steps of 125
-        elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
             self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
+        # M0 devices have CIR of 300 for DHCP
+        elif self.topo_type in {"m0", "mx"}:
+            self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
@@ -500,17 +501,17 @@ class LLDPTest(PolicyTest):
 class UDLDTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        # M0 devices have CIR of 300 for UDLD
-        if self.hw_sku in {"Celestica-E1031-T48S4"}:
-            self.PPS_LIMIT = 300
         # Marvell based platforms have cir/cbs in steps of 125
-        elif self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
             self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
+        # M0 devices have CIR of 300 for DHCP
+        elif self.topo_type in {"m0", "mx"}:
+            self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
