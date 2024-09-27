@@ -81,7 +81,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology dualtor,any --py_saithrift_url=$(SAITHRIFT_MLNX_202311)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_MLNX_202311)"
     displayName: "Common test parameters"
 
   # Test timeout
