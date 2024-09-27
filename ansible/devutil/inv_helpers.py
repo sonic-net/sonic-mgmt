@@ -66,6 +66,8 @@ class HostManager():
         @return: A dict of hostvars
         """
         host = self._inv_mgr.get_host(hostname)
+        if not host:
+            raise Exception("Host not found in inventory files")
         vars = self._var_mgr.get_vars(host=host)
         vars['creds'] = self.get_host_creds(hostname)
         vars.update(host.vars)
