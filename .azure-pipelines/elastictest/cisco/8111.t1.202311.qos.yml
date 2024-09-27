@@ -54,7 +54,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: dev/internal-202311/cisco-8111-qos
+    default: internal-202311
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
