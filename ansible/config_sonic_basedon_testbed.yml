@@ -277,7 +277,7 @@
           interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
         with_dict: "{{ vm_topo_config['dpu'] }}"
 
-    when: "'t1-dpu' in topo"
+    when: "'t1-smartswitch' in topo"
 
   # create map of VM to asic interface names
   - name: find all interface asic names

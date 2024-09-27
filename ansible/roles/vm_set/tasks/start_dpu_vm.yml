@@ -105,7 +105,7 @@
     interval: 0
   when: interval is not defined
 
-- name: Start VMs
+- name: Start DPU VMs
   include_tasks: start_vsonic_dpu_vm.yml
   vars:
     vm_name: "{{ item }}"
@@ -122,7 +122,7 @@
 - set_fact:
     kickstart_failed_vms: []
 
-- name: Kickstart VMs
+- name: Kickstart DPU VMs
   include_tasks: kickstart_vm.yml
   vars:
     vm_name: "{{ item }}"

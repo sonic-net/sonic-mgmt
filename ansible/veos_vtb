@@ -17,7 +17,7 @@ all:
           - t1-8-lag
           - t1-64-lag-clet
           - t1-backend
-          - t1-dpu
+          - t1-smartswitch
           - t0
           - t0-16
           - t0-28
@@ -114,8 +114,6 @@ all:
           serial_port: 9000
           ansible_password: password
           ansible_user: admin
-          dpu_host: 10.250.0.126
-          dpu_hostv6: fec0::ffff:afb:9
         vlab-02:
           ansible_host: 10.250.0.114
           ansible_hostv6: fec0::ffff:afa:e
