@@ -218,6 +218,7 @@ t0:
   - wol/test_wol.py
   - dhcp_relay/test_dhcp_pkt_fwd.py
   - telemetry/test_telemetry.py
+  - platform_tests/test_cont_warm_reboot.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -455,7 +456,6 @@ onboarding_t0:
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
-  - platform_tests/test_cont_warm_reboot.py
   - snmp/test_snmp_link_local.py
   - lldp/test_lldp_syncd.py
 
