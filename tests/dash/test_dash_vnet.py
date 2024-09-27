@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('dpu'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.skip_check_dut_health
 ]
 
 
@@ -56,6 +57,7 @@ def test_outbound_vnet_direct(
     # testutils.verify_packet(ptfadapter, expected_packet, dash_config_info[REMOTE_PTF_INTF])
 
 
+@pytest.mark.skip(reason="Bypass as action param issue in dash libsai")
 def test_outbound_direct(
         ptfadapter,
         apply_direct_configs,

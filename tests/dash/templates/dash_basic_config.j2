@@ -6,6 +6,23 @@
                 },
                 "OP": "{{ op }}"
         },
+        {
+                "DASH_ROUTING_TYPE_TABLE:vnet_encap" : {
+                        "name": "action1",
+                        "action_type": "staticencap",
+                        "encap_type": "vxlan"
+                },
+                "OP": "{{ op }}"
+        },
+{%- if routing_action_type is defined -%}
+        {
+                "DASH_ROUTING_TYPE_TABLE:{{ routing_type }}" : {
+                        "name": "action1",
+                        "action_type": "{{ routing_action_type }}"
+                },
+                "OP": "{{ op }}"
+        },
+{%- endif %}
 {%- if vnet1_name is defined %}
         {
                 "DASH_VNET_TABLE:{{ vnet1_name }}" : {
@@ -34,6 +51,12 @@
         },
 {%- endif %}
         {
+                "DASH_ROUTE_GROUP_TABLE:{{ outbound_routing_group }}" : {
+                        "disabled":"false"
+                },
+                "OP": "{{ op }}"
+        },
+        {
                 "DASH_QOS_TABLE:qos100" : {
                         "qos_id":"100",
                         "bw":"10000",
@@ -45,6 +68,7 @@
         {
                 "DASH_ENI_TABLE:{{ eni }}" : {
                         "eni_id":"497f23d7-f0ac-4c99-a98f-59b470e8c7bd",
+                        "group_id":"{{ outbound_routing_group }}",
                         "mac_address":"{{ local_eni_mac }}",
                         "underlay_ip":"{{ local_pa_ip }}",
                         "admin_state":"enabled",
@@ -54,8 +78,8 @@
                 "OP": "{{ op }}"
         },
         {
-                "DASH_ROUTE_TABLE:{{ eni }}:{{ remote_ca_prefix }}" : {
-                        "action_type":"{{ routing_action }}"
+                "DASH_ROUTE_TABLE:{{ outbound_routing_group }}:{{ remote_ca_prefix }}" : {
+                        "action_type":"{{ routing_type }}"
 {%- if lookup_overlay_ip is defined -%},
                         "overlay_ip": "{{ lookup_overlay_ip }}"
 {%- endif %}
@@ -65,18 +89,9 @@
                 },
                 "OP": "{{ op }}"
         }
-{%- if routing_action_type is defined -%},
-        {
-                "DASH_ROUTING_TYPE_TABLE:{{ routing_action }}" : {
-                        "name": "action1",
-                        "action_type": "{{ routing_action_type }}"
-                },
-                "OP": "{{ op }}"
-        }
-{%- endif %}
 {%- if vnet2_name is defined -%},
         {
-                "DASH_ROUTE_RULE_TABLE:{{ eni }}:{{ vnet2_vni }}:{{ remote_pa_prefix }}" : {
+                "DASH_ROUTE_RULE_TABLE:{{ eni }}:{{ vnet2_vni }}:{{ remote_pa_ip }}" : {
                         "action_type":"decap",
 			"priority":"1",
 			"pa_validation":"true",

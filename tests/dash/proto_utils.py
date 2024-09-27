@@ -11,13 +11,15 @@ from dash_api.qos_pb2 import Qos
 from dash_api.route_pb2 import Route
 from dash_api.route_rule_pb2 import RouteRule
 from dash_api.vnet_mapping_pb2 import VnetMapping
-from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem
+from dash_api.route_type_pb2 import RoutingType, ActionType, EncapType, RouteType, RouteTypeItem
 from dash_api.types_pb2 import IpVersion, IpPrefix, ValueOrRange
 from dash_api.acl_group_pb2 import AclGroup
 from dash_api.acl_out_pb2 import AclOut
 from dash_api.acl_in_pb2 import AclIn
 from dash_api.acl_rule_pb2 import AclRule, Action
 from dash_api.prefix_tag_pb2 import PrefixTag
+from dash_api.route_group_pb2 import RouteGroup
+from dash_api.eni_route_pb2 import EniRoute
 
 
 ENABLE_PROTO = True
@@ -58,6 +60,7 @@ def qos_from_json(json_obj):
 def eni_from_json(json_obj):
     pb = Eni()
     pb.eni_id = json_obj["eni_id"]
+    pb.group_id = json_obj["group_id"]
     pb.mac_address = bytes.fromhex(json_obj["mac_address"].replace(":", ""))
     pb.underlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["underlay_ip"])))
     pb.admin_state = State.STATE_ENABLED if json_obj["admin_state"] == "enabled" else State.STATE_DISABLED
@@ -65,6 +68,10 @@ def eni_from_json(json_obj):
     pb.qos = json_obj["qos"]
     return pb
 
+
+def route_group_from_json(json_obj):
+    pb = RouteGroup()
+    return pb
 
 def route_from_json(json_obj):
     pb = Route()
@@ -96,7 +103,11 @@ def routing_type_from_json(json_obj):
     pb = RouteType()
     pbi = RouteTypeItem()
     pbi.action_name = json_obj["name"]
-    pbi.action_type = ActionType.ACTION_TYPE_MAPROUTING
+    if json_obj["action_type"] == "staticencap":
+        pbi.action_type = ActionType.ACTION_TYPE_STATICENCAP
+        pbi.encap_type = EncapType.ENCAP_TYPE_VXLAN
+    elif json_obj["action_type"] == "maprouting":
+        pbi.action_type = ActionType.ACTION_TYPE_MAPROUTING
     pb.items.append(pbi)
     return pb
 
@@ -186,6 +197,7 @@ handlers_map = {
     "VNET": vnet_from_json,
     "VNET_MAPPING": vnet_mapping_from_json,
     "QOS": qos_from_json,
+    "ROUTE_GROUP": route_group_from_json,
     "ENI": eni_from_json,
     "ROUTE": route_from_json,
     "ROUTE_RULE": route_rule_from_json,
