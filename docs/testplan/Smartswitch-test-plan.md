@@ -12,7 +12,7 @@
     - [1.4 Check DPU console](#14-check-DPU-console)
     - [1.5 Check midplane ip address between NPU and DPU](#15-check-midplane-ip-address-between-npu-and-dpu)
     - [1.6 Check DPU shutdown and power up individually](#16-check-DPU-shutdown-and-power-up-individually)
-    - [1.7 Check removal of pcie link between NPU and DPU](#17-check-removal-of-pcie-link-between-npu-and-dpu)
+    - [1.7 Check pcie link status between NPU and DPU](#17-check-pcie-link-status-between-npu-and-dpu)
     - [1.8 Check the NTP date and timezone between DPU and NPU](#18-check-the-ntp-date-and-timezone-between-dpu-and-npu)
     - [1.9 Check the State of DPUs](#19-check-the-state-of-dpus)
     - [1.10 Check the Health of DPUs](#110-check-the-health-of-dpus)
@@ -73,7 +73,7 @@ Dark mode is one in which all the DPUs admin_status are down.
 | 1.4 | Check DPU console       | To Verify console access for all DPUs       | |
 | 1.5 | Check midplane ip address between NPU and DPU      | To Verify PCIe interface created between NPU and DPU according to bus number | |
 | 1.6 | Check DPU shutdown and power up individually      |  To Verify DPU shutdown and DPUs power up | |
-| 1.7 | Check removal of pcie link between NPU and DPU       | To Verify the PCie hot plug functinality        | |
+| 1.7 | Check pcie link status between NPU and DPU       | To Verify the PCie hot plug functinality        | |
 | 1.8 | Check the NTP date and timezone between DPU and NPU       | To Verify NPU and DPU are in sync with respect to timezone and logs timestamp | |
 | 1.9 | Check the State of DPUs      | To Verify DPU state details during online and offline      | |
 | 1.10 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU | Phase:2 |
@@ -409,7 +409,7 @@ root@sonic:/home/cisco# show chassis modules status
  * Verify DPU is shown in show chassis modules status after DPU powered on
 
 
-### 1.7 Check removal of pcie link between NPU and DPU
+### 1.7 Check pcie link status between NPU and DPU
 
 #### Steps
  * Use `show platform pcieinfo -c` to run the pcie info test to check everything is passing
@@ -429,9 +429,9 @@ On Switch: Showing example of one DPU pcie link
 
 root@sonic:/home/cisco# show platform pcieinfo -c
 
-root@sonic:/home/cisco# echo 1 > /sys/bus/pci/devices/0000:1a:00.0/remove
+root@sonic:/home/cisco# config chassis modules shutdown DPU<DPU_NUM>
 root@sonic:/home/cisco# 
-root@sonic:/home/cisco# echo 1 > /sys/bus/pci/rescan
+root@sonic:/home/cisco# config chassis modules startup DPU<DPU_NUM>
 root@sonic:/home/cisco# 
 root@sonic:/home/cisco# show platform pcieinfo -c
 
