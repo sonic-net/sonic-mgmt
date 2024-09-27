@@ -45,6 +45,17 @@ COMBINED_L2L3_DROP_COUNTER = False
 COMBINED_ACL_DROP_COUNTER = False
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    # Ignore syslog error from xcvrd while using copper cables
+    CopperCableIgnoreRegex = [
+        ".* ERR pmon#xcvrd.*no suitable app for the port appl.*host_lane_count.*host_speed.*"
+    ]
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:  # Skip if loganalyzer is enabled
+        loganalyzer[duthost.hostname].ignore_regex.extend(CopperCableIgnoreRegex)
+
+
 @pytest.fixture(autouse=True, scope="module")
 def enable_counters(duthosts):
     """ Fixture which enables RIF and L2 counters """
