@@ -78,7 +78,27 @@ class TestbedVMFacts():
         for eos_name, eos_value in vm_topology['topology']['VMs'].items():
             vm_name = vm_name_fmt % (vm_start_index + eos_value['vm_offset'])
             eos[eos_name] = vm_name
+
         return eos
+
+    def get_neighbor_dpu(self):
+        dpu = {}
+        with open(self.topofile) as f:
+            vm_topology = yaml.safe_load(f)
+        self.topoall = vm_topology
+
+        if len(self.base_vm) > 2:
+            vm_start_index = int(self.base_vm[2:])
+            vm_name_fmt = 'VM%0{}d'.format(len(self.base_vm) - 2)
+
+        if 'DPUs' not in vm_topology['topology']:
+            return dpu
+
+        for dpu_name, dpu_value in vm_topology['topology']['DPUs'].items():
+            vm_name = vm_name_fmt % (vm_start_index + dpu_value['vm_offset'])
+            dpu[dpu_name] = vm_name
+
+        return dpu
 
     def gather_veos_vms(self):
         yaml_data = {}
@@ -111,6 +131,7 @@ def main():
         vm_facts = TestbedVMFacts(
             m_args['topo'], m_args['base_vm'], m_args['vm_file'])
         neighbor_eos = vm_facts.get_neighbor_eos()
+        neighbor_eos.update(vm_facts.get_neighbor_dpu())
         if has_dataloader:
             hosts = vm_facts.inv_mgr.hosts
         else:

@@ -255,7 +255,7 @@
   - name: find all interface indexes connecting to VM
     set_fact:
       ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes'][dut_index|int] }}"
-    with_dict: "{{ vm_topo_config['vm'] }}"
+    with_dict: "{{ vm_topo_config['vm'] | combine(vm_topo_config['dpu'] | default({})) }}"
     when: "'cable' not in topo"
 
   - name: find all interface names
@@ -265,19 +265,6 @@
       - "{{ interface_to_vms | default([]) }}"
       - "ports"
     when: "'cable' not in topo"
-
-  - block:
-      - name: find all DPU VM attached to DUT
-        set_fact:
-          dpu_vms: "{{ dpu_vms | default([]) + [ item.key ] }}"
-        with_dict: "{{ vm_topo_config['dpu'] }}"
-
-      - name: find all interface indexes mapping connecting to DPU VM
-        set_fact:
-          interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
-        with_dict: "{{ vm_topo_config['dpu'] }}"
-
-    when: "'t1-smartswitch' in topo"
 
   # create map of VM to asic interface names
   - name: find all interface asic names
@@ -298,7 +285,7 @@
         set_fact:
           asic_topo_config: "{{ new_asic_topo_config }}"
 
-    when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_config|length > 0
+    when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_qconfig|length > 0
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
