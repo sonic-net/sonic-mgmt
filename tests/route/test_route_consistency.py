@@ -63,7 +63,8 @@ class TestRouteConsistency():
             time.sleep(self.sleep_interval)
 
             """ compare the number of routes withdrawn from all the DUTs. In working condition, the number of routes
-                withdrawn should be same across all the DUTs. On VOQ upstream LC's will have same route and Downstream LC will have same route.
+                withdrawn should be same across all the DUTs.
+                On VOQ Upstream LC's will have same route and Downstream LC will have same route.
                 Note: this will be noop for single asic pizzabox duts
             """
             post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
@@ -83,7 +84,7 @@ class TestRouteConsistency():
                                                                        post_withdraw_route_snapshot[dut_instance_name])
                     else:
                         assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                       post_withdraw_route_snapshot[dut_instance_name])
+                                                           post_withdraw_route_snapshot[dut_instance_name])
 
             logger.info("advertise ipv4 and ipv6 routes for {}".format(topo_name))
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
