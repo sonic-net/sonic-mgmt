@@ -53,7 +53,7 @@
   </LinkMetadataDeclaration>
 {% endif %}
 
-{% if autoneg_enabled is defined %}
+{% if msft_an_enabled is defined %}
   <LinkMetadataDeclaration>
     <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% for if_index in vm_topo_config['autoneg_interfaces']['intfs'] %}
