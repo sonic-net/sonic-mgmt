@@ -55,9 +55,9 @@ WATERMARK_COUNTERS_DB_STATS_TYPE = ['USER_WATERMARKS', 'PERSISTENT_WATERMARKS', 
 
 
 @pytest.fixture(scope='module')
-def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
+def dut_vars(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
     inv_files = get_inventory_files(request)
-    dut_vars = get_host_visible_vars(inv_files, enum_rand_one_per_hwsku_hostname)
+    dut_vars = get_host_visible_vars(inv_files, enum_rand_one_per_hwsku_frontend_hostname)
     yield dut_vars
 
 
@@ -65,7 +65,7 @@ def check_counters_populated(duthost, key):
     return bool(redis_get_keys(duthost, 'COUNTERS_DB', key))
 
 
-def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_hostname, dut_vars,
+def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, dut_vars,
                                              backup_and_restore_config_db):     # noqa F811
     """
     @summary: Verify FLEXCOUNTERS_DB and COUNTERS_DB content after `counterpoll queue/watermark/queue enable`
@@ -84,7 +84,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
            no WATERMARK or QUEUE stats in FLEX_COUNTER_DB
     4. enables all three counterpolls (queue,watermark,pg-drop) and count stats per type
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     skip_release(duthost, ["202205", "202111", "202106", "202012", "201911", "201811", "201803"])
 
     counted_dict = {}
@@ -124,7 +124,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     # Delay to allow the counterpoll to generate the maps in COUNTERS_DB
     with allure.step("waiting {} seconds for counterpoll to generate maps in COUNTERS_DB"):
         delay = RELEVANT_MAPS[tested_counterpoll][DELAY]
-        wait_until(120, 5, delay, check_counters_populated, duthost, MAPS_LONG_PREFIX.format('*'))
+        pytest_assert(wait_until(120, 5, delay, check_counters_populated, duthost, MAPS_LONG_PREFIX.format('*')),
+                      "COUNTERS_DB failed to populate")
     # verify QUEUE or PG maps are generated into COUNTERS_DB after enabling relevant counterpoll
     with allure.step("Verifying MAPS in COUNTERS_DB on {}...".format(duthost.hostname)):
         maps_dict = RELEVANT_MAPS[tested_counterpoll]
