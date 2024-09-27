@@ -3,13 +3,25 @@
 {% if hwsku  == 'msft_four_asic_vs' %}
   <memory unit='GB'>8</memory>
   <vcpu placement='static'>10</vcpu>
+  <cpu mode='host-model'>
+    <model fallback='forbid'/>
+    <topology sockets='1' dies='1' cores='5' threads='2'/>
+  </cpu>
 {% elif hwsku == 'msft_multi_asic_vs' %}
   <memory unit='GB'>8</memory>
   <vcpu placement='static'>16</vcpu>
+  <cpu mode='host-model'>
+    <model fallback='forbid'/>
+    <topology sockets='1' dies='1' cores='8' threads='2'/>
+  </cpu>
 {% else %}
   <memory unit='GiB'>4</memory>
   <currentMemory unit='GiB'>4</currentMemory>
   <vcpu placement='static'>4</vcpu>
+  <cpu mode='host-model'>
+    <model fallback='forbid'/>
+    <topology sockets='1' dies='1' cores='2' threads='2'/>
+  </cpu>
 {% endif %}
   <resource>
     <partition>/machine</partition>
