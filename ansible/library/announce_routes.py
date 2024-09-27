@@ -506,7 +506,6 @@ def fib_t1_lag(topo, ptf_ip, no_default_route=False, action="announce"):
         vms.update(topo['topology']['DPUs'])
 
     for k, v in vms_config.items():
-
         vm_offset = vms[k]['vm_offset']
         port = IPV4_BASE_PORT + vm_offset
         port6 = IPV6_BASE_PORT + vm_offset

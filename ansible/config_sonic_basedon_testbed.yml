@@ -285,7 +285,7 @@
         set_fact:
           asic_topo_config: "{{ new_asic_topo_config }}"
 
-    when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_qconfig|length > 0
+    when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_config|length > 0
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2

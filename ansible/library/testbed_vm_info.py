@@ -78,7 +78,6 @@ class TestbedVMFacts():
         for eos_name, eos_value in vm_topology['topology']['VMs'].items():
             vm_name = vm_name_fmt % (vm_start_index + eos_value['vm_offset'])
             eos[eos_name] = vm_name
-
         return eos
 
     def get_neighbor_dpu(self):
