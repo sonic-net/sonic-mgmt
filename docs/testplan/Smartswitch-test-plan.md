@@ -2,6 +2,7 @@
 
 - [Introduction](#introduction)
 - [Scope](#scope)
+- [Testbed and Version](#testbed-and-version)
 - [Definitions and Abbreviations](#definitions-and-abbreviations)
 - [Objectives of CLI Test Cases](#objectives-of-cli-test-cases)
 - [CLI Test Cases](#cli-test-cases)
@@ -43,6 +44,14 @@ The test is targeting a running SONIC on Switch and SONIC-DASH system on each DP
 Purpose of the test is to verify smartswich platform related functionalities/features for each DPUs and PMON APIs. 
 For every test cases, all DPUs need to be powered on unless specified in any of the case.
 General convention of DPU0, DPU1, DPU2 and DPUX has been followed to represent DPU modules and the number of DPU modules can vary.
+
+## Testbed and Version
+
+The test runs on the os versions 2024011 and above.
+Check is to be in place for that and skips if it is below the mentioned version.
+After the above check, it needs to check DPUs in the testbed are in dark mode or not. 
+If it is in dark mode, then power up all the DPUs. 
+Dark mode is one in which all the DPUs admin_status are down. 
 
 ## Definitions and Abbreviations
 
