@@ -5,6 +5,7 @@
 # Compiled at: 2023-02-10 09:15:26
 from math import ceil                                                                   # noqa: F401
 import logging                                                                          # noqa: F401
+import random
 from tests.common.helpers.assertions import pytest_assert, pytest_require               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                     # noqa: F401
@@ -13,7 +14,8 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, \
-     setup_base_traffic_config, verify_m2o_oversubscribtion_results                      # noqa: F401
+     setup_base_traffic_config                      # noqa: F401
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -63,19 +65,30 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    # initialize the (duthost, port) set.
+    dut_asics_to_be_configured = set()
+
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     rx_port_id_list = [rx_port["port_id"]]
-    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    egress_duthost = rx_port['duthost']
+    dut_asics_to_be_configured.add((egress_duthost, rx_port['asic_value']))
+
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+    # add ingress DUT into the set
+    dut_asics_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
+    dut_asics_to_be_configured.add((tx_port[1]['duthost'], tx_port[1]['asic_value']))
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
-    stop_pfcwd(duthost1, rx_port['asic_value'])
-    disable_packet_aging(duthost1)
-    stop_pfcwd(duthost2, tx_port[0]['asic_value'])
-    disable_packet_aging(duthost2)
+
+    # Disable PFC watchdog on the rx side and tx side of the DUT
+    for duthost, asic in dut_asics_to_be_configured:
+        stop_pfcwd(duthost, asic)
+        disable_packet_aging(duthost)
 
     port_id = 0
     # Generate base traffic config
@@ -103,36 +116,17 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
     """ Run traffic """
-    flow_stats, switch_flow_stats = run_traffic(duthost=duthost1,
-                                                api=api,
-                                                config=testbed_config,
-                                                data_flow_names=data_flow_names,
-                                                all_flow_names=all_flow_names,
-                                                exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
-                                                snappi_extra_params=snappi_extra_params)
+    flow_stats, switch_flow_stats, _ = run_traffic(duthost=egress_duthost,
+                                                   api=api,
+                                                   config=testbed_config,
+                                                   data_flow_names=data_flow_names,
+                                                   all_flow_names=all_flow_names,
+                                                   exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
+                                                   snappi_extra_params=snappi_extra_params)
 
-    flag = {
-        'Test Flow 1 -> 0 Rate:40': {
-            'loss': '0'
-        },
-        'Test Flow 2 -> 0 Rate:20': {
-            'loss': '0'
-        },
-        'Background Flow 1 -> 0 Rate:20': {
-            'loss': '0'
-        },
-        'Background Flow 2 -> 0 Rate:40': {
-            'loss': 'continuing'
-        },
-    }
-    # Background Flow 2 -> 0 Rate:40
-    verify_m2o_oversubscribtion_results(duthost=duthost2,
-                                        rows=flow_stats,
-                                        test_flow_name=TEST_FLOW_NAME,
-                                        bg_flow_name=BG_FLOW_NAME,
-                                        rx_port=rx_port,
-                                        rx_frame_count_deviation=TOLERANCE_THRESHOLD,
-                                        flag=flag)
+    verify_m2o_oversubscribe_lossless_lossy_result(flow_stats,
+                                                   tx_port,
+                                                   rx_port)
 
 
 def __gen_traffic(testbed_config,
@@ -282,7 +276,12 @@ def __gen_data_flow(testbed_config,
                                                                        dst_port_id, flow_rate_percent))[-1]
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
-    eth, ipv4 = flow.packet.ethernet().ipv4()
+    eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+    src_port = random.randint(5000, 6000)
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = 1
+
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
     flow.duration.fixed_seconds.delay.nanoseconds = 0
@@ -291,10 +290,21 @@ def __gen_data_flow(testbed_config,
     else:
         flow.duration.fixed_seconds.delay.nanoseconds = 0
 
-    if 'Background Flow' in flow.name:
-        eth.pfc_queue.value = 0
+    # if 'Background Flow' in flow.name:
+    #     eth.pfc_queue.value = 0
+    # else:
+    #     eth.pfc_queue.value = 3
+
+    if pfcQueueGroupSize == 8:
+        if 'Background Flow' in flow.name:
+            eth.pfc_queue.value = 1
+        else:
+            eth.pfc_queue.value = flow_prio[0]
     else:
-        eth.pfc_queue.value = 3
+        if 'Background Flow' in flow.name:
+            eth.pfc_queue.value = pfcQueueValueDict[1]
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = rx_port_config.ip
@@ -317,12 +327,12 @@ def __gen_data_flow(testbed_config,
         ipv4.priority.dscp.phb.values = [
             ipv4.priority.dscp.phb.DEFAULT,
         ]
-        ipv4.priority.dscp.phb.values = [3]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
     elif 'Test Flow 2 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = [
             ipv4.priority.dscp.phb.AF11,
         ]
-        ipv4.priority.dscp.phb.values = [4]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
     else:
         pass
 
@@ -332,3 +342,27 @@ def __gen_data_flow(testbed_config,
     flow.duration.fixed_seconds.seconds = flow_dur_sec
     flow.metrics.enable = True
     flow.metrics.loss = True
+
+
+def verify_m2o_oversubscribe_lossless_lossy_result(rows,
+                                                   tx_port,
+                                                   rx_port):
+    """
+    Verifies the required loss % from the Traffic Items Statistics
+
+    Args:
+        rows (list): Traffic Item Statistics from snappi config
+        tx_port (list): Ingress Ports
+        rx_port : Egress Port
+    Returns:
+        N/A
+    """
+    for row in rows:
+        if 'Test Flow 1 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss".format(row.name))
+        elif 'Test Flow 2 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+        elif 'Background Flow 1 -> 0' in row.name:
+            pytest_assert(int(row.loss) == 0, "{} must have 0% loss ".format(row.name))
+        elif 'Background Flow 2 -> 0' in row.name:
+            pytest_assert(int(row.loss) >= 10, "{} must have loss >= 10%".format(row.name))

@@ -25,7 +25,7 @@ import (
 const defaultGNMIWait = 15 * time.Second
 
 // IEEE 802.3ad defines the Link Aggregation standard used by LACP where connected ports can
-// exchange control packets between each other. Based on these packets the switch can group matching
+// experimental control packets between each other. Based on these packets the switch can group matching
 // ports into a LAG/Trunk/PortChannel.
 //
 // Local state is maintained for each member of a LAG to monitor the health of that given member.
@@ -553,6 +553,131 @@ func TestLacpConfiguredOnOnlyOneSwitch(t *testing.T) {
                 t.Errorf("LACP state is not blocking: %v", err)
         }
         if err := verifyBlockingState(t, host, portChannel, peerPorts[1].Host); err != nil {
+                t.Errorf("LACP state is not blocking: %v", err)
+        }
+}
+
+func TestMembersArePartiallyConfigured(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("42eea9f9-043c-45c4-95fd-5c1e00fef959").Teardown(t)
+
+        host := ondatra.DUT(t, "DUT")
+        peer := ondatra.DUT(t, "CONTROL")
+        t.Logf("Host Device: %v", host.Name())
+        t.Logf("Peer Device: %v", peer.Name())
+
+        // Find a set of peer ports between the 2 switches.
+        peerPorts, err := testhelper.PeerPortGroupWithNumMembers(t, host, peer, 2)
+        if err != nil {
+                t.Fatalf("Failed to get enough peer ports: %v", err)
+        }
+        t.Logf("Using peer ports: %v", peerPorts)
+
+        // We bring up one PortChannel on both the host and peer device so we can reuse the same device
+        // configuration on both without issue.
+        portChannel := "PortChannel200"
+        portChannelConfig := testhelper.GeneratePortChannelInterface(portChannel)
+        portChannelConfigs := map[string]*oc.Interface{portChannel: &portChannelConfig}
+
+        lacpConfig := testhelper.GenerateLACPInterface(portChannel)
+        var lacpConfigs oc.Lacp
+        lacpConfigs.AppendInterface(&lacpConfig)
+
+        deviceConfig := &oc.Root{
+                Interface: portChannelConfigs,
+                Lacp:      &lacpConfigs,
+        }
+
+        // Push the PortChannel configs and clean them up after the test finishes so they won't affect
+        // future tests
+        gnmi.Replace(t, host, gnmi.OC().Config(), deviceConfig)
+        defer func() {
+                if err := testhelper.RemovePortChannelFromDevice(t, defaultGNMIWait, host, portChannel); err != nil {
+                        t.Fatalf("Failed to remove %v:%v: %v", host.Name(), portChannel, err)
+                }
+        }()
+        gnmi.Replace(t, peer, gnmi.OC().Config(), deviceConfig)
+        defer func() {
+                if err := testhelper.RemovePortChannelFromDevice(t, defaultGNMIWait, peer, portChannel); err != nil {
+                        t.Fatalf("Failed to remove %v:%v: %v", peer.Name(), portChannel, err)
+                }
+        }()
+
+        // On the host assign both ports to the PortChannel, but on the peer only assign 1.
+        testhelper.AssignPortsToAggregateID(t, host, portChannel, peerPorts[0].Host, peerPorts[1].Host)
+        testhelper.AssignPortsToAggregateID(t, peer, portChannel, peerPorts[0].Peer)
+
+        // Ensure ports are enabled before trying to verify state.
+        gnmi.Await(t, host, gnmi.OC().Interface(peerPorts[0].Host).Enabled().State(), defaultGNMIWait, true)
+        gnmi.Await(t, host, gnmi.OC().Interface(peerPorts[1].Host).Enabled().State(), defaultGNMIWait, true)
+        gnmi.Await(t, peer, gnmi.OC().Interface(peerPorts[0].Peer).Enabled().State(), defaultGNMIWait, true)
+
+        if err := verifyInSyncState(t, host, portChannel, peerPorts[0].Host); err != nil {
+                t.Errorf("LACP state is not in-sync: %v", err)
+        }
+        if err := verifyInSyncState(t, peer, portChannel, peerPorts[0].Peer); err != nil {
+                t.Errorf("LACP state is not in-sync: %v", err)
+        }
+        if err := verifyBlockingState(t, host, portChannel, peerPorts[1].Host); err != nil {
+                t.Errorf("LACP state is not blocking: %v", err)
+        }
+}
+
+func TestPortDownEvent(t *testing.T) {
+        defer testhelper.NewTearDownOptions(t).WithID("8b585121-80c1-4ca1-9847-5433ded2ebe6").Teardown(t)
+
+        host := ondatra.DUT(t, "DUT")
+        peer := ondatra.DUT(t, "CONTROL")
+        t.Logf("Host Device: %v", host.Name())
+        t.Logf("Peer Device: %v", peer.Name())
+
+        // Find a set of peer ports between the 2 switches.
+        peerPorts, err := testhelper.PeerPortGroupWithNumMembers(t, host, peer, 2)
+        if err != nil {
+                t.Fatalf("Failed to get enough peer ports: %v", err)
+        }
+        t.Logf("Using peer ports: %v", peerPorts)
+
+        // The same PortChannel settings will be used on the host and peer devices.
+        portChannel1 := "PortChannel200"
+        portChannelConfig := testhelper.GeneratePortChannelInterface(portChannel1)
+        portChannelConfigs := map[string]*oc.Interface{portChannel1: &portChannelConfig}
+
+        var lacpConfigs oc.Lacp
+        lacpConfig := testhelper.GenerateLACPInterface(portChannel1)
+        lacpConfigs.AppendInterface(&lacpConfig)
+
+        deviceConfig := &oc.Root{
+                Interface: portChannelConfigs,
+                Lacp:      &lacpConfigs,
+        }
+        gnmi.Replace(t, host, gnmi.OC().Config(), deviceConfig)
+        defer func() {
+                if err := testhelper.RemovePortChannelFromDevice(t, defaultGNMIWait, host, portChannel1); err != nil {
+                        t.Fatalf("Failed to remove %v:%v: %v", host.Name(), portChannel1, err)
+                }
+        }()
+        gnmi.Replace(t, peer, gnmi.OC().Config(), deviceConfig)
+        defer func() {
+                if err := testhelper.RemovePortChannelFromDevice(t, defaultGNMIWait, peer, portChannel1); err != nil {
+                        t.Fatalf("Failed to remove %v:%v: %v", peer.Name(), portChannel1, err)
+                }
+        }()
+
+        // Assign the port to each PortChannel and wait for the links to become active.
+        testhelper.AssignPortsToAggregateID(t, host, portChannel1, peerPorts[0].Host, peerPorts[1].Host)
+        testhelper.AssignPortsToAggregateID(t, peer, portChannel1, peerPorts[0].Peer, peerPorts[1].Peer)
+        gnmi.Await(t, host, gnmi.OC().Interface(portChannel1).Enabled().State(), defaultGNMIWait, true)
+        gnmi.Await(t, peer, gnmi.OC().Interface(portChannel1).Enabled().State(), defaultGNMIWait, true)
+
+        // Bring the port down on the peer side.
+        gnmi.Replace(t, peer, gnmi.OC().Interface(peerPorts[0].Peer).Enabled().Config(), false)
+        defer func() {
+                gnmi.Replace(t, peer, gnmi.OC().Interface(peerPorts[0].Peer).Enabled().Config(), true)
+        }()
+
+        // Wait for the port to go down on the peer then verify the host side is in a blocking state.
+        gnmi.Await(t, peer, gnmi.OC().Interface(peerPorts[0].Peer).Enabled().State(), defaultGNMIWait, false)
+        if err := verifyBlockingState(t, host, portChannel1, peerPorts[0].Host); err != nil {
                 t.Errorf("LACP state is not blocking: %v", err)
         }
 }

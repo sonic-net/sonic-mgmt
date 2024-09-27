@@ -15,17 +15,18 @@ from collections import defaultdict
 
 from tests.common import reboot, port_toggle
 from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.helpers.sonic_db import AsicDbCli
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.config_reload import config_reload
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
-from tests.common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
+from tests.common.utilities import wait_until, get_upstream_neigh_type, get_downstream_neigh_type, check_msg_in_syslog
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -150,25 +151,31 @@ def remove_dataacl_table(duthosts):
     The change is written to configdb as we don't want DATAACL recovered after reboot
     """
     TABLE_NAME = "DATAACL"
-    for duthost in duthosts:
-        lines = duthost.shell(cmd="show acl table {}".format(TABLE_NAME))['stdout_lines']
-        data_acl_existing = False
-        for line in lines:
-            if TABLE_NAME in line:
-                data_acl_existing = True
-                break
-        if data_acl_existing:
-            # Remove DATAACL
-            logger.info("Removing ACL table {}".format(TABLE_NAME))
-            cmds = [
-                "config acl remove table {}".format(TABLE_NAME),
-                "config save -y"
-            ]
-            duthost.shell_cmds(cmds=cmds)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(remove_dataacl_table_single_dut, TABLE_NAME, duthost)
     yield
-    # Recover DUT by reloading minigraph
-    for duthost in duthosts:
-        config_reload(duthost, config_source="minigraph")
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        # Recover DUT by reloading minigraph
+        for duthost in duthosts:
+            executor.submit(config_reload, duthost, config_source="minigraph", safe_reload=True)
+
+
+def remove_dataacl_table_single_dut(table_name, duthost):
+    lines = duthost.shell(cmd="show acl table {}".format(table_name))['stdout_lines']
+    data_acl_existing = False
+    for line in lines:
+        if table_name in line:
+            data_acl_existing = True
+            break
+    if data_acl_existing:
+        # Remove DATAACL
+        logger.info("{} Removing ACL table {}".format(duthost.hostname, table_name))
+        cmds = [
+            "config acl remove table {}".format(table_name),
+            "config save -y"
+        ]
+        duthost.shell_cmds(cmds=cmds)
 
 
 def get_t2_info(duthosts, tbinfo):
@@ -429,7 +436,6 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     global DOWNSTREAM_IP_PORT_MAP
     # For m0 topo, need to refresh this constant for two different scenario
     DOWNSTREAM_IP_PORT_MAP = {}
-    duthost = duthosts[rand_one_dut_hostname]
     if setup["topo"] not in ["t0", "mx", "m0_vlan"]:
         def noop():
             pass
@@ -468,7 +474,8 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
             dut.command("sonic-clear arp")
             dut.command("sonic-clear ndp")
             # Wait some time to ensure the async call of clear is completed
-            time.sleep(20)
+        time.sleep(20)
+        for dut in duthosts:
             for addr in addr_list:
                 dut.command("ping {} -c 3".format(addr), module_ignore_errors=True)
 
@@ -479,9 +486,10 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     logging.info("Stopping ARP responder")
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
-    duthost.command("sonic-clear fdb all")
-    duthost.command("sonic-clear arp")
-    duthost.command("sonic-clear ndp")
+    for dut in duthosts:
+        dut.command("sonic-clear fdb all")
+        dut.command("sonic-clear arp")
+        dut.command("sonic-clear ndp")
 
 
 @pytest.fixture(scope="module", params=["ingress", "egress"])
@@ -532,12 +540,13 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
             logger.info("Removing ACL table \"{}\" in namespace {} on device {}"
                         .format(acl_table_config["table_name"], namespace, duthost))
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
-    # Give the dut some time for the ACL to be applied and LOG message generated
-    time.sleep(30)
 
 
 @pytest.fixture(scope="module")
-def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo):
+def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo,
+              # make sure the tear down of core_dump_and_config_check happened after acl_table
+              core_dump_and_config_check
+              ):
     """Apply ACL table configuration and remove after tests.
 
     Args:
@@ -564,32 +573,44 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo)
 
     dut_to_analyzer_map = {}
 
-    for duthost in duthosts:
-        if duthost.is_supervisor_node():
-            continue
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
-        loganalyzer.load_common_config()
-        dut_to_analyzer_map[duthost] = loganalyzer
-
-        try:
-            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
-            # Ignore any other errors to reduce noise
-            loganalyzer.ignore_regex = [r".*"]
-            with loganalyzer:
-                create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
-        except LogAnalyzerError as err:
-            # Cleanup Config DB if table creation failed
-            logger.error("ACL table creation failed, attempting to clean-up...")
-            create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
-            raise err
-
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(set_up_acl_table_single_dut, acl_table_config, dut_to_analyzer_map, duthost, setup, topo)
     try:
         yield acl_table_config
     finally:
-        for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
-            loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
-            with loganalyzer:
-                create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
+                executor.submit(tear_down_acl_table_single_dut, acl_table_config, duthost, loganalyzer, setup, topo)
+
+
+def tear_down_acl_table_single_dut(acl_table_config, duthost, loganalyzer, setup, topo):
+    loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
+    with loganalyzer:
+        create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
+        wait_until(60, 10, 0, check_msg_in_syslog,
+                   duthost, LOG_EXPECT_ACL_TABLE_REMOVE_RE)
+
+
+def set_up_acl_table_single_dut(acl_table_config, dut_to_analyzer_map, duthost, setup, topo):
+    if duthost.is_supervisor_node():
+        return
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
+    loganalyzer.load_common_config()
+    dut_to_analyzer_map[duthost] = loganalyzer
+    try:
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
+        # Ignore any other errors to reduce noise
+        loganalyzer.ignore_regex = [r".*"]
+        with loganalyzer:
+            create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
+            wait_until(300, 20, 0, check_msg_in_syslog,
+                       duthost, LOG_EXPECT_ACL_TABLE_CREATE_RE)
+    except LogAnalyzerError as err:
+        # Cleanup Config DB if table creation failed
+        logger.error("ACL table creation failed, attempting to clean-up...")
+        create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
+        raise err
 
 
 class BaseAclTest(six.with_metaclass(ABCMeta, object)):
@@ -643,7 +664,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         dut.command("config acl update full {}".format(remove_rules_dut_path))
 
     @pytest.fixture(scope="class", autouse=True)
-    def acl_rules(self, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo,
+    def acl_rules(self, request, duthosts, localhost, setup, acl_table, populate_vlan_arp_entries, tbinfo,
                   ip_version, conn_graph_facts):   # noqa F811
         """Setup/teardown ACL rules for the current set of tests.
 
@@ -657,42 +678,66 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
         """
         dut_to_analyzer_map = {}
-        for duthost in duthosts:
-            if duthost.is_supervisor_node():
-                continue
-            loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
-            loganalyzer.load_common_config()
-            dut_to_analyzer_map[duthost] = loganalyzer
 
-            try:
-                loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
-                # Ignore any other errors to reduce noise
-                loganalyzer.ignore_regex = [r".*"]
-                with loganalyzer:
-                    self.setup_rules(duthost, acl_table, ip_version)
-                    # Give the dut some time for the ACL rules to be applied and LOG message generated
-                    time.sleep(30)
-
-                self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
-
-                assert self.check_rule_counters(duthost), "Rule counters should be ready!"
-
-            except LogAnalyzerError as err:
-                # Cleanup Config DB if rule creation failed
-                logger.error("ACL rule application failed, attempting to clean-up...")
-                self.teardown_rules(duthost)
-                raise err
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in duthosts:
+                executor.submit(self.set_up_acl_rules_single_dut, request, acl_table, conn_graph_facts,
+                                dut_to_analyzer_map, duthost, ip_version, localhost,
+                                populate_vlan_arp_entries, tbinfo)
+        logger.info("Set up acl_rules finished")
 
         try:
             yield
         finally:
-            for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
-                if duthost.is_supervisor_node():
-                    continue
-                loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
-                with loganalyzer:
-                    logger.info("Removing ACL rules")
-                    self.teardown_rules(duthost)
+            with SafeThreadPoolExecutor(max_workers=8) as executor:
+                for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
+                    executor.submit(self.tear_down_acl_rule_single_dut, duthost, loganalyzer)
+            logger.info("Tear down acl_rules finished")
+
+    def tear_down_acl_rule_single_dut(self, duthost, loganalyzer):
+        if duthost.is_supervisor_node():
+            return
+        loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_REMOVE_RE]
+        with loganalyzer:
+            logger.info("Removing ACL rules")
+            self.teardown_rules(duthost)
+            wait_until(60, 10, 0, check_msg_in_syslog,
+                       duthost, LOG_EXPECT_ACL_RULE_REMOVE_RE)
+
+    def set_up_acl_rules_single_dut(self, request, acl_table,
+                                    conn_graph_facts, dut_to_analyzer_map, duthost, # noqa F811
+                                    ip_version, localhost,
+                                    populate_vlan_arp_entries, tbinfo):
+        logger.info("{}: ACL rule application started".format(duthost.hostname))
+        if duthost.is_supervisor_node():
+            return
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
+        loganalyzer.load_common_config()
+        dut_to_analyzer_map[duthost] = loganalyzer
+        try:
+            loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
+            # Ignore any other errors to reduce noise
+            loganalyzer.ignore_regex = [r".*"]
+            with loganalyzer:
+                self.setup_rules(duthost, acl_table, ip_version)
+                # Give the dut some time for the ACL rules to be applied and LOG message generated
+                wait_until(300, 20, 0, check_msg_in_syslog,
+                           duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
+
+            self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
+
+            assert self.check_rule_counters(duthost), "Rule counters should be ready!"
+            asic_db = AsicDbCli(duthost)
+            asic_db.get_acl_entries(refresh=True)
+            asic_db.get_acl_range_entries(refresh=True)
+            request.config.asic_db[duthost.hostname] = asic_db
+
+        except LogAnalyzerError as err:
+            # Cleanup Config DB if rule creation failed
+            logger.error("ACL rule application failed, attempting to clean-up...")
+            self.teardown_rules(duthost)
+            raise err
+        logger.info("{}: ACL rule application finished".format(duthost.hostname))
 
     @pytest.yield_fixture(scope="class", autouse=True)
     def counters_sanity_check(self, duthosts, acl_rules, acl_table):
@@ -730,6 +775,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         time.sleep(self.ACL_COUNTERS_UPDATE_INTERVAL_SECS)
 
         for duthost in duthosts:
+            if duthost.facts["asic_type"] == 'vs':
+                logger.info('Skip checking rule counters for vs platform')
+                return
             if duthost.is_supervisor_node():
                 continue
             acl_facts[duthost]['after'] = \
@@ -785,8 +833,11 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         return request.param
 
     def check_rule_counters(self, duthost):
-        logger.info('Wait all rule counters are ready')
+        if duthost.facts['asic_type'] == 'vs':
+            logger.info('Skip checking rule counters for vs platform')
+            return True
 
+        logger.info('Wait all rule counters are ready')
         return wait_until(60, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
@@ -921,53 +972,81 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 
         return exp_pkt
 
-    def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
+    def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage, skip_traffic_test):   # noqa F811
         """Verify that unmatched packets are dropped for ingress."""
         if stage == "egress":
             pytest.skip("Only run for ingress")
 
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
 
-    def test_egress_unmatched_forwarded(self, setup, direction, ptfadapter, ip_version, stage):
+    def test_egress_unmatched_forwarded(self, setup, direction, ptfadapter, ip_version, stage, skip_traffic_test):  # noqa F811
         """Verify that default egress rule allow all traffics"""
         if stage == "ingress":
             pytest.skip("Only run for egress")
 
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version)
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
 
-    def test_source_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_source_ip_match_forwarded(self, request, setup, direction, ptfadapter,
+                                       counters_sanity_check, ip_version, skip_traffic_test):   # noqa F811
         """Verify that we can match and forward a packet on source IP."""
         src_ip = "20.0.0.2" if ip_version == "ipv4" else "60c0:a800::6"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has entry that matches source ip with forward action set
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_entry = asic_db.find_acl_by(src_ip=src_ip, packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(1)
 
-    def test_rules_priority_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_rules_priority_forwarded(self, request, setup, direction, ptfadapter,
+                                      counters_sanity_check, ip_version, skip_traffic_test):    # noqa F811
         """Verify that we respect rule priorites in the forwarding case."""
         src_ip = "20.0.0.7" if ip_version == "ipv4" else "60c0:a800::7"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has a higher priority entry with src_ip and FORWARD than src_ip and DROP action
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = asic_db.find_acl_by(src_ip=src_ip, packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+        acl_drop_entry = asic_db.find_acl_by(src_ip=src_ip, packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+        assert int(acl_fwd_entry[0]['SAI_ACL_ENTRY_ATTR_PRIORITY']) > \
+            int(acl_drop_entry[0]['SAI_ACL_ENTRY_ATTR_PRIORITY'])
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(20)
 
-    def test_rules_priority_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_rules_priority_dropped(self, request, setup, direction, ptfadapter,
+                                    counters_sanity_check, ip_version, skip_traffic_test):      # noqa F811
         """Verify that we respect rule priorites in the drop case."""
         src_ip = "20.0.0.3" if ip_version == "ipv4" else "60c0:a800::4"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has the DROP rule for the src_ip
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = asic_db.find_acl_by(src_ip=src_ip, packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         counters_sanity_check.append(7)
 
-    def test_dest_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version, vlan_name):
+    def test_dest_ip_match_forwarded(self, request, setup, direction, ptfadapter,
+                                     counters_sanity_check, ip_version, vlan_name, skip_traffic_test):  # noqa F811
         """Verify that we can match and forward a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_ALLOW[ip_version] \
             if direction == "uplink->downlink" else UPSTREAM_IP_TO_ALLOW[ip_version]
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has the FORWARD rule for the dst_ip
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = asic_db.find_acl_by(dst_ip=dst_ip, packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
         if direction == "uplink->downlink":
             if setup["topo"] == "m0_l3":
@@ -986,13 +1065,19 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             rule_id = 3
         counters_sanity_check.append(rule_id)
 
-    def test_dest_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version, vlan_name):
+    def test_dest_ip_match_dropped(self, request, setup, direction, ptfadapter,
+                                   counters_sanity_check, ip_version, vlan_name, skip_traffic_test):    # noqa F811
         """Verify that we can match and drop a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_BLOCK[ip_version] \
             if direction == "uplink->downlink" else UPSTREAM_IP_TO_BLOCK[ip_version]
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dst_ip=dst_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has dst_ip DROP rule
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = asic_db.find_acl_by(dst_ip=dst_ip, packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         # Because m0_l3_scenario use differnet IPs, so need to verify different acl rules.
         if direction == "uplink->downlink":
             if setup["topo"] == "m0_l3":
@@ -1011,145 +1096,296 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             rule_id = 16
         counters_sanity_check.append(rule_id)
 
-    def test_source_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_source_ip_match_dropped(self, request, setup, direction, ptfadapter,
+                                     counters_sanity_check, ip_version, skip_traffic_test):     # noqa F811
         """Verify that we can match and drop a packet on source IP."""
         src_ip = "20.0.0.6" if ip_version == "ipv4" else "60c0:a800::3"
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has src_ip DROP rule
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = asic_db.find_acl_by(src_ip=src_ip, packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         counters_sanity_check.append(14)
 
-    def test_udp_source_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_udp_source_ip_match_forwarded(self, request, setup, direction, ptfadapter,
+                                           counters_sanity_check, ip_version, skip_traffic_test):       # noqa F811
         """Verify that we can match and forward a UDP packet on source IP."""
         src_ip = "20.0.0.4" if ip_version == "ipv4" else "60c0:a800::8"
         pkt = self.udp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has src_ip FORWARD action ACL rule
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = asic_db.find_acl_by(src_ip=src_ip, packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(13)
 
-    def test_udp_source_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_udp_source_ip_match_dropped(self, request, setup, direction, ptfadapter,
+                                         counters_sanity_check, ip_version, skip_traffic_test):     # noqa F811
         """Verify that we can match and drop a UDP packet on source IP."""
         src_ip = "20.0.0.8" if ip_version == "ipv4" else "60c0:a800::2"
         pkt = self.udp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has src_ip DROP action rule
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = asic_db.find_acl_by(src_ip=src_ip, packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         counters_sanity_check.append(26)
 
-    def test_icmp_source_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_icmp_source_ip_match_dropped(self, request, setup, direction, ptfadapter,
+                                          counters_sanity_check, ip_version, skip_traffic_test):    # noqa F811
         """Verify that we can match and drop an ICMP packet on source IP."""
         src_ip = "20.0.0.8" if ip_version == "ipv4" else "60c0:a800::2"
         pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has src_ip DROP action ACL rule
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = asic_db.find_acl_by(src_ip=src_ip, packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         counters_sanity_check.append(25)
 
-    def test_icmp_source_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_icmp_source_ip_match_forwarded(self, request, setup, direction, ptfadapter,
+                                            counters_sanity_check, ip_version, skip_traffic_test):  # noqa F811
         """Verify that we can match and forward an ICMP packet on source IP."""
         src_ip = "20.0.0.4" if ip_version == "ipv4" else "60c0:a800::8"
         pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has src_ip FORWARD action ACL rule
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = asic_db.find_acl_by(src_ip=src_ip, packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(12)
 
-    def test_l4_dport_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_dport_match_forwarded(self, request, setup, direction, ptfadapter,
+                                      counters_sanity_check, ip_version, skip_traffic_test):        # noqa F811
         """Verify that we can match and forward on L4 destination port."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x1217)
+        dst_port = 0x1217
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=dst_port)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has dst_port FORWARD action ACL rule
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = asic_db.find_acl_by(l4_dst_port=str(dst_port), packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(9)
 
-    def test_l4_sport_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_sport_match_forwarded(self, request, setup, direction, ptfadapter,
+                                      counters_sanity_check, ip_version, skip_traffic_test):        # noqa F811
         """Verify that we can match and forward on L4 source port."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x120D)
+        src_port = 0x120D
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=src_port)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has src_port FORWARD action ACL rule
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = asic_db.find_acl_by(l4_src_port=str(src_port), packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(4)
 
-    def test_l4_dport_range_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_dport_range_match_forwarded(self, request, setup, direction, ptfadapter,
+                                            counters_sanity_check, ip_version, skip_traffic_test):  # noqa F811
         """Verify that we can match and forward on a range of L4 destination ports."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x123B)
+        dport = 0x123B
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=dport)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has FORWARD rule for port in configured range
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = asic_db.find_acl_by(range_type='l4_dst_port', l4_dst_port=str(dport),
+                                            packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(11)
 
-    def test_l4_sport_range_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_sport_range_match_forwarded(self, request, setup, direction, ptfadapter,
+                                            counters_sanity_check, ip_version, skip_traffic_test):  # noqa F811
         """Verify that we can match and forward on a range of L4 source ports."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x123A)
+        sport = 0x123A
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=sport)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has FORWARD rule for port in configured range
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = asic_db.find_acl_by(range_type='l4_src_port', l4_src_port=str(sport),
+                                            packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(10)
 
-    def test_l4_dport_range_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_dport_range_match_dropped(self, request, setup, direction, ptfadapter,
+                                          counters_sanity_check, ip_version, skip_traffic_test):    # noqa F811
         """Verify that we can match and drop on a range of L4 destination ports."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x127B)
+        dport = 0x1285
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=dport)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has DROP rule for port in configured range
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = asic_db.find_acl_by(range_type='l4_dst_port', l4_dst_port=str(dport),
+                                             packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         counters_sanity_check.append(22)
 
-    def test_l4_sport_range_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_sport_range_match_dropped(self, request, setup, direction, ptfadapter,
+                                          counters_sanity_check, ip_version, skip_traffic_test):    # noqa F811
         """Verify that we can match and drop on a range of L4 source ports."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x1271)
+        sport = 0x1298
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=sport)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has DROP rule for port in configured range
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = asic_db.find_acl_by(range_type='l4_src_port', l4_src_port=str(sport),
+                                             packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         counters_sanity_check.append(17)
 
-    def test_ip_proto_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_ip_proto_match_forwarded(self, request, setup, direction, ptfadapter,
+                                      counters_sanity_check, ip_version, skip_traffic_test):        # noqa F811
         """Verify that we can match and forward on the IP protocol."""
+        ip_protocol = 0x7E
         pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, proto=0x7E)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has FORWARD rule for IP protocol number
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = []
+        if ip_version == "ipv4":
+            acl_fwd_entry = asic_db.find_acl_by(ip_protocol=str(ip_protocol),
+                                                packet_action='SAI_PACKET_ACTION_FORWARD')
+        else:
+            acl_fwd_entry = asic_db.find_acl_by(ipv6_next_header=str(ip_protocol),
+                                                packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(5)
 
-    def test_tcp_flags_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_tcp_flags_match_forwarded(self, request, setup, direction, ptfadapter,
+                                       counters_sanity_check, ip_version, skip_traffic_test):       # noqa F811
         """Verify that we can match and forward on the TCP flags."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, flags=0x1B)
+        tcp_flags = 0x1B
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, flags=tcp_flags)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has FORWARD rule for TCP Flags
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = asic_db.find_acl_by(tcp_flags=str(tcp_flags), packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(6)
 
-    def test_l4_dport_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_dport_match_dropped(self, request, setup, direction, ptfadapter,
+                                    counters_sanity_check, ip_version, skip_traffic_test):          # noqa F811
         """Verify that we can match and drop on L4 destination port."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=0x127B)
+        dst_port = 0x127B
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, dport=dst_port)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has DROP rule for dst_port
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = asic_db.find_acl_by(l4_dst_port=str(dst_port), packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         counters_sanity_check.append(22)
 
-    def test_l4_sport_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_l4_sport_match_dropped(self, request, setup, direction, ptfadapter,
+                                    counters_sanity_check, ip_version, skip_traffic_test):          # noqa F811
         """Verify that we can match and drop on L4 source port."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=0x1271)
+        src_port = 0x1271
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, sport=src_port)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has DROP rule for src_port
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = asic_db.find_acl_by(l4_src_port=str(src_port), packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         counters_sanity_check.append(17)
 
-    def test_ip_proto_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_ip_proto_match_dropped(self, request, setup, direction, ptfadapter,
+                                    counters_sanity_check, ip_version, skip_traffic_test):          # noqa F811
         """Verify that we can match and drop on the IP protocol."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, proto=0x7F)
+        ip_protocol = 0x7F
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, proto=ip_protocol)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has DROP rule for IP protocol number
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = []
+        if ip_version == "ipv4":
+            acl_drop_entry = asic_db.find_acl_by(ip_protocol=str(ip_protocol),
+                                                 packet_action='SAI_PACKET_ACTION_DROP')
+        else:
+            acl_drop_entry = asic_db.find_acl_by(ipv6_next_header=str(ip_protocol),
+                                                 packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         counters_sanity_check.append(18)
 
-    def test_tcp_flags_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_tcp_flags_match_dropped(self, request, setup, direction, ptfadapter,
+                                     counters_sanity_check, ip_version, skip_traffic_test):         # noqa F811
         """Verify that we can match and drop on the TCP flags."""
-        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, flags=0x24)
+        tcp_flags = 0x24
+        pkt = self.tcp_packet(setup, direction, ptfadapter, ip_version, flags=tcp_flags)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
+        # verify ASIC DB has DROP rule for matched TCP flags
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_drop_entry = asic_db.find_acl_by(tcp_flags=str(tcp_flags), packet_action='SAI_PACKET_ACTION_DROP')
+        assert acl_drop_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version, skip_traffic_test)
         counters_sanity_check.append(19)
 
-    def test_icmp_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_icmp_match_forwarded(self, request, setup, direction, ptfadapter,
+                                  counters_sanity_check, ip_version, skip_traffic_test):            # noqa F811
         """Verify that we can match and drop on the TCP flags."""
         src_ip = "20.0.0.10" if ip_version == "ipv4" else "60c0:a800::10"
-        pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip, icmp_type=3, icmp_code=1)
+        icmp_type = 3
+        icmp_code = 1
+        pkt = self.icmp_packet(setup, direction, ptfadapter, ip_version, src_ip=src_ip,
+                               icmp_type=icmp_type, icmp_code=icmp_code)
 
-        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version)
+        # verify ASIC DB has FORWARD rule for ICMP packet type and code
+        asic_db = next(iter(request.config.asic_db.values()))
+        acl_fwd_entry = []
+        if ip_version == "ipv4":
+            acl_fwd_entry = asic_db.find_acl_by(src_ip=src_ip, icmp_type=str(icmp_type),
+                                                icmp_code=str(icmp_code),
+                                                packet_action='SAI_PACKET_ACTION_FORWARD')
+        else:
+            acl_fwd_entry = asic_db.find_acl_by(src_ip=src_ip, icmpv6_type=str(icmp_type),
+                                                icmpv6_code=str(icmp_code),
+                                                packet_action='SAI_PACKET_ACTION_FORWARD')
+        assert acl_fwd_entry != []
+
+        self._verify_acl_traffic(setup, direction, ptfadapter, pkt, False, ip_version, skip_traffic_test)
         counters_sanity_check.append(29)
 
-    def _verify_acl_traffic(self, setup, direction, ptfadapter, pkt, dropped, ip_version):
+    def _verify_acl_traffic(self, setup, direction, ptfadapter, pkt, dropped, ip_version, skip_traffic_test):   # noqa F811
         exp_pkt = self.expected_mask_routed_packet(pkt, ip_version)
 
         if ip_version == "ipv4":
             downstream_dst_port = DOWNSTREAM_IP_PORT_MAP.get(pkt[packet.IP].dst)
         else:
             downstream_dst_port = DOWNSTREAM_IP_PORT_MAP.get(pkt[packet.IPv6].dst)
+
+        if skip_traffic_test:
+            return
+
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, self.src_port, pkt)
         if direction == "uplink->downlink" and downstream_dst_port:
@@ -1236,7 +1472,7 @@ class TestAclWithReboot(TestBasicAcl):
 
         """
         dut.command("config save -y")
-        reboot(dut, localhost, wait=240)
+        reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True)
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             time.sleep(240)

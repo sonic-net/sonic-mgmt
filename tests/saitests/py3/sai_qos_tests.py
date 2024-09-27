@@ -12,6 +12,7 @@ import sys
 import texttable
 import math
 import os
+import concurrent.futures
 from ptf.testutils import (ptf_ports,
                            dp_poll,
                            simple_arp_packet,
@@ -311,10 +312,10 @@ def get_ip_addr():
 def get_tcp_port():
     val = 1234
     while True:
-        if val == 65535:
-            raise RuntimeError("We ran out of tcp ports!")
-        val = max(val, (val+10) % 65535)
         yield val
+        val += 10
+        if val > 65534:
+            val = 1234
 
 
 TCP_PORT_GEN = get_tcp_port()
@@ -366,7 +367,8 @@ def construct_tcp_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan,
         return pkt
 
 
-def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pkt_len, src_details, packets_per_port=1):
+def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl,
+                       pkt_len, src_details, packets_per_port=1, check_actual_dst_id=True):
     '''
         Returns a dict of format:
         src_id : [list of (pkt, exp_pkt) pairs that go to the given dst_id]
@@ -421,7 +423,10 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
                     all_pkts[src_tuple[0]]
                 except KeyError:
                     all_pkts[src_tuple[0]] = []
-                actual_dst_id = get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt)
+                if check_actual_dst_id is False:
+                    actual_dst_id = dst_id
+                else:
+                    actual_dst_id = get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt)
                 if actual_dst_id == dst_id:
                     all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt, dst_id))
                     num_of_pkts += 1
@@ -825,6 +830,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         dual_tor = self.test_params.get('dual_tor', None)
         leaf_downstream = self.test_params.get('leaf_downstream', None)
         asic_type = self.test_params['sonic_asic_type']
+        tc_to_dscp_count_map = self.test_params.get('tc_to_dscp_count_map', None)
         exp_ip_id = 101
         exp_ttl = 63
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
@@ -933,33 +939,39 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             # queue 3/4  1                 1               1                                                1                                         1                         # noqa E501
             # queue 5    1                 1               1                                                1                                         1                         # noqa E501
             # queue 7    0                 1               1                                                1                                         1                         # noqa E501
-            assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
-            assert (queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
-            assert (queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
-            assert (queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
-            if dual_tor or (dual_tor_scenario is False) or (leaf_downstream is False):
-                assert (queue_results[QUEUE_2] == 1 +
-                        queue_results_base[QUEUE_2])
-                assert (queue_results[QUEUE_6] == 1 +
-                        queue_results_base[QUEUE_6])
+
+            if tc_to_dscp_count_map:
+                for tc in range(7):
+                    assert (queue_results[tc] == tc_to_dscp_count_map[tc] + queue_results_base[tc])
+                assert (queue_results[7] >= tc_to_dscp_count_map[7] + queue_results_base[7])
             else:
-                assert (queue_results[QUEUE_2] == queue_results_base[QUEUE_2])
-                assert (queue_results[QUEUE_6] == queue_results_base[QUEUE_6])
-            if dual_tor_scenario:
-                if (dual_tor is False) or leaf_downstream:
-                    assert (queue_results[QUEUE_1] ==
-                            59 + queue_results_base[QUEUE_1])
+                assert (queue_results[QUEUE_0] == 1 + queue_results_base[QUEUE_0])
+                assert (queue_results[QUEUE_3] == 1 + queue_results_base[QUEUE_3])
+                assert (queue_results[QUEUE_4] == 1 + queue_results_base[QUEUE_4])
+                assert (queue_results[QUEUE_5] == 1 + queue_results_base[QUEUE_5])
+                if dual_tor or (dual_tor_scenario is False) or (leaf_downstream is False):
+                    assert (queue_results[QUEUE_2] == 1 +
+                            queue_results_base[QUEUE_2])
+                    assert (queue_results[QUEUE_6] == 1 +
+                            queue_results_base[QUEUE_6])
                 else:
-                    assert (queue_results[QUEUE_1] ==
-                            57 + queue_results_base[QUEUE_1])
-                # LAG ports can have LACP packets on queue 7, hence using >= comparison
-                assert (queue_results[QUEUE_7] >= 1 +
-                        queue_results_base[QUEUE_7])
-            else:
-                assert (queue_results[QUEUE_1] == 58 +
-                        queue_results_base[QUEUE_1])
-                # LAG ports can have LACP packets on queue 7, hence using >= comparison
-                assert (queue_results[QUEUE_7] >= queue_results_base[QUEUE_7])
+                    assert (queue_results[QUEUE_2] == queue_results_base[QUEUE_2])
+                    assert (queue_results[QUEUE_6] == queue_results_base[QUEUE_6])
+                if dual_tor_scenario:
+                    if (dual_tor is False) or leaf_downstream:
+                        assert (queue_results[QUEUE_1] ==
+                                59 + queue_results_base[QUEUE_1])
+                    else:
+                        assert (queue_results[QUEUE_1] ==
+                                57 + queue_results_base[QUEUE_1])
+                    # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                    assert (queue_results[QUEUE_7] >= 1 +
+                            queue_results_base[QUEUE_7])
+                else:
+                    assert (queue_results[QUEUE_1] == 58 +
+                            queue_results_base[QUEUE_1])
+                    # LAG ports can have LACP packets on queue 7, hence using >= comparison
+                    assert (queue_results[QUEUE_7] >= queue_results_base[QUEUE_7])
 
         finally:
             print("END OF TEST", file=sys.stderr)
@@ -2896,7 +2908,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.src_port_macs = [self.dataplane.get_mac(
             0, ptid) for ptid in self.src_port_ids]
 
-        if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116', 't0-120']:
+        if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-28', 't0-64', 't0-116', 't0-120']:
             # populate ARP
             # sender's MAC address is corresponding PTF port's MAC address
             # sender's IP address is caculated in tests/qos/qos_sai_base.py::QosSaiBase::__assignTestPortIps()
@@ -3123,7 +3135,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                         self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, self.uniq_dst_ports)
                     sys.exit("Too many pkts needed to trigger pfc: %d" % (pkt_cnt))
                 assert (recv_counters[sidx_dscp_pg_tuples[i][2]] >
-                       recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
+                        recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
                 print("%d packets for sid: %d, pg: %d to trigger pfc" % (
                     pkt_cnt, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], sidx_dscp_pg_tuples[i][2] - 2),
                     file=sys.stderr)
@@ -3661,37 +3673,46 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         topo = self.test_params['topo']
         platform_asic = self.test_params['platform_asic']
+        prio_list = self.test_params.get('dscp_list', [])
+        q_pkt_cnt = self.test_params.get('q_pkt_cnt', [])
+        q_list = self.test_params.get('q_list', [])
 
-        if 'backend' not in topo:
-            if not qos_remap_enable:
-                # When qos_remap is disabled, the map is as below
-                # DSCP TC QUEUE
-                # 3    3    3
-                # 4    4    4
-                # 8    0    0
-                # 0    1    1
-                # 5    2    2
-                # 46   5    5
-                # 48   6    6
-                prio_list = [3, 4, 8, 0, 5, 46, 48]
-                q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_0_num_of_pkts,
-                             queue_1_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
+        self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id], enable_port_by_unblock_queue=False)
+
+        if not (prio_list and q_pkt_cnt and q_list):
+            if 'backend' not in topo:
+                if not qos_remap_enable:
+                    # When qos_remap is disabled, the map is as below
+                    # DSCP TC QUEUE
+                    # 3    3    3
+                    # 4    4    4
+                    # 8    0    0
+                    # 0    1    1
+                    # 5    2    2
+                    # 46   5    5
+                    # 48   6    6
+                    prio_list = [3, 4, 8, 0, 5, 46, 48]
+                    q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_0_num_of_pkts,
+                                 queue_1_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
+                    q_list = [3, 4, 0, 1, 2, 5, 6]
+                else:
+                    # When qos_remap is enabled, the map is as below
+                    # DSCP TC QUEUE
+                    # 3    3    3
+                    # 4    4    4
+                    # 8    0    0
+                    # 0    1    1
+                    # 46   5    5
+                    # 48   7    7
+                    prio_list = [3, 4, 8, 0, 46, 48]
+                    q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_0_num_of_pkts,
+                                 queue_1_num_of_pkts, queue_5_num_of_pkts, queue_7_num_of_pkts]
+                    q_list = [3, 4, 0, 1, 5, 7]
             else:
-                # When qos_remap is enabled, the map is as below
-                # DSCP TC QUEUE
-                # 3    3    3
-                # 4    4    4
-                # 8    0    0
-                # 0    1    1
-                # 46   5    5
-                # 48   7    7
-                prio_list = [3, 4, 8, 0, 46, 48]
-                q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_0_num_of_pkts,
-                             queue_1_num_of_pkts, queue_5_num_of_pkts, queue_7_num_of_pkts]
-        else:
-            prio_list = [3, 4, 1, 0, 2, 5, 6]
-            q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_1_num_of_pkts,
-                         queue_0_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
+                prio_list = [3, 4, 1, 0, 2, 5, 6]
+                q_pkt_cnt = [queue_3_num_of_pkts, queue_4_num_of_pkts, queue_1_num_of_pkts,
+                             queue_0_num_of_pkts, queue_2_num_of_pkts, queue_5_num_of_pkts, queue_6_num_of_pkts]
+                q_list = [3, 4, 1, 0, 2, 5, 6]
         q_cnt_sum = sum(q_pkt_cnt)
         # Send packets to leak out
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
@@ -3730,7 +3751,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
 
         # Send packets to each queue based on priority/dscp field
-        for prio, pkt_cnt in zip(prio_list, q_pkt_cnt):
+        for prio, pkt_cnt, queue in zip(prio_list, q_pkt_cnt, q_list):
             pkt = construct_ip_pkt(default_packet_length,
                                    pkt_dst_mac,
                                    src_port_mac,
@@ -3741,11 +3762,26 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                                    ip_id=exp_ip_id,
                                    ecn=ecn,
                                    ttl=64)
+            if 'cisco-8000' in asic_type and pkt_cnt > 0:
+                fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
+                pkt_cnt -= 1
             send_packet(self, src_port_id, pkt, pkt_cnt)
 
         # Set receiving socket buffers to some big value
         for p in list(self.dataplane.ports.values()):
             p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
+
+        # recv packets for leakout
+        if 'cisco-8000' in asic_type:
+            recv_pkt = scapy.Ether()
+
+            while recv_pkt:
+                received = self.dataplane.poll(
+                    device_number=0, port_number=dst_port_id, timeout=2)
+                if isinstance(received, self.dataplane.PollFailure):
+                    recv_pkt = None
+                    break
+                recv_pkt = scapy.Ether(received.packet)
 
         # Release port
         self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id], enable_port_by_unblock_queue=False)
@@ -3773,8 +3809,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                 # Ignore captured non-IP packet
                 continue
 
-        queue_pkt_counters = [0] * (prio_list[-1] + 1)
-        queue_num_of_pkts = [0] * (prio_list[-1] + 1)
+        queue_pkt_counters = [0] * (max(prio_list) + 1)
+        queue_num_of_pkts = [0] * (max(prio_list) + 1)
         for prio, q_cnt in zip(prio_list, q_pkt_cnt):
             queue_num_of_pkts[prio] = q_cnt
 
@@ -5046,7 +5082,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
             if pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
-            elif 'cisco-8000' in asic_type or "ACS-SN5600" in hwsku:
+            elif 'cisco-8000' in asic_type or "SN5600" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             else:
                 if platform_asic and platform_asic == "broadcom-dnx":
@@ -5366,8 +5402,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                       file=sys.stderr,
                 )
                 assert (buffer_pool_wm <= (expected_wm + upper_bound_margin) * cell_size)
-                assert ((expected_wm - lower_bound_margin)
-                       * cell_size <= buffer_pool_wm)
+                assert ((expected_wm - lower_bound_margin) * cell_size <= buffer_pool_wm)
 
                 pkts_num = pkts_inc
 
@@ -5561,8 +5596,7 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             if 'cisco-8000' in asic_type:
                 # Queue is always the inner_dscp due to the TC_TO_QUEUE_MAP redirection
                 queue = inner_dscp
-                assert (fill_leakout_plus_one(self, src_port_id,
-                       dst_port_id, pkt, queue, asic_type))
+                assert (fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type))
                 num_pkts = pkts_num_trig_pfc - pkts_num_margin - 1
                 send_packet(self, src_port_id, pkt, num_pkts)
                 print("Sending {} packets to port {}".format(num_pkts, src_port_id), file=sys.stderr)
@@ -5872,3 +5906,180 @@ class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
             print("Successfully dropped {} packets".format(drops), file=sys.stderr)
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+
+
+class FullMeshTrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
+    def setUp(self):
+        sai_base_test.ThriftInterfaceDataPlane.setUp(self)
+        time.sleep(5)
+        switch_init(self.clients)
+
+        # Parse input parameters
+        self.testbed_type = self.test_params['testbed_type']
+        self.router_mac = self.test_params['router_mac']
+        self.sonic_version = self.test_params['sonic_version']
+
+        dscp_to_q_map = self.test_params['dscp_to_q_map']
+        self.dscps = [int(key) for key in dscp_to_q_map.keys()]
+        self.queues = [int(value) for value in dscp_to_q_map.values()]
+        self.all_src_port_id_to_ip = self.test_params['all_src_port_id_to_ip']
+        self.all_src_port_id_to_name = self.test_params['all_src_port_id_to_name']
+        self.all_dst_port_id_to_ip = self.test_params['all_dst_port_id_to_ip']
+        self.all_dst_port_id_to_name = self.test_params['all_dst_port_id_to_name']
+
+        self.all_port_id_to_ip = dict()
+        self.all_port_id_to_ip.update(self.all_src_port_id_to_ip)
+        self.all_port_id_to_ip.update(self.all_dst_port_id_to_ip)
+
+        self.all_port_id_to_name = dict()
+        self.all_port_id_to_name.update(self.all_src_port_id_to_name)
+        self.all_port_id_to_name.update(self.all_dst_port_id_to_name)
+
+        self.src_port_ids = list(self.all_src_port_id_to_ip.keys())
+        self.dst_port_ids = list(self.all_dst_port_id_to_ip.keys())
+        self.all_port_ids = self.src_port_ids + list(set(self.dst_port_ids) - set(self.src_port_ids))
+
+        self.asic_type = self.test_params['sonic_asic_type']
+        self.packet_size = 100
+        logging.info("Using packet size", self.packet_size)
+        self.flows_per_port = 6
+
+        self.all_port_id_to_mac = {port_id: self.dataplane.get_mac(0, port_id)
+                                   for port_id in self.all_port_id_to_ip.keys()}
+
+    def tearDown(self):
+        sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
+
+    def config_traffic(self, dst_port_id, dscp, ecn_bit):
+        if type(ecn_bit) == bool:
+            ecn_bit = 1 if ecn_bit else 0
+        self.dscp = dscp
+        self.dst_port_id = dst_port_id
+        self.tos = (dscp << 2) | ecn_bit
+        self.ttl = 64
+        logging.debug("Getting multiple flows to  {:>2}, dscp={}, dst_ip={}".format(
+             self.dst_port_id, self.dscp, self.dst_port_ip)
+            )
+        self.pkt = get_multiple_flows(
+                self,
+                self.dst_port_mac,
+                dst_port_id,
+                self.dst_port_ip,
+                None,
+                dscp,
+                ecn_bit,
+                64,
+                self.packet_size,
+                [(src_port_id, src_port_ip) for src_port_id, src_port_ip in self.all_src_port_id_to_ip.items()],
+                self.flows_per_port,
+                False)
+        logging.debug("Got multiple flows to  {:>2}, dscp={}, dst_ip={}".format(
+             self.dst_port_id, self.dscp, self.dst_port_ip)
+            )
+
+    def runTest(self):
+        failed_pairs = set()
+        logging.info("Total traffic src_dst_pairs being tested {}".format(
+              len(self.src_port_ids)*len(self.dst_port_ids))
+            )
+        pkt_count = 10
+
+        # Split the src port list for concurrent pkt injection
+        num_splits = 2
+        split_points = [i * len(self.src_port_ids) // num_splits for i in range(1, num_splits)]
+        parts = [self.src_port_ids[i:j] for i, j in zip([0] + split_points, split_points + [None])]
+
+        def runTestPerSrcList(src_port_list, checkCounter=False):
+            for src_port_id in src_port_list:
+                logging.debug(
+                          "Sending {} packets X {} flows with dscp/queue {}/{} from src {} -> dst {}".format(
+                            pkt_count,
+                            len(self.pkt[src_port_id]), dscp, queue,
+                            self.all_port_id_to_name.get(src_port_id, 'Not Found'),
+                            dst_port_name)
+                          )
+                if checkCounter:
+                    port_cnt_base, q_cntrs_base = sai_thrift_read_port_counters(
+                                              self.dst_client, self.asic_type,
+                                              port_list['dst'][real_dst_port_id]
+                                         )
+
+                for pkt_tuple in self.pkt[src_port_id]:
+                    logging.debug(
+                       "Sending {} packets with dscp/queue {}/{} from src {} -> dst {} Pkt {}".format(
+                          pkt_count, dscp, queue,
+                          self.all_port_id_to_name.get(src_port_id, 'Not Found'),
+                          dst_port_name, pkt_tuple[0])
+                       )
+                    send_packet(self, src_port_id, pkt_tuple[0], pkt_count)
+
+                if checkCounter:
+                    time.sleep(1)
+                    port_cntrs, q_cntrs = sai_thrift_read_port_counters(
+                                                  self.dst_client, self.asic_type,
+                                                  port_list['dst'][real_dst_port_id]
+                                                )
+                    pkts_enqueued = q_cntrs[queue] - q_cntrs_base[queue]
+                    if pkts_enqueued < self.flows_per_port*pkt_count:
+                        logging.info("Faulty src/dst {}/{} pair on queue {}".format(
+                                 self.all_port_id_to_name.get(src_port_id, 'Not Found'),
+                                 dst_port_name, queue
+                              ))
+                        logging.info("q_cntrs_base {}".format(q_cntrs_base))
+                        logging.info("q_cntrs      {}".format(q_cntrs))
+                        logging.info("port_cnt_base {}".format(port_cnt_base))
+                        logging.info("port_cntrs      {}".format(port_cntrs))
+                        failed_pairs.add(
+                              (
+                                 self.all_port_id_to_name.get(src_port_id, 'Not Found'),
+                                 dst_port_name, queue
+                              )
+                          )
+
+        def findFaultySrcDstPair(dscp, queue):
+            ecn_bit = 1 if queue in [3, 4] else 0
+            self.config_traffic(real_dst_port_id, dscp, ecn_bit)
+            runTestPerSrcList(self.src_port_ids, True)
+
+        for dst_port_id in self.dst_port_ids:
+            real_dst_port_id = dst_port_id
+            dst_port_name = self.all_port_id_to_name.get(real_dst_port_id, 'Not Found')
+            logging.info("Starting Test for dst {}".format(dst_port_name))
+            dst_port_mac = self.all_port_id_to_mac[real_dst_port_id]
+            self.dst_port_mac = self.router_mac if self.router_mac != '' else dst_port_mac
+            self.dst_port_ip = self.all_port_id_to_ip[real_dst_port_id]
+
+            for i, dscp in enumerate(self.dscps):
+                queue = self.queues[i]  # Need queue for occupancy verification
+                ecn_bit = 1 if queue in [3, 4] else 0
+                self.config_traffic(real_dst_port_id, dscp, ecn_bit)
+
+                port_cnt_base, q_cntrs_base = sai_thrift_read_port_counters(
+                                          self.dst_client, self.asic_type,
+                                          port_list['dst'][real_dst_port_id]
+                                     )
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=num_splits) as executor:
+                    # Submit the tasks to the executor
+                    futures = [executor.submit(runTestPerSrcList, part) for part in parts]
+
+                    # Wait for all tasks to complete
+                    concurrent.futures.wait(futures)
+
+                time.sleep(1)
+                port_cntrs, q_cntrs = sai_thrift_read_port_counters(
+                                              self.dst_client, self.asic_type,
+                                              port_list['dst'][real_dst_port_id]
+                                            )
+                pkts_enqueued = q_cntrs[queue] - q_cntrs_base[queue]
+                logging.info("Enqueued on queue {} pkts {}".format(queue, pkts_enqueued))
+                if pkts_enqueued < self.flows_per_port*pkt_count*len(self.src_port_ids):
+                    logging.info("q_cntrs_base {}".format(q_cntrs_base))
+                    logging.info("q_cntrs      {}".format(q_cntrs))
+                    logging.info("port_cnt_base {}".format(port_cnt_base))
+                    logging.info("port_cntrs      {}".format(port_cntrs))
+                    # Craft pkt for given queue and
+                    # inject from each src to find which src/dst pair is dropping pkt
+                    findFaultySrcDstPair(dscp, queue)
+
+        assert len(failed_pairs) == 0, "Traffic failed between {}".format(failed_pairs)

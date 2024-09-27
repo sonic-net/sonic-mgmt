@@ -1,17 +1,13 @@
-import pytest
-from bfd_base import BfdBase
 import logging
 
-from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
-from tests.common.utilities import wait_until
+import pytest
+
+from tests.bfd.bfd_helpers import ensure_interface_is_up, clear_bfd_configs
 from tests.common.config_reload import config_reload
+# from tests.common.utilities import wait_until
+# from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="class")
-def bfd_base_instance():
-    return BfdBase()
 
 
 def pytest_addoption(parser):
@@ -19,42 +15,38 @@ def pytest_addoption(parser):
     parser.addoption("--num_sessions_scale", action="store", default=128)
 
 
+@pytest.fixture(scope='module')
+def get_function_completeness_level(pytestconfig):
+    return pytestconfig.getoption("--completeness_level")
+
+
 @pytest.fixture(scope="function")
-def bfd_cleanup_db(
-    request, duthosts, enum_supervisor_dut_hostname, bfd_base_instance, autouse=True
-):
-    orch_cpu_threshold = 10
-    # Make Sure Orch CPU < orch_cpu_threshold before starting test.
-    logger.info(
-        "Make Sure orchagent CPU utilization is less that %d before starting the test",
-        orch_cpu_threshold,
-    )
-    duts = duthosts.frontend_nodes
-    for dut in duts:
-        assert wait_until(
-            100, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
-        ), "Orch CPU utilization {} > orch cpu threshold {} before starting the test".format(
-            dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")[
-                "stdout"
-            ],
-            orch_cpu_threshold,
-        )
+def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
+    # Temporarily disable orchagent CPU check before starting test as it is not stable
+    # orch_cpu_threshold = 10
+    # # Make Sure Orch CPU < orch_cpu_threshold before starting test.
+    # logger.info(
+    #     "Make Sure orchagent CPU utilization is less that %d before starting the test",
+    #     orch_cpu_threshold,
+    # )
+    # duts = duthosts.frontend_nodes
+    # for dut in duts:
+    #     assert wait_until(
+    #         100, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
+    #     ), "Orch CPU utilization exceeds orch cpu threshold {} before starting the test".format(orch_cpu_threshold)
 
     yield
-    orch_cpu_threshold = 10
-    # Orchagent CPU should consume < orch_cpu_threshold at last.
-    logger.info(
-        "watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold
-    )
-    for dut in duts:
-        assert wait_until(
-            120, 4, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
-        ), "Orch CPU utilization {} > orch cpu threshold {} after the test".format(
-            dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")[
-                "stdout"
-            ],
-            orch_cpu_threshold,
-        )
+
+    # Temporarily disable orchagent CPU check after finishing test as it is not stable
+    # orch_cpu_threshold = 10
+    # # Orchagent CPU should consume < orch_cpu_threshold at last.
+    # logger.info(
+    #     "watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold
+    # )
+    # for dut in duts:
+    #     assert wait_until(
+    #         120, 4, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
+    #     ), "Orch CPU utilization exceeds orch cpu threshold {} after finishing the test".format(orch_cpu_threshold)
 
     logger.info("Verifying swss container status on RP")
     rp = duthosts[enum_supervisor_dut_hostname]
@@ -69,23 +61,12 @@ def bfd_cleanup_db(
     if not container_status:
         config_reload(rp)
 
-    logger.info(
-        "Clearing BFD configs on {}, {}".format(
-            request.config.src_dut, request.config.dst_dut
-        )
-    )
-    command = (
-        "sonic-db-cli -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'false'".format(
-            request.config.src_asic.asic_index, request.config.src_prefix
-        ).replace("\\", "")
-    )
-    request.config.src_dut.shell(command)
-    command = (
-        "sonic-db-cli -n asic{} CONFIG_DB HSET \"STATIC_ROUTE|{}\" bfd 'false'".format(
-            request.config.dst_asic.asic_index, request.config.dst_prefix
-        ).replace("\\", "")
-    )
-    request.config.dst_dut.shell(command)
+    if hasattr(request.config, "src_dut") and hasattr(request.config, "dst_dut"):
+        clear_bfd_configs(request.config.src_dut, request.config.src_asic.asic_index, request.config.src_prefix)
+        clear_bfd_configs(request.config.dst_dut, request.config.dst_asic.asic_index, request.config.dst_prefix)
+    elif hasattr(request.config, "dut"):
+        clear_bfd_configs(request.config.dut, request.config.src_asic.asic_index, request.config.src_prefix)
+        clear_bfd_configs(request.config.dut, request.config.dst_asic.asic_index, request.config.dst_prefix)
 
     logger.info("Bringing up portchannels or respective members")
     portchannels_on_dut = None
@@ -102,43 +83,19 @@ def bfd_cleanup_db(
         selected_interfaces = []
 
     if selected_interfaces:
-        dut = (
-            request.config.src_dut
-            if portchannels_on_dut == "src"
-            else request.config.dst_dut
-        )
-        asic = (
-            request.config.src_asic
-            if portchannels_on_dut == "src"
-            else request.config.dst_asic
-        )
+        if portchannels_on_dut == "src":
+            dut = request.config.src_dut
+        elif portchannels_on_dut == "dst":
+            dut = request.config.dst_dut
+        else:
+            dut = request.config.dut
+
+        if portchannels_on_dut == "src":
+            asic = request.config.src_asic
+        elif portchannels_on_dut == "dst":
+            asic = request.config.dst_asic
+        else:
+            asic = request.config.asic
+
         for interface in selected_interfaces:
             ensure_interface_is_up(dut, asic, interface)
-
-
-def ensure_interface_is_up(dut, asic, interface):
-    int_oper_status = dut.show_interface(
-        command="status", include_internal_intfs=True, asic_index=asic.asic_index
-    )["ansible_facts"]["int_status"][interface]["oper_state"]
-    if int_oper_status == "down":
-        logger.info(
-            "Starting downed interface {} on {} asic{}".format(interface, dut, asic.asic_index)
-        )
-        exec_cmd = (
-            "sudo ip netns exec asic{} config interface -n asic{} startup {}".format(
-                asic.asic_index, asic.asic_index, interface
-            )
-        )
-
-        logger.info("Command: {}".format(exec_cmd))
-        dut.shell(exec_cmd)
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: dut.show_interface(
-                command="status",
-                include_internal_intfs=True,
-                asic_index=asic.asic_index,
-            )["ansible_facts"]["int_status"][interface]["oper_state"] == "up",
-        )

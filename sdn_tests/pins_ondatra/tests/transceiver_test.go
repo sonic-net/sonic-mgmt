@@ -77,7 +77,6 @@ func FindPresentOpticalTransceiver(t *testing.T, dut *ondatra.DUTDevice) (string
 // Check if a transceiver is optical by getting cable-length,
 // which should only be positive only for copper tranceivers.
 // If cable-length is 0, then the transceiver is optical.
-// Since cable-length is only defined in buzznik's
 // openconfig-platform-ext.yang which is unavailable to Ondatra,
 // it is necessary to use raw gNMI get.
 func IsOptical(gnmiClient gpb.GNMIClient, dut *ondatra.DUTDevice, xcvrName string) (bool, error) {

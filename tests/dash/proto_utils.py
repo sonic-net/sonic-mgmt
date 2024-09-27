@@ -18,7 +18,6 @@ from dash_api.acl_out_pb2 import AclOut
 from dash_api.acl_in_pb2 import AclIn
 from dash_api.acl_rule_pb2 import AclRule, Action
 from dash_api.prefix_tag_pb2 import PrefixTag
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 ENABLE_PROTO = True

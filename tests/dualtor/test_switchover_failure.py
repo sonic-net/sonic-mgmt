@@ -11,7 +11,6 @@ from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service  # noqa: F401
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_common import cable_type, CableType                                     # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 

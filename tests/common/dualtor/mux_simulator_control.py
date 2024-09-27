@@ -176,7 +176,7 @@ def _post(server_url, data):
     """
     try:
         session = Session()
-        if "allowed_methods" in inspect.getargspec(Retry).args:
+        if "allowed_methods" in inspect.signature(Retry).parameters:
             retry = Retry(total=3, connect=3, backoff_factor=1,
                           allowed_methods=frozenset(['GET', 'POST']),
                           status_forcelist=[x for x in requests.status_codes._codes if x != 200])
@@ -585,8 +585,7 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
             data['active_side']
         ))
         _post(mux_server_url, data)
-        time.sleep(5)
-        if _check_toggle_done(duthosts, target_dut_hostname):
+        if utilities.wait_until(15, 5, 0, _check_toggle_done, duthosts, target_dut_hostname, probe=True):
             is_toggle_done = True
             break
 

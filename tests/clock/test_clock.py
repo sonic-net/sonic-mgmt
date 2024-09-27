@@ -7,7 +7,6 @@ import datetime as dt
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -101,13 +100,13 @@ class ClockUtils:
         """
         with allure.step('Verify output of show clock'):
             try:
-                timezone_str = show_clock_output.split()[-1].strip()
+                timezone_str = show_clock_output.split()[-2].strip()
                 logging.info(f'Timezone str: "{timezone_str}"')
 
                 date_time_to_parse = show_clock_output.replace(timezone_str, '').strip()
                 logging.info(f'Time and date to parse: "{date_time_to_parse}"')
 
-                datetime_obj = dt.datetime.strptime(date_time_to_parse, '%a %d %b %Y %I:%M:%S %p')
+                datetime_obj = dt.datetime.strptime(date_time_to_parse, '%a %b %d %H:%M:%S %p %Y')
                 logging.info(f'Datetime object: "{datetime_obj}"\t|\tType: {type(datetime_obj)}')
             except ValueError:
                 pytest.fail(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
