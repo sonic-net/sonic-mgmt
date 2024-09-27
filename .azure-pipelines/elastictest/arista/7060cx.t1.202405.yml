@@ -4,13 +4,13 @@ trigger: none
 pr: none
 
 
-# schedules:
-#   - cron: "0 4 * * 5"
-#     displayName: Nightly Scheduler
-#     branches:
-#       include:
-#         - internal
-#     always: true
+schedules:
+  - cron: "0 4 * * 0,1,3,5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
 
 resources:
   repositories:
@@ -38,7 +38,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms6-t0-7060, vms63-t0-7060-1, vms63-t0-7060-2"
+    default: "vms63-t1-7060-3, vms6-t1-7060"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -47,21 +47,21 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "3"
+    default: "2"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202012_SLIM)
+    default: $(IMAGE_BRCM_ABOOT_202405_SLIM)
     displayName: "Image URL"
 
   - name: UPGRADE_IMAGE_PARAM
     type: string
-    default: ""
+    default: "--prev-url $(IMAGE_BRCM_ABOOT_202311_SLIM)"
     displayName: "Upgrade image parameter"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202012
+    default: internal-202405
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -80,23 +80,22 @@ parameters:
     default: " "
     displayName: "Scripts to be excluded"
 
-  # metadata-scripts relies on the change to clone sonic-metadata as a fixture which is not done, currently skip the feature
   - name: FEATURES_EXCLUDE
     type: string
-    default: "metadata-scripts"
+    default: "sub_port_interfaces"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_202012)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202405)"
     displayName: "Common test parameters"
 
-  - name: SPECIFIC_PARAM
+  - name: AFFINITY
     type: string
     default: '[
-      {"name": "metadata-scripts", "param": "--upgrade_type=warm,fast --base_image_list=$(IMAGE_BRCM_ABOOT_202012_SLIM).PREV.1,$(IMAGE_BRCM_ABOOT_201811) --target_image_list=$(IMAGE_BRCM_ABOOT_202012_SLIM) --metadata_process"}
+      {"name": "qos/test_qos_sai.py", "op": "NOT_ON", "value": ["vms63-t1-7060-3"]}
     ]'
-    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
+    displayName: "Test affinity, test module or feature name (e.g. 'bgp/test_bgp_fact.py')"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
@@ -111,7 +110,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7060cx.t0.202012.NightlyTest_by_Elastictest
+    displayName: 7060cx.t1.202405.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -128,6 +127,6 @@ stages:
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
-        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        AFFINITY: ${{ parameters.AFFINITY }}
