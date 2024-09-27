@@ -1,0 +1,40 @@
+
+#######################################
+#####            decap            #####
+#######################################
+decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
+  skip:
+    reason: "Not supported on sim and probably in hardware"
+
+#######################################
+#####        platform_tests       #####
+#######################################
+
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
+  skip:
+    reason: "Skip the test for sim"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_model:
+  skip:
+    reason: "Test is skipped on vxr since the model is not set in the ansible inventory properly"
+
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_serial:
+  skip:
+    reason: "Test is skipped on vxr since the serail is generated randomly in each run"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_base_mac:
+  skip:
+    reason: "Test is skipped on vxr since the mac is generated randomly in each run"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_get_system_eeprom_info:
+  skip:
+    reason: "Test is skipped on vxr, will be revisited later"
+
+platform_tests/api/test_chassis.py::TestChassisApi::test_thermals:
+  skip:
+    reason: "Test is skipped on vxr, will be revisited later"
+
+platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
+  skip:
+    reason: "Skip the test for sim, will be revisited later"

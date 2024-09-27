@@ -49,6 +49,9 @@ def _create_parser():
                       default=False)
     parser.add_argument('-dd', '--dut_data_file', type=str, help='path to file containing DUT acess info',
                       required=False,default=None)
+    parser.add_argument('--mark-conditions-files', type=str, 
+                        help='mark files to skip tests conditionaly, use comma seperated file names when specifying more than one file',
+                        required=False, default='common/plugins/conditional_mark/tests_mark_conditions.yaml') 
     return parser
 
 def run_exec_cmds(host,port,user,passwd,cmd_list):
@@ -110,7 +113,7 @@ def get_testcases(script_file, additional_tests=''):
 
     return tcs
 
-def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests='', run_options=''):
+def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests='', run_options='',mark_conditions_files=''):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -122,6 +125,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
     if build_id is None:
         build_id = 99999
     print("BUILD ID IS {}".format(build_id))
+    mark_conditions_file_opt = process_conditions_files(mark_conditions_files)
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
     tcs = get_testcases(script_file, additional_tests)
@@ -228,7 +232,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-        cmd = "./run_tests.sh -n {} {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,run_options,log_dir,tc,tc_name)
+        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,mark_conditions_file_opt,tc,tc_name)        
         os.system("bash -c '{}'".format(cmd))
 
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
@@ -311,7 +315,14 @@ def get_techsupport(dut_address, tc_name, dut_name, log_dir):
         print(f"An error occurred: {e}")
         return None
 
-def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data_file=None):
+def process_conditions_files(mark_conditions_files):
+    mark_conditions_file_opt = ""
+    for file in mark_conditions_files.split(","):
+        mark_conditions_file_opt+=' -e "--mark-conditions-files {}" '.format(file)
+
+    return mark_conditions_file_opt
+
+def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data_file=None, mark_conditions_files=''):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -323,6 +334,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
     if build_id is None:
         build_id = 99999
     print("BUILD ID IS {}".format(build_id))
+    mark_conditions_file_opt=process_conditions_files(mark_conditions_files)
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
     tcs = get_testcases(script_file, additional_tests)
@@ -441,7 +453,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-        cmd = "./run_tests.sh -n {} {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,run_options,log_dir,tc,tc_name)
+        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,mark_conditions_file_opt,tc,tc_name)        
         os.system("bash -c '{}'".format(cmd))
         failed = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
         error = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
@@ -531,7 +543,7 @@ def main():
     additional_tests = args['additional_tests']
     skip_sanity = args['skip_sanity']
     dut_data_file = args['dut_data_file']
-
+    mark_conditions_files = args['mark_conditions_files']
     run_options = ''
     if device_type == 'sherman':
         dut_name = 'sherman-01'
@@ -567,12 +579,12 @@ def main():
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,dut_data_file=dut_data_file,run_options=run_options,additional_tests=additional_tests)
+            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,dut_data_file=dut_data_file,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files)
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address,run_options=run_options,additional_tests=additional_tests)
+            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files)
 
         #run_scripts(dut_name,script_file,drop_version,log_dir,tstamp)
 
