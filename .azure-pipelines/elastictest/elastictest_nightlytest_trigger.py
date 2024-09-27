@@ -17,7 +17,7 @@ ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN", None)
 # Elastictest Nightly Test (Centralized) Pipeline ID
 PIPELINE_YAML_BRANCH = "refs/heads/internal"
 # Trigger Nightly Test Time Window, Please set same as Nightly Test Trigger schedule
-TIME_WINDOW_INTERVAL = 10  # minutes
+TIME_WINDOW_INTERVAL = 30  # minutes
 # Centralized nightly tests csv file
 NIGHTLYTEST_FILE = "elastictest_nightlytests.csv"
 
@@ -74,13 +74,15 @@ def trigger_pipeline(pipeline_info):
             "MIN_WORKER": pipeline_info["min_worker"],
             "MAX_WORKER": pipeline_info["max_worker"],
             "IMAGE_URL": pipeline_info["image_url"],
+            "UPGRADE_IMAGE_PARAM": pipeline_info["upgrade_image_param"] if pipeline_info["upgrade_image_param"] else " ",
+            "DEPLOY_MG_EXTRA_PARAMS": pipeline_info["deploy_mg_param"] if pipeline_info["deploy_mg_param"] else " ",
             "MGMT_BRANCH": pipeline_info["mgmt_branch"],
             "SCRIPTS": pipeline_info["scripts"] if pipeline_info["scripts"] else " ",
             "FEATURES": pipeline_info["features"] if pipeline_info["features"] else " ",
             "SCRIPTS_EXCLUDE": pipeline_info["scripts_exclude"] if pipeline_info["scripts_exclude"] else " ",
             "FEATURES_EXCLUDE": pipeline_info["features_exclude"] if pipeline_info["features_exclude"] else " ",
             "COMMON_EXTRA_PARAMS": pipeline_info["common_extra_params"] if pipeline_info["common_extra_params"] else " ",
-            "SPECIFIC_PARAM": pipeline_info["specific_param"].replace("'", "\"") if pipeline_info["specific_param"] else " ",
+            "SPECIFIC_PARAM": pipeline_info["specific_param"].replace("'", "\"") if pipeline_info["specific_param"] else "[]",
             "MAX_RUN_TEST_MINUTES": pipeline_info["max_run_test_minutes"],
             "AFFINITY": pipeline_info["affinity"].replace("'", "\"") if pipeline_info["affinity"] else "[]"
         },
