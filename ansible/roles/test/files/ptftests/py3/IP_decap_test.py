@@ -501,7 +501,6 @@ class DecapPacketTest(BaseTest):
                             if ptf_port_info['target_dut'][0] != 0:
                                 ptf_non_upstream_ports.append(ptf_port)
                         src_port = int(random.choice(ptf_non_upstream_ports))
- 
                 logging.info('src_port={}, exp_port_lists={}, active_dut_index={}'.format(
                     src_port, exp_port_lists, active_dut_indexes))
                 break
