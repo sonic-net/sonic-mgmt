@@ -8,7 +8,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
     check_services, install_sonic, multi_hop_warm_upgrade_test_helper
 from tests.platform_tests.conftest import multihop_advanceboot_loganalyzer_factory
-from tests.platform_tests.verify_dut_health import verify_dut_health, check_neighbors   # lgtm[py/unused-import]
+from tests.common.platform.device_utils import verify_dut_health, check_neighbors
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from postupgrade_helper import run_postupgrade_actions
 from utilities import cleanup_prev_images, set_base_image_a, sonic_update_firmware

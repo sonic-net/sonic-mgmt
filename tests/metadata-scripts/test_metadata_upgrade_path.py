@@ -7,10 +7,9 @@ from tests.common import reboot
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, add_pfc_storm_table
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
-from tests.platform_tests.conftest import advanceboot_loganalyzer, advanceboot_neighbor_restore
+from tests.common.platform.device_utils import advanceboot_loganalyzer, advanceboot_neighbor_restore, verify_dut_health
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
-from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
-from tests.platform_tests.verify_dut_health import verify_dut_health        # lgtm[py/unused-import]
+from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot  # lgtm[py/unused-import]
 
 pytestmark = [
