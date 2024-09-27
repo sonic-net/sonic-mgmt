@@ -30,15 +30,27 @@ However, this method triggers pytest's collection process for each script,
 leading to unnecessary time consumption.
 
 Another approach is to collect and analyze all scripts before execution.
-We will maintain a set of test scripts for each topology,
-allowing us to select relevant scripts based on the corresponding topology set within the change scope.
+Each script includes the `pytest.mark.topology` marker to indicate the applicable topology it can run on.
+We will perform a global scan of all test scripts to identify this marker and extract its value,
+which represents the topology type compatible with the script.
+After determining the valid topology for each script,
+we will group them accordingly and maintain a set of test scripts for each topology.
+Then, in each PR checker, we will select relevant scripts in the set within the change scope.
 This method eliminates unnecessary processes by executing only the on-demand scripts,
 resulting in reduced running time.
 
+
 ### To schedule instances automatically
-We will dynamically allocate instances based on the number of scripts each PR checker executes.
-By analyzing the running time of each script from previous runs,
-we will allocate instances proportional to the total execution time for each PR checker.
+Our goal is to complete the entire PR test within 2 hours.
+In the current PR test, each checker uses a fixed number of instances.
+However, in the new simplified test, the number of scripts executed varies,
+so the number of instances should be dynamically adjusted for cost efficiency.
+The number of instances we allocate will be determined by the total estimated execution time of the scripts that need to be run.
+We can leverage historical data to obtain the average running time of each script from previous test executions.
+Using this information, we will evenly distribute the scripts across instances,
+ensuring that the workload is balanced of each instance.
+Ideally, each instance will run its assigned scripts in approximately 1.5 hours.
+
 
 ## Benefits
 This new simplified PR test will run on demand, reducing both time and cost efficiently.
