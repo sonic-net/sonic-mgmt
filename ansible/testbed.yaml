@@ -3244,19 +3244,33 @@
   auto_recover: 'True'
   comment: Beijing Lab
 
-- conf-name: testbed-bjw2-can-dual-t0-8102-1
+- conf-name: testbed-bjw2-can-t0-8102-5
   group-name: bjw2-5-4
-  topo: dualtor-aa
+  topo: t0-64
   ptf_image_name: docker-ptf
   ptf: bjw2-5-4
   ptf_ip: 10.150.23.110/23
   ptf_ipv6: 2404:f801:10:2200::a96:176e/52
   ptf_extra_mgmt_ip: ["172.16.188.110/17"]
-  netns_mgmt_ip: 10.150.23.47/23
   server: server_bjw2_5
   vm_base: VM85083
   dut:
     - bjw2-can-8102-5
+  inv_name: bjw2
+  auto_recover: 'True'
+  comment: Beijing Lab
+
+- conf-name: testbed-bjw2-can-t0-8102-6
+  group-name: bjw2-5-7
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: bjw2-5-7
+  ptf_ip: 10.150.23.115/23
+  ptf_ipv6: 2404:f801:10:2200::a96:1773/52
+  ptf_extra_mgmt_ip: ["172.16.188.115/17"]
+  server: server_bjw2_5
+  vm_base: VM85115
+  dut:
     - bjw2-can-8102-6
   inv_name: bjw2
   auto_recover: 'True'

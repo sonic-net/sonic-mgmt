@@ -102,7 +102,7 @@ def set_base_image_a(duthost, localhost, base_image, tbinfo):
     reboot_type = 'hard' if "s6100" in duthost.facts["platform"] else 'cold'
     reboot(duthost, localhost, reboot_type=reboot_type)
     check_sonic_version(duthost, target_version)
-    if "201811" in target_version:
+    if "201811" in target_version or "201911" in target_version:
         fix_forced_mgmt_routes_config(duthost)
 
 

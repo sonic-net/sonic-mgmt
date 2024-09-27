@@ -22,7 +22,7 @@ from scapy.layers.dhcp6 import DHCP6_Solicit
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
 from mx_utils import create_vlan, get_vlan_config, remove_all_vlans
 from config.generate_acl_rules import (
     acl_entry,

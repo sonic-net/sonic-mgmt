@@ -8210,6 +8210,14 @@ vms_bjw2_5:
       ansible_host: 172.16.207.113
     VM85114:
       ansible_host: 172.16.207.114
+    VM85115:
+      ansible_host: 172.16.207.115
+    VM85116:
+      ansible_host: 172.16.207.116
+    VM85117:
+      ansible_host: 172.16.207.117
+    VM85118:
+      ansible_host: 172.16.207.118
 
 vms_bjw2_6:
   hosts:
