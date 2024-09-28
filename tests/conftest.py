@@ -2388,13 +2388,8 @@ def core_dump_and_config_check(duthosts, tbinfo,
             logger.info("Core dump and config check passed for {}".format(module_name))
 
     if check_result:
-        items = request.session.items
-        for item in items:
-            if item.module.__name__ + ".py" == module_name.split("/")[-1]:
-                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': {
-                    'core_dump_check_pass': core_dump_check_pass,
-                    'config_db_check_pass': config_db_check_pass
-                }})))
+        request.config.cache.set("core_dump_check_pass", core_dump_check_pass)
+        request.config.cache.set("config_db_check_pass", config_db_check_pass)
 
 
 @pytest.fixture(scope="function")

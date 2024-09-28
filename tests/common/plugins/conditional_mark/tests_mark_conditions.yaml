@@ -1202,6 +1202,13 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      conditions:
         - "asic_type in ['cisco-8000']"
 
+pfcwd/test_pfcwd_all_port_storm.py:
+   skip:
+     reason: "Slow pfc generation rate on 7060x6 200Gb,
+              pfc generation function on the Arista fanout device need to be improved by Arista"
+     conditions:
+      - "hwsku in ['Arista-7060X6-64PE-256x200G']"
+
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
      reason: "This test is applicable only for cisco-8000"
@@ -1740,6 +1747,15 @@ test_pktgen.py:
     conditions:
       - "asic_type not in ['cisco-8000']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/13804"
+
+#######################################
+#####         vs_chassis          #####
+#######################################
+test_vs_chassis_setup.py:
+  skip:
+    reason: "Skip vs_chassis setup on non-vs testbeds"
+    conditions:
+      - "asic_type not in ['vs']"
 
 #######################################
 #####            vlan             #####
