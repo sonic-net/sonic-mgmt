@@ -56,7 +56,8 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "nn_target_interface",
                                   "nn_target_namespace",
                                   "send_rate_limit",
-                                  "nn_target_vlanid"])
+                                  "nn_target_vlanid",
+                                  "topo_type"])
 
 _TOR_ONLY_PROTOCOL = ["DHCP", "DHCP6"]
 _TEST_RATE_LIMIT_DEFAULT = 600
@@ -290,7 +291,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True, skip_
               "send_rate_limit": test_params.send_rate_limit,
               "has_trap": has_trap,
               "hw_sku": dut.facts["hwsku"],
-              "asic_type": dut.facts["asic_type"]}
+              "asic_type": dut.facts["asic_type"],
+              "topo_type": test_params.topo_type}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
@@ -326,6 +328,7 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
     swap_syncd = request.config.getoption("--copp_swap_syncd")
     send_rate_limit = request.config.getoption("--send_rate_limit")
     topo = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
     mg_fact = duts_minigraph_facts[duthost.hostname]
 
     port_index_map = {}
@@ -375,7 +378,8 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                                nn_target_interface=nn_target_interface,
                                nn_target_namespace=nn_target_namespace,
                                send_rate_limit=send_rate_limit,
-                               nn_target_vlanid=nn_target_vlanid)
+                               nn_target_vlanid=nn_target_vlanid,
+                               topo_type=topo_type)
 
 
 def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_backend_topology):
