@@ -255,7 +255,7 @@
   - name: find all interface indexes connecting to VM
     set_fact:
       ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes'][dut_index|int] }}"
-    with_dict: "{{ vm_topo_config['vm'] | combine(vm_topo_config['dpu'] | default({})) }}"
+    with_dict: "{{ vm_topo_config['vm'] }}"
     when: "'cable' not in topo"
 
   - name: find all interface names
