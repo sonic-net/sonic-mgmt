@@ -1,12 +1,12 @@
-import logging
 import json
+import logging
+import math
 import time
 import uuid
-import math
 from functools import lru_cache
-import pytest
 
 import proto_utils
+import pytest
 
 logger = logging.getLogger(__name__)
 
@@ -339,16 +339,17 @@ def apply_messages(
     env = GNMIEnvironment(duthost)
     update_list = []
     delete_list = []
-    for i, (key, message) in enumerate(messages.items()):
+    for i, (key, config_dict) in enumerate(messages.items()):
+        message = proto_utils.parse_dash_proto(key, config_dict)
         keys = key.split(":", 1)
-        k = keys[0] + "[key=" + keys[1] + "]"
+        gnmi_key = keys[0] + "[key=" + keys[1] + "]"
         filename = f"update{i}"
 
         if set:
             if proto_utils.ENABLE_PROTO:
-                path = f"/APPL_DB/dpu{dpu_index}/{k}:$/root/{filename}"
+                path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}:$/root/{filename}"
             else:
-                path = f"/APPL_DB/dpu{dpu_index}/{k}:@/root/{filename}"
+                path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}:@/root/{filename}"
             with open(env.work_dir + filename, "wb") as file:
                 file.write(message.SerializeToString())
             update_list.append(path)

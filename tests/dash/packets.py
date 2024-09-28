@@ -1,18 +1,18 @@
-from ipaddress import ip_address
-
-import ptf.packet as scapy
-import scapy.utils as scapy_utils
-from ptf.mask import Mask
-import ptf.testutils as testutils
-from ptf.dataplane import match_exp_pkt
-from constants import *  # noqa: F403
 import logging
 import sys
 import time
-from tests.common.helpers.assertions import pytest_assert
-from six import StringIO
-from configs import privatelink_config as pl
+from ipaddress import ip_address
 
+import ptf.packet as scapy
+import ptf.testutils as testutils
+import scapy.utils as scapy_utils
+from configs import privatelink_config as pl
+from constants import *  # noqa: F403
+from ptf.dataplane import match_exp_pkt
+from ptf.mask import Mask
+from six import StringIO
+
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -105,22 +105,20 @@ def outbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
     exp_inner_packet[scapy.UDP] = inner_packet[scapy.UDP]
 
     exp_encap_packet = testutils.simple_gre_packet(
+        eth_src=config[DUT_MAC],
         ip_src=pl.PL_UNDERLAY_SIP1,
         ip_dst=pl.OUTBOUND_UNDERLAY_IP,
         gre_key_present=True,
-        gre_key=pl.ENCAP_VNI,
+        gre_key=pl.ENCAP_VNI << 8,
         inner_frame=exp_inner_packet,
         ip_id=0,
         ip_ttl=63,
     )
 
     masked_exp_packet = Mask(exp_encap_packet)
-    masked_exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
-    masked_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
-    masked_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
-
-    # Temporarily ignore GRE key
-    masked_exp_packet.set_do_not_care_scapy(scapy.GRE, "key")
+    masked_exp_packet.set_do_not_care_packet(scapy.Ether, "src")
+    masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
+    masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
 
     return vxlan_packet, masked_exp_packet
 

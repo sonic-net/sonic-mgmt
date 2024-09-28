@@ -1,17 +1,5 @@
-import base64
-import socket
-import uuid
-from ipaddress import ip_address as IP
-
-from dash_api.appliance_pb2 import Appliance
-from dash_api.vnet_pb2 import Vnet
-from dash_api.eni_pb2 import Eni, State
-from dash_api.eni_route_pb2 import EniRoute
-from dash_api.route_pb2 import Route
-from dash_api.vnet_mapping_pb2 import VnetMapping
-from dash_api.route_type_pb2 import RouteType, RoutingType, ActionType, EncapType
-from dash_api.route_group_pb2 import RouteGroup
-from google.protobuf.json_format import ParseDict
+from dash_api.eni_pb2 import State
+from dash_api.route_type_pb2 import ActionType, EncapType, RoutingType
 
 VNET_ENCAP = "vnet_encap"
 VNET_DIRECT = "vnet_direct"
@@ -51,125 +39,84 @@ ROUTE_GROUP2 = "RouteGroup2"
 ROUTE_GROUP1_GUID = "48af6ce8-26cc-4293-bfa6-0126e8fcdeb2"
 ROUTE_GROUP2_GUID = "58cf62e0-22cc-4693-baa6-012358fcdec9"
 
+
 APPLIANCE_CONFIG = {
-    f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}":
-        ParseDict({
-            "sip": {
-                "ipv4": socket.htonl(int(IP(SIP)))
-            },
-            "vm_vni": int(VM_VNI)
-        }, Appliance())
+    f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
+        "sip": SIP,
+        "vm_vni": VM_VNI
+    }
 }
 
 VNET_CONFIG = {
-    f"DASH_VNET_TABLE:{VNET1}":
-        ParseDict({
-            "vni": VNET1_VNI,
-            "guid": {
-                "value": base64.b64encode(bytes.fromhex(uuid.UUID(VNET1_GUID).hex))
-            }
-        }, Vnet())
+    f"DASH_VNET_TABLE:{VNET1}": {
+        "vni": VNET1_VNI,
+        "guid": VNET1_GUID
+    }
 }
 
 ENI_CONFIG = {
-    f"DASH_ENI_TABLE:{ENI_ID}":
-        ParseDict({
-            "vnet": VNET1,
-            "underlay_ip": {
-                "ipv4": socket.htonl(int(IP(INBOUND_UNDERLAY_IP)))
-            },
-            "mac_address": base64.b64encode(bytes.fromhex(ENI_MAC_STRING)),
-            "eni_id": ENI_ID,
-            "admin_state": State.STATE_ENABLED,
-            "pl_underlay_sip": {
-                "ipv4": socket.htonl(int(IP(PL_UNDERLAY_SIP1)))
-            },
-            "pl_sip_encoding": {
-                "ip": {
-                    "ipv6": base64.b64encode(IP(PL_ENCODING_IP).packed)
-                },
-                "mask": {
-                    "ipv6": base64.b64encode(IP(PL_ENCODING_MASK).packed)
-                }
-            }
-        }, Eni())
+    f"DASH_ENI_TABLE:{ENI_ID}": {
+        "vnet": VNET1,
+        "underlay_ip": INBOUND_UNDERLAY_IP,
+        "mac_address": ENI_MAC,
+        "eni_id": ENI_ID,
+        "admin_state": State.STATE_ENABLED,
+        "pl_underlay_sip": PL_UNDERLAY_SIP1,
+        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}"
+    }
 }
 
 VNET_MAPPING_CONFIG = {
-    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VNET_MAP_IP1}":
-        ParseDict({
-            "mac_address": base64.b64encode(bytes.fromhex(REMOTE_MAC_STRING)),
-            "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
-            "underlay_ip": {
-                "ipv4": socket.htonl(int(IP(OUTBOUND_UNDERLAY_IP)))
-            },
-            "overlay_sip_prefix": {
-                "ip": {
-                    "ipv6": base64.b64encode(IP(PL_OVERLAY_SIP).packed)
-                },
-                "mask": {
-                    "ipv6": base64.b64encode(IP(PL_OVERLAY_SIP_MASK).packed)
-                }
-            },
-            "overlay_dip_prefix": {
-                "ip": {
-                    "ipv6": base64.b64encode(IP(PL_OVERLAY_DIP).packed)
-                },
-                "mask": {
-                    "ipv6": base64.b64encode(IP(PL_OVERLAY_DIP_MASK).packed)
-                }
-            },
-        }, VnetMapping())
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VNET_MAP_IP1}": {
+        "mac_address": REMOTE_MAC_STRING,
+        "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
+        "underlay_ip": OUTBOUND_UNDERLAY_IP,
+        "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
+        "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+    }
 }
 
 ROUTE_VNET_CONFIG = {
-    f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{OUTBOUND_ROUTE_PREFIX1}":
-        ParseDict({
-            "routing_type": RoutingType.ROUTING_TYPE_VNET,
-            "vnet": VNET1,
-        }, Route())
+    f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{OUTBOUND_ROUTE_PREFIX1}": {
+        "routing_type": RoutingType.ROUTING_TYPE_VNET,
+        "vnet": VNET1,
+    }
 }
 
 ROUTE_VNET_CONFIG_UNDERLAY_SIP = {
-    f"DASH_ROUTE_TABLE:{ROUTE_GROUP2}:{OUTBOUND_ROUTE_PREFIX2}":
-        ParseDict({
-            "routing_type": RoutingType.ROUTING_TYPE_VNET,
-            "vnet": VNET1,
-            "underlay_sip": {
-                "ipv4": socket.htonl(int(IP(PL_UNDERLAY_SIP2)))
-            }
-        }, Route())
+    f"DASH_ROUTE_TABLE:{ROUTE_GROUP2}:{OUTBOUND_ROUTE_PREFIX2}": {
+        "routing_type": RoutingType.ROUTING_TYPE_VNET,
+        "vnet": VNET1,
+        "underlay_sip": PL_UNDERLAY_SIP2,
+    }
 }
 
 ROUTING_TYPE_PL_CONFIG = {
-    f"DASH_ROUTING_TYPE_TABLE:{PRIVATELINK}":
-        ParseDict({
-            "items": [
-                {
-                    "action_name": "action1",
-                    "action_type": ActionType.ACTION_TYPE_4_to_6
-                },
-                {
-                    "action_name": "action2",
-                    "action_type": ActionType.ACTION_TYPE_STATICENCAP,
-                    "encap_type": EncapType.ENCAP_TYPE_NVGRE,
-                    "vni": ENCAP_VNI
-                }
-            ]
-        }, RouteType())
+    f"DASH_ROUTING_TYPE_TABLE:{PRIVATELINK}": {
+        "items": [
+            {
+                "action_name": "action1",
+                "action_type": ActionType.ACTION_TYPE_4_to_6
+            },
+            {
+                "action_name": "action2",
+                "action_type": ActionType.ACTION_TYPE_STATICENCAP,
+                "encap_type": EncapType.ENCAP_TYPE_NVGRE,
+                "vni": ENCAP_VNI
+            }
+        ]
+    }
 }
 
 ROUTE_GROUP1_CONFIG = {
-    f"DASH_ROUTE_GROUP_TABLE:{ROUTE_GROUP1}":
-        ParseDict({
-            "guid": ROUTE_GROUP1_GUID,
-            "version": "rg_version"
-        }, RouteGroup())
+    f"DASH_ROUTE_GROUP_TABLE:{ROUTE_GROUP1}": {
+        "guid": ROUTE_GROUP1_GUID,
+        "version": "rg_version"
+    }
 }
 
 ENI_ROUTE_GROUP1_CONFIG = {
-    f"DASH_ENI_ROUTE_TABLE:{ENI_ID}":
-        ParseDict({
-            "group_id": ROUTE_GROUP1
-        }, EniRoute())
+    f"DASH_ENI_ROUTE_TABLE:{ENI_ID}": {
+        "group_id": ROUTE_GROUP1
+    }
 }

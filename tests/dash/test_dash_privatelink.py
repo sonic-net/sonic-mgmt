@@ -1,11 +1,12 @@
-import pytest
+import logging
+from ipaddress import ip_interface
+
 import configs.privatelink_config as pl
+import ptf.testutils as testutils
+import pytest
+from constants import LOCAL_PTF_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
-import ptf.testutils as testutils
-from constants import LOCAL_PTF_INTF
-from ipaddress import ip_interface
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,8 @@ def add_dpu_static_route(duthost, dpu_ip):
     duthost.shell(f"ip route del {pl.SIP}")
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def common_setup_teardown(localhost, duthost, ptfhost, dpu_index):
-    logger.info("Programming DPU through gNMI")
-    logger.info("DPU configs:")
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
     apply_messages(localhost, duthost, ptfhost, pl.ROUTING_TYPE_PL_CONFIG, dpu_index)
     messages = {
@@ -56,12 +55,7 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index):
 
 def test_privatelink_basic_transform(
     ptfadapter,
-    common_setup_teardown,
     dash_pl_config,
-    localhost,
-    duthost,
-    ptfhost,
-    dpu_index,
     minigraph_facts,
     config_facts,
 ):
@@ -74,5 +68,6 @@ def test_privatelink_basic_transform(
     expected_ptf_ports = [minigraph_facts["minigraph_ptf_indices"][port] for port in member_ports]
     logger.info(f"Expecting transformed packet on PTF ports: {expected_ptf_ports}")
     pkt, exp_pkt = outbound_pl_packets(dash_pl_config)
+    ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], pkt, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, expected_ptf_ports)
