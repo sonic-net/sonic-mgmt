@@ -419,7 +419,7 @@ def find_longest_matches(nodeid, conditions):
     for condition in conditions:
         # condition is a dict which has only one item, so we use condition.keys()[0] to get its key.
         if nodeid.startswith(list(condition.keys())[0]):
-            length = len(list(condition.keys())[0])
+            length = len(condition)
             if length > max_length:
                 max_length = length
                 longest_matches = []
