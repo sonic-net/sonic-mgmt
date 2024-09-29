@@ -51,9 +51,15 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
     CopperCableIgnoreRegex = [
         ".* ERR pmon#xcvrd.*no suitable app for the port appl.*host_lane_count.*host_speed.*"
     ]
+    # Ignore time span WD exceeded error, and contextual log event messages
+    SAISwitchIgnoreRegex = [
+        ".* ERR syncd.*#syncd.*logEventData:.*SAI_SWITCH_ATTR.*",
+        ".* ERR syncd.*#syncd.*logEventData:.*SAI_OBJECT_TYPE_SWITCH.*"
+    ]
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is enabled
         loganalyzer[duthost.hostname].ignore_regex.extend(CopperCableIgnoreRegex)
+        loganalyzer[duthost.hostname].ignore_regex.extend(SAISwitchIgnoreRegex)
 
 
 @pytest.fixture(autouse=True, scope="module")
