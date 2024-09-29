@@ -528,6 +528,18 @@ dualtor_io/test_link_failure.py::test_standby_link_down_upstream:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor_mgmt/test_server_failure.py::test_server_reboot_active_active:
+  skip:
+    reason: "KVM testbed does not have fanout hosts"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_mgmt/test_server_failure.py::test_server_reboot_active_standby:
+  skip:
+    reason: "KVM testbed does not have fanout hosts"
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####         dut_console         #####
 #######################################

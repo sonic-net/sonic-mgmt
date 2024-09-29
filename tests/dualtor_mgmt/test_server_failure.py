@@ -13,7 +13,8 @@ from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                    # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host                                          # noqa F401
 from tests.common.dualtor.dual_tor_utils import lower_tor_host                                          # noqa F401
-from tests.common.dualtor.dual_tor_utils import shutdown_fanout_tor_intfs                               # noqa F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_fanouthosts, shutdown_fanout_lower_tor_intfs  # noqa F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_fanouthosts, shutdown_fanout_upper_tor_intfs  # noqa F401
 from tests.common.dualtor.nic_simulator_control import simulator_server_down_active_active              # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 run_icmp_responder                                      # noqa: F401
@@ -96,23 +97,25 @@ def test_server_down(cable_type, duthosts, tbinfo, active_active_ports, active_s
                       "mux_cable status is unexpected. Should be (standby, unhealthy)")
 
 
-def toggle_fanout_port_state_and_verify_interface_state(interface_name,
-                                                        upper_tor, lower_tor):
+def toggle_fanout_port_state_and_verify_interface_state(interface_name, upper_tor,
+                                                        lower_tor,
+                                                        shutdown_fanout_upper_tor_intfs_fn,
+                                                        shutdown_fanout_lower_tor_intfs_fn):
     # simulate server restart by shutting down fanout port.
-    shutdown = shutdown_fanout_tor_intfs()
-    shutdown(upper=True, lower=True)
-    pytest_assert(wait_until(30, 1, 0, expect_interface_status(upper_tor, interface_name, 'down')),
+    shutdown_fanout_upper_tor_intfs_fn()
+    shutdown_fanout_lower_tor_intfs_fn()
+    pytest_assert(wait_until(30, 1, 0, expect_interface_status, upper_tor, interface_name, 'down'),
                   f'{interface_name} on upper ToR is expected to be down after server shutdown')
-    pytest_assert(wait_until(30, 1, 0, expect_interface_status(lower_tor, interface_name, 'down')),
+    pytest_assert(wait_until(30, 1, 0, expect_interface_status, lower_tor, interface_name, 'down'),
                   f'{interface_name} on lower ToR is expected to be down after server shutdown')
 
 
-@pytest.mark.enable_active_standby
 def test_server_reboot_active_standby(cable_type, start_icmp_responder, shutdown_icmp_responder,  # noqa: F811
                                       active_standby_ports, tbinfo,                               # noqa: F811
                                       upper_tor_host, lower_tor_host,                             # noqa: F811
                                       toggle_simulator_port_to_upper_tor,                         # noqa: F811
-                                      shutdown_fanout_tor_intfs):                                 # noqa: F811
+                                      shutdown_fanout_upper_tor_intfs,                            # noqa: F811
+                                      shutdown_fanout_lower_tor_intfs):                           # noqa: F811
 
     """
     Test verifies that TOR health returns back to healthy status after a server reboot.
@@ -132,11 +135,13 @@ def test_server_reboot_active_standby(cable_type, start_icmp_responder, shutdown
 
         # simulate server reboot by toggling fanout port on both the ToRs
         toggle_fanout_port_state_and_verify_interface_state(interface_name, upper_tor_host,
-                                                            lower_tor_host)
+                                                            lower_tor_host,
+                                                            shutdown_fanout_upper_tor_intfs,
+                                                            shutdown_fanout_lower_tor_intfs)
         # fanout ports are back on
-        pytest_assert(wait_until(30, 1, 0, expect_interface_status(upper_tor_host, interface_name, 'up')),
+        pytest_assert(wait_until(30, 1, 0, expect_interface_status, upper_tor_host, interface_name, 'up'),
                       f'{interface_name} on upper ToR is expected to be down after server shutdown')
-        pytest_assert(wait_until(30, 1, 0, expect_interface_status(lower_tor_host, interface_name, 'up')),
+        pytest_assert(wait_until(30, 1, 0, expect_interface_status, lower_tor_host, interface_name, 'up'),
                       f'{interface_name} on lower ToR is expected to be down after server shutdown')
 
         # The ToRs must then reconcile to a consistent state
@@ -145,12 +150,12 @@ def test_server_reboot_active_standby(cable_type, start_icmp_responder, shutdown
                           expected_standby_health=lower_tor_host, cable_type=cable_type)
 
 
-@pytest.mark.enable_active_active
 def test_server_reboot_active_active(cable_type, start_icmp_responder, shutdown_icmp_responder,  # noqa: F811
                                      active_active_ports, tbinfo,                                # noqa: F811
                                      upper_tor_host, lower_tor_host,                             # noqa: F811
                                      toggle_simulator_port_to_upper_tor,                         # noqa: F811
-                                     shutdown_fanout_tor_intfs):                                 # noqa: F811
+                                     shutdown_fanout_upper_tor_intfs,                            # noqa: F811
+                                     shutdown_fanout_lower_tor_intfs):                           # noqa: F811
     """
     Test verifies that TOR health returns back to healthy status after a server reboot.
     """
@@ -173,12 +178,14 @@ def test_server_reboot_active_active(cable_type, start_icmp_responder, shutdown_
 
         # simulate server reboot by toggling fanout port on both the ToRs
         toggle_fanout_port_state_and_verify_interface_state(interface_name, upper_tor_host,
-                                                            lower_tor_host)
+                                                            lower_tor_host,
+                                                            shutdown_fanout_upper_tor_intfs,
+                                                            shutdown_fanout_lower_tor_intfs)
 
         # fanout ports are back on
-        pytest_assert(wait_until(30, 1, 0, expect_interface_status(upper_tor_host, interface_name, 'up')),
+        pytest_assert(wait_until(30, 1, 0, expect_interface_status, upper_tor_host, interface_name, 'up'),
                       f'{interface_name} on upper ToR is expected to be down after server shutdown')
-        pytest_assert(wait_until(30, 1, 0, expect_interface_status(lower_tor_host, interface_name, 'up')),
+        pytest_assert(wait_until(30, 1, 0, expect_interface_status, lower_tor_host, interface_name, 'up'),
                       f'{interface_name} on lower ToR is expected to be down after server shutdown')
 
         start_icmp_responder()
