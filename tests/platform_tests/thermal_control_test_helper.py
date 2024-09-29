@@ -120,7 +120,7 @@ def mocker_factory(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
                 mocker_object = mocker_type(dut)
                 mockers.append(mocker_object)
         else:
-            pytest.skip("No mocker defined for this platform %s")
+            pytest.skip("No mocker defined for this platform {}".format(platform))
         return mocker_object
 
     yield _create_mocker

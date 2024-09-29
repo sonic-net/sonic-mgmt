@@ -270,8 +270,6 @@
           <Type>EverflowV6</Type>
         </AclInterface>
 {% if enable_data_plane_acl|default('true')|bool and vm_topo_config['topo_type'] != 'wan' %}
-        <AclInterface>
-          <AttachTo>
 {%- set acl_intfs = [] -%}
 {%- for index in range(vms_number) %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
@@ -287,11 +285,15 @@
 {% endif %}
 {% endif %}
 {% endfor -%}
+{%- if acl_intfs | length > 0 -%}
+        <AclInterface>
+          <AttachTo>
 {{- acl_intfs|join(';') -}}
           </AttachTo>
           <InAcl>DataAcl</InAcl>
           <Type>DataPlane</Type>
         </AclInterface>
+{% endif %}
 {% endif %}
 {% endif %}
 {% endif %}

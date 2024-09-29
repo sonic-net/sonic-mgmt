@@ -33,6 +33,7 @@ from tests.common import config_reload, constants
 from tests.common.system_utils import docker
 from tests.common.reboot import reboot
 from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release_for_platform
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import find_duthost_on_role
@@ -90,6 +91,9 @@ class TestCOPP(object):
             that have a set rate limit.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        # Skip LLDP/UDLD on Cisco platform(till queue4_group3 issue is fixed)
+        if protocol in ["LLDP", "UDLD"]:
+            skip_release_for_platform(duthost, ["202311"], ["8101", "8111"])
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
@@ -145,6 +149,9 @@ class TestCOPP(object):
         4. Verify the trap status is uninstalled by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        if (duthost.facts["asic_type"] == "cisco-8000"):
+            logger.info("Sleep 120 seconds for Cisco platform")
+            time.sleep(120)
 
         if self.trap_id == "bgp":
             logger.info("Uninstall trap ip2me")
@@ -280,7 +287,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "peerip": test_params.peerip,
               "send_rate_limit": test_params.send_rate_limit,
               "has_trap": has_trap,
-              "hw_sku": dut.facts["hwsku"]}
+              "hw_sku": dut.facts["hwsku"],
+              "asic_type": dut.facts["asic_type"]}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),

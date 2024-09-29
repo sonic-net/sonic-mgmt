@@ -5,7 +5,7 @@ This script is to cover the test case 'Reload configuration' in the SONiC platfo
 https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan.md
 """
 import logging
-
+import time
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
@@ -110,12 +110,42 @@ def check_database_status(duthost):
     return True
 
 
+def execute_config_reload_cmd(duthost, timeout=120, check_interval=5):
+    start_time = time.time()
+    _, res = duthost.shell("sudo config reload -y",
+                           executable="/bin/bash",
+                           module_ignore_errors=True,
+                           module_async=True)
+
+    while not res.ready():
+        elapsed_time = time.time() - start_time
+        if elapsed_time > timeout:
+            logging.info("Config reload command did not complete within {} seconds".format(timeout))
+            return False, None
+
+        logging.debug("Waiting for config reload command to complete. Elapsed time: {} seconds.".format(elapsed_time))
+        time.sleep(check_interval)
+
+    if res.successful():
+        result = res.get()
+        logging.debug("Config reload command result: {}".format(result))
+        return True, result
+    else:
+        logging.info("Config reload command execution failed: {}".format(res))
+        return False, None
+
+
 def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname, delayed_services,
                                      localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to test various system checks in config reload
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    hwsku = duthost.facts["hwsku"]
+
+    config_reload_timeout = 120
+    if hwsku in ["Nokia-M0-7215", "Nokia-7215"]:
+        config_reload_timeout = 180
 
     if not config_force_option_supported(duthost):
         return
@@ -129,27 +159,25 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     wait_until(360, 1, 0, check_database_status, duthost)
 
     logging.info("Reload configuration check")
-    out = duthost.shell("sudo config reload -y",
-                        executable="/bin/bash", module_ignore_errors=True)
+    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
     # config reload command shouldn't work immediately after system reboot
-    assert "Retry later" in out['stdout']
+    assert result and "Retry later" in out['stdout']
 
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
 
     # After the system checks succeed the config reload command should not throw error
-    out = duthost.shell("sudo config reload -y",
-                        executable="/bin/bash", module_ignore_errors=True)
-    assert "Retry later" not in out['stdout']
+    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
+    assert result and "Retry later" not in out['stdout']
 
     # Immediately after one config reload command, another shouldn't execute and wait for system checks
     logging.info("Checking config reload after system is up")
     # Check if all database containers have started
     wait_until(60, 1, 0, check_database_status, duthost)
-    out = duthost.shell("sudo config reload -y",
-                        executable="/bin/bash", module_ignore_errors=True)
-    assert "Retry later" in out['stdout']
+    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
+    assert result and "Retry later" in out['stdout']
     assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
-
+    # Wait untill all critical processes come up so that it doesnt interfere with swss stop job
+    wait_critical_processes(duthost)
     logging.info("Stopping swss docker and checking config reload")
     if duthost.is_multi_asic:
         for asic in duthost.asics:
@@ -158,9 +186,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
         duthost.shell("sudo service swss stop")
 
     # Without swss running config reload option should not proceed
-    out = duthost.shell("sudo config reload -y",
-                        executable="/bin/bash", module_ignore_errors=True)
-    assert "Retry later" in out['stdout']
+    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
+    assert result and "Retry later" in out['stdout']
 
     # However with force option config reload should proceed
     logging.info("Performing force config reload")

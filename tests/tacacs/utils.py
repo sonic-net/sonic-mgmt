@@ -3,6 +3,7 @@ import logging
 import re
 import binascii
 import pytest
+import time
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
@@ -74,14 +75,21 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, ptfhost):
     """setup tacacs client"""
 
     # UT should failed when set reachable TACACS server with this setup_tacacs_client
-    ping_result = duthost.shell("ping {} -c 1 -W 3".format(tacacs_server_ip))['stdout']
-    logger.info("TACACS server ping result: {}".format(ping_result))
-    if "100% packet loss" in ping_result:
-        # collect more information for debug testbed network issue
-        duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
-        ptfhost_interface = ptfhost.shell("ifconfig mgmt")['stdout']
-        logger.debug("PTF IPV6 address not reachable, dut interfaces: {}, ptfhost interfaces:{}"
-                     .format(duthost_interface, ptfhost_interface))
+    retry = 5
+    while retry > 0:
+        ping_result = duthost.shell("ping {} -c 1 -W 3".format(tacacs_server_ip), module_ignore_errors=True)['stdout']
+        logger.info("TACACS server ping result: {}".format(ping_result))
+        if "100% packet loss" in ping_result:
+            # collect more information for debug testbed network issue
+            duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
+            ptfhost_interface = ptfhost.shell("ifconfig mgmt")['stdout']
+            logger.debug("PTF IPV6 address not reachable, dut interfaces: {}, ptfhost interfaces:{}"
+                         .format(duthost_interface, ptfhost_interface))
+            time.sleep(5)
+            retry -= 1
+        else:
+            break
+    if retry == 0:
         pytest_assert(False, "TACACS server not reachable: {}".format(ping_result))
 
     # configure tacacs client

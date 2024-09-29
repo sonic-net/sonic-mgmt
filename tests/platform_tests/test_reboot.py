@@ -54,6 +54,8 @@ def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname,
         "Tearing down: to make sure all the critical services, interfaces and transceivers are good")
     interfaces = conn_graph_facts["device_conn"][duthost.hostname]
     wait_for_startup(duthost, localhost, delay=10, timeout=300)
+    if duthost.facts['hwsku'] in {"Nokia-M0-7215", "Nokia-7215"}:
+        wait_critical_processes(duthost)
     check_critical_processes(duthost, watch_secs=10)
     check_interfaces_and_services(duthost, interfaces, xcvr_skip_list)
     if duthost.is_supervisor_node():

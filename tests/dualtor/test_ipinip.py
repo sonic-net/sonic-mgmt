@@ -33,7 +33,7 @@ from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_act
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("dualtor")
 ]
 
 logger = logging.getLogger(__name__)
@@ -184,7 +184,24 @@ def _wait_portchannel_up(duthost, portchannel):
 
 
 @pytest.fixture
-def setup_uplink(rand_selected_dut, tbinfo):
+def enable_feature_autorestart(rand_selected_dut):
+    # Enable autorestart for all features before the test begins
+    duthost = rand_selected_dut
+    feature_list, _ = duthost.get_feature_status()
+    autorestart_states = duthost.get_container_autorestart_states()
+    changed_features = []
+    for feature, status in list(feature_list.items()):
+        if status == 'enabled' and autorestart_states.get(feature) == 'disabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+            changed_features.append(feature)
+    yield
+    # Restore the autorestart status after the test ends
+    for feature in changed_features:
+        duthost.shell("sudo config feature autorestart {} disabled".format(feature))
+
+
+@pytest.fixture
+def setup_uplink(rand_selected_dut, tbinfo, enable_feature_autorestart):
     """
     Function level fixture.
     1. Only keep 1 uplink up. Shutdown others to force the bounced back traffic is egressed

@@ -205,7 +205,7 @@
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
-      hwsku_list_compute_ai: "['Cisco-8111-O64']"
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O128']"
 
   - name: enable ComputeAI deployment
     set_fact:
@@ -538,9 +538,35 @@
             path: /etc/sonic/port_config.json
             state: absent
 
+      - name: find interface name mapping
+        port_alias:
+          hwsku: "{{ hwsku }}"
+        when: topo == "mx"
+
+      - name: Copy dhcp_server config hwsku {{ hwsku }}
+        copy: src=golden_config_db/dhcp_server_mx.json
+              dest=/tmp/dhcp_server.json
+        become: true
+        when: topo == "mx"
+
+      - name: Generate golden_config_db.json
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+          port_index_map: "{{ port_index_map | default({}) }}"
+        become: true
+
+      - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
+        become: true
+        shell: config load_minigraph --override_config -y
+        register: load_minigraph_result
+        failed_when:
+          - load_minigraph_result.rc != 0
+          - "'no such option: --override_config' not in load_minigraph_result.stderr"
+
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
         shell: config load_minigraph -y
+        when: "'no such option: --override_config' in load_minigraph_result.stderr"
 
       - name: Wait for switch to become reachable again
         become: false

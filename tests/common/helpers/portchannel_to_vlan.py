@@ -383,7 +383,7 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
 def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
                ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, fanouthosts):  # noqa F811
 
-    if any(topo in tbinfo["topo"]["name"] for topo in ["dualtor", "t0-backend"]):
+    if any(topo in tbinfo["topo"]["name"] for topo in ["dualtor", "t0-backend", "t0-standalone"]):
         yield
         return
 
@@ -400,7 +400,8 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
                 pytest.skip("OS Version of fanout is older than 202205, unsupported")
             asic_type = fanouthost.facts['asic_type']
             platform = fanouthost.facts["platform"]
-            if not (asic_type in ["broadcom"] or platform in ["armhf-nokia_ixs7215_52x-r0"]):
+            if not (asic_type in ["broadcom"] or platform in
+                    ["armhf-nokia_ixs7215_52x-r0", "arm64-nokia_ixs7215_52xb-r0"]):
                 pytest.skip("Not supporteds on SONiC leaf-fanout platform")
 
     duthost = duthosts[rand_one_dut_hostname]
@@ -421,3 +422,23 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     finally:
         config_reload(duthost, safe_reload=True)
         ptf_teardown(ptfhost, ptf_lag_map)
+
+
+def has_portchannels(duthosts, rand_one_dut_hostname):
+    """
+    Check if the ansible_facts contain non-empty portchannel interfaces and portchannels.
+
+    Args:
+        duthosts: A dictionary that maps DUT hostnames to DUT instances.
+        rand_one_dut_hostname: A random hostname belonging to one of the DUT instances.
+    Returns:
+        bool: True if the ansible_facts contain non-empty portchannel interfaces and portchannels, False otherwise.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    # Retrieve the configuration facts from the DUT
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    # Check if the portchannel interfaces list or portchannels dictionary is empty
+    if not cfg_facts.get("minigraph_portchannel_interfaces", []) or not cfg_facts.get("minigraph_portchannels", {}):
+        return False
+
+    return True

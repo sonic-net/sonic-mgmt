@@ -260,6 +260,7 @@ def test_orchagent_slb(
         )
         with tunnel_monitor, server_traffic_monitor:
             testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
+            time.sleep(5)
 
     connections = setup_interfaces
 

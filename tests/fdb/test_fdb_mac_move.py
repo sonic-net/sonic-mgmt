@@ -56,7 +56,8 @@ def get_fdb_dict(ptfadapter, vlan_table, dummay_mac_count):
     return fdb
 
 
-def test_fdb_mac_move(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, get_function_conpleteness_level):
+def test_fdb_mac_move(ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, get_function_conpleteness_level,
+                      rotate_syslog):
     # Perform FDB clean up before each test
     fdb_cleanup(duthosts, rand_one_dut_hostname)
 

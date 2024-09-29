@@ -199,6 +199,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
 
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
 def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
+                        toggle_all_simulator_ports_to_rand_selected_tor_m,                      # noqa F811
                         setup_standby_ports_on_rand_unselected_tor,                             # noqa F811
                         send_dropped_traffic, drop_reason, add_default_route_to_dut, generate_dropped_packet):
     """
@@ -225,6 +226,7 @@ def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_h
 
 @pytest.mark.parametrize("drop_reason", ["SIP_LINK_LOCAL"])
 def test_sip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
+                        toggle_all_simulator_ports_to_rand_selected_tor_m,                      # noqa F811
                         setup_standby_ports_on_rand_unselected_tor,                             # noqa F811
                         send_dropped_traffic, drop_reason, add_default_route_to_dut, generate_dropped_packet):
     """

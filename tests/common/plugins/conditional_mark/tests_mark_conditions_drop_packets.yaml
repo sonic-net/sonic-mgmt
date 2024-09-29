@@ -3,11 +3,20 @@
 ####################################################
 #Link local address(169.254.xxx.xxx) as a source address as IPv4 header is not invalid in all the cases
 #Hence, it is not dropped by default in Cisco-8000. For dropping link local address, it should be done through security/DATA ACL
+drop_packets/test_configurable_drop_counters.py::test_dip_link_local:
+  skip:
+    reason: "Some mlx platforms does not drop DIP link local packets"
+    conditions:
+      - "'Mellanox' in hwsku"
+
 drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
   skip:
-    reason: "Cisco 8000 platform does not drop SIP link local packets"
+    reason: "Cisco 8000 platform and some MLX platforms does not drop SIP link local packets"
+    conditions_logical_operator: or
     conditions:
-       - asic_type=="cisco-8000"
+      - asic_type=="cisco-8000"
+      - "'Mellanox' in hwsku"
+
 
 #######################################
 #####     test_drop_counters.py   #####
@@ -54,9 +63,11 @@ drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
 
 drop_packets/test_drop_counters.py::test_dst_ip_link_local:
   skip:
-    reason: "Cisco 8000 and broadcom DNX platforms do not drop DIP linklocal packets"
+    reason: "Cisco 8000 broadcom DNX platforms and some MLX platforms do not drop DIP linklocal packets"
+    conditions_logical_operator: or
     conditions:
       - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
+      - "'Mellanox' in hwsku"
 
 drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop:
   skip:
@@ -163,6 +174,8 @@ drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr[vlan_members-i
 
 drop_packets/test_drop_counters.py::test_src_ip_link_local:
   skip:
-    reason: "Cisco 8000 platform does not drop SIP link local packets"
+    reason: "Cisco 8000 broadcom DNX platforms and some MLX platforms do not drop SIP linklocal packets"
+    conditions_logical_operator: or
     conditions:
-      - "asic_type=='cisco-8000'"
+      - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
+      - "'Mellanox' in hwsku"

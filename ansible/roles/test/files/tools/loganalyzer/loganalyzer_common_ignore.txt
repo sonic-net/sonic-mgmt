@@ -32,6 +32,13 @@ r, ".* sonic systemd.* kdump-tools.service - Kernel crash dump capture service.*
 r, ".* ERR swss#orchagent: :- getPort: Failed to get cached bridge port ID.*"
 r, ".* ERR syncd#syncd: .* SAI_API_PORT:brcm_sai_get_port_attribute:\d+ Error -2 processing  port attribute ID: 17.*"
 
+# Errors for config reload on broadcom platform on 202311
+r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListEnumCapabilities: Failed to get attribute.*"
+r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListAttrCapabilities: Failed to get attribute.*"
+r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Failed to get attribute.*"
+r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
+
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
 r, ".* ERR macsec#wpa_supplicant.*could not process SIGINT or SIGTERM in two seconds.*"
@@ -60,7 +67,7 @@ r, ".* ERR bgp#bgpcfgd: .*BGPVac.*attribute is supported.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/14233938
 r, ".* ERR swss\d*#fdbsyncd: :- readData: netlink reports an error=-25 on reading a netlink socket.*"
-r, ".* ERR swss\d*#fdbsyncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
+r, ".* ERR swss\d*#.*syncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14213168
 r, ".* ERR /hostcfgd: sonic-kdump-config --disable - failed.*"
@@ -238,13 +245,20 @@ r, ".* ERR bgp#zebra.*zfpm_build_route_updates: Encoding Prefix:.* No valid next
 
 # https://msazure.visualstudio.com/One/_workitems/edit/28150848
 r, ".* ERR bgp#bgpd.* unexpected packet received in state OpenSent"
-r, ".* ERR bgp#bgpd.* INTERFACE_STATE: Cannot find IF .*"
+r, ".* ERR bgp#bgpd.* Cannot find IF .*"
 r, ".* ERR bgp#bgpd.* bgp_process_packet: BGP OPEN receipt failed for peer.*"
 r, ".* ERR bgp#bgpd.* bgp_read_packet error: Connection reset by peer.*"
 r, ".* ERR bgp#bgpd.* Attempting to process an I/O event but for fd.*"
+r, ".* ERR bgp#bgpd.* Can't get remote address and port:.*"
+r, ".* ERR bgp#bgpd.* bgp_getsockname().*failed for.*"
+r, ".* ERR bgp#bgpd.* Failure handling event.*"
+r, ".* ERR bgp#bgpd.* nexthop_set failed, resetting connection.*"
 r, ".* ERR bgp#zebra.* No such command on config line .*"
 r, ".* ERR bgp#zebra.* error: No route to host.*"
 r, ".* ERR bgp#zebra.* read error on vty client fd .*"
+r, ".* ERR bgp#zebra.* read failed on fd .*"
+r, ".* ERR bgp#zebra.* Extended Error.*"
+r, ".* ERR bgp#zebra.* error: .*"
 
 #Cisco platform ignore messages
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_0 is not ready.*"
@@ -271,6 +285,7 @@ r, ".* ERR syncd\d*#syncd:.*SAI_API_BUFFER: get_buffer_pool_stats unknown counte
 r, ".* ERR syncd\d*#syncd:.*SAI_API_BUFFER: get_ingress_priority_group_stats unknown counter 5.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_BUFFER: get_ingress_priority_group_stats unknown counter 7.*"
 r, ".* ERR syncd.*#syncd:.*SAI_API_HOSTIF: src/sai_trap.cpp:.*: Invalid trap event code .*"
+r, ".* ERR syncd.*#syncd:.*SDK_LOG|-E-HLD-0.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_LAG: resolve_feat_over_member_ports: found port index .*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_LAG: resolve_feat_over_member_ports: port index .* now selected.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_PORT: Invalid port counter .*index.*"

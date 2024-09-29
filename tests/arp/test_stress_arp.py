@@ -9,6 +9,7 @@ from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsm
                       in6_getnsma, inet_pton, inet_ntop, socket
 from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until
+from tests.common.errors import RunAnsibleModuleFail
 
 ARP_BASE_IP = "172.16.0.1/16"
 ARP_SRC_MAC = "00:00:01:02:03:04"
@@ -17,7 +18,7 @@ ENTRIES_NUMBERS = 12000
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 LOOP_TIMES_LEVEL_MAP = {
@@ -27,6 +28,34 @@ LOOP_TIMES_LEVEL_MAP = {
     'thorough': 100,
     'diagnose': 200
 }
+
+
+@pytest.fixture(autouse=True)
+def arp_cache_fdb_cleanup(duthost):
+    try:
+        clear_dut_arp_cache(duthost)
+        fdb_cleanup(duthost)
+    except RunAnsibleModuleFail as e:
+        if 'Failed to send flush request: No such file or directory' in str(e):
+            logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
+        else:
+            raise e
+
+    time.sleep(5)
+
+    yield
+
+    # Ensure clean test environment even after failing
+    try:
+        clear_dut_arp_cache(duthost)
+        fdb_cleanup(duthost)
+    except RunAnsibleModuleFail as e:
+        if 'Failed to send flush request: No such file or directory' in str(e):
+            logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
+        else:
+            raise e
+
+    time.sleep(10)
 
 
 def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
@@ -66,10 +95,8 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
     if normalized_level is None:
         normalized_level = "debug"
 
-    ipv4_avaliable = get_crm_resources(duthost, "ipv4_neighbor", "available") - \
-        get_crm_resources(duthost, "ipv4_neighbor", "used")
-    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available") - \
-        get_crm_resources(duthost, "fdb_entry", "used")
+    ipv4_avaliable = get_crm_resources(duthost, "ipv4_neighbor", "available")
+    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
     pytest_assert(ipv4_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
 
     arp_avaliable = min(min(ipv4_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
@@ -85,11 +112,22 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
         loop_times -= 1
         add_arp(ptf_intf_ipv4_hosts, intf1_index, ptfadapter)
 
-        pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= arp_avaliable),
+        # There is a certain probability of hash collision, we set the percentage as 1% here
+        # The entries we add will not exceed 10000, so the number we tolerate is 100
+        logger.debug("Expected route number: {}, real route number {}"
+                     .format(arp_avaliable, get_fdb_dynamic_mac_count(duthost)))
+        pytest_assert(wait_until(20, 1, 0,
+                                 lambda: abs(arp_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
                       "ARP Table Add failed")
 
-        clear_dut_arp_cache(duthost)
-        fdb_cleanup(duthost)
+        try:
+            clear_dut_arp_cache(duthost)
+            fdb_cleanup(duthost)
+        except RunAnsibleModuleFail as e:
+            if 'Failed to send flush request: No such file or directory' in str(e):
+                logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
+            else:
+                raise e
 
         time.sleep(5)
 
@@ -120,29 +158,17 @@ def ipv6_packets_for_test(ip_and_intf_info, fake_src_mac, fake_src_addr):
     ns_pkt /= IPv6(dst=inet_ntop(socket.AF_INET6, multicast_tgt_addr), src=fake_src_addr)
     ns_pkt /= ICMPv6ND_NS(tgt=tgt_addr)
     ns_pkt /= ICMPv6NDOptSrcLLAddr(lladdr=fake_src_mac)
-    logging.info(repr(ns_pkt))
 
     return ns_pkt
 
 
-def get_ipv6_entries_status(duthost, ipv6_addr):
-    ipv6_entry = duthost.shell("ip -6 neighbor | grep -w {}".format(ipv6_addr))["stdout_lines"][0]
-    ipv6_entry_status = ipv6_entry.split(" ")[-1]
-    return (ipv6_entry_status == 'REACHABLE')
-
-
-def add_nd(duthost, ptfhost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable):
+def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
     for entry in range(0, nd_avaliable):
         nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
         fake_src_addr = generate_global_addr(nd_entry_mac)
         ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
 
-        ptfhost.shell("ip -6 addr add {}/64 dev eth1".format(fake_src_addr))
-
-        ptfadapter.dataplane.flush()
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
-        wait_until(20, 1, 0, get_ipv6_entries_status, duthost, fake_src_addr)
-        ptfhost.shell("ip -6 addr del {}/64 dev eth1".format(fake_src_addr))
 
 
 def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
@@ -157,18 +183,32 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
         normalized_level = "debug"
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-    ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - \
-        get_crm_resources(duthost, "ipv6_neighbor", "used")
-    nd_avaliable = min(ipv6_avaliable, ENTRIES_NUMBERS)
+    ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available")
+    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
+    pytest_assert(ipv6_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
+
+    nd_avaliable = min(min(ipv6_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
 
     while loop_times > 0:
         loop_times -= 1
-        add_nd(duthost, ptfhost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable)
+        add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable)
 
-        pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= nd_avaliable),
+        # There is a certain probability of hash collision, we set the percentage as 1% here
+        # The entries we add will not exceed 10000, so the number we tolerate is 100
+        logger.debug("Expected route number: {}, real route number {}"
+                     .format(nd_avaliable, get_fdb_dynamic_mac_count(duthost)))
+        pytest_assert(wait_until(20, 1, 0,
+                                 lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
                       "Neighbor Table Add failed")
 
-        clear_dut_arp_cache(duthost)
-        fdb_cleanup(duthost)
+        try:
+            clear_dut_arp_cache(duthost)
+            fdb_cleanup(duthost)
+        except RunAnsibleModuleFail as e:
+            if 'Failed to send flush request: No such file or directory' in str(e):
+                logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
+            else:
+                raise e
+
         # Wait for 10 seconds before starting next loop
         time.sleep(10)

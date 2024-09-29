@@ -9,6 +9,7 @@ import ipaddress
 import time
 import json
 
+from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
 
 from tests.common import config_reload
@@ -16,6 +17,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
+from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.mellanox_data import is_mellanox_device
 
 
 logger = logging.getLogger(__name__)
@@ -524,6 +527,15 @@ def dut_qos_maps_module(rand_selected_front_end_dut):
     return _dut_qos_map(dut)
 
 
+@pytest.fixture(scope='module')
+def is_support_mock_asic(duthosts, rand_one_dut_hostname):
+    """
+    Check if dut supports mock asic. For mellanox device, it doesn't support mock asic
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    return not is_mellanox_device(duthost)
+
+
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     """
     A helper function to check if separated DSCP_TO_TC_MAP is applied to
@@ -741,8 +753,20 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
     for duthost in duthosts.nodes:
         if config_db_modified[duthost.hostname]:
             logger.info(f"config changed. Doing config reload for {duthost.hostname}")
-            config_reload(duthost, wait=120)
+            try:
+                config_reload(duthost, wait=120)
+            except AnsibleConnectionFailure as e:
+                # IPV4 mgmt interface been deleted by config reload
+                # In latest SONiC, config reload command will exit after mgmt interface restart
+                # Then 'duthost' will lost IPV4 connection and throw exception
+                logger.warning(f'Exception after config reload: {e}')
     duthosts.reset()
+
+    for duthost in duthosts.nodes:
+        if config_db_modified[duthost.hostname]:
+            # Wait until all critical processes are up,
+            # especially snmpd as it needs to be up for SNMP status verification
+            wait_critical_processes(duthost)
 
     # Verify mgmt-interface status
     mgmt_intf_name = "eth0"

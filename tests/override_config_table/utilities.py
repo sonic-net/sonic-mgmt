@@ -23,13 +23,15 @@ def get_running_config(duthost, asic=None):
     return json.loads(duthost.shell("sonic-cfggen {} -d --print-data".format(ns))['stdout'])
 
 
-def reload_minigraph_with_golden_config(duthost, json_data):
+def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     """
     for multi-asic/single-asic devices, we only have 1 golden_config_db.json
     """
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
-    config_reload(duthost, config_source="minigraph", safe_reload=True, override_config=True)
+    config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+    # Cleanup golden config because some other test or device recover may reload config with golden config
+    duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
 
 
 def file_exists_on_dut(duthost, filename):

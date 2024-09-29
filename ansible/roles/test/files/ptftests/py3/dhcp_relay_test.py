@@ -134,9 +134,9 @@ class DHCPTest(DataplaneBaseTest):
             0, self.server_port_indices[0])
 
         self.relay_iface_ip = self.test_params['relay_iface_ip']
-        self.relay_iface_mac = self.test_params['relay_iface_mac']
+        self.relay_iface_mac = self.test_params.get('relay_iface_mac', '')
 
-        self.client_iface_alias = self.test_params['client_iface_alias']
+        self.client_iface_alias = self.test_params.get('client_iface_alias', '')
         self.client_port_index = int(self.test_params['client_port_index'])
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
 
@@ -147,8 +147,6 @@ class DHCPTest(DataplaneBaseTest):
         # 'dual' for dual tor testing
         # 'single' for regular single tor testing
         self.dual_tor = (self.test_params['testing_mode'] == 'dual')
-
-        self.testbed_mode = self.test_params['testbed_mode']
 
         # option82 is a byte string created by the relay agent. It contains the circuit_id and remote_id fields.
         # circuit_id is stored as suboption 1 of option 82.

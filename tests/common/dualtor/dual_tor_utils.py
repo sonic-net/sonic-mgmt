@@ -1825,3 +1825,16 @@ def setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditi
         standby_tor = upper_tor_host if active_tor == lower_tor_host else lower_tor_host
         config_active_active_dualtor_active_standby(active_tor, standby_tor, active_active_ports, True)
     return
+
+
+@pytest.fixture(scope='session', autouse=True)
+def disable_timed_oscillation_active_standby(duthosts, tbinfo):
+    """
+    Disable timed oscillation for active-standby mux ports
+    """
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    for duthost in duthosts:
+        duthost.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|TIMED_OSCILLATION" "oscillation_enabled" "false"')
+        duthost.shell("config save -y")
