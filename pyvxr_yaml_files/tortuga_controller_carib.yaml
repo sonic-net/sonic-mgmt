@@ -12,16 +12,18 @@ devices:
     data_ports:
       - eth1
       - eth2
+    data_port_attributes:
+      transport: e1000
     disks:
       - hda_ref:
           file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
     linux_username: vxr
     linux_password: cisco123
     linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
     console_ports: [60001]
@@ -29,16 +31,18 @@ devices:
     data_ports:
       - eth1
       - eth2
+    data_port_attributes:
+      transport: e1000
     disks:
       - hda_ref:
           file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
     linux_username: vxr
     linux_password: cisco123
     linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
     console_ports: [60002]
@@ -46,16 +50,18 @@ devices:
     data_ports:
       - eth1
       - eth2
+    data_port_attributes:
+      transport: e1000
     disks:
       - hda_ref:
           file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
     linux_username: vxr
     linux_password: cisco123
     linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
     console_ports: [60003]
@@ -63,16 +69,18 @@ devices:
     data_ports:
       - eth1
       - eth2
+    data_port_attributes:
+      transport: e1000
     disks:
       - hda_ref:
           file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
     linux_username: vxr
     linux_password: cisco123
     linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
     console_ports: [60004]
@@ -80,16 +88,18 @@ devices:
     data_ports:
       - eth1
       - eth2
+    data_port_attributes:
+      transport: e1000
     disks:
       - hda_ref:
           file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
     linux_username: vxr
     linux_password: cisco123
     linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
     console_ports: [60005]
@@ -97,16 +107,18 @@ devices:
     data_ports:
       - eth1
       - eth2
+    data_port_attributes:
+      transport: e1000
     disks:
       - hda_ref:
           file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
     linux_username: vxr
     linux_password: cisco123
     linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
     console_ports: [60006]
@@ -114,16 +126,18 @@ devices:
     data_ports:
       - eth1
       - eth2
+    data_port_attributes:
+      transport: e1000
     disks:
       - hda_ref:
           file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
     linux_username: vxr
     linux_password: cisco123
     linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
     console_ports: [60007]
@@ -131,16 +145,18 @@ devices:
     data_ports:
       - eth1
       - eth2
+    data_port_attributes:
+      transport: e1000
     disks:
       - hda_ref:
           file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
     linux_username: vxr
     linux_password: cisco123
     linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
     console_ports: [60008]
@@ -148,16 +164,18 @@ devices:
     data_ports:
       - eth1
       - eth2
+    data_port_attributes:
+      transport: e1000
     disks:
       - hda_ref:
           file: /auto/vxr/images/linux/ubuntu22.qcow2
           type: reference
-    memory: 4GB
+    memory: 2GB
     platform: linux
     linux_username: vxr
     linux_password: cisco123
     linux_prompt: vxr@ubuntu22:~\$
-    vcpu: 4
+    vcpu: 2
     xr_port_redir:
       - 22
     console_ports: [60009]
@@ -166,6 +184,9 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
+    port_breakout:
+      lc0:
+        0..31: 1x400
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -183,6 +204,10 @@ devices:
       - Ethernet56
       - Ethernet64
       - Ethernet72
+      - Ethernet80
+      - Ethernet88
+      - Ethernet96
+      - Ethernet104
     xr_port_redir:
       - 22
       - 23
@@ -191,11 +216,10 @@ devices:
            ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60010]
     cli_commands: |
+      sleep 60
       sudo config hostname tortuga-1x3-leaf0
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sleep 30
-      cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
@@ -207,6 +231,9 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
+    port_breakout:
+      lc0:
+        0..31: 1x400
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -224,6 +251,10 @@ devices:
       - Ethernet56
       - Ethernet64
       - Ethernet72
+      - Ethernet80
+      - Ethernet88
+      - Ethernet96
+      - Ethernet104
     xr_port_redir:
       - 22
       - 23
@@ -232,11 +263,10 @@ devices:
            ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60011]
     cli_commands: |
+      sleep 60
       sudo config hostname tortuga-1x3-leaf1
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sleep 30
-      cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
@@ -248,6 +278,9 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
+    port_breakout:
+      lc0:
+        0..31: 1x400
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -265,6 +298,10 @@ devices:
       - Ethernet56
       - Ethernet64
       - Ethernet72
+      - Ethernet80
+      - Ethernet88
+      - Ethernet96
+      - Ethernet104
     xr_port_redir:
       - 22
       - 23
@@ -273,11 +310,10 @@ devices:
            ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60012]
     cli_commands: |
+      sleep 60
       sudo config hostname tortuga-1x3-leaf2
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sleep 30
-      cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
@@ -289,6 +325,9 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
+    port_breakout:
+      lc0:
+        0..31: 1x400
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -306,6 +345,10 @@ devices:
       - Ethernet56
       - Ethernet64
       - Ethernet72
+      - Ethernet80
+      - Ethernet88
+      - Ethernet96
+      - Ethernet104
     xr_port_redir:
       - 22
       - 23
@@ -314,11 +357,10 @@ devices:
            ConfigCardPidOverride: 'HF6100-32D'
     console_ports: [60020]
     cli_commands: |
+      sleep 60
       sudo config hostname tortuga-1x3-spine0
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sleep 30
-      cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
@@ -328,32 +370,41 @@ devices:
 
 connections:
   hubs:
-    L0_trex1:
-      - L0.Ethernet48
-      - trex1.eth1
-    L0_trex2:
-      - L0.Ethernet56
-      - trex2.eth1
-    L0_trex3:
+    L0_trex1_1:
       - L0.Ethernet64
+      - trex1.eth1
+    L0_trex1_2:
+      - L0.Ethernet88
+      - trex1.eth2
+    L0_trex2_1:
+      - L0.Ethernet72
+      - trex2.eth1
+    L0_trex3_1:
+      - L0.Ethernet80
       - trex3.eth1
-    L1_trex4:
-      - L1.Ethernet48
-      - trex4.eth1
-    L1_trex5:
-      - L1.Ethernet56
-      - trex5.eth1
-    L1_trex6:
+    L1_trex4_1:
       - L1.Ethernet64
+      - trex4.eth1
+    L1_trex4_2:
+      - L1.Ethernet88
+      - trex4.eth2
+    L1_trex5_1:
+      - L1.Ethernet72
+      - trex5.eth1
+    L1_trex6_1:
+      - L1.Ethernet80
       - trex6.eth1
-    L2_trex7:
-      - L2.Ethernet48
-      - trex7.eth1
-    L2_trex8:
-      - L2.Ethernet56
-      - trex8.eth1
-    L2_trex9:
+    L2_trex7_1:
       - L2.Ethernet64
+      - trex7.eth1
+    L2_trex7_2:
+      - L2.Ethernet88
+      - trex7.eth2
+    L2_trex8_1:
+      - L2.Ethernet72
+      - trex8.eth1
+    L2_trex9_1:
+      - L2.Ethernet80
       - trex9.eth1
     S0_L0_conn1:
       - S0.Ethernet0

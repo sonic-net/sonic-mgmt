@@ -49,10 +49,7 @@ devices:
       - 8101-32FH
     port_breakout:
       lc0:
-        0..7: 1x400
-        8..15: 1x100
-        16..23: 4x25
-        24..31: 4x10
+        0..31: 1x400
     vxr_sim_config:
       shelf:
         ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.43/npl
@@ -78,6 +75,8 @@ devices:
       - Ethernet1_10
       - Ethernet1_11
       - Ethernet1_12
+      - Ethernet1_13
+      - Ethernet1_14
     xr_port_redir:
       - 22
     cli_commands: |
@@ -150,32 +149,41 @@ devices:
 
 connections:
   hubs:
-    L0_trex1:
-      - L0.Ethernet1_7
+    L0_trex1_1:
+      - L0.Ethernet1_9
       - trex1.eth1
+    L0_trex1_2:
+      - L0.Ethernet1_12
+      - trex1.eth2
     L0_trex2:
-      - L0.Ethernet1_8
+      - L0.Ethernet1_10
       - trex2.eth1
     L0_trex3:
-      - L0.Ethernet1_9
+      - L0.Ethernet1_11
       - trex3.eth1
-    L1_trex4:
-      - L1.Ethernet1_7
+    L1_trex4_1:
+      - L1.Ethernet1_9
       - trex4.eth1
+    L1_trex4_2:
+      - L1.Ethernet1_12
+      - trex4.eth2
     L1_trex5:
-      - L1.Ethernet1_8
+      - L1.Ethernet1_10
       - trex5.eth1
     L1_trex6:
-      - L1.Ethernet1_9
+      - L1.Ethernet1_11
       - trex6.eth1
-    L2_trex7:
-      - L2.Ethernet1_7
+    L2_trex7_1:
+      - L2.Ethernet1_9
       - trex7.eth1
+    L2_trex7_2:
+      - L2.Ethernet1_12
+      - trex7.eth2
     L2_trex8:
-      - L2.Ethernet1_8
+      - L2.Ethernet1_10
       - trex8.eth1
     L2_trex9:
-      - L2.Ethernet1_9
+      - L2.Ethernet1_11
       - trex9.eth1
     S0_L0_conn1:
       - S0.Ethernet1_1

@@ -3,13 +3,19 @@ How to use Tortuga to test fabric configuration.
 1) Create a PyVxr setup.
     - Create /nobackup directory. SIM and SONiC images are going to be
        in /nobackup directory. Therefore, ensure that you have enough storage.
-    - Create /nobackup/images and copy SONiC and RHEL (TREX) images to it.
-       - rhel7_serial.qcow2 (for TREX or hosts).
+    - Create /nobackup/images and copy SONiC and Ubuntu images to it.
+       - ubuntu22.qcow2 (for hosts). You may download ubuntu22.qcow2 from following locations.
+            - cp /auto/vxr/images/linux/ubuntu22.qcow2 /nobackup/images
+            - scp cisco@ccni-pgdb1.cisco.com:~/ubuntu22.qcow2 /nobackup/images/ubuntu22.qcow2 (password = spnaa123)
        - sonic-cisco-8000.bin (for switches)
+            - scp cisco@ccni-pgdb1.cisco.com:~/sonic-cisco-8000.bin /nobackup/images/sonic-cisco-8000.bin (password = spnaa123)
     - Copy reset_sim.sh to /nobackup directory.
     - Copy get_ports.sh to /nobackup directory.
-    - Create /nobackup/cfg directory. Copy sonic-ref-sim.yaml to /nobackup/cfg directory.
+    - Create /nobackup/cfg directory.
     - Create /nobackup/sim directory. This is where SIM gets copied to.
+
+2) Use one of the reference SIM YAML files for setting up PyVxr SIM. For example, to set up 1x3 fabric,
+   copy sl1x3-ref-sim.yaml to /nobackup/cfg/sonic-ref-sim.yaml
 
 3) Customize /nobackup/cfg/sonic-ref-sim.yaml to match your PyVxr setup
     - Change hostname to your PyVxr hostname.

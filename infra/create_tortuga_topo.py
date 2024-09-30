@@ -453,7 +453,8 @@ def update_controller_test(data, leaf_ports, host_ports):
     pyvxr_str = "PYVXR_HOST={}".format(data['L0']['HostAgent'])
     host_str = "HOST_PORTS={}".format(format(','.join(str(item) for item in host_ports)))
     leaf_str = "LEAF_PORTS={}".format(format(','.join(str(item) for item in leaf_ports)))
-    spine_str = "SPINE_COUNT=2"
+    spine_str1 = "SPINE_PORTS=1"
+    spine_str2 = "SPINE_PORTS=2"
     print(fabric_str)
     print(pyvxr_str)
     print(host_str)
@@ -463,7 +464,9 @@ def update_controller_test(data, leaf_ports, host_ports):
     os.system("sed -i 's/.*HOST_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(host_str))
     os.system("sed -i 's/.*LEAF_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(leaf_str))
     if 'tortuga-controller-2' in data['topo_type']:
-        os.system("sed -i 's/.*SPINE_COUNT\=.*/{}/' ./tortuga_controller/test.sh".format(spine_str))
+        os.system("sed -i 's/.*SPINE_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(spine_str2))
+    else:
+        os.system("sed -i 's/.*SPINE_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(spine_str1))
 
 def start_controller():
     test_path = "./tortuga_controller/test.sh"
