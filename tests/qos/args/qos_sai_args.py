@@ -56,27 +56,3 @@ def add_qos_sai_args(parser):
              "When it is set a value of port speed, the tested dst port and the corresponding fanout port"
              "will be changed to the set value. It can be set to like 50000, 10000"
     )
-
-    qos_group.addoption(
-        "--primary_dut_index",
-        action="store",
-        type=int,
-        default=0,
-        help="Use this DUT index for primary DUT."
-    )
-
-    qos_group.addoption(
-        "--secondary_dut_index",
-        action="store",
-        type=int,
-        default=1,
-        help="Use this DUT index for secondary DUT."
-    )
-
-    qos_group.addoption(
-        "--test_port_selection_criteria",
-        action="store",
-        type=str,
-        default="single_asic",
-        help="The criterria used to select DUTs during the test."
-    )
