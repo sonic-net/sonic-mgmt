@@ -15,8 +15,8 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common import config_reload
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
+from tests.common.helpers.dut_utils import is_mellanox_fanout
 
 RX_DRP = "RX_DRP"
 RX_ERR = "RX_ERR"
@@ -25,8 +25,6 @@ L3_COL_KEY = RX_ERR
 
 pytest.SKIP_COUNTERS_FOR_MLNX = False
 MELLANOX_MAC_UPDATE_SCRIPT = os.path.join(os.path.dirname(__file__), "fanout/mellanox/mlnx_update_mac.j2")
-# Ansible config files
-LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../ansible/files")))
 
 ACL_COUNTERS_UPDATE_INTERVAL = 10
 ACL_TABLE_CREATE_INTERVAL = 30
@@ -146,46 +144,7 @@ EOF
     yield
 
     duthost.command("rm {} {}".format(copp_trap_group_json, copp_trap_rule_json))
-    config_reload(duthost)
-
-
-def is_mellanox_devices(hwsku):
-    """
-    A helper function to check if a given sku is Mellanox device
-    """
-    hwsku = hwsku.lower()
-    return 'mellanox' in hwsku \
-        or 'msn' in hwsku \
-        or 'mlnx' in hwsku
-
-
-def is_mellanox_fanout(duthost, localhost):
-    # Ansible localhost fixture which calls ansible playbook on the local host
-
-    if duthost.facts.get("asic_type") == "vs":
-        return False
-
-    try:
-        dut_facts = \
-            localhost.conn_graph_facts(host=duthost.hostname, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
-    except RunAnsibleModuleFail as e:
-        logger.info("Get dut_facts failed, reason:{}".format(e.results['msg']))
-        return False
-
-    intf = list(dut_facts["device_conn"][duthost.hostname].keys())[0]
-    fanout_host = dut_facts["device_conn"][duthost.hostname][intf]["peerdevice"]
-
-    try:
-        fanout_facts = \
-            localhost.conn_graph_facts(host=fanout_host, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
-    except RunAnsibleModuleFail:
-        return False
-
-    fanout_sku = fanout_facts['device_info'][fanout_host]['HwSku']
-    if not is_mellanox_devices(fanout_sku):
-        return False
-
-    return True
+    config_reload(duthost, safe_reload=True)
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
@@ -943,9 +902,6 @@ def test_ip_pkt_with_expired_ttl(duthost, do_test, ptfadapter, setup, tx_dut_por
     """
     @summary: Create an IP packet with TTL=0.
     """
-    if "x86_64-mlnx_msn" in duthost.facts["platform"] or "x86_64-nvidia_sn" in duthost.facts["platform"]:
-        pytest.skip("Not supported on Mellanox devices")
-
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"],
                    pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
 

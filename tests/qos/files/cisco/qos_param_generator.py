@@ -1,4 +1,5 @@
 import logging
+from tests.qos.qos_sai_base import QosSaiBase
 logger = logging.getLogger(__name__)
 
 
@@ -71,6 +72,9 @@ class QosParamCisco(object):
                 self.reduced_pause_thr = 3 * (1024 ** 2)
             else:
                 self.reduced_pause_thr = 2.25 * (1024 ** 2)
+            if dutAsic == "gr":
+                self.reduced_pause_thr = self.gr_get_hw_thr_buffs(self.reduced_pause_thr
+                                                                  // self.buffer_size) * self.buffer_size
             self.log("Max pause thr bytes:       {}".format(max_pause))
             self.log("Attempted pause thr bytes: {}".format(attempted_pause))
             self.log("Pre-pad pause thr bytes:   {}".format(pre_pad_pause))
@@ -78,6 +82,82 @@ class QosParamCisco(object):
             self.log("Pre-pad drop thr bytes:    {}".format(pre_pad_drop))
             self.log("Drop thr bytes:            {}".format(self.drop_thr))
             self.log("Reduced pause thr bytes:   {}".format(self.reduced_pause_thr))
+        self.config_facts = duthost.get_running_config_facts()
+        # DSCP value for lossy
+        self.dscp_queue0 = self.get_one_dscp_from_queue(0)
+        self.dscp_queue1 = self.get_one_dscp_from_queue(1)
+        # DSCP, queue, weight list
+        self.dscp_list, self.q_list, self.weight_list = self.get_dscp_q_weight_list()
+
+    def get_one_dscp_from_queue(self, queue):
+        '''
+        Get one dscp value which is mapped to given queue
+        '''
+        dscp_to_tc_map = self.config_facts['DSCP_TO_TC_MAP']['AZURE']
+        tc_to_queue_map = self.config_facts['TC_TO_QUEUE_MAP']['AZURE']
+        queue = str(queue)
+        tc = list(tc_to_queue_map.keys())[list(tc_to_queue_map.values()).index(queue)]
+        dscp = list(dscp_to_tc_map.keys())[list(dscp_to_tc_map.values()).index(tc)]
+        return int(dscp)
+
+    def get_scheduler_cfg(self):
+        '''
+        Get scheduler configuration
+        '''
+        return self.config_facts['SCHEDULER']
+
+    def get_queue_cfg(self):
+        '''
+        Get queue configuration of first interface
+        '''
+        queue_cfg = self.config_facts['QUEUE']
+        interface = list(queue_cfg.keys())[0]
+        return queue_cfg[interface]
+
+    def get_queues_from_scheduler(self, scheduler):
+        '''
+        Get queue list which are mapped to given scheduler
+        '''
+        queue_list = []
+        for q, value in self.get_queue_cfg().items():
+            if scheduler == value['scheduler']:
+                queue_list.append(int(q))
+        return queue_list
+
+    def get_scheduler_from_queue(self, queue):
+        '''
+        Get scheduler for given queue
+        '''
+        return self.get_queue_cfg()[str(queue)]["scheduler"]
+
+    def get_queues_on_same_scheduler(self, queue):
+        '''
+        Get queue list on the same scheduler for given queue
+        '''
+        scheduler = self.get_scheduler_from_queue(queue)
+        return self.get_queues_from_scheduler(scheduler)
+
+    def get_queue_dscp_weight_dict(self):
+        q_dscp_weight_dict = {}
+        scheduler_cfg = self.get_scheduler_cfg()
+        for q, value in self.get_queue_cfg().items():
+            queue = int(q)
+            scheduler = value['scheduler']
+            q_dscp_weight_dict[queue] = {}
+            q_dscp_weight_dict[queue]["dscp"] = self.get_one_dscp_from_queue(queue)
+            q_dscp_weight_dict[queue]["weight"] = int(scheduler_cfg[scheduler]["weight"])
+        return q_dscp_weight_dict
+
+    def get_dscp_q_weight_list(self):
+        dscp_list = []
+        q_list = []
+        weight_list = []
+        q_dscp_weight_dict = self.get_queue_dscp_weight_dict()
+        for queue, value in q_dscp_weight_dict.items():
+            q_list.append(queue)
+            weight_list.append(value["weight"])
+            dscp_list.append(value["dscp"])
+        return dscp_list, q_list, weight_list
 
     def run(self):
         '''
@@ -99,6 +179,8 @@ class QosParamCisco(object):
         self.__define_lossless_voq()
         self.__define_q_watermark_all_ports()
         self.__define_pg_drop()
+        self.__define_wrr()
+        self.__define_wrr_chg()
         return self.qos_params
 
     def gr_get_mantissa_exp(self, thr):
@@ -174,7 +256,9 @@ class QosParamCisco(object):
             return
         if self.is_large_sms:
             if self.is_deep_buffer:
-                res_1 = {"dscps": [8, 8, 1, 1, 3, 4, 3, 4, 3, 4, 3],
+                res_1 = {"dscps": [self.dscp_queue0, self.dscp_queue0,
+                                   self.dscp_queue1, self.dscp_queue1,
+                                   3, 4, 3, 4, 3, 4, 3],
                          "pgs": [0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3],
                          "queues": [0, 0, 1, 1, 3, 4, 3, 4, 3, 4, 3],
                          "src_port_i": [0, 1, 0, 1, 0, 0, 1, 1, 2, 2, 4],
@@ -276,7 +360,7 @@ class QosParamCisco(object):
             self.write_params("wm_pg_shared_lossless", lossless_params)
         if self.should_autogen(["wm_pg_shared_lossy"]):
             lossy_params = common_params.copy()
-            lossy_params.update({"dscp": 8,
+            lossy_params.update({"dscp": self.dscp_queue0,
                                  "pg": 0,
                                  "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size})
             self.write_params("wm_pg_shared_lossy", lossy_params)
@@ -295,7 +379,7 @@ class QosParamCisco(object):
                                "packet_size": packet_size}
             self.write_params("wm_buf_pool_lossless", lossless_params)
         if self.should_autogen(["wm_buf_pool_lossy"]):
-            lossy_params = {"dscp": 8,
+            lossy_params = {"dscp": self.dscp_queue0,
                             "ecn": 1,
                             "pg": 0,
                             "queue": 0,
@@ -316,7 +400,7 @@ class QosParamCisco(object):
                                "cell_size": self.buffer_size}
             self.write_params("wm_q_shared_lossless", lossless_params)
         if self.should_autogen(["wm_q_shared_lossy"]):
-            lossy_params = {"dscp": 8,
+            lossy_params = {"dscp": self.dscp_queue0,
                             "ecn": 1,
                             "queue": 0,
                             "pkts_num_fill_min": 0,
@@ -327,7 +411,7 @@ class QosParamCisco(object):
 
     def __define_lossy_queue_voq(self):
         if self.should_autogen(["lossy_queue_voq_1"]):
-            params = {"dscp": 8,
+            params = {"dscp": self.dscp_queue0,
                       "ecn": 1,
                       "pg": 0,
                       "flow_config": self.flow_config,
@@ -337,7 +421,7 @@ class QosParamCisco(object):
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_1", params)
         if self.should_autogen(["lossy_queue_voq_2"]):
-            params = {"dscp": 8,
+            params = {"dscp": self.dscp_queue0,
                       "ecn": 1,
                       "pg": 0,
                       "flow_config": "shared",
@@ -347,18 +431,18 @@ class QosParamCisco(object):
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_2", params)
         if self.should_autogen(["lossy_queue_voq_3"]):
-            params = {"dscp": 8,
+            params = {"dscp": self.dscp_queue0,
                       "ecn": 1,
                       "pg": 0,
                       "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
                       "pkts_num_margin": 4,
-                      "packet_size": 64,
+                      "packet_size": 1350,
                       "cell_size": self.buffer_size}
             self.write_params("lossy_queue_voq_3", params)
 
     def __define_lossy_queue(self):
         if self.should_autogen(["lossy_queue_1"]):
-            params = {"dscp": 8,
+            params = {"dscp": self.dscp_queue0,
                       "ecn": 1,
                       "pg": 0,
                       "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
@@ -427,3 +511,41 @@ class QosParamCisco(object):
                       "pkts_num_margin": margin,
                       "iterations": 100}
             self.write_params("pg_drop", params)
+
+    def __define_wrr(self):
+        q_pkt_cnt = []
+        pkt_cnt_multiplier = 470/sum(self.weight_list)
+        for weight in self.weight_list:
+            q_pkt_cnt.append(int(weight * pkt_cnt_multiplier))
+        if self.should_autogen(["wrr"]):
+            params = {"ecn": 1,
+                      "dscp_list": self.dscp_list,
+                      "q_list": self.q_list,
+                      "q_pkt_cnt": q_pkt_cnt,
+                      "limit": 80}
+            self.write_params("wrr", params)
+
+    def __define_wrr_chg(self):
+        q_pkt_cnt = []
+        weight_list = []
+        lossy_queues_chg = self.get_queues_on_same_scheduler(QosSaiBase.TARGET_LOSSY_QUEUE_SCHED)
+        lossless_queues_chg = self.get_queues_on_same_scheduler(QosSaiBase.TARGET_LOSSLESS_QUEUE_SCHED)
+        for queue, weight in zip(self.q_list, self.weight_list):
+            if queue in lossy_queues_chg:
+                weight_list.append(8)
+            elif queue in lossless_queues_chg:
+                weight_list.append(30)
+            else:
+                weight_list.append(weight)
+        pkt_cnt_multiplier = 470/sum(weight_list)
+        for weight in weight_list:
+            q_pkt_cnt.append(int(weight * pkt_cnt_multiplier))
+        if self.should_autogen(["wrr_chg"]):
+            params = {"ecn": 1,
+                      "dscp_list": self.dscp_list,
+                      "q_list": self.q_list,
+                      "q_pkt_cnt": q_pkt_cnt,
+                      "limit": 80,
+                      "lossy_weight": 8,
+                      "lossless_weight": 30}
+            self.write_params("wrr_chg", params)

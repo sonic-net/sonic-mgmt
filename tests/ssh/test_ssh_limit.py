@@ -3,8 +3,8 @@ import logging
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.tacacs.conftest import tacacs_creds      # noqa F401
-from tests.tacacs.utils import setup_local_user
+from tests.common.fixtures.tacacs import tacacs_creds     # noqa F401
+from tests.common.helpers.tacacs.tacacs_helper import setup_local_user
 from tests.common.utilities import paramiko_ssh
 from tests.common.fixtures.tacacs import get_aaa_sub_options_value
 
@@ -44,17 +44,19 @@ def get_device_type(duthost):
     return dut_type
 
 
-def modify_template(admin_session, template_path, additional_content, hwsku, type):
-    admin_session.exec_command(TEMPLATE_BACKUP_COMMAND.format(template_path))
-    admin_session.exec_command(TEMPLATE_CREATE_COMMAND.format(template_path))
-    admin_session.exec_command(
-        LIMITS_CONF_TEMPLATE_TO_HOME.format(hwsku, type, additional_content))
-    admin_session.exec_command(TEMPLATE_MOVE_COMMAND.format(template_path))
+def exec_command(admin_session, command):
+    stdin, stdout, stderr = admin_session.exec_command(command)
+    outstr = stdout.readlines()
+    errstr = stderr.readlines()
+    logging.info("Command: '{}' stdout: {} stderr: {}".format(command, outstr, errstr))
 
-    stdin, stdout, stderr = admin_session.exec_command(
-        'sudo cat {0}'.format(template_path))
-    config_file_content = stdout.readlines()
-    logging.info("Updated template file: {0}".format(config_file_content))
+
+def modify_template(admin_session, template_path, additional_content, hwsku, type):
+    exec_command(admin_session, TEMPLATE_BACKUP_COMMAND.format(template_path))
+    exec_command(admin_session, TEMPLATE_CREATE_COMMAND.format(template_path))
+    exec_command(admin_session, LIMITS_CONF_TEMPLATE_TO_HOME.format(hwsku, type, additional_content))
+    exec_command(admin_session, TEMPLATE_MOVE_COMMAND.format(template_path))
+    exec_command(admin_session, 'sudo cat {0}'.format(template_path))
 
 
 def modify_templates(duthost, tacacs_creds, creds):     # noqa F811

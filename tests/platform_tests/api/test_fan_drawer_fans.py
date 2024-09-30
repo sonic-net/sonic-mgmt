@@ -5,7 +5,7 @@ import time
 import pytest
 
 from tests.common.helpers.platform_api import chassis, fan_drawer, fan_drawer_fan
-from tests.platform_tests.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
+from tests.common.helpers.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
 from .platform_api_test_base import PlatformApiTestBase
 
 ###################################################
@@ -306,9 +306,11 @@ class TestFanDrawerFans(PlatformApiTestBase):
                     target_speed = random.randint(speed_minimum, speed_maximum)
 
                 speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
+                speed_delta = abs(speed-target_speed)
 
                 speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, target_speed)     # noqa F841
-                time.sleep(self.get_fan_facts(duthost, j, i, 5, "speed", "delay"))
+                time_wait = 10 if speed_delta > 40 else 5
+                time.sleep(self.get_fan_facts(duthost, j, i, time_wait, "speed", "delay"))
 
                 act_speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
                 under_speed = fan_drawer_fan.is_under_speed(platform_api_conn, j, i)

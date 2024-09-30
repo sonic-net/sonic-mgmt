@@ -13,11 +13,10 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 from tests.ptf_runner import ptf_runner
-from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
+from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.config_reload import config_system_checks_passed
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()

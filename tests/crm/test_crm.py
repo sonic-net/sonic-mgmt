@@ -529,10 +529,6 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         logging.info("route add cmd: {}".format(route_add))
         duthost.command(route_add)
 
-    if is_cisco_device(duthost):
-        # Sleep more time after route add
-        time.sleep(10)
-
     check_available_counters = True
     if duthost.facts['asic_type'] == 'broadcom':
         check_available_counters = False
@@ -559,9 +555,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                 RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
             pytest.fail("\"crm_stats_ipv{}_route_used\" counter was not incremented".format(ip_ver))
         # Verify "crm_stats_ipv[4/6]_route_available" counter was decremented
-        # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
-        # Hence, the available counter may not increase as per initial value.
-        if check_available_counters and not (crm_stats_route_available - new_crm_stats_route_available > 1):
+        if check_available_counters and not (crm_stats_route_available - new_crm_stats_route_available >= 1):
             if is_mellanox_device(duthost):
                 # Get sai sdk dump file in case test fail, we can get the LPM tree information
                 get_sai_sdk_dump_file(duthost, f"sai_sdk_dump_after_add_v{ip_ver}_router")
@@ -1128,10 +1122,11 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
                   "\"crm_stats_acl_counter_used\" counter was not decremented or "
                   "\"crm_stats_acl_counter_available\" counter was not incremented")
 
-    # Verify "crm_stats_acl_counter_available" counter was equal to original value
-    _, new_crm_stats_acl_counter_available = get_crm_stats(get_acl_counter_stats, duthost)
-    pytest_assert(original_crm_stats_acl_counter_available - new_crm_stats_acl_counter_available == 0,
-                  "\"crm_stats_acl_counter_available\" counter is not equal to original value")
+    if skip_stats_check is False:
+        # Verify "crm_stats_acl_counter_available" counter was equal to original value
+        _, new_crm_stats_acl_counter_available = get_crm_stats(get_acl_counter_stats, duthost)
+        pytest_assert(original_crm_stats_acl_counter_available - new_crm_stats_acl_counter_available == 0,
+                      "\"crm_stats_acl_counter_available\" counter is not equal to original value")
 
 
 @pytest.mark.usefixtures('disable_fdb_aging')

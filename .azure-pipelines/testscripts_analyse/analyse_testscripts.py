@@ -49,11 +49,9 @@ def topo_name_to_type(topo_name):
         return topo_name
 
     topo_type = match.group()
-    if topo_type in ['mgmttor', 'dualtor']:
+    if topo_type in ['mgmttor', 'dualtor', 'm0', 'mc0', 'mx']:
         # certain testbed types are in 't0' category with different names.
         topo_type = 't0'
-    if topo_type in ['mc0']:
-        topo_type = 'm0'
     if topo_type in ['multidut-tgen']:
         topo_type = 'tgen'
     return topo_type
@@ -100,7 +98,8 @@ def collect_all_scripts():
                                 "testscript": filename,
                                 "topology": topo_name_to_type(topology_mark)
                             }
-                            test_scripts.append(result)
+                            if result not in test_scripts:
+                                test_scripts.append(result)
         except Exception as e:
             logging.error('Failed to load file {}, error {}'.format(f, e))
 

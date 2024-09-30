@@ -38,50 +38,110 @@ sudo -H ./setup-management-network.sh
 ## Download an VM image
 We currently support EOS-based or SONiC VMs to simulate neighboring devices in the virtual testbed, much like we do for physical testbeds. To do so, we need to download the image to our testbed host.
 
+**Prepare folder for image files on testbed host**
+
+The location for storing image files on the testbed host is specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file. Please update this variable to reflect the location you have planned for the testbed host. You can use
+either an absolute path or a relative path. If you choose a relative path, it will be relative to the home directory of the user accessing the testbed host.
+
+For example, if `root_path` is set to `veos-vm`, the image location would be `/home/$USER/veos-vm/images/`. If `root_path` is set to `/data/veos-vm`, the image location would be `/data/veos-vm/images`.
+
+As you may have noticed, image files are usually stored under subfolder `images` of location determined by `root_path`.
+
+Example 1:
+``` yaml
+root_path: veos-vm
+```
+
+Example 2:
+```yaml
+root_path: /data/veos-vm
+```
+
 ### Option 1: vEOS (KVM-based) image
 1. Download the [vEOS image from Arista](https://www.arista.com/en/support/software-download)
-2. Copy below image files to `~/veos-vm/images` on your testbed host:
+2. Copy below image files to location determined by `root_path` on your testbed host:
    - `Aboot-veos-serial-8.0.0.iso`
    - `vEOS-lab-4.20.15M.vmdk`
+
 ### Option 2: cEOS (container-based) image (recommended)
-#### Option 2.1: Download and import cEOS image manually
-Download the [cEOS image from Arista](https://www.arista.com/en/support/software-download). For example download file `cEOS64-lab-4.29.3M.tar`.
-Put the downloaded file under `~/veos-vm/images/` on your testbed host.
-The playbook will automatically look for the cEOS image file in the `~/veos-vm/images/` directory and import it into the testbed server.
 
-**Note**: *For time being, the image might be updated, in that case you can't download the same version of image as in the instruction,
-please download the corresponding version(following [Arista recommended release](https://www.arista.com/en/support/software-download#datatab300)) of image and import it to your local docker repository.
-The actual image version that is needed in the installation process is defined in the file [ansible/group_vars/all/ceos.yml](../../ansible/group_vars/all/ceos.yml), make sure you modify locally to keep it up with the image version you imported.*
+1. **Prepare folder for image files on test server**
 
-**Note**: *Please also notice the type of the bit for the image, in the example above, it is a standard 32-bit image. Please import the right image as your needs.*
-#### Option 2.2: Pull cEOS image automatically
-Alternatively, you can host the cEOS image on a http server. Specify `ceos_image_url` for downloading the image in file `ansible/group_vars/all/ceos.yml`. For example:
-```
-ceos_image_url: "http://example1.com/cEOS64-lab-4.29.3M.tar"
-```
-The `ceos_image_url` variable also can be a list of URLs, for example:
-```
-ceos_image_url:
-  - "http://example1.com/cEOS64-lab-4.29.3M.tar"
-  - "http://example2.com/cEOS64-lab-4.29.3M.tar"
-```
-The playbook will try to download the image from the URLs in the list one by one until it succeeds.
+    Create a subfolder called `images` inside the `root_path` directory defined in `ansible/group_vars/vm_host/main.yml` file. For instance, if `root_path` is set to `veos-vm`, you should run the following command:
 
-If you want to skip downloading the image when the cEOS image is not imported locally and image file is not available on testbed server, set `skip_ceos_image_downloading` to `true` in `ansible/group_vars/all/ceos.yml`. Then, when the cEOS image is not locally available, the scripts will not try to download it and will fail with an error message. Please use option 2.1 to download the cEOS image manually.
+    ```bash
+    mkdir -p ~/veos-vm/images
+    ```
+
+2. **Prepare the cEOS image file**
+
+   #### Option 2.1: Manually download cEOS image
+
+   1. Obtain the cEOS image from [Arista's software download page](https://www.arista.com/en/support/software-download).
+   2. Place the image file in the `images` subfolder located within the directory specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file.
+
+      Assuming you set `root_path` to `veos-vm`, you should run the following command:
+
+      ```bash
+      cp cEOS64-lab-4.29.3M.tar ~/veos-vm/images/
+      ```
+      The Ansible playbook for deploying testbed topology will automatically use the manually prepared image file from this location.
+
+   #### Option 2.2: Host the cEOS image file on a HTTP server
+   If you need to deploy VS setup on multiple testbed hosts, this option is more recommended.
+
+   1. **Download the cEOS Image**
+
+      Obtain the cEOS image from [Arista's software download page](https://www.arista.com/en/support/software-download).
+
+   2. **Host the cEOS Image**
+
+      Host the cEOS image file on an HTTP server. Ensure that the image file is accessible via HTTP from the `sonic-mgmt` container running the testbed deployment code. For example, the URL might look like `http://192.168.1.10/cEOS64-lab-4.29.3M.tar`.
+
+   3. **Update the Ansible Configuration**
+
+      Update the `ceos_image_url` variable in `ansible/group_vars/all/ceos.yml` with the URL of the cEOS image. This variable can be a single string for one URL or a list of strings for multiple URLs.
+
+      The Ansible playbook will attempt to download the image from each URL in the list until it succeeds. Downloaded file is stored to `images` subfolder of the location determined by `root_path` variable in `ansible/group_vars/vm_host/main.yml`. For example if `root_path` is `/data/veos-vm`, then the downloaded image file is put to `/data/veso-vm/images`
+
+      Variable `skip_ceos_image_downloading` in `ansible/group_vars/all/ceos.yml` also must be set to `false` if you wish ansible playbook to automatically try downloading cEOS image file. For example
+      ```yaml
+      ceos_image_url: http://192.168.1.10/cEOS64-lab-4.29.3M.tar
+      skip_ceos_image_downloading: false
+      ```
+      Or:
+      ```yaml
+      ceos_image_url:
+         - http://192.168.1.10/cEOS64-lab-4.29.3M.tar
+      skip_ceos_image_downloading: false
+      ```
 
 ### Option 3: Use SONiC image as neighboring devices
-You need to prepare a sound SONiC image `sonic-vs.img` in `~/veos-vm/images/`. We don't support to download sound sonic image right now, but for testing, you can also follow the section [Download the sonic-vs image](##download-the-sonic-vs-image) to download an available image and put it into the directory `~/veos-vm/images`
+You need to create a valid SONiC image named `sonic-vs.img` in the `~/veos-vm/images/` directory. Currently, we don’t support downloading a pre-built SONiC image. However, for testing purposes, you can refer to the section Download the sonic-vs image to obtain an available image and place it in the `~/veos-vm/images/` directory.
 
 ## Download the sonic-vs image
-To run the tests with a virtual SONiC device, we need a virtual SONiC image. The simplest way to do so is to download the latest succesful build.
 
-1. Download the sonic-vs image from [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz)
+### 1. To run the tests with a virtual SONiC device, we need a virtual SONiC image.
+
+#### Option 1: Download sonic-vs image
+
+The simplest way to do so is to download the latest succesful build. Download the sonic-vs image from [here](https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz)
 
 ```
 wget "https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target/sonic-vs.img.gz" -O sonic-vs.img.gz
 ```
 
-2. Unzip the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
+#### Option 2: Build sonic-vpp image
+
+Follow the instructions from [sonic-platform-vpp](https://github.com/sonic-net/sonic-platform-vpp?tab=readme-ov-file#building-a-kvm-vm-image) and build a **kvm** vm image.
+
+__Note: make sure you rename the vpp image to `sonic-vs.img`.__
+
+```
+mv sonic-vpp.img.gz sonic-vs.img.gz
+```
+
+### 2. Unzip the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
 
 ```
 gzip -d sonic-vs.img.gz
