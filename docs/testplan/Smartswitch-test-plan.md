@@ -20,12 +20,11 @@
     - [1.12 Check the DPU state after OS reboot](#112-check-the-dpu-state-after-os-reboot)
     - [1.13 Check CPU process on DPU](#113-check-cpu-process-on-dpu)
     - [1.14 Check memory on DPU](#114-check-memory-on-dpu)
-    - [1.15 Check flapping of NPU and DPU interface](#115-check-flapping-of-NPU-and-DPU-interface)
-    - [1.16 Check DPU status and Link after memory exhaustion](#116-check-dpu-status-and-link-after-memory-exhaustion)
-    - [1.17 Check DPU status and Link after restart swss and syncd](#117-check-dpu-status-and-link-after-restart-swss-and-syncd)
-    - [1.18 Check DPU status and Link after reload of configuration](#118-check-dpu-status-and-link-after-reload-of-configuration)
-    - [1.19 Check DPU status and Link after kernel panic](#119-check-dpu-status-and-link-after-kernel-panic)
-    - [1.20 Check DPU status and Link after power off reboot](#120-check-dpu-status-and-link-after-power-off-reboot)
+    - [1.15 Check DPU status and Link after memory exhaustion](#116-check-dpu-status-and-link-after-memory-exhaustion)
+    - [1.16 Check DPU status and Link after restart pmon](#117-check-dpu-status-and-link-after-restart-pmon)
+    - [1.17 Check DPU status and Link after reload of configuration](#118-check-dpu-status-and-link-after-reload-of-configuration)
+    - [1.18 Check DPU status and Link after kernel panic](#119-check-dpu-status-and-link-after-kernel-panic)
+    - [1.19 Check DPU status and Link after power off reboot](#120-check-dpu-status-and-link-after-power-off-reboot)
 - [Objectives of API Test Cases](#objectives-of-api-test-cases)
 - [API Test Cases](#api-test-cases)
     - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-specific-chassisclass-apis)
@@ -81,12 +80,11 @@ Dark mode is one in which all the DPUs admin_status are down.
 | 1.12 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot | |
 | 1.13 | Check CPU process on DPU       | To verify CPU Process and its threshold on all the DPUs  |
 | 1.14 | Check memory on DPU       |  To verify Memory and its threshold on all the DPUs |
-| 1.15 | Check flapping of NPU and DPU interface       |  To verify NPU-DPU interface holds good after flapping it  |
-| 1.16 | Check DPU status and Link after memory exhaustion | To verify dpu status and connectivity after memory exhaustion |
-| 1.17 | Check DPU status and Link after restart swss and syncd | To verify dpu status and connectivity after restart of swss and syncd on NPU |
-| 1.18 | Check DPU status and Link after reload of configuration | To verify dpu status and connectivity after reload of configuration | 
-| 1.19 | Check DPU status and Link after kernel panic | To verify dpu status and connectivity after Kernel Panic |
-| 1.20 | Check DPU status and Link after power off reboot | To verify dpu status and connectivity after power off reboot |
+| 1.15 | Check DPU status and Link after memory exhaustion | To verify dpu status and connectivity after memory exhaustion |
+| 1.16 | Check DPU status and Link after restart pmon | To verify dpu status and connectivity after restart of pmon on NPU |
+| 1.17 | Check DPU status and Link after reload of configuration | To verify dpu status and connectivity after reload of configuration | 
+| 1.18 | Check DPU status and Link after kernel panic | To verify dpu status and connectivity after Kernel Panic |
+| 1.19 | Check DPU status and Link after power off reboot | To verify dpu status and connectivity after power off reboot |
 
 
 ## CLI Test Cases
@@ -763,60 +761,7 @@ root@sonic:/home/admin#
  * Verify that no process should cross the specified threshold value (60) of memory usage.
 
 
-### 1.15 Check flapping of NPU and DPU interface
-
-#### Steps
- * Get the number of DPU modules from ansible inventory file for the testbed
- * Check and store system-health for the DPUs
- * Bring down the link between Switch and DPU
- * Wait for 1 min
- * Check system-health for the respective DPUs
- * Bring the link back up
- * Wait for 1 mins
- * Check system-health for the respective DPUs
-
-#### Verify in
- * Switch
-   
-#### Sample Output
-```
-On Switch:
-root@sonic:/home/cisco# ifconfig dpu0 down 
-root@sonic:/home/cisco#
-root@sonic:/home/cisco# show ip interface
-Interface     Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
-------------  --------  -------------------  ------------  --------------  -------------
-eth0                    172.25.42.56/24      up/up         N/A             N/A
-bridge-midplane         169.254.200.254/24   up/up         N/A             N/A
-lo                      127.0.0.1/16         up/up         N/A             N/A
-root@sonic:/home/cisco#
-root@sonic:/home/cisco# show system-health dpu DPU0
-root@sonic:/home/cisco#
-root@sonic:/home/cisco# ifconfig dpu0 up 
-root@sonic:/home/cisco#
-root@sonic:/home/cisco# show ip interface
-Interface     Master    IPv4 address/mask    Admin/Oper    BGP Neighbor    Neighbor IP
-------------  --------  -------------------  ------------  --------------  -------------
-eth0                    172.25.42.56/24      up/up         N/A             N/A
-bridge-midplane         169.254.200.254/24   up/up         N/A             N/A
-lo                      127.0.0.1/16         up/up         N/A             N/A
-
-root@sonic:/home/cisco# show system-health dpu DPU0
-Name    ID    Oper-Status     State-Detail             State-Value    Time               Reason
-------  ----  --------------  -----------------------  -------------  -----------------  --------------------------------------------------------------------------------------------------------------------------
-DPU0    0     Online          dpu_midplane_link_state  UP             20240723 18:56:12  INTERNAL-MGMT : admin state - UP, oper_state - UP, status - OK, HOST-MGMT : admin state - UP, oper_state - UP, status - OK
-                              dpu_control_plane_state  UP             20240723 18:56:12  All containers are up and running, host-ethlink-status: Uplink1/1 is UP
-root@sonic:/home/cisco#
-
-```
-
-#### Pass/Fail Criteria
-
- * Verify that link is up after the flap. 
- * Verify that DB contents are updated after the flap.
-
-
-### 1.16 Check DPU status and Link after memory exhaustion
+### 1.15 Check DPU status and Link after memory exhaustion
 
 #### Steps
 
@@ -878,12 +823,11 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
 
-### 1.17 Check DPU status and Link after restart swss and syncd
+### 1.16 Check DPU status and Link after restart pmon
 
 #### Steps
- * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_sequential_restart.py
-                                     https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_sequential_restart.py
- * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
+ * Use `systemctl restart pmon`
+ * Wait for 3 mins
  * Use `show chassis modules status` to check status of the DPUs.
  
 #### Verify in
@@ -935,7 +879,7 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
 
-### 1.18 Check DPU status and Link after reload of configuration
+### 1.17 Check DPU status and Link after reload of configuration
 
 #### Steps
 * Use `config reload -y` to reload the configurations in the switch.
@@ -973,7 +917,7 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
 
-### 1.19 Check DPU status and Link after kernel panic
+### 1.18 Check DPU status and Link after kernel panic
 
 #### Steps
  * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
@@ -1029,7 +973,7 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
  
-### 1.20 Check DPU status and Link after power off reboot
+### 1.19 Check DPU status and Link after power off reboot
 
 #### Steps
  * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_power_off_reboot.py
