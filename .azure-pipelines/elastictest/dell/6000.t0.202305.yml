@@ -38,7 +38,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms11-t0-s6000"
+    default: "vms11-t0-s6000,vms11-3-t0,tbtk5-t0-s6000-8"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
