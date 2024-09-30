@@ -82,7 +82,13 @@ class QosParamCisco(object):
             self.log("Pre-pad drop thr bytes:    {}".format(pre_pad_drop))
             self.log("Drop thr bytes:            {}".format(self.drop_thr))
             self.log("Reduced pause thr bytes:   {}".format(self.reduced_pause_thr))
-        self.config_facts = duthost.get_running_config_facts()
+        if len(duthost.frontend_asics) <= 1:
+            self.config_facts = duthost.get_running_config_facts()
+        else:
+            self.config_facts = duthost.config_facts(
+                namespace="asic0",
+                source="running",
+                host=duthost.hostname)['ansible_facts']
         # DSCP value for lossy
         self.dscp_queue0 = self.get_one_dscp_from_queue(0)
         self.dscp_queue1 = self.get_one_dscp_from_queue(1)
