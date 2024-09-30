@@ -351,3 +351,20 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: Tests virtual switch vm
+
+- conf-name: vms-kvm-smartswitch
+  group-name: vms6-2
+  topo: smartswitch-t1-28-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf-02
+  ptf_ip: 10.250.0.106/24
+  ptf_ipv6: fec0::ffff:afa:6/64
+  server: server_1
+  vm_base: VM0104
+  dut:
+    - vlab-01
+    - vlab-02
+    - vlab-03
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: virtual smartswitch testbed

@@ -49,6 +49,7 @@ all:
           - wan-pub-isis
           - dpu
           - dpu-1
+          - smartswitch-t1-28-lag
       children:
         server_1:
     lab:

@@ -122,7 +122,11 @@
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
     {% endif %}
 {% else %}
+    {% if "smartswitch" in vm_topo_config['topo_type'] and dut_index|int != 0 %}
+      <Device i:type="SonicHost">
+    {% else %}
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
+    {% endif %}
 {% endif %}
         <Hostname>{{ inventory_hostname }}</Hostname>
         <HwSku>{{ hwsku }}</HwSku>
