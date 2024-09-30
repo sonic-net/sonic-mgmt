@@ -115,10 +115,16 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
 
     if not wait_until(25, 1, 0, _check_drops_on_dut):
         # We were seeing a few more drop counters than expected, so we are allowing a small margin of error
-        DEOP_MARGIN = 10
+        # The max number of unexpected drop we see equals to the number of vlan members in t0 topology
+        duthost = duthosts.frontend_nodes[0]
+        mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+        DROP_MARGIN = 0 if mg_facts['minigraph_vlans'] else 10
+        for vlan in mg_facts['minigraph_vlans']:
+            DROP_MARGIN += len(mg_facts['minigraph_vlans'][vlan]['members'])
+        logger.info(f"The DROP_MARGIN is {DROP_MARGIN}")
         actual_drop = _get_drops_across_all_duthosts()
         for drop in actual_drop:
-            if drop >= packets_count and drop <= packets_count + DEOP_MARGIN:
+            if drop >= packets_count and drop <= packets_count + DROP_MARGIN:
                 logger.warning("Actual drops {} exceeded expected drops {} on iface {}\n".format(
                     actual_drop, packets_count, dut_iface))
                 break
