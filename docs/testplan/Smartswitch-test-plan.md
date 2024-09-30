@@ -936,12 +936,23 @@ root@sonic:/home/cisco#
 ### 1.18 Check DPU status and Link after kernel panic
 
 #### Steps
+
+In Switch:
  * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
  * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
  * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
  * Use `show chassis modules status` to check status of the DPUs.
  * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
+
  
+In DPU:
+ * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
+    In Switch:
+        * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
+        * Wait for 3 mins.
+        * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+        * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
+   
 #### Verify in
  * Switch
    
