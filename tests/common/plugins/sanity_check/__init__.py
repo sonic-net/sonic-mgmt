@@ -19,13 +19,7 @@ logger = logging.getLogger(__name__)
 SUPPORTED_CHECKS = checks.CHECK_ITEMS
 DUT_CHEK_LIST = ['core_dump_check_pass', 'config_db_check_pass']
 CACHE_LIST = ['core_dump_check_pass', 'config_db_check_pass',
-              'pre_sanity_check_failed', 'post_sanity_check_failed',
               'pre_sanity_recovered', 'post_sanity_recovered']
-
-
-def reset_cache_list(request):
-    for item in CACHE_LIST:
-        request.config.cache.set(item, None)
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -169,8 +163,6 @@ def log_custom_msg(request):
             if customMsgDict:
                 logger.debug("customMsgDict: {}".format(customMsgDict))
                 item.user_properties.append(('CustomMsg', json.dumps(customMsgDict)))
-
-    reset_cache_list(request)
 
 
 @pytest.fixture(scope="module")
