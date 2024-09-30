@@ -180,9 +180,9 @@
   auto_recover: 'True'
   comment: yingxie
 
-- conf-name: vms11-3-t1
+- conf-name: vms11-3-t0
   group-name: v11-31
-  topo: t1
+  topo: t0
   ptf_image_name: docker-ptf
   ptf: v11-31
   ptf_ip: 10.64.246.22/23
@@ -2587,9 +2587,9 @@
   auto_recover: 'True'
   comment: tbtk5-s6000-2
 
-- conf-name: tbtk5-t1-s6000-8
+- conf-name: tbtk5-t0-s6000-8
   group-name: tk5-5-8
-  topo: t1-lag
+  topo: t0
   ptf_image_name: docker-ptf
   ptf: ptf5-8
   ptf_ip: 10.212.65.78/24
