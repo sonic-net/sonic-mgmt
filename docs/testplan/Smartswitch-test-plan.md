@@ -765,28 +765,27 @@ root@sonic:/home/admin#
 
 #### Steps
 
-In Switch:
+- In Switch:
+   * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
+   * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
+   * It runs on the background and `nohup` is also necessary to protect thebackground process.
+   * Added `sleep 5` to ensure ansible receive the result first.
+   * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
+   * Power on DPUs after switch goes for reboot and comes back
+   * Use `show chassis modules status` to check status of the DPUs.
+   * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py
 
- * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
- * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
- * It runs on the background and `nohup` is also necessary to protect thebackground process.
- * Added `sleep 5` to ensure ansible receive the result first.
- * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
- * Power on DPUs after switch goes for reboot and comes back
- * Use `show chassis modules status` to check status of the DPUs.
- * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py
-
-In DPU:
-
- * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
- * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
- * It runs on the background and `nohup` is also necessary to protect thebackground process.
- * Added `sleep 5` to ensure ansible receive the result first.
- In Switch:
-     * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
-     * Wait for 3 mins.
-     * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
-     * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
+- In DPU:
+   * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
+   * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
+   * It runs on the background and `nohup` is also necessary to protect thebackground process.
+   * Added `sleep 5` to ensure ansible receive the result first.
+   
+    - In Switch:
+       * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
+       * Wait for 3 mins.
+       * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+       * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
  
  #### Verify in
  * Switch and DPU
@@ -937,21 +936,21 @@ root@sonic:/home/cisco#
 
 #### Steps
 
-In Switch:
- * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
- * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
- * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
- * Use `show chassis modules status` to check status of the DPUs.
- * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
-
+- In Switch:
+   * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
+   * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
+   * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+   * Use `show chassis modules status` to check status of the DPUs.
+   * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
  
-In DPU:
- * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
-    In Switch:
-        * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
-        * Wait for 3 mins.
-        * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
-        * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
+- In DPU:
+   * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`.
+   
+   - In Switch:
+     * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
+     * Wait for 3 mins.
+     * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+     * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
    
 #### Verify in
  * Switch
