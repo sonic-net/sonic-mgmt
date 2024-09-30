@@ -765,9 +765,28 @@ root@sonic:/home/admin#
 
 #### Steps
 
- * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py
+In Switch:
+
+ * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
+ * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
+ * It runs on the background and `nohup` is also necessary to protect thebackground process.
+ * Added `sleep 5` to ensure ansible receive the result first.
  * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
  * Power on DPUs after switch goes for reboot and comes back
+ * Use `show chassis modules status` to check status of the DPUs.
+ * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py
+
+In DPU:
+
+ * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
+ * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
+ * It runs on the background and `nohup` is also necessary to protect thebackground process.
+ * Added `sleep 5` to ensure ansible receive the result first.
+ In Switch:
+     * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
+     * Wait for 3 mins.
+     * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+     * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
  
  #### Verify in
  * Switch and DPU
@@ -836,26 +855,9 @@ root@sonic:/home/cisco#
 #### Sample Output
 
 ```
-root@sonic:/home/cisco# sudo systemctl restart swss
+root@sonic:/home/cisco# sudo systemctl restart pmon
 root@sonic:/home/cisco# 
-root@sonic:/home/cisco# sudo systemctl restart syncd
 root@sonic:/home/cisco#
-root@sonic:/home/cisco# show chassis modules status
-  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
-------  --------------------  ---------------  -------------  --------------  ---------------
-  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
-  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
-  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
-  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
-
-root@sonic:/home/cisco# ping 169.254.200.1
-PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
-64 bytes from 169.254.200.1: icmp_seq=1 ttl=64 time=0.160 ms
-^C
---- 169.254.28.1 ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
-root@sonic:/home/cisco# 
 root@sonic:/home/cisco# show chassis modules status
   Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
 ------  --------------------  ---------------  -------------  --------------  ---------------
@@ -883,6 +885,9 @@ root@sonic:/home/cisco#
 
 #### Steps
 * Use `config reload -y` to reload the configurations in the switch.
+* Wait for 3 mins.
+* If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
+* Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
 * Use `show chassis modules status` to check status of the DPUs.
  
 #### Verify in
@@ -892,7 +897,18 @@ root@sonic:/home/cisco#
 
 ```
 root@sonic:/home/cisco# config reload -y
-root@sonic:/home/cisco#
+Acquired lock on /etc/sonic/reload.lock
+Disabling container monitoring ...
+Stopping SONiC target ...
+Running command: /usr/local/bin/sonic-cfggen -j /etc/sonic/init_cfg.json -j /etc/sonic/config_db.json --write-to-db
+Running command: /usr/local/bin/db_migrator.py -o migrate
+Running command: /usr/local/bin/sonic-cfggen -d -y /etc/sonic/sonic_version.yml -t /usr/share/sonic/templates/sonic-environment.j2,/etc/sonic/sonic-environment
+Restarting SONiC target ...
+Enabling container monitoring ...
+Reloading Monit configuration ...
+Reinitializing monit daemon
+Released lock on /etc/sonic/reload.lock
+root@MtFuji:/home/cisco# 
 root@sonic:/home/cisco# show chassis modules status
   Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
 ------  --------------------  ---------------  -------------  --------------  ---------------
@@ -920,10 +936,11 @@ root@sonic:/home/cisco#
 ### 1.18 Check DPU status and Link after kernel panic
 
 #### Steps
- * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
+ * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
  * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
  * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
  * Use `show chassis modules status` to check status of the DPUs.
+ * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
  
 #### Verify in
  * Switch
@@ -976,11 +993,12 @@ root@sonic:/home/cisco#
 ### 1.19 Check DPU status and Link after power off reboot
 
 #### Steps
- * Adding to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_power_off_reboot.py
+ * Power cycle the testbed using PDU controller.
  * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
  * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
  * Use `show chassis modules status` to check status of the DPUs.
- 
+ * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_power_off_reboot.py
+
 #### Verify in
  * Switch
    
