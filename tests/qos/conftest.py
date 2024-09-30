@@ -132,17 +132,3 @@ def combine_qos_parameter():
 
     with open(output_file, "w") as ofp:
         yaml.dump(combined_yaml, ofp, default_flow_style=False)
-
-
-def pytest_generate_tests(metafunc):
-    if "test_port_selection_criteria" in metafunc.fixturenames:
-        if isinstance(metafunc.config.getoption("test_port_selection_criteria"), str):
-            metafunc.parametrize(
-                "test_port_selection_criteria",
-                [metafunc.config.getoption("test_port_selection_criteria")],
-                scope="class")
-        else:
-            metafunc.parametrize(
-                "test_port_selection_criteria",
-                metafunc.config.getoption("test_port_selection_criteria"),
-                scope="class")

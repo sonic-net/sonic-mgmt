@@ -29,7 +29,6 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
-SUPPORTED_VARIANTS = ["single_asic", "single_dut_multi_asic", "multi_dut", "multi_dut_reverse"]
 
 
 class QosBase:
@@ -591,20 +590,13 @@ class QosSaiBase(QosBase):
                 for duthost in get_src_dst_asic_and_duts["all_duts"]:
                     docker.restore_default_syncd(duthost, new_creds)
 
-    @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic")
-    def select_src_dst_dut_and_asic(
-            self,
-            duthosts,
-            request,
-            tbinfo,
-            test_port_selection_criteria,
-            lower_tor_host): # noqa F811
-        primary_dut_index = request.config.getoption('--primary_dut_index')
-        secondary_dut_index = request.config.getoption('--secondary_dut_index')
-
+    @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
+                    params=("single_asic", "single_dut_multi_asic", "multi_dut"))
+    def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo, lower_tor_host): # noqa F811
+        test_port_selection_criteria = request.param
         logger.info("test_port_selection_criteria is {}".format(test_port_selection_criteria))
-        src_dut_index = primary_dut_index
-        dst_dut_index = secondary_dut_index
+        src_dut_index = 0
+        dst_dut_index = 0
         src_asic_index = 0
         dst_asic_index = 0
         topo = tbinfo["topo"]["name"]
@@ -622,7 +614,7 @@ class QosSaiBase(QosBase):
             if 'dualtor' in tbinfo['topo']['name']:
                 src_dut_index = lower_tor_dut_index
             else:
-                src_dut_index = primary_dut_index
+                src_dut_index = 0
             dst_dut_index = src_dut_index
             src_asic_index = 0
             dst_asic_index = 0
@@ -634,8 +626,8 @@ class QosSaiBase(QosBase):
             for a_dut_index in range(len(duthosts.frontend_nodes)):
                 a_dut = duthosts.frontend_nodes[a_dut_index]
                 if a_dut.sonichost.is_multi_asic:
-                    src_dut_index = primary_dut_index
-                    dst_dut_index = src_dut_index
+                    src_dut_index = a_dut_index
+                    dst_dut_index = a_dut_index
                     src_asic_index = 0
                     dst_asic_index = 1
                     found_multi_asic_dut = True
@@ -654,27 +646,10 @@ class QosSaiBase(QosBase):
             if (len(duthosts.frontend_nodes)) < 2:
                 pytest.skip("Don't have 2 frontend nodes - so can't run multi_dut tests")
 
-            if test_port_selection_criteria == "multi_dut":
-                src_dut_index = primary_dut_index
-                dst_dut_index = secondary_dut_index
-                src_asic_index = 0
-                dst_asic_index = 0
-            else:
-                if not is_cisco_device(duthost):
-                    pytest.skip("Reverse MultiDUT test is done only for Cisco devices.")
-
-                src_dut_index = secondary_dut_index
-                dst_dut_index = primary_dut_index
-                src_asic_index = 0
-                dst_asic_index = 0
-                src_dut = duthosts.frontend_nodes[src_dut_index]
-                dst_dut = duthosts.frontend_nodes[dst_dut_index]
-                src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
-                dst_mgFacts = dst_dut.get_extended_minigraph_facts(tbinfo)
-                if src_mgFacts["minigraph_hwsku"] != dst_mgFacts["minigraph_hwsku"]:
-                    pytest.skip(
-                        "Reverse MultiDUT test is not needed since both src "
-                        "and dst are same.")
+            src_dut_index = 0
+            dst_dut_index = 1
+            src_asic_index = 0
+            dst_asic_index = 0
 
         yield {
             "src_dut_index": src_dut_index,
