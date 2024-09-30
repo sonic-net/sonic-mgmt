@@ -42,7 +42,7 @@ def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_
     if is_flat_memory and show_eeprom_cmd == "sudo sfputil show eeprom -d":
         logging.info("SKip dom parameters check due to port with flat memory")
         excluded_keys = excluded_keys | {"ChannelMonitorValues", "ChannelThresholdValues", "ModuleMonitorValues",
-                                         "ModuleThresholdValues"}
+                                         "ModuleThresholdValues", "MonitorData", "ThresholdData"}
         expected_keys = expected_keys - excluded_keys
 
     for key in expected_keys:
