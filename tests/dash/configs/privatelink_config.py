@@ -83,14 +83,6 @@ ROUTE_VNET_CONFIG = {
     }
 }
 
-ROUTE_VNET_CONFIG_UNDERLAY_SIP = {
-    f"DASH_ROUTE_TABLE:{ROUTE_GROUP2}:{OUTBOUND_ROUTE_PREFIX2}": {
-        "routing_type": RoutingType.ROUTING_TYPE_VNET,
-        "vnet": VNET1,
-        "underlay_sip": PL_UNDERLAY_SIP2,
-    }
-}
-
 ROUTING_TYPE_PL_CONFIG = {
     f"DASH_ROUTING_TYPE_TABLE:{PRIVATELINK}": {
         "items": [
