@@ -18,13 +18,12 @@
     - [1.10 Check the Health of DPUs](#110-check-the-health-of-dpus)
     - [1.11 Check reboot cause history](#111-check-reboot-cause-history)
     - [1.12 Check the DPU state after OS reboot](#112-check-the-dpu-state-after-os-reboot)
-    - [1.13 Check CPU process on DPU](#113-check-cpu-process-on-dpu)
-    - [1.14 Check memory on DPU](#114-check-memory-on-dpu)
-    - [1.15 Check DPU status and Link after memory exhaustion](#115-check-dpu-status-and-link-after-memory-exhaustion)
-    - [1.16 Check DPU status and Link after restart pmon](#116-check-dpu-status-and-link-after-restart-pmon)
-    - [1.17 Check DPU status and Link after reload of configuration](#117-check-dpu-status-and-link-after-reload-of-configuration)
-    - [1.18 Check DPU status and Link after kernel panic](#118-check-dpu-status-and-link-after-kernel-panic)
-    - [1.19 Check DPU status and Link after power off reboot](#119-check-dpu-status-and-link-after-power-off-reboot)
+    - [1.13 Check memory on DPU](#113-check-memory-on-dpu)
+    - [1.14 Check DPU status and pcie Link after memory exhaustion](#114-check-dpu-status-and-pcie-link-after-memory-exhaustion)
+    - [1.15 Check DPU status and pcie Link after restart pmon](#115-check-dpu-status-and-pcie-link-after-restart-pmon)
+    - [1.16 Check DPU status and pcie Link after reload of configuration](#116-check-dpu-status-and-pcie-link-after-reload-of-configuration)
+    - [1.17 Check DPU status and pcie Link after kernel panic](#117-check-dpu-status-and-pcie-link-after-kernel-panic)
+    - [1.18 Check DPU status and pcie Link after power off reboot](#118-check-dpu-status-and-pcie-link-after-power-off-reboot)
 - [Objectives of API Test Cases](#objectives-of-api-test-cases)
 - [API Test Cases](#api-test-cases)
     - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-specific-chassisclass-apis)
@@ -78,13 +77,12 @@ Dark mode is one in which all the DPUs admin_status are down.
 | 1.10 | Check the Health of DPUs       | To Verify overall health (LED, process, docker, services and hw) of DPU | Phase:2 |
 | 1.11 | Check reboot cause history       | To Verify reboot cause history cli | |
 | 1.12 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot | |
-| 1.13 | Check CPU process on DPU       | To verify CPU Process and its threshold on all the DPUs  |
-| 1.14 | Check memory on DPU       |  To verify Memory and its threshold on all the DPUs |
-| 1.15 | Check DPU status and Link after memory exhaustion | To verify dpu status and connectivity after memory exhaustion |
-| 1.16 | Check DPU status and Link after restart pmon | To verify dpu status and connectivity after restart of pmon on NPU |
-| 1.17 | Check DPU status and Link after reload of configuration | To verify dpu status and connectivity after reload of configuration | 
-| 1.18 | Check DPU status and Link after kernel panic | To verify dpu status and connectivity after Kernel Panic |
-| 1.19 | Check DPU status and Link after power off reboot | To verify dpu status and connectivity after power off reboot |
+| 1.13 | Check memory on DPU       |  To verify Memory and its threshold on all the DPUs |
+| 1.14 | Check DPU status and pcie Link after memory exhaustion | To verify dpu status and connectivity after memory exhaustion |
+| 1.15 | Check DPU status and pcie Link after restart pmon | To verify dpu status and connectivity after restart of pmon on NPU |
+| 1.16 | Check DPU status and pcie Link after reload of configuration | To verify dpu status and connectivity after reload of configuration | 
+| 1.17 | Check DPU status and pcie Link after kernel panic | To verify dpu status and connectivity after Kernel Panic |
+| 1.18 | Check DPU status and pcie Link after power off reboot | To verify dpu status and connectivity after power off reboot |
 
 
 ## CLI Test Cases
@@ -668,11 +666,12 @@ root@sonic:/home/cisco# show chassis modules status
  *  Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
 
 
-### 1.13 Check CPU process on DPU
+### 1.13 Check Memory on DPU
 
 #### Steps
- * Get the number of DPU modules from ansible inventory file for the testbed
- * Use command `top` to get CPU Processes on each of those DPUs
+
+ * Use command `show system-memory` to get memory usage on each of those DPUs
+ * Use `show system-health detail` to check memory check service status
 
 #### Verify in
  * DPU
@@ -681,87 +680,59 @@ root@sonic:/home/cisco# show chassis modules status
 ```
 On DPU:
 
-root@sonic:/home/admin# top
-
-top - 23:57:25 up 55 min,  1 user,  load average: 17.39, 17.17, 16.79
-Tasks: 314 total,   4 running, 303 sleeping,   0 stopped,   7 zombie
-%Cpu(s): 91.1 us,  6.7 sy,  0.0 ni,  1.7 id,  0.0 wa,  0.0 hi,  0.5 si,  0.0 st 
-MiB Mem :   6266.5 total,   1463.3 free,   4234.9 used,    767.0 buff/cache     
-MiB Swap:      0.0 total,      0.0 free,      0.0 used.   2031.7 avail Mem 
-
-    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND   
-   1372 root      20   0 1035964  57828  32192 R  66.2   0.9  40:23.00 operd    
-  92068 root      20   0  170720  65740  20920 S  27.2   1.0   0:00.82 python3  
-  92203 root      20   0   33668  25652   9100 R   7.3   0.4   0:00.22 supervi+ 
-   1212 root      20   0  211352  20192  15188 S   6.0   0.3   3:29.69 sysmgr   
-   1381 root      20   0   39.4g 228828 118236 S   5.0   3.6   7:01.30 pdsagent 
-    730 root      20   0 2258848 102596  45236 S   2.3   1.6   0:45.04 dockerd  
-    705 root      20   0 1641200  55584  25356 S   1.0   0.9   0:18.42 contain+ 
-  91685 root      20   0   12340   4708   2792 R   1.0   0.1   0:00.20 top      
-  92183 root      20   0 1327320  29692  16020 S   1.0   0.5   0:00.03 docker   
-      1 root      20   0  169980  13640   8788 S   0.7   0.2   0:17.55 systemd  
-   2138 root      20   0  720440  13780   6896 S   0.7   0.2   0:02.11 contain+ 
-   3015 uuidd     20   0   98760  19092   8216 S   0.7   0.3   0:16.94 redis-s+ 
-   5156 root      20   0 1975688  48804  36360 S   0.7   0.8   0:06.13 syncd    
-     14 root      20   0       0      0      0 I   0.3   0.0   0:06.52 rcu_sch+ 
-     15 root      20   0       0      0      0 I   0.3   0.0   0:03.12 rcuog/0  
-
+root@sonic:/home/admin# show system-memory
+               total        used        free      shared  buff/cache   available
+Mem:            6266        4198        1509          28         765        2067
+Swap:              0           0           0
 root@sonic:/home/admin# 
+root@sonic:/home/admin# 
+root@sonic:/home/admin# show system-health detail
+System status summary
+
+  System status LED  green
+  Services:
+    Status: Not OK
+    Not Running: container_checker, database-chassis
+  Hardware:
+    Status: OK
+
+System services and devices monitor list
+
+Name                      Status    Type
+------------------------  --------  ----------
+container_checker         Not OK    Program
+database-chassis          Not OK    Service
+sonic                     OK        System
+rsyslog                   OK        Process
+root-overlay              OK        Filesystem
+var-log                   OK        Filesystem
+routeCheck                OK        Program
+dualtorNeighborCheck      OK        Program
+diskCheck                 OK        Program
+vnetRouteCheck            OK        Program
+**memory_check              OK        Program**
+
+root@sonic:/home/admin# pdsctl show system --events
+----------------------------------------------------------------------------------------------------
+Event                                             Severity  Timestamp                               
+----------------------------------------------------------------------------------------------------
+DSE_SERVICE_STARTED                               DEBUG     2024-09-20 21:48:11.515551 +0000 UTC    
+DSE_SERVICE_STARTED                               DEBUG     2024-09-20 21:48:11.668685 +0000 UTC    
+DSE_SERVICE_STARTED                               DEBUG     2024-09-20 21:48:12.379261 +0000 UTC    
+DSE_SERVICE_STARTED                               DEBUG     2024-09-20 21:48:19.379819 +0000 UTC        
+root@sonic:/home/admin#
 
 ```
 
 #### Pass/Fail Criteria
 
- * Verify that no process should cross specified threshold value (70) of CPU usage.
-
-
-### 1.14 Check Memory on DPU
-
-#### Steps
- * Get the number of DPU modules from ansible inventory file for the testbed
- * Use command `top` to get memory usage on each of those DPUs
-
-#### Verify in
- * DPU
+ * Verify that used memory should not cross the specified threshold value (90) of total memory.
+ * Threshold can be set different based on platform.
+ * Verify that memory_check service status is OK under system health cli.
+ * Verify no memory related events under show system events cli.
    
-#### Sample Output
-```
-On DPU:
 
-root@sonic:/home/admin# top
-
-top - 23:57:25 up 55 min,  1 user,  load average: 17.39, 17.17, 16.79
-Tasks: 314 total,   4 running, 303 sleeping,   0 stopped,   7 zombie
-%Cpu(s): 91.1 us,  6.7 sy,  0.0 ni,  1.7 id,  0.0 wa,  0.0 hi,  0.5 si,  0.0 st 
-MiB Mem :   6266.5 total,   1463.3 free,   4234.9 used,    767.0 buff/cache     
-MiB Swap:      0.0 total,      0.0 free,      0.0 used.   2031.7 avail Mem 
-
-    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND   
-   1372 root      20   0 1035964  57828  32192 R  66.2   0.9  40:23.00 operd    
-  92068 root      20   0  170720  65740  20920 S  27.2   1.0   0:00.82 python3  
-  92203 root      20   0   33668  25652   9100 R   7.3   0.4   0:00.22 supervi+ 
-   1212 root      20   0  211352  20192  15188 S   6.0   0.3   3:29.69 sysmgr   
-   1381 root      20   0   39.4g 228828 118236 S   5.0   3.6   7:01.30 pdsagent 
-    730 root      20   0 2258848 102596  45236 S   2.3   1.6   0:45.04 dockerd  
-    705 root      20   0 1641200  55584  25356 S   1.0   0.9   0:18.42 contain+ 
-  91685 root      20   0   12340   4708   2792 R   1.0   0.1   0:00.20 top      
-  92183 root      20   0 1327320  29692  16020 S   1.0   0.5   0:00.03 docker   
-      1 root      20   0  169980  13640   8788 S   0.7   0.2   0:17.55 systemd  
-   2138 root      20   0  720440  13780   6896 S   0.7   0.2   0:02.11 contain+ 
-   3015 uuidd     20   0   98760  19092   8216 S   0.7   0.3   0:16.94 redis-s+ 
-   5156 root      20   0 1975688  48804  36360 S   0.7   0.8   0:06.13 syncd    
-     14 root      20   0       0      0      0 I   0.3   0.0   0:06.52 rcu_sch+ 
-     15 root      20   0       0      0      0 I   0.3   0.0   0:03.12 rcuog/0  
-
-root@sonic:/home/admin#  
-```
-
-#### Pass/Fail Criteria
-
- * Verify that no process should cross the specified threshold value (60) of memory usage.
-
-
-### 1.15 Check DPU status and Link after memory exhaustion
+### 1.14 Check DPU status and pcie Link after memory exhaustion
 
 #### Steps
 
@@ -841,7 +812,7 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
 
-### 1.16 Check DPU status and Link after restart pmon
+### 1.15 Check DPU status and pcie Link after restart pmon
 
 #### Steps
  * Use `systemctl restart pmon`
@@ -880,7 +851,7 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
 
-### 1.17 Check DPU status and Link after reload of configuration
+### 1.16 Check DPU status and pcie Link after reload of configuration
 
 #### Steps
 * Use `config reload -y` to reload the configurations in the switch.
@@ -932,7 +903,7 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
 
-### 1.18 Check DPU status and Link after kernel panic
+### 1.17 Check DPU status and pcie Link after kernel panic
 
 #### Steps
 
@@ -1000,7 +971,7 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
  
-### 1.19 Check DPU status and Link after power off reboot
+### 1.18 Check DPU status and pcie Link after power off reboot
 
 #### Steps
  * Power cycle the testbed using PDU controller.
