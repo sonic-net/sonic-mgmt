@@ -4,7 +4,6 @@ Tests for the `platform cli ...` commands in DPU
 
 import logging
 import pytest
-import time
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.smartswitch.common.platform.device_utils_dpu import *  # noqa: F403,F401,E501
