@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
+
+
 @pytest.mark.disable_loganalyzer
 def __gen_all_to_all_traffic(testbed_config,
                              port_config_list,
