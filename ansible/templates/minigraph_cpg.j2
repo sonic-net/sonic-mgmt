@@ -4,7 +4,7 @@
     <PeeringSessions>
 {% for index in range(vms_number) %}
 {% set vm=vms[index] %}
-{% if (vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] and vm_topo_config['topo_type'] != 'wan') %}
+{% if (vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] and vm_topo_config['topo_type'] != 'wan' and not ("DPU" in vm)) %}
       <BGPSession>
         <MacSec>false</MacSec>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
@@ -28,7 +28,7 @@
       </BGPSession>
 {% endif %}
 {% endif %}
-{% if (vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] and vm_topo_config['topo_type'] != 'wan') %}
+{% if (vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] and vm_topo_config['topo_type'] != 'wan' and not ("DPU" in vm)) %}
       <BGPSession>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
         <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv6'][dut_index|int] }}</StartPeer>

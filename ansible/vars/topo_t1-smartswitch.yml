@@ -20,6 +20,7 @@ topology:
     SONIC01DPU:
       vlans:
         - 4
+        - 5
       vm_offset: 4
 
 configuration_properties:
@@ -92,11 +93,6 @@ configuration:
         65100:
         - 10.0.0.32
         - FC00::41
-    vips:
-      ipv4:
-        prefixes:
-          - 200.0.1.0/26
-        asn: 64700
     interfaces:
       Loopback0:
         ipv4: 100.1.0.17/32
@@ -140,18 +136,16 @@ configuration:
         65100:
         - 10.0.0.36
         - FC00::49
-    vips:
-      ipv4:
-        prefixes:
-          - 200.0.1.0/26
-        asn: 64700
     interfaces:
       Loopback0:
         ipv4: 100.1.0.19/32
         ipv6: 2064:100::13/128
-      Ethernet1:
-        ipv4: 10.0.0.37/31
-        ipv6: fc00::4a/126
+      Ethernet0:
+         ipv4: 10.0.0.37/31
+         ipv6: fc00::4a/126
+      Ethernet4:
+        ipv4: 10.0.0.39/31
+        ipv6: fc00::4e/126
     bp_interface:
       ipv4: 10.10.246.19/24
       ipv6: fc0a::26/64
