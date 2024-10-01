@@ -1352,23 +1352,6 @@
   auto_recover: 'True'
   comment: dashuaizhang
 
-- conf-name: vmsvc5-t2-8800-ixia-2lc
-  group-name: svc5-1
-  topo: t2-ixia-2lc-4
-  ptf_image_name: docker-keysight-api-server
-  ptf: svc5-ixia-2-ptf
-  ptf_ip: 10.206.144.17/24
-  ptf_ipv6:
-  server: server_svc_5
-  vm_base:
-  dut:
-  - svcstr2-8800-lc4-1
-  - svcstr2-8800-lc2-1
-  inv_name: strsvc2
-  auto_recover: 'False'
-  comment: dashuaizhang
-
-
 - conf-name: vmsvc1-t1-n3164-acs-1
   group-name: svc1-1
   topo: t1-64-lag
