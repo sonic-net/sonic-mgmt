@@ -20,6 +20,7 @@ pytestmark = [
     pytest.mark.topology("any")
 ]
 
+
 def reboot_nbr(nbrhost):
     # Save the original config file
     nbrhost.shell("cp /etc/sonic/config_db.json config_db.json")
