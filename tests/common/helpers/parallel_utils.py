@@ -24,7 +24,10 @@ def is_initial_checks_active(request):
         if not last_line:
             return False
 
-        return last_line.split(',')[1].endswith("started")
+        return last_line.split(',')[1] in (
+            InitialCheckStatus.SETUP_STARTED.value,
+            InitialCheckStatus.TEARDOWN_STARTED.value,
+        )
     except FileNotFoundError:
         logger.info("State file {} not found".format(parallel_state_file))
         return False
