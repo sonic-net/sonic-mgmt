@@ -34,6 +34,7 @@ t0:
   - decap/test_decap.py
   - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
+  - dhcp_relay/test_dhcp_relay_stress.py
   - dhcp_relay/test_dhcpv6_relay.py
   - disk/test_disk_exhaustion.py
   - dns/static_dns/test_static_dns.py
@@ -209,9 +210,19 @@ t0:
   - drop_packets/test_drop_counters.py
   - copp/test_copp.py
   - crm/test_crm.py
+  - test_nbr_health.py
+  - dhcp_server/test_dhcp_server.py
+  - dhcp_server/test_dhcp_server_multi_vlans.py
+  - dhcp_server/test_dhcp_server_stress.py
+  - platform_tests/test_idle_driver.py
+  - wol/test_wol.py
+  - dhcp_relay/test_dhcp_pkt_fwd.py
+  - telemetry/test_telemetry.py
+  - platform_tests/test_cont_warm_reboot.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
+  - dhcp_relay/test_dhcp_relay_stress.py
   - dhcp_relay/test_dhcpv6_relay.py
   - vlan/test_host_vlan.py
   - vlan/test_vlan_ping.py
@@ -403,6 +414,12 @@ t1-lag:
   - drop_packets/test_drop_counters.py
   - crm/test_crm.py
   - bgp/test_bgp_sentinel.py
+  - bgp/test_bgp_suppress_fib.py
+  - test_nbr_health.py
+  - platform_tests/test_link_down.py
+  - gnmi/test_gnmi_countersdb.py
+  - generic_config_updater/test_cacl.py
+  - telemetry/test_telemetry.py
 
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
@@ -413,6 +430,7 @@ multi-asic-t1-lag:
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_pfc_counters.py
   - snmp/test_snmp_queue.py
+  - snmp/test_snmp_queue_counters.py
   - tacacs/test_accounting.py
   - tacacs/test_authorization.py
   - tacacs/test_jit_user.py
@@ -438,21 +456,14 @@ onboarding_t0:
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
-  - platform_tests/test_cont_warm_reboot.py
   - snmp/test_snmp_link_local.py
-  - dhcp_server/test_dhcp_server.py
-  - dhcp_server/test_dhcp_server_multi_vlans.py
-  - dhcp_server/test_dhcp_server_stress.py
-  - platform_tests/test_idle_driver.py
-  - wol/test_wol.py
-  - dhcp_relay/test_dhcp_pkt_fwd.py
+  - lldp/test_lldp_syncd.py
+
 
 onboarding_t1:
   - bgp/test_bgp_stress_link_flap.py
-  - generic_config_updater/test_cacl.py
-  - gnmi/test_gnmi_countersdb.py
-  - platform_tests/test_link_down.py
   - snmp/test_snmp_link_local.py
+  - lldp/test_lldp_syncd.py
 
 onboarding_dualtor:
   - dualtor_mgmt/test_dualtor_bgp_update_delay.py
