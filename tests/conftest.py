@@ -42,6 +42,7 @@ from tests.common.helpers.constants import (
 )
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
+from tests.common.plugins.sanity_check import recover_chassis
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
@@ -65,9 +66,9 @@ try:
 except ImportError as e:
     logging.error(e)
 
-from tests.platform_tests.args.advanced_reboot_args import add_advanced_reboot_args
-from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot_args
-from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
+from tests.common.platform.args.advanced_reboot_args import add_advanced_reboot_args
+from tests.common.platform.args.cont_warm_reboot_args import add_cont_warm_reboot_args
+from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
@@ -533,7 +534,7 @@ def localhost(ansible_adhoc):
 
 @pytest.fixture(scope="session")
 def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
-    if 'point-to-point' in tbinfo['topo']['name']:
+    if 'ptp' in tbinfo['topo']['name']:
         return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
@@ -750,7 +751,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, dutho
 
 @pytest.fixture(scope="session")
 def vmhost(enhance_inventory, ansible_adhoc, request, tbinfo):
-    if 'point-to-point' in tbinfo['topo']['name']:
+    if 'ptp' in tbinfo['topo']['name']:
         return None
     server = tbinfo["server"]
     inv_files = get_inventory_files(request)
@@ -1221,7 +1222,7 @@ def get_completeness_level_metadata(request):
     # if completeness_level is not set or an unknown completeness_level is set
     # return "thorough" to run all test set
     if not completeness_level or completeness_level not in ["debug", "basic", "confident", "thorough"]:
-        return "thorough"
+        return "debug"
     return completeness_level
 
 
@@ -2351,19 +2352,20 @@ def core_dump_and_config_check(duthosts, tbinfo,
             }
             logger.warning("Core dump or config check failed for {}, results: {}"
                            .format(module_name, json.dumps(check_result)))
-            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
+
+            is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+            if is_modular_chassis:
+                results = recover_chassis(duthosts)
+            else:
+                results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
+
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
 
     if check_result:
-        items = request.session.items
-        for item in items:
-            if item.module.__name__ + ".py" == module_name.split("/")[-1]:
-                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': {
-                    'core_dump_check_pass': core_dump_check_pass,
-                    'config_db_check_pass': config_db_check_pass
-                }})))
+        request.config.cache.set("core_dump_check_pass", core_dump_check_pass)
+        request.config.cache.set("config_db_check_pass", config_db_check_pass)
 
 
 @pytest.fixture(scope="function")
@@ -2499,3 +2501,22 @@ def rotate_syslog(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         logger.debug("Exception occurred in thread {}".format(str(e)))
 
     logger.info("rotate_syslog exit {}".format(thread))
+
+
+@pytest.fixture(scope="module")
+def gnxi_path(ptfhost):
+    """
+    gnxi's location is updated from /gnxi to /root/gnxi
+    in RP https://github.com/sonic-net/sonic-buildimage/pull/10599.
+    But old docker-ptf images don't have this update,
+    test case will fail for these docker-ptf images,
+    because it should still call /gnxi files.
+    For avoiding this conflict, check gnxi path before test and set GNXI_PATH to correct value.
+    Add a new gnxi_path module fixture to make sure to set GNXI_PATH before test.
+    """
+    path_exists = ptfhost.stat(path="/root/gnxi/")
+    if path_exists["stat"]["exists"] and path_exists["stat"]["isdir"]:
+        gnxipath = "/root/gnxi/"
+    else:
+        gnxipath = "/gnxi/"
+    return gnxipath

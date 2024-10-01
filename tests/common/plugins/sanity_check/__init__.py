@@ -10,13 +10,16 @@ from collections import defaultdict
 from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.sanity_check.checks import *      # noqa: F401, F403
-from tests.common.plugins.sanity_check.recover import recover
+from tests.common.plugins.sanity_check.recover import recover, recover_chassis
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
 
 SUPPORTED_CHECKS = checks.CHECK_ITEMS
+DUT_CHEK_LIST = ['core_dump_check_pass', 'config_db_check_pass']
+CACHE_LIST = ['core_dump_check_pass', 'config_db_check_pass',
+              'pre_sanity_recovered', 'post_sanity_recovered']
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -28,6 +31,8 @@ def pytest_sessionfinish(session, exitstatus):
         session.config.cache.set("pre_sanity_check_failed", None)
     if post_sanity_failed:
         session.config.cache.set("post_sanity_check_failed", None)
+    for key in CACHE_LIST:
+        session.config.cache.set(key, None)
 
     if pre_sanity_failed and not post_sanity_failed:
         session.exitstatus = constants.PRE_SANITY_CHECK_FAILED_RC
@@ -117,6 +122,47 @@ def do_checks(request, check_items, *args, **kwargs):
         elif results:
             check_results.append(results)
     return check_results
+
+
+@pytest.fixture(scope="module", autouse=True)
+def log_custom_msg(request):
+    yield
+    module_name = request.node.name
+    items = request.session.items
+    for item in items:
+        if item.module.__name__ + ".py" == module_name.split("/")[-1]:
+            customMsgDict = {}
+            dutChekResults = {}
+            for key in DUT_CHEK_LIST:
+                if request.config.cache.get(key, None) is False:
+                    dutChekResults[key] = False
+            if dutChekResults:
+                customMsgDict['DutChekResult'] = dutChekResults
+
+            # Check pre_sanity_checks results
+            preSanityCheckResults = {}
+            if request.config.cache.get("pre_sanity_check_failed", None):
+                preSanityCheckResults['pre_sanity_check_failed'] = True
+            # pre_sanity_recovered should be None in healthy case, record either True/False
+            if request.config.cache.get("pre_sanity_recovered", None) is not None:
+                preSanityCheckResults['pre_sanity_recovered'] = request.config.cache.get("pre_sanity_recovered", None)
+            if preSanityCheckResults:
+                customMsgDict['PreSanityCheckResults'] = preSanityCheckResults
+
+            # Check post_sanity_checks results
+            postSanityCheckResults = {}
+            if request.config.cache.get("post_sanity_check_failed", None):
+                postSanityCheckResults['post_sanity_check_failed'] = True
+            # post_sanity_recovered should be None in healthy case, record either True/False
+            if request.config.cache.get("post_sanity_recovered", None) is not None:
+                preSanityCheckResults['post_sanity_recovered'] = request.config.cache.get("post_sanity_recovered", None)
+            if postSanityCheckResults:
+                customMsgDict['PostSanityCheckResults'] = postSanityCheckResults
+
+            # if we have any custom message to log, append it to user_properties
+            if customMsgDict:
+                logger.debug("customMsgDict: {}".format(customMsgDict))
+                item.user_properties.append(('CustomMsg', json.dumps(customMsgDict)))
 
 
 @pytest.fixture(scope="module")
@@ -269,8 +315,10 @@ def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinf
 def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
                                     recover_method, request, tbinfo, sanity_check_stage: str):
     cache_key = "pre_sanity_check_failed"
+    recovery_cache_key = "pre_sanity_recovered"
     if sanity_check_stage == STAGE_POST_TEST:
         cache_key = "post_sanity_check_failed"
+        recovery_cache_key = "post_sanity_recovered"
 
     try:
         dut_failed_results = defaultdict(list)
@@ -287,13 +335,19 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
                     infra_recovery_actions.append(failed_result['action'])
         for action in infra_recovery_actions:
             action()
-        for dut_name, dut_results in list(dut_failed_results.items()):
-            # Attempt to restore DUT state
-            recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
-                    recover_method)
+
+        is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
+        if is_modular_chassis:
+            recover_chassis(duthosts)
+        else:
+            for dut_name, dut_results in list(dut_failed_results.items()):
+                # Attempt to restore DUT state
+                recover(duthosts[dut_name], localhost, fanouthosts, nbrhosts, tbinfo, dut_results,
+                        recover_method)
 
     except BaseException as e:
         request.config.cache.set(cache_key, True)
+        request.config.cache.set(recovery_cache_key, False)
 
         logger.error(f"Recovery of sanity check failed with exception: {repr(e)}")
         pt_assert(
@@ -308,13 +362,17 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
     new_failed_results = [result for result in new_check_results if result['failed']]
     if new_failed_results:
         request.config.cache.set(cache_key, True)
+        request.config.cache.set(recovery_cache_key, False)
         pt_assert(False,
                   f"!!!!!!!!!!!!!!!! {sanity_check_stage} sanity check after recovery failed: !!!!!!!!!!!!!!!!\n"
                   f"{json.dumps(new_failed_results, indent=4, default=fallback_serializer)}")
+    # Record recovery success
+    request.config.cache.set(recovery_cache_key, True)
 
 
+# make sure teardown of log_custom_msg happens after sanity_check
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(request):
+def sanity_check(request, log_custom_msg):
     if request.config.option.skip_sanity:
         logger.info("Skip sanity check according to command line argument")
         yield
