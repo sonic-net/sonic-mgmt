@@ -4,10 +4,9 @@ Test local port mirroring on SONiC
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
 from span_helpers import send_and_verify_mirrored_packet
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test       # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0')

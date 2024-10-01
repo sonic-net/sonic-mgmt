@@ -168,7 +168,10 @@ class SonicDbCli(object):
         if result == {}:
             raise SonicDbKeyNotFound("No keys for %s found in sonic-db cmd: %s" % (table, cmd))
         else:
-            return result['stdout'].decode('unicode-escape')
+            if six.PY2:
+                return result['stdout'].decode('unicode-escape').splitlines()
+            else:
+                return result['stdout'].splitlines()
 
     def dump(self, table):
         """

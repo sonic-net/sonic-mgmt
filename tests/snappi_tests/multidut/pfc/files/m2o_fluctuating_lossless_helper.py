@@ -1,5 +1,5 @@
 import logging                                                                          # noqa: F401
-from math import ceil                                                                   # noqa: F401
+import random
 from tests.common.helpers.assertions import pytest_assert, pytest_require               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                     # noqa: F401
@@ -10,6 +10,7 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, \
      setup_base_traffic_config          # noqa: F401
 from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from math import ceil   
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -312,7 +313,12 @@ def __gen_data_flow(testbed_config,
                                                   src_port_id, dst_port_id, flow_rate_percent))[-1]
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
-    eth, ipv4 = flow.packet.ethernet().ipv4()
+    eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+    src_port = random.randint(5000, 6000)
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = 1
+
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
 

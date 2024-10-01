@@ -226,6 +226,7 @@ class TestPlanManager(object):
         features = parse_list_from_str(kwargs.get("features", None))
         scripts_exclude = parse_list_from_str(kwargs.get("scripts_exclude", None))
         features_exclude = parse_list_from_str(kwargs.get("features_exclude", None))
+        ptf_image_tag = kwargs.get("ptf_image_tag", None)
 
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
@@ -288,6 +289,7 @@ class TestPlanManager(object):
                     "features_exclude": features_exclude,
                     "scripts_exclude": scripts_exclude
                 },
+                "ptf_image_tag": ptf_image_tag,
                 "image": {
                     "url": image_url,
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
@@ -656,6 +658,16 @@ if __name__ == "__main__":
         help="Testbed name, Split by ',', like: 'testbed1, testbed2'"
     )
     parser_create.add_argument(
+        "--ptf_image_tag",
+        type=str,
+        dest="ptf_image_tag",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="PTF image tag"
+    )
+    parser_create.add_argument(
         "--image_url",
         type=str,
         dest="image_url",
@@ -972,6 +984,7 @@ if __name__ == "__main__":
                     affinity=args.affinity,
                     vm_type=args.vm_type,
                     testbed_name=args.testbed_name,
+                    ptf_image_tag=args.ptf_image_tag,
                     image_url=args.image_url,
                     upgrade_image_param=args.upgrade_image_param,
                     hwsku=args.hwsku,
