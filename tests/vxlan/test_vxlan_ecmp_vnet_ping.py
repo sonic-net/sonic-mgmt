@@ -14,7 +14,7 @@ from tests.vxlan.vnet_monitor_utils import setup_info, setup_vnet_ping_responder
 from tests.common.fixtures.ptfhost_utils \
     import copy_ptftests_directory     # noqa: F401
 from tests.ptf_runner import ptf_runner
-from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils     # noqa F401
+from tests.common.vxlan_ecmp_utils import Ecmp_Utils     # noqa F401
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
