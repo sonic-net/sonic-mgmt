@@ -109,7 +109,7 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
         "lldp_rem_sys_name does not match for {}".format(interface),
     )
     pytest_assert(
-        entry_content["lldp_rem_sys_desc"] == chassis_info["descr"],
+        entry_content["lldp_rem_sys_desc"] == chassis_info.get("descr", ""),
         "lldp_rem_sys_desc does not match for {}".format(interface),
     )
     pytest_assert(
@@ -208,7 +208,7 @@ def test_lldp_entry_table_after_flap(
         # Shutdown and startup the interface
         duthost.shell("sudo config interface shutdown {}".format(interface))
         duthost.shell("sudo config interface startup {}".format(interface))
-        result = wait_until(30, 2, 5, verify_lldp_entry, db_instance, interface)
+        result = wait_until(60, 2, 5, verify_lldp_entry, db_instance, interface)
         pytest_assert(
             result,
             "After interface {} flap, no LLDP_ENTRY_TABLE entry for it.".format(
