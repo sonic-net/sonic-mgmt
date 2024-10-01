@@ -149,12 +149,12 @@ class QosParamCisco(object):
             self.log("Hysteresis bytes: {}".format(self.hysteresis_bytes))
             self.log("Pre-pad drop thr bytes:    {}".format(pre_pad_drop))
             self.log("Drop thr bytes:            {}".format(self.lossless_drop_thr))
-        self.config_facts = duthost.get_running_config_facts()
-        # DSCP value for lossy
-        self.dscp_queue0 = self.get_one_dscp_from_queue(0)
-        self.dscp_queue1 = self.get_one_dscp_from_queue(1)
-        # DSCP, queue, weight list
-        self.dscp_list, self.q_list, self.weight_list = self.get_dscp_q_weight_list()
+            self.config_facts = duthost.asic_instance().config_facts(source="running")["ansible_facts"]
+            # DSCP value for lossy
+            self.dscp_queue0 = self.get_one_dscp_from_queue(0)
+            self.dscp_queue1 = self.get_one_dscp_from_queue(1)
+            # DSCP, queue, weight list
+            self.dscp_list, self.q_list, self.weight_list = self.get_dscp_q_weight_list()
 
     def get_one_dscp_from_queue(self, queue):
         '''
