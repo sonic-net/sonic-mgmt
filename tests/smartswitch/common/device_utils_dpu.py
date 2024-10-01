@@ -162,5 +162,3 @@ def check_dpu_reboot_cause(duthost, dpu_name):
         return True
 
     return False
-
-
