@@ -672,6 +672,7 @@ root@sonic:/home/cisco# show chassis modules status
 
  * Use command `show system-memory` to get memory usage on each of those DPUs
  * Use `show system-health detail` to check memory check service status
+ * Use `pdsctl show system --events` to check memory related events triggered. 
 
 #### Verify in
  * DPU
@@ -729,8 +730,8 @@ root@sonic:/home/admin#
  * Verify that used memory should not cross the specified threshold value (90) of total memory.
  * Threshold can be set different based on platform.
  * Verify that memory_check service status is OK under system health cli.
- * Verify no memory related events under show system events cli.
-   
+ * Verify no memory related events under show system --events cli.
+ * Increase the memory to go beyond threshold and verify  it in show system --events cli.   
 
 ### 1.14 Check DPU status and pcie Link after memory exhaustion
 
