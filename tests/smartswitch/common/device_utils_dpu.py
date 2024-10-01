@@ -40,13 +40,13 @@ def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
             parse_version(duthost.os_version) <= parse_version("202405"):
         pytest.skip("Test is not supported for this testbed and os version")
 
-    darkmode = is_dark_mode(duthost, platform_api_conn)
+    darkmode = is_dark_mode_enabled(duthost, platform_api_conn)
 
     if darkmode:
         dpu_power_on(duthost, platform_api_conn)
 
 
-def is_dark_mode(duthost, platform_api_conn):
+def is_dark_mode_enabled(duthost, platform_api_conn):
 
     """
     Checks the liveliness of DPU
@@ -164,21 +164,3 @@ def check_dpu_reboot_cause(duthost, dpu_name):
     return False
 
 
-def count_dpu_modules_in_system_health_cli(duthost):
-    """
-    Checks and returns number of dpu modules listed  in show system-health DPU
-    Args:
-        duthost : Host handle
-    Returns:
-        Returns number of DPU modules that displays system-health status
-    """
-
-    num_dpu_health_status = 0
-    output_dpu_health_cmd = duthost.show_and_parse("show system-health DPU")
-
-    for index in range(len(output_dpu_health_cmd)):
-        parse_output = output_dpu_health_cmd[index]
-        if 'DPU' in parse_output['name']:
-            num_dpu_health_status += 1
-
-    return num_dpu_health_status
