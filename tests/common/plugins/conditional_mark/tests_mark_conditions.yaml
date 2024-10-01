@@ -1123,6 +1123,15 @@ nat:
       - "'nat' not in feature_status"
 
 #######################################
+#####    override_config_table    #####
+#######################################
+override_config_table/test_override_config_table.py:
+  skip:
+    reason: "Skip on multi-asic platforms as test provided golden config format is not compatible with multi-asics."
+    conditions:
+      - "is_multi_asic==True"
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
