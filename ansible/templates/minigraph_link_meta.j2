@@ -58,6 +58,7 @@
     <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% for if_index in vm_topo_config['autoneg_interfaces']['intfs'] %}
 {% set autoneg_intf = "Ethernet" ~ if_index ~ "/1" %}
+{% if device_conn[inventory_hostname][port_alias_map[autoneg_intf]]['autoneg']|lower == "on" %}
         <a:LinkMetadata>
             <a:Name i:nil="true"/>
             <a:Properties>
@@ -73,6 +74,7 @@
             </a:Properties>
             <a:Key>{{ device_conn[inventory_hostname][port_alias_map[autoneg_intf]]['peerdevice'] }}:{{ device_conn[inventory_hostname][port_alias_map[autoneg_intf]]['peerport'] }};{{ inventory_hostname }}:{{ autoneg_intf }}</a:Key>
         </a:LinkMetadata>
+{% endif %}
 {% endfor %}
     </Link>
   </LinkMetadataDeclaration>
