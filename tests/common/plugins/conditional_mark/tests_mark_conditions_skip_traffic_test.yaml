@@ -53,9 +53,126 @@ arp/test_wr_arp.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####            copp             #####
+#######################################
+copp/test_copp.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####           decap             #####
 #######################################
 decap/test_decap.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+decap/test_subnet_decap.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####         drop_packets        #####
+#######################################
+drop_packets/test_drop_counters.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####           dualtor           #####
+#######################################
+dualtor/test_ipinip.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor/test_orchagent_active_tor_downstream.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor/test_orchagent_mac_move.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor/test_orchagent_slb.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor/test_orchagent_standby_tor_downstream.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor/test_standby_tor_upstream_mux_toggle.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor/test_tor_ecn.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor/test_tunnel_memory_leak.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####          dualtor_io         #####
+#######################################
+dualtor_io/test_heartbeat_failure.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_drop.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_link_failure.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_normal_op.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+dualtor_io/test_tor_bgp_failure.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####         dualtor_mgmt        #####
+#######################################
+dualtor_mgmt/test_ingress_drop.py:
   skip_traffic_test:
     reason: "Skip traffic test for KVM testbed"
     conditions:
@@ -127,6 +244,24 @@ fib/test_fib.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####   generic_config_updater    #####
+#######################################
+generic_config_updater/test_dynamic_acl.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####           hash              #####
+#######################################
+hash/test_generic_hash.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####            ip               #####
 #######################################
 ip/test_ip_packet.py:
@@ -139,6 +274,66 @@ ip/test_ip_packet.py:
 #####            ipfwd            #####
 #######################################
 ipfwd/test_dir_bcast.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####            span             #####
+#######################################
+span/test_port_mirroring.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####     sub_port_interfaces     #####
+#######################################
+sub_port_interfaces/test_sub_port_interfaces.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####            vlan            #####
+#######################################
+vlan/test_vlan_ping.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
+#####           vxlan            #####
+#######################################
+vxlan/test_vnet_vxlan.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+vxlan/test_vxlan_bfd_tsa.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+vxlan/test_vxlan_decap.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+vxlan/test_vxlan_ecmp.py:
+  skip_traffic_test:
+    reason: "Skip traffic test for KVM testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+vxlan/test_vxlan_ecmp_switchover.py:
   skip_traffic_test:
     reason: "Skip traffic test for KVM testbed"
     conditions:

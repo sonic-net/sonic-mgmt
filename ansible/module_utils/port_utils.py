@@ -204,7 +204,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 alias = "etp%d" % (i / 4 + 1) + ("a" if i % 4 == 0 else "b")
                 # print alias, "Ethernet%d" % i
                 port_alias_to_name_map[alias] = "Ethernet%d" % i
-        elif hwsku in ["ACS-MSN3800", "ACS-MSN4600C"]:
+        elif hwsku in ["ACS-MSN3800", "ACS-MSN4600C", 'Mellanox-SN4700-V64']:
             for i in range(1, 65):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 4)
         elif hwsku == "Mellanox-SN2700" or hwsku == "ACS-MSN2700":
@@ -285,13 +285,13 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "Seastone-DX010":
             for i in range(1, 33):
                 port_alias_to_name_map["Eth%d" % i] = "Ethernet%d" % ((i - 1) * 4)
-        elif hwsku in ["Celestica-E1031-T48S4", "Nokia-7215", "Nokia-M0-7215"]:
+        elif hwsku in ["Celestica-E1031-T48S4", "Nokia-7215", "Nokia-M0-7215", "Nokia-7215-A1"]:
             for i in range(1, 53):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
         elif hwsku == "et6448m":
             for i in range(0, 52):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-        elif hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx", "Nokia-7215-A1"]:
+        elif hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx"]:
             for i in range(0, 32):
                 port_alias_to_name_map["oneGigE%d" % i] = "Ethernet%d" % i
             for i in range(32, 48):
@@ -316,19 +316,10 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "Cisco-8102-C64":
             for i in range(0, 64):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
-        elif hwsku in ["Cisco-8101-T32", "Cisco-8101-O32", "Cisco-8111-C32", "Cisco-8111-O32"]:
+        elif hwsku in ["Cisco-8101-O32", "Cisco-8111-C32", "Cisco-8111-O32"]:
             for i in range(0, 32):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 8)
-        elif hwsku in ["Cisco-8101-C48T8", "Cisco-8101-O8C48"]:
-            for i in range(0, 24, 2):
-                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
-                port_alias_to_name_map["etp%d" % (i+1)] = "Ethernet%d" % ((i+1) * 4)
-            for i in range(0, 8):
-                port_alias_to_name_map["etp%d" % (i+24)] = "Ethernet%d" % ((i+12) * 8)
-            for i in range(0, 24, 2):
-                port_alias_to_name_map["etp%d" % (i+32)] = "Ethernet%d" % ((i+40) * 4)
-                port_alias_to_name_map["etp%d" % (i+33)] = "Ethernet%d" % ((i+41) * 4)
-        elif hwsku in ["Cisco-8101-C64", "Cisco-8111-O64"]:
+        elif hwsku in ["Cisco-8111-O64"]:
             for i in range(0, 64):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
         elif hwsku == "Cisco-8101-O8C48":
@@ -344,6 +335,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(0, 32):
                 port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
                 port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
+        elif hwsku in ["Cisco-8122-O64"]:
+            for i in range(0, 64):
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 8)
         elif hwsku in ["Cisco-8800-LC-48H-C48"]:
             for i in range(0, 48, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i * 4)
@@ -378,6 +372,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % i
         elif hwsku in ["Wistron_sw_to3200k_32x100", "Wistron_sw_to3200k"]:
             for i in range(0, 256, 8):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+        elif hwsku in ["dbmvtx9180_64x100G"]:
+            for i in range(0, 505, 8):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku == "Arista-720DT-48S" or hwsku == "Arista-720DT-G48S4":
             for i in range(1, 53):

@@ -10,9 +10,7 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # no
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active, ptf_test_port_map
-# from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test           # noqa: F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test           # noqa F401
 
 from tests.ptf_runner import ptf_runner
 from tests.common.dualtor.mux_simulator_control import mux_server_url       # noqa F401
@@ -406,7 +404,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
-               socket_recv_size=16384)
+               socket_recv_size=16384,
+               is_python3=True)
 
 # The test is to verify the hashing logic is not using unexpected field as keys
 # Only inner frame length is tested at this moment

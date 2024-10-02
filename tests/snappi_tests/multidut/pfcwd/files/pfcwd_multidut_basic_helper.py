@@ -1,6 +1,7 @@
 import time
 from math import ceil
 import logging
+import random
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
@@ -11,6 +12,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports, select_tx_port                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -56,35 +58,39 @@ def run_pfcwd_basic_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
-    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    egress_duthost = rx_port['duthost']
+
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    ingress_duthost = tx_port["duthost"]
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    if (duthost1.is_multi_asic):
-        enable_packet_aging(duthost1, rx_port['asic_value'])
-        enable_packet_aging(duthost2, tx_port['asic_value'])
-        start_pfcwd(duthost1, rx_port['asic_value'])
-        start_pfcwd(duthost2, tx_port['asic_value'])
+    if (egress_duthost.is_multi_asic):
+        enable_packet_aging(egress_duthost, rx_port['asic_value'])
+        enable_packet_aging(ingress_duthost, tx_port['asic_value'])
+        start_pfcwd(egress_duthost, rx_port['asic_value'])
+        start_pfcwd(ingress_duthost, tx_port['asic_value'])
     else:
-        enable_packet_aging(duthost1)
-        enable_packet_aging(duthost2)
-        start_pfcwd(duthost1)
-        start_pfcwd(duthost2)
+        enable_packet_aging(egress_duthost)
+        enable_packet_aging(ingress_duthost)
+        start_pfcwd(egress_duthost)
+        start_pfcwd(ingress_duthost)
 
     ini_stats = {}
     for prio in prio_list:
-        ini_stats.update(get_stats(duthost1, rx_port['peer_port'], prio))
+        ini_stats.update(get_stats(egress_duthost, rx_port['peer_port'], prio))
 
     # Set appropriate pfcwd loss deviation - these values are based on empirical testing
-    DEVIATION = 0.35 if duthost1.facts['asic_type'] in ["broadcom"] or \
-        duthost2.facts['asic_type'] in ["broadcom"] else 0.3
+    DEVIATION = 0.35 if egress_duthost.facts['asic_type'] in ["broadcom"] or \
+        ingress_duthost.facts['asic_type'] in ["broadcom"] else 0.3
 
-    poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,
+    poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=dut_port,
                                             asic_value=rx_port['asic_value']) / 1000.0
-    restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port,
+    restore_time_sec = get_pfcwd_restore_time(host_ans=egress_duthost, intf=dut_port,
                                               asic_value=rx_port['asic_value']) / 1000.0
 
     """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
@@ -120,6 +126,7 @@ def run_pfcwd_basic_test(api,
         flow1_min_loss_rate = 0
 
     exp_dur_sec = flow2_delay_sec + flow2_dur_sec + 1
+    cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
 
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,
@@ -135,7 +142,9 @@ def run_pfcwd_basic_test(api,
                       warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
-                  prio_dscp_map=prio_dscp_map)
+                  prio_dscp_map=prio_dscp_map,
+                  traffic_rate=99.98 if cisco_platform else 100.0,
+                  number_of_streams=2 if cisco_platform else 1)
 
     flows = testbed_config.flows
 
@@ -148,7 +157,7 @@ def run_pfcwd_basic_test(api,
 
     fin_stats = {}
     for prio in prio_list:
-        fin_stats.update(get_stats(duthost1, rx_port['peer_port'], prio))
+        fin_stats.update(get_stats(egress_duthost, rx_port['peer_port'], prio))
 
     loss_packets = 0
     for k in fin_stats.keys():
@@ -199,7 +208,9 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec_list,
                   data_pkt_size,
                   prio_list,
-                  prio_dscp_map):
+                  prio_dscp_map,
+                  traffic_rate,
+                  number_of_streams):
     """
     Generate configurations of flows, including data flows and pause storm.
 
@@ -215,6 +226,8 @@ def __gen_traffic(testbed_config,
         data_pkt_size (int): size of data packets in byte
         prio_list (list): priorities of data flows and pause storm
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        traffic_rate: Total rate of traffic for all streams together.
+        number_of_streams: The number of UDP streams needed.
 
     Returns:
         N/A
@@ -287,7 +300,7 @@ def __gen_traffic(testbed_config,
 
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
-    data_flow_rate_percent = int(100 / len(prio_list))
+    data_flow_rate_percent = int(traffic_rate / len(prio_list))
 
     """ For each data flow """
     for i in range(len(data_flow_name_list)):
@@ -299,10 +312,18 @@ def __gen_traffic(testbed_config,
             data_flow.tx_rx.port.tx_name = tx_port_name
             data_flow.tx_rx.port.rx_name = rx_port_name
 
-            eth, ipv4 = data_flow.packet.ethernet().ipv4()
+            eth, ipv4, udp = data_flow.packet.ethernet().ipv4().udp()
+            src_port = random.randint(5000, 6000)
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = number_of_streams
+
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
-            eth.pfc_queue.value = prio
+            if pfcQueueGroupSize == 8:
+                eth.pfc_queue.value = prio
+            else:
+                eth.pfc_queue.value = pfcQueueValueDict[prio]
 
             ipv4.src.value = tx_port_config.ip
             ipv4.dst.value = rx_port_config.ip

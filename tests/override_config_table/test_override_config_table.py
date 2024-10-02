@@ -4,7 +4,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from utilities import backup_config, restore_config, get_running_config,\
+from tests.common.utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
     NON_USER_CONFIG_TABLES
 
@@ -188,9 +188,6 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
     """Test Golden Config override during load minigraph
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.is_multi_asic:
-        pytest.skip("Skip override-config-table testing on multi-asic platforms,\
-                    test provided golden config format is not compatible with multi-asics")
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
     load_minigraph_with_golden_new_feature(duthost)

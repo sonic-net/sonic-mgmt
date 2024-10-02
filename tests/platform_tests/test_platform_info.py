@@ -14,8 +14,8 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until, get_sup_node_or_random_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
-from .thermal_control_test_helper import ThermalPolicyFileContext,\
-    check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status,\
+from tests.common.helpers.thermal_control_test_helper import ThermalPolicyFileContext,\
+    check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status, \
     mocker_factory, disable_thermal_policy  # noqa F401
 
 pytestmark = [
@@ -26,6 +26,8 @@ CMD_PLATFORM_PSUSTATUS = "show platform psustatus"
 CMD_PLATFORM_PSUSTATUS_JSON = "{} --json".format(CMD_PLATFORM_PSUSTATUS)
 CMD_PLATFORM_FANSTATUS = "show platform fan"
 CMD_PLATFORM_TEMPER = "show platform temperature"
+
+PDU_WAIT_TIME = 20
 
 THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
@@ -296,7 +298,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
         logging.info("Turn off outlet {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
-        time.sleep(10)
+        time.sleep(PDU_WAIT_TIME)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
@@ -310,7 +312,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
         logging.info("Turn on outlet {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
-        time.sleep(10)
+        time.sleep(PDU_WAIT_TIME)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:

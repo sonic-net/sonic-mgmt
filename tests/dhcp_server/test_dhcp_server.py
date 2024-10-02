@@ -6,7 +6,7 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CONFIG_TOOL_CLI, \
     create_common_config_patch, generate_common_config_cli_commands, dhcp_server_config, \
-    validate_dhcp_server_pkts_custom_option, verify_lease, \
+    validate_dhcp_server_pkts_custom_option, verify_lease, send_release_packet, \
     verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
     apply_dhcp_server_config_gcu, create_dhcp_client_packet, vlan_n2i
@@ -498,6 +498,8 @@ def test_dhcp_server_port_based_customize_options(
             pkts_validator_kwargs=pkts_validator_kwargs,
             refresh_fdb_ptf_port='eth'+str(ptf_port_index)
         )
+        verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip, DHCP_DEFAULT_LEASE_TIME)
+        send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, gateway)
 
 
 def test_dhcp_server_config_change_dhcp_interface(
@@ -641,11 +643,13 @@ def test_dhcp_server_config_vlan_member_change(
     duthost,
     ptfhost,
     ptfadapter,
-    parse_vlan_setting_from_running_config
+    parse_vlan_setting_from_running_config,
+    loganalyzer
 ):
     """
         Test if config change on dhcp interface status can take effect
     """
+    loganalyzer[duthost.hostname].ignore_regex.append(".*Failed to get port by bridge port.*")
     test_xid = 11
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     expected_assigned_ip = random.choice(vlan_hosts)
@@ -738,6 +742,7 @@ def test_dhcp_server_lease_config_change(
     apply_dhcp_server_config_gcu(duthost, change_to_apply)
     client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
     verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip, DHCP_DEFAULT_LEASE_TIME)
+    send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, gateway)
 
 
 def test_dhcp_server_config_vlan_intf_change(

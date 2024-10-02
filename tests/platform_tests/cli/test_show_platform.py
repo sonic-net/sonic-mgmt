@@ -115,10 +115,13 @@ def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     cmd = "sudo decode-syseeprom -s"
     get_serial_no_cmd = duthost.command(cmd, module_ignore_errors=True)
-    # For kvm testbed, command `sudo decode-syseeprom -s` will return the expected Error
-    # `ModuleNotFoundError: No module named 'sonic_platform'`
+    # For kvm testbed, when executing command `sudo decode-syseeprom -s`
+    # On some images, it will return the expected Error `ModuleNotFoundError: No module named 'sonic_platform'`
+    # and get the expected return code 2
+    # On some images, it will return the expected Error `Failed to read system EEPROM info in syseeprom on 'vlab-01'`
+    # and get the expected return code 0
     # So let this function return in advance
-    if duthost.facts["asic_type"] == "vs" and get_serial_no_cmd["rc"] == 1:
+    if duthost.facts["asic_type"] == "vs" and (get_serial_no_cmd["rc"] == 1 or get_serial_no_cmd["rc"] == 0):
         return
     assert get_serial_no_cmd['rc'] == 0, "Run command '{}' failed".format(cmd)
 
