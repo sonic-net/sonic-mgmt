@@ -298,6 +298,14 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
   skip:
     reason: "Not supported uniform ttl mode"
 
+decap/test_subnet_decap.py::test_vlan_subnet_decap:
+  skip:
+    reason: "Supported only on T0 topology with KVM or broadcom td3 asic, and available for 202405 release and later"
+    conditions:
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['vs'] or asic_gen not in ['td3']"
+      - "release in ['202012', '202205', '202305', '202311']"
+
 #######################################
 #####         dhcp_relay        #####
 #######################################
@@ -794,12 +802,30 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash:
     conditions:
       - "asic_gen == 'spc1'"
 
+hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
+hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
 hash/test_generic_hash.py::test_hash_capability:
   xfail:
     reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
     conditions:
       - "asic_type not in ['mellanox']"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
+
+hash/test_generic_hash.py::test_lag_hash[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_flap:
   skip:
@@ -809,6 +835,12 @@ hash/test_generic_hash.py::test_lag_member_flap:
       - "asic_gen == 'spc1'"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
+hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
     reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm, for other platforms, skipping due to missing object in SonicHost'
@@ -816,6 +848,12 @@ hash/test_generic_hash.py::test_lag_member_remove_add:
     conditions:
       - "asic_gen == 'spc1'"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
+
+hash/test_generic_hash.py::test_lag_member_remove_add[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
@@ -825,11 +863,23 @@ hash/test_generic_hash.py::test_nexthop_flap:
       - "asic_gen == 'spc1'"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
 
+hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
 hash/test_generic_hash.py::test_reboot:
   skip:
     reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
     conditions:
       - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
 
 #######################################
 #####           http              #####
@@ -1088,6 +1138,13 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
+
+pfcwd/test_pfcwd_all_port_storm.py:
+   skip:
+     reason: "Slow pfc generation rate on 7060x6 200Gb,
+              pfc generation function on the Arista fanout device need to be improved by Arista"
+     conditions:
+      - "hwsku in ['Arista-7060X6-64PE-256x200G']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
@@ -1554,9 +1611,21 @@ syslog/test_syslog.py:
 
 syslog/test_syslog_source_ip.py:
   skip:
+    reason: "Vs setup doesn't work when creating mgmt vrf"
+    conditions:
+      - "asic_type in ['vs']"
+
+syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_config_work_after_reboot:
+  skip:
     reason: "Testcase consistent failed, raised issue to track"
     conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/6479
+      - https://github.com/sonic-net/sonic-buildimage/issues/19638
+
+syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_protocol_filter_severity:
+  skip:
+    reason: "Testcase consistent failed, raised issue to track"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/14493
 
 #######################################
 #####         system_health       #####
@@ -1606,6 +1675,15 @@ test_pktgen.py:
     conditions:
       - "asic_type not in ['cisco-8000']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/13804"
+
+#######################################
+#####         vs_chassis          #####
+#######################################
+test_vs_chassis_setup.py:
+  skip:
+    reason: "Skip vs_chassis setup on non-vs testbeds"
+    conditions:
+      - "asic_type not in ['vs']"
 
 #######################################
 #####            vlan             #####
@@ -1730,38 +1808,50 @@ vxlan/test_vxlan_crm.py:
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v4_in_v6]:
   skip:
-    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions_logical_operator: OR
     conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
       - "asic_gen == 'spc1'"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v6_in_v6]:
   skip:
-    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions_logical_operator: OR
     conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
       - "asic_gen == 'spc1'"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v4_in_v6]:
   skip:
-    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions_logical_operator: OR
     conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
       - "asic_gen == 'spc1'"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v6_in_v6]:
   skip:
-    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions_logical_operator: OR
     conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
       - "asic_gen == 'spc1'"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v4_in_v6]:
   skip:
-    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions_logical_operator: OR
     conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
       - "asic_gen == 'spc1'"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
   skip:
-    reason: "On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
+    conditions_logical_operator: OR
     conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0'])"
       - "asic_gen == 'spc1'"
 
 vxlan/test_vxlan_ecmp.py:

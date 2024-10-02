@@ -4,7 +4,7 @@ import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
-from test_traffic_shift import get_traffic_shift_state
+from traffic_checker import get_traffic_shift_state
 
 pytestmark = [
     pytest.mark.topology('t2')

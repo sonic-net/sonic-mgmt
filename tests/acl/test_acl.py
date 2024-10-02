@@ -539,8 +539,6 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
             logger.info("Removing ACL table \"{}\" in namespace {} on device {}"
                         .format(acl_table_config["table_name"], namespace, duthost))
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
-    # Give the dut some time for the ACL to be applied and LOG message generated
-    time.sleep(30)
 
 
 @pytest.fixture(scope="module")
@@ -589,6 +587,8 @@ def tear_down_acl_table_single_dut(acl_table_config, duthost, loganalyzer, setup
     loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
     with loganalyzer:
         create_or_remove_acl_table(duthost, acl_table_config, setup, "remove", topo)
+        wait_until(60, 10, 0, check_msg_in_syslog,
+                   duthost, LOG_EXPECT_ACL_TABLE_REMOVE_RE)
 
 
 def set_up_acl_table_single_dut(acl_table_config, dut_to_analyzer_map, duthost, setup, topo):
@@ -700,6 +700,8 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         with loganalyzer:
             logger.info("Removing ACL rules")
             self.teardown_rules(duthost)
+            wait_until(60, 10, 0, check_msg_in_syslog,
+                       duthost, LOG_EXPECT_ACL_RULE_REMOVE_RE)
 
     def set_up_acl_rules_single_dut(self, acl_table,
                                     conn_graph_facts, dut_to_analyzer_map, duthost, # noqa F811
