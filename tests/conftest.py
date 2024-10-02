@@ -40,6 +40,7 @@ from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
 )
+from tests.platform_tests.config_db_whitelist import WHITELIST_201811_202012, WHITELIST_202012_202305
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.plugins.sanity_check import recover_chassis
@@ -2138,11 +2139,14 @@ def core_dump_and_config_check(duthosts, tbinfo,
     If so, we will reload the running config after test case running.
     '''
     check_flag = True
+    whitelist_flag = False
     if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
         check_flag = False
     for m in request.node.iter_markers():
         if m.name == "skip_check_dut_health":
             check_flag = False
+        if m.name == "db_migrator_check":
+            whitelist_flag = True
 
     module_name = request.node.name
 
@@ -2262,6 +2266,44 @@ def core_dump_and_config_check(duthosts, tbinfo,
                     if len(config[table_name]) == 0:
                         config.pop(table_name)
 
+            def _remove_whitelist_entry(table_name, key_name, sub_keys, config):
+                if table_name in config:
+                    keys_to_remove = []
+                    if key_name and len(sub_keys) == 0:
+                        if key_name in config[table_name]:
+                            config[table_name].pop(key_name)
+                        if key_name == "*":
+                            config.pop(table_name)
+                    else:
+                        if key_name == "*":
+                            for key in config[table_name]:
+                                keys_to_remove.append(key)
+                        elif "*" in key_name:
+                            for key in config[table_name]:
+                                if re.match(key_name, key):
+                                    keys_to_remove.append(key)
+                        if not keys_to_remove:
+                            keys_to_remove.append(key_name)
+                        for key in keys_to_remove:
+                            for sub_key in sub_keys:
+                                if sub_key in config[table_name][key]:
+                                    config[table_name][key].pop(sub_key)
+
+            def _get_downloaded_image_version(sonic_installer_output):
+                next_line = next((line for line in sonic_installer_output.split("\n") if "Next:" in line), None)
+                if next_line:
+                    return next_line.split("Next:")[1].strip()
+                else:
+                    logger.error("Unable to get target image version")
+                    return None
+
+            def _get_whitelist_data(duthost_os_version, downloaded_image_version):
+                if "201811" in duthost_os_version and "202012" in downloaded_image_version:
+                    return WHITELIST_201811_202012
+                elif "202012" in duthost_os_version and "202305" in downloaded_image_version:
+                    return WHITELIST_202012_202305
+                return None
+
             for cfg_context in duts_data[duthost.hostname]['pre_running_config']:
                 pre_only_config[duthost.hostname][cfg_context] = {}
                 cur_only_config[duthost.hostname][cfg_context] = {}
@@ -2277,6 +2319,22 @@ def core_dump_and_config_check(duthosts, tbinfo,
                         continue
                     _remove_entry(fields[0], fields[1], pre_running_config)
                     _remove_entry(fields[0], fields[1], cur_running_config)
+
+                if whitelist_flag:
+                    sonic_installer_output = duthost.shell("sonic_installer list")["stdout"]
+                    downloaded_image_version = _get_downloaded_image_version(sonic_installer_output)
+
+                    if downloaded_image_version:
+                        duthost_os_version = duthost.os_version
+                        whitelist_data = _get_whitelist_data(duthost_os_version, downloaded_image_version)
+
+                        if whitelist_data:
+                            for key, sub_key in whitelist_data.items():
+                                fields = key.split('|')
+                                if len(fields) != 2:
+                                    continue
+                                _remove_whitelist_entry(fields[0], fields[1], sub_key, pre_running_config)
+                                _remove_whitelist_entry(fields[0], fields[1], sub_key, cur_running_config)
 
                 pre_running_config_keys = set(pre_running_config.keys())
                 cur_running_config_keys = set(cur_running_config.keys())
