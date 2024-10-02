@@ -1716,16 +1716,16 @@ def enum_rand_one_frontend_asic_index(request):
 
 @pytest.fixture(scope='module')
 def enum_upstream_dut_hostname(duthosts, tbinfo):
+    if tbinfo["topo"]["type"] == "t0":
+        upstream_nbr_type = "T1"
+    elif tbinfo["topo"]["type"] == "t1":
+        upstream_nbr_type = "T2"
+    else:
+        upstream_nbr_type = "T3"
+
     for a_dut in duthosts.frontend_nodes:
         minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
         minigraph_neighbors = minigraph_facts['minigraph_neighbors']
-        if tbinfo["topo"]["type"] == "t0":
-            upstream_nbr_type = "T1"
-        elif tbinfo["topo"]["type"] == "t1":
-            upstream_nbr_type = "T2"
-        else:
-            upstream_nbr_type = "T3"
-
         for key, value in minigraph_neighbors.items():
             if upstream_nbr_type in value['name']:
                 return a_dut.hostname
