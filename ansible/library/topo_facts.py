@@ -334,7 +334,6 @@ class ParseTestbedTopoinfo():
 
         if 'DUT' in topo_definition['topology']:
             vm_topo_config['DUT'] = topo_definition['topology']['DUT']
-            # Add AutoNeg interfaces
             if 'autoneg_interfaces' in vm_topo_config['DUT']:
                 vm_topo_config['autoneg_interfaces'] = topo_definition['topology']['DUT']['autoneg_interfaces']
         else:
