@@ -425,10 +425,11 @@ class AdvancedReboot:
         logger.info('Clearing all fdb entries on DUT  {}'.format(self.duthost.hostname))
         self.duthost.shell('sonic-clear fdb all')
 
-    def __fetchTestLogs(self, log_dst_suffix=None):
+    def __fetchTestLogs(self, rebootOper=None, log_dst_suffix=None):
         """
-        Fetch test logs from duthost and ptfhost. If `log_dst_suffix` is provided, 
-        the logs will be stored in a directory with that suffix.
+        Fetch test logs from duthost and ptfhost.
+        @param rebootOper: if provided it will be added to each individual file name
+        @param log_dst_suffix: if provided it will be appended to the directory name
         """
         if log_dst_suffix:
             dir_name = "{}_{}".format(self.request.node.name, log_dst_suffix)
@@ -445,7 +446,7 @@ class AdvancedReboot:
             reboot_file_prefix = "warm-reboot"
         else:
             reboot_file_prefix = self.rebootType
-        if log_dst_suffix is None:
+        if rebootOper is None:
             rebootLog = '/tmp/{0}.log'.format(reboot_file_prefix)
             rebootReport = '/tmp/{0}-report.json'.format(reboot_file_prefix)
             capturePcap = '/tmp/capture.pcap'
@@ -454,13 +455,13 @@ class AdvancedReboot:
             sairedisRec = '/tmp/sairedis.rec'
             swssRec = '/tmp/swss.rec'
         else:
-            rebootLog = '/tmp/{0}-{1}.log'.format(reboot_file_prefix, log_dst_suffix)
-            rebootReport = '/tmp/{0}-{1}-report.json'.format(reboot_file_prefix, log_dst_suffix)
-            capturePcap = '/tmp/capture_{0}.pcap'.format(log_dst_suffix)
-            filterPcap = '/tmp/capture_filtered_{0}.pcap'.format(log_dst_suffix)
-            syslogFile = '/tmp/syslog_{0}'.format(log_dst_suffix)
-            sairedisRec = '/tmp/sairedis.rec.{0}'.format(log_dst_suffix)
-            swssRec = '/tmp/swss.rec.{0}'.format(log_dst_suffix)
+            rebootLog = '/tmp/{0}-{1}.log'.format(reboot_file_prefix, rebootOper)
+            rebootReport = '/tmp/{0}-{1}-report.json'.format(reboot_file_prefix, rebootOper)
+            capturePcap = '/tmp/capture_{0}.pcap'.format(rebootOper)
+            filterPcap = '/tmp/capture_filtered_{0}.pcap'.format(rebootOper)
+            syslogFile = '/tmp/syslog_{0}'.format(rebootOper)
+            sairedisRec = '/tmp/sairedis.rec.{0}'.format(rebootOper)
+            swssRec = '/tmp/swss.rec.{0}'.format(rebootOper)
 
         logger.info('Extract log files on dut host')
         dutLogFiles = [
@@ -589,7 +590,7 @@ class AdvancedReboot:
                 test_results[test_case_name].append(err_msg)
             finally:
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
-                log_dir = self.__fetchTestLogs(rebootOper)
+                log_dir = self.__fetchTestLogs(rebootOper, log_dst_suffix=rebootOper)
                 self.print_test_logs_summary(log_dir)
                 if self.advanceboot_loganalyzer and post_reboot_analysis:
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
