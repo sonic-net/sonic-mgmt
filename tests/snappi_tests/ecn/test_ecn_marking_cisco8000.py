@@ -32,7 +32,7 @@ def test_ecn_multi_lossless_prio(snappi_api, # noqa F811
                                  ):
 
     """
-    Test if PFC can pause multiple lossless priorities
+    Test if ECN counter increments post interface flap
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
