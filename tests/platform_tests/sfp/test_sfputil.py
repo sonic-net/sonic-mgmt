@@ -192,6 +192,7 @@ class DisablePhysicalInterface:
         is_cmis = "cmis_rev" in xcvr_info_output
         is_power_class_1 = "Power Class 1" in xcvr_info_output
 
+        # Skip CMIS modules, because cmis_mgr will handle lpmode during port bring-up
         if is_cmis or is_power_class_1:
             logging.info("Skip lpmode handling for physical interface {} "
                          "as it's CMIS compliant({}) or Power Class 1({})".format(self.phy_intf,
@@ -416,6 +417,7 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
                                                                 enum_frontend_asic_index,
                                                                 xcvr_skip_list)
     for phy_intf, logical_intfs_list in phy_intfs_to_test_per_asic.items():
+        # Only reset the first logical interface, since sfputil command acts on this physical port entirely.
         logical_intf = logical_intfs_list[0]
         with DisablePhysicalInterface(duthost, enum_frontend_asic_index, phy_intf, logical_intfs_list):
             cmd_sfp_presence_per_intf = cmd_sfp_presence + " -p {}".format(logical_intf)
