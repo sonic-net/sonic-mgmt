@@ -53,9 +53,6 @@
         ```
         sudo cp SONIC01DPU.xml /etc/sonic/minigraph.xml
         sudo config load_minigraph -y
-        ```
 
-    * config default route to NPU
-        ```
-        sudo ip route add default via 10.0.0.36 dev Ethernet0
+        sudo config save -y
         ```
