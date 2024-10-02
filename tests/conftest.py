@@ -72,6 +72,8 @@ from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
+from tests.common.database.sonic import SonicDB, SonicDBInstance
+
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
@@ -195,6 +197,25 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
 
+    ###############################
+    # SONiC Metadata upgrade test #
+    ###############################
+
+    parser.addoption(
+        "--metadata_process", action="store_true", default=False, help="Upgrade using metadata procedure"
+    )
+    parser.addoption(
+        "--skip_postupgrade_actions", action="store_true", default=False, help="Don't run post upgrade actions"
+    )
+
+    #####################################
+    # SONiC Upgrade test with tcam hole #
+    #####################################
+
+    parser.addoption(
+        "--tcam_hole", action="store_true", default=False, help="Upgrade using metadata procedure"
+    )
+
     ############################
     #   macsec options         #
     ############################
@@ -213,6 +234,14 @@ def pytest_addoption(parser):
     #   ansible inventory option #
     ##############################
     parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
+
+    ##############################
+    # db connection options      #
+    ##############################
+    parser.addoption("--database-ip", action="store", default="127.0.0.1",
+                     help="IP address or hostname of SONiC Redis database instance")
+    parser.addoption("--database-port", action="store", default=6379,
+                     help="Port number of SONiC Redis database instance")
 
 
 def pytest_configure(config):
@@ -834,6 +863,8 @@ def creds_on_dut(duthost):
     creds["console_password"] = {}
 
     creds["ansible_altpasswords"] = []
+    if "secret_group_vars" in list(hostvars.keys()):
+        creds["ansible_altpasswords"] = hostvars["secret_group_vars"].get("str").get("altpasswords")
 
     # If ansible_altpasswords is empty, add ansible_altpassword to it
     if len(creds["ansible_altpasswords"]) == 0:
@@ -1723,19 +1754,22 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
-    console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
-
     console_type = "console_" + console_type
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
         "ansible_altpassword")
+    sonicadmin_alt_passwords = creds["ansible_altpasswords"]
+
+    sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
+    sonic_password = sonic_password + sonicadmin_alt_passwords
+
     host = ConsoleHost(console_type=console_type,
                        console_host=console_host,
                        console_port=console_port,
                        sonic_username=creds['sonicadmin_user'],
-                       sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
-                       console_username=console_username,
+                       sonic_password=sonic_password,
+                       console_username=creds['console_user'][console_type],
                        console_password=creds['console_password'][console_type])
     yield host
     host.disconnect()
@@ -2520,3 +2554,16 @@ def gnxi_path(ptfhost):
     else:
         gnxipath = "/gnxi/"
     return gnxipath
+
+
+@pytest.fixture(scope="session")
+def state_db(request):
+    database_ip = request.config.getoption("--database-ip")
+    database_port = request.config.getoption("--database-port")
+    state_db = SonicDB(host=database_ip, port=database_port, db_id=SonicDBInstance.STATE_DB)
+    yield state_db
+
+
+@pytest.fixture(scope="function")
+def state_db_connection(state_db):
+    yield state_db.connection()

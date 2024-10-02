@@ -14,6 +14,8 @@ The purpose of this document is to state the requirement for SAI validation, des
 
 SONiC management tests are Pytest modules running in the SONiC management container on the developer/CI/test environment and PTF tests running from the PTF container on the testbed server. As part of the setup and tear down activities the tests make configuration changes to SONiC, run the tests and verify if the tests ran successfully by making additional configuration checks and finally tear down the configuration changes. The tests use command line utilities on the DUT like `config`, `sonic-db-cli` or `redis-cli` to set and get configuration values. In some cases tests export / dump the contents of the database to examine its results and verify if tests ran successfully. These configuration changes are propogated to the ASIC through ASIC_DB. The aim of this design document is to identify a mechanism for tests to validate the configuration changes against ASIC_DB entries or SAI object types.
 
+*NOTE*: SONiC configuration is stored inside a Redis instance running inside the `database` container on the SONiC device. There are several database instances used for storing different kind of configuration elements such as configuration, states, counters, ASIC state etc. Each of these databases run as a Redis instance and are accessed via a Redis database ID. The IDs for the different available database are configured here [https://github.com/sonic-net/sonic-buildimage/blob/master/dockers/docker-database/database_config.json.j2](https://github.com/sonic-net/sonic-buildimage/blob/master/dockers/docker-database/database_config.json.j2).
+
 ## Design Choices
 
 These are some of the major factors to consider while evaluating design choices for SAI validation:
@@ -61,16 +63,17 @@ Use [redis-py](https://redis.io/docs/latest/develop/connect/clients/python/redis
 
 ### Use Redis-Py library (Connect remotely)
 
-Build the library using Redis-py and enable accessing the Redis server on the DUT over the network. This can be accomplished by -
+Build the library using Redis-py and enable accessing the Redis server on the DUT over the network. There are two possible approaches to this -
 
-- **Re-configure Redis**: Change the `/etc/redis/redis.conf` and `/etc/supervisord/conf.d/supervisord.conf` to listen on `0.0.0.0:6379` instead of `127.0.0.1:6379` on the testbed. Then run `sudo supervisorctl reread`, `sudo supervisorctl update` and `sudo supervisorctl restart all`.
-- **Setup Port-forwarding on DUT**: Install and run `socat` on DUT to port-forward all traffic from `<mgmt_ip>:<port-of-your-choice>` to `localhost:6379` to Redis on the database container.
+1. **Reconfigure Redis**: Change the `/etc/redis/redis.conf` and `/etc/supervisord/conf.d/supervisord.conf` to listen on `0.0.0.0:6379` instead of `127.0.0.1:6379` on the testbed. Then run `sudo supervisorctl reread`, `sudo supervisorctl update` and `sudo supervisorctl restart all`.
+2. **Setup Port-forwarding on DUT**: Install and run `socat` on DUT to port-forward all traffic from `<mgmt_ip>:<port-of-your-choice>` to `localhost:6379` to Redis on the database container.
 
-The first approach to **re-configure Redis** does not work and is __not recommended__. CPU usage spikes and commands like `show` or `config` begin to hang and journal logs are flooded with swsscommon errors indicating it is unable to connect to Redis. The second approach of installing `socat` is easy to setup and does not require the tests to change SONiC environment.
+The first approach to **Reconfigure Redis** does not work as expected. It causes CPU usage to spike and commands like `show` or `config` begin to hang and journal logs are flooded with swsscommon errors indicating it is unable to connect to Redis. The second approach of installing `socat` is easy to setup and does not require the tests to change SONiC environment.
 
 Considering tests need to poll / observe for key value changes in ASIC_DB this can be implemented using -
 
 - **Using threading and polling** as implemented in [SWSS VS Tests](https://github.com/sonic-net/sonic-swss/blob/master/tests/README.md), [conftest](https://github.com/sonic-net/sonic-swss/blob/master/tests/conftest.py), [dvslib/dvs_database](https://github.com/sonic-net/sonic-swss/blob/master/tests/dvslib/dvs_database.py)
+
 - **Using Redis pubsub** This approach takes advantage of Redis pubsub to get notification of keyspace changes instead of using threading or polling to watch for key value changes. This mechanism improves performance and predictability of watching for keyspace changes. The tests don't have to rely on threads or sleep timers to check for value changes. The keyspace notifications are enabled by default for `ASIC_DB`. Keyspace notifications are enabled by default (`AKE`) for ASIC_DB. Based on checks in `202305` and `202205`. Sample code that was tested on a DUT to notify for a specific key change can be used in tests -
 
 ```
