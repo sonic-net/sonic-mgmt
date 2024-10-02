@@ -162,9 +162,10 @@ The following tests aim to validate the link status and stability of transceiver
 | In a loop, issue startup/shutdown command 100 times | Stress test for link status validation | Ensure link status toggles to up/down appropriately with each startup/shutdown command. Verify ports appear in the LLDP table when the link is up |
 | Restart `xcvrd` | Test link and xcvrd stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table. Also ensure that xcvrd is up for at least 2 mins |
 | Induce I2C errors and restart `xcvrd` | Test link stability in case of `xcvrd` restart + I2C errors | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
+| Modify xcvrd.py to raise an Exception and induce a crash | Test link and xcvrd stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table. Also ensure that xcvrd is up for at least 2 mins |
 | Restart `pmon` | Test link stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
-| Restart `swss` | Validate transceiver re-initialization and link status post container restart | Ensure `xcvrd` restarts and the expected ports link up again, with port details visible in the LLDP table |
-| Restart `syncd` | Validate transceiver re-initialization and link status post container restart | Ensure `xcvrd` restarts and the expected ports link up again, with port details visible in the LLDP table |
+| Restart `swss` | Validate transceiver re-initialization and link status post container restart | Ensure `xcvrd` restarts (for Mellanox platform, ensure pmon restarts) and the expected ports link up again, with port details visible in the LLDP table |
+| Restart `syncd` | Validate transceiver re-initialization and link status post container restart | Ensure `xcvrd` restarts (for Mellanox platform, ensure pmon restarts) and the expected ports link up again, with port details visible in the LLDP table |
 | Perform a config reload | Test transceiver re-initialization and link status | Ensure `xcvrd` restarts and the expected ports link up again, with port details visible in the LLDP table |
 | Execute a cold reboot | Validate transceiver re-initialization and link status post-device reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
 | In a loop, execute cold reboot 100 times | Stress test to validate transceiver re-initialization and link status with cold reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
@@ -178,7 +179,7 @@ The following tests aim to validate various functionalities of the transceiver (
 | Step | Goal | Expected Results |
 |------|------|------------------|
 | Verify if transceiver presence works with CLI | Transceiver presence validation | Ensure transceiver presence is detected |
-| Reset the transceiver followed by issuing shutdown and then startup command | Transceiver reset validation | Ensure that the port is linked down after reset and is in low power mode (if transceiver supports it). Also, ensure that the DataPath is in DPDeactivated state. The shutdown and startup commands are later issued to re-initialize the port and bring the link up |
+| Reset the transceiver followed by issuing shutdown and then startup command | Transceiver reset validation | Ensure that the port is linked down after reset and is in low power mode (if transceiver supports it). Also, ensure that the DataPath is in DPDeactivated state and LowPwrAllowRequestHW (page 0h, byte 26.6) is set to 1. The shutdown and startup commands are later issued to re-initialize the port and bring the link up |
 | Put transceiver in low power mode (if transceiver supports it) followed by restoring to high power mode | Transceiver low power mode validation | Ensure transceiver is in high power mode initially. Then put the transceiver in low power mode and ensure that the port is linked down and the DataPath is in DPDeactivated state. Ensure that the port is in low power mode through CLI. Disable low power mode and ensure that the link is up now and transceiver is in high power mode now |
 | Verify EEPROM of the transceiver using CLI | Transceiver specific fields validation from EEPROM | Ensure transceiver specific fields are matching with the values retrieved from the transceiver dictionary created using the csv files |
 | Verify DOM information of the transceiver using CLI when interface is in shutdown and no shutdown state (if transceiver supports DOM) | Basic DOM validation | Ensure the fields are in line with the expectation based on interface shutdown/no shutdown state |
@@ -202,13 +203,15 @@ The following tests aim to validate various functionalities of the transceiver u
 
 #### 1.4 Firmware Related Tests
 
-All the firmware related tests assume that the DOM monitoring is disabled for the corresponding port.
+All the firmware related tests assume that the DOM monitoring is disabled for the corresponding port and the output of dmesg is analyzed to ensure that no I2C errors are seen during firmware related testing.
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
 | Download invalid firmware | Firmware download validation | Ensure that the active and inactive firmware versions do not change. Also, ensure no link flap is seen during this process. |
 | Kill the process which is downloading the firmware after firmware download is triggered | Firmware download validation | Ensure that the active and inactive firmware versions do not change. Also, ensure no link flap is seen during this process. |
 | Download valid firmware | Firmware download validation | Look for a “Firmware download complete success” message to confirm if the firmware is downloaded successfully. Also, a return code of 0 will denote CLI executed successfully. The inactive firmware version should show the firmware which was downloaded, and also ensure no link flap is seen. Ensure that no I2C error is seen. Also ensure that the firmware download time is less than 30 minutes |
+| Download firmware and abort the firmware download at various intervals (20%, 40%, 60%, 80% and 98% completion) | Firmware download validation | Ensure that the inactive firmware version is N/A |
+| Put transceiver in low power mode (if LPM supported) and perform firmware download | Firmware download validation | Ensure that the port is in low power mode and the firmware download is successful. Ensure that the active and inactive firmware versions are inline with expectation. Revert the port to high power mode after the test |
 | Execute transceiver reset after firmware download | Firmware download validation | Ensure that the active and inactive firmware versions do not change. Ensure that the link goes down after the transceiver reset is performed, and then perform interface shutdown followed by startup to bring the link up. |
 | Execute firmware run command (with port in shutdown state) | Firmware run validation | Look for a “Firmware run in mode=0 success” message to confirm if the firmware is successfully running. Also, a return code of 0 will denote CLI executed successfully. With the firmware version dump CLI, ensure the “Active Firmware” shows the new firmware version. Ensure that no I2C error is seen. |
 | Execute firmware commit command (with port in shutdown state) | Firmware commit validation | Look for a “Firmware commit successful” message. Please do not proceed further if this message is not seen. Also, a return code of 0 will denote CLI executed successfully. With the firmware version dump CLI, ensure the “Committed Image” field is updated with the relevant bank. Ensure that no I2C error is seen. |
@@ -232,6 +235,8 @@ The following tests aim to validate the functionality of remote reseating of the
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
+| Add `"skip_xcvrd": true,` to the `pmon_daemon_control.json` file and reboot the device | Ensure CMIS transceiver is in low power mode upon boot-up | Ensure the transceiver is in low power mode after device reboot. Revert back the file to original after verification |
+| Disable the Tx by directly writing to the EEPROM/or by calling `tx_disable` API | Ensure Tx is disabled within the advertised time for CMIS transceivers | Ensure that the DataPath state changes from DPActivated to a different state within the MaxDurationDPTxTurnOff time (page 1h, byte 168.7:4). Issue shut/no shutdown command to restore the link. This can be a stress test |
 | Adjust frequency | Validate frequency adjustment for C-CMIS transceivers | Ensure that the frequency can be adjusted to minimum and maximum supported frequency and revert to original frequency after testing |
 | Adjust tx power | Validate tx power adjustment for C-CMIS transceivers | Ensure that the tx power can be adjusted to minimum and maximum supported power and revert to original tx power after testing |
 | Adjust FEC mode | Validate FEC mode adjustment for transceivers supporting FEC | Ensure that the FEC mode can be adjusted to different modes and revert to original FEC mode after testing |
@@ -288,6 +293,12 @@ Get uptime of `xcvrd`
 
 ```
 docker exec pmon supervisorctl status xcvrd | awk '{print $NF}'
+```
+
+CLI to get link flap count from redis-db
+
+```
+sonic-db-cli -n '<namespace>' APPL_DB hget "PORT_TABLE:<port>" "flap_count"
 ```
 
 CLI to get link uptime/downtime from redis-db
@@ -482,7 +493,7 @@ sudo sfputil firmware commit <port>
 Finding I2C errors from dmesg
 
 ```
-dmesg | grep -iE 'error|fail|warning' | grep optoe
+dmesg -T -L -lerr
 ```
 
 Get supported min and max frequency from CONFIG_DB
@@ -533,4 +544,13 @@ Get current tx power
 
 ```
 sonic-db-cli -n '<namespace>' STATE_DB hget "TRANSCEIVER_DOM_SENSOR|<port>" "tx_config_power"
+```
+
+Modify pmon_daemon_control.json file to skip xcvrd upon device boot-up
+
+```
+platform=$(show version | grep "Platform" | awk -F': ' '{print $2}')
+hwsku=$(show version | grep "HwSKU" | awk -F': ' '{print $2}')
+cp /usr/share/sonic/device/$platform/$hwsku/pmon_daemon_control.json /usr/share/sonic/device/$platform/$hwsku/pmon_daemon_control.json.orig
+#Add "skip_xcvrd": true, to the pmon_daemon_control.json file
 ```
