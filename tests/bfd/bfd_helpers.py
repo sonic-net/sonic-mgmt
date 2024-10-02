@@ -7,6 +7,7 @@ import time
 import pytest
 from ptf import testutils
 
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -188,8 +189,15 @@ def batch_control_interface_state(dut, asic, interfaces, action):
         else:
             raise ValueError("Invalid action specified for interface {}".format(interface))
 
+    toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, target_state)
+
+
+def toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, target_state):
     if cmds:
-        dut.shell_cmds(cmds=cmds)
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for cmd in cmds:
+                executor.submit(dut.shell, cmd)
+
         assert wait_until(
             180,
             10,
@@ -492,14 +500,7 @@ def ensure_interfaces_are_up(dut, asic, interfaces):
                 )
             )
 
-    if cmds:
-        dut.shell_cmds(cmds=cmds)
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: check_interfaces_oper_state(dut, asic, interfaces, "up"),
-        )
+    toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, "up")
 
 
 def prepare_traffic_test_variables(get_src_dst_asic, request, version):
