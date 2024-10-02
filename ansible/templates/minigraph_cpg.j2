@@ -5,16 +5,18 @@
 {% for index in range(vms_number) %}
 {% set vm=vms[index] %}
 {% if (vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] and vm_topo_config['topo_type'] != 'wan' and not ("DPU" in vm)) %}
+{% for intf_index in range(vm_topo_config['vm'][vm]['interface_indexes']|length) %}
       <BGPSession>
         <MacSec>false</MacSec>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
-        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv4'][dut_index|int] }}</StartPeer>
+        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv4'][dut_index|int][intf_index] }}</StartPeer>
         <EndRouter>{{ vm }}</EndRouter>
-        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int] }}</EndPeer>
+        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv4'][dut_index|int][intf_index] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
+{% endfor %}
 {% if vm_asic_ifnames is defined %}
       <BGPSession>
         <MacSec>false</MacSec>
@@ -29,15 +31,17 @@
 {% endif %}
 {% endif %}
 {% if (vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] and vm_topo_config['topo_type'] != 'wan' and not ("DPU" in vm)) %}
+{% for intf_index in range(vm_topo_config['vm'][vm]['interface_indexes']|length) %}
       <BGPSession>
         <StartRouter>{{ inventory_hostname }}</StartRouter>
-        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv6'][dut_index|int] }}</StartPeer>
+        <StartPeer>{{ vm_topo_config['vm'][vm]['bgp_ipv6'][dut_index|int][intf_index] }}</StartPeer>
         <EndRouter>{{ vm }}</EndRouter>
-        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int] }}</EndPeer>
+        <EndPeer>{{ vm_topo_config['vm'][vm]['peer_ipv6'][dut_index|int][intf_index] }}</EndPeer>
         <Multihop>1</Multihop>
         <HoldTime>10</HoldTime>
         <KeepAliveTime>3</KeepAliveTime>
       </BGPSession>
+{% endfor %}
 {% if vm_asic_ifnames is defined %}
       <BGPSession>
         <StartRouter>{{ vm_asic_ids[vm][0] }}</StartRouter>
@@ -149,12 +153,14 @@
         <a:Peers>
 {% for index in range(vms_number)  %}
 {% if vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] %}
+{% for intf_index in range(vm_topo_config['vm'][vms[index]]['interface_indexes']|length) %}
           <BGPPeer>
-            <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int] }}</Address>
+            <Address>{{ vm_topo_config['vm'][vms[index]]['peer_ipv4'][dut_index|int][intf_index] }}</Address>
             <RouteMapIn i:nil="true"/>
             <RouteMapOut i:nil="true"/>
             <Vrf i:nil="true"/>
           </BGPPeer>
+{% endfor %}
 {% endif %}
 {% endfor %}
 {% if num_asics == 1 and switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
