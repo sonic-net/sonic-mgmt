@@ -106,7 +106,7 @@ parameters:
   - name: SPECIFIC_PARAM
     type: string
     default: '[
-      {"name": "test_posttest.py", "param": "--posttest_show_tech_since=-5days"},
+      {"name": "test_posttest.py", "param": "--posttest_show_tech_since=-5days00:00"},
       {"name": "bfd/test_bfd_static_route.py", "param": "--completeness_level=debug"}
     ]'
     displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
