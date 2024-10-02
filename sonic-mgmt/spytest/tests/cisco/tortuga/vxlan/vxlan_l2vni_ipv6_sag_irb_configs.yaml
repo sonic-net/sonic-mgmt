@@ -170,6 +170,7 @@ leaf0:
         vrf Vrf43
         no vni 5043
         exit-vrf
+      deconfig2: |
         no router bgp 2363073663 vrf Vrf43
         no router bgp 2363073663 
         exit
@@ -275,6 +276,7 @@ leaf1:
         vrf Vrf43
         no vni 5043
         exit-vrf
+      deconfig2: |
         no router bgp 2363033449 vrf Vrf43
         no router bgp 2363033449 
         exit

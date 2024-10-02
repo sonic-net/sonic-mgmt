@@ -99,6 +99,9 @@ def config_static(node, config_domain, add=True):
             config_node(nodes[node], config_list[node][config_domain]['config'], domain)
         else:
             config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain)
+            if 'deconfig2' in config_list[node][config_domain]:
+                st.wait(5)
+                config_node(node, config_list[node][config_domain]['deconfig2'], domain)
 
 def report_fail(dut, msg=''):
     st.log(msg, dut)
@@ -334,6 +337,7 @@ def test_l2vni_ipv6_sym_irb_sag_unbind_vrf():
     st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG1_VLAN))
     st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG2_VLAN))
 
+    st.wait(2)
     '''
     Remove VRF
     a. Remove all config from FRR
