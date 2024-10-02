@@ -5,7 +5,7 @@
     In our case, images are probably built locally, make sure:
 
     * Your NPU image should be named as "sonic-vs.img" and be put under `~/sonic-vm/images`.
-    * Your DPU image should be name as "sonic-vs.img" too and be put under `~/veos-vm/images`.
+    * Your DPU image should be named as "sonic-vs.img" too and be put under `~/veos-vm/images`.
 
 1. If you haven't, follow instructions below to setup your sonic-mgmt docker.
     * [Setup sonic-mgmt docker](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#setup-sonic-mgmt-docker)
