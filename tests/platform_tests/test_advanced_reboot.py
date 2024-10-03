@@ -19,7 +19,7 @@ from tests.common.utilities import wait_until
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('t0'),
-    pytest.mark.skip_check_dut_health
+    pytest.mark.db_migrator_check
 ]
 
 SINGLE_TOR_MODE = 'single'
