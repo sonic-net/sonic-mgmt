@@ -1,3 +1,15 @@
+# SmartSwitch Testbed Setup
+
+1. [1. Prepare the environment](#1-prepare-the-environment)
+2. [2. Deploy the testbed](#2-deploy-the-testbed)
+3. [3. Configurate DPU](#3-configurate-dpu)
+   1. [3.1. Setup network connection on DPU](#31-setup-network-connection-on-dpu)
+   2. [3.2. Upgrade DPU image to DASH BMv2](#32-upgrade-dpu-image-to-dash-bmv2)
+   3. [3.3. Enable DASH BMv2 Pipeline](#33-enable-dash-bmv2-pipeline)
+   4. [3.4. Initialize DASH BMv2 Pipeline](#34-initialize-dash-bmv2-pipeline)
+
+## 1. Prepare the environment
+
 1. Follow [instructions](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#option-2-ceos-container-based-image-recommended) to download cEOS image, this image will be used for T2 and T0 neighbors.
 
 1. Follow [instructions](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#download-the-sonic-vs-image) to download sonic-vs images.
@@ -9,50 +21,151 @@
 
 1. If you haven't, follow instructions below to setup your sonic-mgmt docker.
     * [Setup sonic-mgmt docker](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#setup-sonic-mgmt-docker)
-
     * [Setup host public key in sonic-mgmt docker](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md#setup-host-public-key-in-sonic-mgmt-docker)
 
 1. Fetch my branch from [sonic-mgmt PR#14595](https://github.com/sonic-net/sonic-mgmt/pull/14595).
 
+## 2. Deploy the testbed
+
 1. Deploy the topology.
-    ```
+
+    ```bash
     cd /data/sonic-mgmt/ansible
     ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k ceos add-topo vms-kvm-t1-smartswitch password.txt
     ```
 
 1. Deploy minigraph.
 
-    ```
+    ```bash
     ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb gen-mg vms-kvm-t1-smartswitch veos_vtb password.txt
     ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb deploy-mg vms-kvm-t1-smartswitch veos_vtb password.txt
     ```
 
-1. Configure DPU.
+## 3. Configurate DPU
 
-    * telnet to DPU VM
-        ```
-        telnet 127.0.0.1 7004
+### 3.1. Setup network connection on DPU
 
-        User: admin
-        Password: YourPaSsWoRd
-        ```
-    * Configure mgmt interface
-        ```
-        sudo config interface ip add eth0 10.250.0.55/24
+1. telnet to DPU VM
+
+    ```bash
+    telnet 127.0.0.1 7004
+
+    User: admin
+    Password: YourPaSsWoRd
+    ```
+
+1. Configure mgmt interface
+
+    ```bash
+    sudo config interface ip add eth0 10.250.0.55/24
+    ```
+
+1. copy minigraph to DPU
+
+    ```bash
+    scp sonic-mgmt/ansible/minigraph/SONIC01DPU.xml admin@10.250.0.55:
+
+    User:admin
+    Password: password
+    ```
+
+1. load minigraph on DPU
+
+    ```bash
+    sudo cp SONIC01DPU.xml /etc/sonic/minigraph.xml
+    sudo config load_minigraph -y
+
+    sudo config save -y
+    ```
+
+### 3.2. Upgrade DPU image to DASH BMv2
+
+1. Login on sonic VM and upgrade it with the 1st-step compiled vsonic image sonic-vs.bin and reboot it
+
+    ```bash
+    admin@vlab-01:~$ sudo sonic-installer install -y sonic-vs.bin
+    admin@vlab-01:~$ sudo reboot
+    ```
+
+### 3.3. Enable DASH BMv2 Pipeline
+
+1. Specify switch type dpu
+
+    ```bash
+    admin@vlab-01:~$ sonic-db-cli CONFIG_DB hset 'DEVICE_METADATA|localhost' switch_type dpu
+    admin@vlab-01:~$ sudo config save -y
+    ```
+
+1. Enable service dash-engine
+
+    ```bash
+    admin@vlab-01:~$ sudo systemctl enable dash-engine && sudo systemctl start dash-engine
+    ```
+
+1. Specify command syncd_dash instead of syncd in container syncd
+
+    ```bash
+    admin@vlab-01:~$ docker exec syncd sed -i '/CMD_SYNCD/s/syncd/syncd_dash/' /usr/bin/syncd_init_common.sh
+    ```
+
+1. Manually configure IP on dpu interface eth1/eth2
+
+    ```bash
+    admin@vlab-01:~$ sudo ifconfig eth1 10.0.1.1/24 up && sudo ifconfig eth2 10.0.2.1/24 up
+    ```
+
+1. config reload
+
+    ```bash
+    admin@vlab-01:~$ sudo config reload -y
+    ```
+
+### 3.4. Initialize DASH BMv2 Pipeline
+
+1. Update libdashsai package on your sonic-mgmt test repo. Without this, calling gNMI and set DASH config will not work:
+
+    ```bash
+    r12f@r12f-dl380:~/code/sonic/mgmt
+    $ dpkg -I libdashapi_1.0.0_amd64.deb
+    ```
+
+    libdashapi_1.0.0_amd64.deb can be found under “target/debs/bookworm”. And for unblocking us, I will upload this package along with the image.
+
+1. Install p4runtime shell in DPU KVM: [p4lang/p4runtime-shell](https://github.com/p4lang/p4runtime-shell)
+
+    The DPU KVM might not have internet access, hence we will need to pull the container outside the KVM, save and copy it in, then import the container.
+
+    1. Run following command outside KVM:
+
+        ```bash
+        docker pull p4lang/p4runtime-sh
+        docker save p4lang/p4runtime-sh:latest -o p4runtime-sh.tar
+        scp p4runtime-sh.tar admin@10.250.0.55:/home/admin
         ```
 
-    * copy minigraph to DPU
-        ```
-        scp sonic-mgmt/ansible/minigraph/SONIC01DPU.xml admin@10.250.0.55:
+    1. Run following command inside KVM:
 
-        User:admin
-        Password: password
+        ```bash
+        docker load -i p4runtime-sh.tar
         ```
 
-    * load minigraph on DPU
-        ```
-        sudo cp SONIC01DPU.xml /etc/sonic/minigraph.xml
-        sudo config load_minigraph -y
+1. Manually configure underlay route (for neighbor) of dash pipeline bmv2 with p4runtime-sh. Currently configuring underlay route via northbound dash API is still not working.
 
-        sudo config save -y
-        ```
+    ```bash
+    $ docker run --rm -ti --network=host p4lang/p4runtime-sh --grpc-addr 127.0.0.1:9559 --device-id 0 --election-id 0,1
+    underlay_entry = table_entry["dash_ingress.underlay.underlay_routing"](action="dash_ingress.underlay.pkt_act")
+    underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.37/128"
+    underlay_entry.action["packet_action"] = "1"
+    underlay_entry.action["next_hop_id"] = "0"
+    underlay_entry.insert
+    
+    underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.39/128"
+    underlay_entry.action["packet_action"] = "1"
+    underlay_entry.action["next_hop_id"] = "1"
+    underlay_entry.insert
+    
+    underlay_entry.match["meta.dst_ip_addr"] = "::30.30.30.30/128"
+    underlay_entry.action["packet_action"] = "1"
+    underlay_entry.action["next_hop_id"] = "1"
+    underlay_entry.insert
+    ```
