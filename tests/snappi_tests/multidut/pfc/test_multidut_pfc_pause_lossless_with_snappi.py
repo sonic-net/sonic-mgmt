@@ -257,6 +257,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
 
     for duthost in [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]:
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
+        duthost.shell("sudo config save -y")
         reboot(duthost, localhost, reboot_type=reboot_type)
         logger.info("Wait until the system is stable")
         wait_until(180, 20, 0, duthost.critical_services_fully_started)
@@ -346,6 +347,7 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
 
     for duthost in [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]:
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
+        duthost.shell("sudo config save -y")
         reboot(duthost, localhost, reboot_type=reboot_type)
         logger.info("Wait until the system is stable")
         wait_until(180, 20, 0, duthost.critical_services_fully_started)
