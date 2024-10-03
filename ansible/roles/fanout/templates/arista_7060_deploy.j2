@@ -49,9 +49,9 @@ interface {{ intf }}
    switchport mode dot1q-tunnel
    switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
 # TODO: Add an additional var/check in fanout devices if autoneg is enabled with the below check
-{%   if device_conn[inventory_hostname][intf]['speed'] == "100000" and device_conn[inventory_hostname][intf]['autoneg']|lower == "off" %}
+{%     if device_conn[inventory_hostname][intf]['speed'] == "100000" and device_conn[inventory_hostname][intf]['autoneg']|lower == "off" %}
    error-correction encoding reed-solomon
-{%   else %}
+{%     else %}
    no error-correction encoding
 {%     endif %}
 {%   endif %}
