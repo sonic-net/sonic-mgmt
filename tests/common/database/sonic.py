@@ -1,7 +1,10 @@
 import redis
-from enum import IntEnum
 import logging
+import concurrent.futures
 import time
+
+from datetime import timedelta
+from enum import IntEnum
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,17 @@ key_separator_per_db = {
 }
 
 
+def wait_for_n_keys(redis_conn: redis.Redis, n: int, key_pattern: str, timeout: timedelta):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(get_n_keys, redis_conn, n, key_pattern)
+        try:
+            events, time_spent = future.result(timeout=timeout.total_seconds())
+        except concurrent.futures.TimeoutError:
+            logger.error(f'wait_for_n_keys on {redis_conn} timedout waiting for {n} {key_pattern} keys')
+            return None
+        return events, time_spent
+
+
 # psubscribe message format
 # {
 #  'type': 'psubscribe',
@@ -43,33 +57,39 @@ key_separator_per_db = {
 #  'channel': '__keyspace@1__:ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:oid:0x21000000000000',
 #  'data': 'hset'
 # }
-def wait_for_key(redis_conn: redis.Redis, key_name):
+def get_n_keys(redis_conn: redis.Redis, n: int, key_pattern: str):
     start_time = time.perf_counter()
-    logger.info(f'wait_for_key called on {redis_conn} with key {key_name}')
+    logger.debug(f'Using {redis_conn} waiting for {n} keys with pattern {key_pattern}')
     db_num = redis_conn.connection_pool.connection_kwargs.get('db')
     if db_num is None:
         raise Exception('cannot determine database number')
-    logger.info(f'database number {db_num}')
+    logger.debug(f'database number {db_num}')
     pubsub = redis_conn.pubsub()
     keyspace_str = f'__keyspace@{db_num}__:'
-    pattern = f'{keyspace_str}{key_name}*'
+    pattern = f'{keyspace_str}{key_pattern}'
     pubsub.psubscribe(pattern)
-    logger.info('psubscribe setup with pattern {pattern}')
-    event = None
-    logger.info('listening for messages on pubsub')
+    logger.debug('psubscribe setup with pattern {pattern}')
+    events = {}
+    logger.debug('listening for messages on pubsub')
+    n_events = 0
     for message in pubsub.listen():
-        logger.info(f'received message {message}')
+        logger.debug(f'received message {message}')
         if message['type'] == 'pmessage':
             if message['pattern'] == pattern:
-                event = message
-                break
+                key = events['channel'][len(keyspace_str):]
+                val = redis_conn.hgetall(key)
+                events[key] = val
+                n_events += 1
+                if n_events == n:
+                    break
     pubsub.close()
-    logger.info(f'pubsub closed. event {event}')
-    key = event['channel'][len(keyspace_str):]
-    val = redis_conn.hgetall(key)
-    logger.info(f'key = {key}, value = {val}')
+    logger.debug(f'Received {n_events} events. Closing pubsub')
     end_time = time.perf_counter()
-    return val, (end_time - start_time)
+    return events, (end_time - start_time)
+
+
+def get_key(redis_conn: redis.Redis, key_pattern: str):
+    return get_n_keys(redis_conn, 1, key_pattern)
 
 
 class SonicDB:

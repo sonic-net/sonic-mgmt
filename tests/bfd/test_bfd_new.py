@@ -4,10 +4,12 @@ import time
 import json
 import logging
 
+from datetime import timedelta
+
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
-from tests.common.database.sonic import wait_for_key
+from tests.common.database.sonic import wait_for_n_keys
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -224,9 +226,9 @@ def check_ptf_bfd_status(ptfhost, neighbor_addr, local_addr, expected_state):
 
 def check_dut_bfd_status(redis_conn, neighbor_addr, expected_state):
     logger.info(f'check_dut_bfd_status called with redis connection {redis_conn}')
-    key_name = f'BFD_SESSION_TABLE|default|default|{neighbor_addr}'
-    logger.info(f'calling wait_for_key with key name {key_name}')
-    value, elapsed_time = wait_for_key(redis_conn, key_name)
+    key_name = f'BFD_SESSION_TABLE|default|default|{neighbor_addr}*'
+    logger.info(f'calling wait_for_n_keys with key name {key_name}')
+    value, elapsed_time = wait_for_n_keys(redis_conn, 1, key_name, timedelta(minutes=2))
     logger.info(f'received value {value} after {elapsed_time:.4f} seconds')
     return value['state'] == expected_state
 

@@ -2649,6 +2649,19 @@ def state_db(request):
     yield state_db
 
 
+@pytest.fixture(scope="session")
+def asic_db(request):
+    database_ip = request.config.getoption("--database-ip")
+    database_port = request.config.getoption("--database-port")
+    asic_db = SonicDB(host=database_ip, port=database_port, db_id=SonicDBInstance.ASIC_DB)
+    yield asic_db
+
+
 @pytest.fixture(scope="function")
 def state_db_connection(state_db):
     yield state_db.connection()
+
+
+@pytest.fixture(scope="function")
+def asic_db_connection(asic_db):
+    yield asic_db.connection()
