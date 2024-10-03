@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
 CONTINUOUS_MODE = -5
 ANSIBLE_POLL_DELAY_SEC = 4
+DATA_FLOW_PKT_SIZE = 1024
 
 
 def setup_base_traffic_config(testbed_config,
@@ -370,10 +371,19 @@ def run_traffic(duthost,
                 flow_names = [metric.name for metric in in_flight_flow_metrics if metric.name in data_flow_names]
                 tx_frames = [metric.frames_tx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
                 rx_frames = [metric.frames_rx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
+                buffer_lossless_tx_bytes = {}
+                if not snappi_extra_params.gen_background_traffic:
+                    for flow_name, tx_frame in zip(flow_names, tx_frames):
+                        flow_priority = int(flow_name.split("Prio ")[1])
+                        buffer_lossless_tx_bytes[flow_priority] = tx_frame * DATA_FLOW_PKT_SIZE
                 logger.info("In-flight traffic statistics for flows: {}".format(flow_names))
                 logger.info("In-flight TX frames: {}".format(tx_frames))
                 logger.info("In-flight RX frames: {}".format(rx_frames))
+                if not snappi_extra_params.gen_background_traffic:
+                    logger.info("In-flight lossless TX bytes held in buffer: {}".format(buffer_lossless_tx_bytes))
         logger.info("DUT polling complete")
+        if not snappi_extra_params.gen_background_traffic:
+            snappi_extra_params.buffer_lossless_tx_bytes = buffer_lossless_tx_bytes
     else:
         time.sleep(exp_dur_sec*(2/5))  # no switch polling required, only TGEN polling
         logger.info("Polling TGEN for in-flight traffic statistics...")
@@ -422,6 +432,27 @@ def run_traffic(duthost,
     api.set_transmit_state(ts)
 
     return flow_metrics, switch_device_results, in_flight_flow_metrics
+
+
+def verify_ingress_lossless_buffer_capacity(duthost,
+                                            snappi_extra_params):
+    """
+    Verify in-flight TX bytes of test flows should be held by switch buffer when egress port is blocked;
+    ensure admission control is enabled
+
+    Args:
+        duthost (obj): DUT host object
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    Returns:
+        bool: True if the TX packets are under buffer capacity, False otherwise
+    """
+    if not snappi_extra_params.gen_background_traffic:
+        lossless_buffer_capacity = get_lossless_buffer_size(host_ans=duthost)
+        buffer_lossless_tx_bytes = snappi_extra_params.buffer_lossless_tx_bytes
+        for priority, tx_bytes in buffer_lossless_tx_bytes.items():
+            pytest_assert(tx_bytes < lossless_buffer_capacity,
+                          "TX bytes {} for priority {} exceed lossless buffer capacity {}".
+                          format(tx_bytes, priority, lossless_buffer_capacity))
 
 
 def verify_pause_flow(flow_metrics,
