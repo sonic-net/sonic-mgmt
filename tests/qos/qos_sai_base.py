@@ -2576,7 +2576,12 @@ class QosSaiBase(QosBase):
         return False
 
     @pytest.fixture(scope="function", autouse=False)
-    def change_lag_lacp_timer(self, duthosts, get_src_dst_asic_and_duts, tbinfo, nbrhosts, dutConfig, dutTestParams):
+    def change_lag_lacp_timer(self, duthosts, get_src_dst_asic_and_duts, tbinfo, nbrhosts, dutConfig, dutTestParams,
+                              request):
+        if request.config.getoption("--neighbor_type") == "sonic":
+            yield
+            return
+
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
             src_dut = get_src_dst_asic_and_duts['src_dut']
