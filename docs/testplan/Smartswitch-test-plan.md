@@ -26,7 +26,7 @@
     - [1.18 Check DPU status and pcie Link after kernel panic on Switch](#118-check-dpu-status-and-pcie-link-after-kernel-panic-on-switch)
     - [1.19 Check DPU status and pcie Link after kernel panic on DPU](#119-check-dpu-status-and-pcie-link-after-kernel-panic-on-dpu)
     - [1.20 Check DPU status and pcie Link after power off reboot](#120-check-dpu-status-and-pcie-link-after-power-off-reboot)
-    - [1.21 Check DPU status and pcie Link after SW trip by temperature trigger](#121-check-dpu-status-and-pcie-link-after-sw-trip-bytemperature-trigger)
+    - [1.21 Check DPU status and pcie Link after SW trip by temperature trigger](#121-check-dpu-status-and-pcie-link-after-sw-trip-by-temperature-trigger)
 - [Objectives of API Test Cases](#objectives-of-api-test-cases)
 - [API Test Cases](#api-test-cases)
     - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-specific-chassisclass-apis)
