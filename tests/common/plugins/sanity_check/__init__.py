@@ -7,6 +7,7 @@ import pytest
 
 from collections import defaultdict
 
+from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
 from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.sanity_check.checks import *      # noqa: F401, F403
@@ -372,9 +373,71 @@ def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, local
 
 # make sure teardown of log_custom_msg happens after sanity_check
 @pytest.fixture(scope="module", autouse=True)
-def sanity_check(request, log_custom_msg):
+def sanity_check(request, parallel_run_context, log_custom_msg):
+    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
+    initial_check_state = InitialCheckState(par_followers, par_state_file) if is_par_run else None
+
     if request.config.option.skip_sanity:
         logger.info("Skip sanity check according to command line argument")
+        if is_par_run and is_par_leader:
+            initial_check_state.set_new_status(InitialCheckStatus.SETUP_STARTED, is_par_leader, target_hostname)
+
         yield
+
+        if is_par_run:
+            if is_par_leader:
+                initial_check_state.set_new_status(
+                    InitialCheckStatus.TEARDOWN_COMPLETED,
+                    is_par_leader,
+                    target_hostname,
+                )
+
+                initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TEARDOWN_COMPLETED)
+            else:
+                initial_check_state.wait_and_acknowledge_status(
+                    InitialCheckStatus.TEARDOWN_COMPLETED,
+                    is_par_leader,
+                    target_hostname,
+                )
+    elif is_par_run and not is_par_leader:
+        logger.info(
+            "Fixture sanity_check_full setup for non-leader nodes in parallel run is skipped. "
+            "Please refer to the leader node log for check status."
+        )
+
+        yield
+
+        logger.info(
+            "Fixture sanity_check_full teardown for non-leader nodes in parallel run is skipped. "
+            "Please refer to the leader node log for check status."
+        )
+
+        initial_check_state.wait_and_acknowledge_status(
+            InitialCheckStatus.TEARDOWN_COMPLETED,
+            is_par_leader,
+            target_hostname,
+        )
     else:
-        yield request.getfixturevalue('sanity_check_full')
+        try:
+            if is_par_run and is_par_leader:
+                initial_check_state.set_new_status(InitialCheckStatus.SETUP_STARTED, is_par_leader, target_hostname)
+
+            yield request.getfixturevalue('sanity_check_full')
+
+            if is_par_run and is_par_leader:
+                initial_check_state.set_new_status(
+                    InitialCheckStatus.TEARDOWN_COMPLETED,
+                    is_par_leader,
+                    target_hostname,
+                )
+
+                initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TEARDOWN_COMPLETED)
+        except BaseException as e:
+            if is_par_run and is_par_leader:
+                initial_check_state.set_new_status(
+                    InitialCheckStatus.SANITY_CHECK_FAILED,
+                    is_par_leader,
+                    target_hostname,
+                )
+
+            raise e
