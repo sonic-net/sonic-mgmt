@@ -19,11 +19,13 @@
     - [1.11 Check reboot cause history](#111-check-reboot-cause-history)
     - [1.12 Check the DPU state after OS reboot](#112-check-the-dpu-state-after-os-reboot)
     - [1.13 Check memory on DPU](#113-check-memory-on-dpu)
-    - [1.14 Check DPU status and pcie Link after memory exhaustion](#114-check-dpu-status-and-pcie-link-after-memory-exhaustion)
-    - [1.15 Check DPU status and pcie Link after restart pmon](#115-check-dpu-status-and-pcie-link-after-restart-pmon)
-    - [1.16 Check DPU status and pcie Link after reload of configuration](#116-check-dpu-status-and-pcie-link-after-reload-of-configuration)
-    - [1.17 Check DPU status and pcie Link after kernel panic](#117-check-dpu-status-and-pcie-link-after-kernel-panic)
-    - [1.18 Check DPU status and pcie Link after power off reboot](#118-check-dpu-status-and-pcie-link-after-power-off-reboot)
+    - [1.14 Check DPU status and pcie Link after memory exhaustion on Switch](#114-check-dpu-status-and-pcie-link-after-memory-exhaustion-on-switch)
+    - [1.15 Check DPU status and pcie Link after memory exhaustion on DPU](#115-check-dpu-status-and-pcie-link-after-memory-exhaustion-on-dpu)
+    - [1.16 Check DPU status and pcie Link after restart pmon](#116-check-dpu-status-and-pcie-link-after-restart-pmon)
+    - [1.17 Check DPU status and pcie Link after reload of configuration](#117-check-dpu-status-and-pcie-link-after-reload-of-configuration)
+    - [1.18 Check DPU status and pcie Link after kernel panic on Switch](#118-check-dpu-status-and-pcie-link-after-kernel-panic-on-switch)
+    - [1.19 Check DPU status and pcie Link after kernel panic on DPU](#119-check-dpu-status-and-pcie-link-after-kernel-panic-on-dpu)
+    - [1.20 Check DPU status and pcie Link after power off reboot](#120-check-dpu-status-and-pcie-link-after-power-off-reboot)
 - [Objectives of API Test Cases](#objectives-of-api-test-cases)
 - [API Test Cases](#api-test-cases)
     - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-specific-chassisclass-apis)
@@ -78,11 +80,13 @@ Dark mode is one in which all the DPUs admin_status are down.
 | 1.11 | Check reboot cause history       | To Verify reboot cause history cli | |
 | 1.12 | Check the DPU state after OS reboot       | To Verify DPU state on host reboot | |
 | 1.13 | Check memory on DPU       |  To verify Memory and its threshold on all the DPUs |
-| 1.14 | Check DPU status and pcie Link after memory exhaustion | To verify dpu status and connectivity after memory exhaustion |
-| 1.15 | Check DPU status and pcie Link after restart pmon | To verify dpu status and connectivity after restart of pmon on NPU |
-| 1.16 | Check DPU status and pcie Link after reload of configuration | To verify dpu status and connectivity after reload of configuration | 
-| 1.17 | Check DPU status and pcie Link after kernel panic | To verify dpu status and connectivity after Kernel Panic |
-| 1.18 | Check DPU status and pcie Link after power off reboot | To verify dpu status and connectivity after power off reboot |
+| 1.14 | Check DPU status and pcie Link after memory exhaustion on Switch | To verify dpu status and connectivity after memory exhaustion on Switch |
+| 1.15 | Check DPU status and pcie Link after memory exhaustion on DPU | To verify dpu status and connectivity after memory exhaustion on DPU |
+| 1.16 | Check DPU status and pcie Link after restart pmon | To verify dpu status and connectivity after restart of pmon on NPU |
+| 1.17 | Check DPU status and pcie Link after reload of configuration | To verify dpu status and connectivity after reload of configuration | 
+| 1.18 | Check DPU status and pcie Link after kernel panic on Switch| To verify dpu status and connectivity after Kernel Panic on Switch |
+| 1.19 | Check DPU status and pcie Link after kernel panic on DPU | To verify dpu status and connectivity after Kernel Panic on DPU |
+| 1.20 | Check DPU status and pcie Link after power off reboot | To verify dpu status and connectivity after power off reboot |
 
 
 ## CLI Test Cases
@@ -668,11 +672,12 @@ root@sonic:/home/cisco# show chassis modules status
 
 ### 1.13 Check Memory on DPU
 
-#### Steps
+### Steps
 
  * Use command `show system-memory` to get memory usage on each of those DPUs
- * Use `show system-health detail` to check memory check service status
- * Use `pdsctl show system --events` to check memory related events triggered. 
+ * Use `show system-health dpu <DPU_NUM>` to check memory check service status
+ * Use `pdsctl show system --events` to check memory related events triggered.
+   (This is vendor specific event monitoring cli) 
 
 #### Verify in
  * DPU
@@ -687,31 +692,14 @@ Mem:            6266        4198        1509          28         765        2067
 Swap:              0           0           0
 root@sonic:/home/admin# 
 root@sonic:/home/admin# 
-root@sonic:/home/admin# show system-health detail
-System status summary
-
-  System status LED  green
-  Services:
-    Status: Not OK
-    Not Running: container_checker, database-chassis
-  Hardware:
-    Status: OK
-
-System services and devices monitor list
-
-Name                      Status    Type
-------------------------  --------  ----------
-container_checker         Not OK    Program
-database-chassis          Not OK    Service
-sonic                     OK        System
-rsyslog                   OK        Process
-root-overlay              OK        Filesystem
-var-log                   OK        Filesystem
-routeCheck                OK        Program
-dualtorNeighborCheck      OK        Program
-diskCheck                 OK        Program
-vnetRouteCheck            OK        Program
-**memory_check              OK        Program**
+root@MtFuji:/home/cisco# show system-health dpu DPU0
+is_smartswitch returning True
+Name    ID    Oper-Status    State-Detail             State-Value    Time               Reason
+------  ----  -------------  -----------------------  -------------  -----------------  --------------------------------------------------------------------------------------------------------------------------
+DPU0    0     Online         dpu_midplane_link_state  UP             20241003 17:57:22  INTERNAL-MGMT : admin state - UP, oper_state - UP, status - OK, HOST-MGMT : admin state - UP, oper_state - UP, status - OK
+                             dpu_control_plane_state  UP             20241003 17:57:22  All containers are up and running, host-ethlink-status: Uplink1/1 is UP
+                             dpu_data_plane_state     UP             20241001 19:54:30  DPU container named polaris is running, pdsagent running : OK, pciemgrd running : OK
+root@MtFuji:/home/cisco# 
 
 root@sonic:/home/admin# pdsctl show system --events
 ----------------------------------------------------------------------------------------------------
@@ -729,15 +717,15 @@ root@sonic:/home/admin#
 
  * Verify that used memory should not cross the specified threshold value (90) of total memory.
  * Threshold can be set different based on platform.
- * Verify that memory_check service status is OK under system health cli.
- * Verify no memory related events under show system --events cli.
+ * Verify that dpu_control_plane_state is up under system-health dpu <DPU_NUM> cli.
+ * Verify no memory related events under pdsctl show system --events cli. This is vendor specific event montioring cli.
  * Increase the memory to go beyond threshold and verify  it in show system --events cli.   
 
-### 1.14 Check DPU status and pcie Link after memory exhaustion
+
+### 1.14 Check DPU status and pcie Link after memory exhaustion on Switch
 
 #### Steps
 
-- In Switch:
    * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
    * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
    * It runs on the background and `nohup` is also necessary to protect thebackground process.
@@ -747,20 +735,9 @@ root@sonic:/home/admin#
    * Use `show chassis modules status` to check status of the DPUs.
    * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py
 
-- In DPU:
-   * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
-   * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
-   * It runs on the background and `nohup` is also necessary to protect thebackground process.
-   * Added `sleep 5` to ensure ansible receive the result first.
-   
-    - In Switch:
-       * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
-       * Wait for 3 mins.
-       * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
-       * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
- 
  #### Verify in
- * Switch and DPU
+ 
+ * Switch
    
 #### Sample Output
 
@@ -773,7 +750,6 @@ root@sonic:/home/cisco#
 .
 (Going for reboot)
 .
-root@sonic:/home/cisco#
 root@sonic:/home/cisco# show chassis modules status
   Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
 ------  --------------------  ---------------  -------------  --------------  ---------------
@@ -789,6 +765,7 @@ root@sonic:/home/cisco# config chassis startup DPU1
 root@sonic:/home/cisco# config chassis startup DPU2
 root@sonic:/home/cisco# config chassis startup DPUX
 root@sonic:/home/cisco# 
+root@sonic:/home/cisco#
 root@sonic:/home/cisco# show chassis modules status
   Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
 ------  --------------------  ---------------  -------------  --------------  ---------------
@@ -813,7 +790,85 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
 
-### 1.15 Check DPU status and pcie Link after restart pmon
+### 1.15 Check DPU status and pcie Link after memory exhaustion on DPU
+
+#### Steps
+
+- DPU:
+   * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
+   * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
+   * It runs on the background and `nohup` is also necessary to protect thebackground process.
+   * Added `sleep 5` to ensure ansible receive the result first.
+   
+    - Switch:
+       * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
+       * Wait for 3 mins.
+       * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+       * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
+
+ #### Verify in
+ 
+ * DPU
+   
+#### Sample Output
+
+DPU: 
+
+```
+root@sonic:/home/admin# sudo swapoff -a
+root@sonic:/home/adminsco# 
+root@sonic:/home/admin# nohup bash -c "sleep 5 && tail /dev/zero" &
+root@sonic:/home/admin# nohup: ignoring input and appending output to 'nohup.out'
+root@sonic:/home/admin#
+.
+(Going for reboot)
+.
+```
+
+Switch: 
+
+```
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A        Offline            down  154226463179136
+  DPU1  Data Processing Unit              N/A        Offline            down  154226463179152
+  DPU2  Data Processing Unit              N/A        Offline            down  154226463179168
+  DPUX  Data Processing Unit              N/A        Offline            down  154226463179184
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# config chassis startup DPU0
+root@sonic:/home/cisco# config chassis startup DPU1
+root@sonic:/home/cisco# config chassis startup DPU2
+root@sonic:/home/cisco# config chassis startup DPUX
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
+
+root@sonic:/home/cisco# ping 169.254.200.1
+PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
+64 bytes from 169.254.200.1: icmp_seq=1 ttl=64 time=0.160 ms
+^C
+--- 169.254.28.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
+root@sonic:/home/cisco# 
+```
+ 
+#### Pass/Fail Criteria
+
+ * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
+ * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
+
+
+### 1.16 Check DPU status and pcie Link after restart pmon
 
 #### Steps
  * Use `systemctl restart pmon`
@@ -852,7 +907,7 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
 
-### 1.16 Check DPU status and pcie Link after reload of configuration
+### 1.17 Check DPU status and pcie Link after reload of configuration
 
 #### Steps
 * Use `config reload -y` to reload the configurations in the switch.
@@ -904,26 +959,16 @@ root@sonic:/home/cisco#
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
 
-### 1.17 Check DPU status and pcie Link after kernel panic
+### 1.18 Check DPU status and pcie Link after kernel panic on Switch
 
 #### Steps
 
-- In Switch:
    * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
    * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
    * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
    * Use `show chassis modules status` to check status of the DPUs.
    * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
- 
-- In DPU:
-   * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`.
-   
-   - In Switch:
-     * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
-     * Wait for 3 mins.
-     * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
-     * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
-   
+        
 #### Verify in
  * Switch
    
@@ -971,8 +1016,76 @@ root@sonic:/home/cisco#
  * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
+
+### 1.19 Check DPU status and pcie Link after kernel panic on DPU
+
+#### Steps
+
+- DPU:
+   * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`.
+   
+   - Switch:
+     * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
+     * Wait for 3 mins.
+     * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
+     * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
+        
+#### Verify in
+ * Switch
+   
+#### Sample Output
+
+DPU:
+
+```
+root@sonic:/home/admin# nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &
+.
+(Going for reboot)
+.
+```
+
+Switch: 
+
+```
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A        Offline            down  154226463179136
+  DPU1  Data Processing Unit              N/A        Offline            down  154226463179152
+  DPU2  Data Processing Unit              N/A        Offline            down  154226463179168
+  DPUX  Data Processing Unit              N/A        Offline            down  154226463179184
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# config chassis startup DPU0
+root@sonic:/home/cisco# config chassis startup DPU1
+root@sonic:/home/cisco# config chassis startup DPU2
+root@sonic:/home/cisco# config chassis startup DPUX
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
+  
+root@sonic:/home/cisco# ping 169.254.200.1
+PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
+64 bytes from 169.254.200.1: icmp_seq=1 ttl=64 time=0.160 ms
+^C
+--- 169.254.28.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
+root@sonic:/home/cisco# 
+```
+
+#### Pass/Fail Criteria
+ * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
+ * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
+
  
-### 1.18 Check DPU status and pcie Link after power off reboot
+### 1.20 Check DPU status and pcie Link after power off reboot
 
 #### Steps
  * Power cycle the testbed using PDU controller.
