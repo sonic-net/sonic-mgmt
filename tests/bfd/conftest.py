@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from tests.bfd.bfd_helpers import ensure_interface_is_up, clear_bfd_configs
+from tests.bfd.bfd_helpers import clear_bfd_configs, ensure_interfaces_are_up
 from tests.common.config_reload import config_reload
 # from tests.common.utilities import wait_until
 # from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
@@ -97,5 +97,4 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
         else:
             asic = request.config.asic
 
-        for interface in selected_interfaces:
-            ensure_interface_is_up(dut, asic, interface)
+        ensure_interfaces_are_up(dut, asic, selected_interfaces)
