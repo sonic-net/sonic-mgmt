@@ -34,6 +34,15 @@
     ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k ceos add-topo vms-kvm-t1-smartswitch password.txt
     ```
 
+    The whole topology contains:
+    * 4 cEOS neighbors VM0100, VM0101, VM0102 and VM0103. 2 of them are simulating T2s, and the other 2 are simulating T0s.
+    * 2 SONiC VMs. One is named as `vlab-01` running as NPU, the other is named `VM0104` running as DPU.
+    * 1 PTF docker for test utilities, packets sending and sniffing.
+    * OVS bridges binding the interfaces.
+
+    Diagram below illustrates the topology.
+    ![t1-smartswitch](img/testbed_t1-smartswitch.png)
+
 1. Deploy minigraph.
 
     ```bash
@@ -158,12 +167,12 @@
     underlay_entry.action["packet_action"] = "1"
     underlay_entry.action["next_hop_id"] = "0"
     underlay_entry.insert
-    
+
     underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.39/128"
     underlay_entry.action["packet_action"] = "1"
     underlay_entry.action["next_hop_id"] = "1"
     underlay_entry.insert
-    
+
     underlay_entry.match["meta.dst_ip_addr"] = "::30.30.30.30/128"
     underlay_entry.action["packet_action"] = "1"
     underlay_entry.action["next_hop_id"] = "1"
