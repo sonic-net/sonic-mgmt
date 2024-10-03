@@ -26,6 +26,7 @@
     - [1.18 Check DPU status and pcie Link after kernel panic on Switch](#118-check-dpu-status-and-pcie-link-after-kernel-panic-on-switch)
     - [1.19 Check DPU status and pcie Link after kernel panic on DPU](#119-check-dpu-status-and-pcie-link-after-kernel-panic-on-dpu)
     - [1.20 Check DPU status and pcie Link after power off reboot](#120-check-dpu-status-and-pcie-link-after-power-off-reboot)
+    - [1.21 Check DPU status and pcie Link after SW trip by temperature trigger](#121-check-dpu-status-and-pcie-link-after-sw-trip-bytemperature-trigger)
 - [Objectives of API Test Cases](#objectives-of-api-test-cases)
 - [API Test Cases](#api-test-cases)
     - [1.1 Check SmartSwitch specific ChassisClass APIs](#11-check-smartswitch-specific-chassisclass-apis)
@@ -87,6 +88,7 @@ Dark mode is one in which all the DPUs admin_status are down.
 | 1.18 | Check DPU status and pcie Link after kernel panic on Switch| To verify dpu status and connectivity after Kernel Panic on Switch |
 | 1.19 | Check DPU status and pcie Link after kernel panic on DPU | To verify dpu status and connectivity after Kernel Panic on DPU |
 | 1.20 | Check DPU status and pcie Link after power off reboot | To verify dpu status and connectivity after power off reboot |
+| 1.21 | Check DPU status and pcie Link after SW trip by temperature trigger | To verify dpu status and connectivity after SW trip by temperature trigger |
 
 
 ## CLI Test Cases
@@ -1148,6 +1150,88 @@ root@sonic:/home/cisco#
 #### Pass/Fail Criteria
  * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
+
+
+### 1.21 Check DPU status and pcie Link after SW trip by temperature trigger
+
+#### Steps
+ * In DPU, use `docker exec -it polaris /bin/bash` to bring up the polaris container
+ * Create /tmp/temp_sim.json file with dictionary { "hbmtemp": 65, "dietemp": 85}
+ * Increase dietemp to 125 to trigger the trip.
+
+#### Verify in
+ * DPU
+
+#### Sample Output
+
+DPU:
+
+```
+root@sonic:/home/admin# 
+root@sonic:/home/admin# docker exec -it polaris /bin/bash
+bash-4.4#
+bash-4.4# cat /tmp/temp_sim.json
+{ "hbmtemp": 65,
+"dietemp": 85 }
+bash-4.4#
+bash-4.4#
+bash-4.4#
+bash-4.4# cat /tmp/temp_sim.json
+{ "hbmtemp": 65,
+"dietemp": 125 }
+bash-4.4# exit
+exit
+root@sonic:/home/admin# e** RESETTING: SW TRIP dietemBoot0 v19, Id 0x82
+Boot fwid 0 @ 0x74200000... OK
+
+.
+(Going for reboot)
+.
+
+```
+Switch:
+
+```
+root@sonic:/home/cisco#
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A        Offline            down  154226463179136
+  DPU1  Data Processing Unit              N/A        Online               up  154226463179152
+  DPU2  Data Processing Unit              N/A        Online               up 154226463179168
+  DPUX  Data Processing Unit              N/A        Online               up  154226463179184
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# config chassis shutdown DPU0
+root@sonic:/home/cisco# config chassis startup DPU0
+root@sonic:/home/cisco#
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A         Online              up  154226463179136
+  DPU1  Data Processing Unit              N/A         Online              up  154226463179152
+  DPU2  Data Processing Unit              N/A         Online              up  154226463179168
+  DPUX  Data Processing Unit              N/A         Online              up  154226463179184
+
+root@sonic:/home/cisco# ping 169.254.200.1
+PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
+64 bytes from 169.254.200.1: icmp_seq=1 ttl=64 time=0.160 ms
+^C
+--- 169.254.28.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
+root@sonic:/home/cisco# 
+root@sonic:/home/cisco# show reboot-cause history dpu0
+<reset reason is work in progress>
+
+```
+
+#### Pass/Fail Criteria
+ * Verify Ping works to DPU  mid plane ip listed in the ansible inventory file for the testbed.
+ * Verify show reboot cause history <dpu> to check the cause as cattrip.
 
 
 ## Objectives of API Test Cases
