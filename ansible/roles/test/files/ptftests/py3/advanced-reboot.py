@@ -273,7 +273,7 @@ class ReloadTest(BaseTest):
             password=self.test_params['dut_password'],
             alt_password=self.test_params.get('alt_password')
         )
-
+        self.installed_sonic_version = self.get_installed_sonic_version()
         self.sender_thr = threading.Thread(target=self.send_in_background)
         self.sniff_thr = threading.Thread(target=self.sniff_in_background)
 
@@ -1448,6 +1448,11 @@ class ReloadTest(BaseTest):
         teamd_state = stdout[0].strip()
         return teamd_state
 
+    def get_installed_sonic_version(self):
+        stdout, _, _ = self.dut_connection.execCommand(
+            "sudo sonic_installer list | grep Current | awk '{print $2}'")
+        return stdout[0]
+
     def wait_until_teamd_goes_down(self):
         self.log('Waiting for teamd service to go down')
         teamd_state = self.get_teamd_state()
@@ -1476,7 +1481,8 @@ class ReloadTest(BaseTest):
             # Check to see if the warm-reboot script knows about the retry count feature
             stdout, stderr, return_code = self.dut_connection.execCommand(
                 "sudo " + self.reboot_type + " -h", timeout=5)
-            if "retry count" in "\n".join(stdout):
+            # 202205 image doesn't support retry count feature despite the fact it is present in the cli output
+            if "retry count" in stdout and '202205' not in self.installed_sonic_version:
                 if self.test_params['neighbor_type'] == "sonic":
                     reboot_command = self.reboot_type + " -N"
                 else:
