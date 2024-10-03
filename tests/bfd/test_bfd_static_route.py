@@ -4,8 +4,8 @@ import time
 import pytest
 
 from tests.bfd.bfd_base import BfdBase
-from tests.bfd.bfd_helpers import verify_static_route, select_src_dst_dut_with_asic, control_interface_state, \
-    check_bgp_status, add_bfd, verify_bfd_state, delete_bfd, extract_backend_portchannels
+from tests.bfd.bfd_helpers import verify_static_route, select_src_dst_dut_with_asic, check_bgp_status, \
+    add_bfd, verify_bfd_state, delete_bfd, extract_backend_portchannels, batch_control_interface_state
 from tests.common.config_reload import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot
@@ -642,11 +642,7 @@ class TestBfdStaticRoute(BfdBase):
         request.config.selected_portchannels = list_of_portchannels_on_dst
 
         # Shutdown PortChannels on destination dut
-        for interface in list_of_portchannels_on_dst:
-            action = "shutdown"
-            control_interface_state(
-                dst_dut, dst_asic, interface, action
-            )
+        batch_control_interface_state(dst_dut, dst_asic, list_of_portchannels_on_dst, "shutdown")
 
         # Verification of BFD session state on src dut
         assert wait_until(
@@ -669,11 +665,7 @@ class TestBfdStaticRoute(BfdBase):
             version,
         )
 
-        for interface in list_of_portchannels_on_dst:
-            action = "startup"
-            control_interface_state(
-                dst_dut, dst_asic, interface, action
-            )
+        batch_control_interface_state(dst_dut, dst_asic, list_of_portchannels_on_dst, "startup")
 
         # Verification of BFD session state.
         assert wait_until(
@@ -775,11 +767,7 @@ class TestBfdStaticRoute(BfdBase):
         request.config.selected_portchannels = list_of_portchannels_on_src
 
         # Shutdown PortChannels
-        for interface in list_of_portchannels_on_src:
-            action = "shutdown"
-            control_interface_state(
-                src_dut, src_asic, interface, action
-            )
+        batch_control_interface_state(src_dut, src_asic, list_of_portchannels_on_src, "shutdown")
 
         # Verification of BFD session state.
         assert wait_until(
@@ -818,11 +806,7 @@ class TestBfdStaticRoute(BfdBase):
             version,
         )
 
-        for interface in list_of_portchannels_on_src:
-            action = "startup"
-            control_interface_state(
-                src_dut, src_asic, interface, action
-            )
+        batch_control_interface_state(src_dut, src_asic, list_of_portchannels_on_src, "startup")
 
         # Verification of BFD session state.
         assert wait_until(
@@ -924,20 +908,16 @@ class TestBfdStaticRoute(BfdBase):
         request.config.selected_portchannels = list_of_portchannels_on_src
 
         # Shutdown PortChannel members
+        port_channel_members_on_src = []
         for portchannel_interface in list_of_portchannels_on_src:
-            action = "shutdown"
             list_of_portchannel_members_on_src = (
-                extract_backend_portchannels(src_dut)[
-                    portchannel_interface
-                ]["members"]
+                extract_backend_portchannels(src_dut)[portchannel_interface]["members"]
             )
-            request.config.selected_portchannel_members = (
-                list_of_portchannel_members_on_src
-            )
-            for each_member in list_of_portchannel_members_on_src:
-                control_interface_state(
-                    src_dut, src_asic, each_member, action
-                )
+
+            port_channel_members_on_src.extend(list_of_portchannel_members_on_src)
+
+        request.config.selected_portchannel_members = port_channel_members_on_src
+        batch_control_interface_state(src_dut, src_asic, port_channel_members_on_src, "shutdown")
 
         # Verification of BFD session state.
         assert wait_until(
@@ -977,17 +957,7 @@ class TestBfdStaticRoute(BfdBase):
         )
 
         # Bring up of PortChannel members
-        for portchannel_interface in list_of_portchannels_on_src:
-            action = "startup"
-            list_of_portchannel_members_on_src = (
-                extract_backend_portchannels(src_dut)[
-                    portchannel_interface
-                ]["members"]
-            )
-            for each_member in list_of_portchannel_members_on_src:
-                control_interface_state(
-                    src_dut, src_asic, each_member, action
-                )
+        batch_control_interface_state(src_dut, src_asic, port_channel_members_on_src, "startup")
 
         # Verification of BFD session state.
         assert wait_until(
