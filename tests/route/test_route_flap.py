@@ -208,6 +208,9 @@ def check_route(duthost, route, dev_port, operation):
         cmd = ' -c "show ip route {} json"'.format(route)
         for asichost in duthost.frontend_asics:
             out = json.loads(asichost.run_vtysh(cmd)['stdout'])
+            if len(out) == 0:
+                logger.info("Route table empty on asic {}, check other asic".format(asichost.asic_index))
+                continue
             nexthops = out[route][0]['nexthops']
             routes_per_asic = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
             result.extend(routes_per_asic)
@@ -376,7 +379,8 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
 
 def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                     get_function_completeness_level, announce_default_routes,
-                    enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
+                    enum_rand_one_per_hwsku_frontend_hostname,
+                    enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index,
                     setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m,                     # noqa F811
                     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m, loganalyzer):    # noqa F811
     ptf_ip = tbinfo['ptf_ip']
@@ -385,6 +389,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     nexthop = common_config.get('nhipv4', NHIPV4)
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    duthost_upstream = duthosts[enum_upstream_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
             ".*ERR.*\"missed_FRR_routes\".*"
@@ -441,7 +446,10 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     neighbor_type = get_neighbor_info(duthost, dev_port, tbinfo)
     recv_neigh_list = get_all_recv_neigh(duthosts, neighbor_type)
     logger.info("Receiving ports neighbor list : {}".format(recv_neigh_list))
-    ptf_recv_ports = get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list)
+    if 't2' in tbinfo["topo"]["type"] and duthost == duthost_upstream:
+        ptf_recv_ports = get_ptf_recv_ports(duthost, tbinfo)
+    else:
+        ptf_recv_ports = get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list)
     logger.info("Receiving ptf ports list : {}".format(ptf_recv_ports))
 
     exabgp_port = get_exabgp_port(duthost, tbinfo, dev_port)
