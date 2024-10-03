@@ -387,7 +387,7 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
 
         # verify sessions are established
         pytest_assert(
-            wait_until(600, 10, 0, duthost.check_bgp_session_state_all_asics,up_bgp_neighbors, "established"),
+            wait_until(600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
             "All BGP sessions are not up. No point in continuing the test")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
@@ -427,12 +427,10 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         out = duthost.command('show kdump config')
         reboot_cause = get_reboot_cause(duthost)
         if "Enabled" not in out["stdout"]:
-            pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
-                        "Reboot cause {} did not match the trigger {}"
+            pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                         .format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
         else:
-            pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}"
+            pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                           .format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE))
 
 
@@ -502,9 +500,9 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
 
             # verify sessions are established
             pytest_assert(
-                wait_until(600, 10, 0, linecard.check_bgp_session_state_all_asics,
-                           up_bgp_neighbors[linecard], "established"),
-                           "All BGP sessions are not up. No point in continuing the test")
+                wait_until(
+                    600, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                    "All BGP sessions are not up. No point in continuing the test")
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
@@ -546,15 +544,13 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}"
+            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                           .format(reboot_cause, SUP_REBOOT_CAUSE))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
         reboot_cause = get_reboot_cause(suphost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}"
+        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                       .format(reboot_cause, COLD_REBOOT_CAUSE))
 
 
@@ -641,10 +637,10 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
                           "Not all ports that are admin up on are operationally up")
 
             # verify sessions are established
-            pytest_assert(wait_until(600, 10, 0,
-                                 linecard.check_bgp_session_state_all_asics,
-                                 up_bgp_neighbors[linecard], "established"),
-                                 "All BGP sessions are not up. No point in continuing the test")
+            pytest_assert(
+                wait_until(
+                    600, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                    "All BGP sessions are not up. No point in continuing the test")
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
@@ -687,8 +683,7 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_HEARTBEAT_LOSS_CAUSE,
-                          "Reboot cause {} did not match the trigger {}"
+            pytest_assert(reboot_cause == SUP_HEARTBEAT_LOSS_CAUSE, "Reboot cause {} did not match the trigger {}"
                           .format(reboot_cause, SUP_HEARTBEAT_LOSS_CAUSE))
 
         # Make sure the Supervisor's reboot cause is as expected
@@ -696,12 +691,10 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
         out = suphost.command('show kdump config')
         reboot_cause = get_reboot_cause(suphost)
         if "Enabled" not in out["stdout"]:
-            pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
-                        "Reboot cause {} did not match the trigger {}"
+            pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                         .format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
         else:
-            pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
-                        "Reboot cause {} did not match the trigger {}"
+            pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                         .format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE))
 
 
@@ -766,10 +759,10 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
                       "Not all ports that are admin up on are operationally up")
 
         # verify sessions are established
-        pytest_assert(wait_until(600, 10, 0,
-                                 duthost.check_bgp_session_state_all_asics,
-                                 up_bgp_neighbors, "established"),
-                                 "All BGP sessions are not up. No point in continuing the test")
+        pytest_assert(
+            wait_until(
+                600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+                "All BGP sessions are not up. No point in continuing the test")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
             duthosts, duthost, dut_nbrhosts, traffic_shift_community),
@@ -793,10 +786,10 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         cur_v6_routes = {}
 
         # verify sessions are established
-        pytest_assert(wait_until(600, 10, 0,
-                                 duthost.check_bgp_session_state_all_asics,
-                                 up_bgp_neighbors, "established"),
-                                 "All BGP sessions are not up. No point in continuing the test")
+        pytest_assert(
+            wait_until(
+                600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+                "All BGP sessions are not up. No point in continuing the test")
 
         # Verify that all routes advertised to neighbor at the start of the test
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs, duthost, nbrhosts,
@@ -812,8 +805,7 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}"
+        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                       .format(reboot_cause, COLD_REBOOT_CAUSE))
 
 
@@ -888,10 +880,10 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
                       "Not all ports that are admin up on are operationally up")
 
         # verify sessions are established
-        pytest_assert(wait_until(600, 10, 0,
-                                 duthost.check_bgp_session_state_all_asics,
-                                 up_bgp_neighbors, "established"),
-                                 "All BGP sessions are not up. No point in continuing the test")
+        pytest_assert(
+            wait_until(
+                600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+                "All BGP sessions are not up. No point in continuing the test")
 
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
@@ -927,8 +919,7 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}"
+        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                       .format(reboot_cause, COLD_REBOOT_CAUSE))
 
 
@@ -1000,10 +991,10 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
             "Not all critical services are fully started on {}".format(duthost.hostname)
 
         # verify sessions are established
-        pytest_assert(wait_until(600, 10, 0,
-                                 duthost.check_bgp_session_state_all_asics,
-                                 up_bgp_neighbors, "established"),
-                                 "All BGP sessions are not up. No point in continuing the test")
+        pytest_assert(
+            wait_until(
+                600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+                "All BGP sessions are not up. No point in continuing the test")
 
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
@@ -1028,8 +1019,7 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}"
+        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                       .format(reboot_cause, COLD_REBOOT_CAUSE))
 
 
@@ -1100,10 +1090,10 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             wait_critical_processes(linecard)
 
             # verify sessions are established
-            pytest_assert(wait_until(600, 10, 0,
-                                     linecard.check_bgp_session_state_all_asics,
-                                     up_bgp_neighbors[linecard], "established"),
-                                     "All BGP sessions are not up. No point in continuing the test")
+            pytest_assert(
+                wait_until(
+                    600, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                    "All BGP sessions are not up. No point in continuing the test")
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
@@ -1129,10 +1119,10 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             cur_v6_routes = {}
 
             # verify sessions are established
-            pytest_assert(wait_until(600, 10, 0,
-                                     linecard.check_bgp_session_state_all_asics,
-                                     up_bgp_neighbors[linecard], "established"),
-                                     "All BGP sessions are not up. No point in continuing the test")
+            pytest_assert(
+                wait_until(
+                    600, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                    "All BGP sessions are not up. No point in continuing the test")
 
             # Verify that all routes advertised to neighbor at the start of the test
             if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs, linecard, dut_nbrhosts[linecard],
@@ -1159,15 +1149,13 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}"
+            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                           .format(reboot_cause, SUP_REBOOT_CAUSE))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
         reboot_cause = get_reboot_cause(suphost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}"
+        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                       .format(reboot_cause, COLD_REBOOT_CAUSE))
 
 
@@ -1225,10 +1213,10 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
         pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
 
-        pytest_assert(wait_until(600, 10, 0,
-                                 duthost.check_bgp_session_state_all_asics,
-                                 up_bgp_neighbors, "established"),
-                                 "All BGP sessions are not up. No point in continuing the test")
+        pytest_assert(
+            wait_until(
+                600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+                "All BGP sessions are not up. No point in continuing the test")
 
         stability_check_time = datetime.datetime.now()
         time_to_stabilize = (stability_check_time - service_uptime).total_seconds()
@@ -1275,6 +1263,5 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}"
+        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE, "Reboot cause {} did not match the trigger {}"
                       .format(reboot_cause, COLD_REBOOT_CAUSE))
