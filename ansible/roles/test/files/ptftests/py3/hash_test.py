@@ -128,7 +128,7 @@ class HashTest(BaseTest):
                 if src_port in exp_port_list:
                     break
             else:
-                if self.switch_type == "voq" and exp_port_lists[0]:
+                if self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
                     dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
                     src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]
                     if src_port_dut_index == 0 and dest_port_dut_index == 0:
