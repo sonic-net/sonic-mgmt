@@ -232,7 +232,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,mark_conditions_file_opt,tc,tc_name)        
+        cmd = "./run_tests.sh -n {} {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} {} -c {} |& tee {}.log".format(topo_name,run_options,log_dir,mark_conditions_file_opt,tc,tc_name)        
         os.system("bash -c '{}'".format(cmd))
 
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
@@ -453,7 +453,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,mark_conditions_file_opt,tc,tc_name)        
+        cmd = "./run_tests.sh -n {} {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} {} -c {} |& tee {}.log".format(topo_name,run_options,log_dir,mark_conditions_file_opt,tc,tc_name)        
         os.system("bash -c '{}'".format(cmd))
         failed = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
         error = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
