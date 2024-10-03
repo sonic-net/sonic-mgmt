@@ -269,9 +269,8 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
                       "Not all ports that are admin up on are operationally up")
 
         # verify sessions are established
-        pytest_assert(wait_until(600, 10, 0, duthost.check_bgp_session_state_all_asics,
-                                 up_bgp_neighbors, "established"),
-                                 "All BGP sessions are not up. No point in continuing the test")
+        pytest_assert(wait_until(600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+                      "All BGP sessions are not up. No point in continuing the test")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
             duthosts, duthost, dut_nbrhosts, traffic_shift_community), "Failed to verify routes on nbr in TSA")
