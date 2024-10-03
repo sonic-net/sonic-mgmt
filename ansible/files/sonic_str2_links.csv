@@ -59,7 +59,7 @@ str2-7260cx3-acs-root02,Ethernet59/1,str2-7215-acs-4,Ethernet48,10000,"1262-1309
 str2-7260cx3-acs-root02,Ethernet65,str2-z9332f-02,Ethernet256,10000,"2400-2423",Trunk
 str2-7260cx3-acs-root02,Ethernet24/1,str2-7260cx3-d10-u19,Ethernet64/1,100000,"2487-2495",Trunk
 str2-7260cx3-acs-root02,Ethernet33/1,str2-7260cx3-d10-u21,Ethernet64/1,100000,"2424-2486",Trunk
-str2-7260cx3-acs-root02,Ethernet26/1,str2-msn4700-fanout-05,Ethernet248,100000,"601-662",Trunk
+str2-7260cx3-acs-root02,Ethernet33/1,str2-msn4700-fanout-05,Ethernet248,100000,"601-662",Trunk
 str2-7260cx3-acs-root02,Ethernet16/1,str2-msn4700-fanout-06,Ethernet248,100000,"663-724",Trunk
 str2-sn3800-azd,Ethernet0,str2-7260cx3-acs-fan-06,Ethernet34/1,100000,217,Access
 str2-sn3800-azd,Ethernet4,str2-7260cx3-acs-fan-06,Ethernet2/1,100000,218,Access
