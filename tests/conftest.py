@@ -58,7 +58,6 @@ from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
 from tests.common.helpers.assertions import pytest_assert as pt_assert
-from tests.common.helpers.sonic_db import AsicDbCli
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 
@@ -2483,7 +2482,6 @@ def on_exit():
     Utility to register callbacks for cleanup. Runs callbacks despite assertion
     failures. Callbacks are executed in reverse order of registration.
     '''
-
     class OnExit():
         def __init__(self):
             self.cbs = []
@@ -2508,27 +2506,6 @@ def add_mgmt_test_mark(duthosts):
     '''
     mark_file = "/etc/sonic/mgmt_test_mark"
     duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
-
-
-@pytest.fixture(scope="module")
-def asic_db_dut(request, duthosts, enum_frontend_dut_hostname):
-    duthost = duthosts[enum_frontend_dut_hostname]
-    asic_db = AsicDbCli(duthost)
-    yield asic_db
-
-
-@pytest.fixture(scope="module")
-def asic_db_dut_rand(request, duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    asic_db = AsicDbCli(duthost)
-    yield asic_db
-
-
-@pytest.fixture(scope="module")
-def asic_db_dut_supervisor(request, duthosts, enum_supervisor_dut_hostname):
-    duthost = duthosts[enum_supervisor_dut_hostname]
-    asic_db = AsicDbCli(duthost)
-    yield asic_db
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):
