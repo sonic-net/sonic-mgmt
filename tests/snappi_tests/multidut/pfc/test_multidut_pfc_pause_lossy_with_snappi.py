@@ -18,7 +18,7 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import skip_warm_reboot
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('multidut-tgen')]
+pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
@@ -105,7 +105,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
                                     conn_graph_facts,       # noqa: F811
-                                    fanout_graph_facts,     # noqa: F811
+                                    fanout_graph_facts_multidut,     # noqa: F811
                                     duthosts,
                                     prio_dscp_map,                   # noqa: F811
                                     lossy_prio_list,              # noqa: F811
@@ -166,7 +166,7 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
                  conn_data=conn_graph_facts,
-                 fanout_data=fanout_graph_facts,
+                 fanout_data=fanout_graph_facts_multidut,
                  global_pause=False,
                  pause_prio_list=pause_prio_list,
                  test_prio_list=test_prio_list,
@@ -277,7 +277,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
                                            conn_graph_facts,    # noqa: F811
-                                           fanout_graph_facts,  # noqa: F811
+                                           fanout_graph_facts_multidut,  # noqa: F811
                                            duthosts,
                                            localhost,
                                            prio_dscp_map,       # noqa: F811
