@@ -156,7 +156,7 @@ class ImgMgmtTestHelper:
         attempts = 0
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy)
-        while float(str(time.time())) < float(str(end_time)):
+        while time.time() < end_time:
             try:
                 client.connect(self.ip, self.port, username=self.uname, password=self.pw, look_for_keys=False,
                                allow_agent=False)

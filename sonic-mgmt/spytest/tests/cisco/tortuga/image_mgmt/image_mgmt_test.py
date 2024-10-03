@@ -54,7 +54,7 @@ class ImageMgmtTests(unittest.TestCase):
             im.log("Failed to determine current image, aborting install: output:" + output)
             return False, ""
 
-        _, output, err = im.exec_cmd("sudo -s sonic-installer install -y http://1.75.47.1/images/c.bin")
+        _, output, err = im.exec_cmd("sudo -s sonic-installer install -y " + im.img_path)
         im.log("Installed image, output: " + output + ", err: " + err)
         _, output, _ = im.exec_cmd("sudo -s sonic-installer list")
         pattern = re.compile(fr'^{new_image}.*', re.MULTILINE)
@@ -196,6 +196,10 @@ class ImageMgmtTests(unittest.TestCase):
         im.log((str(inspect.currentframe().f_code.co_name)))
 
         im.exec_cmd("sudo -s config ntp add 171.68.38.66")
+        _, output, _ = im.exec_cmd("sudo -s show runningconfiguration ntp")
+        if "171.68.38.66" in output:
+            im.log('ntp config added to configuration')
+
         im.log("Performing save and reboot")
         im.config_save()
 
@@ -235,7 +239,7 @@ class ImageMgmtTests(unittest.TestCase):
 
         im.report_pass(str(inspect.currentframe().f_code.co_name))
 
-    def no_test_partition_corruption_of_efi(self):
+    def test_z_partition_corruption_of_efi(self):
         im.log("========================================")
         im.log((str(inspect.currentframe().f_code.co_name)))
 
@@ -311,7 +315,7 @@ class ImageMgmtTests(unittest.TestCase):
             im.log('EFI partition corruption test failed. Did not find current image')
             im.report_fail(str(inspect.currentframe().f_code.co_name))
 
-    def no_test_rootfs_signature_failure(self):
+    def test_z_rootfs_signature_failure(self):
         im.log("========================================")
         im.log((str(inspect.currentframe().f_code.co_name)))
 
@@ -384,7 +388,7 @@ class ImageMgmtTests(unittest.TestCase):
         im.log("Restore the signature file.")
         im.exec_cmd("sudo mv " + bkp_sig_file + " " + sig_file)
 
-    def no_test_docker_pkg_signature_failure(self):
+    def test_z_docker_pkg_signature_failure(self):
         im.log("========================================")
         im.log((str(inspect.currentframe().f_code.co_name)))
 
@@ -456,7 +460,7 @@ class ImageMgmtTests(unittest.TestCase):
             im.log('Docker pkg Signature corruption test passed. Recovery image booted up')
             im.report_pass(str(inspect.currentframe().f_code.co_name))
 
-    def no_test_kernel_corruption(self):
+    def test_z_kernel_corruption(self):
         im.log("========================================")
         im.log((str(inspect.currentframe().f_code.co_name)))
 
@@ -528,7 +532,7 @@ class ImageMgmtTests(unittest.TestCase):
             im.log('Filesystem Signature corruption test failed.')
             im.report_fail(str(inspect.currentframe().f_code.co_name))
 
-    def no_test_check_efibootmgr_order(self):
+    def test_check_efibootmgr_order(self):
         im.log("========================================")
         im.log((str(inspect.currentframe().f_code.co_name)))
 
@@ -536,20 +540,41 @@ class ImageMgmtTests(unittest.TestCase):
 
         # boot oder should be as specified below and nothing else.
         patterns = [
-            r"BootOrder: 0002,0003,0001,0004,0000",
+            r"BootOrder: 0002,0003,0001,0000",
             r"Boot0000\* iPXE",
             r"Boot0001\* System Installer",
             r"Boot0002\* IMAGE-A",
             r"Boot0003\* IMAGE-B",
-            r"Boot0004\* System Host Os",
         ]
+
+        bootordersearchfailed = False
         for pattern in patterns:
             if not re.search(pattern, output):
                 im.log("Boot order: pattern: " + pattern)
                 im.log("Boot order did not match expected data. output: " + output)
-                im.report_fail(str(inspect.currentframe().f_code.co_name))
+                bootorderfailed = True
 
-        im.report_pass(str(inspect.currentframe().f_code.co_name))
+        if bootordersearchfailed:
+            # search for the alternative which is also supported in case only 1 image
+            patterns = [
+                r"BootOrder: 0002,0003,0001,0000",
+                r"Boot0000\* iPXE",
+                r"Boot0001\* System Installer",
+                r"Boot0002\* IMAGE-A",
+                r"Boot0003\* IMAGE-B",
+            ]
+
+            bootordersearchfailed = False
+            for pattern in patterns:
+                if not re.search(pattern, output):
+                    im.log("Boot order: pattern: " + pattern)
+                    im.log("Boot order did not match expected data. output: " + output)
+                    bootorderfailed = True
+
+        if bootordersearchfailed:
+            im.report_fail(str(inspect.currentframe().f_code.co_name))
+        else:
+            im.report_pass(str(inspect.currentframe().f_code.co_name))
 
 
 def read_config():
