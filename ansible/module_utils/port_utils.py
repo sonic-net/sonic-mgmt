@@ -125,7 +125,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             port_alias_to_name_map["Ethernet65"] = "Ethernet512"
             port_alias_to_name_map["Ethernet66"] = "Ethernet513"
         elif hwsku == "Arista-7060X6-64PE-C256S2":
-            for i in range(1, 65, 2): # This hwsku uses every second OSFP port.
+            for i in range(1, 65, 2):  # This hwsku uses every second OSFP port.
                 for j in range(1, 9):
                     port_alias_to_name_map["Ethernet%d/%d" % (i, j)] = "Ethernet%d" % ((i - 1) * 8 + j - 1)
             port_alias_to_name_map["Ethernet65"] = "Ethernet512"
