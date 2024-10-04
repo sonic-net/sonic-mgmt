@@ -92,6 +92,8 @@ def test_enable_startup_tsa_tsb_service(duthosts, localhost):
 
 
 def test_collect_ptf_logs(ptfhost):
+    if ptfhost is None:
+        return
     log_files = ptfhost.shell('ls /tmp/*.log')['stdout'].split()
     if not os.path.exists('logs/ptf'):
         os.makedirs('logs/ptf')

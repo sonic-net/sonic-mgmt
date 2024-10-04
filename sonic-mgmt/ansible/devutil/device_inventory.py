@@ -22,6 +22,8 @@ class DeviceInfo(object):
         self.device_type = device_type
         self.protocol = protocol
         self.os = os
+        self.console_device = None
+        self.console_port = 0
 
     @staticmethod
     def from_csv_row(row: List[str]) -> "DeviceInfo":
@@ -63,6 +65,9 @@ class DeviceInventory(object):
         inv: List[DeviceInventory] = []
         for file_path in glob.glob(device_file_pattern):
             device_inventory = DeviceInventory.from_device_file(file_path)
+            console_links_file_path = file_path.replace("_devices", "_console_links")
+            if os.path.exists(console_links_file_path):
+                device_inventory.load_console_links_info(console_links_file_path)
             inv.append(device_inventory)
 
         return inv
@@ -88,6 +93,31 @@ class DeviceInventory(object):
                     devices[device_info.hostname] = device_info
 
             return DeviceInventory(inv_name, file_path, devices)
+
+    def load_console_links_info(self, file_path: str):
+        print(f"Loading console links inventory: {file_path}")
+
+        with open(file_path, newline="") as file:
+            reader = csv.reader(file)
+
+            # Skip the header line
+            next(reader)
+
+            for row in reader:
+                if row:
+                    console_hostname = row[0]
+                    console_port = int(row[1])
+                    device_hostname = row[2]
+                    console_device_info = self.get_device(console_hostname)
+                    device_info = self.get_device(device_hostname)
+                    if not console_device_info:
+                        print(f"Unknown console hostname {console_hostname}, skipping")
+                        continue
+                    if not device_info:
+                        print(f"Unknown device hostname {device_hostname}, skipping")
+                        continue
+                    device_info.console_device = console_device_info
+                    device_info.console_port = console_port
 
     def get_device(self, hostname: str) -> Optional[DeviceInfo]:
         return self.devices.get(hostname)

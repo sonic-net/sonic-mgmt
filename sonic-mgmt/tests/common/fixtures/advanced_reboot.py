@@ -575,14 +575,14 @@ class AdvancedReboot:
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
                     test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
                                                         self.duthost.hostname)
-                if self.postboot_setup:
-                    self.postboot_setup()
             except Exception:
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
                 logger.error(err_msg)
                 test_results[test_case_name].append(err_msg)
             finally:
+                if self.postboot_setup:
+                    self.postboot_setup()
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper)
                 self.print_test_logs_summary(log_dir)

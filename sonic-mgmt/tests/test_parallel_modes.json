@@ -1,0 +1,22 @@
+{
+    "arp/test_neighbor_mac_noptf.py": "FULL_PARALLEL",
+    "autorestart/test_container_autorestart.py": "RP_FIRST",
+    "bgp/test_bgp_fact.py": "FULL_PARALLEL",
+    "bgp/test_bgp_session_flap.py": "FULL_PARALLEL",
+    "container_checker/test_container_checker.py": "RP_FIRST",
+    "crm/test_crm.py": "FULL_PARALLEL",
+    "lldp/test_lldp.py": "FULL_PARALLEL",
+    "memory_checker/test_memory_checker.py": "FULL_PARALLEL",
+    "override_config_table/test_override_config_table_masic.py": "FULL_PARALLEL",
+    "passw_hardening/test_passw_hardening.py": "FULL_PARALLEL",
+    "pc/test_po_cleanup.py": "FULL_PARALLEL",
+    "pfcwd/test_pfc_config.py": "FULL_PARALLEL",
+    "platform_tests/api/test_sfp.py": "FULL_PARALLEL",
+    "platform_tests/test_reboot.py": "RP_FIRST",
+    "platform_tests/test_reload_config.py": "RP_FIRST",
+    "platform_tests/test_sequential_restart.py": "FULL_PARALLEL",
+    "snmp/test_snmp_cpu.py": "FULL_PARALLEL",
+    "snmp/test_snmp_interfaces.py": "FULL_PARALLEL",
+    "snmp/test_snmp_link_local.py": "FULL_PARALLEL",
+    "snmp/test_snmp_queue.py": "RP_FIRST"
+}

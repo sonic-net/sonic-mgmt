@@ -1060,6 +1060,15 @@ nat:
       - "'nat' not in feature_status"
 
 #######################################
+#####    override_config_table    #####
+#######################################
+override_config_table/test_override_config_table.py:
+  skip:
+    reason: "Skip on multi-asic platforms as test provided golden config format is not compatible with multi-asics."
+    conditions:
+      - "is_multi_asic==True"
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
@@ -1138,6 +1147,13 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
+
+pfcwd/test_pfcwd_all_port_storm.py:
+   skip:
+     reason: "Slow pfc generation rate on 7060x6 200Gb,
+              pfc generation function on the Arista fanout device need to be improved by Arista"
+     conditions:
+      - "hwsku in ['Arista-7060X6-64PE-256x200G']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
@@ -1668,6 +1684,15 @@ test_pktgen.py:
     conditions:
       - "asic_type not in ['cisco-8000']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/13804"
+
+#######################################
+#####         vs_chassis          #####
+#######################################
+test_vs_chassis_setup.py:
+  skip:
+    reason: "Skip vs_chassis setup on non-vs testbeds"
+    conditions:
+      - "asic_type not in ['vs']"
 
 #######################################
 #####            vlan             #####

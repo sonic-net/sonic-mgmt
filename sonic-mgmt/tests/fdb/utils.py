@@ -48,6 +48,15 @@ def get_fdb_dynamic_mac_count(duthost):
     return total_mac_count
 
 
+def fdb_table_has_dummy_mac_for_interface(duthost, interface, dummy_mac_prefix=""):
+    res = duthost.command('show mac')
+    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+    for output_mac in res['stdout_lines']:
+        if (interface in output_mac and (dummy_mac_prefix in output_mac or dummy_mac_prefix == "")):
+            return True
+    return False
+
+
 def fdb_table_has_no_dynamic_macs(duthost):
     return (get_fdb_dynamic_mac_count(duthost) == 0)
 
