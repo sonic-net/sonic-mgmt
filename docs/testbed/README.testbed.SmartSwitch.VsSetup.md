@@ -75,7 +75,7 @@
     scp sonic-mgmt/ansible/minigraph/SONIC01DPU.xml admin@10.250.0.55:
 
     User:admin
-    Password: password
+    Password: YourPaSsWoRd
     ```
 
 1. load minigraph on DPU
