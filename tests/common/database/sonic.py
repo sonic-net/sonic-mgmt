@@ -53,20 +53,6 @@ def await_monitor(future: concurrent.futures.Future, timeout: timedelta):
     return events, time_spent
 
 
-# psubscribe message format
-# {
-#  'type': 'psubscribe',
-#  'pattern': None,
-#  'channel': '__keyspace@1__:ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*',
-#  'data': 1
-# }
-# pmessage format
-# {
-#  'type': 'pmessage',
-#  'pattern': '__keyspace@1__:ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*',
-#  'channel': '__keyspace@1__:ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:oid:0x21000000000000',
-#  'data': 'hset'
-# }
 def get_n_keys(redis_conn: redis.Redis, n: int, key_pattern: str):
     start_time = time.perf_counter()
     logger.debug(f'Using {redis_conn} waiting for {n} keys with pattern {key_pattern}')
@@ -88,8 +74,9 @@ def get_n_keys(redis_conn: redis.Redis, n: int, key_pattern: str):
             if message['pattern'] == pattern:
                 key = message['channel'][len(keyspace_str):]
                 val = redis_conn.hgetall(key)
-                events[key] = val
-                n_events += 1
+                if key not in events:
+                    events[key] = val
+                    n_events += 1
                 if n_events == n:
                     break
     pubsub.close()
@@ -104,7 +91,6 @@ class SonicDB:
         self.host = host
         self.port = port
         self.db_id = int(db_id)
-        # holds a backup of the current notification flags
         self.pool = redis.ConnectionPool(host=self.host,
                                          port=self.port,
                                          db=self.db_id,

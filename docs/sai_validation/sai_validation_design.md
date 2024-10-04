@@ -74,7 +74,31 @@ Considering tests need to poll / observe for key value changes in ASIC_DB this c
 
 - **Using threading and polling** as implemented in [SWSS VS Tests](https://github.com/sonic-net/sonic-swss/blob/master/tests/README.md), [conftest](https://github.com/sonic-net/sonic-swss/blob/master/tests/conftest.py), [dvslib/dvs_database](https://github.com/sonic-net/sonic-swss/blob/master/tests/dvslib/dvs_database.py)
 
-- **Using Redis pubsub** This approach takes advantage of Redis pubsub to get notification of keyspace changes instead of using threading or polling to watch for key value changes. This mechanism improves performance and predictability of watching for keyspace changes. The tests don't have to rely on threads or sleep timers to check for value changes. The keyspace notifications are enabled by default for `ASIC_DB`. Keyspace notifications are enabled by default (`AKE`) for ASIC_DB. Based on checks in `202305` and `202205`. Sample code that was tested on a DUT to notify for a specific key change can be used in tests -
+- **Using Redis pubsub** This approach takes advantage of Redis pubsub to get notification of keyspace changes instead of using threading or polling to watch for key value changes. This mechanism improves performance and predictability of watching for keyspace changes. The tests don't have to rely on threads or sleep timers to check for value changes. The keyspace notifications are enabled by default for `ASIC_DB`. Keyspace notifications are enabled by default (`AKE`) in SONiC Redis instance. There are two kinds of message types received in pubsub `psubscribe` and `pmessage`.
+
+The `psubscribe` message is received once when the subscription is setup via `psubscribe` call.
+
+```
+psubscribe message format
+{
+ 'type': 'psubscribe',
+ 'pattern': None,
+ 'channel': '__keyspace@1__:ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*',
+ 'data': 1
+}
+```
+
+The `pmessage` messages are received one for every change on the pattern. -
+
+```
+pmessage format
+{
+ 'type': 'pmessage',
+ 'pattern': '__keyspace@1__:ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*',
+ 'channel': '__keyspace@1__:ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:oid:0x21000000000000',
+ 'data': 'hset'
+}
+```
 
 ```
 import redis
@@ -96,6 +120,7 @@ def main():
 if __name__ == '__main__':
     main()
 ```
+
 
 **Advantages**
 
