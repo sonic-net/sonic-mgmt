@@ -9,11 +9,11 @@ from tests.common.helpers.assertions import pytest_assert
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t2')
+    pytest.mark.topology('any')
 ]
 
-npu_cli_dict = {
-        #feature cli keyword : list of options under the cli
+npu_cli_dict_general = {
+        #feature cli keyword : list of options under the cli (for all topologies)
         "asic-errors": " ",
         "counters": " ",
         "ecmp": " ",
@@ -28,7 +28,11 @@ npu_cli_dict = {
         "router": ["route-table", "entries", "ports", "port-counters", "details"],
         "switch": ["entries", "ports"],
         "temperatures": " ",
-        "trap": " ",
+        "trap": " "
+}
+
+npu_cli_dict_t2 = {
+        #feature cli keyword : list of options under the cli (only for t2 topology)
         "bp-interface-map" : " "
 }
 
@@ -121,7 +125,7 @@ def test_enable_sdk_debug(duthosts, enum_rand_one_per_hwsku_hostname):
     assert "Enabling sdk-debug on syncd" in result["stdout"], "sdk-debug not enabled on syncd"
     assert "sdk-debug has been enabled on syncd" in result["stdout"], "sdk-debug not enabled on syncd"
 
-def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
     """
     @summary: Verify output of `show platform npu` , update the npu_cli_dict at the top for new platform npu command check.
     """
@@ -130,6 +134,11 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname):
     check_dshell_client(duthost)
 
     result_list = []
+    npu_cli_dict = npu_cli_dict_general.copy()
+
+    if 't2' in tbinfo['topo']['name']:
+        npu_cli_dict.update(npu_cli_dict_t2)
+
     for cli in npu_cli_dict:
         for opt in npu_cli_dict[cli]:
             result = duthost.shell("sudo show platform npu {} {} {}".
