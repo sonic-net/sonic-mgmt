@@ -214,14 +214,14 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
                 && rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
                 && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
-                python3-dev wget libnanomsg-dev python-is-python3 \
+                python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
                 && pip3 install cffi==1.16.0 && pip3 install nnpy \
                 && mkdir -p /opt && cd /opt && wget \
                 https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
                 && mkdir ptf && cd ptf && wget \
                 https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
                 && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
-                wget \
+                python3-setuptools wget \
                 " '''.format(http_proxy, https_proxy, syncd_docker_name)
         dut.command(cmd)
 
