@@ -1,6 +1,6 @@
-
-### ECN testcases for Broadcom-DNX platform
-- [Existing testcase](#existing-testcase) 
+### ECN testcases for Broadcom-DNX platform:
+- [Overview](#overview)
+- [Existing testcase](#existing-testcase)
 - [New Approach](#new-approach)
 - [Broadcom-DNX behavior](#broadcom-dnx-behavior)
 - [Test case verification](#test-case-verification)
@@ -12,7 +12,7 @@ Revision of the document:
 |:----------:|:-----------:|:-----------:|:----------------------:|
 |     01     | 10/01/2024  | Amit Pawar  |      First Draft       |
 
-Overview
+#### Overview:
 The testcase is applicable ONLY for Broadcom-DNX platforms and hence will be skipped for other platforms. The current testcase has a narrow range between Kmin and Kmax, making it challenging to verify the ECN marking probability. Furthermore, the Broadcom-DNX architecture results in slightly different behavior, as described below.
 
 #### Existing testcase:
@@ -39,23 +39,9 @@ There are three aspects associated with Broadcom-DNX behavior for ECN-marking of
 3. **Packets transferred to DRAM:**
 
     DNX platform enqueues the packets in the ingress asic’s VOQ until it gets the credit from egress asic. The VOQ consist of SRAM and DRAM buffers and it starts enqueuing in the SRAM buffer and once the SRAM buffer becomes scarce, packets are moved from SRAM to DRAM from the VOQ which are congested.  Multiple packets from same VOQ are dequeued from  SRAM and packed as 1 DRAM bundle and moved to DRAM. When ECN is marked, all the packets in that DRAM bundle are marked.
-    
-
 
 #### Test case verification:
-1. With packet-count less than Kmin (800 packets), NONE of the packets should be marked as ECN. 
+1. With packet-count less than Kmin (800 packets), NONE of the packets should be marked as ECN.
 2. With packet count between Kmin and Kmx (1600), packets between 800-1600 packets should be check for ECN-marking probability (Pmax).
 3. With packet count slightly above Kmax(2400), packets between Kmin and Kmax should be checked for ECN marking probability (Pmax).
 4. With packet count above Kmax (4000), all the packets from 267-4000 should be marked as ECN. This will be around 760-4000 for 400Gbps interface.
-
-
-
-
-
-
-
-
-
-
-
-        
