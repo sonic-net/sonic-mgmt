@@ -1265,17 +1265,11 @@ class TestBasicAcl(BaseAclTest):
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             logger.info(f'Start the monitoring for ACL rules for table {table_name}')
             prefix = 'ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*'
-            rules_list = dut.command(f'cat {dut_conf_file_path}')['stdout_lines']
-            rules_str = '\n'.join(rules_list)
-            rules_json = json.loads(rules_str)
-            n_rules = 0
-            for k in rules_json['acl']['acl-sets']['acl-set'][table_name]['acl-entries']['acl-entry']:
-                n_rules += 1
+            rules = json.loads(dut.command(f'cat {dut_conf_file_path}')['stdout'])
+            n_rules = len(rules['acl']['acl-sets']['acl-set'][table_name]['acl-entries']['acl-entry'])
             acl_rules_monitor = start_db_monitor(executor, asic_db_connection, n_rules, prefix)
-
             logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
             dut.command("config acl update full {}".format(dut_conf_file_path))
-
             events, actual_wait_secs = await_monitor(acl_rules_monitor, timedelta(minutes=5))
             logger.debug(f'Received {len(events)} after waiting for {actual_wait_secs} seconds')
             logger.debug(f'events = {events}')
