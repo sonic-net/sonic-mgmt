@@ -2657,11 +2657,11 @@ def asic_db(request):
     yield asic_db
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="class")
 def state_db_connection(state_db):
     yield state_db.connection()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="class")
 def asic_db_connection(asic_db):
     yield asic_db.connection()

@@ -32,15 +32,25 @@ key_separator_per_db = {
 }
 
 
-def wait_for_n_keys(redis_conn: redis.Redis, n: int, key_pattern: str, timeout: timedelta):
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(get_n_keys, redis_conn, n, key_pattern)
-        try:
-            events, time_spent = future.result(timeout=timeout.total_seconds())
-        except concurrent.futures.TimeoutError:
-            logger.error(f'wait_for_n_keys on {redis_conn} timedout waiting for {n} {key_pattern} keys')
-            return None
-        return events, time_spent
+def start_db_monitor(executor: concurrent.futures.ThreadPoolExecutor,
+                     redis_conn: redis.Redis,
+                     n: int,
+                     key_pattern: str) -> concurrent.futures.Future:
+    logger.debug('Begin start_monitor')
+    logger.debug('submitting pattern to get_n_keys')
+    future = executor.submit(get_n_keys, redis_conn, n, key_pattern)
+    logger.debug(f'submission complete returning {future}')
+    return future
+
+
+def await_monitor(future: concurrent.futures.Future, timeout: timedelta):
+    events = None
+    time_spent = None
+    try:
+        events, time_spent = future.result(timeout=timeout.total_seconds())
+    except concurrent.futures.TimeoutError:
+        logger.error('Monitor timedout waiting for keys')
+    return events, time_spent
 
 
 # psubscribe message format
@@ -68,7 +78,7 @@ def get_n_keys(redis_conn: redis.Redis, n: int, key_pattern: str):
     keyspace_str = f'__keyspace@{db_num}__:'
     pattern = f'{keyspace_str}{key_pattern}'
     pubsub.psubscribe(pattern)
-    logger.debug('psubscribe setup with pattern {pattern}')
+    logger.debug(f'psubscribe setup with pattern {pattern}')
     events = {}
     logger.debug('listening for messages on pubsub')
     n_events = 0
@@ -76,7 +86,7 @@ def get_n_keys(redis_conn: redis.Redis, n: int, key_pattern: str):
         logger.debug(f'received message {message}')
         if message['type'] == 'pmessage':
             if message['pattern'] == pattern:
-                key = events['channel'][len(keyspace_str):]
+                key = message['channel'][len(keyspace_str):]
                 val = redis_conn.hgetall(key)
                 events[key] = val
                 n_events += 1
@@ -86,10 +96,6 @@ def get_n_keys(redis_conn: redis.Redis, n: int, key_pattern: str):
     logger.debug(f'Received {n_events} events. Closing pubsub')
     end_time = time.perf_counter()
     return events, (end_time - start_time)
-
-
-def get_key(redis_conn: redis.Redis, key_pattern: str):
-    return get_n_keys(redis_conn, 1, key_pattern)
 
 
 class SonicDB:
