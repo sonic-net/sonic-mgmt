@@ -161,7 +161,7 @@ def dhcp_setup_verify_ipv4(linksel=False):
     cont1 = tg1.tg_emulation_dhcp_control(port_handle=tg_ph_1, action="bind", handle=group1['handle'])
     st.log("dhcp relay ipv4 basic client bind {}".format(cont1))
 
-    st.wait(5)
+    st.wait(15)
 
     rst1 = tg1.tg_emulation_dhcp_stats(port_handle=tg_ph_1, handle=conf1['handles'], mode='session', ip_version='4')
     st.log("dhcp relay ipv4 basic client result {}".format(rst1))
@@ -171,7 +171,7 @@ def dhcp_setup_verify_ipv4(linksel=False):
             for _, val2 in val.items():
                 st.log("dhcp relay ipv4 basic client ipaddr {}".format(val2['Address']))
                 if val2['Address'] not in [dhcp_ipv4_assigned1, dhcp_ipv4_assigned2]:
-                    report_fail(vars.D3, msg='dhcp client does not be assigned ipv4 addr from dhcp server')
+                    st.log("dhcp relay ipv4 basic fail on assigning the ip")
                     return False
 
     st.log("dhcp relay ipv4 basic pass on assigning the ip")
@@ -223,7 +223,7 @@ def dhcp_setup_verify_ipv6():
             for _, val2 in val.items():
                 st.log("dhcp relay ipv6 basic client ipaddr {}".format(val2['Address']))
                 if val2['Address'] not in [dhcp_ipv6_assigned1, dhcp_ipv6_assigned2]:
-                    report_fail(vars.D4, msg='dhcp client does not be assigned ipv6 addr from dhcp server')
+                    st.log("dhcp relay ipv6 basic fail on assigning the ip")
                     return False
 
     st.log("dhcp relay ipv6 basic pass on assigning the ip")
@@ -327,6 +327,7 @@ def test_dhcp_relay_ipv4_single_vrf():
     else:
         st.report_fail("test_case_failed", "test_dhcp_relay_ipv4_single_vrf failed")
 
+
 """
 @pytest.mark.skip(reason="not required for tortuga beta")
 def test_dhcp_relay_ipv4_diff_vrf():
@@ -378,8 +379,6 @@ def test_dhcp_relay_ipv4_diff_vrf():
 ##
 ######################################################################
 
-"""
-@pytest.mark.skip(reason="missing dhcp_relay ipv6 module")
 def test_dhcp_relay_ipv6_basic():
     vars = st.get_testbed_vars()
 
@@ -406,7 +405,6 @@ def test_dhcp_relay_ipv6_basic():
     else:
         st.report_fail("test_case_failed", "test_dhcp_relay_ipv6_basic failed")
 
-"""
 
 ######################################################################
 ##  IPv6 2VLAN on new SINGLE VRF:
@@ -423,8 +421,6 @@ def test_dhcp_relay_ipv6_basic():
 ##
 ######################################################################
 
-"""
-@pytest.mark.skip(reason="not implemented")
 def test_dhcp_relay_ipv6_single_vrf():
     vars = st.get_testbed_vars()
 
@@ -454,5 +450,4 @@ def test_dhcp_relay_ipv6_single_vrf():
         st.report_pass("test_case_passed", "test_dhcp_relay_ipv6_single_vrf passed")
     else:
         st.report_fail("test_case_failed", "test_dhcp_relay_ipv6_single_vrf failed")
-"""
 
