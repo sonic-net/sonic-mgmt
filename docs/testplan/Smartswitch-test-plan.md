@@ -676,6 +676,7 @@ root@sonic:/home/cisco# show chassis modules status
 
 ### Steps
 
+ * Infrastructure support provided to choose from follwing Cli can be used in combination based on the vendor.
  * Use command `show system-memory` to get memory usage on each of those DPUs
  * Use `show system-health dpu <DPU_NUM>` to check memory check service status
  * Use `pdsctl show system --events` to check memory related events triggered.
@@ -1155,6 +1156,9 @@ root@sonic:/home/cisco#
 ### 1.21 Check DPU status and pcie Link after SW trip by temperature trigger
 
 #### Steps
+
+ * Infrastructure is provided to run the scripts that triggers the temperature trip based on vendor.
+ * The following is the example sequence to trigger temperature trip on the dpu
  * In DPU, use `docker exec -it polaris /bin/bash` to bring up the polaris container
  * Create /tmp/temp_sim.json file with dictionary { "hbmtemp": 65, "dietemp": 85}
  * Increase dietemp to 125 to trigger the trip.
