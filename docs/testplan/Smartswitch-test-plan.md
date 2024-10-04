@@ -1159,7 +1159,7 @@ root@sonic:/home/cisco#
 
  * Infrastructure will be provided to run the scripts that triggers the temperature trip based on vendor.
  * The following is the example sequence to trigger temperature trip on the dpu
-     - In DPU, Execute: `docker exec -it polaris /bin/bash` to bring up the polaris container
+     - In DPU, Execute: `docker exec -it polaris /bin/bash`
      - Create /tmp/temp_sim.json file with dictionary { "hbmtemp": 65, "dietemp": 85}
      - Increase dietemp to 125 to trigger the trip.
 
