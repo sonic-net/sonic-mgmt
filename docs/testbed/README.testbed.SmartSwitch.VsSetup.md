@@ -87,6 +87,43 @@
     sudo config save -y
     ```
 
+<details>
+<summary>Optional: A small test to validate the topology</summary>
+The sender sciprt below inject some simple tcp packet to `eth0` on ptf docker, which connects to one of the T2 neighbor's bridge.The `10.0.0.37` was configured on the first front panel port on DPU neighbor.
+
+Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
+
+    ```
+    # sender.py
+    from scapy.all import *
+    from time import sleep
+
+    eth_dst = "22:48:23:27:33:d8"
+    eth_src = "9a:50:c1:b1:9f:00"
+    src_ip = "10.0.0.1"
+    dst_ip = "10.0.0.37"
+    ip_ttl = 255
+    tcp_dport = 5000
+    tcp_sport = 1234
+
+    packet = Ether(dst=eth_dst, src=eth_src) / IP(src=src_ip, dst=dst_ip, ttl=ip_ttl) / TCP(dport=tcp_dport, sport=tcp_sport) / Raw(load="Hello World"*100)
+
+    while True:
+        sendp(packet, iface="eth0")
+        sleep(0.1)
+    ```
+
+    ```
+    # sniffer.py
+    def packet_callback(packet):
+        print(packet.summary())
+
+    # Sniff packets from the specified interface (e.g., 'eth0')
+    sniff(iface='eth4', prn=packet_callback, count=10)
+    ```
+
+</details>
+
 ### 3.2. Upgrade DPU image to DASH BMv2
 
 1. Login on sonic VM and upgrade it with the 1st-step compiled vsonic image sonic-vs.bin and reboot it
