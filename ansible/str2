@@ -1622,6 +1622,7 @@ sonic_cisco_lc_400G:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 60
+
 sonic_nokia_lc_400G:
   vars:
     max_cores: 48
@@ -1655,6 +1656,19 @@ sonic_nokia_lc_400G:
         "0x26": "56"
         "0x2A": "2"
         "0xFE": "0x7412F0DE"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
     str2-7250-lc2-1:
       hwsku: Nokia-IXR7250E-36x400G
       sonic_hwsku: Nokia-IXR7250E-36x400G
@@ -1679,6 +1693,19 @@ sonic_nokia_lc_400G:
         "0x26": "56"
         "0x2A": "2"
         "0xFE": "0x72DB8BCE"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
 
 sonic_nokia_lc_100G:
   vars:
@@ -1715,6 +1742,19 @@ sonic_nokia_lc_100G:
         "0x2A": "2"
         "0x2E": "D-EAG2-04-200"
         "0xFE": "0x0ACAC6F2"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
     str2-7250-lc2-2:
       hwsku: Nokia-IXR7250E-36x100G
       sonic_hwsku: Nokia-IXR7250E-36x100G
@@ -1741,6 +1781,19 @@ sonic_nokia_lc_100G:
         "0x28": "2"
         "0x2E": "D-EAG2-04-199"
         "0xFE": "0xEED3AEFC"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
 
 sonic_arista_sup:
   vars:
@@ -1939,6 +1992,7 @@ sonic_cisco_sup:
         install_image/install_image.py::test_install_image:
           timeout: 600
           wait: 900
+
 sonic_nokia_sup:
   vars:
     HwSku: Nokia-IXR7250E-SUP-10
@@ -1995,6 +2049,19 @@ sonic_nokia_sup:
         - PSU11
         - PSU12
       asics_present: [0, 1, 2, 3, 4, 5]
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
 
     str2-7250-sup-2:
       ansible_host: 10.3.146.119
@@ -2037,6 +2104,19 @@ sonic_nokia_sup:
         - PSU11
         - PSU12
       asics_present: [0, 1, 2, 3, 4, 5]
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 60
+        install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
 
 sonic_nokia_7215:
   vars:
