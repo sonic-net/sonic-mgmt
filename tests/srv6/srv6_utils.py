@@ -1,4 +1,5 @@
 import logging
+import time
 import requests
 import ptf.packet as scapy
 import ptf.testutils as testutils
