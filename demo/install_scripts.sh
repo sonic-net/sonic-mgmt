@@ -11,3 +11,6 @@ fi
 
 echo "Installing all scripts to DPU..."
 sshpass -p $PASSWORD scp dpu_scripts/* $USER@$DPU_IP:
+
+echo "Installing all scripts to PTF..."
+docker cp ptf_scripts/* ptf_vms6-1:/root/
