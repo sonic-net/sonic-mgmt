@@ -19,5 +19,4 @@ packet = (
 while True:
     print("Sending 1 SYN packet - {}:{} -> {}:{}".format(src_ip, tcp_sport, dst_ip, tcp_dport))
     sendp(packet, iface="eth0")
-    print("\n")
     sleep(0.1)
