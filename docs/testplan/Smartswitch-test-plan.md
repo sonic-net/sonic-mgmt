@@ -722,7 +722,7 @@ root@sonic:/home/admin#
  * Threshold can be set different based on platform.
  * Verify that dpu_control_plane_state is up under system-health dpu <DPU_NUM> cli.
  * Verify no memory related events under pdsctl show system --events cli. This is vendor specific event montioring cli.
- * Increase the memory to go beyond threshold (head -c <MEM> /dev/zero | tail &) and verify  it in show system --events cli.   
+ * Increase the memory to go beyond threshold (head -c <MEM> /dev/zero | tail &) and verify  it in pdsctl show system --events cli.   
 
 
 ### 1.14 Check DPU status and pcie Link after memory exhaustion on Switch
@@ -733,7 +733,6 @@ root@sonic:/home/admin#
    * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
    * It runs on the background and `nohup` is also necessary to protect thebackground process.
    * Added `sleep 5` to ensure ansible receive the result first.
-   * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
    * Power on DPUs after switch goes for reboot and comes back
    * Use `show chassis modules status` to check status of the DPUs.
    * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py
@@ -804,10 +803,10 @@ root@sonic:/home/cisco#
    * Added `sleep 5` to ensure ansible receive the result first.
    
     - Switch:
+       * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
        * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
        * Wait for 3 mins.
        * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
-       * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
 
  #### Verify in
  
@@ -874,6 +873,7 @@ root@sonic:/home/cisco#
 ### 1.16 Check DPU status and pcie Link after restart pmon
 
 #### Steps
+ * Use `docker ps`
  * Use `systemctl restart pmon`
  * Wait for 3 mins
  * Use `show chassis modules status` to check status of the DPUs.
@@ -884,9 +884,90 @@ root@sonic:/home/cisco#
 #### Sample Output
 
 ```
-root@sonic:/home/cisco# sudo systemctl restart pmon
-root@sonic:/home/cisco# 
-root@sonic:/home/cisco#
+root@MtFuji:/home/cisco# docker ps
+CONTAINER ID   IMAGE                                COMMAND                  CREATED      STATUS      PORTS     NAMES
+a49fcf07beb8   docker-snmp:latest                   "/usr/local/bin/supe…"   3 days ago   Up 3 days             snmp
+57ecc675292d   docker-platform-monitor:latest       "/usr/bin/docker_ini…"   3 days ago   Up 3 days             pmon
+f1306072ba01   docker-sonic-mgmt-framework:latest   "/usr/local/bin/supe…"   3 days ago   Up 3 days             mgmt-framework
+571cc36585ae   docker-lldp:latest                   "/usr/bin/docker-lld…"   3 days ago   Up 3 days             lldp
+db4b1444e8a0   docker-sonic-gnmi:latest             "/usr/local/bin/supe…"   3 days ago   Up 3 days             gnmi
+a90702b9c541   d0a0fb621c53                         "/usr/bin/docker_ini…"   3 days ago   Up 3 days             dhcp_server
+4d2d79b77c66   2c214d2315a2                         "/usr/bin/docker_ini…"   3 days ago   Up 3 days             dhcp_relay
+90246d1e26d2   docker-fpm-frr:latest                "/usr/bin/docker_ini…"   3 days ago   Up 3 days             bgp
+42cf834770a8   docker-orchagent:latest              "/usr/bin/docker-ini…"   3 days ago   Up 3 days             swss
+7eb9da209385   docker-router-advertiser:latest      "/usr/bin/docker-ini…"   3 days ago   Up 3 days             radv
+66c4c8779e60   docker-syncd-cisco:latest            "/usr/local/bin/supe…"   3 days ago   Up 3 days             syncd
+5d542c98fb00   docker-teamd:latest                  "/usr/local/bin/supe…"   3 days ago   Up 3 days             teamd
+a5225d08bcf4   docker-eventd:latest                 "/usr/local/bin/supe…"   3 days ago   Up 3 days             eventd
+bd7555425d6d   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days             databasedpu5
+42fd04767a03   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days             databasedpu4
+a1633fc4a6ff   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days             databasedpu3
+32b4e9506827   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days             databasedpu0
+bb73239399e4   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days             databasedpu6
+e5281aba74de   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days             databasedpu7
+96032ebcb451   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days             databasedpu1
+45418ff0d88f   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days             databasedpu2
+39ddbddd3fb3   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days             database
+f1cac669cd08   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days             database-chassis
+root@MtFuji:/home/cisco# 
+root@MtFuji:/home/cisco# 
+root@MtFuji:/home/cisco# systemctl restart pmon
+root@MtFuji:/home/cisco# 
+root@MtFuji:/home/cisco# 
+root@MtFuji:/home/cisco# 
+root@MtFuji:/home/cisco# docker ps
+CONTAINER ID   IMAGE                                COMMAND                  CREATED      STATUS         PORTS     NAMES
+a49fcf07beb8   docker-snmp:latest                   "/usr/local/bin/supe…"   3 days ago   Up 3 days                snmp
+57ecc675292d   docker-platform-monitor:latest       "/usr/bin/docker_ini…"   3 days ago   Up 4 seconds             pmon
+f1306072ba01   docker-sonic-mgmt-framework:latest   "/usr/local/bin/supe…"   3 days ago   Up 3 days                mgmt-framework
+571cc36585ae   docker-lldp:latest                   "/usr/bin/docker-lld…"   3 days ago   Up 3 days                lldp
+db4b1444e8a0   docker-sonic-gnmi:latest             "/usr/local/bin/supe…"   3 days ago   Up 3 days                gnmi
+a90702b9c541   d0a0fb621c53                         "/usr/bin/docker_ini…"   3 days ago   Up 3 days                dhcp_server
+4d2d79b77c66   2c214d2315a2                         "/usr/bin/docker_ini…"   3 days ago   Up 3 days                dhcp_relay
+90246d1e26d2   docker-fpm-frr:latest                "/usr/bin/docker_ini…"   3 days ago   Up 3 days                bgp
+42cf834770a8   docker-orchagent:latest              "/usr/bin/docker-ini…"   3 days ago   Up 3 days                swss
+7eb9da209385   docker-router-advertiser:latest      "/usr/bin/docker-ini…"   3 days ago   Up 3 days                radv
+66c4c8779e60   docker-syncd-cisco:latest            "/usr/local/bin/supe…"   3 days ago   Up 3 days                syncd
+5d542c98fb00   docker-teamd:latest                  "/usr/local/bin/supe…"   3 days ago   Up 3 days                teamd
+a5225d08bcf4   docker-eventd:latest                 "/usr/local/bin/supe…"   3 days ago   Up 3 days                eventd
+bd7555425d6d   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days                databasedpu5
+42fd04767a03   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days                databasedpu4
+a1633fc4a6ff   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days                databasedpu3
+32b4e9506827   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days                databasedpu0
+bb73239399e4   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days                databasedpu6
+e5281aba74de   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days                databasedpu7
+96032ebcb451   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days                databasedpu1
+45418ff0d88f   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days                databasedpu2
+39ddbddd3fb3   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days                database
+f1cac669cd08   docker-database:latest               "/usr/local/bin/dock…"   3 days ago   Up 3 days                database-chassis
+root@MtFuji:/home/cisco# 
+root@MtFuji:/home/cisco# 
+root@MtFuji:/home/cisco# systemctl status pmon
+● pmon.service - Platform monitor container
+     Loaded: loaded (/lib/systemd/system/pmon.service; static)
+    Drop-In: /etc/systemd/system/pmon.service.d
+             └─auto_restart.conf
+     Active: active (running) since Sat 2024-10-05 00:22:29 UTC; 24s ago
+    Process: 3584922 ExecStartPre=/usr/bin/pmon.sh start (code=exited, status=0>
+   Main PID: 3584995 (pmon.sh)
+      Tasks: 2 (limit: 153342)
+     Memory: 27.6M
+     CGroup: /system.slice/pmon.service
+             ├─3584995 /bin/bash /usr/bin/pmon.sh wait
+             └─3585000 python3 /usr/local/bin/container wait pmon
+
+Oct 05 00:22:28 MtFuji container[3584943]: container_start: pmon: set_owner:loc>
+Oct 05 00:22:29 MtFuji container[3584943]: docker cmd: start for pmon
+Oct 05 00:22:29 MtFuji container[3584943]: container_start: END
+Oct 05 00:22:29 MtFuji systemd[1]: Started pmon.service - Platform monitor cont>
+Oct 05 00:22:29 MtFuji container[3585000]: container_wait: BEGIN
+Oct 05 00:22:29 MtFuji container[3585000]: read_data: config:True feature:pmon >
+Oct 05 00:22:29 MtFuji container[3585000]: read_data: config:False feature:pmon>
+Oct 05 00:22:29 MtFuji container[3585000]: docker get image version for pmon
+Oct 05 00:22:29 MtFuji container[3585000]: container_wait: pmon: set_owner:loca>
+Oct 05 00:22:29 MtFuji container[3585000]: container_wait: END -- transitioning>
+
+root@MtFuji:/home/cisco# 
 root@sonic:/home/cisco# show chassis modules status
   Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
 ------  --------------------  ---------------  -------------  --------------  ---------------
@@ -906,6 +987,7 @@ root@sonic:/home/cisco#
 
 ```
 #### Pass/Fail Criteria
+ * Verify pmon and all the associated critical process is up are up.
  * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
 
@@ -915,7 +997,7 @@ root@sonic:/home/cisco#
 #### Steps
 * Use `config reload -y` to reload the configurations in the switch.
 * Wait for 3 mins.
-* If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
+* Use `show chassis modules status` to check status of the DPUs.
 * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
 * Use `show chassis modules status` to check status of the DPUs.
  
@@ -937,7 +1019,20 @@ Enabling container monitoring ...
 Reloading Monit configuration ...
 Reinitializing monit daemon
 Released lock on /etc/sonic/reload.lock
-root@MtFuji:/home/cisco# 
+root@MtFuji:/home/cisco#
+root@sonic:/home/cisco# show chassis modules status
+  Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
+------  --------------------  ---------------  -------------  --------------  ---------------
+  DPU0  Data Processing Unit              N/A        Offline            down  154226463179136
+  DPU1  Data Processing Unit              N/A        Offline            down  154226463179152
+  DPU2  Data Processing Unit              N/A        Offline            down  154226463179168
+  DPUX  Data Processing Unit              N/A        Offline            down  154226463179184
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# config chassis startup DPU0
+root@sonic:/home/cisco# config chassis startup DPU1
+root@sonic:/home/cisco# config chassis startup DPU2
+root@sonic:/home/cisco# config chassis startup DPUX
+root@sonic:/home/cisco# 
 root@sonic:/home/cisco# show chassis modules status
   Name           Description    Physical-Slot    Oper-Status    Admin-Status           Serial
 ------  --------------------  ---------------  -------------  --------------  ---------------
@@ -967,7 +1062,6 @@ root@sonic:/home/cisco#
 #### Steps
 
    * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
-   * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
    * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
    * Use `show chassis modules status` to check status of the DPUs.
    * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
@@ -1012,12 +1106,14 @@ PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
 --- 169.254.28.1 ping statistics ---
 1 packets transmitted, 1 received, 0% packet loss, time 0ms
 rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
-root@sonic:/home/cisco# 
+root@sonic:/home/cisco# show reboot-cause
+<cli implementation is in progress for getting the reasons in output for DPUs>
 ```
 
 #### Pass/Fail Criteria
  * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
+ * Verify `show reboot-cause <DPU_Number>` to check the reboot is caused by kernel panic. 
 
 
 ### 1.19 Check DPU status and pcie Link after kernel panic on DPU
@@ -1028,10 +1124,10 @@ root@sonic:/home/cisco#
    * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`.
    
    - Switch:
+     * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
      * Use `config chassis module shutdown <DPU_NUMBER>` to power off the DPUs.
      * Wait for 3 mins.
      * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
-     * Powercycling of DPU is to ensure that pcie link came up properly after the memory exhaustion test.
         
 #### Verify in
  * Switch
@@ -1080,19 +1176,21 @@ PING 169.254.200.1 (169.254.200.1) 56(84) bytes of data.
 --- 169.254.28.1 ping statistics ---
 1 packets transmitted, 1 received, 0% packet loss, time 0ms
 rtt min/avg/max/mdev = 0.160/0.160/0.160/0.000 ms
-root@sonic:/home/cisco# 
+root@sonic:/home/cisco#
+root@sonic:/home/cisco# show reboot-cause
+<cli implementation is in progress for getting the reasons in output for DPUs>
 ```
 
 #### Pass/Fail Criteria
  * Verify number of DPUs from inventory file for the testbed and number of DPUs shown in the cli output.
  * Verify Ping works to all the mid plane ip listed in the ansible inventory file for the testbed.
+ * Verify `show reboot-cause <DPU_Number>` to check the reboot is caused by kernel panic. 
 
  
 ### 1.20 Check DPU status and pcie Link after power off reboot
 
 #### Steps
  * Power cycle the testbed using PDU controller.
- * If the testbed is smartswitch and not in dark mode, add the dpu status check and connectivity.
  * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
  * Use `show chassis modules status` to check status of the DPUs.
  * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_power_off_reboot.py
