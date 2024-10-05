@@ -36,10 +36,8 @@ def start_db_monitor(executor: concurrent.futures.ThreadPoolExecutor,
                      redis_conn: redis.Redis,
                      n: int,
                      key_pattern: str) -> concurrent.futures.Future:
-    logger.debug('Begin start_monitor')
-    logger.debug('submitting pattern to get_n_keys')
     future = executor.submit(get_n_keys, redis_conn, n, key_pattern)
-    logger.debug(f'submission complete returning {future}')
+    logger.debug(f'Submission complete returning {future}')
     return future
 
 
@@ -55,21 +53,17 @@ def await_monitor(future: concurrent.futures.Future, timeout: timedelta):
 
 def get_n_keys(redis_conn: redis.Redis, n: int, key_pattern: str):
     start_time = time.perf_counter()
-    logger.debug(f'Using {redis_conn} waiting for {n} keys with pattern {key_pattern}')
     db_num = redis_conn.connection_pool.connection_kwargs.get('db')
     if db_num is None:
         raise Exception('cannot determine database number')
-    logger.debug(f'database number {db_num}')
     pubsub = redis_conn.pubsub()
     keyspace_str = f'__keyspace@{db_num}__:'
     pattern = f'{keyspace_str}{key_pattern}'
     pubsub.psubscribe(pattern)
-    logger.debug(f'psubscribe setup with pattern {pattern}')
     events = {}
-    logger.debug('listening for messages on pubsub')
+    logger.debug(f'get_n_keys {n} keys with pattern {pattern}')
     n_events = 0
     for message in pubsub.listen():
-        logger.debug(f'received message {message}')
         if message['type'] == 'pmessage':
             if message['pattern'] == pattern:
                 key = message['channel'][len(keyspace_str):]
@@ -96,7 +90,6 @@ class SonicDB:
                                          db=self.db_id,
                                          max_connections=max_conns,
                                          decode_responses=True)
-        logger.info(f'sonic db connection pool created {self.pool}')
         self.r = redis.Redis(connection_pool=self.pool)
         if self.r.ping() is False:
             raise Exception(f'Ping failed: unable to connect to Redis {self.host}:{self.port} db={self.db}')
@@ -104,11 +97,9 @@ class SonicDB:
 
     def connection(self):
         redis_conn = redis.Redis(connection_pool=self.pool)
-        logger.info(f'returning one connection from the pool {redis_conn}')
         cfg = redis_conn.config_get()
         self.flag_notify_keyspace_events = cfg.get('notify-keyspace-events')
         # subscribe to Keyspace events (K) if it is not already
         if 'K' not in self.flag_notify_keyspace_events:
-            redis_conn.config_set('notify-keyspace-events', self.flag_notify_keyspace_events + 'K')
-        logger.info(f'sonic db connection pubsub notification flags {self.flag_notify_keyspace_events}')
+            raise Exception('Keyspace notifications must be enabled')
         return redis_conn

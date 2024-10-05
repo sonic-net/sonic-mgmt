@@ -1263,7 +1263,7 @@ class TestBasicAcl(BaseAclTest):
                      dest=dut_conf_file_path)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
-            logger.info(f'Start the monitoring for ACL rules for table {table_name}')
+            logger.info('Start monitoring for ACL rules')
             prefix = 'ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*'
             rules = json.loads(dut.command(f'cat {dut_conf_file_path}')['stdout'])
             n_rules = len(rules['acl']['acl-sets']['acl-set'][table_name]['acl-entries']['acl-entry'])
@@ -1272,7 +1272,6 @@ class TestBasicAcl(BaseAclTest):
             dut.command("config acl update full {}".format(dut_conf_file_path))
             events, actual_wait_secs = await_monitor(acl_rules_monitor, timedelta(minutes=5))
             logger.debug(f'Received {len(events)} after waiting for {actual_wait_secs} seconds')
-            logger.debug(f'events = {events}')
 
 
 class TestIncrementalAcl(BaseAclTest):
@@ -1292,16 +1291,22 @@ class TestIncrementalAcl(BaseAclTest):
         """
         table_name = acl_table["table_name"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
-
         logger.info("Generating incremental ACL rules config for ACL table \"{}\""
                     .format(table_name))
 
-        for part, config_file in enumerate(ACL_RULES_PART_TEMPLATES[ip_version]):
-            dut_conf_file_path = os.path.join(DUT_TMP_DIR, "acl_rules_{}_part_{}.json".format(table_name, part))
-            dut.template(src=os.path.join(TEMPLATE_DIR, config_file), dest=dut_conf_file_path)
-
-            logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
-            dut.command("config acl update incremental {}".format(dut_conf_file_path))
+        prefix = 'ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*'
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for part, config_file in enumerate(ACL_RULES_PART_TEMPLATES[ip_version]):
+                logger.info('Start monitoring for ACL rules')
+                dut_conf_file_path = os.path.join(DUT_TMP_DIR, "acl_rules_{}_part_{}.json".format(table_name, part))
+                dut.template(src=os.path.join(TEMPLATE_DIR, config_file), dest=dut_conf_file_path)
+                rules = json.loads(dut.command(f'cat {dut_conf_file_path}')['stdout'])
+                n_rules = len(rules['acl']['acl-sets']['acl-set'][table_name]['acl-entries']['acl-entry'])
+                acl_rules_monitor = start_db_monitor(executor, asic_db_connection, n_rules, prefix)
+                logger.info("Applying ACL rules config \"{}\"".format(dut_conf_file_path))
+                dut.command("config acl update incremental {}".format(dut_conf_file_path))
+                events, actual_wait_secs = await_monitor(acl_rules_monitor, timedelta(minutes=5))
+                logger.debug(f'Received {len(events)} after waiting for {actual_wait_secs} seconds')
 
 
 @pytest.mark.reboot
