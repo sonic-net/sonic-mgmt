@@ -23,6 +23,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 COLD_REBOOT_CAUSE = 'cold'
+KERNEL_PANIC_REBOOT_CAUSE = "Kernel Panic"
 UNKNOWN_REBOOT_CAUSE = "Unknown"
 SUP_REBOOT_CAUSE = 'Reboot from Supervisor'
 SUP_HEARTBEAT_LOSS_CAUSE = 'Heartbeat with the Supervisor card lost'
@@ -694,12 +695,12 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
         reboot_cause = get_reboot_cause(suphost)
         if "Enabled" not in out["stdout"]:
             pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
-              "Reboot cause {} did not match the trigger {}"
-              .format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+                          "Reboot cause {} did not match the trigger {}"
+                          .format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
         else:
             pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
-              "Reboot cause {} did not match the trigger {}"
-              .format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE))
+                          "Reboot cause {} did not match the trigger {}"
+                          .format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE))
 
 
 @pytest.mark.disable_loganalyzer
