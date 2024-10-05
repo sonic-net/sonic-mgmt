@@ -721,7 +721,7 @@ root@sonic:/home/admin#
  * Verify that used memory should not cross the specified threshold value (90) of total memory.
  * Threshold can be set different based on platform.
  * Verify that dpu_control_plane_state is up under system-health dpu <DPU_NUM> cli.
- * Verify no memory related events under pdsctl show system --events cli. This is vendor specific event montioring cli.
+ * Verify no memory related events (MEM_FAILURE_EVENT) under pdsctl show system --events cli. This is vendor specific event montioring cli.
  * Increase the memory to go beyond threshold (head -c <MEM_SIZE> /dev/zero | tail &) and verify  it in pdsctl show system --events cli.   
 
 
