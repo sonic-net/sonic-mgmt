@@ -722,7 +722,7 @@ root@sonic:/home/admin#
  * Threshold can be set different based on platform.
  * Verify that dpu_control_plane_state is up under system-health dpu <DPU_NUM> cli.
  * Verify no memory related events under pdsctl show system --events cli. This is vendor specific event montioring cli.
- * Increase the memory to go beyond threshold (head -c <MEM> /dev/zero | tail &) and verify  it in pdsctl show system --events cli.   
+ * Increase the memory to go beyond threshold (head -c <MEM_SIZE> /dev/zero | tail &) and verify  it in pdsctl show system --events cli.   
 
 
 ### 1.14 Check DPU status and pcie Link after memory exhaustion on Switch
