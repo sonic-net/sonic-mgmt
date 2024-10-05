@@ -27,7 +27,9 @@ platform_summary_data = {
     },
     "churchill": {"platform": "x86_64-8201_32fh_o-r0", "hwsku": "32x400Gb", "asic": "cisco-8000", "product_name": "8201-32FH-O","udi_desc":"Cisco 8200 32x400G QSFPDD 1RU"},
     "churchill-mono": {"platform": "x86_64-8101_32fh_o-r0", "hwsku": "32x400Gb", "asic": "cisco-8000", "product_name": "8101-32FH-O","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU"},
-    "churchill-mono-carib": {"platform": "x86_64-8101_32fh_o-r0", "hwsku": "Cisco-8101-O8C8A32S32", "asic": "cisco-8000", "product_name": "8101-32FH-O","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU"}
+    "churchill-mono-carib": {"platform": "x86_64-8101_32fh_o-r0", "hwsku": "Cisco-8101-O8C8A32S32", "asic": "cisco-8000", "product_name": "8101-32FH-O","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU"},
+    "carib": {"platform": "x86_64-hf6100_32d-r0", "hwsku": "Cisco-HF6100-32D", "asic": "cisco-8000", "product_name": "HF6100-32D","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU Fixed System w"},
+    "siren": {"platform": "x86_64-hf6100_60l4d-r0", "hwsku": "Cisco-HF6100-60S4D", "asic": "cisco-8000", "product_name": "HF6100-60L4D","udi_desc":"Cisco HF6100"}
 }
 
 docker_data = {
@@ -39,10 +41,21 @@ docker_data = {
 platform_details = {
     "manufacturer" : "Cisco",
     "vendor" : "Cisco",
-    "devicemodel" : "INTEL",
-    "health" : "100.0%",
     "image_name" : "sonic-cisco-8000.bin",
     "fault_thermal_induction" : {"high_th": 200, "low_th": -10, "list_of_sensors": ['CPU_U17_P1P05V_TEMP', 'ACPI', 'X86_CORE_3_T']}
+}
+
+platform_ssd_details = {
+        "sherman" : {"devicemodel" : "INTEL", "health" : "100.0%"},
+        "SF_D_RP" : {"devicemodel" : "INTEL", "health" : "100.0%"},
+        "SF_D_LC" : {"devicemodel" : "INTEL", "health" : "100.0%"},
+        "mathilda32" : {"devicemodel" : "INTEL", "health" : "100.0%"},
+        "mathilda64" : {"devicemodel" : "INTEL", "health" : "100.0%"},
+        "churchill" : {"devicemodel" : "INTEL", "health" : "100.0%"},
+        "churchill-mono" : {"devicemodel" : "INTEL", "health" : "100.0%"},
+        "churchill-mono-carib" : {"devicemodel" : "INTEL", "health" : "100.0%"},
+        "carib" : {"devicemodel" : "INTEL", "health" : "100.0%"},
+        "siren" : {"devicemodel" : "Micron_5300_MTFDDAV480TDS_CISCO", "health" : "100.0%"}
 }
 
 pytest.fixture(scope="module", autouse=True)
@@ -57,6 +70,12 @@ def platform_func_hooks(request):
 
 def get_platform_data(platform_name):
     for key, value in platform_summary_data.items():
+        if key == platform_name:
+            return value
+    return None
+
+def get_platform_ssd_details(platform_name):
+    for key, value in platform_ssd_details.items():
         if key == platform_name:
             return value
     return None
@@ -1984,12 +2003,26 @@ def verify_platform_ssdhealth(dut):
         if result is None:
             st.log("Parsed ssdhealth result is not None")
             raise Exception("Parsed ssdhealth result is not None")
+        #Get platform name
+        platform_name = st.get_platform_type(dut)
+        if platform_name is None:
+            st.log("##### Platform name ######")
+            st.log(platform_name)
+            st.log("Platform name from the input test bed file retuned None {}")
+            raise Exception("Platform name from the input test bed file retuned None")
+        #Get object from the platform_name from my current file
+        pssd_obj = get_platform_ssd_details(platform_name)
+        if pssd_obj is None:
+            st.log("##### Platform object ######")
+            st.log(pssd_obj)
+            st.log("Platform object from the current object retuned None {}")
+            raise Exception("Platform data object from teh current file returned none to get data")
         #Check the validation with input and compare the values
         devicemodel = result.get('devicemodel').split(" ")[0]
-        if result.get('devicemodel') is None or devicemodel != platform_details.get('devicemodel'):
-            raise Exception("Parsed device model {} not matched the expectation {} result".format(devicemodel, platform_details.get('devicemodel')))
-        if result.get('health') is None or result.get('health') != platform_details.get('health'):
-            raise Exception("Parsed health val {} not matched with input health val".format(result.get('health'), platform_details.get('health')))
+        if result.get('devicemodel') is None or devicemodel != pssd_obj.get('devicemodel'):
+            raise Exception("Parsed device model {} not matched the expectation {} result".format(devicemodel, pssd_obj.get('devicemodel')))
+        if result.get('health') is None or result.get('health') != pssd_obj.get('health'):
+            raise Exception("Parsed health val {} not matched with input health val".format(result.get('health'), pssd_obj.get('health')))
         if result.get('temperature') is None :
             raise Exception("Parsed temperature val {} not matched with input temperature val".format(result.get('temperature'))) 
         st.log("show platform ssdhealth completed")
