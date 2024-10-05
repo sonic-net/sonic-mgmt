@@ -9,6 +9,9 @@ if ! which sshpass > /dev/null; then
     sudo apt-get install -y sshpass
 fi
 
+echo "Pushing minigraph to DPU ..."
+sshpass -p $PASSWORD scp ../ansible/minigraph/SONIC01DPU.xml* $USER@$DPU_IP:
+
 echo "Installing all scripts to DPU..."
 sshpass -p $PASSWORD scp dpu_scripts/* $USER@$DPU_IP:
 
