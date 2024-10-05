@@ -89,11 +89,8 @@
 
 <details>
 <summary>Optional: A small test to validate the topology</summary>
-The sender sciprt below inject some simple tcp packet to `eth0` on ptf docker, which connects to one of the T2 neighbor's bridge.The `10.0.0.37` was configured on the first front panel port on DPU neighbor.
+The sender sciprt below injects some simple tcp packets to `eth0` on ptf docker, which connects to one of the T2 neighbor's bridge.The `10.0.0.37` was configured on the first front panel port on DPU neighbor.
 
-Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
-
-    ```
     # sender.py
     from scapy.all import *
     from time import sleep
@@ -111,16 +108,16 @@ Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
     while True:
         sendp(packet, iface="eth0")
         sleep(0.1)
-    ```
 
-    ```
+Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
+
     # sniffer.py
     def packet_callback(packet):
         print(packet.summary())
 
     # Sniff packets from the specified interface (e.g., 'eth0')
     sniff(iface='eth4', prn=packet_callback, count=10)
-    ```
+
 
 </details>
 
