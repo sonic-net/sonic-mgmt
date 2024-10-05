@@ -169,10 +169,10 @@ Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
 
     ```bash
     r12f@r12f-dl380:~/code/sonic/mgmt
-    $ dpkg -I libdashapi_1.0.0_amd64.deb
+    $ sudo dpkg -i libdashapi_1.0.0_amd64.deb
     ```
 
-    libdashapi_1.0.0_amd64.deb can be found under “target/debs/bookworm”. And for unblocking us, I will upload this package along with the image.
+    libdashapi_1.0.0_amd64.deb can be found under “target/debs/bookworm”.
 
 1. Install p4runtime shell in DPU KVM: [p4lang/p4runtime-shell](https://github.com/p4lang/p4runtime-shell)
 
