@@ -733,7 +733,7 @@ root@sonic:/home/admin#
    * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
    * It runs on the background and `nohup` is also necessary to protect thebackground process.
    * Added `sleep 5` to ensure ansible receive the result first.
-   * Power on DPUs after switch goes for reboot and comes back
+   * Check the status and power on DPUs after switch goes for reboot and comes back
    * Use `show chassis modules status` to check status of the DPUs.
    * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_memory_exhaustion.py
 
@@ -873,9 +873,10 @@ root@sonic:/home/cisco#
 ### 1.16 Check DPU status and pcie Link after restart pmon
 
 #### Steps
- * Use `docker ps`
+ * Use `docker ps` to check the status of all the dockers.
  * Use `systemctl restart pmon`
  * Wait for 3 mins
+ * Use `docker ps` to check the status of all the dockers.
  * Use `show chassis modules status` to check status of the DPUs.
  
 #### Verify in
@@ -1062,6 +1063,7 @@ root@sonic:/home/cisco#
 #### Steps
 
    * Use `nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &`
+   * Use `show chassis modules status` to check status of the DPUs.
    * Use `config chassis module startup <DPU_NUMBER>` to power on the DPUs.
    * Use `show chassis modules status` to check status of the DPUs.
    * Append to the existing test case: https://github.com/sonic-net/sonic-mgmt/blob/master/tests/platform_tests/test_kdump.py
