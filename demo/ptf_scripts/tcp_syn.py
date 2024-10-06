@@ -1,25 +1,12 @@
 #!/usr/bin/env python3
 
-from scapy.all import Ether, IP, TCP, Raw, sendp
+import packet_gen
+from scapy.all import sendp
 from time import sleep
 
-intf = "eth0"
-eth_dst = "22:48:23:27:33:d8"
-eth_src = "9a:50:c1:b1:9f:00"
-src_ip = "10.0.0.1"
-dst_ip = "10.0.0.37"
-ip_ttl = 255
-tcp_dport = 5000
-tcp_sport = 1234
-
-packet = (
-    Ether(dst=eth_dst, src=eth_src) /
-    IP(src=src_ip, dst=dst_ip, ttl=ip_ttl) /
-    TCP(dport=tcp_dport, sport=tcp_sport, flags="S") /
-    Raw(load="Hello World" * 100)
-)
+pkt = packet_gen.new_underlay_ping_packet()
+pkt.show()
 
 while True:
-    print("Sending 1 SYN packet from {} - {}:{} -> {}:{}".format(intf, src_ip, tcp_sport, dst_ip, tcp_dport))
-    sendp(packet, iface=intf)
+    sendp(pkt, iface="eth0")
     sleep(1)
