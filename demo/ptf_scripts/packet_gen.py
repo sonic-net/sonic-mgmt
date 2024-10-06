@@ -7,7 +7,7 @@ class UnderlayConfig:
         self.ip = ip
 
 
-class OverlayConfig:
+class EniConfig:
     def __init__(self, mac, ip, vni, vnet):
         self.mac = mac
         self.ip = ip
@@ -22,13 +22,6 @@ underlay = {
 }
 
 
-# Overlay configuration
-overlay = {
-    "local": OverlayConfig(mac="F4:93:9F:EF:C4:7E", ip="11.1.1.1", vni=1000, vnet="11.1.1.0/24"),
-    "remote": OverlayConfig(mac="F9:22:83:99:22:A2", ip="22.2.2.2", vni=2000, vnet="22.2.2.0/24"),
-}
-
-
 def new_underlay_ping_packet():
     testutils.simple_icmp_packet(
         eth_src=underlay["local"].mac,
@@ -39,25 +32,25 @@ def new_underlay_ping_packet():
     )
 
 
-def new_overlay_packet():
+def new_overlay_packet(local_eni: EniConfig, remote_eni: EniConfig):
     testutils.simple_tcp_packet(
-        eth_src=overlay["local"].mac,
-        eth_dst=overlay["remote"].mac,
-        ip_src=overlay["local"].ip,
-        ip_dst=overlay["remote"].ip,
+        eth_src=local_eni.mac,
+        eth_dst=remote_eni.mac,
+        ip_src=local_eni.ip,
+        ip_dst=remote_eni.ip,
         tcp_sport=1234,
         tcp_dport=5000
     )
 
 
-def new_vnet_packet():
+def new_dash_packet(local_eni: EniConfig, remote_eni: EniConfig):
     testutils.simple_vxlan_packet(
         eth_src=underlay["local"].mac,
         eth_dst=underlay["remote"].mac,
         ip_src=underlay["local"].ip,
         ip_dst=underlay["remote"].ip,
         udp_dport=4789,
-        vxlan_vni=overlay["local"].vni,
+        vxlan_vni=local_eni.vni,
         ip_ttl=64,
-        inner_frame=new_overlay_packet()
+        inner_frame=new_overlay_packet(local_eni, remote_eni)
     )
