@@ -3,7 +3,6 @@
 from scapy.all import Ether, IP, TCP, Raw, sendp
 from time import sleep
 
-intf = "eth0"
 eth_dst = "22:48:23:27:33:d8"
 eth_src = "9a:50:c1:b1:9f:00"
 src_ip = "10.0.0.1"
@@ -20,6 +19,6 @@ packet = (
 )
 
 while True:
-    print("Sending 1 SYN packet from {} - {}:{} -> {}:{}".format(intf, src_ip, tcp_sport, dst_ip, tcp_dport))
-    sendp(packet, iface=intf)
-    sleep(1)
+    print("Sending 1 SYN packet - {}:{} -> {}:{}".format(src_ip, tcp_sport, dst_ip, tcp_dport))
+    sendp(packet, iface="eth0")
+    sleep(0.1)

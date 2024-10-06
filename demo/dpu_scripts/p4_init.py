@@ -1,17 +1,7 @@
 import p4runtime_sh.p4runtime as p4sh_rt
 import p4runtime_sh.shell as p4sh
 import logging
-import sys
-import os
-
-
-# The verbose toggle in P4Runtime shell is not published to pip, so we need to disable it manually.
-def disable_print():
-    sys.stdout = open(os.devnull, 'w')
-
-
-def enable_print():
-    sys.stdout = sys.__stdout__
+from utils import disable_print, enable_print
 
 
 def init_shell():
