@@ -2,20 +2,6 @@
 
 source ./demo_env.sh
 
-NPU_IP="10.250.0.101"
-NPU_PW="sshpass -p password"
-
-DPU_IP="10.250.0.55"
-DPU_PW="sshpass -p YourPaSsWoRd"
-
-SCP="scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
-SSH="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
-
-if ! which sshpass > /dev/null; then
-    echo "sshpass is not installed. Installing it..."
-    sudo apt-get install -y sshpass
-fi
-
 #
 # Installing all contents to NPU
 #
@@ -30,7 +16,7 @@ $DPU_PW $SCP ../ansible/minigraph/SONIC01DPU.xml* admin@$DPU_IP:
 
 echo "Installing all scripts to DPU..."
 $DPU_PW $SCP dpu_scripts/* admin@$DPU_IP:
-$DPU_PW $SSH admin@$DPU_IP "docker cp p4_*.py dash_engine:/behavioral-model"
+$DPU_PW $SSH admin@$DPU_IP "for f in \`ls -1 p4_*.py\`; do docker cp \$f dash_engine:/behavioral-model; done"
 
 echo "Pushing p4runtime shell to DPU..."
 if [ ! -f p4runtime-sh.tar ]; then
