@@ -15,13 +15,6 @@ class EniConfig:
         self.vnet = vnet
 
 
-# Underlay configuration
-underlay = {
-    "local": UnderlayConfig(mac="9a:50:c1:b1:9f:00", ip="10.0.0.1"),
-    "remote": UnderlayConfig(mac="22:48:23:27:33:d8", ip="10.0.0.37"),
-}
-
-
 def new_underlay_ping_packet(local_dev: UnderlayConfig = UnderlayConfig(mac="9a:50:c1:b1:9f:00", ip="10.0.0.1"),
                              remote_dev: UnderlayConfig = UnderlayConfig(mac="22:48:23:27:33:d8", ip="10.0.0.37")):
     testutils.simple_icmp_packet(
