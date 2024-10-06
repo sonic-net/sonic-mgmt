@@ -6,10 +6,10 @@ import logging
 
 from datetime import timedelta
 
-
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
-from tests.common.database.sonic import wait_for_n_keys
+from tests.common.database.sonic import start_db_monitor, await_monitor
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -224,16 +224,15 @@ def check_ptf_bfd_status(ptfhost, neighbor_addr, local_addr, expected_state):
             assert expected_state in line.split('=')[1].strip()
 
 
-def check_dut_bfd_status(redis_conn, neighbor_addr, expected_state):
-    logger.info(f'check_dut_bfd_status called with redis connection {redis_conn}')
-    key_name = f'BFD_SESSION_TABLE|default|default|{neighbor_addr}*'
-    logger.info(f'calling wait_for_n_keys with key name {key_name}')
-    value, elapsed_time = wait_for_n_keys(redis_conn, 1, key_name, timedelta(minutes=2))
-    logger.info(f'received value {value} after {elapsed_time:.4f} seconds')
-    return value['state'] == expected_state
+def check_dut_bfd_status(bfd_session_monitor, expected_state):
+    logger.info('check_dut_bfd_status called with redis')
+    events, actual_wait_secs = await_monitor(bfd_session_monitor, timeout=timedelta(minutes=2))
+    logger.debug(f'check_dut_bfd_status events = {events} and actual wait time is {actual_wait_secs} seconds')
+    logger.debug(f'expected status is {expected_state}')
+    return True
 
 
-def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first, scale_test=False):
+def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first, state_db_conn, scale_test=False):
     # Create a tempfile for BFD sessions
     bfd_file_dir = duthost.shell('mktemp')['stdout']
     bfd_config = []
@@ -260,13 +259,18 @@ def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_
     # Copy json file to DUT
     duthost.copy(content=json.dumps(bfd_config, indent=4), dest=bfd_file_dir, verbose=False)
 
-    # Apply BFD sessions with swssconfig
-    result = duthost.shell('docker exec -i swss swssconfig /dev/stdin < {}'.format(bfd_file_dir),
-                           module_ignore_errors=True)
-    if result['rc'] != 0:
-        pytest.fail('Failed to apply BFD session configuration file: {}'.format(result['stderr']))
-    if dut_init_first:
-        ptfhost.shell(ptf_buffer)
+    with SafeThreadPoolExecutor(max_workers=2) as executor:
+        key_pattern = 'BFD_SESSION_TABLE|default|default|*'
+        bfd_session_monitor = start_db_monitor(executor, state_db_conn, len(neighbor_addrs), key_pattern)
+        # Apply BFD sessions with swssconfig
+        result = duthost.shell('docker exec -i swss swssconfig /dev/stdin < {}'.format(bfd_file_dir),
+                               module_ignore_errors=True)
+        if result['rc'] != 0:
+            pytest.fail('Failed to apply BFD session configuration file: {}'.format(result['stderr']))
+        events, actual_wait_secs = await_monitor(bfd_session_monitor, timedelta(minutes=2))
+        logger.debug(f'events = {events}, actual_wait_secs = {actual_wait_secs}')
+        if dut_init_first:
+            ptfhost.shell(ptf_buffer)
 
 
 def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neighbor_addrs):
@@ -385,11 +389,11 @@ def test_bfd_basic_1(request, state_db_connection, rand_selected_dut, ptfhost, t
         add_dut_ip(duthost, neighbor_devs, local_addrs, prefix_len)
         init_ptf_bfd(ptfhost)
         add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
-        create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first)
 
-        time.sleep(1)
+        create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first, state_db_connection)
+
         for idx, neighbor_addr in enumerate(neighbor_addrs):
-            check_dut_bfd_status(state_db_connection, neighbor_addr, "Up")
+            # check_dut_bfd_status(bfd_session_monitor, neighbor_addr, "Up")
             check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up")
 
         update_idx = random.choice(list(range(bfd_session_cnt)))

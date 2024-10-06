@@ -225,7 +225,7 @@ def check_dut_bfd_status(duthost, neighbor_addr, expected_state, max_attempts=12
     for i in range(max_attempts + 1):
         bfd_state = duthost.shell("sonic-db-cli STATE_DB HGET 'BFD_SESSION_TABLE|default|default|{}' 'state'"
                                   .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
-        logger.info(f'output of command to check state db on BFD_SESSION_TABLE|default|default|{neighbor_addr}')
+        logger.info(f'Query state of BFD_SESSION_TABLE|default|default|{neighbor_addr} = {bfd_state}')
         logger.info("BFD state check: {} - {}".format(neighbor_addr, bfd_state[0]))
 
         if expected_state in bfd_state[0]:
