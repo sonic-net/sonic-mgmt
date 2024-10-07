@@ -5,17 +5,13 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
 from traffic_checker import get_traffic_shift_state
+from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 
 pytestmark = [
     pytest.mark.topology('t2')
 ]
 
 logger = logging.getLogger(__name__)
-
-TS_NORMAL = "System Mode: Normal"
-TS_MAINTENANCE = "System Mode: Maintenance"
-TS_INCONSISTENT = "System Mode: Not consistent"
-TS_NO_NEIGHBORS = "System Mode: No external neighbors"
 
 """
 This test file is specific to T2 chassis topology
