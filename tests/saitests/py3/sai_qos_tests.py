@@ -3388,6 +3388,10 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         assert sum(self.pkt_counts) * cell_occupancy * \
             self.cell_size >= self.shared_limit_bytes
 
+        def get_pfc_tx_cnt(src_port_id, pg_cntr_idx):
+            return sai_thrift_read_port_counters(
+                self.src_client, self.asic_type, port_list['src'][src_port_id])[0][pg_cntr_idx]
+
         # get a snapshot of counter values at unique recv and transmit ports
         uniq_srcs = set(self.src_port_ids)
         uniq_dsts = set(self.dst_port_ids)
@@ -3406,6 +3410,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             for i in range(len(self.src_port_ids)):
                 dscp = self.dscps[i]
                 pg = self.pgs[i]
+                pg_cntr_idx = self.pg_cntr_indices[i]
                 queue = self.queues[i]
                 src_port_id = self.src_port_ids[i]
                 dst_port_id = self.dst_port_ids[i]
@@ -3431,10 +3436,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                         "Verifying XOFF hasn't been triggered yet on final iteration", file=sys.stderr)
                     sys.stderr.flush()
                     time.sleep(4)
-                    recv_counters = sai_thrift_read_port_counters(
-                        self.src_client, self.asic_type, port_list['src'][src_port_id])[0]
-                    xoff_txd = recv_counters[self.pg_cntr_indices[i]] - \
-                        recv_counters_bases[src_port_id][self.pg_cntr_indices[i]]
+                    xoff_txd = get_pfc_tx_cnt(src_port_id, pg_cntr_idx) - recv_counters_bases[src_port_id][pg_cntr_idx]
                     assert xoff_txd == 0, "XOFF triggered too early on final iteration, XOFF count is %d" % xoff_txd
 
                 # Send requested number of packets
@@ -3454,10 +3456,7 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                         "Verifying XOFF has now been triggered on final iteration", file=sys.stderr)
                     sys.stderr.flush()
                     time.sleep(4)
-                    recv_counters = sai_thrift_read_port_counters(
-                        self.src_client, self.asic_type, port_list['src'][src_port_id])[0]
-                    xoff_txd = recv_counters[self.pg_cntr_indices[i]] - \
-                        recv_counters_bases[src_port_id][self.pg_cntr_indices[i]]
+                    xoff_txd = get_pfc_tx_cnt(src_port_id, pg_cntr_idx) - recv_counters_bases[src_port_id][pg_cntr_idx]
                     assert xoff_txd > 0, "Failed to trigger XOFF on final iteration"
 
             # Verify no ingress/egress drops for all ports
@@ -3479,6 +3478,31 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     drops = xmit_counters_list[dst_port_id][cntr] - \
                         xmit_counters_bases[dst_port_id][cntr]
                     assert drops == 0, "Detected %d egress drops on dst port id %d" % (drops, dst_port_id)
+
+            first_port_id = self.dst_port_ids[0]
+            last_port_id = self.dst_port_ids[-1]
+            assert first_port_id != last_port_id, "Did not find different port IDs for first and last dst ports"
+            print("Enabling TX on ports {} and {}".format(last_port_id, first_port_id), file=sys.stderr)
+            # Enable last port to empty the last shallow queue in pool-full state
+            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [last_port_id])
+            # Enable first port's deep queues to decrease occupancy past hysteresis
+            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [first_port_id])
+
+            time.sleep(2)
+            pfc_tx_cnt_base = get_pfc_tx_cnt(src_port_id, pg_cntr_idx)
+            time.sleep(2)
+            xoff_txd = get_pfc_tx_cnt(src_port_id, pg_cntr_idx) - pfc_tx_cnt_base
+            print("Verifying XOFF TX, count {}".format(xoff_txd), file=sys.stderr)
+            assert xoff_txd != 0, "Expected XOFF"
+
+            # TODO: Revisit when TX counter in this case is correctly handled
+            send_packet(self, src_port_id, pkt, 1)
+            time.sleep(2)
+            pfc_tx_cnt_base = get_pfc_tx_cnt(src_port_id, pg_cntr_idx)
+            time.sleep(2)
+            xoff_txd = get_pfc_tx_cnt(src_port_id, pg_cntr_idx) - pfc_tx_cnt_base
+            print("Verifying XOFF TX stopped, count {}".format(xoff_txd), file=sys.stderr)
+            assert xoff_txd == 0, "Unexpected XOFF"
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, uniq_dst_ports)
