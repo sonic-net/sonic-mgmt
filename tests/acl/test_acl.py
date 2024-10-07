@@ -588,6 +588,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo,
         duthost.command('config acl remove table EVERFLOW')
         duthost.command('config acl remove table EVERFLOWV6')
 
+
 def tear_down_acl_table_single_dut(acl_table_config, duthost, loganalyzer, setup, topo):
     loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
     with loganalyzer:
