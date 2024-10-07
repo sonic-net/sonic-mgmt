@@ -74,6 +74,14 @@ def remove_dataacl_table(duthosts, rand_selected_dut):
         rand_selected_dut.shell(cmd_create_table)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def remove_everflow_table(duthosts, rand_selected_dut):
+    for duthost in duthosts:
+        # Remove acl tables for more TCAM resource
+        duthost.command('config acl remove table EVERFLOW')
+        duthost.command('config acl remove table EVERFLOWV6')
+
+
 @pytest.fixture(scope='module')
 def prepare_test_file(rand_selected_dut):
     # Define a custom table type CUSTOM_TYPE by loading a json configuration
