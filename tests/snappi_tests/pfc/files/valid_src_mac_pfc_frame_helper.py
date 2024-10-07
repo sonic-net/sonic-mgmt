@@ -192,7 +192,7 @@ def run_pfc_valid_src_mac_test(
 
     # Verify PFC pause frames
     if validate_pfc_frame:
-        peer_mac_addr = snappi_extra_params.base_flow_config["rx_mac"]
+        peer_mac_addr = snappi_extra_params.base_flow_config["rx_port_config"].gateway_mac
         is_valid_pfc_frame, error_msg = validate_pfc_frame_cisco(
                         snappi_extra_params.packet_capture_file + ".pcapng",
                         peer_mac_addr=peer_mac_addr)
