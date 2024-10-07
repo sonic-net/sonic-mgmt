@@ -2,6 +2,7 @@ import time
 import p4runtime_sh.shell as p4sh
 import logging
 from p4_utils import init_p4runtime_shell
+from tabulate import tabulate
 
 
 eni_id = 0
@@ -40,29 +41,33 @@ def dump_counters(eni_id: int):
     for counter_def in eni_counter_defs:
         c = counter_def.read()
 
+        if counter_def.category not in eni_counters:
+            eni_counters[counter_def.category] = {
+                "headers": ["ENI"],
+                "rows": [[str(eni_id)]],
+            }
+
+        eni_counters[counter_def.category]["headers"].append(counter_def.name)
+
         for index, cv in enumerate(c):
             if index != eni_id:
                 continue
 
-            if counter_def.category not in eni_counters:
-                eni_counters[counter_def.category] = {}
-
-            if counter_def.name not in eni_counters[counter_def.category]:
-                eni_counters[counter_def.category][counter_def.name] = {}
-
             if counter_def.type == "packet":
-                eni_counters[counter_def.category][counter_def.name] = cv.packet_count
+                eni_counters[counter_def.category]["rows"][0].append(cv.packet_count)
             elif counter_def.type == "byte":
-                eni_counters[counter_def.category][counter_def.name] = cv.byte_count
+                eni_counters[counter_def.category]["rows"][0].append(cv.byte_count)
 
     return eni_counters
 
 
 def output_counters(eni_counters):
     for category, counters in eni_counters.items():
+        table = tabulate(counters["rows"], headers=counters["headers"], tablefmt="fancy_grid")
+
         print(f"{category} counters:")
-        for counter_name, counter_values in counters.items():
-            print(f"  {counter_name}: {counter_values}")
+        print(table)
+        print("")
 
 
 if __name__ == "__main__":
