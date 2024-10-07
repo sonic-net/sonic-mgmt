@@ -38,6 +38,16 @@ from netaddr import valid_ipv6
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+LA_START_MARKER_SCRIPT = "scripts/find_la_start_marker.sh"
+FIND_SYSLOG_MSG_SCRIPT = "scripts/find_log_msg.sh"
+# forced mgmt route priority hardcoded to 32764 in following j2 template:
+# https://github.com/sonic-net/sonic-buildimage/blob/master/files/image_config/interfaces/interfaces.j2#L82
+FORCED_MGMT_ROUTE_PRIORITY = 32764
+# Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
+# interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
+FILE_CHANGE_TIMEOUT = 300
+
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
 
 
 def check_skip_release(duthost, release_list):
@@ -170,7 +180,7 @@ def wait_tcp_connection(client, server_hostname, listening_port, timeout_s=30):
                           state='started',
                           timeout=timeout_s,
                           module_ignore_errors=True)
-    if 'exception' in res:
+    if 'exception' in res or res.get('failed') is True:
         logger.warn("Failed to establish TCP connection to %s:%d, timeout=%d" %
                     (str(server_hostname), listening_port, timeout_s))
         return False
@@ -758,6 +768,29 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     return reboot_dict
 
 
+def pdu_reboot(pdu_controller):
+    """Power-cycle the DUT by turning off and on the PDU outlets.
+
+    Args:
+        pdu_controller: PDU controller object implementing the BasePduController interface.
+            User can acquire pdu_controller object from fixture tests.common.plugins.pdu_controller.pdu_controller
+
+    Returns: True if the PDU reboot is successful, False otherwise.
+    """
+    if not pdu_controller:
+        logging.warning("pdu_controller is None, skip PDU reboot")
+        return False
+    hostname = pdu_controller.dut_hostname
+    if not pdu_controller.turn_off_outlet():
+        logging.error("Turn off the PDU outlets of {} failed".format(hostname))
+        return False
+    time.sleep(10)  # sleep 10 second to ensure there is gap between power off and on
+    if not pdu_controller.turn_on_outlet():
+        logging.error("Turn on the PDU outlets of {} failed".format(hostname))
+        return False
+    return True
+
+
 def get_image_type(duthost):
     """get the SONiC image type
         It might be public/microsoft/...or any other type.
@@ -983,7 +1016,6 @@ def recover_acl_rule(duthost, data_acl):
             acl_entry_config[seq_id]["config"]["sequence-id"] = seq_id
             acl_entry_config[seq_id]["l2"]["config"]["ethertype"] = value["ETHER_TYPE"]
             acl_entry_config[seq_id]["l2"]["config"]["vlan_id"] = value["VLAN_ID"]
-            acl_entry_config[seq_id]["input_interface"]["interface_ref"]["config"]["interface"] = value["IN_PORTS"]
 
     with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
         json.dump(acl_config, fp)
@@ -1097,6 +1129,8 @@ def capture_and_check_packet_on_dut(
     interface='any',
     pkts_filter='',
     pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured"),
+    pkts_validator_args=[],
+    pkts_validator_kwargs={},
     wait_time=1
 ):
     """
@@ -1106,9 +1140,12 @@ def capture_and_check_packet_on_dut(
         interface: the interface to capture packets on, default is 'any'
         pkts_filter: the PCAP-FILTER to apply to the captured packets, default is '' means no filter
         pkts_validator: the function to validate the captured packets, default is to check if any packet is captured
+        pkts_validator_args: ther args to pass to the pkts_validator function
+        pkts_validator_kwargs: the kwargs to pass to the pkts_validator function
+        wait_time: the time to wait before stopping the packet capture, default is 1 second
     """
     pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
-    cmd_capture_pkts = "sudo nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
+    cmd_capture_pkts = "nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
         % (interface, pcap_save_path, pkts_filter)
     tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
     cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
@@ -1122,7 +1159,7 @@ def capture_and_check_packet_on_dut(
         duthost.shell("kill -s 2 %s" % tcpdump_pid)
         with tempfile.NamedTemporaryFile() as temp_pcap:
             duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
-            pkts_validator(scapy_sniff(offline=temp_pcap.name))
+            pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
     finally:
         duthost.file(path=pcap_save_path, state="absent")
 
@@ -1174,3 +1211,150 @@ def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     except Exception:
         _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
     return passwd
+
+
+def check_msg_in_syslog(duthost, log_msg):
+    """
+    Checks for a given log message after the last start-LogAnalyzer message in syslog
+
+    Args:
+        duthost: Device under test.
+        log_msg: Log message to be searched
+
+    Yields:
+        True if log message is present or returns False
+    """
+    la_output = duthost.script(LA_START_MARKER_SCRIPT)["stdout"]
+    if not la_output:
+        return False
+    else:
+        output = la_output.replace('\r', '').replace('\n', '')
+
+    try:
+        log_msg = f"\"{log_msg}\""
+        log_output = duthost.script("%s %s %s" % (FIND_SYSLOG_MSG_SCRIPT, output, log_msg))
+        if log_output:
+            return True
+        else:
+            return False
+    except Exception:
+        return False
+
+
+def increment_ipv4_addr(ipv4_addr, incr=1):
+    octets = str(ipv4_addr).split('.')
+    last_octet = int(octets[-1])
+    last_octet += incr
+    octets[-1] = str(last_octet)
+
+    return '.'.join(octets)
+
+
+def increment_ipv6_addr(ipv6_addr, incr=1):
+    octets = str(ipv6_addr).split(':')
+    last_octet = octets[-1]
+    if last_octet == '':
+        last_octet = '0'
+    incremented_octet = int(last_octet, 16) + incr
+    new_octet_str = '{:x}'.format(incremented_octet)
+
+    return ':'.join(octets[:-1]) + ':' + new_octet_str
+
+
+def get_file_hash(duthost, file):
+    hash = duthost.command("sha1sum {}".format(file))["stdout"]
+    logger.debug("file hash: {}".format(hash))
+
+    return hash
+
+
+def get_interface_reload_timestamp(duthost):
+    timestamp = duthost.command("sudo systemctl show --no-pager interfaces-config"
+                                " -p ExecMainExitTimestamp --value")["stdout"]
+    logger.info("interfaces config timestamp {}".format(timestamp))
+
+    return timestamp
+
+
+def wait_for_file_changed(duthost, file, action, *args, **kwargs):
+    original_hash = get_file_hash(duthost, file)
+    last_timestamp = get_interface_reload_timestamp(duthost)
+
+    action(*args, **kwargs)
+
+    def hash_and_timestamp_changed(duthost, file):
+        latest_hash = get_file_hash(duthost, file)
+        latest_timestamp = get_interface_reload_timestamp(duthost)
+        return latest_hash != original_hash and latest_timestamp != last_timestamp
+
+    exist = wait_until(FILE_CHANGE_TIMEOUT, 1, 0, hash_and_timestamp_changed, duthost, file)
+    pytest_assert(exist, "File {} does not change after {} seconds.".format(file, FILE_CHANGE_TIMEOUT))
+
+
+def backup_config(duthost, config, config_backup):
+    logger.info("Backup {} to {} on {}".format(
+        config, config_backup, duthost.hostname))
+    duthost.shell("cp {} {}".format(config, config_backup))
+
+
+def restore_config(duthost, config, config_backup):
+    logger.info("Restore {} with {} on {}".format(
+        config, config_backup, duthost.hostname))
+    duthost.shell("mv {} {}".format(config_backup, config))
+
+
+def get_running_config(duthost, asic=None):
+    ns = "-n " + asic if asic else ""
+    return json.loads(duthost.shell("sonic-cfggen {} -d --print-data".format(ns))['stdout'])
+
+
+def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
+    """
+    for multi-asic/single-asic devices, we only have 1 golden_config_db.json
+    """
+    from tests.common.config_reload import config_reload
+    golden_config = "/etc/sonic/golden_config_db.json"
+    duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
+    config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+    # Cleanup golden config because some other test or device recover may reload config with golden config
+    duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+
+
+def file_exists_on_dut(duthost, filename):
+    return duthost.stat(path=filename).get('stat', {}).get('exists', False)
+
+
+def compare_dicts_ignore_list_order(dict1, dict2):
+    def normalize(data):
+        if isinstance(data, list):
+            return set(data)
+        elif isinstance(data, dict):
+            return {k: normalize(v) for k, v in data.items()}
+        else:
+            return data
+
+    dict1_normalized = normalize(dict1)
+    dict2_normalized = normalize(dict2)
+
+    return dict1_normalized == dict2_normalized
+
+
+def check_output(output, exp_val1, exp_val2):
+    pytest_assert(not output['failed'], output['stderr'])
+    for line in output['stdout_lines']:
+        fds = line.split(':')
+        if fds[0] == exp_val1:
+            pytest_assert(fds[4] == exp_val2)
+
+
+def run_show_features(duthosts, enum_dut_hostname):
+    """Verify show features command output against CONFIG_DB
+    """
+    duthost = duthosts[enum_dut_hostname]
+    features_dict, succeeded = duthost.get_feature_status()
+    pytest_assert(succeeded, "failed to obtain feature status")
+    for cmd_key, cmd_value in list(features_dict.items()):
+        redis_value = duthost.shell('/usr/bin/redis-cli -n 4 --raw hget "FEATURE|{}" "state"'
+                                    .format(cmd_key), module_ignore_errors=False)['stdout']
+        pytest_assert(redis_value.lower() == cmd_value.lower(),
+                      "'{}' is '{}' which does not match with config_db".format(cmd_key, cmd_value))

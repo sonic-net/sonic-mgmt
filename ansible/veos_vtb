@@ -19,6 +19,7 @@ all:
           - t1-backend
           - t0
           - t0-16
+          - t0-28
           - t0-56
           - t0-56-d48c8
           - t0-52
@@ -65,6 +66,9 @@ all:
         vlab-11:
         vlab-12:
         vlab-8k-01:
+        vlab-t2-01:
+        vlab-t2-02:
+        vlab-t2-sup:
     ptf:
       hosts:
         ptf-01:

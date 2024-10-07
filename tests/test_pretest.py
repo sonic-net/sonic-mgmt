@@ -317,7 +317,15 @@ def test_update_saithrift_ptf(request, ptfhost):
         pytest.skip("No URL specified for python saithrift package")
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
-    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
+    # Retry download of saithrift library
+    retry_count = 5
+    while retry_count > 0:
+        result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
+        if not result["failed"] or "OK" in result["msg"]:
+            break
+        time.sleep(60)
+        retry_count -= 1
+
     if result["failed"] or "OK" not in result["msg"]:
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
@@ -355,6 +363,31 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
             logger.warning('skipped to create autoneg test datafile because of no ports selected')
     except Exception as e:
         logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
+
+
+def test_disable_startup_tsa_tsb_service(duthosts, localhost):
+    """disable startup-tsa-tsb.service.
+    Args:
+        duthosts: Fixture returns a list of Ansible object DuT.
+
+    Returns:
+        None.
+    """
+    for duthost in duthosts.frontend_nodes:
+        platform = duthost.facts['platform']
+        file_check = {}
+        startup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/startup-tsa-tsb.conf".format(platform)
+        backup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/backup-startup-tsa-tsb.bck".format(platform)
+        file_check = duthost.shell("[ -f {} ]".format(startup_tsa_tsb_file_path), module_ignore_errors=True)
+        if file_check.get('rc') == 0:
+            out = duthost.shell("cat {}".format(startup_tsa_tsb_file_path), module_ignore_errors=True)['rc']
+            if not out:
+                duthost.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path))
+                output = duthost.shell("TSB", module_ignore_errors=True)
+                pytest_assert(not output['rc'], "Failed TSB")
+        else:
+            logger.info("{} file does not exist in the specified path on dut {}".
+                        format(startup_tsa_tsb_file_path, duthost.hostname))
 
 
 """

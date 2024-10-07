@@ -599,3 +599,16 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
 
     ptfhost.copy(content=json.dumps(ports_map), dest=PTF_TEST_PORT_MAP)
     return PTF_TEST_PORT_MAP
+
+
+@pytest.fixture(scope="function")
+def skip_traffic_test(request):
+    """
+    Skip traffic test if the testcase is marked with 'skip_traffic_test' marker.
+    We are using it to skip traffic test for the testcases that are not supported in specific platforms.
+    Currently the marker is only be use in tests_mark_conditions_skip_traffic_test.yaml for VS platform.
+    """
+    for m in request.node.iter_markers():
+        if m.name == "skip_traffic_test":
+            return True
+    return False

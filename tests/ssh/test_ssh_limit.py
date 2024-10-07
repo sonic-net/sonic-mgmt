@@ -3,9 +3,10 @@ import logging
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.tacacs.conftest import tacacs_creds      # noqa F401
-from tests.tacacs.utils import setup_local_user
+from tests.common.fixtures.tacacs import tacacs_creds     # noqa F401
+from tests.common.helpers.tacacs.tacacs_helper import setup_local_user
 from tests.common.utilities import paramiko_ssh
+from tests.common.fixtures.tacacs import get_aaa_sub_options_value
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -43,17 +44,19 @@ def get_device_type(duthost):
     return dut_type
 
 
-def modify_template(admin_session, template_path, additional_content, hwsku, type):
-    admin_session.exec_command(TEMPLATE_BACKUP_COMMAND.format(template_path))
-    admin_session.exec_command(TEMPLATE_CREATE_COMMAND.format(template_path))
-    admin_session.exec_command(
-        LIMITS_CONF_TEMPLATE_TO_HOME.format(hwsku, type, additional_content))
-    admin_session.exec_command(TEMPLATE_MOVE_COMMAND.format(template_path))
+def exec_command(admin_session, command):
+    stdin, stdout, stderr = admin_session.exec_command(command)
+    outstr = stdout.readlines()
+    errstr = stderr.readlines()
+    logging.info("Command: '{}' stdout: {} stderr: {}".format(command, outstr, errstr))
 
-    stdin, stdout, stderr = admin_session.exec_command(
-        'sudo cat {0}'.format(template_path))
-    config_file_content = stdout.readlines()
-    logging.info("Updated template file: {0}".format(config_file_content))
+
+def modify_template(admin_session, template_path, additional_content, hwsku, type):
+    exec_command(admin_session, TEMPLATE_BACKUP_COMMAND.format(template_path))
+    exec_command(admin_session, TEMPLATE_CREATE_COMMAND.format(template_path))
+    exec_command(admin_session, LIMITS_CONF_TEMPLATE_TO_HOME.format(hwsku, type, additional_content))
+    exec_command(admin_session, TEMPLATE_MOVE_COMMAND.format(template_path))
+    exec_command(admin_session, 'sudo cat {0}'.format(template_path))
 
 
 def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
@@ -101,7 +104,13 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):      # no
     # if template file not exist on duthost, ignore this UT
     # However still need yield, if not yield, UT will failed with StopIteration error.
     template_file_exist = limit_template_exist(duthost)
+    aaa_login_disabled = False
     if template_file_exist:
+        # If AAA authentication enabled, disable it to allow local user login
+        if get_aaa_sub_options_value(duthost, "authentication", "login") == "tacacs+":
+            duthost.shell("sudo config aaa authentication login default")
+            aaa_login_disabled = True
+
         setup_local_user(duthost, tacacs_creds)
 
         # Modify templates and restart hostcfgd to render config files
@@ -111,6 +120,9 @@ def setup_limit(duthosts, rand_one_dut_hostname, tacacs_creds, creds):      # no
     yield
 
     if template_file_exist:
+        if aaa_login_disabled:
+            duthost.shell("sudo config aaa authentication login tacacs+")
+
         # Restore SSH session limit
         restore_templates(duthost)
         restart_hostcfgd(duthost)
@@ -156,14 +168,16 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
     login_message_1 = get_login_result(ssh_session_1)
 
     logging.debug("Login session 1 result:\n{0}\n".format(login_message_1))
-    pytest_assert("There were too many logins for" not in login_message_1)
+    pytest_assert("There were too many logins for" not in login_message_1,
+                  "The first login was rejected due to too many logins")
 
     # The second session will be disconnect by device
     ssh_session_2 = paramiko_ssh(dut_ip, local_user, local_user_password)
     login_message_2 = get_login_result(ssh_session_2)
 
     logging.debug("Login session 2 result:\n{0}\n".format(login_message_2))
-    pytest_assert("There were too many logins for" in login_message_2)
+    pytest_assert("There were too many logins for" in login_message_2,
+                  "The second login was not rejected by ssh limit")
 
     ssh_session_1.close()
     ssh_session_2.close()

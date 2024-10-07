@@ -21,7 +21,7 @@ pass_config_test = True
 
 
 def is_sonic_console(conn_graph_facts, dut_hostname):
-    return conn_graph_facts['device_console_info'][dut_hostname]["Os"] == "sonic"
+    return conn_graph_facts['device_console_info'][dut_hostname].get("Os", "") == "sonic"
 
 
 def test_console_baud_rate_config(duthost):
@@ -46,16 +46,20 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     pytest_require(console_type == "ssh", "Unsupported console type: {}".format(console_type))
     pytest_require(is_sonic_console(conn_graph_facts, dut_hostname), "Unsupport non-sonic console swith.")
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
-    dutuser = creds['sonicadmin_user']
-    dutpass = creds['sonicadmin_password']
+    console_user = creds['console_user']['console_ssh']
+    console_passwords = creds['console_password']['console_ssh']
 
     client = None
-    try:
-        client = create_ssh_client(console_host, "{}:{}".format(dutuser, console_port), dutpass)
-    except Exception as err:
-        pytest.fail("Not connect console ssh, error: {}".format(err))
+    for console_password in console_passwords:
+        try:
+            client = create_ssh_client(console_host, "{}:{}".format(console_user, console_port), console_password)
+            ensure_console_session_up(client, console_port)
+        except Exception:
+            client = None
+        else:
+            break
 
-    ensure_console_session_up(client, console_port)
+    pytest_assert(client is not None, "Cannot connect to console device")
     client.sendline()
     yield client, console_port
 

@@ -52,8 +52,10 @@ def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname,
 
     logging.info(
         "Tearing down: to make sure all the critical services, interfaces and transceivers are good")
-    interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
     wait_for_startup(duthost, localhost, delay=10, timeout=300)
+    if duthost.facts['hwsku'] in {"Nokia-M0-7215", "Nokia-7215"}:
+        wait_critical_processes(duthost)
     check_critical_processes(duthost, watch_secs=10)
     check_interfaces_and_services(duthost, interfaces, xcvr_skip_list)
     if duthost.is_supervisor_node():
@@ -91,7 +93,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
     if dut.is_supervisor_node():
         for lc in duthosts.frontend_nodes:
-            wait_for_startup(lc, localhost, delay=10, timeout=300)
+            wait_for_startup(lc, localhost, delay=10, timeout=600)
             check_interfaces_and_services(lc, interfaces, xcvr_skip_list)
 
 
@@ -171,7 +173,7 @@ def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     @summary: This test case is to perform cold reboot and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+    reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts)
 
 
@@ -192,7 +194,7 @@ def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting soft reboot")
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+    reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_SOFT, duthosts=duthosts)
 
 
@@ -207,7 +209,7 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     if duthost.is_multi_asic:
         pytest.skip("Multi-ASIC devices not supporting fast reboot")
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+    reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_FAST, duthosts=duthosts)
 
 
@@ -230,7 +232,7 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
             pytest.skip(
                 "ISSU is not supported on this DUT, skip this test case")
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+    reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_WARM, duthosts=duthosts)
 
 
@@ -260,7 +262,7 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
             # reboot on the DUT.
             duthost.shell("sudo systemctl stop cpu_wdt", module_ignore_errors=True)
 
-        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+        reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                          xcvr_skip_list, REBOOT_TYPE_WATCHDOG, duthosts=duthosts)
     finally:
         if "x86_64-cel_e1031-r0" in duthost.facts['platform']:
@@ -277,7 +279,7 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     ls_starting_out = set(duthost.shell(
         "ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())
     for i in range(3):
-        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+        reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                          xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts)
     ls_ending_out = set(duthost.shell(
         "ls /dev/C0-*", module_ignore_errors=True)["stdout"].split())

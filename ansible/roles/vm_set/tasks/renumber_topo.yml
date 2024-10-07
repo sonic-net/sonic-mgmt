@@ -130,6 +130,13 @@
     command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.route.max_size=168000
     become: yes
 
+  - name: Create file to store dut type in PTF
+    command: docker exec -i ptf_{{ vm_set_name }} sh -c 'echo {{ hostvars[duts_name.split(',')[0]]['type'] }} > /sonic/dut_type.txt'
+    when:
+      - hostvars[duts_name.split(',')[0]] is defined
+      - hostvars[duts_name.split(',')[0]].type is defined
+    become: yes
+
   - name: Create vlan ports for dut
     include_tasks: create_dut_port.yml
     when: external_port is defined
@@ -199,5 +206,8 @@
     vars:
       nic_simulator_action: start
     when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
+
+  - name: Start tacacs+ daily daemon
+    include_tasks: start_tacacs_daily_daemon.yml
 
   when: container_type == "PTF"

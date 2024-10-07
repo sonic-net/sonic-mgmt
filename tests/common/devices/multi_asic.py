@@ -21,7 +21,7 @@ class MultiAsicSonicHost(object):
     So, even a single asic pizza box is represented as a MultiAsicSonicHost with 1 SonicAsic.
     """
 
-    _DEFAULT_SERVICES = ["pmon", "snmp", "lldp", "database"]
+    _DEFAULT_SERVICES = ["pmon", "snmp", "database"]
 
     def __init__(self, ansible_adhoc, hostname, duthosts, topo_type):
         """ Initializing a MultiAsicSonicHost.
@@ -64,13 +64,16 @@ class MultiAsicSonicHost(object):
         """
         service_list = []
         active_asics = self.asics
-        if self.sonichost.is_supervisor_node() and self.get_facts()['asic_type'] != 'vs':
-            active_asics = []
-            sonic_db_cli_out = self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
-            for a_asic_line in sonic_db_cli_out["stdout_lines"]:
-                a_asic_name = a_asic_line.split("|")[1]
-                a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
-                active_asics.append(a_asic_instance)
+        if self.sonichost.is_supervisor_node():
+            service_list.append("lldp")
+            if self.get_facts()['asic_type'] != 'vs':
+                active_asics = []
+                sonic_db_cli_out = \
+                    self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
+                for a_asic_line in sonic_db_cli_out["stdout_lines"]:
+                    a_asic_name = a_asic_line.split("|")[1]
+                    a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
+                    active_asics.append(a_asic_instance)
         service_list += self._DEFAULT_SERVICES
 
         config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
@@ -94,6 +97,9 @@ class MultiAsicSonicHost(object):
                     self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 if config_facts['FEATURE'][service]['state'] == "disabled":
                     self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+        else:
+            service_list.append("lldp")
+
         for asic in active_asics:
             service_list += asic.get_critical_services()
         self.sonichost.reset_critical_services_tracking_list(service_list)

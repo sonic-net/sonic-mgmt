@@ -166,14 +166,23 @@ class Sonic(host_device.HostDevice):
         log_data = {}
 
         self.log('Collecting logs')
-        log_lines = self.do_cmd("sudo cat "
-                                "/var/log/syslog{,.1} "
-                                "/var/log/teamd.log{,.1} "
-                                "/var/log/frr/bgpd.log "
-                                "/var/log/frr/zebra.log").split('\n')
-        syslog_regex_r = r'^(\S+\s+\d+\s+\d+:\d+:\d+)\.\d+ \S+ [A-Z]+ ([a-z\-]+#[/a-zA-Z0-9_]+)' \
+        log_files = [
+            "/var/log/syslog{.1,}",
+            "/var/log/teamd.log{.1,}",
+            "/var/log/frr/bgpd.log",
+            "/var/log/frr/zebra.log"
+        ]
+
+        logs_to_output = {log_file: self.do_cmd("sudo cat {}".format(log_file)).split('\n')
+                          for log_file in log_files}
+        log_lines = [line for output in logs_to_output.values() for line in output]
+        syslog_regex_r = r'^(?:\d{4}\s+)?(\S+\s+\d+\s+\d+:\d+:\d+)\.\d+ \S+ [A-Z]+ ([a-z\-]+#[/a-zA-Z0-9_]+)' \
             r'(?:\s+\d+-\d+-\d+\s+\d+:\d+:\d+,\d+\s+[A-Z]+\s+\w+)?(?:\[\d+\])?: (.+)$'
-        parsed_logs = self.extract_from_logs(syslog_regex_r, log_lines, min_timestamp=start_time)
+        parsed_logs = {}
+        total_lag_flaps = 0
+        for _, output in logs_to_output.items():
+            parsed_logs.update(self.extract_from_logs(syslog_regex_r, output, min_timestamp=start_time))
+            total_lag_flaps += self.check_lag_flaps("PortChannel1", output, start_time)[1]
         self.log('Log output "{}"'.format('\n'.join(["{} {} {}".format(k[0], j, k[1])
                                                     for j in parsed_logs for k in parsed_logs[j]])))
         log_data = self.parse_logs(parsed_logs)
@@ -204,20 +213,23 @@ class Sonic(host_device.HostDevice):
         cli_data['lacp'] = (0, 0)
         cli_data['bgp_v4'] = self.check_series_status(data, "bgp_route_v4", "BGP v4 routes")
         cli_data['bgp_v6'] = self.check_series_status(data, "bgp_route_v6", "BGP v6 routes")
-        cli_data['po'] = self.check_lag_flaps("PortChannel1", log_lines, start_time)
+        cli_data['po'] = (0, total_lag_flaps)
 
         if 'route_timeout' in log_data:
             route_timeout = log_data['route_timeout']
             cli_data['route_timeout'] = route_timeout
 
             # {'10.0.0.38': [(0, '4200065100)')], 'fc00::2d': [(0, '4200065100)')]}
-            for nei in route_timeout.keys():
+            for nei in list(route_timeout.keys()):
                 asn = route_timeout[nei][0][-1]
                 msg = 'BGP route GR timeout: neighbor %s (ASN %s' % (nei, asn)
                 self.fails.add(msg)
 
-        if cli_data['po'][1] > 0:
+        if cli_data['po'][1] > 0 and self.reboot_type == 'warm-reboot':
             self.fails.add('Port channel flap occurred!')
+
+        if cli_data['po'][1] > 1 and self.reboot_type == 'fast-reboot':
+            self.fails.add('More than one port channel flap occurred!')
 
         self.log('Finishing run()')
         return self.fails, self.info, cli_data, log_data, {
@@ -225,22 +237,21 @@ class Sonic(host_device.HostDevice):
             }
 
     def extract_from_logs(self, regexp, data, min_timestamp=None):
-        raw_data = []
         result = defaultdict(list)
         re_compiled = re.compile(regexp)
-        for line in data:
+        current_year = datetime.datetime.now().year
+        for line in reversed(data):
             m = re_compiled.match(line)
             if not m:
                 continue
-            log_time = datetime.datetime.strptime(str(datetime.datetime.now().year) + " " + m.group(1), "%Y %b %d %X")
+            log_time = datetime.datetime.strptime(str(current_year) + " " + m.group(1), "%Y %b %d %X")
             # Python 3 version (Python 2 doesn't have timestamp():
-            # raw_data.append((log_time.timestamp(), m.group(2), m.group(3)))
-            raw_data.append((time.mktime(log_time.timetuple()), m.group(2), m.group(3)))
-
-        if len(raw_data) > 0:
-            for when, what, status in raw_data:
-                if min_timestamp and when >= min_timestamp:
-                    result[what].append((when, status))
+            # when, what, status = log_time.timestamp(), m.group(2), m.group(3)
+            when, what, status = time.mktime(log_time.timetuple()), m.group(2), m.group(3)
+            if min_timestamp and when >= min_timestamp:
+                result[what].insert(0, (when, status))
+            else:
+                break
 
         return result
 
@@ -288,23 +299,24 @@ class Sonic(host_device.HostDevice):
             assert first_state == 'DOWN', 'First PO state should be down, it was {}'.format(first_state)
             assert last_state == 'UP', 'Last PO state should be up, it was {}'.format(last_state)
 
-        for neig_ip in result_bgp.keys():
+        for neig_ip in list(result_bgp.keys()):
             key = "BGP IPv6 was down (seconds)" if ':' in neig_ip else "BGP IPv4 was down (seconds)"
             result[key] = result_bgp[neig_ip][-1][0] - result_bgp[neig_ip][0][0]
 
-        for neig_ip in result_bgp.keys():
+        for neig_ip in list(result_bgp.keys()):
             key = "BGP IPv6 was down (times)" if ':' in neig_ip else "BGP IPv4 was down (times)"
-            result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
+            result[key] = list(map(itemgetter(1), result_bgp[neig_ip])).count("Idle")
 
         result['PortChannel was down (seconds)'] = po_carrier_data[-1][0] - po_carrier_data[0][0] \
             if po_carrier_data else 0
         for if_name in sorted(result_if.keys()):
-            result['Interface %s was down (times)' % if_name] = map(itemgetter(1), result_if[if_name]).count("down")
+            result['Interface %s was down (times)' % if_name] = \
+                list(map(itemgetter(1), result_if[if_name])).count("down")
 
         bgp_po_offset = abs(initial_time_if - initial_time_bgp)
         result['BGP went down after portchannel went down (seconds)'] = bgp_po_offset
 
-        for neig_ip in result_bgp.keys():
+        for neig_ip in list(result_bgp.keys()):
             key = "BGP {} was gotten up after Po was up (seconds)".format("IPv6" if ':' in neig_ip else "IPv4")
             result[key] = result_bgp[neig_ip][-1][0] - bgp_po_offset
 
@@ -328,7 +340,7 @@ class Sonic(host_device.HostDevice):
         is_gr_ipv6_enabled = False
         restart_time = None
         obj = json.loads(output)
-        for prefix, attrs in obj.items():
+        for prefix, attrs in list(obj.items()):
             if "exabgp" in attrs["nbrDesc"]:
                 continue
             if attrs["gracefulRestartInfo"]["remoteGrMode"] == "Disable":
@@ -351,7 +363,7 @@ class Sonic(host_device.HostDevice):
         neigh_bgp = None
         dut_bgp = None
         asn = None
-        for neighbor, attrs in obj.items():
+        for neighbor, attrs in list(obj.items()):
             dut_bgp = neighbor
             asn = attrs["localAs"]
             neigh_bgp = attrs["hostLocal"]
@@ -362,7 +374,7 @@ class Sonic(host_device.HostDevice):
         gr_active = False
         gr_timer = None
         obj = json.loads(output)
-        for prefix, attrs in obj.items():
+        for prefix, attrs in list(obj.items()):
             if "exabgp" in attrs["nbrDesc"]:
                 continue
             if "gracefulRestartInfo" not in attrs:
@@ -379,7 +391,7 @@ class Sonic(host_device.HostDevice):
         prefixes = set()
         obj = json.loads(output)
 
-        for prefix, attrs in obj.items():
+        for prefix, attrs in list(obj.items()):
             attrs = attrs[0]
             if "nexthops" not in attrs:
                 continue
@@ -509,7 +521,7 @@ class Sonic(host_device.HostDevice):
         if self.gr_timeout < 120:  # bgp graceful restart timeout less then 120 seconds
             self.fails.add("bgp graceful restart timeout ({}) is less then 120 seconds".format(self.gr_timeout))
 
-        for when, other in sorted(output.items(), key=lambda x: x[0]):
+        for when, other in sorted(list(output.items()), key=lambda x: x[0]):
             gr_active, timer = other['bgp_neig']
             # wnen it's False, it's ok, wnen it's True, check that inactivity timer not less then
             # self.min_bgp_gr_timeout seconds

@@ -4,14 +4,15 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from utilities import backup_config, restore_config, get_running_config,\
-    reload_minigraph_with_golden_config, file_exists_on_dut
+from tests.common.utilities import backup_config, restore_config, get_running_config,\
+    reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
+    NON_USER_CONFIG_TABLES
+
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
@@ -87,10 +88,17 @@ def load_minigraph_with_golden_empty_input(duthost):
     for table in initial_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
-        pytest_assert(
-            initial_config[table] == current_config[table],
-            "empty input compare fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            pytest_assert(
+                compare_dicts_ignore_list_order(initial_config[table], current_config[table]),
+                "empty input ACL_TABLE compare fail!"
+            )
+        else:
+            pytest_assert(
+                initial_config[table] == current_config[table],
+                "empty input compare fail! {}".format(table)
+            )
 
 
 def load_minigraph_with_golden_partial_config(duthost):
@@ -144,10 +152,17 @@ def load_minigraph_with_golden_full_config(duthost, full_config):
     for table in full_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
-        pytest_assert(
-            full_config[table] == current_config[table],
-            "full config override fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            pytest_assert(
+                compare_dicts_ignore_list_order(full_config[table], current_config[table]),
+                "full config ACL_TABLE compare fail!"
+            )
+        else:
+            pytest_assert(
+                full_config[table] == current_config[table],
+                "full config override fail! {}".format(table)
+            )
 
 
 def load_minigraph_with_golden_empty_table_removal(duthost):
@@ -173,9 +188,6 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env,
     """Test Golden Config override during load minigraph
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.is_multi_asic:
-        pytest.skip("Skip override-config-table testing on multi-asic platforms,\
-                    test provided golden config format is not compatible with multi-asics")
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
     load_minigraph_with_golden_new_feature(duthost)

@@ -15,8 +15,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import wait_until
-from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, \
-                                                  is_route_flow_counter_supported   # noqa F401
+from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa F401
 
 
 pytestmark = [
@@ -280,7 +279,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
     announce_route(ptfip, lo_addr, peer_range, vlan_ips[0].ip, port_num[2])
 
     logger.info("Wait some time to make sure routes announced to dynamic bgp neighbors")
-    assert wait_until(90, 10, 0, is_all_neighbors_learned, duthost, speaker_ips), \
+    assert wait_until(120, 10, 0, is_all_neighbors_learned, duthost, speaker_ips), \
         "Not all dynamic neighbors were learned"
 
     logger.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")

@@ -1,3 +1,4 @@
+import os
 import pytest
 import logging
 import time
@@ -65,3 +66,36 @@ def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
             if "sonic-telemetry" not in output:
                 continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='enable')
+
+
+def test_enable_startup_tsa_tsb_service(duthosts, localhost):
+    """enable startup-tsa-tsb.service.
+    Args:
+        duthosts: Fixture returns a list of Ansible object DuT.
+        enum_frontend_dut_hostname: Fixture returns name of frontend DuT.
+
+    Returns:
+        None.
+    """
+    for duthost in duthosts.frontend_nodes:
+        platform = duthost.facts['platform']
+        startup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/startup-tsa-tsb.conf".format(platform)
+        backup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/backup-startup-tsa-tsb.bck".format(platform)
+        file_check = duthost.shell("[ -f {} ]".format(backup_tsa_tsb_file_path), module_ignore_errors=True)
+        if file_check.get('rc') == 0:
+            out = duthost.shell("cat {}".format(backup_tsa_tsb_file_path), module_ignore_errors=True)['rc']
+            if not out:
+                duthost.shell("sudo mv {} {}".format(backup_tsa_tsb_file_path, startup_tsa_tsb_file_path))
+        else:
+            logger.info("{} file does not exist in the specified path on dut {}".
+                        format(backup_tsa_tsb_file_path, duthost.hostname))
+
+
+def test_collect_ptf_logs(ptfhost):
+    if ptfhost is None:
+        return
+    log_files = ptfhost.shell('ls /tmp/*.log')['stdout'].split()
+    if not os.path.exists('logs/ptf'):
+        os.makedirs('logs/ptf')
+    for log_file in log_files:
+        ptfhost.fetch(src=log_file, dest='logs/ptf', fail_on_missing=False)
