@@ -20,3 +20,5 @@ ansible/*_tmp
 .idea/
 
 .python-version
+
+sonic-dump/
