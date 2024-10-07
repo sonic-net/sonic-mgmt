@@ -8,6 +8,11 @@
 
 ## 1. Setup
 
+First, please make sure the VM images are placed in the right location:
+
+- Your NPU image should be named as "sonic-vs.img" and be put under `~/sonic-vm/images`.
+- Your DPU image should be named as "sonic-vs.img" too and be put under `~/veos-vm/images`.
+
 To setup the topology, run the following commands in mgmt container the steps below:
 
 ```bash
@@ -22,9 +27,16 @@ To remove the topology, run the following commands in mgmt container:
 ```bash
 cd /data/sonic-mgmt/ansible
 ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k ceos remove-topo vms-kvm-t1-smartswitch password.txt
+```
+
+Run the following commands **outside the mgmt container**:
+
+```bash
 virsh destroy VM0104
 virsh undefine VM0104
 ```
+
+More details can be found in [the SmartSwitch VS setup doc](../docs/testbed/README.testbed.SmartSwitch.VsSetup.md).
 
 ## 2. Configurate DPU
 
