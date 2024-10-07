@@ -95,7 +95,7 @@ def test_check_idf_isolation_apply_patch(duthost):
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile, ignore_tables="-i PORT")
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             logger.info("Patching process broken, the error output is {}".format(output['stdout']))
@@ -119,7 +119,7 @@ def test_check_idf_unisolation_apply_patch(duthost):
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile, ignore_tables="-i PORT")
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             logger.info("Patching process broken, the error output is {}".format(output['stdout']))
@@ -152,7 +152,7 @@ def test_check_link_crc_mitigation_remove_and_add_apply_patch(duthost):
         pytest_assert(redis_value == expected_value, "Config Link CRC Mitigation add action failed.")
 
         json_patch = LINK_CRC_MITIGATION_REMOVE_TEMPLATE.format(portchannel, port)
-        output = apply_patch(duthost, json_data=json.loads(json_patch), dest_file=tmpfile)
+        output = apply_patch(duthost, json_data=json.loads(json_patch), dest_file=tmpfile, ignore_tables="-i PORT")
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             logger.info("Patching process broken, the error output is {}".format(output['stdout']))
