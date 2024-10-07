@@ -1,7 +1,5 @@
 import logging
-import pexpect
 import pytest
-import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
 from traffic_checker import get_traffic_shift_state
@@ -34,11 +32,17 @@ class TestTrafficShiftOnSup:
         self.dutip = self.duthost.host.options['inventory_manager'].get_host(self.duthost.hostname).vars['ansible_host']
         self.dutuser, self.dutpass = creds['sonicadmin_user'], creds['sonicadmin_password']
 
+    def config_save_all_lcs(self):
+        for linecard in self.duthosts.frontend_nodes:
+            # Temporary log
+            logger.info("Performing \"config save -y\" on {}".format(linecard))
+            linecard.shell('sudo config save -y')
+
     def config_reload_all_lcs(self):
-        for host in self.duthosts:
-            if host.is_supervisor_node():
-                continue
-            config_reload(host)
+        for linecard in self.duthosts.frontend_nodes:
+            # Temporary log
+            logger.info("Performing \"config_reload\" on {}".format(linecard))
+            config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
 
     def verify_traffic_shift_state_all_lcs(self, ts_state, state):
         for host in self.duthosts:
@@ -46,27 +50,6 @@ class TestTrafficShiftOnSup:
                 continue
             pytest_assert(ts_state == get_traffic_shift_state(host, "TSC no-stats"),
                           "Linecard {} is not in {} state".format(host, state))
-
-    def run_cmd_on_sup(self, cmd):
-        try:
-            # Issue TSA on DUT
-            client = pexpect.spawn(
-                     "ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'".format(
-                         self.dutuser, self.dutip),
-                     timeout=300)
-            client.expect(["{}@{}'s password:".format(self.dutuser, self.dutip)])
-            client.sendline(self.dutpass)
-            client.expect("{}*".format(self.dutuser))
-            client.sendline(cmd)
-            client.expect("Password .*")
-            client.sendline(self.dutpass)
-            # For TSA/B, wait for execution to complete
-            if "TS" in cmd:
-                client.expect(".* config reload on all linecards")
-            else:
-                time.sleep(30)
-        except Exception as e:
-            logger.error("Exception caught while executing cmd {}. Error message: {}".format(cmd, e))
 
     def test_TSA(self, duthosts, enum_supervisor_dut_hostname, check_support, creds):
         """
@@ -122,7 +105,7 @@ class TestTrafficShiftOnSup:
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
 
             # Save config and perform config reload on all LCs
-            self.run_cmd_on_sup("rexec all -c 'sudo config save -y'")
+            self.config_save_all_lcs()
             self.config_reload_all_lcs()
 
             # Verify DUT is still in maintenance state.
@@ -134,7 +117,7 @@ class TestTrafficShiftOnSup:
             self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")
 
             # Save config and perform config reload on all LCs
-            self.run_cmd_on_sup("rexec all -c 'sudo config save -y'")
+            self.config_save_all_lcs()
             self.config_reload_all_lcs()
 
             # Verify DUT is in normal state.
