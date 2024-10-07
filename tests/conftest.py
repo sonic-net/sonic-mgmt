@@ -2216,7 +2216,7 @@ def compare_running_config(pre_running_config, cur_running_config):
 
 @pytest.fixture(scope="module", autouse=True)
 def core_dump_and_config_check(duthosts, tbinfo, request,
-                               # make sure the tear down of sanity_check happened after core_dump_and_config_check
+                               # make sure the teardown of sanity_check happened after core_dump_and_config_check
                                sanity_check):
     '''
     Check if there are new core dump files and if the running config is modified after the test case running.

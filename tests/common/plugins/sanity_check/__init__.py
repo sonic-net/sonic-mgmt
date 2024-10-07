@@ -167,7 +167,7 @@ def log_custom_msg(request):
 
 
 @pytest.fixture(scope="module")
-def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
+def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo, parallel_run_context):
     logger.info("Prepare sanity check")
 
     skip_sanity = False
@@ -288,29 +288,50 @@ def sanity_check_full(localhost, duthosts, request, fanouthosts, nbrhosts, tbinf
 
     yield
 
+    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
+    initial_check_state = InitialCheckState(par_followers, par_state_file) if is_par_run else None
     if not post_check:
         logger.info("No post-test check is required. Done post-test sanity check")
-        return
-
-    if post_check_items:
-        logger.info("Start post-test sanity check")
-        post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
-        logger.debug("Post-test sanity check results:\n%s" %
-                     json.dumps(post_check_results, indent=4, default=fallback_serializer))
-
-        post_failed_results = [result for result in post_check_results if result['failed']]
-        if post_failed_results:
-            if not allow_recover:
-                request.config.cache.set("post_sanity_check_failed", True)
-                pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
-                          .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
-            else:
-                recover_on_sanity_check_failure(duthosts, post_failed_results, fanouthosts, localhost, nbrhosts,
-                                                post_check_items, recover_method, request, tbinfo, STAGE_POST_TEST)
-
-        logger.info("Done post-test sanity check")
     else:
-        logger.info('No post-test sanity check item, skip post-test sanity check.')
+        if post_check_items:
+            try:
+                logger.info("Start post-test sanity check")
+                post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+                logger.debug("Post-test sanity check results:\n%s" %
+                             json.dumps(post_check_results, indent=4, default=fallback_serializer))
+
+                post_failed_results = [result for result in post_check_results if result['failed']]
+                if post_failed_results:
+                    if not allow_recover:
+                        request.config.cache.set("post_sanity_check_failed", True)
+                        pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
+                                  .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
+                    else:
+                        recover_on_sanity_check_failure(duthosts, post_failed_results, fanouthosts, localhost,
+                                                        nbrhosts, post_check_items, recover_method, request, tbinfo,
+                                                        STAGE_POST_TEST)
+
+                logger.info("Done post-test sanity check")
+            except BaseException as e:
+                if is_par_run and is_par_leader:
+                    initial_check_state.set_new_status(
+                        InitialCheckStatus.SANITY_CHECK_FAILED,
+                        is_par_leader,
+                        target_hostname,
+                    )
+
+                raise e
+        else:
+            logger.info('No post-test sanity check item, skip post-test sanity check.')
+
+    if is_par_run and is_par_leader:
+        initial_check_state.set_new_status(
+            InitialCheckStatus.TEARDOWN_COMPLETED,
+            is_par_leader,
+            target_hostname,
+        )
+
+        initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TEARDOWN_COMPLETED)
 
 
 def recover_on_sanity_check_failure(duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
@@ -423,15 +444,6 @@ def sanity_check(request, parallel_run_context, log_custom_msg):
                 initial_check_state.set_new_status(InitialCheckStatus.SETUP_STARTED, is_par_leader, target_hostname)
 
             yield request.getfixturevalue('sanity_check_full')
-
-            if is_par_run and is_par_leader:
-                initial_check_state.set_new_status(
-                    InitialCheckStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
-                )
-
-                initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TEARDOWN_COMPLETED)
         except BaseException as e:
             if is_par_run and is_par_leader:
                 initial_check_state.set_new_status(
