@@ -1,15 +1,7 @@
 import p4runtime_sh.p4runtime as p4sh_rt
 import p4runtime_sh.shell as p4sh
 import logging
-from utils import disable_print, enable_print
-
-
-def init_shell():
-    p4sh.setup(
-        device_id=0,
-        grpc_addr='127.0.0.1:9559',
-        election_id=(0, 1),
-    )
+from p4_utils import disable_print, enable_print, init_p4runtime_shell
 
 
 def insert_underlay_entry(entry, match: str, action: str, next_hop_id: str):
@@ -39,5 +31,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     # sh.global_options["verbose"] = False
 
-    init_shell()
+    init_p4runtime_shell()
     init_underlay()
