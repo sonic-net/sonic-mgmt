@@ -582,6 +582,11 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo,
             for duthost, loganalyzer in list(dut_to_analyzer_map.items()):
                 executor.submit(tear_down_acl_table_single_dut, acl_table_config, duthost, loganalyzer, setup, topo)
 
+    for duthost in duthosts:
+        # Remove acl tables for more TCAM resource
+        duthost.command('config acl remove table DATAACL')
+        duthost.command('config acl remove table EVERFLOW')
+        duthost.command('config acl remove table EVERFLOWV6')
 
 def tear_down_acl_table_single_dut(acl_table_config, duthost, loganalyzer, setup, topo):
     loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_REMOVE_RE]
