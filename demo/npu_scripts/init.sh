@@ -15,7 +15,5 @@ sudo config save -y
 docker exec gnmi sed -i 's|if \[ ! -z $CA_CRT \]; then|if [ -n "$CA_CRT" ] \&\& [ "$CA_CRT" != "null" ]; then|' /usr/bin/gnmi-native.sh
 docker exec swss sed -i 's/tcp:\/\/${mgmt_ip}:8100/tcp:\/\/0.0.0.0:8100/g' /usr/bin/orchagent.sh
 
-# Reload config and gNMI server
+# Reload config to restart gNMI server
 sudo config reload -y
-sudo systemctl stop gnmi
-sudo systemctl start gnmi
