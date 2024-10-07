@@ -699,6 +699,7 @@ def get_multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):  
                         if port["peer_port"] in asic_port_map[asic] and hostname in port['peer_device']:
                             port['asic_value'] = asic
                             port['asic_type'] = host.facts["asic_type"]
+                            port['duthost'] = host
                             ports.append(port)
         return ports
     return _get_multidut_snappi_ports
@@ -1042,7 +1043,6 @@ def pre_configure_dut_interface(duthost, snappi_ports):
     return snappi_ports_dut
 
 
-<<<<<<< HEAD
 @pytest.fixture(scope="module")
 def multidut_snappi_ports_for_bgp(duthosts,                                # noqa: F811
                                   tbinfo,                                  # noqa: F811
