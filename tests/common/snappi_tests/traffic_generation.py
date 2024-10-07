@@ -1231,7 +1231,7 @@ def run_sys_traffic(rx_duthost,
         test_stats['lossy_rx_tx_pfc'] = 0
         f.write('Received or Transmitted PFC counts: \n')
         for item in results:
-            if ('egl-board' in item and 'pfc' in item):
+            if ('pfc' in item):
                 if (df_t[item].max() != 0):
                     f.write('{} : {} \n'.format(item, df_t[item].max()))
                     if (('tx_pfc_3' in item) or ('tx_pfc_4' in item)):
