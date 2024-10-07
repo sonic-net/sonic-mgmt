@@ -10,7 +10,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from traffic_checker import get_traffic_shift_state, check_tsa_persistence_support
+from traffic_checker import get_traffic_shift_state, check_tsa_persistence_support, \
+    check_traffic_shift_state
 from route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
     verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
@@ -201,13 +202,6 @@ def exec_tsa_tsb_cmd_on_supervisor(duthosts, enum_supervisor_dut_hostname, creds
         pytest.fail("Timeout reached")
     except Exception as e:
         pytest.fail("Cannot connect to DUT {} host via SSH: {}".format(suphost.hostname, e))
-
-
-def check_traffic_shift_state(duthost, state):
-    if state != get_traffic_shift_state(duthost):
-        return False
-    else:
-        return True
 
 
 @pytest.mark.disable_loganalyzer

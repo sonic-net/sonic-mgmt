@@ -47,3 +47,10 @@ def check_tsa_persistence_support(duthost):
     if not tsa_in_configdb:
         return False
     return True
+
+
+def check_traffic_shift_state(duthost, state):
+    if state != get_traffic_shift_state(duthost):
+        return False
+    else:
+        return True
