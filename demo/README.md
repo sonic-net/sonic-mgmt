@@ -1,9 +1,7 @@
 # Demo
 
 1. [1. Setup](#1-setup)
-2. [2. Configurate DPU](#2-configurate-dpu)
-   1. [2.1. Setup mgmt network connection on DPU](#21-setup-mgmt-network-connection-on-dpu)
-   2. [2.2. Setup port config on DPU](#22-setup-port-config-on-dpu)
+2. [2. (Optional) Upgrade DPU image to latest build](#2-optional-upgrade-dpu-image-to-latest-build)
 3. [3. Demo setup](#3-demo-setup)
 
 ## 1. Setup
@@ -34,13 +32,18 @@ Run the following commands **outside the mgmt container**:
 ```bash
 virsh destroy VM0104
 virsh undefine VM0104
+rm -f ~/veos-vm/disks/vsonic_VM0104.img
 ```
 
 More details can be found in [the SmartSwitch VS setup doc](../docs/testbed/README.testbed.SmartSwitch.VsSetup.md).
 
-## 2. Configurate DPU
+## 2. (Optional) Upgrade DPU image to latest build
 
-### 2.1. Setup mgmt network connection on DPU
+1. Push DPU image to DPU VM
+
+    ```bash
+    ./push_dpu_image.sh
+    ```
 
 1. telnet to DPU VM
 
@@ -51,30 +54,10 @@ More details can be found in [the SmartSwitch VS setup doc](../docs/testbed/READ
     Password: YourPaSsWoRd
     ```
 
-1. Configure mgmt interface
+1. Upgrade DPU image
 
     ```bash
-    sudo config interface ip add eth0 10.250.0.55/24
-    ```
-
-### 2.2. Setup port config on DPU
-
-1. copy minigraph to DPU
-
-    ```bash
-    scp sonic-mgmt/ansible/minigraph/SONIC01DPU.xml admin@10.250.0.55:
-
-    User:admin
-    Password: YourPaSsWoRd
-    ```
-
-1. load minigraph on DPU
-
-    ```bash
-    sudo cp SONIC01DPU.xml /etc/sonic/minigraph.xml
-    sudo config load_minigraph -y
-
-    sudo config save -y
+    sudo sonic-installer install -y sonic-vs.bin
     ```
 
 ## 3. Demo setup
@@ -86,8 +69,9 @@ All demo related scripts are located under `demo` directory:
   - `demo/dpu_script.sh`: Scripts that runs on DPU.
   - `demo/ptf_script.sh`: Scripts that runs on PTF.
 - `.tmuxinator.yml`: Tmuxinator configuration file that setups the tmux session for demo.
-- `push_dpu_image.sh`: Script that pushes the locally build DPU containeres to DPU, such as dash-engine container.
-- `debug.sh`: Script that setups the debug environment, such as copying dump files, installing symbol deb packages.
+- `push_dpu_image.sh`: Script that pushes the locally build DPU VS image to DPU.
+- `push_dpu_container.sh`: Script that pushes the locally build DPU containeres to DPU, such as dash-engine container.
+- `debug_dpu.sh`: Script that setups the debug environment, such as copying dump files, installing symbol deb packages.
 
 To setup the demo environment, follow the steps below:
 
@@ -110,6 +94,12 @@ To setup the demo environment, follow the steps below:
     # On NPU pane
     ./init.sh
 
-    # On DPU pane
+    # On DPU pane:
+    # 1. Setup minigraph
+    sudo cp SONIC01DPU.xml /etc/sonic/minigraph.xml
+    sudo config load_minigraph -y
+    sudo config save -y
+
+    # 2. Initialize SONiC VM with BMv2 data plane enabled
     ./init.sh
     ```
