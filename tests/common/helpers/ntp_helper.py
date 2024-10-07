@@ -1,6 +1,7 @@
 import pytest
 import time
 from contextlib import contextmanager
+from tests.common.helpers.sonic_db import SonicDbCli
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
@@ -9,6 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 def _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
     """setup ntp client and server"""
     duthost = duthosts[rand_one_dut_hostname]
+    database = SonicDbCli(duthost, "CONFIG_DB")
 
     ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
 
@@ -22,7 +24,11 @@ def _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv
     # setup ntp on dut to sync with ntp server
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     ntp_servers = config_facts.get('NTP_SERVER', {})
+
+    original_ntp_values = {}
+
     for ntp_server in ntp_servers:
+        original_ntp_values[ntp_server] = database.hget_all(get_ntp_key(ntp_server))
         duthost.command("config ntp del %s" % ntp_server)
 
     duthost.command("config ntp add %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
@@ -34,12 +40,22 @@ def _context_for_setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv
     # reset ntp client configuration
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
     for ntp_server in ntp_servers:
-        duthost.command("config ntp add %s" % ntp_server)
+        key_value = []
+        for key, value in original_ntp_values[ntp_server].items():
+            key_value.extend([key, value])
+
+        database.hset(get_ntp_key(ntp_server), *key_value)
+
+    duthost.command("systemctl restart ntp-config")
     # The time jump leads to exception in lldp_syncd. The exception has been handled by lldp_syncd,
     # but it will leave error messages in syslog, which will cause subsequent test cases to fail.
     # So we need to wait for a while to make sure the error messages are flushed.
     # The default update interval of lldp_syncd is 10 seconds, so we wait for 20 seconds here.
     time.sleep(20)
+
+
+def get_ntp_key(key):
+    return "NTP_SERVER|{}".format(key)
 
 
 @pytest.fixture(scope="function")

@@ -118,6 +118,32 @@ class SonicDbCli(object):
             v_dict = ast.literal_eval(v)
             return v_dict
 
+    def hset(self, key, *args):
+        """
+        Executes a sonic-db-cli HSET command.
+
+        Args:
+            key: full name of the key to set.
+            args: pair of field-value to set
+
+        Returns:
+            The corresponding value of the key.
+        Raises:
+            SonicDbKeyNotFound: If the key or field has no value or is not present.
+        """
+        if len(args) % 2 != 0 or len(args) < 2:
+            raise ValueError("The number of key-value argument must be even and at least of size 2")
+
+        cmd = self._cli_prefix() + "HSET {} {}".format(key, " ".join(args))
+        result = self._run_and_check(cmd)
+        if result == {}:
+            raise SonicDbKeyNotFound("Key: %s not found in sonic-db cmd: %s" % (key, cmd))
+        else:
+            if six.PY2:
+                return result['stdout'].decode('unicode-escape')
+            else:
+                return result['stdout']
+
     def get_and_check_key_value(self, key, value, field=None):
         """
         Executes a sonic-db CLI get or hget and validates the response against a provided field.
