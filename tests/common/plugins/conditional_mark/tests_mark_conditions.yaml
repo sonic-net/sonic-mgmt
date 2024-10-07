@@ -721,7 +721,7 @@ generic_config_updater/test_dynamic_acl.py:
 
 generic_config_updater/test_incremental_qos.py:
   skip:
-    reason: "Does not support dualtor right now"
+    reason: "Does not support dualtor right now, due to issue https://github.com/sonic-net/sonic-mgmt/issues/14865"
     conditions:
       - "'dualtor' in topo_name"
 
