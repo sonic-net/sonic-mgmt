@@ -719,6 +719,12 @@ generic_config_updater/test_dynamic_acl.py:
       - "hwsku in ['Cisco-8111-O64']"
       - "topo_name in ['m0-2vlan']"
 
+generic_config_updater/test_incremental_qos.py:
+  skip:
+    reason: "Does not support dualtor right now"
+    conditions:
+      - "'dualtor' in topo_name"
+
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     reason: "This test is not run on this asic type, topology, or version currently"
