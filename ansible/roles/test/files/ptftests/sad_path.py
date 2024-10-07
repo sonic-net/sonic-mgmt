@@ -5,6 +5,7 @@ import time
 import random
 
 from arista import Arista
+from sonic import Sonic
 from device_connection import DeviceConnection
 
 
@@ -63,6 +64,7 @@ class SadPath(object):
                                                alt_password=test_args.get('alt_password'))
         self.vlan_ports = vlan_ports
         self.ports_per_vlan = ports_per_vlan
+        self.neighbor_type = self.test_args['neighbor_type']
         self.vlan_if_port = self.test_args['vlan_if_port']
         self.neigh_vms = []
         self.neigh_names = dict()
@@ -138,7 +140,10 @@ class SadPath(object):
 
     def vm_connect(self):
         for neigh_vm in self.neigh_vms:
-            self.vm_handles[neigh_vm] = Arista(neigh_vm, None, self.test_args)
+            if self.neighbor_type == "sonic":
+                self.vm_handles[neigh_vm] = Sonic(neigh_vm, None, self.test_args)
+            else:
+                self.vm_handles[neigh_vm] = Arista(neigh_vm, None, self.test_args)
             self.vm_handles[neigh_vm].connect()
 
     def __del__(self):
@@ -227,18 +232,17 @@ class SadOper(SadPath):
         [self.dut_needed.setdefault(vm, self.dut_bgps[vm])
          for vm in self.neigh_vms]
         if self.oper_type == 'neigh_bgp_down':
-            self.neigh_bgps['changed_state'] = 'down'
+            self.neigh_bgps['changed_state'] = 'down,Idle (Admin)'
             self.dut_bgps['changed_state'] = 'Active'
-            [self.dut_needed.update({vm: None}) for vm in self.neigh_vms]
         elif self.oper_type == 'dut_bgp_down':
             self.neigh_bgps['changed_state'] = 'Active,OpenSent,Connect'
             self.dut_bgps['changed_state'] = 'Idle'
         elif 'neigh_lag' in self.oper_type:
             # on the DUT side, bgp states are different pre and post boot. hence passing multiple values
-            self.neigh_bgps['changed_state'] = 'Idle'
+            self.neigh_bgps['changed_state'] = 'Active,Idle'
             self.dut_bgps['changed_state'] = 'Connect,Active,Idle'
         elif 'dut_lag' in self.oper_type:
-            self.neigh_bgps['changed_state'] = 'Idle'
+            self.neigh_bgps['changed_state'] = 'Active,Idle'
             self.dut_bgps['changed_state'] = 'Active,Connect,Idle'
 
     def sad_setup(self, is_up=True):
@@ -288,8 +292,9 @@ class SadOper(SadPath):
                 for vm in self.neigh_vms:
                     self.log.append('Changing state of AS %s to shut' %
                                     self.neigh_bgps[vm]['asn'])
+                    bgp_info = self.dut_bgps[vm] if self.neighbor_type == 'sonic' else self.neigh_bgps[vm]
                     self.vm_handles[vm].change_bgp_neigh_state(
-                        self.neigh_bgps[vm]['asn'], is_up=is_up)
+                        bgp_info, is_up=is_up)
             elif self.oper_type == 'dut_bgp_down':
                 self.change_bgp_dut_state(is_up=is_up)
             time.sleep(30)
@@ -560,10 +565,14 @@ class SadOper(SadPath):
             self.neigh_lag_members_down[neigh_name] = self.vm_dut_map[neigh_name]['neigh_ports']
 
     def populate_lag_state(self):
-        if 'neigh_lag' in self.oper_type:
-            self.neigh_lag_state = 'disabled,notconnect'
-        elif 'dut_lag' in self.oper_type:
-            self.neigh_lag_state = 'notconnect'
+        if self.neighbor_type == 'sonic':
+            if 'neigh_lag' in self.oper_type or 'dut_lag' in self.oper_type:
+                self.neigh_lag_state = 'down'
+        else:
+            if 'neigh_lag' in self.oper_type:
+                self.neigh_lag_state = 'disabled,notconnect'
+            elif 'dut_lag' in self.oper_type:
+                self.neigh_lag_state = 'notconnect'
 
         for neigh_name in self.neigh_names.values():
             self.populate_lag_member_down(neigh_name)
