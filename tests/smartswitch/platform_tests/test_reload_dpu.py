@@ -12,7 +12,7 @@ from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, wait_for_startup, REBOOT_TYPE_COLD
 from tests.common.config_reload import config_force_option_supported, config_system_checks_passed  # noqa: F401, E501
-from tests.smartswitch.common.platform.device_utils_dpu import *  # noqa: F401,F403,E501
+from tests.smartswitch.common.device_utils_dpu import *  # noqa: F401,F403,E501
 from tests.common.helpers.platform_api import chassis, module  # noqa: F401
 from tests.platform_tests.api.conftest import *  # noqa: F401,F403
 
