@@ -10,6 +10,8 @@ windows:
           - sshpass -p YourPaSsWoRd ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ServerAliveInterval=60 admin@10.250.0.55
         - npu:
           - sshpass -p password ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ServerAliveInterval=60 admin@10.250.0.101
+        - dash-engine:
+          - sshpass -p YourPaSsWoRd ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ServerAliveInterval=60 admin@10.250.0.55 -t "docker exec -it dash_engine bash --init-file /p4rtsh/venv/bin/activate"
         - ptf-send:
           - docker exec -it ptf_vms6-1 bash
         - ptf-recv:
