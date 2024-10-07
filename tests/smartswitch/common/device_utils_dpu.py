@@ -13,18 +13,20 @@ from pkg_resources import parse_version
 
 @pytest.fixture(scope='function')
 def num_dpu_modules(platform_api_conn):
-
     """
     Returns the number of DPU modules
     """
 
     num_modules = int(chassis.get_num_modules(platform_api_conn))
+    logging.info("Num of moduels: '{}'".format(num_modules))
+
     return num_modules
 
 
 @pytest.fixture(scope='function')
-def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
-                          platform_api_conn):
+def check_smartswitch_and_dark_mode(duthosts,
+                                    enum_rand_one_per_hwsku_hostname,
+                                    platform_api_conn):
     """
     Checks whether given testbed is running
     202405 image or below versions
@@ -47,7 +49,6 @@ def skip_test_smartswitch(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def is_dark_mode_enabled(duthost, platform_api_conn):
-
     """
     Checks the liveliness of DPU
     Returns:
@@ -63,12 +64,16 @@ def is_dark_mode_enabled(duthost, platform_api_conn):
         output_config_db = duthost.command(
                            'redis-cli -p 6379 -h 127.0.0.1 \
                             -n 4 hgetall "CHASSIS_MODULE|{}"'.format(dpu))
+        if output_config_db['stdout'] is None:
+            logging.warn("redis cli output for chassis module state is empty")
         if 'down' in output_config_db['stdout']:
             count_admin_down += 1
 
     if count_admin_down == num_modules:
+        logging.info("Smartswitch is in dark mode")
         return True
 
+    logging.info("Smartswitch is in non-dark mode")
     return False
 
 
@@ -89,7 +94,7 @@ def dpu_power_on(duthost, platform_api_conn, check_dpu_ping_status):
         duthost.shell("config chassis modules startup %s" % (dpu))
 
     pytest_assert(wait_until(180, 60, 0, check_dpu_ping_status,
-                  duthost, ip_address_list), "Not all DPUs operationally up")
+                  duthost, ip_address_list), "Not all DPUs are operationally up")
 
 
 def check_dpu_ping_status(duthost, ip_address_list):
@@ -105,6 +110,7 @@ def check_dpu_ping_status(duthost, ip_address_list):
     ping_count = 0
     for ip_address in ip_address_list:
         output_ping = duthost.command("ping -c 3 %s" % (ip_address))
+        logging.info("Ping output: '{}'".format(output_ping))
         if "0% packet loss" in output_ping["stdout"]:
             ping_count += 1
 

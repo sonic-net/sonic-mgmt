@@ -31,6 +31,7 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     ip_address_list = []
     num_modules = num_dpu_modules(platform_api_conn)
 
+    logging.info("Starting switch reboot...")
     reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
            wait_for_ssh=False)
     wait_for_startup(duthost, localhost, 10, 300)
