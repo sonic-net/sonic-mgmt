@@ -34,22 +34,16 @@ class TestTrafficShiftOnSup:
 
     def config_save_all_lcs(self):
         for linecard in self.duthosts.frontend_nodes:
-            # Temporary log
-            logger.info("Performing \"config save -y\" on {}".format(linecard))
             linecard.shell('sudo config save -y')
 
     def config_reload_all_lcs(self):
         for linecard in self.duthosts.frontend_nodes:
-            # Temporary log
-            logger.info("Performing \"config_reload\" on {}".format(linecard))
             config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
 
     def verify_traffic_shift_state_all_lcs(self, ts_state, state):
-        for host in self.duthosts:
-            if host.is_supervisor_node():
-                continue
-            pytest_assert(ts_state == get_traffic_shift_state(host, "TSC no-stats"),
-                          "Linecard {} is not in {} state".format(host, state))
+        for linecard in self.duthosts.frontend_nodes:
+            pytest_assert(ts_state == get_traffic_shift_state(linecard, "TSC no-stats"),
+                          "Linecard {} is not in {} state".format(linecard, state))
 
     def test_TSA(self, duthosts, enum_supervisor_dut_hostname, check_support, creds):
         """
