@@ -73,10 +73,11 @@ class TestTrafficShiftOnSup:
         Test TSA
         Verify all linecards transition to maintenance state after TSA on supervisor
         """
+        suphost = duthosts[enum_supervisor_dut_hostname]
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
             # Issue TSA on DUT
-            self.run_cmd_on_sup("sudo TSA")
+            suphost.shell("TSA")
             # Verify DUT is in maintenance state.
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
         except Exception as e:
@@ -84,21 +85,22 @@ class TestTrafficShiftOnSup:
             logger.error("Exception caught in TSB test. Error message: {}".format(e))
         finally:
             # Issue TSB on DUT to recover the chassis
-            self.run_cmd_on_sup("sudo TSB")
+            suphost.shell("TSB")
 
     def test_TSB(self, duthosts, enum_supervisor_dut_hostname, check_support, creds):
         """
         Test TSB
         Verify all linecards transition back to normal state from maintenance after TSB on supervisor
         """
+        suphost = duthosts[enum_supervisor_dut_hostname]
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
             # Issue TSA on DUT to move chassis to maintenance
-            self.run_cmd_on_sup("sudo TSA")
+            suphost.shell("TSA")
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
 
             # Recover to Normal state
-            self.run_cmd_on_sup("sudo TSB")
+            suphost.shell("TSB")
             # Verify DUT is in normal state
             self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")
         except Exception as e:
@@ -112,10 +114,11 @@ class TestTrafficShiftOnSup:
         Verify all linecards remain in Maintenance state after TSA and config reload on supervisor
         Verify all linecards remain in Normal state after TSB and config reload on supervisor
         """
+        suphost = duthosts[enum_supervisor_dut_hostname]
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
             # Issue TSA on DUT to move chassis to maintenance
-            self.run_cmd_on_sup("sudo TSA")
+            suphost.shell("TSA")
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
 
             # Save config and perform config reload on all LCs
@@ -126,7 +129,7 @@ class TestTrafficShiftOnSup:
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
         finally:
             # Recover to Normal state
-            self.run_cmd_on_sup("sudo TSB")
+            suphost.shell("TSB")
             # Verify DUT is in normal state.
             self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")
 
