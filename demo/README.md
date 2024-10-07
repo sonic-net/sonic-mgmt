@@ -3,6 +3,7 @@
 1. [1. Setup](#1-setup)
 2. [2. (Optional) Upgrade DPU image to latest build](#2-optional-upgrade-dpu-image-to-latest-build)
 3. [3. Demo setup](#3-demo-setup)
+4. [4. Send sample traffic from PTF container](#4-send-sample-traffic-from-ptf-container)
 
 ## 1. Setup
 
@@ -65,9 +66,9 @@ More details can be found in [the SmartSwitch VS setup doc](../docs/testbed/READ
 All demo related scripts are located under `demo` directory:
 
 - `install_scripts.sh`: Script that pushes all demo related contents to all devices. More details are listed below.
-  - `demo/npu_script.sh`: Scripts that runs on NPU.
-  - `demo/dpu_script.sh`: Scripts that runs on DPU.
-  - `demo/ptf_script.sh`: Scripts that runs on PTF.
+  - `demo/npu_scripts`: Scripts that runs on NPU.
+  - `demo/dpu_scripts`: Scripts that runs on DPU.
+  - `demo/ptf_scripts`: Scripts that runs on PTF.
 - `.tmuxinator.yml`: Tmuxinator configuration file that setups the tmux session for demo.
 - `push_dpu_image.sh`: Script that pushes the locally build DPU VS image to DPU.
 - `push_dpu_container.sh`: Script that pushes the locally build DPU containeres to DPU, such as dash-engine container.
@@ -103,3 +104,52 @@ To setup the demo environment, follow the steps below:
     # 2. Initialize SONiC VM with BMv2 data plane enabled
     ./init.sh
     ```
+
+## 4. Send sample traffic from PTF container
+
+After all setup completes, we can start to send sample traffic from PTF container.
+
+In PTF container, we have a few scripts that sends different traffic:
+
+- `underlay_ping.py`: Sends ICMP packets using underlay network directly. There is no VNET VxLAN encapsulation.
+- `vnet_tcp_connect.py`: Sends TCP packets using VNET VxLAN encapsulation.
+
+If the scripts run successfully, you should see the following output, which starts with the detailed packet format, then sends 1 packet every second:
+
+```text
+root@1e49d3082bc0:~# python underlay_ping.py
+WARNING: No route found for IPv6 destination :: (no default route?)
+###[ Ethernet ]###
+  dst       = 22:48:23:27:33:d8
+  src       = 9a:50:c1:b1:9f:00
+  type      = 0x800
+###[ IP ]###
+     version   = 4
+     ihl       = None
+     tos       = 0x0
+     len       = None
+     id        = 1
+     flags     =
+     frag      = 0
+     ttl       = 64
+     proto     = icmp
+     chksum    = None
+     src       = 10.0.0.1
+     dst       = 10.0.0.37
+     \options   \
+###[ ICMP ]###
+        type      = echo-request
+        code      = 0
+        chksum    = None
+        id        = 0x0
+        seq       = 0x0
+###[ Raw ]###
+           load      = ''
+###[ Raw ]###
+              load      = '000000000000000000'
+.
+Sent 1 packets.
+.
+Sent 1 packets.
+.
+```
