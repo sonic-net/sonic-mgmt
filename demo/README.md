@@ -1,7 +1,9 @@
 # Demo
 
 1. [1. Setup](#1-setup)
-2. [2. (Optional) Upgrade DPU image to latest build](#2-optional-upgrade-dpu-image-to-latest-build)
+2. [2. Initial config on DPU](#2-initial-config-on-dpu)
+   1. [2. Setup mgmt network connection on DPU](#2-setup-mgmt-network-connection-on-dpu)
+   2. [2. (Optional) Upgrade DPU image to latest build](#2-optional-upgrade-dpu-image-to-latest-build)
 3. [3. Demo setup](#3-demo-setup)
 4. [4. Send sample traffic from PTF container](#4-send-sample-traffic-from-ptf-container)
 
@@ -38,13 +40,9 @@ rm -f ~/veos-vm/disks/vsonic_VM0104.img
 
 More details can be found in [the SmartSwitch VS setup doc](../docs/testbed/README.testbed.SmartSwitch.VsSetup.md).
 
-## 2. (Optional) Upgrade DPU image to latest build
+## 2. Initial config on DPU
 
-1. Push DPU image to DPU VM
-
-    ```bash
-    ./push_dpu_image.sh
-    ```
+### 2. Setup mgmt network connection on DPU
 
 1. telnet to DPU VM
 
@@ -55,10 +53,26 @@ More details can be found in [the SmartSwitch VS setup doc](../docs/testbed/READ
     Password: YourPaSsWoRd
     ```
 
-1. Upgrade DPU image
+1. Setup mgmt interface
+
+    ```bash
+    sudo config interface ip add eth0 10.250.0.55/24
+    sudo config save -y
+    ```
+
+### 2. (Optional) Upgrade DPU image to latest build
+
+1. Push DPU image to DPU VM
+
+    ```bash
+    ./push_dpu_image.sh
+    ```
+
+1. Install DPU image
 
     ```bash
     sudo sonic-installer install -y sonic-vs.bin
+    sudo reboot now
     ```
 
 ## 3. Demo setup
@@ -85,7 +99,7 @@ To setup the demo environment, follow the steps below:
 1. Setup the tmux session:
 
     ```bash
-    cd demo
+    # Under demo folder
     tmuxinator start
     ```
 
