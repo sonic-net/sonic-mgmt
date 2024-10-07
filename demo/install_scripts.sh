@@ -32,7 +32,9 @@ echo ""
 # Installing all contents to PTF
 #
 echo "Installing all scripts to PTF..."
-docker cp ptf_scripts/* ptf_vms6-1:/root/
+for f in `ls -1 ptf_scripts/*`; do
+    docker cp $f ptf_vms6-1:/root/
+done
 echo ""
 
 #
