@@ -897,7 +897,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             summary_file_name = request.node.name + "_summary.json"
 
         report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),
-                                           "../logs/platform_tests/")))
+                                           "../../logs/platform_tests/")))
         report_file_path = report_file_dir + "/" + report_file_name
         summary_file_path = report_file_dir + "/" + summary_file_name
         if not os.path.exists(report_file_dir):
