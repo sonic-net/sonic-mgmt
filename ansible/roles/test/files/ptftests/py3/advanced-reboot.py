@@ -180,6 +180,7 @@ class ReloadTest(BaseTest):
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
         self.check_param('neighbor_type', 'eos', required=False)
+        self.check_param('port_channel_intf_idx', [], required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
