@@ -2,6 +2,7 @@ import json
 import logging
 import pytest
 import os
+import time
 from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -13,6 +14,7 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
+GCUTIMEOUT=240
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
@@ -44,7 +46,12 @@ def apply_patch(duthost, json_data, dest_file):
     cmds = 'config apply-patch {}'.format(dest_file)
 
     logger.info("Commands: {}".format(cmds))
+    start_time = time.time()
     output = duthost.shell(cmds, module_ignore_errors=True)
+    elapsed_time = time.time() - start_time
+    if elapsed_time > GCUTIMEOUT:
+        logger.error("Command took too long: {} seconds".format(elapsed_time))
+        raise TimeoutError("Command execution timeout: {} seconds".format(elapsed_time))
 
     return output
 
