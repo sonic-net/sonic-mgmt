@@ -124,7 +124,7 @@ def test_check_idf_unisolation_apply_patch(duthost):
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             logger.info("Patching process broken, the error output is {}".format(output['stdout']))
             pytest_assert(False, "Patching process broken, the error output is {}").format(output['stdout'])
-        
+
         cmds = 'sonic-db-cli -n asic0 CONFIG_DB hget "BGP_DEVICE_GLOBAL|STATE" idf_isolation_state'
         expected_value = "unisolated"
         redis_value = duthost.shell(cmds, module_ignore_errors=False)['stdout']
