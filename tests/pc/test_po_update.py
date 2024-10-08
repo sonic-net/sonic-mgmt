@@ -5,16 +5,17 @@ from queue import Queue
 
 import pytest
 import logging
-from tests.common.reboot import reboot
+
 from ptf import testutils, mask, packet
-from tests.common.helpers.sonic_db import VoqDbCli
+
 from tests.common import config_reload
 import ipaddress
-from tests.common.reboot import wait_for_startup
 
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.reboot import wait_for_startup, reboot
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import VoqDbCli
 from tests.common.helpers.voq_helpers import verify_no_routes_from_nexthop
 
 pytestmark = [
@@ -503,15 +504,22 @@ def test_po_update_with_higher_lagids(
         ptfadapter,
         reload_testbed_on_failed, localhost):
     """
-       Test port channel traffic with higher lag ids.
+    Test Port Channel Traffic with Higher LAG IDs:
+
+    1. The test involves rebooting the DUT,
+        which resets the LAG ID allocation, starting from 1.
+    2. After the initial verification of traffic on the port channel (PC) mesh, the
+       LAG ID allocation is incremented by temporarily adding and deleting port channels.
+    3. Verify the LAG set sanity and ensure traffic stability.
+    4. Repeat the process for the higher LAG IDs.
        """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     # Check if the device is a modular chassis and the topology is T2
     is_chassis = duthost.get_facts().get("modular_chassis")
-    if not (is_chassis and tbinfo['topo']['type'] == 't2'):
+    if not (is_chassis and tbinfo['topo']['type'] == 't2' and duthost.facts['switch_type'] == "voq"):
         # Skip the test if the setup is not T2 Chassis
-        pytest.skip("Test is Applicable for T2 Chassis Setup")
+        pytest.skip("Test is Applicable for T2 VOQ Chassis Setup")
 
     dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
