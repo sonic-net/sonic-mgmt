@@ -1,148 +1,58 @@
-import json
+import os
 import logging
+import json
+from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
 
-import pytest
 
-from tests.common import config_reload
-from tests.common.helpers.assertions import pytest_assert
+BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+TEMPLATES_DIR = os.path.join(BASE_DIR, "../generic_config_updater/templates")
+TMP_DIR = '/tmp'
 
 logger = logging.getLogger(__name__)
-DEFAULT_CHECKPOINT_NAME = "test"
 
 
-def generate_tmpfile(duthost):
-    """Generate temp file
-    """
-    return duthost.shell('mktemp')['stdout']
+def format_and_apply_template(duthost, template_name, extra_vars, setup):
+    dest_path = os.path.join(TMP_DIR, template_name)
+
+    duts_to_apply = [duthost]
+    outputs = []
+    if setup["is_dualtor"]:
+        duts_to_apply.append(setup["rand_unselected_dut"])
+
+    for dut in duts_to_apply:
+        dut.host.options['variable_manager'].extra_vars.update(extra_vars)
+        dut.file(path=dest_path, state='absent')
+        dut.template(src=os.path.join(TEMPLATES_DIR, template_name), dest=dest_path)
+
+        try:
+            # duthost.template uses single quotes, which breaks apply-patch. this replaces them with double quotes
+            dut.shell("sed -i \"s/'/\\\"/g\" " + dest_path)
+            output = dut.shell("config apply-patch {}".format(dest_path))
+            outputs.append(output)
+        finally:
+            dut.file(path=dest_path, state='absent')
+
+    return outputs
 
 
-def apply_patch(duthost, json_data, dest_file, ignore_tables=None):
-    """Run apply-patch on target duthost
+def load_and_apply_json_patch(duthost, file_name, setup):
+    with open(os.path.join(TEMPLATES_DIR, file_name)) as file:
+        json_patch = json.load(file)
 
-    Args:
-        duthost: Device Under Test (DUT)
-        json_data: Source json patch to apply
-        dest_file: Destination file on duthost
-        ignore_tables: to be ignored tables, "-i table_name"
-    """
-    duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
+    duts_to_apply = [duthost]
+    outputs = []
+    if setup["is_dualtor"]:
+        duts_to_apply.append(setup["rand_unselected_dut"])
 
-    cmds = 'config apply-patch {} {}'.format(dest_file, ignore_tables if ignore_tables else "")
+    for dut in duts_to_apply:
 
-    logger.info("Commands: {}".format(cmds))
-    output = duthost.shell(cmds, module_ignore_errors=True)
+        tmpfile = generate_tmpfile(dut)
+        logger.info("tmpfile {}".format(tmpfile))
 
-    return output
+        try:
+            output = apply_patch(dut, json_data=json_patch, dest_file=tmpfile)
+            outputs.append(output)
+        finally:
+            delete_tmpfile(dut, tmpfile)
 
-
-def delete_tmpfile(duthost, tmpfile):
-    """Delete temp file
-    """
-    duthost.file(path=tmpfile, state='absent')
-
-
-def create_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
-    """Run checkpoint on target duthost
-
-    Args:
-        duthost: Device Under Test (DUT)
-        cp: checkpoint filename
-    """
-    cmds = 'config checkpoint {}'.format(cp)
-
-    logger.info("Commands: {}".format(cmds))
-    output = duthost.shell(cmds, module_ignore_errors=True)
-
-    pytest_assert(
-        not output['rc']
-        and "Checkpoint created successfully" in output['stdout']
-        and verify_checkpoints_exist(duthost, cp),
-        "Failed to config a checkpoint file: {}".format(cp)
-    )
-
-
-def list_checkpoints(duthost):
-    """List checkpoint on target duthost
-
-    Args:
-        duthost: Device Under Test (DUT)
-    """
-    cmds = 'config list-checkpoints'
-
-    logger.info("Commands: {}".format(cmds))
-    output = duthost.shell(cmds, module_ignore_errors=True)
-
-    pytest_assert(
-        not output['rc'],
-        "Failed to list all checkpoint file"
-    )
-
-    return output
-
-
-def verify_checkpoints_exist(duthost, cp):
-    """Check if checkpoint file exist in duthost
-    """
-    output = list_checkpoints(duthost)
-    return '"{}"'.format(cp) in output['stdout']
-
-
-def rollback(duthost, cp=DEFAULT_CHECKPOINT_NAME):
-    """Run rollback on target duthost
-
-    Args:
-        duthost: Device Under Test (DUT)
-        cp: rollback filename
-    """
-    cmds = 'config rollback {}'.format(cp)
-
-    logger.info("Commands: {}".format(cmds))
-    output = duthost.shell(cmds, module_ignore_errors=True)
-
-    return output
-
-
-def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
-    """Run rollback on target duthost. config_reload if rollback failed.
-
-    Args:
-        duthost: Device Under Test (DUT)
-    """
-    output = rollback(duthost, cp)
-
-    if output['rc'] or "Config rolled back successfully" not in output['stdout']:
-        config_reload(duthost)
-        pytest.fail("config rollback failed. Restored by config_reload")
-
-
-def delete_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
-    """Run checkpoint on target duthost
-
-    Args:
-        duthost: Device Under Test (DUT)
-        cp: checkpoint filename
-    """
-    pytest_assert(
-        verify_checkpoints_exist(duthost, cp),
-        "Failed to find the checkpoint file: {}".format(cp)
-    )
-
-    cmds = 'config delete-checkpoint {}'.format(cp)
-
-    logger.info("Commands: {}".format(cmds))
-    output = duthost.shell(cmds, module_ignore_errors=True)
-
-    pytest_assert(
-        not output['rc'] and "Checkpoint deleted successfully" in output['stdout'],
-        "Failed to delete a checkpoint file: {}".format(cp)
-    )
-
-
-def expect_op_success(duthost, output):
-    """Expected success from apply-patch output
-    """
-    pytest_assert(not output['rc'], "Command is not running successfully")
-    pytest_assert(
-        "Patch applied successfully" in output['stdout'],
-        "Please check if json file is validate"
-    )
+    return outputs

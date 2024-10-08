@@ -31,17 +31,18 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
-def apply_patch(duthost, json_data, dest_file):
+def apply_patch(duthost, json_data, dest_file, ignore_tables=None):
     """Run apply-patch on target duthost
 
     Args:
         duthost: Device Under Test (DUT)
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
+        ignore_tables: to be ignored tables, "-i table_name"
     """
     duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
 
-    cmds = 'config apply-patch {}'.format(dest_file)
+    cmds = 'config apply-patch {} {}'.format(dest_file, ignore_tables if ignore_tables else "")
 
     logger.info("Commands: {}".format(cmds))
     output = duthost.shell(cmds, module_ignore_errors=True)

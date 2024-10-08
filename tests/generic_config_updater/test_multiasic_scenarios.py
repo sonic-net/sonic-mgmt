@@ -4,9 +4,9 @@ import pytest
 import re
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import apply_patch
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -95,7 +95,7 @@ def test_check_idf_isolation_apply_patch(duthost):
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile, ignore_tables="-i PORT")
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile, ignore_tables="-i /PORT")
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             logger.info("Patching process broken, the error output is {}".format(output['stdout']))
@@ -119,7 +119,7 @@ def test_check_idf_unisolation_apply_patch(duthost):
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile, ignore_tables="-i PORT")
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile, ignore_tables="-i /PORT")
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             logger.info("Patching process broken, the error output is {}".format(output['stdout']))
@@ -152,7 +152,7 @@ def test_check_link_crc_mitigation_remove_and_add_apply_patch(duthost):
         pytest_assert(redis_value == expected_value, "Config Link CRC Mitigation add action failed.")
 
         json_patch = LINK_CRC_MITIGATION_REMOVE_TEMPLATE.format(portchannel, port)
-        output = apply_patch(duthost, json_data=json.loads(json_patch), dest_file=tmpfile, ignore_tables="-i PORT")
+        output = apply_patch(duthost, json_data=json.loads(json_patch), dest_file=tmpfile, ignore_tables="-i /PORT")
 
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             logger.info("Patching process broken, the error output is {}".format(output['stdout']))
