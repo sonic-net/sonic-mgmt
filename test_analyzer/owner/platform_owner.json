@@ -240,6 +240,22 @@
         "tag": ""
     },
     {
+        "hwsku": "Force10-S6000",
+        "topo": "t0",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Force10-S6000",
+        "topo": "t1",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
         "hwsku": "Mellanox-SN2700",
         "topo": "t0",
         "owner": "Bing Wang",
@@ -340,6 +356,14 @@
         "topo": "t1",
         "owner": "Yan Mo",
         "email": "yanmo@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Mellanox-SN4700-V64",
+        "topo": "dualtor",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
