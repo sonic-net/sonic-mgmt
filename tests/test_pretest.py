@@ -101,6 +101,7 @@ def collect_dut_info(dut):
         back_end_asics = dut.get_backend_asic_ids()
 
     asic_services = defaultdict(list)
+    asic_type = dut.facts['asic_type']
     for service in dut.sonichost.DEFAULT_ASIC_SERVICES:
         # for multi ASIC randomly select one frontend ASIC
         # and one backend ASIC
@@ -117,6 +118,7 @@ def collect_dut_info(dut):
         "intf_status": status,
         "features": features,
         "asic_services": asic_services,
+        "asic_type": asic_type
     }
 
     if dut.sonichost.is_multi_asic:
