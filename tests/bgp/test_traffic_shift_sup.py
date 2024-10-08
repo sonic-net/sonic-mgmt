@@ -27,15 +27,11 @@ def check_support(duthosts, enum_supervisor_dut_hostname):
 
 def config_save_all_lcs(duthosts):
     for linecard in duthosts.frontend_nodes:
-        # Temporary log
-        logger.info("Performing \"config save -y\" on {}".format(linecard))
         linecard.shell('sudo config save -y')
 
 
 def config_reload_all_lcs(duthosts):
     for linecard in duthosts.frontend_nodes:
-        # Temporary log
-        logger.info("Performing \"config_reload\" on {}".format(linecard))
         config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
 
 
@@ -45,13 +41,16 @@ def verify_traffic_shift_state_all_lcs(duthosts, ts_state, state):
                       "Linecard {} is not in {} state".format(linecard, state))
 
 
-def test_TSA(duthosts, enum_supervisor_dut_hostname, check_support, creds):
+def test_TSA(duthosts, enum_supervisor_dut_hostname):
     """
     Test TSA
     Verify all linecards transition to maintenance state after TSA on supervisor
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
     try:
+        # Make sure LCs are in normal mode before tests starts
+        verify_traffic_shift_state_all_lcs(duthosts, TS_NORMAL, "normal")
+
         # Issue TSA on DUT
         suphost.shell("TSA")
         # Verify DUT is in maintenance state.
@@ -64,13 +63,16 @@ def test_TSA(duthosts, enum_supervisor_dut_hostname, check_support, creds):
         suphost.shell("TSB")
 
 
-def test_TSB(duthosts, enum_supervisor_dut_hostname, check_support, creds):
+def test_TSB(duthosts, enum_supervisor_dut_hostname):
     """
     Test TSB
     Verify all linecards transition back to normal state from maintenance after TSB on supervisor
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
     try:
+        # Make sure LCs are in normal mode before tests starts
+        verify_traffic_shift_state_all_lcs(duthosts, TS_NORMAL, "normal")
+
         # Issue TSA on DUT to move chassis to maintenance
         suphost.shell("TSA")
         verify_traffic_shift_state_all_lcs(duthosts, TS_MAINTENANCE, "maintenance")
@@ -85,7 +87,7 @@ def test_TSB(duthosts, enum_supervisor_dut_hostname, check_support, creds):
 
 
 @pytest.mark.disable_loganalyzer
-def test_TSA_TSB_chassis_with_config_reload(duthosts, enum_supervisor_dut_hostname, check_support, creds):
+def test_TSA_TSB_chassis_with_config_reload(duthosts, enum_supervisor_dut_hostname):
     """
     Test TSA/TSB with config reload
     Verify all linecards remain in Maintenance state after TSA and config reload on supervisor
@@ -93,6 +95,9 @@ def test_TSA_TSB_chassis_with_config_reload(duthosts, enum_supervisor_dut_hostna
     """
     suphost = duthosts[enum_supervisor_dut_hostname]
     try:
+        # Make sure LCs are in normal mode before tests starts
+        verify_traffic_shift_state_all_lcs(duthosts, TS_NORMAL, "normal")
+
         # Issue TSA on DUT to move chassis to maintenance
         suphost.shell("TSA")
         verify_traffic_shift_state_all_lcs(duthosts, TS_MAINTENANCE, "maintenance")
