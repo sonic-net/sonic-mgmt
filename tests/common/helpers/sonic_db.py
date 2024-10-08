@@ -1,6 +1,7 @@
 import logging
 import json
 import six
+import ast
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.devices.sonic_asic import SonicAsic
 
@@ -92,6 +93,30 @@ class SonicDbCli(object):
                 return result['stdout'].decode('unicode-escape')
             else:
                 return result['stdout']
+
+    def hget_all(self, key):
+        """
+        Executes a sonic-db-cli HGETALL command.
+        Args:
+            key: full name of the key to get.
+        Returns:
+            The corresponding value of the key.
+        Raises:
+            SonicDbKeyNotFound: If the key is not found.
+        """
+
+        cmd = self._cli_prefix() + "HGETALL {}".format(key)
+        result = self._run_and_check(cmd)
+        if result == {}:
+            raise SonicDbKeyNotFound("Key: %s not found in sonic-db cmd: %s" % (key, cmd))
+        else:
+            v = None
+            if six.PY2:
+                v = result['stdout'].decode('unicode-escape')
+            else:
+                v = result['stdout']
+            v_dict = ast.literal_eval(v)
+            return v_dict
 
     def get_and_check_key_value(self, key, value, field=None):
         """
