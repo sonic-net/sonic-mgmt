@@ -207,6 +207,8 @@ class TestPsuApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
 
         for psu_id in range(self.num_psus):
+            failure_count = self.get_len_failed_expectations()
+            failure_occured = False
             for i in range(0, MAX_ATTEMPTS):
                 name = psu.get_name(platform_api_conn, psu_id)
                 if name in self.psu_skip_list:
@@ -238,10 +240,12 @@ class TestPsuApi(PlatformApiTestBase):
                                        "Failed to retrieve maximum supplied power of PSU {}".format(psu_id)):
                             self.expect(isinstance(max_supp_power, float),
                                         "PSU {} maximum supplied power appears incorrect".format(psu_id))
+                    
+                    failure_occured = self.get_len_failed_expectations() > failure_count
 
                     if current is not None and voltage is not None and power is not None:
                         is_within_tolerance = abs(power - (voltage*current)) < power*0.1
-                        if not is_within_tolerance and i < MAX_ATTEMPTS - 1:
+                        if not failure_occured and not is_within_tolerance and i < MAX_ATTEMPTS - 1:
                             logger.info("Retrying test for {} as readings not within tolerance level".format(name))
                             continue
                         self.expect(is_within_tolerance, "PSU {} reading does not make sense \
