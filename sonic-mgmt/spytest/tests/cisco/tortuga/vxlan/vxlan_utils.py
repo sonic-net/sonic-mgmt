@@ -123,7 +123,7 @@ def tgen_preconfig(stream_info, traffic_item_type, data, addr_family='ipv4'):
 
     return handles
 
-def create_udp_traffic_stream_and_send_traffic(handles, data, stream_list,timeout=30):
+def create_udp_traffic_stream(handles, data, stream_list,timeout=30):
     flag = True
     src_port = stream_list['src_endpoint']['port']
     dst_port = stream_list['dst_endpoint']['port']
@@ -131,7 +131,7 @@ def create_udp_traffic_stream_and_send_traffic(handles, data, stream_list,timeou
                     mode='create', transmit_mode=data.transmit_mode,
                     pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,
                     circuit_endpoint_type=data.circuit_endpoint_type,
-                    frame_size=data.frame_size, bidirectional=1,
+                    frame_size=data.frame_size,
                     emulation_src_handle=handles[src_port]["int_handle"],
                     emulation_dst_handle=handles[dst_port]["int_handle"],
                     track_by = 'trackingenabled0',
@@ -139,28 +139,43 @@ def create_udp_traffic_stream_and_send_traffic(handles, data, stream_list,timeou
                     udp_dst_port_mode='incr',udp_dst_port_count=500,udp_dst_port_step=1,
                     udp_src_port_mode='incr',udp_src_port_count=500,udp_src_port_step=1)
     stream_id = receive["stream_id"]
+    return stream_id
+
+def send_udp_traffic(handles, data, stream_list, stream_id, timeout=30):
+    src_port = stream_list['src_endpoint']['port']
+    dst_port = stream_list['dst_endpoint']['port']
     handles[src_port]["tg_handle"].tg_traffic_control(
                 action="clear_stats",
                 port_handle=[handles[src_port]["port_handle"],
                 handles[dst_port]["port_handle"]])
-    traffic_item = src_port+"<-->"+dst_port
+    traffic_item = src_port+"-->"+dst_port
     handles[src_port]['tg_handle'].tg_traffic_control(action='apply', stream_handle=stream_id)
     handles[src_port]['tg_handle'].tg_traffic_control(action='run', stream_handle=stream_id)
     st.wait(timeout)
     handles[src_port]['tg_handle'].tg_traffic_control(action='stop', stream_handle=stream_id)
     st.wait(5)
     traffic_stat = tgapi.get_traffic_stats(handles[src_port]['tg_handle'], mode='traffic_item', port_handle=handles[src_port]['port_handle'], direction='tx', stream_handle=stream_id)
-    st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {}".format(traffic_item))
+    st.banner("UNI-DIRECTIONAL TRAFFIC BEWTEEN {}".format(traffic_item))
     st.log("Received traffic: {}".format(traffic_stat['rx']['total_packets']))
     st.log("Sent traffic: {}".format(traffic_stat['tx']['total_packets']))
     st.log(traffic_stat['rx']['total_packets']/traffic_stat['tx']['total_packets'])
     if traffic_stat['rx']['total_packets'] > 0.998*traffic_stat['tx']['total_packets'] and traffic_stat['rx']['total_packets'] < 1.002*traffic_stat['tx']['total_packets']:
-        st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {} PASSED".format(traffic_item))
+        st.banner("UNI-DIRECTIONAL TRAFFIC BEWTEEN {} PASSED".format(traffic_item))
         flag = True
     else:
-        st.banner("BI-DIRECTIONAL TRAFFIC BEWTEEN {} FAILED".format(traffic_item))
+        st.banner("UNI-DIRECTIONAL TRAFFIC BEWTEEN {} FAILED".format(traffic_item))
         flag = False
+    return flag
+
+def delete_udp_traffic_stream(handles, stream_list):
+    src_port = stream_list['src_endpoint']['port']
     handles[src_port]['tg_handle'].tg_traffic_control(action='reset')
+
+def create_unicast_udp_traffic_stream_and_send_traffic(handles, data, stream_list):
+    flag = True
+    stream_id = create_udp_traffic_stream(handles, data, stream_list)
+    flag = send_udp_traffic(handles, data, stream_list, stream_id)
+    delete_udp_traffic_stream(handles)
     return flag
 
 def create_bum_traffic_stream_and_send_traffic(src_handle, dst_handle, stream_info, traffic_item_type, data, _mode):

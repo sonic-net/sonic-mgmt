@@ -1,0 +1,11 @@
+Value Filldown MAC_ADDR (..:..:..:..:..:..)
+Value VTEP (\S+)
+Value type (\S+)
+Value vni_label (\d+)
+Value vlan (\S+)
+
+Start
+  ^\s*\"VXLAN_FDB_TABLE:${vlan}:${MAC_ADDR}\":\s*
+  ^\s+\"remote_vtep\":\s*\"${VTEP}\"\s*
+  ^\s+\"type\":\s*\"${type}\"\s*
+  ^\s+\"vni\":\s*\"${vni_label}\"\s*

@@ -12,13 +12,14 @@ Value Filldown COST (\d+)
 Value Filldown vrf_name (\S+)
 Value dest_vrf_name (\S+)
 Value weight (\d+)
+Value RMAC (\S+)
 
 Start
   ^\S+ -> Continue.Record
   ^\s*VRF ${vrf_name}:
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*is directly connected,\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}\s*onlink,\s*weight\s*${weight},\s*${DURATION}\s*$$
-  ^\s*\*\s*via\s*${NEXTHOP},\s*${INTERFACE}\s*onlink,\s*weight\s*${weight},\s*${DURATION} -> Record
+  ^\s*\*\s*via\s*${NEXTHOP},\s*${INTERFACE}\s*onlink,\s*weight\s*${weight},\s*RMAC\s*${RMAC},\s*${DURATION} -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*is directly connected,\s*${INTERFACE}\(vrf\s${dest_vrf_name}\),\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*is directly connected,\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*is directly connected,\s*${INTERFACE}\s*inactive,\s*${DURATION}\s*$$ -> Record
@@ -48,4 +49,5 @@ Start
   ^\s*Direct\s*${INTERFACE}\s*$$ -> Record
   ^\s*via\s*${NEXTHOP}\s*${INTERFACE}\s*$$ -> Record
   ^\s*via\s*${NEXTHOP}$$ -> Record
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}\s*onlink,\s*weight\s*${weight},\s*RMAC\s*${RMAC},\s*${DURATION}\s*$$ ->
   ^$$

@@ -1,0 +1,14 @@
+Value MAC_ADDRESS (..:..:..:..:..:..)
+Value Type (\S+)
+Value Flags (\S+)
+Value VTEP (\S+)
+Value Vlan (\S+)
+Value Seq (\S+)
+
+Start
+  ^\S+ -> Continue.Record
+  ^\s*${MAC_ADDRESS}\s*${Type}\s*${VTEP}\s*${Seq}\s*$$ -> Record
+  ^\s*${MAC_ADDRESS}\s*${Type}\s*${VTEP}\s*${Vlan}\s*${Seq}\s*$$ -> Record
+  ^\s*${MAC_ADDRESS}\s*${Type}\s*${Flags}\s*${VTEP}\s*${Vlan}\s*${Seq}\s*$$ -> Record
+  ^\s*${MAC_ADDRESS}\s*${Type}\s*${Flags}\s*${VTEP}\s*${Seq}\s*$$ -> Record
+  ^$$
