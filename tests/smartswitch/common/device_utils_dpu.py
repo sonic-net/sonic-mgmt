@@ -18,7 +18,7 @@ def num_dpu_modules(platform_api_conn):
     """
 
     num_modules = int(chassis.get_num_modules(platform_api_conn))
-    logging.info("Num of moduels: '{}'".format(num_modules))
+    logging.info("Num of modules: '{}'".format(num_modules))
 
     return num_modules
 
@@ -66,6 +66,7 @@ def is_dark_mode_enabled(duthost, platform_api_conn):
                             -n 4 hgetall "CHASSIS_MODULE|{}"'.format(dpu))
         if output_config_db['stdout'] is None:
             logging.warn("redis cli output for chassis module state is empty")
+            return False
         if 'down' in output_config_db['stdout']:
             count_admin_down += 1
 
