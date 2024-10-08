@@ -8,6 +8,7 @@ To optimize this, we propose a simplified PR test
 that runs only the necessary test scripts located in the same folder as the modified files,
 which reduces both time and cost efficiently.
 
+
 ## Design
 Our new simplified PR test will follow below principles:
 - If changes are made only to the scripts within the features folder,
@@ -21,6 +22,7 @@ these scripts should not only within the scope that we changed, but also meet th
 
 Because the number of scripts per test is variable,
 the instances used by Elastictest will also be automatically scheduled concurrently,
+
 
 ### To meet the requirement of topology
 One approach to achieve this is by using the `--topology` parameter supported by pytest.
