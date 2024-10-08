@@ -25,7 +25,7 @@ TOKEN = os.environ.get('AZURE_DEVOPS_MSAZURE_TOKEN')
 
 if not TOKEN:
     raise Exception(
-        'Must export environment variable AZURE_DEVOPS_MSSONIC_TOKEN')
+        'Must export environment variable AZURE_DEVOPS_MSAZURE_TOKEN')
 AUTH = ('', TOKEN)
 
 ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'

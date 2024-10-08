@@ -22,12 +22,15 @@ logger = logging.getLogger(__name__)
 
 deduper: DataDeduplicator = get_deduplicator()
 
-def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error):
+def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, included_branch, released_branch):
     current_time = datetime.now(tz=pytz.UTC)
     logger.info(configuration)
     configuration["testbeds"] = {}
     configuration["testbeds"]["excluded_testbed_keywords"] = excluded_testbed_keywords
     configuration["testbeds"]["excluded_testbed_keywords_setup_error"] = excluded_testbed_keywords_setup_error
+    
+    configuration["branches"]["included_branch"] = included_branch
+    configuration["branches"]["released_branch"] = released_branch
 
     kusto_connector = KustoConnector(configuration, current_time)
     general = DataAnalyzer(kusto_connector, configuration, current_time)
@@ -150,20 +153,46 @@ if __name__ == '__main__':
         "--exclude_testbed", "-extb",
         type=str,
         required=False,
-        help="The list of testbeds to be excluded.",
+        help="The list of testbeds to be excluded (as a comma-delimited list)",
     )
 
     parser.add_argument(
         "--exclude_testbed_setup_error", "-exerr",
         type=str,
         required=False,
-        help="The list of testbed setup error to be excluded.",
+        help="The list of testbed setup error to be excluded (as a comma-delimited list)",
+    )
+
+    parser.add_argument(
+        "--included_branch", "-incbr",
+        type=str,
+        required=False,
+        help="The list of branches to include (as a JSON list)"
+    )
+
+    parser.add_argument(
+        "--released_branch", "-rlsbr",
+        type=str,
+        required=False,
+        help="The list of released branches (as a JSON list)"
     )
 
     args = parser.parse_args()
+    
     excluded_testbed_keywords = args.exclude_testbed.split(",")
     excluded_testbed_keywords_setup_error = args.exclude_testbed_setup_error.split(",")
+    included_branch = json.loads(args.included_branch)
+    released_branch = json.loads(args.released_branch)
+
     logger.info("excluded_testbed_keywords={}, excluded_testbed_keywords_setup_error={}"
         .format(excluded_testbed_keywords, excluded_testbed_keywords_setup_error))
 
-    main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error)
+    logger.info(f"included_branch={included_branch}, released_branch={released_branch}")
+
+    main(
+        excluded_testbed_keywords, 
+        excluded_testbed_keywords_setup_error,
+        included_branch,
+        released_branch
+    )
+

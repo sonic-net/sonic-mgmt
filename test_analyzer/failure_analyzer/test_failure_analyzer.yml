@@ -50,7 +50,12 @@ stages:
                 touch logs/analyzer.log
                 pip3 install -r requirements.txt
 
-                python3 main.py -extb $(EXCLUDED_TESTBED_KEYWORDS) -exerr $(EXCLUDED_TESTBED_KEYWORDS_SETUP_ERROR) 2>&1 | tee logs/analyzer.log
+                python3 main.py \
+                  -extb $(EXCLUDED_TESTBED_KEYWORDS) \
+                  -exerr $(EXCLUDED_TESTBED_KEYWORDS_SETUP_ERROR) \
+                  -incbr '$(INCLUDED_BRANCH)' \
+                  -rlsbr '$(RELEASED_BRANCH)' \
+                  2>&1 | tee logs/analyzer.log
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
               AZURE_DEVOPS_MSAZURE_TOKEN: $(MSAZURE-TOKEN)

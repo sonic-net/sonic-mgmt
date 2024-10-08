@@ -9,9 +9,7 @@
     },
     "branch": {
         "excluded_branch": ["internal-202106", "C"],
-        "excluded_branch_setup_error": ["internal-202106", "C"],
-        "included_branch": ["20201231", "master", "internal", "20220531", "20230531", "20231110"],
-        "released_branch": ["20201231", "20220531", "20230531", "20231110"]
+        "excluded_branch_setup_error": ["internal-202106", "C"]
     },
     "topo": {
         "excluded_topo": ["t2"]
