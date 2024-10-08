@@ -120,3 +120,48 @@ def test_TSA_TSB_chassis_with_config_reload(duthosts, enum_supervisor_dut_hostna
 
         # Verify DUT is in normal state.
         verify_traffic_shift_state_all_lcs(duthosts, TS_NORMAL, "normal")
+
+
+def test_TSB_while_TSA_enabled_on_dut(duthosts, enum_supervisor_dut_hostname):
+    """
+    Test TSB on sup card while TSA is enabled on linecard
+    Verify LC remains in Maintenance state after TSB on supervisor when TSA is enabled on LC
+    """
+    suphost = duthosts[enum_supervisor_dut_hostname]
+    # duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    try:
+        # Make sure LCs are in normal mode before tests starts
+        verify_traffic_shift_state_all_lcs(duthosts, TS_NORMAL, "normal")
+
+        for linecard in duthosts.frontend_nodes:
+            linecard.shell("TSA")
+        verify_traffic_shift_state_all_lcs(duthosts, TS_MAINTENANCE, "maintenance")
+
+        # Verify DUT remains in maintenance state after performing TSB on supervisor card
+        suphost.shell("TSA")
+
+        suphost.shell("TSB")
+        verify_traffic_shift_state_all_lcs(duthosts, TS_MAINTENANCE, "maintenance")
+
+        # Recover and try again with order sup TSA -> LC TSA
+        for linecard in duthosts.frontend_nodes:
+            linecard.shell("TSB")
+        verify_traffic_shift_state_all_lcs(duthosts, TS_NORMAL, "normal")
+
+        suphost.shell("TSA")
+        verify_traffic_shift_state_all_lcs(duthosts, TS_MAINTENANCE, "maintenance")
+
+        for linecard in duthosts.frontend_nodes:
+            linecard.shell("TSA")
+        verify_traffic_shift_state_all_lcs(duthosts, TS_MAINTENANCE, "maintenance")
+
+        # Verify DUT remains in maintenance state after performing TSB on supervisor card
+        suphost.shell("TSB")
+        verify_traffic_shift_state_all_lcs(duthosts, TS_MAINTENANCE, "maintenance")
+
+    finally:
+        # Attempt to recover to normal state
+        suphost.shell("TSB")
+        for linecard in duthosts.frontend_nodes:
+            linecard.shell("TSB")
+        verify_traffic_shift_state_all_lcs(duthosts, TS_NORMAL, "normal")
