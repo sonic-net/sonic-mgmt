@@ -156,10 +156,10 @@ bgp/test_bgp_speaker.py:
 
 bgp/test_bgp_suppress_fib.py:
   skip:
-    reason: "Not supported before release 202405."
+    reason: "Not supported before release 202411."
     conditions_logical_operator: or
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', 'master']"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
 
 bgp/test_bgpmon.py:
