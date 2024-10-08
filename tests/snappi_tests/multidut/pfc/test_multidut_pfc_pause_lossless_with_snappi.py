@@ -74,7 +74,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
             snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
                                                      tx_port_count, rx_port_count, MULTIDUT_TESTBED)
         else:
-            snappi_ports = snappi_port_list
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
                                                                                 snappi_ports,
                                                                                 snappi_api)
@@ -138,8 +138,6 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
         tx_port_count = 1
         rx_port_count = 1
         snappi_port_list = get_snappi_ports
-        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
         pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
@@ -153,8 +151,11 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
                       testbed {}, subtype {} in variables.py'.
                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
                                                                                 snappi_ports,
                                                                                 snappi_api)
@@ -220,8 +221,6 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
         tx_port_count = 1
         rx_port_count = 1
         snappi_port_list = get_snappi_ports
-        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
         pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
@@ -235,8 +234,11 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
                       testbed {}, subtype {} in variables.py'.
                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
                                                                                 snappi_ports,
                                                                                 snappi_api)
@@ -314,8 +316,6 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
         tx_port_count = 1
         rx_port_count = 1
         snappi_port_list = get_snappi_ports
-        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
         pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
@@ -329,8 +329,11 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
                       testbed {}, subtype {} in variables.py'.
                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
                                                                                 snappi_ports,
                                                                                 snappi_api)
