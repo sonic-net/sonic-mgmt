@@ -132,7 +132,6 @@ class QosBase:
         """
         custom_options = " --disable-ipv6 --disable-vxlan --disable-geneve" \
                          " --disable-erspan --disable-mpls --disable-nvgre"
-
         ptf_runner(
             ptfhost,
             "saitests",
