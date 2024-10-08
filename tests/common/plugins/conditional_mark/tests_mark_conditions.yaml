@@ -156,10 +156,10 @@ bgp/test_bgp_speaker.py:
 
 bgp/test_bgp_suppress_fib.py:
   skip:
-    reason: "Not supported before release 202405."
+    reason: "Not supported before release 202411."
     conditions_logical_operator: or
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', 'master']"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
 
 bgp/test_bgpmon.py:
@@ -749,6 +749,11 @@ generic_config_updater/test_eth_interface.py::test_update_speed:
       - https://github.com/sonic-net/sonic-mgmt/issues/8143
       - https://github.com/sonic-net/sonic-buildimage/issues/13267
 
+generic_config_updater/test_incremental_qos.py:
+  skip:
+    reason: "Does not support dualtor right now, due to issue https://github.com/sonic-net/sonic-mgmt/issues/14865"
+    conditions:
+      - "'dualtor' in topo_name"
 
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
@@ -1058,6 +1063,15 @@ nat:
     reason: "Nat feature is not enabled with image version"
     conditions:
       - "'nat' not in feature_status"
+
+#######################################
+#####    override_config_table    #####
+#######################################
+override_config_table/test_override_config_table.py:
+  skip:
+    reason: "Skip on multi-asic platforms as test provided golden config format is not compatible with multi-asics."
+    conditions:
+      - "is_multi_asic==True"
 
 #######################################
 #####           pc               #####
@@ -1675,6 +1689,15 @@ test_pktgen.py:
     conditions:
       - "asic_type not in ['cisco-8000']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/13804"
+
+#######################################
+#####         vs_chassis          #####
+#######################################
+test_vs_chassis_setup.py:
+  skip:
+    reason: "Skip vs_chassis setup on non-vs testbeds"
+    conditions:
+      - "asic_type not in ['vs']"
 
 #######################################
 #####            vlan             #####
