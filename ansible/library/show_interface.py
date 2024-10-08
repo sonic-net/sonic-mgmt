@@ -117,8 +117,9 @@ class ShowInterfaceModule(object):
         return ' '.join(line.split()[9:-1])
 
     def collect_interface_status(self, namespace=None, include_internal_intfs=False, include_inband_intfs=False):
+        # W/A until Issue https://github.com/sonic-net/sonic-utilities/issues/3444 is fixed
         regex_int_fec = re.compile(
-            r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|fc|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
+            r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+(rs|fc|N\/A|none)\s+([\w\/]+)\s+(\w+)\s+([\w\/]+)\s+(\w+)')
         regex_int = re.compile(
             r'(\S+)\s+[\d,N\/A]+\s+(\w+)\s+(\d+)\s+([\w\/]+)\s+(\w+)\s+(\w+)\s+(\w+)')
         regex_int_internal = re.compile(
