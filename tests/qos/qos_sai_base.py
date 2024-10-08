@@ -132,9 +132,6 @@ class QosBase:
         """
         custom_options = " --disable-ipv6 --disable-vxlan --disable-geneve" \
                          " --disable-erspan --disable-mpls --disable-nvgre"
-        # Append a suffix to the logfile name if log_suffix is present in testParams
-        log_suffix = testParams.get("log_suffix", "")
-        logfile_suffix = "_{0}".format(log_suffix) if log_suffix else ""
 
         ptf_runner(
             ptfhost,
@@ -142,7 +139,7 @@ class QosBase:
             testCase,
             platform_dir="ptftests",
             params=testParams,
-            log_file="/tmp/{0}{1}.log".format(testCase, logfile_suffix),  # Include suffix in the logfile name,
+            log_file="/tmp/{0}.log".format(testCase),
             qlen=10000,
             is_python3=True,
             relax=relax,
