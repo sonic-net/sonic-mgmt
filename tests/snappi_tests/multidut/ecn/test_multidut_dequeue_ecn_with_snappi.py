@@ -3,9 +3,11 @@ import random
 import logging
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require    # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
-    fanout_graph_facts_multidut                                                                  # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
+    fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    get_snappi_ports_single_dut, snappi_testbed_config, \
+    get_snappi_ports_multi_dut, is_snappi_multidut, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
 
@@ -16,7 +18,7 @@ from tests.snappi_tests.files.helper import skip_ecn_tests
 from tests.common.snappi_tests.common_helpers import packet_capture
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology('multidut-tgen')]
+pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
@@ -54,8 +56,6 @@ def test_dequeue_ecn(request,
         tx_port_count = 1
         rx_port_count = 1
         snappi_port_list = get_snappi_ports
-        pytest_assert(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                      "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
         pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
@@ -69,8 +69,11 @@ def test_dequeue_ecn(request,
                       testbed {}, subtype {} in variables.py'.
                       format(MULTIDUT_TESTBED, testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
                                                                                 snappi_ports,
                                                                                 snappi_api)
@@ -78,7 +81,7 @@ def test_dequeue_ecn(request,
     lossless_prio = random.sample(lossless_prio_list, 1)
     skip_ecn_tests(snappi_ports[0]['duthost'])
     skip_ecn_tests(snappi_ports[1]['duthost'])
-    lossless_prio = int(lossless_prio)
+    lossless_prio = int(lossless_prio[0])
     snappi_extra_params = SnappiTestParams()
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
