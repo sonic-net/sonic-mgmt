@@ -36,42 +36,44 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
-def get_ipv6_neighbor(duthost):
+def get_ip_neighbor(duthost, ip_version=6):
     """
-    Returns ipv6 BGP neighbor address, properties of BGP neighbor
+    Returns ip BGP neighbor address, properties of BGP neighbor
 
     Args:
         duthost: DUT host object
+        ip_version: Ip version of the bgp neighbor
     """
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors_data = config_facts['BGP_NEIGHBOR']
     for neighbor_address in list(bgp_neighbors_data.keys()):
-        if ipaddress.ip_address((neighbor_address.encode().decode())).version == 6:
+        if ipaddress.ip_address((neighbor_address.encode().decode())).version == ip_version:
             return neighbor_address, bgp_neighbors_data[neighbor_address]
-    pytest_assert(True, "No existing ipv6 neighbor")
+    pytest_assert(True, "No existing ipv{} neighbor".format(ip_version))
 
 
-def check_neighbor_existence(duthost, neighbor_address):
-    ipv6_bgp_su = duthost.shell('show ipv6 bgp su')['stdout']
-    return re.search(r'\b{}\b'.format(neighbor_address), ipv6_bgp_su)
+def check_neighbor_existence(duthost, neighbor_address, ip_version=6):
+    cmd = 'show ip bgp su' if ip_version == 4 else 'show ipv6 bgp su'
+    ip_bgp_su = duthost.shell(cmd)['stdout']
+    return re.search(r'\b{}\b'.format(neighbor_address), ip_bgp_su)
 
 
-def add_deleted_ipv6_neighbor(duthost):
-    ipv6_neighbor_address, ipv6_neighbor_config = get_ipv6_neighbor(duthost)
-    neighbor_exists = check_neighbor_existence(duthost, ipv6_neighbor_address)
-    pytest_assert(neighbor_exists, "Nonexistent ipv6 BGP neighbor")
+def add_deleted_ip_neighbor(duthost, ip_version=6):
+    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, ip_version)
+    neighbor_exists = check_neighbor_existence(duthost, ip_neighbor_address, ip_version)
+    pytest_assert(neighbor_exists, "Nonexistent ipv{} BGP neighbor".format(ip_version))
 
-    duthost.shell('config bgp remove neighbor {}'.format(ipv6_neighbor_address))
-    neighbor_exists = check_neighbor_existence(duthost, ipv6_neighbor_address)
+    duthost.shell('config bgp remove neighbor {}'.format(ip_neighbor_address))
+    neighbor_exists = check_neighbor_existence(duthost, ip_neighbor_address, ip_version)
     pytest_assert(not neighbor_exists,
-                  "Failed to remove ipv6 BGP neighbor under test")
+                  "Failed to remove ipv{} BGP neighbor under test".format(ip_version))
 
     json_patch = [
         {
             "op": "add",
-            "path": "/BGP_NEIGHBOR/{}".format(ipv6_neighbor_address),
-            "value": ipv6_neighbor_config
+            "path": "/BGP_NEIGHBOR/{}".format(ip_neighbor_address),
+            "value": ip_neighbor_config
         }
     ]
 
@@ -81,21 +83,21 @@ def add_deleted_ipv6_neighbor(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        neighbor_exists = check_neighbor_existence(duthost, ipv6_neighbor_address)
+        neighbor_exists = check_neighbor_existence(duthost, ip_neighbor_address, ip_version)
         pytest_assert(neighbor_exists,
-                      "GCU failed to add back deleted ipv6 BGP neighbor")
+                      "GCU failed to add back deleted ipv{} BGP neighbor".format(ip_version))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def add_duplicate_ipv6_neighbor(duthost):
-    ipv6_neighbor_address, ipv6_neighbor_config = get_ipv6_neighbor(duthost)
+def add_duplicate_ip_neighbor(duthost, ip_version=6):
+    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, ip_version)
 
     json_patch = [
         {
             "op": "add",
-            "path": "/BGP_NEIGHBOR/{}".format(ipv6_neighbor_address),
-            "value": ipv6_neighbor_config
+            "path": "/BGP_NEIGHBOR/{}".format(ip_neighbor_address),
+            "value": ip_neighbor_config
         }
     ]
 
@@ -105,23 +107,28 @@ def add_duplicate_ipv6_neighbor(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        neighbor_exists = check_neighbor_existence(duthost, ipv6_neighbor_address)
+        neighbor_exists = check_neighbor_existence(duthost, ip_neighbor_address, ip_version)
         pytest_assert(neighbor_exists,
-                      "Expected ipv6 BGP neighbor does not exist")
+                      "Expected ipv{} BGP neighbor does not exist".format(ip_version))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def invalid_ipv6_neighbor(duthost):
-    xfail_input = [
+def invalid_ip_neighbor(duthost, ip_version=6):
+    xfailv6_input = [
         ("add", "FC00::xyz/126"),
         ("remove", "FC00::01/126")
     ]
-    for op, dummy_neighbor_ipv6_address in xfail_input:
+    xfailv4_input = [
+        ("add", "10.0.0.256/31"),
+        ("remove", "10.0.0.0/31")
+    ]
+    xfail_input = xfailv4_input if ip_version == 4 else xfailv6_input
+    for op, dummy_neighbor_ip_address in xfail_input:
         json_patch = [
             {
                 "op": "{}".format(op),
-                "path": "/BGP_NEIGHBOR/{}".format(dummy_neighbor_ipv6_address),
+                "path": "/BGP_NEIGHBOR/{}".format(dummy_neighbor_ip_address),
                 "value": {}
             }
         ]
@@ -136,17 +143,17 @@ def invalid_ipv6_neighbor(duthost):
             delete_tmpfile(duthost, tmpfile)
 
 
-def ipv6_neighbor_admin_change(duthost):
-    ipv6_neighbor_address, ipv6_neighbor_config = get_ipv6_neighbor(duthost)
+def ip_neighbor_admin_change(duthost, ip_version=6):
+    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, ip_version)
     json_patch = [
         {
             "op": "add",
-            "path": "/BGP_NEIGHBOR/{}/admin_status".format(ipv6_neighbor_address),
+            "path": "/BGP_NEIGHBOR/{}/admin_status".format(ip_neighbor_address),
             "value": "up"
         },
         {
             "op": "replace",
-            "path": "/BGP_NEIGHBOR/{}/admin_status".format(ipv6_neighbor_address),
+            "path": "/BGP_NEIGHBOR/{}/admin_status".format(ip_neighbor_address),
             "value": "down"
         }
     ]
@@ -158,21 +165,22 @@ def ipv6_neighbor_admin_change(duthost):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        cmds = "show ipv6 bgp su | grep -w {}".format(ipv6_neighbor_address)
+        ip_type = "ip" if ip_version == 4 else 'ipv6'
+        cmds = "show {} bgp su | grep -w {}".format(ip_type, ip_neighbor_address)
         output = duthost.shell(cmds)
         pytest_assert(not output['rc'] and "Idle (Admin)" in output['stdout'],
-                      "BGP Neighbor with addr {} failed to admin down.".format(ipv6_neighbor_address))
+                      "BGP Neighbor with addr {} failed to admin down.".format(ip_neighbor_address))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def delete_ipv6_neighbor(duthost):
-    ipv6_neighbor_address, ipv6_neighbor_config = get_ipv6_neighbor(duthost)
+def delete_ip_neighbor(duthost, ip_version=6):
+    ip_neighbor_address, ip_neighbor_config = get_ip_neighbor(duthost, ip_version)
 
     json_patch = [
         {
             "op": "remove",
-            "path": "/BGP_NEIGHBOR/{}".format(ipv6_neighbor_address)
+            "path": "/BGP_NEIGHBOR/{}".format(ip_neighbor_address)
         }
     ]
 
@@ -182,16 +190,17 @@ def delete_ipv6_neighbor(duthost):
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        neighbor_exists = check_neighbor_existence(duthost, ipv6_neighbor_address)
+        neighbor_exists = check_neighbor_existence(duthost, ip_neighbor_address, ip_version)
         pytest_assert(not neighbor_exists,
-                      "Failed to remove ipv6 BGP neighbor under test")
+                      "Failed to remove ipv{} BGP neighbor under test".format(ip_version))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_ipv6_suite(duthost, ensure_dut_readiness):
-    add_deleted_ipv6_neighbor(duthost)
-    add_duplicate_ipv6_neighbor(duthost)
-    invalid_ipv6_neighbor(duthost)
-    ipv6_neighbor_admin_change(duthost)
-    delete_ipv6_neighbor(duthost)
+@pytest.mark.parametrize("ip_version", [6, 4])
+def test_ip_suite(duthost, ensure_dut_readiness, ip_version):
+    add_deleted_ip_neighbor(duthost, ip_version)
+    add_duplicate_ip_neighbor(duthost, ip_version)
+    invalid_ip_neighbor(duthost, ip_version)
+    ip_neighbor_admin_change(duthost, ip_version)
+    delete_ip_neighbor(duthost, ip_version)
