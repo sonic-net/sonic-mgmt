@@ -136,6 +136,13 @@
             <a:Value>{{ switch_type }}</a:Value>
           </a:DeviceProperty>
 {% endif %}
+{% if msft_an_enabled is defined %}
+          <a:DeviceProperty>
+            <a:Name>AutoNegotiation</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ msft_an_enabled }}</a:Value>
+          </a:DeviceProperty>
+{% endif %}
 {% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
           <a:DeviceProperty>
             <a:Name>SwitchId</a:Name>
