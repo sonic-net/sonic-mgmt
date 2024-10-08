@@ -1,6 +1,5 @@
 import logging
 import datetime
-import pexpect
 import pytest
 from tests.common import reboot, config_reload
 from tests.common.reboot import get_reboot_cause, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
@@ -102,8 +101,8 @@ def get_tsa_tsb_service_uptime(duthost):
     service_status = duthost.shell("sudo systemctl status startup_tsa_tsb.service | grep 'Active'")
     for line in service_status["stdout_lines"]:
         if 'active' in line:
-            tmp_time = line.split('since')[1].strip().encode('utf-8')
-            act_time = tmp_time.split('UTC')[0].strip().encode('utf-8')
+            tmp_time = line.split('since')[1].strip()
+            act_time = tmp_time.split('UTC')[0].strip()
             service_uptime = datetime.datetime.strptime(act_time[4:], '%Y-%m-%d %H:%M:%S')
             return service_uptime
     return service_uptime
@@ -164,37 +163,6 @@ def check_ssh_state(localhost, dut_ip, expected_state, timeout=60):
                              timeout=timeout,
                              module_ignore_errors=True)
     return not res.is_failed and 'Timeout' not in res.get('msg', '')
-
-
-def exec_tsa_tsb_cmd_on_supervisor(duthosts, enum_supervisor_dut_hostname, creds, tsa_tsb_cmd):
-    """
-    @summary: Issue TSA/TSB command on supervisor card using user credentials
-    Verify command is executed on supervisor card
-    @returns: None
-    """
-    try:
-        suphost = duthosts[enum_supervisor_dut_hostname]
-        sup_ip = suphost.mgmt_ip
-        sonic_username = creds['sonicadmin_user']
-        sonic_password = creds['sonicadmin_password']
-        logger.info('sonic-username: {}, sonic_password: {}'.format(sonic_username, sonic_password))
-        ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {}@{}".format(sonic_username, sup_ip)
-        connect = pexpect.spawn(ssh_cmd)
-        connect.expect('.*[Pp]assword:')
-        connect.sendline(sonic_password)
-        i = connect.expect('{}@{}:'.format(sonic_username, suphost.hostname), timeout=10)
-        pytest_assert(i == 0, "Failed to connect")
-        connect.sendline(tsa_tsb_cmd)
-        connect.expect('.*[Pp]assword for username \'{}\':'.format(sonic_username))
-        connect.sendline(sonic_password)
-        j = connect.expect('{}@{}:'.format(sonic_username, suphost.hostname), timeout=10)
-        pytest_assert(j == 0, "Failed to connect")
-    except pexpect.exceptions.EOF:
-        pytest.fail("EOF reached")
-    except pexpect.exceptions.TIMEOUT:
-        pytest.fail("Timeout reached")
-    except Exception as e:
-        pytest.fail("Cannot connect to DUT {} host via SSH: {}".format(suphost.hostname, e))
 
 
 @pytest.mark.disable_loganalyzer
@@ -943,7 +911,6 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
     Issue TSB from supervisor, while the service is running on dut, and make sure the TSB is configured on linecards
     Make sure TSA_TSB service is stopped and dut changes from maintenance mode to normal mode
     """
-    tsa_tsb_cmd = 'sudo TSB'
     suphost = duthosts[enum_supervisor_dut_hostname]
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
@@ -1001,7 +968,7 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
                 "Failed to verify routes on nbr in TSA")
 
         # Execute user initiated TSB from supervisor card
-        exec_tsa_tsb_cmd_on_supervisor(duthosts, enum_supervisor_dut_hostname, creds, tsa_tsb_cmd)
+        suphost.shell("TSB")
 
         for linecard in duthosts.frontend_nodes:
             # Ensure dut comes back to normal state
