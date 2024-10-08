@@ -420,6 +420,109 @@ class Parse_Lab_Graph():
         """
         return self.vlanport.get(hostname)
 
+    def csv_to_graph_facts(self):
+        devices = {}
+        for entry in self.csv_facts["devices"]:
+            management_ip = entry["ManagementIp"]
+            if len(management_ip.split("/")) > 1:
+                iface = ipaddress.ip_interface(six.text_type(management_ip))
+                entry["mgmtip"] = str(iface.ip)
+                entry["ManagementGw"] = str(iface.network.network_address + 1)
+
+            if entry["Type"].lower() not in ["pdu", "consoleserver", "mgmttstorrouter"]:
+                if "CardType" not in entry:
+                    entry["CardType"] = "Linecard"
+                if "HwSkuType" not in entry:
+                    entry["HwSkuType"] = "predefined"
+            devices[entry["Hostname"]] = entry
+        self.graph_facts["devices"] = devices
+
+        links = {}
+        port_vlans = {}
+        links_group_by_devices = {}
+        ports_group_by_devices = {}
+
+        for entry in self.csv_facts["links"]:
+            if entry['StartDevice'] not in links_group_by_devices:
+                links_group_by_devices[entry['StartDevice']] = []
+            if entry['EndDevice'] not in links_group_by_devices:
+                links_group_by_devices[entry['EndDevice']] = []
+            if entry['StartDevice'] not in ports_group_by_devices:
+                ports_group_by_devices[entry['StartDevice']] = []
+            if entry['EndDevice'] not in ports_group_by_devices:
+                ports_group_by_devices[entry['EndDevice']] = []
+
+            links_group_by_devices[entry['StartDevice']].append(entry)
+            links_group_by_devices[entry['EndDevice']].append(entry)
+            ports_group_by_devices[entry['StartDevice']].append(entry['StartPort'])
+            ports_group_by_devices[entry['EndDevice']].append(entry['EndPort'])
+
+        convert_alias_to_name = []
+        for device, device_links in links_group_by_devices.items():
+            if self.graph_facts["devices"][device].get("Os", "").lower() == "sonic":
+                if any([port not in self._get_port_alias_set(device) and port not in self._get_port_name_set(device) for port in ports_group_by_devices[device]]):  # noqa: E501
+                    continue
+                elif all([port in self._get_port_alias_set(device) for port in ports_group_by_devices[device]]):
+                    convert_alias_to_name.append(device)
+                elif not all([port in self._get_port_name_set(device) for port in ports_group_by_devices[device]]):
+                    raise Exception(
+                        "[Failed] For device {}, please check {} and ensure all ports use "
+                        "port name, or ensure all ports use port alias.".format(
+                            device, ports_group_by_devices[device]
+                        )
+                    )
+
+        logging.debug("convert_alias_to_name {}".format(convert_alias_to_name))
+
+        for link in self.csv_facts["links"]:
+            start_device = link["StartDevice"]
+            end_device = link["EndDevice"]
+            start_port = link["StartPort"]
+            end_port = link["EndPort"]
+
+            if link["StartDevice"] in convert_alias_to_name:
+                start_port = self._port_alias_to_name(link["StartDevice"], link['StartPort'])
+            if link["EndDevice"] in convert_alias_to_name:
+                end_port = self._port_alias_to_name(link["EndDevice"], link['EndPort'])
+
+            band_width = link["BandWidth"]
+            vlan_ID = link["VlanID"]
+            vlan_mode = link["VlanMode"]
+            autoneg_mode = link.get("AutoNeg", "off")
+
+            if start_device not in links:
+                links[start_device] = {}
+            if end_device not in links:
+                links[end_device] = {}
+            if start_device not in port_vlans:
+                port_vlans[start_device] = {}
+            if end_device not in port_vlans:
+                port_vlans[end_device] = {}
+
+            links[start_device][start_port] = {
+                "peerdevice": end_device,
+                "peerport": end_port,
+                "speed": band_width,
+                "autoneg": autoneg_mode,
+            }
+            links[end_device][end_port] = {
+                "peerdevice": start_device,
+                "peerport": start_port,
+                "speed": band_width,
+                "autoneg": autoneg_mode,
+            }
+
+            port_vlans[start_device][start_port] = {
+                "mode": vlan_mode,
+                "vlanids": vlan_ID,
+                "vlanlist": self._port_vlanlist(vlan_ID),
+            }
+            port_vlans[end_device][end_port] = {
+                "mode": vlan_mode,
+                "vlanids": vlan_ID,
+                "vlanlist": self._port_vlanlist(vlan_ID),
+            }
+
     def get_host_connections(self, hostname):
         """
         return the given hostname device each individual connection
