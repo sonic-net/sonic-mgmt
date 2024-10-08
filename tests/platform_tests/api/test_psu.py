@@ -240,7 +240,7 @@ class TestPsuApi(PlatformApiTestBase):
                                        "Failed to retrieve maximum supplied power of PSU {}".format(psu_id)):
                             self.expect(isinstance(max_supp_power, float),
                                         "PSU {} maximum supplied power appears incorrect".format(psu_id))
-                    
+
                     failure_occured = self.get_len_failed_expectations() > failure_count
 
                     if current is not None and voltage is not None and power is not None:
