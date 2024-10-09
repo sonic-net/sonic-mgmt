@@ -1129,6 +1129,9 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in list(qosConfig[bufPool].keys()):
             testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
 
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' and dutConfig["dutAsic"] == "gr2":
+            testParams["extra_cap_margin"] = 20
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.BufferPoolWatermarkTest",
             testParams=testParams
@@ -2174,7 +2177,7 @@ class TestQosSai(QosSaiBase):
             "src_port_id": src_port_id,
             "src_port_ip": src_port_ip,
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "pkts_num_leak_out": qosConfig[queueProfile]["pkts_num_leak_out"],
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku'],
