@@ -1654,6 +1654,13 @@ class QosSaiBase(QosBase):
                 get_src_dst_asic_and_duts['src_asic_index'] ==
                     get_src_dst_asic_and_duts['dst_asic_index']):
                 dutTopo = "topo-any"
+            # Initialize parameter dicts if no info exists yet, typically if no yaml file
+            # is provided for this asic.
+            if dutAsic not in qosConfigs['qos_params']:
+                qosConfigs['qos_params'][dutAsic] = {}
+            if dutTopo not in qosConfigs['qos_params'][dutAsic]:
+                qosConfigs['qos_params'][dutAsic][dutTopo] = {}
+
             qpm = qos_param_generator.QosParamCisco(
                       qosConfigs['qos_params'][dutAsic][dutTopo],
                       duthost,
