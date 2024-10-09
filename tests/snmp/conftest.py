@@ -14,12 +14,12 @@ def setup_check_snmp_ready(duthosts, localhost):
         assert wait_until(300, 20, 0, duthost.is_service_fully_started,
                           "snmp"), "SNMP service is not running"
         
-        #creating checkpoint before any configuration changes
+        # creating checkpoint before any configuration changes
         create_checkpoint(duthost, SETUP_ENV_CP)
 
         snmp_config_path = "/etc/sonic/snmp.yml"
 
-        #copy snmp.yml to ucs
+        # copy snmp.yml to ucs
         output = duthost.shell("sudo find /etc/sonic -name 'snmp.yml'")
         filename = output["stdout"].split("\n")
 
@@ -30,12 +30,12 @@ def setup_check_snmp_ready(duthosts, localhost):
         else:
             assert False, f'{snmp_config_path} does not exist'
     
-        #configure snmp for every host
+        # configure snmp for every host
         full_snmp_comm_list = ['snmp_rocommunity', 'snmp_rocommunities', 'snmp_rwcommunity', 'snmp_rwcommunities']
         with open('./snmp/snmp.yml', 'r') as yaml_file:
             yaml_snmp_info = yaml.load(yaml_file, Loader=yaml.FullLoader)
 
-        #get redis output for SNMP_COMMUNITY & SNMP_LOCATION
+        # get redis output for SNMP_COMMUNITY & SNMP_LOCATION
         snmp_comm_redis_keys = check_redis_output(duthost, 'SNMP_COMMUNITY')
         snmp_comm_redis_vals = list(map(extract_redis_keys, snmp_comm_redis_keys))
         snmp_location_redis_keys = check_redis_output(duthost, 'SNMP|LOCATION')
@@ -46,34 +46,34 @@ def setup_check_snmp_ready(duthosts, localhost):
                 if comm_type.startswith('snmp_rocommunities'):
                     for community in yaml_snmp_info[comm_type]:
                         if community not in snmp_comm_redis_vals:
-                                duthost.shell(f"sudo config snmp community add {community} 'ro'") #set snmp cli
+                            duthost.shell(f"sudo config snmp community add {community} 'ro'") # set snmp cli
 
                 elif comm_type.startswith('snmp_rocommunity'):
                     community = yaml_snmp_info[comm_type]
                     if community not in snmp_comm_redis_vals:
-                        duthost.shell(f"sudo config snmp community add {community} 'ro'") #set snmp cli
+                        duthost.shell(f"sudo config snmp community add {community} 'ro'") # set snmp cli
 
                 elif comm_type.startswith('snmp_rwcommunities'):
                     for community in yaml_snmp_info[comm_type]:
                         if community not in snmp_comm_redis_vals:
-                            duthost.shell(f"sudo config snmp community add {community} 'rw'") #set snmp cli
+                            duthost.shell(f"sudo config snmp community add {community} 'rw'") # set snmp cli
 
                 elif comm_type.startswith('snmp_rwcommunity'):
                     community = yaml_snmp_info[comm_type]
                     if community not in snmp_comm_redis_vals:
-                        duthost.shell(f"sudo config snmp community add {community} 'rw'") #set snmp cli
+                        duthost.shell(f"sudo config snmp community add {community} 'rw'") # set snmp cli
         
         yaml_snmp_location = yaml_snmp_info.get('snmp_location')
         if yaml_snmp_location:
             if 'LOCATION' not in snmp_location_redis_vals:
-                duthost.shell(f'sudo config snmp location add {yaml_snmp_location}') #set snmp cli
+                duthost.shell(f'sudo config snmp location add {yaml_snmp_location}') # set snmp cli
 
         yield
 
-        #rollback configuration
+        # rollback configuration
         rollback(duthost, SETUP_ENV_CP)
 
-        #remove snmp files downloaded
+        # remove snmp files downloaded
         local_command = "find ./snmp/ -type f -name 'snmp.yml' -exec rm -f {} +"
         localhost.shell(local_command)
 
