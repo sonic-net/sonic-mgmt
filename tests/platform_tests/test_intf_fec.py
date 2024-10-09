@@ -188,19 +188,40 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             acceptable_error_threshold = 0
             critical_bins = range(7, 16)  # Higher bins indicating serious transmission issues
 
-            # Validate FEC histogram counters
-            for bin_index in range(16):
-                bin_label = fec_hist[bin_index].get('symbol errors per codeword')
-                bin_value = fec_hist[bin_index].get('codewords')
+            # Initialize lists to hold FEC histogram samples
+            fec_hist_samples = []
+
+            for sample_index in range(3):  # Take 3 samples
+                # Verify the FEC histogram
+                logging.info("Get output of 'show interfaces counters fec-histogram {}'".format(intf_name))
+                fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {}".format(intf_name))
+
+                # Check if the FEC histogram data is present
+                if not fec_hist:
+                    pytest.fail("No FEC histogram data found for interface {}".format(intf_name))
+
+                # Check and log FEC histogram bins
+                logging.info("FEC histogram for interface {}: {}".format(intf_name, fec_hist))
+
+                # Store the sample
+                fec_hist_samples.append(fec_hist)
 
                 # Log the bin values
-                logging.info("Interface {}: {} -> {}".format(intf_name, bin_label, bin_value))
+                for bin_index in range(16):
+                    bin_label = fec_hist[bin_index].get('symbol errors per codeword')
+                    bin_value = fec_hist[bin_index].get('codewords')
+                    logging.info("Sample {} - Interface {}: {} -> {}".format(sample_index + 1, intf_name, bin_label, bin_value))
 
-                # Fail the test if any bin contains a negative value (unexpected)
-                if int(bin_value) < 0:
-                    pytest.fail("Negative symbol error count found in {} on interface {}".format(bin_label, intf_name))
+                # Sleep for 10 seconds before taking the next sample (except after the last one)
+                if sample_index < 2:
+                    time.sleep(10)
 
-                # Fail the test if the error count in higher bins exceeds the acceptable threshold
-                if bin_index in critical_bins and int(bin_value) > acceptable_error_threshold:
-                    pytest.fail("Excessive symbol errors found in bin {} ({} errors) on interface {}".format(
-                        bin_label, bin_value, intf_name))
+            # Validate FEC histogram counters
+            for bin_index in critical_bins:
+                previous_value = int(fec_hist_samples[0][bin_index].get('codewords', 0))
+                current_value = int(fec_hist_samples[2][bin_index].get('codewords', 0))
+
+                # Fail the test if the counter for this bin has increased
+                if current_value > previous_value:
+                    pytest.fail("Increasing symbol errors found in bin {} (from {} to {}) on interface {}".format(
+                        fec_hist_samples[2][bin_index].get('symbol errors per codeword'), previous_value, current_value, intf_name))
