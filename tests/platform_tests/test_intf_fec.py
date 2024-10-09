@@ -186,7 +186,6 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             logging.info("FEC histogram for interface {}: {}".format(intf_name, fec_hist))
 
             # Set thresholds for FEC histogram validation
-            acceptable_error_threshold = 0
             critical_bins = range(7, 16)  # Higher bins indicating serious transmission issues
 
             # Initialize lists to hold FEC histogram samples
