@@ -110,5 +110,15 @@
         "carib": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_carib_1x3.yaml"
         }
+    },
+    "platform-test-HW": {
+        "siren": {
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_siren_only_HW.yaml"
+
+        },
+        "carib": {
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_carib_only_HW.yaml"
+
+        }
     }
 }
