@@ -1840,19 +1840,25 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host, # noqa F811
                          swapSyncd_on_selected_duts):
+        all_docker0_ipv6_addrs = {}
         for duthost in get_src_dst_asic_and_duts['all_duts']:
-            docker0_ipv6_addr = \
-                duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
-                    "stdout_lines"][0]
+            try:
+                all_docker0_ipv6_addrs[duthost.hostname] = \
+                    duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
+                        "stdout_lines"][0]
+            except IndexError:
+                all_docker0_ipv6_addrs[duthost.hostname] = None
+
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
 
         yield
 
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
-            logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
-            duthost.shell("ip -6 addr add {} dev docker0".format(docker0_ipv6_addr))
-            config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+            if all_docker0_ipv6_addrs[duthost.hostname] is not None:
+                logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
+                duthost.shell("ip -6 addr add {} dev docker0".format(all_docker0_ipv6_addrs[duthost.hostname]))
+                config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
