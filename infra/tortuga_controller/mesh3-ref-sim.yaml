@@ -52,7 +52,7 @@ devices:
         0..31: 1x400
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.43/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.46/npl
         ConfigS1NpsuiteVer: 1.137.1
         ConfigCardPidOverride: HF6100-32D
     linux_password: cisco123
@@ -124,25 +124,25 @@ connections:
     L0_trex1_1:
       - L0.Ethernet1_9
       - trex1.eth1
-    L0_trex1_2:
+    L0_trex1_4:
       - L0.Ethernet1_12
-      - trex1.eth2
-    L0_trex2:
+      - trex4.eth2
+    L0_trex2_1:
       - L0.Ethernet1_10
       - trex2.eth1
-    L0_trex3:
+    L0_trex3_1:
       - L0.Ethernet1_11
       - trex3.eth1
     L1_trex4_1:
       - L1.Ethernet1_9
       - trex4.eth1
-    L1_trex4_2:
+    L1_trex1_2:
       - L1.Ethernet1_12
-      - trex4.eth2
-    L1_trex5:
+      - trex1.eth2
+    L1_trex5_1:
       - L1.Ethernet1_10
       - trex5.eth1
-    L1_trex6:
+    L1_trex6_1:
       - L1.Ethernet1_11
       - trex6.eth1
     L2_trex7_1:
@@ -151,10 +151,10 @@ connections:
     L2_trex7_2:
       - L2.Ethernet1_12
       - trex7.eth2
-    L2_trex8:
+    L2_trex8_1:
       - L2.Ethernet1_10
       - trex8.eth1
-    L2_trex9:
+    L2_trex9_1:
       - L2.Ethernet1_11
       - trex9.eth1
     L0_L1_conn1:

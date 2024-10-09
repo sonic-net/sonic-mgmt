@@ -373,9 +373,9 @@ connections:
     L0_trex1_1:
       - L0.Ethernet64
       - trex1.eth1
-    L0_trex1_2:
+    L0_trex1_4:
       - L0.Ethernet88
-      - trex1.eth2
+      - trex4.eth2
     L0_trex2_1:
       - L0.Ethernet72
       - trex2.eth1
@@ -385,9 +385,9 @@ connections:
     L1_trex4_1:
       - L1.Ethernet64
       - trex4.eth1
-    L1_trex4_2:
+    L1_trex1_2:
       - L1.Ethernet88
-      - trex4.eth2
+      - trex1.eth2
     L1_trex5_1:
       - L1.Ethernet72
       - trex5.eth1

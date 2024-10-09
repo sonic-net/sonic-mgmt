@@ -28,33 +28,40 @@ fi
 PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole"
 PYVXR_PORTS="leaf0|Ethernet1_32_1#41.230.10.2/24#Vrf12000000"
 PYVXR_SUBINFS="Vrf40000|*|Ethernet1_11|eth1|lo|2"
-PYVXR_RELAYS="*"
+PYVXR_DHCPS="*"
 PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
 PYVXR_VRFS="*"
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:32398
 START_TIME=$(date +%s)
-TEST_TAGS="sonic-test,beta2,ipv4,ipv6,loopback"
+TEST_TAGS="sonic-test,beta2,ipv4,ipv6,loopback,mlag-esi"
 CGEN_TEST=extended
 ORG_NAME="Test"
 HOST_USER="vxr"
 LAG=true
-MLAG=false
+MLAG=true
 
 # Disable SSH based pre/post checks in prod mode.
 if [[ "${1}" == "-prod" ]]; then
   TEST_TAGS="${TEST_TAGS},no-ssh"
 elif [[ "${1}" == "-nolag" ]]; then
   LAG=false
+  MLAG=false
 fi
 
 if [[ "${LAG}" == true ]]; then
   PYVXR_CHANNELS="PortChannel0|leaf0:Ethernet1_9#leaf0:Ethernet1_12|10|false|eth1#eth2"
   LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
+
+  # Add MLAG on [first, second] leaves.
   if [[ ${LENGTH} -gt 0 ]]; then
     if [[ "${MLAG}" == true ]]; then
       PYVXR_CHANNELS="PortChannel0|leaf0:Ethernet1_9#leaf1:Ethernet1_12|10|false|eth1#eth2"
-      PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:Ethernet1_9#leaf0:Ethernet1_12|10|false|eth1#eth2"
+
+      # Add a MLAG on [second, first] leaves when there are three leaf switches.
+      if [[ ${LENGTH} -gt 1 ]]; then
+        PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:Ethernet1_9#leaf0:Ethernet1_12|10|false|eth1#eth2"
+      fi
     else
       PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:Ethernet1_9#leaf1:Ethernet1_12|10|false|eth1#eth2"
     fi
@@ -95,7 +102,7 @@ function run_pyvxr() {
     --hosts "${HOST_PORTS}" \
     --ports "${PYVXR_PORTS}" \
     --routes "${PYVXR_ROUTES}" \
-    --dhcpRelays "${PYVXR_RELAYS}" \
+    --dhcpRelays "${PYVXR_DHCPS}" \
     --bgpPeers "${PYVXR_BGPPEERS}" \
     --subInterfaces "${PYVXR_SUBINFS}" \
     --portChannels "${PYVXR_CHANNELS}" \
@@ -106,7 +113,7 @@ function run_pyvxr() {
 echo
 echo "-------------------------SONiC regression tests-------------------------"
 echo
-"${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}" --orgName "${ORG_NAME}" --timeout "90s"
+"${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}" --orgName "${ORG_NAME}" --timeout "3m"
 run_pyvxr
 
 end=$(date +%s)
