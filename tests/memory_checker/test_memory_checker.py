@@ -538,6 +538,9 @@ def consumes_memory_and_checks_container_restart(duthost, container):
         container.wait_monit_mem_failed(timeout_monit_fail)
         logger.info("Container %s should now be restarting", container.name)
         container.wait_monit_mem_ok(CONTAINER_RESTART_THRESHOLD_SECS)
+        # Wait until the service has started, then the loganalyzer will capture all the expected messages
+        wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
+                   duthost.is_host_service_running, container.name)
 
     logger.info("Container %s restarted.", container.name)
 
