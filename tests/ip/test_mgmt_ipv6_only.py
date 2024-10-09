@@ -6,8 +6,10 @@ import re
 from tests.common.utilities import get_mgmt_ipv6, check_output, run_show_features
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.bgp import run_bgp_facts
-from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry
-from tests.common.helpers.ntp_helper import run_ntp
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run_retry, check_tacacs_v6_func    # noqa F401
+from tests.common.fixtures.tacacs import tacacs_creds   # noqa F401
+from tests.common.helpers.ntp_helper import run_ntp, setup_ntp_func     # noqa F401
+from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_func    # noqa F401
 from tests.common.helpers.syslog_helpers import run_syslog, check_default_route   # noqa F401
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
