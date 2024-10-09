@@ -962,6 +962,8 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
 
             logging.info("Wait until all critical processes are fully started")
             wait_critical_processes(linecard)
+            pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, linecard),
+                          "Not all ports that are admin up on are operationally up")
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
@@ -999,6 +1001,122 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
                     pytest.fail("Not all ipv6 routes are announced to neighbors")
 
     finally:
+        for linecard in duthosts.frontend_nodes:
+            # Make sure linecards are in Normal state and save the config to proceed further
+            linecard.shell("TSB")
+            linecard.shell('sudo config save -y')
+            # Verify DUT is in normal state.
+            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
+                          "DUT {} is not in normal state".format(linecard))
+            # Make sure the dut's reboot cause is as expected
+            logger.info("Check reboot cause of the dut {}".format(linecard))
+            reboot_cause = get_reboot_cause(linecard)
+            pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
+                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
+
+        # Make sure the Supervisor's reboot cause is as expected
+        logger.info("Check reboot cause of the supervisor")
+        reboot_cause = get_reboot_cause(suphost)
+        pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
+                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+
+
+@pytest.mark.disable_loganalyzer
+def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost,
+                                         enum_supervisor_dut_hostname, ptfhost, nbrhosts,
+                                         traffic_shift_community, creds, tbinfo):
+    """
+    Test startup TSA_TSB service after supervisor cold reboot with TSA enabled on supervisor
+    Verify startup_tsa_tsb.service started automatically when dut comes up
+    Verify this service configures TSA and starts a timer and maintains TSA once the timer is expired on linecards
+    """
+    suphost = duthosts[enum_supervisor_dut_hostname]
+    tsa_tsb_timer = dict()
+    dut_nbrhosts = dict()
+    up_bgp_neighbors = dict()
+    for linecard in duthosts.frontend_nodes:
+        up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
+        tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        if not tsa_tsb_timer[linecard]:
+            pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
+        dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
+        # Ensure that the DUT is not in maintenance already before start of the test
+        pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
+                      "DUT is not in normal state")
+        if not check_tsa_persistence_support(linecard):
+            pytest.skip("TSA persistence not supported in the image")
+
+    try:
+        # Execute user initiated TSA from supervisor card
+        suphost.shell("TSA")
+        suphost.shell('sudo config save -y')
+
+        # Get a dut uptime before reboot
+        sup_uptime_before = suphost.get_up_time()
+        # Reboot dut and wait for startup_tsa_tsb service to start on linecards
+        logger.info("Cold reboot on supervisor node: %s", suphost.hostname)
+        reboot(suphost, localhost, wait=240)
+        logging.info("Wait until all critical processes are fully started")
+        wait_critical_processes(suphost)
+
+        sup_uptime = suphost.get_up_time()
+        logger.info('DUT {} up since {}'.format(suphost.hostname, sup_uptime))
+        rebooted = float(sup_uptime_before.strftime("%s")) != float(sup_uptime.strftime("%s"))
+        assert rebooted, "Device {} did not reboot".format(suphost.hostname)
+
+        for linecard in duthosts.frontend_nodes:
+            wait_for_startup(linecard, localhost, delay=10, timeout=300)
+
+            # Ensure startup_tsa_tsb service is running after dut reboot
+            pytest_assert(wait_until(60, 5, 0, get_tsa_tsb_service_status, linecard, 'running'),
+                          "startup_tsa_tsb service is not started after reboot")
+
+            # Ensure startup_tsa_tsb service started on expected time since dut rebooted
+            dut_uptime = linecard.get_up_time()
+            logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
+            service_uptime = get_tsa_tsb_service_uptime(linecard)
+            time_diff = (service_uptime - dut_uptime).total_seconds()
+            pytest_assert(int(time_diff) < 120,
+                          "startup_tsa_tsb service started much later than the expected time after dut reboot")
+
+            # Verify DUT is in maintenance state.
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard),
+                          "DUT is not in maintenance state when startup_tsa_tsb service is running")
+
+            logging.info("Wait until all critical processes are fully started")
+            wait_critical_processes(linecard)
+            pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, linecard),
+                          "Not all ports that are admin up on are operationally up")
+
+            # Verify BGP sessions are established
+            pytest_assert(
+                wait_until(
+                    600, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up. No point in continuing the test")
+
+            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
+                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
+                "Failed to verify routes on nbr in TSA")
+
+        for linecard in duthosts.frontend_nodes:
+            # Verify startup_tsa_tsb service stopped after expected time
+            pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
+                          "startup_tsa_tsb service is not stopped even after configured timer expiry")
+
+            # Ensure dut comes back to maintenance state after timer expiry
+            if not get_tsa_tsb_service_status(linecard, 'running'):
+                # Verify TSA is configured on the dut after startup_tsa_tsb service is stopped
+                pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard),
+                              "DUT is not in maintenance state after startup_tsa_tsb service is stopped")
+
+            pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
+                duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
+                "Failed to verify routes on nbr in TSA")
+
+    finally:
+        # Make sure sup card is in normal state save save the config to proceed further
+        suphost.shell("TSB")
+        suphost.shell("sudo config save -y")
         for linecard in duthosts.frontend_nodes:
             # Make sure linecards are in Normal state and save the config to proceed further
             linecard.shell("TSB")
