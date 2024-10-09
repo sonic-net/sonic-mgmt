@@ -1133,6 +1133,13 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
       - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type in ['nvidia-bluefield']"
 
+platform_tests/test_advanced_reboot.py::test_warm_reboot_sad[sad_lag_member:
+  skip:
+    reason: "Testcase ignored due to https://github.com/sonic-net/sonic-buildimage/issues/20381 on SN5600 or SN4700"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/20381"
+      - "'sn5600' in platform or 'sn4700' in platform"
+
 platform_tests/test_auto_negotiation.py:
   skip:
     reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
