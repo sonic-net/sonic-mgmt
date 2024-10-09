@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 port_map = [[1, 100, 1, 100], [1, 400, 1, 400]]
+over_subs_port_map = [[1, 100, 2, 100], [1, 400, 2, 400]]
 
 # Testplan: docs/testplan/PFC_Snappi_Additional_Testcases.md
 # This test-script covers testcase#10: PFCWD-enabled DROP mode test.
@@ -364,7 +365,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
 
-@pytest.mark.parametrize('port_map', port_map)
+@pytest.mark.parametrize('port_map', over_subs_port_map)
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
                                     conn_graph_facts,             # noqa: F811
@@ -536,7 +537,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
             config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
 
-@pytest.mark.parametrize('port_map', port_map)
+@pytest.mark.parametrize('port_map', over_subs_port_map)
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
                                     conn_graph_facts,             # noqa: F811
