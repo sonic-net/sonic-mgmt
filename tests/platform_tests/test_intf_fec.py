@@ -1,5 +1,6 @@
 import logging
 import pytest
+import time
 
 from tests.common.utilities import skip_release, wait_until
 
@@ -210,7 +211,8 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
                 for bin_index in range(16):
                     bin_label = fec_hist[bin_index].get('symbol errors per codeword')
                     bin_value = fec_hist[bin_index].get('codewords')
-                    logging.info("Sample {} - Interface {}: {} -> {}".format(sample_index + 1, intf_name, bin_label, bin_value))
+                    logging.info("Sample {} - Interface {}: {} -> {}"
+                                 .format(sample_index + 1, intf_name, bin_label, bin_value))
 
                 # Sleep for 10 seconds before taking the next sample (except after the last one)
                 if sample_index < 2:
@@ -224,4 +226,5 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
                 # Fail the test if the counter for this bin has increased
                 if current_value > previous_value:
                     pytest.fail("Increasing symbol errors found in bin {} (from {} to {}) on interface {}".format(
-                        fec_hist_samples[2][bin_index].get('symbol errors per codeword'), previous_value, current_value, intf_name))
+                        fec_hist_samples[2][bin_index].get('symbol errors per codeword'), previous_value, current_value,
+                        intf_name))
