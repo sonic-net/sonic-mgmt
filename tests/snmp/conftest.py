@@ -46,27 +46,27 @@ def setup_check_snmp_ready(duthosts, localhost):
                 if comm_type.startswith('snmp_rocommunities'):
                     for community in yaml_snmp_info[comm_type]:
                         if community not in snmp_comm_redis_vals:
-                            duthost.shell(f"sudo config snmp community add {community} 'ro'") # set snmp cli
+                            duthost.shell(f"sudo config snmp community add {community} 'ro'")  # set snmp cli
 
                 elif comm_type.startswith('snmp_rocommunity'):
                     community = yaml_snmp_info[comm_type]
                     if community not in snmp_comm_redis_vals:
-                        duthost.shell(f"sudo config snmp community add {community} 'ro'") # set snmp cli
+                        duthost.shell(f"sudo config snmp community add {community} 'ro'")  # set snmp cli
 
                 elif comm_type.startswith('snmp_rwcommunities'):
                     for community in yaml_snmp_info[comm_type]:
                         if community not in snmp_comm_redis_vals:
-                            duthost.shell(f"sudo config snmp community add {community} 'rw'") # set snmp cli
+                            duthost.shell(f"sudo config snmp community add {community} 'rw'")  # set snmp cli
 
                 elif comm_type.startswith('snmp_rwcommunity'):
                     community = yaml_snmp_info[comm_type]
                     if community not in snmp_comm_redis_vals:
-                        duthost.shell(f"sudo config snmp community add {community} 'rw'") # set snmp cli
+                        duthost.shell(f"sudo config snmp community add {community} 'rw'")  # set snmp cli
         
         yaml_snmp_location = yaml_snmp_info.get('snmp_location')
         if yaml_snmp_location:
             if 'LOCATION' not in snmp_location_redis_vals:
-                duthost.shell(f'sudo config snmp location add {yaml_snmp_location}') # set snmp cli
+                duthost.shell(f'sudo config snmp location add {yaml_snmp_location}')  # set snmp cli
 
         yield
 
@@ -83,12 +83,12 @@ def extract_redis_keys(item):
 
 
 def check_redis_output(duthost, key):
-        snmp_redis_keys = duthost.shell(f"redis-cli -n 4 keys '{key}*'")
-        if snmp_redis_keys["stdout"] == "":
-            return []
-        else:
-            snmp_redis_keys = snmp_redis_keys["stdout"].split("\n")
-            return snmp_redis_keys
+    snmp_redis_keys = duthost.shell(f"redis-cli -n 4 keys '{key}*'")
+    if snmp_redis_keys["stdout"] == "":
+        return []
+    else:
+        snmp_redis_keys = snmp_redis_keys["stdout"].split("\n")
+        return snmp_redis_keys
             
 
 @pytest.fixture(scope="module", autouse=True)
