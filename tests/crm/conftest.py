@@ -296,7 +296,7 @@ def cleanup_ptf_interface(duthosts, ip_ver, enum_rand_one_per_hwsku_frontend_hos
 
     yield
 
-    if duthost.facts["asic_type"] == "marvell":
+    if duthost.facts["asic_type"] == "marvell-prestera":
         asichost.shell(ip_remove_cmd)
         # Check if member not removed
         output = asichost.shell(check_vlan_cmd, module_ignore_errors=True)

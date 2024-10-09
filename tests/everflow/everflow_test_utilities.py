@@ -596,7 +596,7 @@ class BaseEverflowTest(object):
         duthost.command(command)
 
     def apply_policer_config(self, duthost, policer_name, config_method, rate_limit=100):
-        if duthost.facts["asic_type"] == "marvell":
+        if duthost.facts["asic_type"] == "marvell-prestera":
             rate_limit = rate_limit * 1.25
         for namespace in duthost.get_frontend_asic_namespace_list():
             if config_method == CONFIG_MODE_CLI:
@@ -889,7 +889,7 @@ class BaseEverflowTest(object):
         expected_packet.set_do_not_care_scapy(packet.IP, "len")
         expected_packet.set_do_not_care_scapy(packet.IP, "flags")
         expected_packet.set_do_not_care_scapy(packet.IP, "chksum")
-        if duthost.facts["asic_type"] == 'marvell':
+        if duthost.facts["asic_type"] == 'marvell-prestera':
             expected_packet.set_do_not_care_scapy(packet.IP, "id")
             expected_packet.set_do_not_care_scapy(packet.GRE, "seqnum_present")
         if duthost.facts["asic_type"] in ["cisco-8000", "innovium"] or \

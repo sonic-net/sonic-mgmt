@@ -812,7 +812,7 @@ def get_sai_running_vendor_id(duthost):
         vendor_id = "mlnx"
     elif is_barefoot_device(duthost):
         vendor_id = "bfn"
-    elif vendor_id.facts["asic_type"] == "marvell":
+    elif vendor_id.facts["asic_type"] == "marvell-prestera":
         vendor_id = "mrvl"
     else:
         error_message = '"{}" does not currently \
