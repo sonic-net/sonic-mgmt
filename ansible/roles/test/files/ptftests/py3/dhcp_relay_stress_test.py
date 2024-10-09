@@ -1,8 +1,11 @@
 import time
+import logging
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from ptf.mask import Mask
 from dhcp_relay_test import DHCPTest
+
+logger = logging.getLogger(__name__)
 
 
 class DHCPContinuousStressTest(DHCPTest):
@@ -96,8 +99,11 @@ class DHCPStressDiscoverTest(DHCPTest):
         discover_cnt = self.count_relayed_discover()
 
         # At the end of the test, overwrite the file with discover count.
-        with open('/tmp/dhcp_stress_test_discover.json', 'w') as result_file:
-            result_file.write(str(discover_cnt))
+        try:
+            with open('/tmp/dhcp_stress_test_discover.json', 'w') as result_file:
+                result_file.write(str(discover_cnt))
+        except Exception as e:
+            logger.error("Failed to write to the discover file: %s", repr(e))
 
 
 class DHCPStressOfferTest(DHCPTest):
@@ -152,8 +158,11 @@ class DHCPStressOfferTest(DHCPTest):
         offer_cnt = self.count_relayed_offer()
 
         # At the end of the test, overwrite the file with offer count.
-        with open('/tmp/dhcp_stress_test_offer.json', 'w') as result_file:
-            result_file.write(str(offer_cnt))
+        try:
+            with open('/tmp/dhcp_stress_test_offer.json', 'w') as result_file:
+                result_file.write(str(offer_cnt))
+        except Exception as e:
+            logger.error("Failed to write to the offer file: %s", repr(e))
 
 
 class DHCPStressRequestTest(DHCPTest):
@@ -211,8 +220,11 @@ class DHCPStressRequestTest(DHCPTest):
         request_cnt = self.count_relayed_request()
 
         # At the end of the test, overwrite the file with request count.
-        with open('/tmp/dhcp_stress_test_request.json', 'w') as result_file:
-            result_file.write(str(request_cnt))
+        try:
+            with open('/tmp/dhcp_stress_test_request.json', 'w') as result_file:
+                result_file.write(str(request_cnt))
+        except Exception as e:
+            logger.error("Failed to write to the request file: %s", repr(e))
 
 
 class DHCPStressAckTest(DHCPTest):
@@ -267,5 +279,8 @@ class DHCPStressAckTest(DHCPTest):
         ack_cnt = self.count_relayed_ack()
 
         # At the end of the test, overwrite the file with ack count.
-        with open('/tmp/dhcp_stress_test_ack.json', 'w') as result_file:
-            result_file.write(str(ack_cnt))
+        try:
+            with open('/tmp/dhcp_stress_test_ack.json', 'w') as result_file:
+                result_file.write(str(ack_cnt))
+        except Exception as e:
+            logger.error("Failed to write to the ack file: %s", repr(e))
