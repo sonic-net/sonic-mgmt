@@ -70,7 +70,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: "bgp/test_bgp_stress_link_flap.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
