@@ -4,6 +4,7 @@ import logging
 import time
 import random
 import re
+import pytest
 
 from run_events_test import run_test
 from tests.common.utilities import wait_until
@@ -32,6 +33,9 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
     if duthost.topo_type.lower() in ["m0", "mx"]:
         logger.info("Skipping swss events test on MGFX topologies")
         return
+    if duthost.is_supervisor_node():
+        pytest.skip(
+            "Skipping SWSS event test on supervisor card")
     logger.info("Beginning to test swss events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_interface,
              "if_state.json", "sonic-events-swss:if-state", tag)
@@ -43,22 +47,33 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
 
 def shutdown_interface(duthost):
     logger.info("Shutting down interface")
-    interfaces = duthost.get_interfaces_status()
     pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
     interface_list = []
+    ns = ''
+    if duthost.is_multi_asic:
+        # Randomly choose one asic
+        nslist = duthost.get_asic_namespace_list()
+        ns = random.choice(nslist)
+        interfaces = duthost.get_interfaces_status(ns)
+    else:
+        interfaces = duthost.get_interfaces_status()
     for interface, status in interfaces.items():
         if pattern.match(interface) and status["oper"] == "up" and status["admin"] == "up":
             interface_list.append(interface)
     if_state_test_port = random.choice(interface_list)
     assert if_state_test_port is not None, "Unable to find valid interface for test"
-
-    ret = duthost.shell("config interface shutdown {}".format(if_state_test_port))
+    if duthost.is_multi_asic:
+        ret = duthost.shell("config interface -n {} shutdown {}".format(ns, if_state_test_port))
+    else:
+        ret = duthost.shell("config interface shutdown {}".format(if_state_test_port))
     assert ret["rc"] == 0, "Failing to shutdown interface {}".format(if_state_test_port)
 
     # Wait until port goes down
     wait_until(15, 1, 0, verify_port_admin_oper_status, duthost, if_state_test_port, "down")
-
-    ret = duthost.shell("config interface startup {}".format(if_state_test_port))
+    if duthost.is_multi_asic:
+        ret = duthost.shell("config interface -n {} startup {}".format(ns, if_state_test_port))
+    else:
+        ret = duthost.shell("config interface startup {}".format(if_state_test_port))
     assert ret["rc"] == 0, "Failing to startup interface {}".format(if_state_test_port)
 
     # Wait until port comes back up
@@ -67,7 +82,9 @@ def shutdown_interface(duthost):
 
 def generate_pfc_storm(duthost):
     logger.info("Generating pfc storm")
-    interfaces = duthost.get_interfaces_status()
+    nslist = duthost.get_asic_namespace_list()
+    ns = random.choice(nslist)
+    interfaces = duthost.get_interfaces_status(ns)
     pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
     interface_list = []
     for interface, status in interfaces.items():
@@ -77,14 +94,22 @@ def generate_pfc_storm(duthost):
     assert PFC_STORM_TEST_PORT is not None, "Unable to find valid interface for test"
 
     queue_oid = duthost.get_queue_oid(PFC_STORM_TEST_PORT, PFC_STORM_TEST_QUEUE)
-    duthost.shell("sonic-db-cli COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
-                  format(queue_oid))
+    if ns is None:
+        duthost.shell("sonic-db-cli COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
+                      format(queue_oid))
+    else:
+        duthost.shell("sonic-db-cli -n {} COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
+                      format(ns, queue_oid))
     duthost.shell("pfcwd start --action drop {} {} --restoration-time {}".
                   format(PFC_STORM_TEST_PORT, PFC_STORM_DETECTION_TIME, PFC_STORM_RESTORATION_TIME))
     time.sleep(WAIT_TIME)  # give time for pfcwd to detect pfc storm
     duthost.shell("pfcwd stop")
-    duthost.shell("sonic-db-cli COUNTERS_DB HDEL \"COUNTERS:{}\" \"DEBUG_STORM\"".
-                  format(queue_oid))
+    if ns is None:
+        duthost.shell("sonic-db-cli COUNTERS_DB HDEL \"COUNTERS:{}\" \"DEBUG_STORM\"".
+                      format(queue_oid))
+    else:
+        duthost.shell("sonic-db-cli -n {} COUNTERS_DB HDEL \"COUNTERS:{}\" \"DEBUG_STORM\"".
+                      format(ns, queue_oid))
 
 
 def trigger_crm_threshold_exceeded(duthost):
