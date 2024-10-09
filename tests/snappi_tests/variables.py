@@ -31,7 +31,18 @@ MULTIDUT_PORT_INFO = {MULTIDUT_TESTBED: (
         }
     })
 )}
-
+MIXED_SPEED_PORT_INFO = {MULTIDUT_TESTBED: (
+    ({
+        'multiple-dut-any-asic': {
+            'rx_ports': [
+                {'port_name': 'Ethernet0', 'hostname': "sonic-s6100-dut1"}
+            ],
+            'tx_ports': [
+                {'port_name': 'Ethernet0', 'hostname': "sonic-s6100-dut2"}
+            ]
+        }
+    })
+)}
 '''
 In this file user can modify the line_card_choice and it chooses the corresponding hostname
 and asic values from the config_set hostnames can be modified according to the dut hostname mentioned
