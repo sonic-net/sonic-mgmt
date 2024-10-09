@@ -710,3 +710,6 @@ class SonicAsic(object):
             ns_prefix = '-n ' + str(self.namespace)
         return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'
                           .format(ns_prefix, ROUTE_TABLE_NAME), verbose=False)['stdout_lines']
+
+    def show_and_parse(self, show_cmd, **kwargs):
+        return self.sonichost.show_and_parse("{}{}".format(self.ns_arg, show_cmd), **kwargs)
