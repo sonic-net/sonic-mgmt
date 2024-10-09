@@ -28,9 +28,9 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     configuration["testbeds"] = {}
     configuration["testbeds"]["excluded_testbed_keywords"] = excluded_testbed_keywords
     configuration["testbeds"]["excluded_testbed_keywords_setup_error"] = excluded_testbed_keywords_setup_error
-    
-    configuration["branches"]["included_branch"] = included_branch
-    configuration["branches"]["released_branch"] = released_branch
+
+    configuration["branch"]["included_branch"] = included_branch
+    configuration["branch"]["released_branch"] = released_branch
 
     kusto_connector = KustoConnector(configuration, current_time)
     general = DataAnalyzer(kusto_connector, configuration, current_time)
@@ -97,7 +97,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
         origin_data.append(
             {"table": branches_wanted_dict[branch]["new_icm_table"], "type": branch})
     final_error_list, final_failure_list, uploading_dupplicated_list = deduper.deduplication(
-        setup_error_new_icm_table, common_summary_new_icm_table, origin_data)
+        setup_error_new_icm_table, common_summary_new_icm_table, origin_data, configuration["branch"]["included_branch"])
     logger.info(
         "=================After deduplication, final result=================")
     logger.info("Will report {} new error cases".format(len(final_error_list)))

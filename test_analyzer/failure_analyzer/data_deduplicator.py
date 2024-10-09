@@ -34,45 +34,33 @@ class DataDeduplicator:
         self.icm_20201231_limit = configuration['icm_limitation']['icm_20201231_limit']
         self.icm_20220531_limit = configuration['icm_limitation']['icm_20220531_limit']
         self.icm_20230531_limit = configuration['icm_limitation']['icm_20230531_limit']
-        self.icm_202311_limit = configuration['icm_limitation']['icm_202311_limit']
+        self.icm_20231110_limit = configuration['icm_limitation']['icm_20231110_limit']
+        self.icm_20240531_limit = configuration['icm_limitation']['icm_20240531_limit']
         self.icm_master_limit = configuration['icm_limitation']['icm_master_limit']
         self.icm_internal_limit = configuration['icm_limitation']['icm_internal_limit']
         self.max_icm_count_per_module = configuration['icm_limitation']['max_icm_count_per_module']
 
-    def deduplication(self, setup_error_new_icm_table, common_summary_new_icm_table, original_failure_dict):
+    def deduplication(self, setup_error_new_icm_table, common_summary_new_icm_table, original_failure_dict, branches):
         """
-        Deduplicate the IcM list, remove the duplicated IcM
+        Deduplicate the IcM list, remove the duplicated IcM.
         """
         duplicated_icm_list = []
         unique_title = set()
         final_icm_list = []
         error_final_icm_list = []
         count_platform_test = 0
-        count_202012 = 0
-        count_202205 = 0
-        count_202305 = 0
-        count_202311 = 0
-        count_master = 0
-        count_internal = 0
+        branch_counts = {branch: 0 for branch in branches}  # Initialize counts for each branch
 
-        logger.info("limit the number of setup error cases to {}".format(
-            self.setup_error_limit))
-        logger.info("limit the number of general failure cases to {}".format(
-            self.failure_limit))
-        logger.info("limit the number of platform_tests cases to {}".format(
-            self.platform_limit))
-        logger.info("limit the number of 20201231 cases to {}".format(
-            self.icm_20201231_limit))
-        logger.info("limit the number of 20220531 cases to {}".format(
-            self.icm_20220531_limit))
-        logger.info("limit the number of 20230531 cases to {}".format(
-            self.icm_20230531_limit))
-        logger.info("limit the number of 202311 cases to {}".format(
-            self.icm_202311_limit))
-        logger.info("limit the number of master cases to {}".format(
-            self.icm_master_limit))
-        logger.info("limit the number of internal cases to {}".format(
-            self.icm_internal_limit))
+        logger.info("limit the number of setup error cases to {}".format(self.setup_error_limit))
+        logger.info("limit the number of general failure cases to {}".format(self.failure_limit))
+        logger.info("limit the number of platform_tests cases to {}".format(self.platform_limit))
+
+        # Logging limits for each branch
+        for branch in branches:
+            limit_name = f"icm_{branch}_limit"
+            limit = getattr(self, limit_name, None)
+            if limit is not None:
+                logger.info(f"limit the number of {branch} cases to {limit}")
 
         if len(setup_error_new_icm_table) > self.setup_error_limit:
             error_final_icm_list = setup_error_new_icm_table[:self.setup_error_limit]
@@ -80,11 +68,14 @@ class DataDeduplicator:
             error_final_icm_list = setup_error_new_icm_table
         setup_set = set()
         common_summary_new_icm_list = []
+
         for icm in error_final_icm_list:
             setup_set.add(icm['subject'])
+
         for icm in common_summary_new_icm_table:
             if icm['subject'] not in setup_set:
                 common_summary_new_icm_list.append(icm)
+
         failure_new_icm_table = []
         for data in original_failure_dict:
             if data['type'] == 'general':
@@ -92,6 +83,7 @@ class DataDeduplicator:
                 data['table'] = failure_new_icm_table
                 logger.info("There are {} general failure cases".format(len(failure_new_icm_table)))
                 break
+
         for data in original_failure_dict:
             icm_table = data['table']
             failure_type = data['type']
@@ -99,129 +91,79 @@ class DataDeduplicator:
                 if candidator['subject'] in unique_title:
                     candidator['trigger_icm'] = False
                     duplicated_icm_list.append(candidator)
-                    logger.info("Found duplicated item in appending IcM list, not trigger IcM for:{}".format(
-                        candidator['subject']))
+                    logger.info(f"Found duplicated item in appending IcM list, not trigger IcM for: {candidator['subject']}")
                     continue
-                # If the title is not in unique_title set, check if it is duplicated with the uploading IcM
+
                 unique_title.add(candidator['subject'])
                 duplicated_flag = False
 
-                # For loop every uploading IcM title, avoid generating lower level IcM for same failure
                 for uploading_new_icm in final_icm_list:
-                    # For platform_test, we aggregate branches, don't trigger same IcM for different branches
                     if 'platform_tests' in candidator['module_path']:
                         icm_branch = candidator['branch']
-                        for branch_name in configuration["branch"]["included_branch"]:
-                            replaced_title = candidator['subject'].replace(
-                                icm_branch, branch_name)
-                            # If the uploading IcM title is the lower than the one in final_icm_list, don't trigger IcM
+                        for branch_name in branches:
+                            replaced_title = candidator['subject'].replace(icm_branch, branch_name)
                             if uploading_new_icm['subject'] in replaced_title:
-                                logger.info("For platform_tests, found lower case for branch {}, not trigger IcM: \
-                                    the IcM in final_icm_list {}, duplicated one {}".format(icm_branch, uploading_new_icm['subject'], candidator['subject']))
+                                logger.info(f"For platform_tests, found lower case for branch {icm_branch}, not trigger IcM: \
+                                            the IcM in final_icm_list {uploading_new_icm['subject']}, duplicated one {candidator['subject']}")
                                 candidator['trigger_icm'] = False
                                 duplicated_icm_list.append(candidator)
                                 duplicated_flag = True
                                 break
-                            # if the uploading IcM title is the higher than the one in final_icm_list, replace the one in final_icm_list
                             elif replaced_title in uploading_new_icm['subject']:
-                                logger.info("For platform_tests, found lower case for branch {}, replace {} in final_icm_list with \
-                                    {}".format(icm_branch, uploading_new_icm['subject'], candidator['subject']))
+                                logger.info(f"For platform_tests, found lower case for branch {icm_branch}, replace {uploading_new_icm['subject']} \
+                                            in final_icm_list with {candidator['subject']}")
                                 final_icm_list.remove(uploading_new_icm)
                                 final_icm_list.append(candidator)
                                 duplicated_flag = True
                                 break
                         if duplicated_flag:
                             break
-                    # If the uploading IcM title is the lower than the one in final_icm_list, don't trigger IcM
                     elif uploading_new_icm['subject'] in candidator['subject']:
-                        logger.info("Found lower case, not trigger IcM: \
-                            the IcM in final_icm_list {}, duplicated one {}".format(uploading_new_icm['subject'], candidator['subject']))
+                        logger.info(f"Found lower case, not trigger IcM: the IcM in final_icm_list {uploading_new_icm['subject']}, duplicated one {candidator['subject']}")
                         candidator['trigger_icm'] = False
                         duplicated_icm_list.append(candidator)
                         duplicated_flag = True
                         break
-                    # if the uploading IcM title is the higher than the one in final_icm_list, replace the one in final_icm_list
                     elif candidator['subject'] in uploading_new_icm['subject']:
-                        # Don't trigger IcM for duplicated cases, avoid IcM throttling
-                        logger.info("Found lower case, replace {} in final_icm_list with \
-                                    {}".format(uploading_new_icm['subject'], candidator['subject']))
+                        logger.info(f"Found lower case, replace {uploading_new_icm['subject']} in final_icm_list with {candidator['subject']}")
                         final_icm_list.remove(uploading_new_icm)
                         final_icm_list.append(candidator)
                         duplicated_flag = True
                         break
+
                 if not duplicated_flag:
                     candidator_branch = candidator['branch']
                     if 'platform_tests' in candidator['module_path']:
                         count_platform_test += 1
                         if count_platform_test > self.platform_limit:
-                            logger.info("Reach the limit of platform_test case, ignore this IcM {}".format(
-                                candidator['subject']))
+                            logger.info(f"Reach the limit of platform_test case, ignore this IcM {candidator['subject']}")
                             candidator['trigger_icm'] = False
                             continue
-                    if candidator_branch == "20201231":
-                        if count_202012 >= self.icm_20201231_limit:
-                            logger.info("Reach the limit of 202012 case: {}, ignore this IcM {}".format(
-                                self.icm_20201231_limit, candidator['subject']))
+
+                    if candidator_branch in branch_counts:
+                        branch_limit_attr = f"icm_{candidator_branch}_limit"
+                        branch_limit = getattr(self, branch_limit_attr, None)
+                        if branch_counts[candidator_branch] >= branch_limit:
+                            logger.info(f"Reach the limit of {candidator_branch} case: {branch_limit}, ignore this IcM {candidator['subject']}")
                             candidator['trigger_icm'] = False
                             continue
-                        else:
-                            count_202012 += 1
-                    elif candidator_branch == "20220531":
-                        if count_202205 >= self.icm_20220531_limit:
-                            logger.info("Reach the limit of 202205 case: {}, ignore this IcM {}".format(
-                                self.icm_20220531_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_202205 += 1
-                    elif candidator_branch == "20230531":
-                        if count_202305 >= self.icm_20230531_limit:
-                            logger.info("Reach the limit of 202305 case: {}, ignore this IcM {}".format(
-                                self.icm_20230531_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_202305 += 1
-                    elif candidator_branch == "master":
-                        if count_master >= self.icm_master_limit:
-                            logger.info("Reach the limit of master case: {}, ignore this IcM {}".format(
-                                self.icm_master_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_master += 1
-                    elif candidator_branch == "internal":
-                        if count_internal >= self.icm_internal_limit:
-                            logger.info("Reach the limit of internal case: {}, ignore this IcM {}".format(
-                                self.icm_internal_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_internal += 1
-                    elif "202311" in candidator_branch:
-                        if count_202311 >= self.icm_202311_limit:
-                            logger.info("Reach the limit of 202311 case: {}, ignore this IcM {}".format(
-                                self.icm_202311_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            continue
-                        else:
-                            count_202311 += 1
-                    logger.info("Add branch {} type {} : {} to final_icm_list".format(
-                        candidator_branch, failure_type, candidator['subject']))
+                        branch_counts[candidator_branch] += 1
+
+                    logger.info(f"Add branch {candidator_branch} type {failure_type} : {candidator['subject']} to final_icm_list")
                     final_icm_list.append(candidator)
-        logger.info("Count summary: platform_test {}, 202012 {}, 202205 {}, 202305 {}, 202311 {}, master {}, internal {}".format(
-            count_platform_test, count_202012, count_202205, count_202305, count_202311, count_master, count_internal))
-        logger.info("Check if subject mismatch for setup error IcM")
+
+        logger.info("Count summary: platform_test {}, ".format(count_platform_test) +
+                    ", ".join(f"{branch} {count}" for branch, count in branch_counts.items()))
         for kusto_row_item in error_final_icm_list:
             self.check_subject_match(kusto_row_item)
-        logger.info("Check if subject mismatch for failure IcM")
         for kusto_row_item in final_icm_list:
             self.check_subject_match(kusto_row_item)
-        logger.info("Check if subject mismatch for duplicated IcM")
         for kusto_row_item in duplicated_icm_list:
             self.check_subject_match(kusto_row_item)
-        logger.debug("final_icm_list={}".format(json.dumps(final_icm_list, indent=4)))
+        logger.debug(f"final_icm_list={json.dumps(final_icm_list, indent=4)}")
+
         return error_final_icm_list, final_icm_list, duplicated_icm_list
+
 
     def check_subject_match(self, kusto_row):
         """

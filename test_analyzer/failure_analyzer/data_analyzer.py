@@ -287,59 +287,44 @@ class DataAnalyzer(BasicAnalyzer):
                     duplicated_icm_table.extend(duplicated_icm_list)
         return new_icm_table, duplicated_icm_table
 
-    def rearrange_icm_list(self, icm_list):
+    def rearrange_icm_list(self, icm_list, branches):
         """
-        Rearrange the icm list based on branch and shorten the upload time
+        Rearrange the icm list based on branch and shorten the upload time.
+        Parameters:
+            icm_list: List of ICMs.
+            branches: List of branch names to categorize the ICMs.
         Return: rearranged_icm_list[][]
         """
-        rearranged_icm_list = []
-        icm_202012 = []
-        icm_202205 = []
-        icm_202305 = []
-        icm_202311 = []
-        icm_internal = []
-        icm_master = []
+        # Initialize branch dictionary with empty lists for each branch
+        branch_dict = {branch: [] for branch in branches}
 
-        # Split the icm list into four temp list based on branch
+        # Split the icm list into branch-specific lists
         for icm in icm_list:
-            if icm['branch'] == '20201231':
-                icm_202012.append(icm)
-            elif icm['branch'] == '20220531':
-                icm_202205.append(icm)
-            elif icm['branch'] == '20230531':
-                icm_202305.append(icm)
-            elif '202311' in icm['branch']:
-                icm_202311.append(icm)
-            elif icm['branch'] == 'master':
-                icm_master.append(icm)
-            else:
-                icm_internal.append(icm)
-        logger.info("There are {} IcMs in 202012 branch".format(len(icm_202012)))
-        logger.info("There are {} IcMs in 202205 branch".format(len(icm_202205)))
-        logger.info("There are {} IcMs in 202305 branch".format(len(icm_202305)))
-        logger.info("There are {} IcMs in 202311 branch".format(len(icm_202311)))
-        logger.info("There are {} IcMs in master branch".format(len(icm_master)))
-        logger.info("There are {} IcMs in internal branch".format(len(icm_internal)))
+            branch = icm['branch']
+            matched = False
+            for key in branch_dict.keys():
+                if key in branch:
+                    branch_dict[key].append(icm)
+                    matched = True
+                    break
+            if not matched:
+                branch_dict.setdefault('internal', []).append(icm)  # Default to 'internal' if branch doesn't match
 
-        # Get upload times
-        upload_times = math.ceil(max(len(icm_202012), len(icm_202205), len(icm_202305), len(icm_202311), len(icm_master), len(icm_internal)) / configuration['threshold']['icm_number_threshold'])
+        # Log branch counts
+        for branch, icms in branch_dict.items():
+            logger.info(f"There are {len(icms)} IcMs in {branch} branch")
 
-        # Every branch can upload up to configuration['threshold']['icm_number_threshold'] IcMs
-        for i in range(upload_times):
+        # Calculate the number of upload batches required
+        max_branch_length = max(len(icms) for icms in branch_dict.values())
+        upload_times = math.ceil(max_branch_length / configuration['threshold']['icm_number_threshold'])
+
+        # Create the rearranged_icm_list with a looping mechanism
+        rearranged_icm_list = []
+        for _ in range(upload_times):
             temp_icm_list = []
-            for j in range(configuration['threshold']['icm_number_threshold']):
-                if len(icm_202012) > 0:
-                    temp_icm_list.append(icm_202012.pop(0))
-                if len(icm_202205) > 0:
-                    temp_icm_list.append(icm_202205.pop(0))
-                if len(icm_202305) > 0:
-                    temp_icm_list.append(icm_202305.pop(0))
-                if len(icm_202311) > 0:
-                    temp_icm_list.append(icm_202311.pop(0))
-                if len(icm_master) > 0:
-                    temp_icm_list.append(icm_master.pop(0))
-                if len(icm_internal) > 0:
-                    temp_icm_list.append(icm_internal.pop(0))
+            for branch, icms in branch_dict.items():
+                for _ in range(min(len(icms), configuration['threshold']['icm_number_threshold'])):
+                    temp_icm_list.append(icms.pop(0))
             rearranged_icm_list.append(temp_icm_list)
 
         return rearranged_icm_list
@@ -378,7 +363,7 @@ class DataAnalyzer(BasicAnalyzer):
             row['upload_timestamp'] = ingested_time
         self.kusto_connector.upload_autoblame_data(autoblame_table)
 
-        final_upload_icm_table = self.rearrange_icm_list(new_icm_table)
+        final_upload_icm_table = self.rearrange_icm_list(new_icm_table, configuration['branch']['included_branch'])
         for idx, each_upload_list in enumerate(final_upload_icm_table):
             ingested_time = str(datetime.utcnow() + timedelta(minutes=7))
             for each_icm in each_upload_list:
