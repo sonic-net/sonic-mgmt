@@ -106,12 +106,8 @@ def get_tsa_tsb_service_uptime(duthost):
     service_status = duthost.shell("sudo systemctl status startup_tsa_tsb.service | grep 'Active'")
     for line in service_status["stdout_lines"]:
         if 'active' in line:
-            if sys.version_info.major < 3:
-                tmp_time = line.split('since')[1].strip().encode('utf-8')
-                act_time = tmp_time.split('UTC')[0].strip().encode('utf-8')
-            else:
-                tmp_time = line.split('since')[1].strip()
-                act_time = tmp_time.split('UTC')[0].strip()
+            tmp_time = line.split('since')[1].strip()
+            act_time = tmp_time.split('UTC')[0].strip()
             service_uptime = datetime.datetime.strptime(act_time[4:], '%Y-%m-%d %H:%M:%S')
             return service_uptime
     return service_uptime
