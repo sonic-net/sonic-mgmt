@@ -10,9 +10,6 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-BAUD_RATE_MAP = {
-    "default": "9600"
-}
 BOOT_TYPE = {
     "armhf-nokia_ixs7215_52x-r0": "UBoot-ONIE",
     "x86_64-arista_720dt_48s": "ABoot"
@@ -24,15 +21,20 @@ def is_sonic_console(conn_graph_facts, dut_hostname):
     return conn_graph_facts['device_console_info'][dut_hostname].get("Os", "") == "sonic"
 
 
+def get_expected_baud_rate(duthost):
+    DEFAULT_BAUDRATE = "9600"
+    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    return hostvars.get('console_baudrate', DEFAULT_BAUDRATE)
+
+
 def test_console_baud_rate_config(duthost):
-    platform = duthost.facts["platform"]
-    expected_baud_rate = BAUD_RATE_MAP[platform] if platform in BAUD_RATE_MAP else BAUD_RATE_MAP["default"]
+    expected_baud_rate = get_expected_baud_rate(duthost)
     res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
     pytest_require(res["stdout"] != "", "Cannot get baud rate")
     if res["stdout"] != expected_baud_rate:
         global pass_config_test
         pass_config_test = False
-        pytest.fail("Baud rate {} is unexpected!".format(res["stdout"]))
+        pytest.fail("Device baud rate is {}, expected {}".format(res["stdout"], expected_baud_rate))
 
 
 @pytest.fixture(scope="module")
