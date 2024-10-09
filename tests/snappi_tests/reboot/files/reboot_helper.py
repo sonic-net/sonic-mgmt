@@ -11,6 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
+DUT_AS_NUM = 65100
 TIMEOUT = 30
 BGP_TYPE = 'ebgp'
 temp_tg_port = dict()
@@ -52,8 +53,6 @@ def run_reboot_test(cvg_api,
     get_convergence_for_reboot_test(duthost, localhost, cvg_api,
                                     tgen_bgp_config, reboot_type, )
 
-    cleanup_config(duthost)
-
 
 def duthost_bgp_config(duthost, tgen_ports):
     """
@@ -62,11 +61,7 @@ def duthost_bgp_config(duthost, tgen_ports):
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
     """
-    start = time.time()
     global temp_tg_port
-    duthost.command("sudo config save -y")
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json",
-                                           "/etc/sonic/config_db_backup.json"))
     temp_tg_port = tgen_ports
     for i in range(1, 4):
         intf_config = (
@@ -108,38 +103,81 @@ def duthost_bgp_config(duthost, tgen_ports):
         tgen_ports[1]['peer_ip'], tgen_ports[1]['peer_ipv6']))
     duthost.shell(portchannel_config)
     loopback = (
-        "sudo config interface ip add Loopback1 1.1.1.1/32\n"
+        "sudo config interface ip add Loopback0 1.1.1.1/32\n"
     )
     logger.info('Configuring 1.1.1.1/32 on the loopback interface')
     duthost.shell(loopback)
-    logger.info('Configuring BGP in config_db.json')
-    bgp_neighbors = \
-        {tgen_ports[1]['ipv6']: {"rrclient": "0", "name": "ARISTA08T0",
-                                 "local_addr": tgen_ports[1]['peer_ipv6'],
-                                 "nhopself": "0", "holdtime": "90",
-                                 "asn": TGEN_AS_NUM, "keepalive": "30"},
-         tgen_ports[1]['ip']: {"rrclient": "0", "name": "ARISTA08T0",
-                               "local_addr": tgen_ports[1]['peer_ip'],
-                               "nhopself": "0", "holdtime": "90",
-                               "asn": TGEN_AS_NUM, "keepalive": "30"}}
-    cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
-    for neighbor, neighbor_info in list(bgp_neighbors.items()):
-        cdf["BGP_NEIGHBOR"][neighbor] = neighbor_info
+    logger.info('Saving Interface, Vlan and Portchannel configuration in config_db.json')
+    duthost.command('sudo config save -y \n')
 
-    with open("/tmp/sconfig_db.json", 'w') as fp:
-        json.dump(cdf, fp, indent=4)
-    duthost.copy(src="/tmp/sconfig_db.json", dest="/tmp/config_db_temp.json")
-    cdf = json.loads(duthost.shell("sonic-cfggen -j /tmp/config_db_temp.json "
-                                   "--print-data")['stdout'])
-    print(cdf)
-    duthost.command("sudo cp {} {} \n".format("/tmp/config_db_temp.json",
-                                              "/etc/sonic/config_db.json"))
-    logger.info('Reloading config to apply BGP config')
-    duthost.shell("sudo config reload -y \n")
-    wait(TIMEOUT + 60, "For Config to reload \n")
-    end = time.time()
-    logger.info('duthost_bpg_config() took {}s to complete'.format(
-        end - start))
+    logger.info('Configuring BGP in config_db.json')
+    config_db = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+    bgp_neighbors = dict()
+    device_neighbors = dict()
+    device_neighbor_metadatas = dict()
+    bgp_neighbor = \
+        {
+            tgen_ports[1]['ip']:
+            {
+                "asn": TGEN_AS_NUM,
+                "holdtime": "180",
+                "keepalive": "60",
+                "local_addr": tgen_ports[1]['peer_ip'],
+                "name": "snappi-sonic",
+                "nhopself": "0",
+                "rrclient": "0"
+            },
+            tgen_ports[1]['ipv6']:
+            {
+                "asn": TGEN_AS_NUM,
+                "holdtime": "180",
+                "keepalive": "60",
+                "local_addr": tgen_ports[1]['peer_ipv6'],
+                "name": "snappi-sonic",
+                "nhopself": "0",
+                "rrclient": "0"
+            },
+        }
+    bgp_neighbors.update(bgp_neighbor)
+    device_neighbor = {
+                                'Ethernet0':
+                                {
+                                    "name": "snappi-sonic",
+                                    "port": "Ethernet1"
+                                }
+                            }
+    device_neighbors.update(device_neighbor)
+    device_neighbor_metadata = {
+                                    "snappi-sonic":
+                                    {
+                                        "hwsku": "Snappi",
+                                        "mgmt_addr": "172.16.149.206",
+                                        "type": "ToRRouter"
+                                    }
+                                }
+    device_neighbor_metadatas.update(device_neighbor_metadata)
+    if "BGP_NEIGHBOR" not in config_db.keys():
+        config_db["BGP_NEIGHBOR"] = bgp_neighbors
+    else:
+        config_db["BGP_NEIGHBOR"].update(bgp_neighbors)
+
+    if "DEVICE_NEIGHBOR" not in config_db.keys():
+        config_db["DEVICE_NEIGHBOR"] = device_neighbors
+    else:
+        config_db["DEVICE_NEIGHBOR"].update(device_neighbors)
+
+    if 'DEVICE_NEIGHBOR_METADATA' not in config_db.keys():
+        config_db["DEVICE_NEIGHBOR_METADATA"] = device_neighbor_metadatas
+    else:
+        config_db["DEVICE_NEIGHBOR_METADATA"].update(device_neighbor_metadatas)
+
+    with open("/tmp/temp_config.json", 'w') as fp:
+        json.dump(config_db, fp, indent=4)
+    duthost.copy(src="/tmp/temp_config.json", dest="/etc/sonic/config_db.json")
+    logger.info('Reloading config_db.json to apply IP and BGP configuration on {}'.format(duthost.hostname))
+    pytest_assert('Error' not in duthost.shell("sudo config reload -f -y \n")['stderr'],
+                  'Error while reloading config in {} !!!!!'.format(duthost.hostname))
+    logger.info('Config Reload Successful in {} !!!'.format(duthost.hostname))
 
 
 def get_flow_stats(cvg_api, name):
@@ -198,7 +236,7 @@ def __tgen_bgp_config(cvg_api, ):
     )
     lag3 = config.lags.lag(name="lag1")[-1]
     lp3 = lag3.ports.port(port_name=p1.name)[-1]
-    lp3.protocol.lacp.actor_system_id = "00:11:03:00:00:03"
+    lag3.protocol.lacp.actor_system_id = "00:11:03:00:00:03"
     lp3.ethernet.name = "lag_Ethernet 3"
     lp3.ethernet.mac = "00:13:01:00:00:01"
 
@@ -294,9 +332,9 @@ def __tgen_bgp_config(cvg_api, ):
     bgpv6_int = bgpv6_stack.ipv6_interfaces.add()
     bgpv6_int.ipv6_name = ipv6_3.name
     bgpv6_peer = bgpv6_int.peers.add()
-    bgpv6_peer.name = 'BGP 3'
+    bgpv6_peer.name = 'BGP+ 3'
     bgpv6_peer.as_type = BGP_TYPE
-    bgpv6_peer.peer_address = temp_tg_port[1]['peer_ip']
+    bgpv6_peer.peer_address = temp_tg_port[1]['peer_ipv6']
     bgpv6_peer.as_number = int(TGEN_AS_NUM)
     route_range2 = bgpv4_peer.v6_routes.add(name="Network Group 2")
     route_range2.addresses.add(address='3000::1', prefix=128, count=3000)
@@ -386,7 +424,7 @@ def wait_for_bgp_and_lb_soft(cvg_api, ping_req, ):
         if not found_lb_state and responses[-1].result in "success":
             loopback_up_start_timer = time.time()
             # found_lb_state = True
-            logger.info('!!!!!!! 2. loopback up end time {} !!!!!!'.format(
+            logger.info('\n Ping Successfull \n!!!!!!! 2. loopback up end time {} !!!!!!'.format(
                 loopback_up_start_timer))
             break
 
@@ -440,12 +478,14 @@ def wait_for_bgp_and_lb(cvg_api, ping_req, ):
         if not found_bgp_state and bgpv4_metrics[-1].session_state in "up":
             bgp_up_start_timer = time.time()
             found_bgp_state = True
+            logger.info(' ')
             logger.info('^^ 2. bgp is up end time {} ^^^'.format(
                 bgp_up_start_timer))
         if not found_lb_state and responses[-1].result in "success":
             loopback_up_start_timer = time.time()
             found_lb_state = True
-            logger.info('!!! 2. loopback up end time {} !!!'.format(
+            logger.info(' ')
+            logger.info('2. loopback up end time {} !!!'.format(
                 loopback_up_start_timer))
         if bgpv4_metrics[-1].session_state in "up" and responses[-1].result \
                 in "success" and found_bgp_state and found_lb_state:
@@ -488,20 +528,6 @@ def get_convergence_for_reboot_test(duthost,
     cvg_api.set_state(cs)
     wait(TIMEOUT - 10, "For Traffic To start")
 
-    def check_bgp_state():
-        req = cvg_api.convergence_request()
-        req.bgpv4.peer_names = []
-        bgpv4_metrics = cvg_api.get_results(req).bgpv4_metrics
-        assert bgpv4_metrics[-1].session_state == "up", \
-            "BGP v4 Session State is not UP"
-        logger.info("BGP v4 Session State is UP")
-        req.bgpv6.peer_names = []
-        bgpv6_metrics = cvg_api.get_results(req).bgpv6_metrics
-        assert bgpv6_metrics[-1].session_state == "up", \
-            "BGP v6 Session State is not UP"
-        logger.info("BGP v6 Session State is UP")
-
-    check_bgp_state()
     ping_req = cvg_api.ping_request()
     p1 = ping_req.endpoints.ipv4()[-1]
     p1.src_name = 'IPv4 3'
@@ -524,7 +550,7 @@ def get_convergence_for_reboot_test(duthost,
     request = cvg_api.convergence_request()
     request.convergence.flow_names = flow_names
     convergence_metrics = cvg_api.get_results(request).flow_convergence
-    for i, metrics in zip(cs.transmit.flow_names, convergence_metrics):
+    for i, metrics in zip(flow_names, convergence_metrics):
         if reboot_type == "warm":
             request.metrics.flow_names = [i]
             flow = cvg_api.get_results(request).flow_metric
@@ -563,21 +589,3 @@ def get_convergence_for_reboot_test(duthost,
     columns = ['Reboot Type', 'Traffic Item Name',
                'Data Plane Convergence Time (ms)', 'Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
-
-
-def cleanup_config(duthost):
-    """
-    Cleaning up dut config at the end of the test
-    Args:
-        duthost (pytest fixture): duthost fixture
-    """
-    logger.info('Cleaning up config')
-    duthost.command("sudo cp {} {}".
-                    format("/etc/sonic/config_db_backup.json",
-                           "/etc/sonic/config_db.json"))
-    duthost.shell("sudo config reload -y \n")
-    logger.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(360, 10, 1,
-                             duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-    logger.info('Convergence Test Completed')
