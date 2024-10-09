@@ -271,6 +271,9 @@ def test_config_reload_lc(duthosts, all_cfg_facts, nbrhosts, nbr_macs, tbinfo):
     config_reload(duthosts.frontend_nodes[0], config_source='config_db', safe_reload=True, check_intf_up_ports=True)
     poll_bgp_restored(duthosts)
 
+    # Add a delay to stabilize the switch after config reload
+    time.sleep(30)
+
     logger.info("=" * 80)
     logger.info("Postcheck")
     logger.info("-" * 80)
