@@ -115,7 +115,8 @@ class SonicDbCli(object):
                 v = result['stdout'].decode('unicode-escape')
             else:
                 v = result['stdout']
-            v_dict = ast.literal_eval(v)
+            v_sanitized = v.replace('\n', '\\n')
+            v_dict = ast.literal_eval(v_sanitized)
             return v_dict
 
     def get_and_check_key_value(self, key, value, field=None):
