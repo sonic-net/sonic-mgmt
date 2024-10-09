@@ -13,21 +13,51 @@
      - [Test case # 1 – CPS Without HA Enabled](#test-case1-cps-without-ha-enabled)
        - [Test objective 1](#test-objective-1)
        - [Test steps 1](#steps-for-test-case-1)
-    - [Test case # 2 – Perfect Sync Between HA Sets](#test-case2-perfect-sync-between-ha-sets)
-       - [Test objective 2](#test-objective-2)
-       - [Test steps 2](#steps-for-test-case-2)
-    - [Test case # 3 - Link Loss HA Set](#test-case3-link-loss-ha-set-)
-        - [Test objective 3](#test-objective-3)
-        - [Steps for Test Case 3](#steps-for-test-case-3)
-    - [Test case # 4 - Link Loss Multiple HA Sets](#test-case4-link-loss-multiple-ha-sets)
-        - [Test objective 4](#test-objective-4)
-        - [Test steps 4](#steps-for-test-case-4)
-    - [Test case # 5 – DPU Loss HA Set](#test-case5-dpuloss-ha-set)
-        - [Test objective 5](#test-objective-5)
-        - [Test steps 5](#steps-for-test-case-5)
-    - [Test case # 6 – DPU Loss Multiple HA Sets](#test-case6-dpuloss-multiple-ha-sets)
-        - [Test objective 6](#test-objective-6)
-        - [Test steps 6](#steps-for-test-case-6)
+    - [Test case # 2 –  Planned Switchover Between HA Sets](#test-case2-planned-switchover-between-ha-sets)
+      - [Test objective 2](#test-objective-2)
+      - [Test steps 2](#steps-for-test-case-2)
+    - [Test case # 3 –  Planned Switchover Perfect Sync Between HA Sets](#test-case3-planned-switchover-perfect-sync-between-ha-sets)
+      - [Test objective 3](#test-objective-3)
+      - [Test steps 3](#steps-for-test-case-3)
+    - [Test case # 4 -  Link Failures Active NPU to DPU Probe Drop Active](#test-case4-link-failures-active-npu-to-dpu-probe-drop-active)
+      - [Test objective 4](#test-objective-4)
+      - [Steps for Test Case 4](#steps-for-test-case-4)
+    - [Test case # 5 -  Link Failures Active NPU to DPU Probe Drop Standby](#test-case5-link-failures-active-npu-to-dpu-probe-drop-standby-)
+      - [Test objective 5](#test-objective-5)
+      - [Steps for Test Case 5](#steps-for-test-case-5)
+    - [Test case # 6 -  Link Failures Standby NPU to DPU Probe Drop Active](#test-case6-link-failures-standby-npu-to-dpu-probe-drop-active)
+      - [Test objective 6](#test-objective-6)
+      - [Steps for Test Case 6](#steps-for-test-case-6)
+    - [Test case # 7 -  Link Failures Standby NPU to DPU Probe Drop Standby](#test-case7-link-failures-standby-npu-to-dpu-probe-drop-standby)
+      - [Test objective 7](#test-objective-7)
+      - [Steps for Test Case 7](#steps-for-test-case-7)
+    - [Test case # 8 -  Link Failures Active T1-T0 Link Drop Active](#test-case8-link-failures-active-t1-t0-link-drop-active)
+      - [Test objective 8](#test-objective-8)
+      - [Steps for Test Case 8](#steps-for-test-case-8)
+    - [Test case # 9 -  Link Failures Active T1-T0 Link Drop Standby](#test-case9-link-failures-active-t1-t0-link-drop-standby-)
+      - [Test objective 9](#test-objective-9)
+      - [Steps for Test Case 9](#steps-for-test-case-9)
+    - [Test case # 10 -  Link Failures Standby T1-T0 Link Drop Active](#test-case10-link-failures-standby-t1-t0-link-drop-active)
+      - [Test objective 10](#test-objective-10)
+      - [Steps for Test Case 10](#steps-for-test-case-10)
+    - [Test case # 11 -  Link Failures Standby T1-T0 Link Drop Standby](#test-case11-link-failures-standby-t1-t0-link-drop-standby-)
+      - [Test objective 11](#test-objective-11)
+      - [Steps for Test Case 11](#steps-for-test-case-11)
+    - [Test case # 12 -  Link Failures Active T1-T0 Link Down Active](#test-case12-link-failures-active-t1-t0-link-down-active)
+      - [Test objective 12](#test-objective-12)
+      - [Steps for Test Case 12](#steps-for-test-case-12)
+    - [Test case # 13 -  Link Failures Active T1-T0 Link Down Standby](#test-case13-link-failures-active-t1-t0-link-down-standby)
+      - [Test objective 13](#test-objective-13)
+      - [Steps for Test Case 13](#steps-for-test-case-13)
+    - [Test case # 14 -  Link Failures Standby T1-T0 Link Down Active](#test-case14-link-failures-standby-t1-t0-link-down-active)
+      - [Test objective 14](#test-objective-14)
+      - [Steps for Test Case 14](#steps-for-test-case-14)
+    - [Test case # 15 -  Link Failures Standby T1-T0 Link Down Standby](#test-case15-link-failures-standby-t1-t0-link-down-standby)
+      - [Test objective 15](#test-objective-15)
+      - [Steps for Test Case 15](#steps-for-test-case-15)
+    - [Test case # 16 – DPU Loss HA Set](#test-case16-dpuloss-ha-set)
+      - [Test objective 16](#test-objective-16)
+      - [Test steps 16](#steps-for-test-case-16)
 
 ## Overview
 The purpose of these tests is to evaluate various High Availability (HA)
@@ -78,11 +108,6 @@ SmartSwitches.  In this case, HA will be enabled.  For example, dpu0 in
 SmartSwitch0 will be the Active node and dpu0 in SmartSwitch1 shall be set to
 Standby.  Both DPUs will share same network configurations.
 
-Configuration3.  A third test configuration will use four DPUs.  HA sets will
-be established between dpu0 of SmartSwitch0 and SmartSwitch1 and dpu1 of
-SmartSwitch0 and SmartSwitch1
-
-
 ## Test Methodology
 Following test methodology will be used for measuring HA switchover and
 performance.
@@ -99,7 +124,7 @@ timestamps and provide us with the recovery statistics.
 ## Test cases
 
 ### Common Steps
-Configuration1
+Configuration1: Single SmartSwitch with Single DPU.
 * Configure 1 DPUs networked within a SmartSwitch with HA not enable.
 * The SmartSwitch configuration will consist of 1 DPU.
 * The SONiC Switch will be configured to route traffic to SmartSwitch0 hosting
@@ -111,7 +136,7 @@ established.
 * Enable csv logging and check the state of the DPU through the API.
 * Apply and start traffic stateful and stateless.
 
-Configuration2
+Configuration2: Two Smart Switches with Two DPUs.
 * Configure 2 DPUs networked across two SmartSwitches forming an HA set.
 * The SmartSwitch configuration will consist of 2 DPUs sharing the same
 network configurations such as: IPs, MACs, VLan/VxLan, ENIs.
@@ -123,25 +148,6 @@ SmartSwitch0 and SmartSwitch1 and SONiC switch.
 established.
 * Enable csv logging and check the state of the DPUs through the API.
 * Apply and start traffic stateful and stateless.
-
-Configuration3
-* Configure 4 DPUs networked within separate SmartSwitches forming a HA set
-between SmartSwitch0 and SmartSwitch1.
-* The SmartSwitch configuration will consist of 4 DPUs sharing the same
-network configurations such as: IPs, MACs, VLan/VxLan, ENIs.  SmartSwitch0
-will have DPU0 and DPU1 running. SmartSwitch1 also will use DPU0 and DPU1
-running.
-* The SONiC Switch will be configured to split traffic into two separate
-entities going to both SmartSwitches.
-* There will be a physical link between front panel ports of SmartSwitch0 and
-SmartSwitch1 and SONiC switch.
-* The HA set shall be between DPU0s in SmartSwitch0 and 1. Also an HA set
-between DPU1s in SmartSwitch0 and SmartSwitch1.
-* Verify links are up and start all protocols and verify traffic is
-established.
-* Enable csv logging and check the state of the DPUs through the API.
-* Apply and start traffic stateful and stateless.
-
 
 ### Test Metrics
 Each test case will use the following metrics to measure performance of the HA
@@ -155,12 +161,7 @@ initiated.
 | Concurrent Connections              |         |
 | CPS                                 |         |
 | PPS                                 |         |
-| TCP Client Failures Resets Sent     |         |
-| TCP Client Failures Resets Recieved |         |
-| TCP Client Failures Resets Retries  |         |
-| TCP Server Failures Resets Sent     |         |
-| TCP Server Failures Resets Recieved |         |
-| TCP Server Failures Resets Retries  |         |
+| TCP Connection Breaks               |         |
 
 As soon as failover/switchover is initiated a timer will be initiated to
 measure DPU pair switchover.
@@ -184,12 +185,12 @@ Connections, Connection rate, and TCP/UDP failures collect data before, after
 completion of test.
 
 
-
-### Test case2 Perfect Sync Between HA Sets
+### Test case2 Planned Switchover Between HA Sets
 #### Test Objective 2
 * Reference HA-SmartSwitch-test_plan Module 1 Normal OP and Planned Events.
 Reference the following test cases:
-    * Active, Normal OP - Standby
+    * Normal Op - Active
+    * Normal Op - Standby
     * Planned Switchover - Active
     * Planned Switchover - Backup
 
@@ -197,70 +198,260 @@ Reference the following test cases:
 #### Steps for Test Case 2
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss.
-* Through mgmt switch traffic from the Active to Standby node.
-* Mark start time at beginning of test as DPU is removed from topology.
+* Verify normal operation.  Active DPU and Standby DPU states remain the same.
+* Through mgmt switch send commands to set Active DPU to Standby. A switchover
+shall be triggered.
 * The Backup should become Active immediately.
 * Mark time when the Standby DPU becomes Active and fully running traffic.
-* Perform perfect sync between DPUs, flow tables shall sync, verify success
-by observing state
-sync state.
 * Using traffic generator tools to verify metrics associated with number of
 Concurrent Connections, Connection rate, and TCP/UDP failures collect data
 before, during and after switchover.
 
-### Test case3 Link Loss HA Set
+### Test case3 Planned Switchover Perfect Sync Between HA Sets
 #### Test Objective 3
-In this scenario we will test the unplanned event link loss between an
-Active DPU to it's paired Standby DPU.
+* Reference HA-SmartSwitch-test_plan Module 1 Normal OP and Planned Events.
+  Reference the following test cases:
+    * Normal Op - Active
+    * Normal Op - Standby
+    * Planned Switchover - Active
+    * Planned Switchover - Backup
+
+![HA Perfect Sync Between HA Sets](images/ha_test_perfect_sync.svg)
+#### Steps for Test Case 3
+* Refer to the section Common Steps Configuration1.
+* Verify traffic is flowing without any loss.
+* Add a second SmartSwitch with DPU set to Standby.
+* Verify normal operation.  Active DPU and Standby DPU states remain the same.
+* Through mgmt switch send commands to sync the Standby DPU to the Active.
+the second DPU shall join the HA set.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after switchover.
+
+### Test case4 Link Failures Active NPU to DPU Probe Drop Active
+#### Test Objective 4
+Verify packet flow when Active NPU to DPU link starts dropping probe packets.
 * Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
 
 ![HA LinkLoss](images/ha_linkloss_test.svg)
-#### Steps for Test Case 3
+#### Steps for Test Case 4
 * Refer to the section Common Steps Configuration2.
-* Verify traffic is flowing without any loss.
-* Through mgmt port remove link connection between DPU0 of SmartSwitch0.
+* Verify traffic is flowing without any loss through the Active side.
+* Through mgmt remove link connection between Active DPU and NPU to drop packets.
 * Mark start time at beginning of test as link connection is removed.
-* There should be 100% link failure with the Active DPU during unplanned
-event.
-* DPU1 shall become the new Active DPU in the HA set.
-* Mark time when the Standby DPU becomes Active and fully running traffic.
+* DPU of SmartSwitch0 becomes non-active.
+* DPU of SmartSwitch1 shall become the new standalone DPU in the HA set.
 * Measure convergence time from start of the link removal between
 SmartSwitch0 and SmartSwitch1 switchover.
 * Using traffic generator tools to verify metrics associated with number of
 Concurrent Connections, Connection rate, and TCP/UDP failures collect data
 before, during and after unplanned event.
 
-### Test case4 Link Loss Multiple HA Sets
-#### Test Objective 4
-In this scenario we will test the unplanned event link loss between an Active
-DPUs to it's paired DPUs, here multiple HA sets have been established before
-event.
+### Test case5 Link Failures Active NPU to DPU Probe Drop Standby
+#### Test Objective 5
+Verify packet flow when Active NPU to DPU link starts dropping probe packets.
 * Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
 
-![HA LinkLoss Multiple HA Sets](images/ha_linkloss_multiple_ha_sets.svg)
-#### Steps for Test Case 4
-* Refer to the section Common Steps Configuration3.
-* Verify traffic is flowing without any loss.
-* Through mgmt port remove link connection between SmartSwitch0 and DPU0.
-Additional remove link on DPU1 in SmartSwitch1.
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 5
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Standby side.
+* Through mgmt remove link connection between Active DPU and NPU to drop packets.
 * Mark start time at beginning of test as link connection is removed.
-* There should be 100% link failure with the Active DPU during unplanned
-event.
-* Standby nodes shall become the new Active in the HA set.
-* Mark time when the Standby DPU becomes Active and fully running traffic.
-* Measure convergence time from start of the link removal on switchover.
+* DPU of SmartSwitch0 becomes non-active.
+* DPU of SmartSwitch1 shall become the new standalone DPU in the HA set.
+* Measure convergence time from start of the link removal between
+  SmartSwitch0 and SmartSwitch1 switchover.
 * Using traffic generator tools to verify metrics associated with number of
-Concurrent
-Connections, Connection rate, and TCP/UDP failures collect data before,
-during and after switchover.
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
 
+### Test case6 Link Failures Standby NPU to DPU Probe Drop Active
+#### Test Objective 6
+Verify packet flow when Standby NPU to DPU link starts dropping probe packets.
+* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
 
-### Test case5 DPULoss HA Set
-#### Test Objective 5
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 6
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Active side.
+* Through mgmt remove link connection between Standby DPU and NPU to drop packets.
+* Mark start time at beginning of test as link connection is removed.
+* DPU of SmartSwitch0 becomes standalone.
+* DPU of SmartSwitch1 shall become anything but active.
+* Measure convergence time from start of the link removal.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
+
+### Test case7 Link Failures Standby NPU to DPU Probe Drop Standby
+#### Test Objective 7
+Verify packet flow when Standby NPU to DPU link starts dropping probe packets.
+* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
+
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 7
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Standby side.
+* Through mgmt remove link connection between Standby DPU and NPU to drop packets.
+* Mark start time at beginning of test as link connection is removed.
+* DPU of SmartSwitch0 becomes standalone.
+* DPU of SmartSwitch1 shall become anything but active.
+* Measure convergence time from start of the link removal.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
+
+### Test case8 Link Failures Active T1-T0 Link Drop Active
+#### Test Objective 8
+Verify packet flow when T1-T0 link drop.
+* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
+
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 8
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Active side.
+* Through mgmt remove link connection Active DPU side T1-T0 link.
+* Mark start time at beginning of test as link connection is removed.
+* DPU of SmartSwitch0 becomes non-active.
+* DPU of SmartSwitch1 becomes standalone.
+* Measure convergence time from start of the link removal.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
+
+### Test case9 Link Failures Active T1-T0 Link Drop Standby
+#### Test Objective 9
+Verify packet flow when T1-T0 link drop.
+* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
+
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 9
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Standby side.
+* Through mgmt remove link connection Active DPU side T1-T0 link.
+* Mark start time at beginning of test as link connection is removed.
+* DPU of SmartSwitch0 becomes non-active.
+* DPU of SmartSwitch1 becomes standalone.
+* Measure convergence time from start of the link removal.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
+
+### Test case10 Link Failures Standby T1-T0 Link Drop Active
+#### Test Objective 10
+Verify packet flow when T1-T0 link drop.
+* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
+
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 10
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Active side.
+* Through mgmt remove link connection Standby DPU side T1-T0 link.
+* Mark start time at beginning of test as link connection is removed.
+* DPU of SmartSwitch0 becomes standalone.
+* DPU of SmartSwitch1 becomes anything but active.
+* Measure convergence time from start of the link removal.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
+
+### Test case11 Link Failures Standby T1-T0 Link Drop Standby
+#### Test Objective 11
+Verify packet flow when T1-T0 link drop.
+* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
+
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 11
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Standby side.
+* Through mgmt remove link connection Standby DPU side T1-T0 link.
+* Mark start time at beginning of test as link connection is removed.
+* DPU of SmartSwitch0 becomes standalone.
+* DPU of SmartSwitch1 becomes anything but active.
+* Measure convergence time from start of the link removal.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
+
+### Test case12 Link Failures Active T1-T0 Link Down Active
+#### Test Objective 12
+Verify packet flow when T1-T0 link down.
+* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
+
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 12
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Active side.
+* Through mgmt down link connection Active DPU side T1-T0 link.
+* Mark start time at beginning of test as link connection is removed.
+* DPU of SmartSwitch0 becomes active.
+* DPU of SmartSwitch1 becomes standalone.
+* Measure convergence time from start of the link removal.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
+
+### Test case13 Link Failures Active T1-T0 Link Down Standby
+#### Test Objective 13
+Verify packet flow when T1-T0 link down.
+* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
+
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 13
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Standby side.
+* Through mgmt down link connection Active DPU side T1-T0 link.
+* Mark start time at beginning of test as link connection is removed.
+* DPU of SmartSwitch0 becomes non-active.
+* DPU of SmartSwitch1 becomes standalone.
+* Measure convergence time from start of the link removal.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
+
+### Test case14 Link Failures Standby T1-T0 Link Down Active
+#### Test Objective 14
+Verify packet flow when T1-T0 link down.
+* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
+
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 14
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Active side.
+* Through mgmt down link connection Standby DPU side T1-T0 link.
+* Mark start time at beginning of test as link connection is removed.
+* DPU of SmartSwitch0 becomes standalone.
+* DPU of SmartSwitch1 becomes anything but active.
+* Measure convergence time from start of the link removal.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
+
+### Test case15 Link Failures Standby T1-T0 Link Down Standby
+#### Test Objective 15
+Verify packet flow when T1-T0 link down.
+* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
+
+![HA LinkLoss](images/ha_linkloss_test.svg)
+#### Steps for Test Case 15
+* Refer to the section Common Steps Configuration2.
+* Verify traffic is flowing without any loss through the Standby side.
+* Through mgmt down link connection Standby DPU side T1-T0 link.
+* Mark start time at beginning of test as link connection is removed.
+* DPU of SmartSwitch0 becomes standalone.
+* DPU of SmartSwitch1 becomes anything but active.
+* Measure convergence time from start of the link removal.
+* Using traffic generator tools to verify metrics associated with number of
+  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
+  before, during and after unplanned event.
+
+### Test case16 DPULoss HA Set
+#### Test Objective 16
 * Reference HA-SmartSwitch-test_plan Module 6 Power down and hardware failure.
 
 ![HA DPULoss HA Set](images/ha_dpuloss_test.svg)
-#### Steps for Test Case 5
+#### Steps for Test Case 16
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss.
 * Through mgmt port poweroff or reboot Active DPU.
@@ -269,27 +460,6 @@ during and after switchover.
 * DPU0 in SmartSwitch1 shall become the new Active DPU in the HA set.
 * Mark time when the Standby DPU becomes Active and fully running traffic.
 * Measure convergence time from start of the link removal on DPU0 and DPU1
-switchover.
-* Using traffic generator tools to verify metrics associated with number of
-Concurrent Connections, Connection rate, and TCP/UDP failures collect data
-before, during and after switchover.
-
-
-### Test case6 DPULoss Multiple HA Sets
-#### Test Objective 6
-* Reference HA-SmartSwitch-test_plan Module 6 Power down and hardware failure.
-
-![HA DPULoss Multple HA Sets](images/ha_dpuloss_multiple_ha_sets.svg)
-
-#### Steps for Test Case 6
-* Refer to the section Common Steps Configuration3.
-* Verify traffic is flowing without any loss.
-* Through mgmt port poweroff or reboot Active DPU.
-* Mark start time at beginning of test as DPU is removed from topology.
-* There should be 100% failure with the Active DPU during switchover.
-* DPU3 shall become the new Active DPU in the HA set.
-* Mark time when the Standby DPU becomes Active and fully running traffic.
-* Measure convergence time from start of the link removal between HA sets and
 switchover.
 * Using traffic generator tools to verify metrics associated with number of
 Concurrent Connections, Connection rate, and TCP/UDP failures collect data
