@@ -716,6 +716,12 @@ generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33
       - "asic_type in ['mellanox']"
       - https://github.com/sonic-net/sonic-mgmt/issues/7733
 
+generic_config_updater/test_incremental_qos.py:
+  skip:
+    reason: "Does not support dualtor right now, due to issue https://github.com/sonic-net/sonic-mgmt/issues/14865"
+    conditions:
+      - "'dualtor' in topo_name"
+
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
     reason: "This test is not run on this hwsku/asic type or version currently"
