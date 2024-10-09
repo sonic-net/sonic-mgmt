@@ -1,7 +1,6 @@
 import logging
 import datetime
 import pexpect
-import sys
 
 import pytest
 from tests.common import reboot, config_reload
