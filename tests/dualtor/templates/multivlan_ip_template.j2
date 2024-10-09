@@ -1,0 +1,50 @@
+      <IPInterfaces>
+{% if (card_type is not defined or card_type != 'supervisor') and (vm_topo_config['topo_type'] != 'wan') %}
+{% for index in range(vms_number) %}
+{% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
+        <IPInterface>
+          <Name i:nil="true"/>
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+          <AttachTo>PortChannel{{ '10' + ((index+1) |string) }}</AttachTo>
+{% else %}
+          <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
+{% endif %}
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int] }}</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:Name="true"/>
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+          <AttachTo>PortChannel{{ '10' + ((index+1) |string) }}</AttachTo>
+{% else %}
+          <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
+{% endif %}
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int] }}</Prefix>
+        </IPInterface>
+{% endif %}
+{% endfor %}
+{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% for vlan, vlan_param in vlan_configs.items() %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['prefix'] }}</Prefix>
+        </IPInterface>
+{%if 'secondary_subnet' in vlan_param %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['secondary_subnet'] }}</Prefix>
+        </IPInterface>
+{% endif %}
+{% endfor %}
+{% for vlan, vlan_param in vlan_configs.items() %}
+{%   if 'prefix_v6' in vlan_param %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['prefix_v6'] }}</Prefix>
+        </IPInterface>
+{%   endif %}
+{% endfor %}
+{% endif %}
+{% elif vm_topo_config['topo_type'] == 'wan' and 'wan_dut_configuration' in vm_topo_config %}

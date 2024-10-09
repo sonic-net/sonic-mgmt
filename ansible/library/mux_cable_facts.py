@@ -42,6 +42,7 @@ def main():
         argument_spec=dict(
             topo_name=dict(required=False, type="str"),
             topology=dict(required=False, type="dict"),
+            vlan_config=dict(required=False, default=None, type="str"),
         ),
         mutually_exclusive=[["topo_name", "topology"]],
         required_one_of=[["topo_name", "topology"]]
@@ -54,7 +55,7 @@ def main():
         topology = args["topology"]
 
     try:
-        mux_cable_facts = generate_mux_cable_facts(topology=topology)
+        mux_cable_facts = generate_mux_cable_facts(topology=topology, vlan_config=args["vlan_config"])
         module.exit_json(ansible_facts={"mux_cable_facts": mux_cable_facts})
     except Exception:
         module.fail_json(msg=traceback.format_exc())
