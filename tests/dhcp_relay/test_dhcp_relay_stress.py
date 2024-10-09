@@ -6,7 +6,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.dhcp_relay.dhcp_relay_utils import restart_dhcp_service
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.utilities import skip_release, wait_until, capture_and_check_packet_on_dut
+from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
 from tests.ptf_runner import ptf_runner
 
 pytestmark = [
@@ -17,7 +17,6 @@ pytestmark = [
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
-DUAL_TOR_MODE = 'dual'
 
 
 def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -135,9 +134,6 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
     testing_mode, duthost = testing_config
     packets_send_duration = 120
     client_packets_per_sec = 10000
-
-    if testing_mode == DUAL_TOR_MODE:
-        skip_release(duthost, ["201811", "201911"])
 
     for dhcp_relay in dut_dhcp_relay_data:
         client_port_name = str(dhcp_relay['client_iface']['name'])
