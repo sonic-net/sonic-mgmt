@@ -387,3 +387,16 @@ def is_passive_cable(sfp_eeprom_info):
                         "CR" in spec_compliance.get("Extended Specification Compliance", " "):
                     return True
     return False
+
+
+def get_passive_cable_port_list(dut):
+    passive_cable_port_list = []
+    cmd_show_eeprom = "sudo sfputil show eeprom -d"
+    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
+    eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
+    for port_name, eeprom_info in eeprom_infos.items():
+        if is_passive_cable(eeprom_info):
+            logging.info(f"{port_name} is passive cable")
+            passive_cable_port_list.append(port_name)
+    logging.info(f"Ports with passive cable are: {passive_cable_port_list}")
+    return passive_cable_port_list
