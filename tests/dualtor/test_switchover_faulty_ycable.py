@@ -21,45 +21,55 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope="module")
+def simulated_faulty_side(rand_unselected_dut):
+    return rand_unselected_dut
+
+
+@pytest.fixture(scope="module")
+def simulated_good_side(rand_selected_dut):
+    return rand_selected_dut
+
+
 @contextlib.contextmanager
-def setup_faulted_y_cable_driver(rand_unselected_dut, simulate_probe_unknown=False, simulate_peer_link_down=False):
+def setup_faulted_y_cable_driver(duthost, simulate_probe_unknown=False, simulate_peer_link_down=False):
     """Setup the faulted Y cable driver on the active ToR."""
     try:
         extra_vars = {
             "SIMULATE_PROBE_UNKNOWN": simulate_probe_unknown,
             "SIMULATE_PEER_LINK_DOWN": simulate_peer_link_down
         }
-        rand_unselected_dut.host.options['variable_manager'].extra_vars.update(
+        duthost.host.options['variable_manager'].extra_vars.update(
             extra_vars)
-        rand_unselected_dut.template(
+        duthost.template(
             src="dualtor/files/y_cable_simulated.py.j2",
             dest="/tmp/y_cable_simulated.py",
             force=True
         )
-        find_path_res = rand_unselected_dut.shell(
+        find_path_res = duthost.shell(
             "docker exec pmon find / -name y_cable_simulated.py")["stdout"]
         # Let's check the file exist before patching
-        rand_unselected_dut.shell("docker exec pmon stat %s" % find_path_res)
+        duthost.shell("docker exec pmon stat %s" % find_path_res)
         y_cable_simulated_path = os.path.dirname(find_path_res)
-        rand_unselected_dut.shell(
+        duthost.shell(
             "docker exec pmon mv {path}/y_cable_simulated.py {path}/y_cable_simulated.py.orig".format(
                 path=y_cable_simulated_path
             )
         )
-        rand_unselected_dut.shell(
+        duthost.shell(
             "docker cp /tmp/y_cable_simulated.py pmon:%s/" % y_cable_simulated_path)
-        rand_unselected_dut.shell(
+        duthost.shell(
             "docker exec pmon supervisorctl restart ycabled")
         # Sleep 10 seconds for ycabled restart
         time.sleep(10)
         yield
     finally:
-        rand_unselected_dut.shell(
+        duthost.shell(
             "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
                 path=y_cable_simulated_path
             )
         )
-        rand_unselected_dut.shell(
+        duthost.shell(
             "docker exec pmon supervisorctl restart ycabled")
         # Sleep 10 seconds for ycabled restart
         time.sleep(10)
@@ -92,7 +102,7 @@ def select_mux_port(active_standby_ports):  # noqa: F811
 
 
 @pytest.fixture
-def restore_pmon(rand_unselected_dut, select_mux_port):
+def restore_pmon(simulated_faulty_side, select_mux_port):
     """Restore pmon container."""
 
     def _remove_pmon_container(duthost):
@@ -122,66 +132,67 @@ def restore_pmon(rand_unselected_dut, select_mux_port):
 
     # If the simulated fault still persist, let's remove pmon and
     # and restart the pmon service to restore.
-    if (get_tor_mux_probe_state(rand_unselected_dut, mux_port) == "unknown" or
-            get_tor_mux_cable_info(rand_unselected_dut, mux_port)["link_status_peer"] == "down"):
-        _remove_pmon_container(rand_unselected_dut)
-        _restart_pmon_container(rand_unselected_dut)
+    if (get_tor_mux_probe_state(simulated_faulty_side, mux_port) == "unknown" or
+            get_tor_mux_cable_info(simulated_faulty_side, mux_port)["link_status_peer"] == "down"):
+        _remove_pmon_container(simulated_faulty_side)
+        _restart_pmon_container(simulated_faulty_side)
 
 
 def test_switchover_probe_unknown(
-    rand_selected_dut,
-    rand_unselected_dut,
+    simulated_good_side,
+    simulated_faulty_side,
     restore_pmon,                                           # noqa: F811
     select_mux_port,
     toggle_all_simulator_ports_to_rand_unselected_tor       # noqa: F811
 ):
     mux_port = select_mux_port
     logging.info("Use mux port %s to test", mux_port)
-    with setup_faulted_y_cable_driver(rand_unselected_dut, simulate_probe_unknown=True):
+    with setup_faulted_y_cable_driver(simulated_faulty_side, simulate_probe_unknown=True):
         # ensure that no switchover after the ycabled restart
         pytest_assert(get_tor_mux_status(
-            rand_unselected_dut, mux_port) == "active")
+            simulated_faulty_side, mux_port) == "active")
         pytest_assert(get_tor_mux_status(
-            rand_selected_dut, mux_port) == "standby")
+            simulated_good_side, mux_port) == "standby")
 
         try:
-            logging.info("Toggle to active via cli on %s", rand_selected_dut)
-            rand_selected_dut.shell("config mux mode active %s" % mux_port)
+            import pdb; pdb.set_trace()
+            logging.info("Toggle to active via cli on %s", simulated_good_side)
+            simulated_good_side.shell("config mux mode active %s" % mux_port)
             # With the faulty ycable driver returning mux unknown, the unselected ToR is still
             # able to honor the mux toggle requested by the selected ToR.
-            verify_tor_states(rand_selected_dut,
-                              rand_unselected_dut, intf_names=[mux_port])
+            verify_tor_states(simulated_good_side,
+                              simulated_faulty_side, intf_names=[mux_port])
             pytest_assert(get_tor_mux_probe_state(
-                rand_unselected_dut, mux_port) == "unknown")
+                simulated_faulty_side, mux_port) == "unknown")
         finally:
-            rand_selected_dut.shell("config mux mode auto all")
+            simulated_good_side.shell("config mux mode auto all")
 
 
 def test_switchover_peer_link_down(
-    rand_selected_dut,
-    rand_unselected_dut,
+    simulated_good_side,
+    simulated_faulty_side,
     restore_pmon,                                           # noqa: F811
     select_mux_port,
     toggle_all_simulator_ports_to_rand_unselected_tor       # noqa: F811
 ):
     mux_port = select_mux_port
     logging.info("Use mux port %s to test", mux_port)
-    with setup_faulted_y_cable_driver(rand_unselected_dut, simulate_peer_link_down=True):
+    with setup_faulted_y_cable_driver(simulated_faulty_side, simulate_peer_link_down=True):
         # ensure that no switchover after the ycabled restart
         pytest_assert(get_tor_mux_status(
-            rand_unselected_dut, mux_port) == "active")
+            simulated_faulty_side, mux_port) == "active")
         pytest_assert(get_tor_mux_status(
-            rand_selected_dut, mux_port) == "standby")
+            simulated_good_side, mux_port) == "standby")
 
         try:
-            logging.info("Toggle to active via cli on %s", rand_selected_dut)
-            rand_selected_dut.shell("config mux mode active %s" % mux_port)
+            logging.info("Toggle to active via cli on %s", simulated_good_side)
+            simulated_good_side.shell("config mux mode active %s" % mux_port)
             # With the faulty ycable driver returning peer link down, the unselected ToR will try
             # toggle back as the peer link is down. And as the ycabled polls the link status every
             # 60s, let's wait for 90 seconds here.
-            verify_tor_states(rand_unselected_dut, rand_selected_dut, intf_names=[
+            verify_tor_states(simulated_faulty_side, simulated_good_side, intf_names=[
                               mux_port], verify_db_timeout=90)
-            pytest_assert(get_tor_mux_cable_info(rand_unselected_dut, mux_port)[
+            pytest_assert(get_tor_mux_cable_info(simulated_faulty_side, mux_port)[
                           "link_status_peer"] == "down")
         finally:
-            rand_selected_dut.shell("config mux mode auto all")
+            simulated_good_side.shell("config mux mode auto all")
