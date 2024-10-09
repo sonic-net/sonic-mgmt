@@ -101,7 +101,13 @@ def do_reboot(duthost, localhost, duthosts):
 
 
 def post_reboot_healthcheck(duthost, localhost, duthosts, wait_time):
-    localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
+    timeout = 300
+    if duthost.get_facts().get("modular_chassis"):
+        wait_time = max(wait_time, 900)
+        timeout = max(timeout, 600)
+        localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
+    else:
+        localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
     wait(wait_time, msg="Wait {} seconds for system to be stable.".format(wait_time))
     if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
         logger.error("Not all critical services fully started!")

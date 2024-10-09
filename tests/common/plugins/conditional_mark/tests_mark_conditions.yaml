@@ -76,15 +76,15 @@ bfd/test_bfd.py:
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
-    reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
+    reason: "Test not supported for cisco as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
-    reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
+    reason: "Test not supported for cisco as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 bfd/test_bfd_static_route.py:
   skip:
@@ -156,10 +156,10 @@ bgp/test_bgp_speaker.py:
 
 bgp/test_bgp_suppress_fib.py:
   skip:
-    reason: "Not supported before release 202405."
+    reason: "Not supported before release 202411."
     conditions_logical_operator: or
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', 'master']"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
 
 bgp/test_bgpmon.py:
@@ -297,6 +297,14 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=disable]:
 decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
   skip:
     reason: "Not supported uniform ttl mode"
+
+decap/test_subnet_decap.py::test_vlan_subnet_decap:
+  skip:
+    reason: "Supported only on T0 topology with KVM or broadcom td3 asic, and available for 202405 release and later"
+    conditions:
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['vs'] or asic_gen not in ['td3']"
+      - "release in ['202012', '202205', '202305', '202311']"
 
 #######################################
 #####         dhcp_relay        #####
@@ -741,6 +749,11 @@ generic_config_updater/test_eth_interface.py::test_update_speed:
       - https://github.com/sonic-net/sonic-mgmt/issues/8143
       - https://github.com/sonic-net/sonic-buildimage/issues/13267
 
+generic_config_updater/test_incremental_qos.py:
+  skip:
+    reason: "Does not support dualtor right now, due to issue https://github.com/sonic-net/sonic-mgmt/issues/14865"
+    conditions:
+      - "'dualtor' in topo_name"
 
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
@@ -1052,6 +1065,15 @@ nat:
       - "'nat' not in feature_status"
 
 #######################################
+#####    override_config_table    #####
+#######################################
+override_config_table/test_override_config_table.py:
+  skip:
+    reason: "Skip on multi-asic platforms as test provided golden config format is not compatible with multi-asics."
+    conditions:
+      - "is_multi_asic==True"
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
@@ -1130,6 +1152,13 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      reason: "Forward action not supported in cisco-8000"
      conditions:
         - "asic_type in ['cisco-8000']"
+
+pfcwd/test_pfcwd_all_port_storm.py:
+   skip:
+     reason: "Slow pfc generation rate on 7060x6 200Gb,
+              pfc generation function on the Arista fanout device need to be improved by Arista"
+     conditions:
+      - "hwsku in ['Arista-7060X6-64PE-256x200G']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
@@ -1660,6 +1689,15 @@ test_pktgen.py:
     conditions:
       - "asic_type not in ['cisco-8000']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/13804"
+
+#######################################
+#####         vs_chassis          #####
+#######################################
+test_vs_chassis_setup.py:
+  skip:
+    reason: "Skip vs_chassis setup on non-vs testbeds"
+    conditions:
+      - "asic_type not in ['vs']"
 
 #######################################
 #####            vlan             #####

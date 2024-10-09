@@ -19,6 +19,7 @@ t0:
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_session.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
@@ -218,6 +219,7 @@ t0:
   - wol/test_wol.py
   - dhcp_relay/test_dhcp_pkt_fwd.py
   - telemetry/test_telemetry.py
+  - platform_tests/test_cont_warm_reboot.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
@@ -265,6 +267,7 @@ t1-lag:
   - bgp/test_bgp_multipath_relax.py
   - bgp/test_bgp_update_timer.py
   - bgp/test_bgpmon.py
+  - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_session.py
   - bgp/test_traffic_shift.py
   - configlet/test_add_rack.py
@@ -448,20 +451,17 @@ dpu:
   - dash/test_dash_vnet.py
 
 onboarding_t0:
-  - bgp/test_bgp_stress_link_flap.py
   # We will add a batch of T0 control plane cases and fix the failed cases later
   - pfcwd/test_pfcwd_all_port_storm.py
   - pfcwd/test_pfcwd_function.py
   - pfcwd/test_pfcwd_timer_accuracy.py
   - pfcwd/test_pfcwd_warm_reboot.py
   # - platform_tests/test_advanced_reboot.py
-  - platform_tests/test_cont_warm_reboot.py
   - snmp/test_snmp_link_local.py
   - lldp/test_lldp_syncd.py
 
 
 onboarding_t1:
-  - bgp/test_bgp_stress_link_flap.py
   - snmp/test_snmp_link_local.py
   - lldp/test_lldp_syncd.py
 
