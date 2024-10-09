@@ -143,3 +143,16 @@ def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list):
     check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list)
     check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list)
     check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list)
+
+def get_passive_cable_port_list(dut):
+    passive_cable_port_list = []
+    cmd_show_eeprom = "sudo sfputil show eeprom -d"
+    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
+    eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
+    for port_name, eeprom_info in eeprom_infos.items():
+        if is_passive_cable(eeprom_info):
+            logging.info(f"{port_name} is passive cable")
+            passive_cable_port_list.append(port_name)
+    logging.info(f"Ports with passive cable are: {passive_cable_port_list}")
+    return passive_cable_port_list
+
