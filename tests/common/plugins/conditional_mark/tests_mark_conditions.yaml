@@ -1205,7 +1205,7 @@ qos/test_buffer.py::test_buffer_model_test:
   skip:
     reason: "Running only on mellanox devices and covered by unit testing"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
 
 qos/test_buffer_traditional.py:
   skip:
