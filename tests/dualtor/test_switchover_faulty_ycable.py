@@ -155,7 +155,6 @@ def test_switchover_probe_unknown(
             simulated_good_side, mux_port) == "standby")
 
         try:
-            import pdb; pdb.set_trace()
             logging.info("Toggle to active via cli on %s", simulated_good_side)
             simulated_good_side.shell("config mux mode active %s" % mux_port)
             # With the faulty ycable driver returning mux unknown, the unselected ToR is still
