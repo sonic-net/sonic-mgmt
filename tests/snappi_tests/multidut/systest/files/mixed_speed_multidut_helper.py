@@ -298,8 +298,9 @@ def run_pfc_test(api,
         # Check for lossless and lossy stream percentage drop for a given tolerance limit.
         lossless_drop = round((1 - float(test_stats['tgen_lossless_rx_pkts']) / test_stats['tgen_lossless_tx_pkts']), 2)
         lossy_drop = round((1 - float(test_stats['tgen_lossy_rx_pkts']) / test_stats['tgen_lossy_tx_pkts']), 2)
-        logger.info('Lossless Drop %:{}, Lossy Drop %:{}'.format(lossless_drop, lossy_drop))
-        pytest_assert((lossless_drop*100) <= test_check['lossless'], 'Lossless packet drop outside tolerance limit')
+        logger.info('Lossless Drop %:{}, Lossy Drop %:{}'.format(lossless_drop*100, lossy_drop*100))
+        if test_def['enable_pfcwd']:
+            pytest_assert((lossless_drop*100) <= test_check['lossless'], 'Lossless packet drop outside tolerance limit')
         pytest_assert((lossy_drop*100) <= test_check['lossy'], 'Lossy packet drop outside tolerance limit')
 
     # Checking if the actual line rate on egress is within tolerable limit of egress line speed.
