@@ -11,7 +11,7 @@ import pytest
 from tests.common.config_reload import config_reload
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.sonic_db import redis_get_keys
+from tests.common.helpers.sonic_db import SonicDbCli, SonicDbKeyNotFound
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.utilities import skip_release, wait_until
 from tests.common.reboot import reboot
@@ -61,8 +61,17 @@ def dut_vars(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
     yield dut_vars
 
 
+def get_keys_on_asics(duthost, db_id, key):
+    # will throw a SonicDbKeyNotFound exception if the key is not in the DB
+    return {asic.asic_index: SonicDbCli(asic, db_id).get_keys(key) for asic in duthost.asics}
+
+
 def check_counters_populated(duthost, key):
-    return bool(redis_get_keys(duthost, 'COUNTERS_DB', key))
+    try:
+        keys = get_keys_on_asics(duthost, "COUNTERS_DB", key)
+        return bool(keys.values())
+    except SonicDbKeyNotFound:
+        return False
 
 
 def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, dut_vars,
@@ -92,7 +101,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     with allure.step("choosing random config apply method"):
         config_apply_method = random.choice(["config reload", "switch reboot"])
     with allure.step("disabling all counterpolls"):
-        ConterpollHelper.disable_counterpoll(duthost, list(CounterpollConstants.COUNTERPOLL_MAPPING.values()))
+        for asic in duthost.asics:
+            ConterpollHelper.disable_counterpoll(asic, list(CounterpollConstants.COUNTERPOLL_MAPPING.values()))
 
     # verify relevant counterpolls (queue/watermark/pg-drop) are disabled
     with allure.step("Verifying initial output of {} on {} ..."
@@ -100,7 +110,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         verify_all_counterpoll_status(duthost, DISABLE)
 
     with allure.step("saving config on dut {} after counterpoll disable...".format(duthost.hostname)):
-        duthost.shell('config save -y')
+        duthost.command('config save -y')
 
     # choosing only one counterpoll to test due to test duration limitaions
     tested_counterpoll = random.choice(RELEVANT_COUNTERPOLLS)
@@ -119,8 +129,9 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     # enable the selected counterpoll queue/watermark/pg-drop
     with allure.step("enabling and verify randomly selected counterpoll {} on {} ..."
                      .format(duthost.hostname, [tested_counterpoll])):
-        ConterpollHelper.enable_counterpoll(duthost, [tested_counterpoll])
-        verify_counterpoll_status(duthost, [tested_counterpoll], ENABLE)
+        for asic in duthost.asics:
+            ConterpollHelper.enable_counterpoll(asic, [tested_counterpoll])
+            verify_counterpoll_status(asic, [tested_counterpoll], ENABLE)
     # Delay to allow the counterpoll to generate the maps in COUNTERS_DB
     with allure.step("waiting {} seconds for counterpoll to generate maps in COUNTERS_DB"):
         delay = RELEVANT_MAPS[tested_counterpoll][DELAY]
@@ -133,51 +144,54 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         for map_to_verify in maps_to_verify:
             map_prefix = map_to_verify['prefix']
             maps = map_to_verify[MAPS]
-            map_output = redis_get_keys(duthost, 'COUNTERS_DB', MAPS_LONG_PREFIX.format(map_prefix))
-            map = []
-            failed = ""
-            for map_entry in maps:
-                map.append(map_entry)
-            msg = "no {} maps found in COUNTERS_DB".format(map_prefix)
-            pytest_assert(map_output, msg)
-            for line in map_output:
-                try:
-                    map.remove(line)
-                except ValueError:
-                    failed = "MAP {} was not found in {} MAPS list".format(line, map_prefix)
-            pytest_assert("" == failed, failed)
-            pytest_assert(len(map) == 0, "{} maps mismatch, one or more queue was not found in redis COUNTERS_DB"
-                          .format(map_prefix))
+            map_outputs = get_keys_on_asics(duthost, 'COUNTERS_DB', MAPS_LONG_PREFIX.format(map_prefix))
+            for asic_idx, map_output in map_outputs.items():
+                map = []
+                failed = ""
+                for map_entry in maps:
+                    map.append(map_entry)
+                msg = "no {} maps found in COUNTERS_DB on asic{}".format(map_prefix, asic_idx)
+                pytest_assert(map_output, msg)
+                for line in map_output:
+                    try:
+                        map.remove(line)
+                    except ValueError:
+                        failed = "MAP {} was not found in {} MAPS list".format(line, map_prefix)
+                pytest_assert("" == failed, failed)
+                pytest_assert(len(map) == 0,
+                              "{} maps mismatch, one or more queue was not found in redis COUNTERS_DB on asic{}"
+                              .format(map_prefix, asic_idx))
 
     failed_list = []
     with allure.step("Verifying {} STATS in FLEX_COUNTER_DB on {}...".format(tested_counterpoll, duthost.hostname)):
-        stats_output = redis_get_keys(duthost, 'FLEX_COUNTER_DB', '*{}*'.format(map_prefix))
-        counted = 0
-        # build expected counterpoll stats vs unexpected
-        expected_types = []
-        unexpected_types = []
-        for counterpoll, v in list(RELEVANT_MAPS.items()):
-            types_to_check = v[CounterpollConstants.TYPE]
-            if counterpoll in tested_counterpoll:
-                for type in types_to_check:
-                    expected_types.append(FLEX_COUNTER_PREFIX + type)
-            else:
-                for type in types_to_check:
-                    unexpected_types.append(FLEX_COUNTER_PREFIX + type)
-        logging.info("expected types for for counterpoll {}:\n{}".format(tested_counterpoll, expected_types))
-        logging.info("unexpected types for for counterpoll {}:\n{}".format(tested_counterpoll, unexpected_types))
-        for line in stats_output:
-            for expected in expected_types:
-                if expected in line:
-                    counted += 1
-            for unexpected in unexpected_types:
-                if unexpected in line:
-                    failed_list.append("found for {} unexpected stat counter in FLEX_COUNTER_DB: {}"
-                                       .format(tested_counterpoll, line))
-        logging.info("counted {} {} STATs type in FLEX_COUNTER_DB on {}..."
-                     .format(counted, tested_counterpoll, duthost.hostname))
-        pytest_assert(len(failed_list) == 0, failed_list)
-        pytest_assert(counted > 0, "counted {} for {}".format(counted, tested_counterpoll))
+        stats_outputs = get_keys_on_asics(duthost, 'FLEX_COUNTER_DB', '*{}*'.format(map_prefix))
+        for asic_idx, stats_output in stats_outputs.items():
+            counted = 0
+            # build expected counterpoll stats vs unexpected
+            expected_types = []
+            unexpected_types = []
+            for counterpoll, v in list(RELEVANT_MAPS.items()):
+                types_to_check = v[CounterpollConstants.TYPE]
+                if counterpoll in tested_counterpoll:
+                    for type in types_to_check:
+                        expected_types.append(FLEX_COUNTER_PREFIX + type)
+                else:
+                    for type in types_to_check:
+                        unexpected_types.append(FLEX_COUNTER_PREFIX + type)
+            logging.info("expected types for for counterpoll {}:\n{}".format(tested_counterpoll, expected_types))
+            logging.info("unexpected types for for counterpoll {}:\n{}".format(tested_counterpoll, unexpected_types))
+            for line in stats_output:
+                for expected in expected_types:
+                    if expected in line:
+                        counted += 1
+                for unexpected in unexpected_types:
+                    if unexpected in line:
+                        failed_list.append("found for {} unexpected stat counter in FLEX_COUNTER_DB on asic{}: {}"
+                                           .format(tested_counterpoll, asic_idx, line))
+            logging.info("counted {} {} STATs type in FLEX_COUNTER_DB on {} asic{}..."
+                         .format(counted, tested_counterpoll, duthost.hostname, asic_idx))
+            pytest_assert(len(failed_list) == 0, failed_list)
+            pytest_assert(counted > 0, "counted {} for {}".format(counted, tested_counterpoll))
 
     # for watermark only, also count stats with actual values in COUNTERS_DB
     if CounterpollConstants.WATERMARK in tested_counterpoll:
@@ -189,24 +203,30 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     # no need for reload or reboot when enabling all queue/watermark/pg-drop counterpolls
     with allure.step("enable and verify all {} counterpolls on {} ..."
                      .format(RELEVANT_COUNTERPOLLS, duthost.hostname)):
-        ConterpollHelper.enable_counterpoll(duthost, RELEVANT_COUNTERPOLLS)
-        verify_counterpoll_status(duthost, RELEVANT_COUNTERPOLLS, ENABLE)
+        for asic in duthost.asics:
+            ConterpollHelper.enable_counterpoll(duthost, RELEVANT_COUNTERPOLLS)
+            verify_counterpoll_status(duthost, RELEVANT_COUNTERPOLLS, ENABLE)
     # count FLEXCOUNTER_DB countrpolls and put in results dict key per countrpoll
     with allure.step("check all counterpolls {} results on {} ...".format(RELEVANT_COUNTERPOLLS, duthost.hostname)):
         for counterpoll in RELEVANT_COUNTERPOLLS:
-            counted_dict[counterpoll] = 0
+            counted_dict[counterpoll] = {}
+            for asic in duthost.asics:
+                counted_dict[counterpoll][asic.asic_index] = 0
         for map_prefix in MAPS_PREFIX_FOR_ALL_COUNTERPOLLS:
-            stats_output = redis_get_keys(duthost, 'FLEX_COUNTER_DB', '*{}*'.format(map_prefix))
-            for line in stats_output:
-                for counterpoll, v in list(RELEVANT_MAPS.items()):
-                    types_to_check = v[CounterpollConstants.TYPE]
-                    for type in types_to_check:
-                        if type in line:
-                            counted_dict[counterpoll] += 1
+            stats_outputs = get_keys_on_asics(duthost, 'FLEX_COUNTER_DB', '*{}*'.format(map_prefix))
+            for asic_idx, stats_output in stats_outputs.items():
+                for line in stats_output:
+                    for counterpoll, v in list(RELEVANT_MAPS.items()):
+                        types_to_check = v[CounterpollConstants.TYPE]
+                        for type in types_to_check:
+                            if type in line:
+                                counted_dict[counterpoll][asic_idx] += 1
         logging.info("counted_dict {}".format(counted_dict))
     # verify each queue/watermark/pg-drop counterpoll has stats in FLEX_COUNTER_DB
     for counterpoll in RELEVANT_COUNTERPOLLS:
-        pytest_assert(counted_dict[counterpoll] > 0)
+        for asic in duthost.asics:
+            pytest_assert(counted_dict[counterpoll][asic.asic_index] > 0,
+                          "No stats in FLEX_COUNTER_DB for {} asic{}".format(duthost.hostname, asic.asic_index))
     # for watermark only, also count stats with actual values in COUNTERS_DB
     if CounterpollConstants.WATERMARK in tested_counterpoll:
         with allure.step("counting watermark STATS in FLEX_COUNTER_DB on {}...".format(duthost.hostname)):
@@ -214,7 +234,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
 
 
 def verify_all_counterpoll_status(duthost, expected):
-    verify_counterpoll_status(duthost, RELEVANT_COUNTERPOLLS, expected)
+    for asic in duthost.asics:
+        verify_counterpoll_status(asic, RELEVANT_COUNTERPOLLS, expected)
 
 
 def verify_counterpoll_status(duthost, counterpoll_list, expected):
@@ -237,14 +258,15 @@ def verify_counterpoll_status(duthost, counterpoll_list, expected):
 
 
 def count_watermark_stats_in_counters_db(duthost):
-    watermark_stats_output = redis_get_keys(duthost, 'COUNTERS_DB', '*{}*'
-                                            .format(CounterpollConstants.WATERMARK.upper()))
-    watermark_stats = {}
-    for watermark_type in WATERMARK_COUNTERS_DB_STATS_TYPE:
-        watermark_stats[watermark_type] = 0
-        for line in watermark_stats_output:
-            if watermark_type in line:
-                watermark_stats[watermark_type] += 1
-    logging.info("watermark_stats {}".format(watermark_stats))
-    for k, v in list(watermark_stats.items()):
-        pytest_assert(v > 0, "watermark_stats {} in COUNTERS_DB: {}, expected > 0".format(k, v))
+    watermark_stats_output = get_keys_on_asics(duthost, 'COUNTERS_DB', '*{}*'
+                                               .format(CounterpollConstants.WATERMARK.upper()))
+    for asic_idx, output in watermark_stats_output.items():
+        watermark_stats = {}
+        for watermark_type in WATERMARK_COUNTERS_DB_STATS_TYPE:
+            watermark_stats[watermark_type] = 0
+            for line in output:
+                if watermark_type in line:
+                    watermark_stats[watermark_type] += 1
+        logging.info("watermark_stats on {} {}".format(asic_idx, watermark_stats))
+        for k, v in list(watermark_stats.items()):
+            pytest_assert(v > 0, "watermark_stats {} in COUNTERS_DB on asic{}: {}, expected > 0".format(k, asic_idx, v))
