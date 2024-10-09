@@ -100,8 +100,8 @@ RETURN = '''
 '''
 
 # Default testbed file name
-TESTBED_FILE = 'testbed.yaml'
-TESTCASE_FILE = 'roles/test/vars/testcases.yml'
+TESTBED_FILE = '../ansible/testbed.yaml'
+TESTCASE_FILE = '../ansible/roles/test/vars/testcases.yml'
 
 
 class ParseTestbedTopoinfo():

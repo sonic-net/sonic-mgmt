@@ -18,6 +18,8 @@ options:
       required: True
 '''
 
+VARS_PATH = "../ansible/vars/"
+
 
 def parse_vm_vlan_port(vlan):
     """
@@ -229,14 +231,14 @@ class ParseTestbedTopoinfo():
         if 'ptf64' in topo_name:
             topo_name = 't1-64'
         topo_name = re.sub(CLET_SUFFIX + "$", "", topo_name)
-        topo_filename = 'vars/topo_' + topo_name + '.yml'
+        topo_filename = VARS_PATH + 'topo_' + topo_name + '.yml'
 
         asic_topo_file_candidate_list = []
 
         if testbed_name:
             asic_topo_file_candidate_list.append(
-                'vars/' + testbed_name + '/topo_' + hwsku + '.yml')
-        asic_topo_file_candidate_list.append('vars/topo_' + hwsku + '.yml')
+                VARS_PATH + testbed_name + '/topo_' + hwsku + '.yml')
+        asic_topo_file_candidate_list.append(VARS_PATH + 'topo_' + hwsku + '.yml')
         vm_topo_config = dict()
         vm_topo_config['topo_type'] = None
         asic_topo_config = dict()
@@ -251,7 +253,7 @@ class ParseTestbedTopoinfo():
         # read topology definition
         if not os.path.isfile(topo_filename):
             raise Exception(
-                "cannot find topology definition file under vars/topo_%s.yml file!" % topo_name)
+                "cannot find topology definition file under ../ansible/vars/topo_%s.yml file!" % topo_name)
         else:
             with open(topo_filename) as f:
                 topo_definition = yaml.safe_load(f)

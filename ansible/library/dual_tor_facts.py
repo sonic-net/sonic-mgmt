@@ -15,7 +15,7 @@ except ImportError:
 
 def load_topo_file(topo_name):
     """Load topo definition yaml file."""
-    topo_file = "vars/topo_%s.yml" % topo_name
+    topo_file = "../ansible/vars/topo_%s.yml" % topo_name
     if not os.path.exists(topo_file):
         raise ValueError("Topo file %s not exists" % topo_file)
     with open(topo_file) as fd:
@@ -24,13 +24,14 @@ def load_topo_file(topo_name):
 
 class DualTorParser:
 
-    def __init__(self, hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs):
+    def __init__(self, hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs, vlan_config):
         self.hostname = hostname
         self.testbed_facts = testbed_facts
         self.host_vars = host_vars
         self.vm_config = vm_config
         self.port_alias = port_alias
         self.vlan_intfs = vlan_intfs
+        self.vlan_config = vlan_config
         self.dual_tor_facts = {}
 
     def parse_neighbor_tor(self):
@@ -94,7 +95,7 @@ class DualTorParser:
         topo_name = self.testbed_facts["topo"]
 
         topology = load_topo_file(topo_name)["topology"]
-        mux_cable_facts = generate_mux_cable_facts(topology=topology)
+        mux_cable_facts = generate_mux_cable_facts(topology=topology, vlan_config=self.vlan_config)
         self.dual_tor_facts["mux_cable_facts"] = mux_cable_facts
 
     def get_dual_tor_facts(self):
@@ -119,7 +120,9 @@ def main():
             hostvars=dict(required=True, default=None, type='dict'),
             vm_config=dict(required=True, default=None, type='dict'),
             port_alias=dict(required=True, default=None, type='list'),
-            vlan_intfs=dict(required=True, default=None, type='list')
+            vlan_intfs=dict(required=True, default=None, type='list'),
+            vlan_config=dict(required=False, default=None, type='str'),
+            working_dir=dict(required=False, default='.', type='str'),
         ),
         supports_check_mode=True
     )
@@ -135,9 +138,10 @@ def main():
     vm_config = m_args['vm_config']
     port_alias = m_args['port_alias']
     vlan_intfs = m_args['vlan_intfs']
+    vlan_config = m_args['vlan_config']
     try:
         dual_tor_parser = DualTorParser(
-            hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs)
+            hostname, testbed_facts, host_vars, vm_config, port_alias, vlan_intfs, vlan_config)
         module.exit_json(
             ansible_facts={'dual_tor_facts': dual_tor_parser.get_dual_tor_facts()})
     except Exception:
