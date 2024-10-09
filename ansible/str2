@@ -1631,6 +1631,7 @@ sonic_nokia_lc_400G:
     voq_inband_type: port
     num_asics: 2
     frontend_asics: [0, 1]
+    console_baudrate: 115200
   hosts:
     str2-7250-lc1-1:
       hwsku: Nokia-IXR7250E-36x400G
@@ -1715,6 +1716,7 @@ sonic_nokia_lc_100G:
     voq_inband_type: port
     num_asics: 2
     frontend_asics: [0, 1]
+    console_baudrate: 115200
   hosts:
     str2-7250-lc1-2:
       hwsku: Nokia-IXR7250E-36x100G
@@ -2007,6 +2009,7 @@ sonic_nokia_sup:
     asics_host_ipv6: 'FC00:20::1/128'
     switch_type: fabric
     card_type: supervisor
+    console_baudrate: 115200
   hosts:
     str2-7250-sup-1:
       ansible_host: 10.3.146.108
