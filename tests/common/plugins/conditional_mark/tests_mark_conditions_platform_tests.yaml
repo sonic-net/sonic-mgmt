@@ -423,10 +423,6 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
 #####        api/test_sfp.py      #####
 #######################################
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['nvidia-bluefield']"
   xfail:
     reason: "Platform API 'get_error_description' not implemented"
     conditions:
@@ -443,7 +439,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_name:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'nvidia-bluefield']"
+      - "asic_type in ['mellanox']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_position_in_parent:
   skip:
@@ -455,7 +451,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_reset_status:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'nvidia-bluefield']"
+      - "asic_type in ['mellanox']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_los:
   skip:
@@ -517,17 +513,11 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
     conditions:
       - "asic_type in ['mellanox']"
 
-platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
-  skip:
-    reason: "Unsupported platform API"
-    conditions:
-      - "asic_type in ['nvidia-bluefield']"
-
 platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'nvidia-bluefield'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
   skip:
@@ -767,7 +757,7 @@ platform_tests/mellanox:
   skip:
     reason: "Mellanox platform tests only supported on Mellanox devices"
     conditions:
-      - "asic_type not in ['mellanox', 'nvidia-bluefield']"
+      - "asic_type not in ['mellanox']"
 
 platform_tests/mellanox/test_check_sfp_using_ethtool.py:
   skip:
@@ -777,28 +767,24 @@ platform_tests/mellanox/test_check_sfp_using_ethtool.py:
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
-    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios"
+    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py"
     conditions:
-      - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0', 'x86_64-nvidia_sn4280-r0']"
-
+      - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
 #######################################
 #####            sfp              #####
 #######################################
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
-    reason: "Get/Set low power mode is not supported in Cisco 8000 platform or in bluefield platform"
-    conditions_logical_operator: or
+    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
-      - "asic_type in ['nvidia-bluefield']"
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
   skip:
     reason: "platform does not support sfp reset"
-    conditions_logical_operator: or
     conditions:
-      - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
-      - "asic_type in ['nvidia-bluefield']"
+      - "platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6218
 
 #######################################
 ####    test_advanced_reboot      #####
@@ -985,6 +971,10 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     reason: "Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000"
     conditions:
       - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
+  xfail:
+    reason: "Known testcase issue in Cisco platforms."
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 ######  test_secure_upgrade.py  #######
