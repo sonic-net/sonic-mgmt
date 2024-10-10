@@ -144,6 +144,10 @@ network configurations such as: IPs, MACs, VLan/VxLan, ENIs.
 entities.
 * There will be a physical link between front panel ports of both
 SmartSwitch0 and SmartSwitch1 and SONiC switch.
+* For traffic from server (simulating T2), it will be using 1 link to
+SmartSwitch NPU.
+* For traffic from SmartSwitch NPU to the other NPU, we will use 2 links as
+ECMP groups to simulate multi-T0 bounce-back routing.
 * Verify links are up and start all protocols and verify traffic is
 established.
 * Enable csv logging and check the state of the DPUs through the API.
@@ -170,6 +174,9 @@ measure DPU pair switchover.
 |:------------------------|:------------------------------------------:| :---: |
 |                         | Switchover time from <br/>Active-to-Standby DPU | 0  |
 
+* TODO: Add flow comparison, dump all flows from both DPUs and compare them using
+Dash FLow API.
+
 ### Test case1 CPS Without HA Enabled
 #### Test Objective 1
 * Baseline performance of the SmartSwitch system before HA sets are
@@ -194,7 +201,7 @@ Reference the following test cases:
     * Planned Switchover - Active
     * Planned Switchover - Backup
 
-![HA Perfect Sync Between HA Sets](images/ha_test_perfect_sync.svg)
+![HA Perfect Sync Between HA Sets](images/ha_linkloss_test.svg)
 #### Steps for Test Case 2
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss.
@@ -216,7 +223,7 @@ before, during and after switchover.
     * Planned Switchover - Active
     * Planned Switchover - Backup
 
-![HA Perfect Sync Between HA Sets](images/ha_test_perfect_sync.svg)
+![HA Perfect Sync Between HA Sets](images/ha_linkloss_test.svg)
 #### Steps for Test Case 3
 * Refer to the section Common Steps Configuration1.
 * Verify traffic is flowing without any loss.
@@ -238,6 +245,8 @@ Verify packet flow when Active NPU to DPU link starts dropping probe packets.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Active side.
 * Through mgmt remove link connection between Active DPU and NPU to drop packets.
+* Add ACL on DPU side to completely block the data port to simulate the DPU
+link failure.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes non-active.
 * DPU of SmartSwitch1 shall become the new standalone DPU in the HA set.
@@ -257,6 +266,8 @@ Verify packet flow when Active NPU to DPU link starts dropping probe packets.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Standby side.
 * Through mgmt remove link connection between Active DPU and NPU to drop packets.
+* Add ACL on DPU side to completely block the data port to simulate the DPU
+  link failure.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes non-active.
 * DPU of SmartSwitch1 shall become the new standalone DPU in the HA set.
@@ -276,6 +287,8 @@ Verify packet flow when Standby NPU to DPU link starts dropping probe packets.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Active side.
 * Through mgmt remove link connection between Standby DPU and NPU to drop packets.
+* Add ACL on DPU side to completely block the data port to simulate the DPU
+  link failure.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes standalone.
 * DPU of SmartSwitch1 shall become anything but active.
@@ -294,6 +307,8 @@ Verify packet flow when Standby NPU to DPU link starts dropping probe packets.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Standby side.
 * Through mgmt remove link connection between Standby DPU and NPU to drop packets.
+* Add ACL on DPU side to completely block the data port to simulate the DPU
+  link failure.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes standalone.
 * DPU of SmartSwitch1 shall become anything but active.
@@ -312,6 +327,9 @@ Verify packet flow when T1-T0 link drop.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Active side.
 * Through mgmt remove link connection Active DPU side T1-T0 link.
+* Remove link from the BBR ECMP group.  Nothing should fail.
+* Then remove the other link from the BBR ECMP group.  Nothing should
+fail as well.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes non-active.
 * DPU of SmartSwitch1 becomes standalone.
@@ -330,6 +348,9 @@ Verify packet flow when T1-T0 link drop.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Standby side.
 * Through mgmt remove link connection Active DPU side T1-T0 link.
+* Remove link from the BBR ECMP group.  Nothing should fail.
+* Then remove the other link from the BBR ECMP group.  Nothing should
+  fail as well.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes non-active.
 * DPU of SmartSwitch1 becomes standalone.
@@ -348,6 +369,9 @@ Verify packet flow when T1-T0 link drop.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Active side.
 * Through mgmt remove link connection Standby DPU side T1-T0 link.
+* Remove link from the BBR ECMP group.  Nothing should fail.
+* Then remove the other link from the BBR ECMP group.  Nothing should
+  fail as well.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes standalone.
 * DPU of SmartSwitch1 becomes anything but active.
@@ -367,6 +391,9 @@ Verify packet flow when T1-T0 link drop.
 * Verify traffic is flowing without any loss through the Standby side.
 * Through mgmt remove link connection Standby DPU side T1-T0 link.
 * Mark start time at beginning of test as link connection is removed.
+* Remove link from the BBR ECMP group.  Nothing should fail.
+* Then remove the other link from the BBR ECMP group.  Nothing should
+  fail as well.
 * DPU of SmartSwitch0 becomes standalone.
 * DPU of SmartSwitch1 becomes anything but active.
 * Measure convergence time from start of the link removal.
