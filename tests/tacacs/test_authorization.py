@@ -13,6 +13,8 @@ from tests.common.utilities import skip_release, wait_until, paramiko_ssh
 from .utils import check_server_received
 from tests.common.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
+
+
 from tests.common.helpers.dut_utils import is_container_running
 from .utils import duthost_shell_with_unreachable_retry
 

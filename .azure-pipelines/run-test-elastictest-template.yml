@@ -190,11 +190,26 @@ steps:
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
-        set -e
+        set -x
 
         pip install PyYAML
 
         rm -f new_test_plan_id.txt
+
+        FINAL_FEATURES=""
+
+        IFS=' ' read -ra FEATURES_LIST <<< "${{ parameters.FEATURES }}"
+        for FEATURE in "${FEATURES_LIST[@]}"
+        do
+            if [[ "$FEATURE" == *tests* ]] && [[ "$FEATURE" != *tests/common* ]];then
+                if [[ -z "$FINAL_FEATURES" ]];then
+                    FINAL_FEATURES="${FEATURE#tests/}"
+                else
+                    FINAL_FEATURES="$FINAL_FEATURES, ${FEATURE#tests/}"
+                fi
+            fi
+        done
+        echo "Final features: ${FINAL_FEATURES}"
 
         python ./.azure-pipelines/test_plan.py create \
         -t ${{ parameters.TOPOLOGY }} \
@@ -216,7 +231,7 @@ steps:
         --platform ${{ parameters.PLATFORM }} \
         --testbed-name "${{ parameters.TESTBED_NAME }}" \
         --scripts "${{ parameters.SCRIPTS }}" \
-        --features "${{ parameters.FEATURES }}" \
+        --features "${FINAL_FEATURES}" \
         --scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}" \
         --features-exclude "${{ parameters.FEATURES_EXCLUDE }}" \
         --specific-param='${{ parameters.SPECIFIC_PARAM }}' \
