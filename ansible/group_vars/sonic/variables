@@ -10,7 +10,7 @@ sonic_version: "v2"
 broadcom_hwskus: [ "Force10-S6000", "Accton-AS7712-32X", "Celestica-DX010-C32", "Seastone-DX010", "Celestica-E1031-T48S4"]
 
 broadcom_td2_hwskus: ['Force10-S6000', 'Force10-S6000-Q24S32', 'Arista-7050-QX32', 'Arista-7050-QX-32S', 'Arista-7050QX32S-Q32']
-broadcom_td3_hwskus: ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']
+broadcom_td3_hwskus: ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7050CX3-32C-C32']
 broadcom_th_hwskus: ['Force10-S6100', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-D48C8', 'Celestica-DX010-C32', "Seastone-DX010" ]
 broadcom_th2_hwskus: ['Arista-7260CX3-D108C8',  'Arista-7260CX3-C64', 'Arista-7260CX3-Q64']
 broadcom_th3_hwskus: ['DellEMC-Z9332f-M-O16C64',  'DellEMC-Z9332f-O32']
