@@ -331,6 +331,13 @@ def test_update_saithrift_ptf(request, ptfhost):
     if result["failed"] or "OK" not in result["msg"]:
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
+    # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
+    # We need to move it out to the correct location
+    PY_PATH = "/usr/lib/python3/dist-packages/"
+    SRC_PATH = PY_PATH + "saithrift-0.9-py3.11.egg/switch_sai_thrift"
+    DST_PATH = PY_PATH + "switch_sai_thrift"
+    if ptfhost.stat(path=SRC_PATH)['stat']['exists'] and not ptfhost.stat(path=DST_PATH)['stat']['exists']:
+        ptfhost.copy(src=SRC_PATH, dest=DST_PATH, remote_src=True)
     logging.info("Python saithrift package installed successfully")
 
 
