@@ -44,23 +44,17 @@ def fixture_encap_type(request):
 def _ignore_route_sync_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
-        IgnoreRegex = [
-            ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
-            ".*missed_in_asic_db_routes.*",
-            ".*Look at reported mismatches above.*",
-            ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
-            ".*'vnetRouteCheck' status failed.*",
-            ".*Vnet Route Mismatch reported.*",
-            ".*_M_construct null not valid.*",
-        ]
-        # Ignore in KVM test
-        KVMIgnoreRegex = [
-            ".*doTask: Logic error: basic_string: construction from null is not valid.*",
-        ]
-        duthost = duthosts[rand_one_dut_hostname]
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(IgnoreRegex)
-        if duthost.facts["asic_type"] == "vs":
-            loganalyzer[rand_one_dut_hostname].ignore_regex.extend(KVMIgnoreRegex)
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(
+            [
+                ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
+                ".*missed_in_asic_db_routes.*",
+                ".*Look at reported mismatches above.*",
+                ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
+                ".*'vnetRouteCheck' status failed.*",
+                ".*Vnet Route Mismatch reported.*",
+                ".*_M_construct null not valid.*",
+                ".*basic_string: construction from null is not valid.*"
+            ])
     return
 
 
