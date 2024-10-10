@@ -16,6 +16,7 @@ from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F40
 from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
 from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
 from tests.common.helpers.portchannel_to_vlan import running_vlan_ports_list
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,44 @@ def build_arp_packet(vlan_id, neighbor_mac, dst_mac, neighbor_ip):
     return pkt
 
 
+def _check_arp_entries(duthost, dummy_ips, dummy_macs, vlan_port_dev, permit_vlanid, error):
+    error["detail"] = None
+    try:
+        res = duthost.command('show arp')
+        assert res['rc'] == 0
+        logger.info('"show arp" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+
+        arp_cnt = 0
+        for arp_entry in res['stdout_lines']:
+            # Address MacAddress Iface Vlan
+            items = arp_entry.split()
+            if len(items) != 4:
+                continue
+            # Vlan must be number
+            if not items[3].isdigit():
+                continue
+            arp_cnt += 1
+            ip = items[0]
+            mac = items[1]
+            ifname = items[2]
+            vlan_id = int(items[3])
+            assert ip in dummy_ips
+            assert mac in dummy_macs
+            # 'show arp' command gets iface from FDB table,
+            # if 'show arp' command was earlier than FDB table update, ifname would be '-'
+            if ifname == '-':
+                logger.info('Ignore unknown iface...')
+            else:
+                assert ifname == vlan_port_dev
+            assert vlan_id == permit_vlanid
+        assert arp_cnt == DUMMY_ARP_COUNT, "Expect {} entries, but {} found".format(DUMMY_ARP_COUNT, arp_cnt)
+        return True
+    except Exception as detail:
+        error["detail"] = detail
+        logger.error("Except: {}".format(error["detail"]))
+        raise
+
+
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
@@ -117,38 +156,10 @@ def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
                 pkt = build_arp_packet(permit_vlanid, dummy_macs[i], router_mac, dummy_ips[i])
                 logger.info("Send tagged({}) packet from {} ...".format(permit_vlanid, port_index))
                 testutils.send(ptfadapter, port_index, pkt)
-
-            try:
-                res = duthost.command('show arp')
-                assert res['rc'] == 0
-                logger.info('"show arp" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
-
-                arp_cnt = 0
-                for arp_entry in res['stdout_lines']:
-                    # Address MacAddress Iface Vlan
-                    items = arp_entry.split()
-                    if len(items) != 4:
-                        continue
-                    # Vlan must be number
-                    if not items[3].isdigit():
-                        continue
-                    arp_cnt += 1
-                    ip = items[0]
-                    mac = items[1]
-                    ifname = items[2]
-                    vlan_id = int(items[3])
-                    assert ip in dummy_ips
-                    assert mac in dummy_macs
-                    # 'show arp' command gets iface from FDB table,
-                    # if 'show arp' command was earlier than FDB table update, ifname would be '-'
-                    if ifname == '-':
-                        logger.info('Ignore unknown iface...')
-                    else:
-                        assert ifname == vlan_port["dev"]
-                    assert vlan_id == permit_vlanid
-                assert arp_cnt == DUMMY_ARP_COUNT, "Expect {} entries, but {} found".format(DUMMY_ARP_COUNT, arp_cnt)
-            except Exception as detail:
-                logger.error("Except: {}".format(detail))
+            error = {"detail": None}
+            wait_until(180, 60, 0, _check_arp_entries, duthost, dummy_ips, dummy_macs, vlan_port["dev"], permit_vlanid,
+                       error)
+            if error["detail"] is not None:
                 # Dump status for debug
                 import time
                 time.sleep(10)
@@ -160,4 +171,4 @@ def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
                 logger.info('"show int counter" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
                 res = duthost.command('show int portchannel')
                 logger.info('"show int portchannel" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
-                raise
+                raise error["detail"]
