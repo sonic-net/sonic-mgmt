@@ -558,6 +558,7 @@ sonic_arista64_100:
         "0x2F": "SSJ17432414"
   vars:
     iface_speed: 100000
+    msft_an_enabled: True
 
 sonic_arista32_100:
   hosts:
