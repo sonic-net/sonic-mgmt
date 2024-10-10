@@ -157,7 +157,7 @@ Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
 1. Manually configure IP on dpu interface eth1/eth2
 
     ```bash
-    admin@vlab-01:~$ sudo ifconfig eth1 10.0.1.1/24 up && sudo ifconfig eth2 10.0.2.1/24 up
+    admin@vlab-01:~$ sudo ifconfig eth1 10.0.0.37/31 up && sudo ifconfig eth2 10.0.0.39/31 up
     ```
 
 1. config reload
@@ -200,12 +200,12 @@ Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
     ```bash
     $ docker run --rm -ti --network=host p4lang/p4runtime-sh --grpc-addr 127.0.0.1:9559 --device-id 0 --election-id 0,1
     underlay_entry = table_entry["dash_ingress.underlay.underlay_routing"](action="dash_ingress.underlay.pkt_act")
-    underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.37/128"
+    underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.37/127"
     underlay_entry.action["packet_action"] = "1"
     underlay_entry.action["next_hop_id"] = "0"
     underlay_entry.insert
 
-    underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.39/128"
+    underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.39/127"
     underlay_entry.action["packet_action"] = "1"
     underlay_entry.action["next_hop_id"] = "1"
     underlay_entry.insert
