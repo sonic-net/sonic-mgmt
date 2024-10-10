@@ -13,9 +13,7 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
 
     port_qos_map = config_facts["PORT_QOS_MAP"]
     lossless_priorities = list()
-    # Get VLAN members as they are server facing
-    vlan = list(config_facts['VLAN_MEMBER'].keys())[0]
-    intf = list(config_facts['VLAN_MEMBER'][vlan].keys())[0]
+    intf = list(port_qos_map.keys())[0]
     if 'pfc_enable' not in port_qos_map[intf]:
         return None
 
@@ -30,8 +28,7 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
     for prio in lossless_priorities:
         result[prio] = list()
 
-    # Retrieve DSCP_TO_TC_MAP from the downlink port.
-    profile = port_qos_map[intf]['dscp_to_tc_map']
+    profile = list(prio_to_tc_map.keys())[0]
 
     for prio in prio_to_tc_map[profile]:
         tc = prio_to_tc_map[profile][prio]

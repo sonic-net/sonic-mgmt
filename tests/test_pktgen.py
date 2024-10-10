@@ -3,7 +3,6 @@ import pytest
 import random
 import re
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,7 @@ CLEANUP_CMDS = [
                 "echo 'reset' > /proc/net/pktgen/pgctrl",
                 "echo 'rem_device_all' > /proc/net/pktgen/kpktgend_0"
 ]
+
 
 PKTGEN_CMDS = [
                 "echo 'add_device {}' > /proc/net/pktgen/kpktgend_0",
@@ -43,6 +43,14 @@ def get_port_list(duthost, tbinfo):
     return list(mg_facts["minigraph_ports"].keys())
 
 
+@pytest.fixture(scope='module')
+def setup_thresholds(duthosts, enum_dut_hostname):
+    duthost = duthosts[enum_dut_hostname]
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    cpu_threshold = 70 if is_chassis else 50
+    return cpu_threshold
+
+
 @pytest.fixture(scope='function', autouse='True')
 def clear_pktgen(duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
@@ -56,7 +64,7 @@ def clear_pktgen(duthosts, enum_dut_hostname):
         duthost.shell(cmd)
 
 
-def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, loganalyzer):
+def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, loganalyzer, setup_thresholds):
     '''
     Testcase does the following steps:
     1. Check max CPU utilized , number of core and dump files before starting the run
@@ -68,8 +76,17 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     duthost = duthosts[enum_dut_hostname]
     router_mac = duthost.asic_instance(enum_frontend_asic_index).get_router_mac()
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='pktgen')
-    loganalyzer.load_common_config()
+    if loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+    cpu_threshold = setup_thresholds
+    # Check CPU util before sending traffic
+    cpu_before = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | awk '{print $9}'")["stdout_lines"]
+    for entry in cpu_before:
+        pytest_assert(
+            float(entry) < cpu_threshold,
+            "Cpu util was above threshold {} for atleast 1 process"
+            " before sending pktgen traffic".format(cpu_threshold))
 
     # Check number of existing core/crash files
     core_files_pre = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]
@@ -86,13 +103,8 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
         else:
             duthost.shell(cmd.format(port))
 
-    try:
-        loganalyzer.ignore_regex.extend(ignoreRegex)
-        with loganalyzer:
-            # Send packet
-            duthost.shell("sudo echo 'start' > /proc/net/pktgen/pgctrl")
-    except LogAnalyzerError as err:
-        raise err
+    # Send packet
+    duthost.shell("sudo echo 'start' > /proc/net/pktgen/pgctrl")
 
     # Verify packet count from pktgen
     pktgen_param = duthost.shell("cat /proc/net/pktgen/{}".format(port))["stdout"]
@@ -106,13 +118,13 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     pytest_assert(int(interf_counters) >= 15000, "Packets were not transmitted from the interface {}, \
     15000 packets were expected but only {} found".format(port, 15000-int(interf_counters)))
 
-    # Check kernel messages for errors after sending traffic
-    logging.info("Check dmesg")
-    dmesg = duthost.command("sudo dmesg")
-    error_keywords = ["crash", "out of memory", "lockup"]
-    for err_kw in error_keywords:
-        pytest_assert(not re.match(err_kw, dmesg["stdout"], re.I), "Found error keyword {} in dmesg: \
-        {}".format(err_kw, dmesg["stdout"]))
+    # Check CPU util after sending traffic
+    cpu_after = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | awk '{print $9}'")["stdout_lines"]
+    for entry in cpu_after:
+        pytest_assert(
+            float(entry) < cpu_threshold,
+            "Cpu util was above threshold {} for atleast 1 process"
+            " after sending pktgen traffic".format(cpu_threshold))
 
     # Check number of new core/crash files
     core_files_new = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]

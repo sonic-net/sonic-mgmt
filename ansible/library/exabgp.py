@@ -6,7 +6,6 @@ import sys
 import os
 import re
 import time
-import six
 
 DOCUMENTATION = '''
 module:  exabgp
@@ -49,7 +48,6 @@ DEFAULT_BGP_LISTEN_PORT = 179
 http_api_py = '''\
 from flask import Flask, request
 import sys
-import six
 
 #Disable banner msg from app.run, or the output might be caught by exabgp and run as command
 cli = sys.modules['flask.cli']
@@ -60,15 +58,7 @@ app = Flask(__name__)
 # Setup a command route to listen for prefix advertisements
 @app.route('/', methods=['POST'])
 def run_command():
-    # code made compatible to run in Py2 or Py3 environment
-    # to support back-porting
-    request_has_commands = False
-    if six.PY2:
-        request_has_commands = request.form.has_key('commands')
-    else:
-        request_has_commands = 'commands' in request.form
-
-    if request_has_commands:
+    if request.form.has_key('commands'):
         cmds = request.form['commands'].split(';')
     else:
         cmds = [ request.form['command'] ]
@@ -92,8 +82,7 @@ dump_config_tmpl = '''\
     }
 '''
 
-# ExaBGP Version 3 configuration file format
-exabgp3_config_template = '''\
+exabgp_conf_tmpl = '''\
 group exabgp {
 {{ dump_config }}
 
@@ -113,35 +102,6 @@ group exabgp {
         listen {{ listen_port }};
         {%- endif %}
     }
-}
-'''
-
-# ExaBGP Version 4 uses a different configuration file
-# format. The dump_config would come from the user. The caller
-# must pass Version 4 compatible configuration.
-# Example configs are available here
-# https://github.com/Exa-Networks/exabgp/tree/master/etc/exabgp
-# Look for sample for a given section for details
-exabgp4_config_template = '''\
-{{ dump_config }}
-process http-api {
-   run /usr/bin/python /usr/share/exabgp/http_api.py {{ port }};
-   encoder json;
-}
-neighbor {{ peer_ip }} {
-   router-id {{ router_id }};
-   local-address {{ local_ip }};
-   peer-as {{ peer_asn }};
-   local-as {{ local_asn }};
-   auto-flush {{ auto_flush }};
-   group-updates {{ group_updates }};
-   {%- if passive %}
-   passive;
-   listen {{ listen_port }};
-   {%- endif %}
-   api {
-       processes [ http-api ];
-   }
 }
 '''
 
@@ -172,12 +132,7 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
 
 def get_exabgp_status(module, name):
     output = exec_command(module, cmd="supervisorctl status exabgp-%s" % name)
-    m = None
-    if six.PY2:
-        m = re.search(r'^([\w|-]*)\s+(\w*).*$', output.decode("utf-8"))
-    else:
-        # For PY3 module.run_command encoding is "utf-8" by default
-        m = re.search(r'^([\w|-]*)\s+(\w*).*$', output)
+    m = re.search(r'^([\w|-]*)\s+(\w*).*$', output.decode("utf-8"))
     return m.group(2)
 
 
@@ -227,12 +182,7 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
         dump_config = jinja2.Template(
             dump_config_tmpl).render(dump_script=dump_script)
 
-    # backport friendly checking; not required if everything is Py3
-    t = None
-    if six.PY2:
-        t = jinja2.Template(exabgp3_config_template)
-    else:
-        t = jinja2.Template(exabgp4_config_template)
+    t = jinja2.Template(exabgp_conf_tmpl)
     data = t.render(name=name,
                     router_id=router_id,
                     local_ip=local_ip,

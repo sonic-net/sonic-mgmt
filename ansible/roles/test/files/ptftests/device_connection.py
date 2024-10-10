@@ -34,10 +34,9 @@ class DeviceConnection:
         self.username = username
         self.password = password
         self.alt_password = alt_password
-        self.alt_password_index = 0
 
     @retry(
-        stop_max_attempt_number=4,
+        stop_max_attempt_number=2,
         retry_on_exception=lambda e: isinstance(e, AuthenticationException)
     )
     def execCommand(self, cmd, timeout=DEFAULT_CMD_EXECUTION_TIMEOUT_SEC):
@@ -70,10 +69,9 @@ class DeviceConnection:
         except AuthenticationException as authenticationException:
             logger.error('SSH Authentication failure with message: %s' %
                          authenticationException)
-            if self.alt_password is not None and self.alt_password_index < len(self.alt_password):
+            if self.alt_password is not None:
                 # attempt retry with alt_password
-                self.password = self.alt_password[self.alt_password_index]
-                self.alt_password_index += 1
+                self.password = self.alt_password
                 raise AuthenticationException
         except SSHException as sshException:
             logger.error('SSH Command failed with message: %s' % sshException)

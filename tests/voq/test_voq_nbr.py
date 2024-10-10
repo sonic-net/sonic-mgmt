@@ -15,17 +15,16 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.parallel import parallel_run
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 
-from tests.common.helpers.voq_helpers import get_neighbor_info
-from tests.common.helpers.voq_helpers import get_port_by_ip
-from tests.common.helpers.voq_helpers import check_all_neighbors_present, check_one_neighbor_present
-from tests.common.helpers.voq_helpers import asic_cmd, sonic_ping
-from tests.common.helpers.voq_helpers import check_neighbors_are_gone
-from tests.common.helpers.voq_helpers import dump_and_verify_neighbors_on_asic
-from tests.common.helpers.voq_helpers import poll_neighbor_table_delete
-from tests.common.helpers.voq_helpers import get_inband_info
-from tests.common.helpers.voq_helpers import get_ptf_port
-from tests.common.helpers.voq_helpers import get_vm_with_ip
-from tests.common.devices.eos import EosHost
+from .voq_helpers import get_neighbor_info
+from .voq_helpers import get_port_by_ip
+from .voq_helpers import check_all_neighbors_present, check_one_neighbor_present
+from .voq_helpers import asic_cmd, sonic_ping
+from .voq_helpers import check_neighbors_are_gone
+from .voq_helpers import dump_and_verify_neighbors_on_asic
+from .voq_helpers import poll_neighbor_table_delete
+from .voq_helpers import get_inband_info
+from .voq_helpers import get_ptf_port
+from .voq_helpers import get_vm_with_ip
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa F401
 logger = logging.getLogger(__name__)
@@ -128,13 +127,16 @@ def restore_bgp(duthosts, nbrhosts, all_cfg_facts):
 
                     for peer in nbr['conf']['bgp']['peers']:
                         for neighbor in nbr['conf']['bgp']['peers'][peer]:
-                            if isinstance(nbr['host'], EosHost):
+                            nbr['host'].eos_config(
+                                lines=["no neighbor %s shutdown" % neighbor],
+                                parents=['router bgp {}'.format(nbr['conf']['bgp']['asn'])])
+
+                            if ":" in address:
                                 nbr['host'].eos_config(
-                                    lines=["no neighbor %s shutdown" % neighbor],
-                                    parents=['router bgp {}'.format(nbr['conf']['bgp']['asn'])])
+                                    lines=["no ipv6 route ::/0 %s " % neighbor])
                             else:
-                                nbr['host'].shell("sudo vtysh -c 'configure terminal' -c 'router bgp " + str(
-                                    nbr['conf']['bgp']['asn']) + "' -c 'no neighbor {} shutdown'".format(neighbor))
+                                nbr['host'].eos_config(
+                                    lines=["no ip route 0.0.0.0/0 %s " % neighbor])
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -217,25 +219,21 @@ def setup(duthosts, nbrhosts, all_cfg_facts):
             'disable neighbors {} on neighbor host {}'.format(node['conf']['bgp']['peers'], node['host'].hostname))
         for peer in node['conf']['bgp']['peers']:
             for neighbor in node['conf']['bgp']['peers'][peer]:
-                if isinstance(node['host'], EosHost):
+                node_results.append(node['host'].eos_config(
+                    lines=["neighbor %s shutdown" % neighbor],
+                    parents=['router bgp {}'.format(node['conf']['bgp']['asn'])],
+                    module_ignore_errors=True)
+                )
+                if ":" in neighbor:
                     node_results.append(node['host'].eos_config(
-                        lines=["neighbor %s shutdown" % neighbor],
-                        parents=['router bgp {}'.format(node['conf']['bgp']['asn'])],
+                        lines=["ipv6 route ::/0 %s " % neighbor],
                         module_ignore_errors=True)
                     )
-                    if ":" in neighbor:
-                        node_results.append(node['host'].eos_config(
-                            lines=["ipv6 route ::/0 %s " % neighbor],
-                            module_ignore_errors=True)
-                        )
-                    else:
-                        node_results.append(node['host'].eos_config(
-                            lines=["ip route 0.0.0.0/0 %s " % neighbor],
-                            module_ignore_errors=True)
-                        )
                 else:
-                    node_results.append(node['host'].shell("sudo vtysh -c 'configure terminal' -c 'router bgp " + str(
-                        node['conf']['bgp']['asn']) + "' -c 'neighbor {} shutdown'".format(neighbor)))
+                    node_results.append(node['host'].eos_config(
+                        lines=["ip route 0.0.0.0/0 %s " % neighbor],
+                        module_ignore_errors=True)
+                    )
 
         results[node['host'].hostname] = node_results
 
@@ -312,47 +310,36 @@ def teardown(duthosts, nbrhosts, all_cfg_facts):
         for peer in node['conf']['bgp']['peers']:
             for neighbor in node['conf']['bgp']['peers'][peer]:
                 try:
-                    if isinstance(node['host'], EosHost):
+                    node_results.append(node['host'].eos_config(
+                        lines=["no neighbor %s shutdown" % neighbor],
+                        parents=['router bgp {}'.format(node['conf']['bgp']['asn'])])
+                    )
+                    if ":" in neighbor:
                         node_results.append(node['host'].eos_config(
-                            lines=["no neighbor %s shutdown" % neighbor],
-                            parents=['router bgp {}'.format(node['conf']['bgp']['asn'])])
+                            lines=["no ipv6 route ::/0 %s " % neighbor])
                         )
-                        if ":" in neighbor:
-                            node_results.append(node['host'].eos_config(
-                                lines=["no ipv6 route ::/0 %s " % neighbor])
-                            )
-                        else:
-                            node_results.append(node['host'].eos_config(
-                                lines=["no ip route 0.0.0.0/0 %s " % neighbor],
-                            )
-                            )
                     else:
-                        node_results.append(node['host'].shell(
-                            "sudo vtysh -c 'configure terminal' -c 'router bgp " + str(
-                                node['conf']['bgp']['asn']) + "' -c 'no neighbor {} shutdown'".format(neighbor)))
-
+                        node_results.append(node['host'].eos_config(
+                            lines=["no ip route 0.0.0.0/0 %s " % neighbor],
+                        )
+                        )
                 except Exception:
                     logger.warning("Enable of neighbor on VM: %s failed, retrying", node['host'].hostname)
                     time.sleep(10)
-                    if isinstance(node['host'], EosHost):
+                    node_results.append(node['host'].eos_config(
+                        lines=["no neighbor %s shutdown" % neighbor],
+                        parents=['router bgp {}'.format(node['conf']['bgp']['asn'])])
+                    )
+                    if ":" in neighbor:
                         node_results.append(node['host'].eos_config(
-                            lines=["no neighbor %s shutdown" % neighbor],
-                            parents=['router bgp {}'.format(node['conf']['bgp']['asn'])])
+                            lines=["no ipv6 route ::/0 %s " % neighbor],
                         )
-                        if ":" in neighbor:
-                            node_results.append(node['host'].eos_config(
-                                lines=["no ipv6 route ::/0 %s " % neighbor],
-                            )
-                            )
-                        else:
-                            node_results.append(node['host'].eos_config(
-                                lines=["no ip route 0.0.0.0/0 %s " % neighbor],
-                            )
-                            )
+                        )
                     else:
-                        node_results.append(node['host'].shell(
-                            "sudo vtysh -c 'configure terminal' -c 'router bgp " + str(
-                                node['conf']['bgp']['asn']) + "' -c 'no neighbor {} shutdown'".format(neighbor)))
+                        node_results.append(node['host'].eos_config(
+                            lines=["no ip route 0.0.0.0/0 %s " % neighbor],
+                        )
+                        )
 
         results[node['host'].hostname] = node_results
 
@@ -448,26 +435,12 @@ def change_vm_intefaces(nbrhosts, nbr_vms, state="up"):
         for eos_intf in list(nbr['conf']['interfaces'].keys()):
             if "Loopback" in eos_intf:
                 continue
-
             if state == "up":
-                logger.info("Startup Nbr %s interface %s", node, eos_intf)
-                if isinstance(nbr['host'], EosHost):
-                    node_results.append(
-                        nbr['host'].eos_config(lines=["no shutdown"], parents=["interface %s" % eos_intf]))
-                else:
-                    if "port-channel" in eos_intf.lower():
-                        # convert PortChannel-1 to PortChannel1
-                        eos_intf = "PortChannel" + eos_intf[-1]
-                    node_results.append(nbr['host'].shell("config interface startup {}".format(eos_intf)))
+                logger.info("Startup EOS %s interface %s", node, eos_intf)
+                node_results.append(nbr['host'].eos_config(lines=["no shutdown"], parents=["interface %s" % eos_intf]))
             else:
-                logger.info("Shutdown Nbr %s interface %s", node, eos_intf)
-                if isinstance(nbr['host'], EosHost):
-                    node_results.append(nbr['host'].eos_config(lines=["shutdown"], parents=["interface %s" % eos_intf]))
-                else:
-                    if "port-channel" in eos_intf.lower():
-                        # convert PortChannel-1 to PortChannel1
-                        eos_intf = "PortChannel" + eos_intf[-1]
-                    node_results.append(nbr['host'].shell("config interface shutdown {}".format(eos_intf)))
+                logger.info("Shutdown EOS %s interface %s", node, eos_intf)
+                node_results.append(nbr['host'].eos_config(lines=["shutdown"], parents=["interface %s" % eos_intf]))
 
         results[node] = node_results
 

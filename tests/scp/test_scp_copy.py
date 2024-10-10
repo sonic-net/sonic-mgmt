@@ -14,16 +14,15 @@ BLOCK_SIZE = 500000000
 
 
 @pytest.fixture
-def setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, creds):
+def setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
     # Copies script to DUT
-    duthost.copy(src="scp/perform_scp.py", dest="/home/{}/perform_scp.py".format(creds['sonicadmin_user']))
+    duthost.copy(src="scp/perform_scp.py", dest="/home/admin/perform_scp.py")
 
     yield
 
     files_to_remove = [
-        "./{}".format(TEST_FILE_NAME), "/home/{}/perform_scp.py".format(creds['sonicadmin_user'])]
+        "./{}".format(TEST_FILE_NAME), "/home/admin/perform_scp.py"]
     for file in files_to_remove:
         duthost.file(path=file, state="absent")
 
@@ -56,10 +55,8 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
         "python3 -c 'import pexpect'", module_ignore_errors=True)["rc"]
     if p3_pexp_exists != 0:
         python_version = "python"
-
-    duthost.command("{} perform_scp.py in {} /root/{} /home/{} {} {}"
-                    .format(python_version, ptf_ip, TEST_FILE_NAME,
-                            creds['sonicadmin_user'], creds["ptf_host_user"], creds["ptf_host_pass"]))
+    duthost.command("{} perform_scp.py in {} /root/{} /home/admin {} {}"
+                    .format(python_version, ptf_ip, TEST_FILE_NAME, creds["ptf_host_user"], creds["ptf_host_pass"]))
 
     # Validate file was received
     res = duthost.command(
@@ -78,8 +75,8 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
                   .format(TEST_FILE_NAME, orig_checksum, TEST_FILE_NAME, new_checksum))
 
     # Use scp to copy the file into the PTF
-    duthost.command("{} perform_scp.py out {} /home/{}/{} /root/{} {} {}"
-                    .format(python_version, ptf_ip, creds['sonicadmin_user'], TEST_FILE_NAME, TEST_FILE_2_NAME,
+    duthost.command("{} perform_scp.py out {} /home/admin/{} /root/{} {} {}"
+                    .format(python_version, ptf_ip, TEST_FILE_NAME, TEST_FILE_2_NAME,
                             creds["ptf_host_user"], creds["ptf_host_pass"]))
 
     # Validate that the file copied is now present in the PTF

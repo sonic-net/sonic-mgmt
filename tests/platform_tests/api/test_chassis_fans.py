@@ -5,7 +5,7 @@ import pytest
 
 from tests.common.helpers.platform_api import chassis, fan
 from .platform_api_test_base import PlatformApiTestBase
-from tests.common.helpers.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
+from tests.platform_tests.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('any')
 ]
 
 FAN_DIRECTION_INTAKE = "intake"
@@ -240,11 +239,9 @@ class TestChassisFans(PlatformApiTestBase):
                 target_speed = random.randint(speed_minimum, speed_maximum)
 
             speed = fan.get_speed(platform_api_conn, i)
-            speed_delta = abs(speed-target_speed)
 
             speed_set = fan.set_speed(platform_api_conn, i, target_speed)       # noqa F841
-            time_wait = 10 if speed_delta > 40 else 5
-            time.sleep(self.get_fan_facts(duthost, i, time_wait, "speed", "delay"))
+            time.sleep(self.get_fan_facts(duthost, i, 5, "speed", "delay"))
 
             act_speed = fan.get_speed(platform_api_conn, i)
             under_speed = fan.is_under_speed(platform_api_conn, i)

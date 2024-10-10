@@ -127,7 +127,7 @@ class MacsecPlugin(object):
             topo_name = tbinfo['topo']['name']
             pytest.skip("None of neighbors on topology {}".format(topo_name))
 
-        ctrl_nbr_names = self.get_ctrl_nbr_names(macsec_duthost, nbrhosts)
+        ctrl_nbr_names = self.get_ctrl_nbr_names(macsec_duthost, nbrhosts, tbinfo)
         logger.info("Controlled links {}".format(ctrl_nbr_names))
         nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
         return self.find_links_from_nbr(macsec_duthost, tbinfo, nbrhosts)
@@ -150,9 +150,6 @@ class MacsecPlugin(object):
         def filter(interface, neighbor, mg_facts, tbinfo):
             if self.downstream_neighbor(tbinfo, neighbor):
                 port = mg_facts["minigraph_neighbors"][interface]["port"]
-                if interface not in mg_facts["minigraph_ptf_indices"]:
-                    logger.info("Interface {} not in minigraph_ptf_indices".format(interface))
-                    return
                 links[interface] = {
                     "name": neighbor["name"],
                     "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
@@ -175,9 +172,6 @@ class MacsecPlugin(object):
                             # The address of DUT
                             peer_ipv4_addr = item["peer_addr"]
                             break
-                if interface not in mg_facts["minigraph_ptf_indices"]:
-                    logger.info("Interface {} not in minigraph_ptf_indices".format(interface))
-                    return
                 port = mg_facts["minigraph_neighbors"][interface]["port"]
                 links[interface] = {
                     "name": neighbor["name"],
@@ -250,8 +244,8 @@ class MacsecPluginT2(MacsecPlugin):
     def __init__(self):
          super(MacsecPluginT2, self).__init__()
 
-    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts):
-        mg_facts = macsec_duthost.get_extended_minigraph_facts()
+    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
+        mg_facts = macsec_duthost.get_extended_minigraph_facts(tbinfo)
         ctrl_nbr_names = mg_facts['macsec_neighbors']
         return ctrl_nbr_names
 

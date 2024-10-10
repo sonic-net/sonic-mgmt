@@ -19,7 +19,6 @@ CACHE_LOCATION = os.path.join(CURRENT_PATH, '../../../_cache')
 
 SIZE_LIMIT = 1000000000  # 1G bytes, max disk usage allowed by cache
 ENTRY_LIMIT = 1000000    # Max number of pickle files allowed in cache.
-DISABLE_CACHE_PARAM = "disable_cache"
 
 
 class Singleton(type):
@@ -80,17 +79,17 @@ class FactsCache(with_metaclass(Singleton, object)):
         """
         # Lazy load
         if zone in self._cache and key in self._cache[zone]:
-            logger.debug('[Cache] Read cached facts "{}.{}"'.format(zone, key))
+            logger.debug('Read cached facts "{}.{}"'.format(zone, key))
             return self._cache[zone][key]
         else:
             facts_file = os.path.join(self._cache_location, '{}/{}.pickle'.format(zone, key))
             try:
                 with open(facts_file, 'rb') as f:
                     self._cache[zone][key] = pickle.load(f)
-                    logger.debug('[Cache] Loaded cached facts "{}.{}" from {}'.format(zone, key, facts_file))
+                    logger.debug('Loaded cached facts "{}.{}" from {}'.format(zone, key, facts_file))
                     return self._cache[zone][key]
             except (IOError, ValueError) as e:
-                logger.info('[Cache] Load cache file "{}" failed with exception: {}'
+                logger.info('Load cache file "{}" failed with exception: {}'
                             .format(os.path.abspath(facts_file), repr(e)))
                 return self.NOTEXIST
 
@@ -112,16 +111,16 @@ class FactsCache(with_metaclass(Singleton, object)):
             try:
                 cache_subfolder = os.path.join(self._cache_location, zone)
                 if not os.path.exists(cache_subfolder):
-                    logger.info('[Cache] Create cache dir {}'.format(cache_subfolder))
+                    logger.info('Create cache dir {}'.format(cache_subfolder))
                     os.makedirs(cache_subfolder)
 
                 with open(facts_file, 'wb') as f:
                     pickle.dump(value, f, pickle.HIGHEST_PROTOCOL)
                     self._cache[zone][key] = value
-                    logger.info('[Cache] Cached facts "{}.{}" to {}'.format(zone, key, facts_file))
+                    logger.info('Cached facts "{}.{}" to {}'.format(zone, key, facts_file))
                     return True
             except (IOError, ValueError) as e:
-                logger.error('[Cache] Dump cache file "{}" failed with exception: {}'.format(facts_file, repr(e)))
+                logger.error('Dump cache file "{}" failed with exception: {}'.format(facts_file, repr(e)))
                 return False
 
     def cleanup(self, zone=None, key=None):
@@ -137,31 +136,30 @@ class FactsCache(with_metaclass(Singleton, object)):
             if key:
                 if zone in self._cache and key in self._cache[zone]:
                     del self._cache[zone][key]
-                    logger.debug('[Cache] Removed "{}.{}" from cache.'.format(zone, key))
+                    logger.debug('Removed "{}.{}" from cache.'.format(zone, key))
                 try:
                     cache_file = os.path.join(self._cache_location, zone, '{}.pickle'.format(key))
                     os.remove(cache_file)
-                    logger.debug('[Cache] Removed cache file "{}.pickle"'.format(cache_file))
+                    logger.debug('Removed cache file "{}.pickle"'.format(cache_file))
                 except OSError as e:
-                    logger.error('[Cache] Cleanup cache {}.{}.pickle failed with exception: {}'
-                                 .format(zone, key, repr(e)))
+                    logger.error('Cleanup cache {}.{}.pickle failed with exception: {}'.format(zone, key, repr(e)))
             else:
                 if zone in self._cache:
                     del self._cache[zone]
-                    logger.debug('[Cache] Removed zone "{}" from cache'.format(zone))
+                    logger.debug('Removed zone "{}" from cache'.format(zone))
                 try:
                     cache_subfolder = os.path.join(self._cache_location, zone)
                     shutil.rmtree(cache_subfolder)
-                    logger.debug('[Cache] Removed cache subfolder "{}"'.format(cache_subfolder))
+                    logger.debug('Removed cache subfolder "{}"'.format(cache_subfolder))
                 except OSError as e:
-                    logger.error('[Cache] Remove cache subfolder "{}" failed with exception: {}'.format(zone, repr(e)))
+                    logger.error('Remove cache subfolder "{}" failed with exception: {}'.format(zone, repr(e)))
         else:
             self._cache = defaultdict(dict)
             try:
                 shutil.rmtree(self._cache_location)
-                logger.debug('[Cache] Removed all cache files under "{}"'.format(self._cache_location))
+                logger.debug('Removed all cache files under "{}"'.format(self._cache_location))
             except OSError as e:
-                logger.error('[Cache] Remove cache folder "{}" failed with exception: {}'
+                logger.error('Remove cache folder "{}" failed with exception: {}'
                              .format(self._cache_location, repr(e)))
 
 
@@ -194,25 +192,6 @@ def _get_default_zone(function, func_args, func_kargs):
     return zone
 
 
-def _get_disable_cache(target, args, kwargs):
-    """
-    For the function with signature:
-
-        @cached(name='feature_status')
-        def get_feature_status(self, disable_cache=True):
-
-    If the disable_cache is not explicitly passed, like it get called by .get_feature_status()
-    disable_cache will not show in **kwargs,
-    Need to fetch it with inspect.
-    """
-    # Get the function signature
-    sig = inspect.signature(target)
-    bound_args = sig.bind_partial(*args, **kwargs)
-    bound_args.apply_defaults()
-
-    return bound_args.arguments.get(DISABLE_CACHE_PARAM, False)
-
-
 def cached(name, zone_getter=None, after_read=None, before_write=None):
     """Decorator for enabling cache for facts.
 
@@ -237,12 +216,6 @@ def cached(name, zone_getter=None, after_read=None, before_write=None):
 
     def decorator(target):
         def wrapper(*args, **kargs):
-
-            # Support to choose enable/disable cache by function param
-            disable_cache = _get_disable_cache(target, args, kargs)
-            if disable_cache:
-                return target(*args, **kargs)
-
             _zone_getter = zone_getter or _get_default_zone
             zone = _zone_getter(target, args, kargs)
 
@@ -250,7 +223,6 @@ def cached(name, zone_getter=None, after_read=None, before_write=None):
             if after_read:
                 cached_facts = after_read(cached_facts, target, args, kargs)
             if cached_facts is not FactsCache.NOTEXIST:
-                logger.debug(f"[Cache] Use cache for func[{target}], zone[{zone}], key[{name}]")
                 return cached_facts
             else:
                 facts = target(*args, **kargs)

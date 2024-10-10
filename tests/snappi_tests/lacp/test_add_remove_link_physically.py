@@ -6,8 +6,6 @@ from tests.common.fixtures.conn_graph_facts import (                # noqa F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
-pytestmark = [pytest.mark.topology('tgen')]
-
 
 @pytest.mark.parametrize('port_count', [4])
 @pytest.mark.parametrize('number_of_routes', [1000])

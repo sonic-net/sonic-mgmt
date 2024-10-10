@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.device_type('physical'),
     pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
 ]
 
