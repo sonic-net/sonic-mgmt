@@ -464,7 +464,7 @@ def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
         "ptf_lag": ptf_lag,
         ATTR_PORT_NOT_BEHIND_LAG: ptf_not_lag
     }
-    ptf_runner(ptfhost, TEST_DIR, "lag_test.LagMemberTrafficTest", "/root/ptftests", params=params)
+    ptf_runner(ptfhost, TEST_DIR, "lag_test.LagMemberTrafficTest", "/root/ptftests", params=params, is_python3=True)
 
 
 def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_teardown):
