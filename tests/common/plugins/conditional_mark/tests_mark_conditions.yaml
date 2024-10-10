@@ -164,11 +164,9 @@ bgp/test_bgp_speaker.py:
 
 bgp/test_bgp_suppress_fib.py:
   skip:
-    reason: "Not supported before release 202411."
-    conditions_logical_operator: or
+    reason: "Not supported before release 202405."
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311']"
 
 bgp/test_bgpmon.py:
   skip:
@@ -186,6 +184,12 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
 #######################################
 #####            cacl             #####
 #######################################
+cacl/test_cacl_application.py:
+  skip:
+    reason: "Skip test_cacl_application temporarily due to known issue"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13805
+
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
@@ -264,6 +268,12 @@ crm/test_crm.py::test_crm_fdb_entry:
     conditions:
       - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
 
+crm/test_crm.py::test_crm_route:
+  skip:
+    reason: "Skip the test on mellanox  device due to the bug of https://github.com/sonic-net/sonic-mgmt/issues/12725"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/12725
+      - "asic_type in ['mellanox']"
 #######################################
 #####            decap            #####
 #######################################
@@ -311,14 +321,6 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=disable]:
 decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
   skip:
     reason: "Not supported uniform ttl mode"
-
-decap/test_subnet_decap.py::test_vlan_subnet_decap:
-  skip:
-    reason: "Supported only on T0 topology with KVM or broadcom td3 asic, and available for 202405 release and later"
-    conditions:
-      - "topo_type not in ['t0']"
-      - "asic_type not in ['vs'] or asic_gen not in ['td3']"
-      - "release in ['202012', '202205', '202305', '202311']"
 
 #######################################
 #####         dhcp_relay        #####
@@ -459,13 +461,6 @@ dualtor/test_standby_tor_upstream_mux_toggle.py:
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
 
-dualtor/test_switchover_failure.py:
-  skip:
-    reason: "Test in KVM has a high failure rate, skip with Github issue."
-    conditions:
-      - "asic_type in ['vs']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/14247
-
 dualtor/test_tor_ecn.py::test_dscp_to_queue_during_encap_on_standby:
   xfail:
      reason: "Testcase ignored on dualtor-aa topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/8577"
@@ -485,12 +480,6 @@ dualtor/test_tunnel_memory_leak.py::test_tunnel_memory_leak:
     reason: "Testcase ignored on dualtor-64 topology due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/11403"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11403 and 'dualtor-64' in topo_name"
-
-dualtor_io:
-  skip:
-    reason: "Testcase could only be executed on dualtor testbed."
-    conditions:
-      - "'dualtor' not in topo_name"
 
 dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_link_up_downstream_standby[active-active]:
   xfail:
