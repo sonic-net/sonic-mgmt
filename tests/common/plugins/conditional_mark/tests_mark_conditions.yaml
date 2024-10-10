@@ -368,6 +368,16 @@ dhcp_relay/test_dhcpv6_relay.py:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
 #######################################
+#####           static_dns        #####
+#######################################
+dns/static_dns/test_static_dns.py::test_static_dns_basic:
+  xfail:
+    reason: "1. Failed to compare DNS address
+             2. Failed to teardown with Loganalyzer"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/17611
+
+#######################################
 #####         drop_packets        #####
 #######################################
 drop_packets:
