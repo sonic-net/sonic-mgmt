@@ -174,7 +174,7 @@ stages:
           cd ansible
 
           http_proxy='' https_proxy='' ./testbed-cli.sh -k ceos remove-topo ${{ parameters.TESTBED_NAME }} password.txt
-          http_proxy='' https_proxy='' ./testbed-cli.sh -k vsonic start-topo-vms ${{ parameters.TESTBED_NAME }} password.txt -e sonic_image_filename=sonic-vs-${{ parameters.TESTBED_NAME }}.img -e 'sonic_image_url=${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}'
+          http_proxy='' https_proxy='' ./testbed-cli.sh -k vsonic start-topo-vms ${{ parameters.TESTBED_NAME }} password.txt -e sonic_image_filename=sonic-vs-${{ parameters.TESTBED_NAME }}.img -e 'vsonic_image_url=${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}'
           http_proxy='' https_proxy='' ./testbed-cli.sh -k vsonic add-topo ${{ parameters.TESTBED_NAME }} password.txt
       condition: and(succeeded(), eq('${{ parameters.VM_TYPE }}', 'vsonic'))
 
