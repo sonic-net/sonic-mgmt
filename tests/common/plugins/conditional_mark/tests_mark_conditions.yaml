@@ -156,9 +156,9 @@ bgp/test_bgp_speaker.py:
 
 bgp/test_bgp_suppress_fib.py:
   skip:
-    reason: "Not supported before release 202405."
+    reason: "Not supported before release 202411."
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311']"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405']"
 
 bgp/test_bgpmon.py:
   skip:
