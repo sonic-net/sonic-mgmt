@@ -309,12 +309,9 @@ platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info:
 
 platform_tests/api/test_module.py::TestModuleApi::test_reboot:
   skip:
-    reason: "Reboot commands currently not supported from inside pmon container for Cisco 8000 platform
-            / Only support T2"
-    conditions_logical_operator: or
+    reason: "Reboot commands currently not supported from inside pmon container for Cisco 8000 platform"
     conditions:
       - "asic_type in ['cisco-8000']"
-      - "topo_type not in ['t2']"
 
 #######################################
 #####        api/test_psu.py      #####
@@ -682,7 +679,6 @@ platform_tests/broadcom/test_ser.py:
       - "asic_type not in ['broadcom']"
       - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
       - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
-      - "'marvell' in asic_type"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -736,14 +732,13 @@ platform_tests/counterpoll/test_counterpoll_watermark.py::test_counterpoll_queue
       - "topo_type in ['m0', 'mx']"
 
 #######################################
-#####           daemon            #####
+#####            daemon           #####
 #######################################
 platform_tests/daemon/test_chassisd.py:
   skip:
     reason: "chassisd platform daemon introduced in 202106"
     conditions:
       - "release in ['201811', '201911', '202012']"
-
 
 platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
   skip:
@@ -782,12 +777,9 @@ platform_tests/mellanox/test_check_sfp_using_ethtool.py:
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
-    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios
-            / Mellanox platform tests only supported on Mellanox devices"
-    conditions_logical_operator: or
+    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios"
     conditions:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0', 'x86_64-nvidia_sn4280-r0']"
-      - "asic_type not in ['mellanox', 'nvidia-bluefield']"
 
 #######################################
 #####            sfp              #####
@@ -821,12 +813,17 @@ platform_tests/test_advanced_reboot.py:
 
 platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
   skip:
-    reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases / Unsupported platform"
-    conditions_logical_operator: or
+    reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/11007"
-      - "platform in ['x86_64-arista_7050_qx32s']"
-      - "'dualtor' in topo_name and release in ['202012']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11007
+
+#######################################
+#####   test_auto_negotiation.py  #####
+#######################################
+platform_tests/test_auto_negotiation.py:
+  skip:
+    reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
+    conditions: https://github.com/sonic-net/sonic-mgmt/issues/5447
 
 #######################################
 #####   test_cont_warm_reboot.py  #####
@@ -871,7 +868,7 @@ platform_tests/test_platform_info.py::test_show_platform_temperature_mocked:
     reason: "Test not supported on Mellanox Platforms."
     conditions:
       - "asic_type in ['mellanox']"
-
+      -
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
   skip:
     reason: "Thermal control daemon is not present / Test disabled on Mellanox platforms as it could be un-stable and interfered by the thermal algorithm."
@@ -900,7 +897,7 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
     # Cisco platforms use different mechanism to generate thermal policy, current method is not applicable
     # Multi ASIC platform running 201911 release doesn't have thermalctld
     # s6100 has not supported get_thermal_manager yet
-    reason: "Skip on Cisco platform and multi-asic platform running 201911 release / Test not required on Mellanox Platforms as all thermal policies have been removed from thermalctld"
+    reason: "Skip on Cisco platform and multi-asic platform running 201911 release/ Test not required on Mellanox Platforms as all thermal policies have been removed from thermalctld"
     conditions_logical_operator: or
     conditions:
       - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
@@ -932,7 +929,7 @@ platform_tests/test_reboot.py::test_cold_reboot:
 
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
-    reason: "Skip test_fast_reboot for m0/mx/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now."
+    reason: "Skip test_fast_reboot for m0/mx/t1/t2/ Fast reboot is broken on dualtor topology. Skipping for now."
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 't1', 't2']"
@@ -945,9 +942,9 @@ platform_tests/test_reboot.py::test_fast_reboot:
 
 platform_tests/test_reboot.py::test_soft_reboot:
   skip:
-    reason: "Skip test_soft_reboot for m0/mx and test is supported only on S6100 hwsku"
+    reason: "Skip test_soft_reboot for m0/mx"
     conditions:
-      - "topo_type in ['m0', 'mx'] or hwsku not in ['Force10-S6100']"
+      - "topo_type in ['m0', 'mx']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -956,7 +953,7 @@ platform_tests/test_reboot.py::test_soft_reboot:
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip test_warm_reboot for m0/mx/t1/t2 / Warm reboot is broken on dualtor topology. Skipping for now."
+    reason: "Skip test_warm_reboot for m0/mx/t1/t2/ Warm reboot is broken on dualtor topology. Skipping for now."
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 't1', 't2']"
@@ -977,21 +974,16 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
 #######################################
 #####   test_reload_config.py     #####
 #######################################
-platform_tests/test_reload_config.py::test_reload_configuration:
+platform_tests/test_reload_config.py:
   skip:
-    reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed."
-    conditions_logical_operator: or
+    reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
-      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
-    reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed / Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000."
-    conditions_logical_operator: or
+    reason: "Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000"
     conditions:
-      - "asic_type in ['barefoot'] and hwsku in ['newport']"
-      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
       - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
 
 #######################################
