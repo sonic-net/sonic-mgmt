@@ -80,8 +80,7 @@ bfd/test_bfd.py::test_bfd_basic:
              and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test"
     conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0',
-         'x86_64-8122_64ehf_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0']"
       - "release in ['201811', '201911']"
 
 bfd/test_bfd.py::test_bfd_scale:
@@ -90,8 +89,7 @@ bfd/test_bfd.py::test_bfd_scale:
              and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test"
     conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0',
-        'x86_64-8122_64ehf_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0']"
       - "release in ['201811', '201911']"
 
 bfd/test_bfd_static_route.py:
@@ -342,6 +340,7 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap:
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_random_sport:
   skip:
     reason: "Skip test_dhcp_relay_random_sport on dualtor in 201811 and 201911 or platform x86_64-8111_32eh_o-r0"
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name and release in ['201811', '201911']"
       - "platform in ['x86_64-8111_32eh_o-r0']"
@@ -496,10 +495,8 @@ dualtor_io:
 dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_link_up_downstream_standby[active-active]:
   xfail:
     reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16161"
-    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16161 and asic_type in ['mellanox']"
-
 
 dualtor_io/test_link_failure.py::test_active_link_down_downstream_active:
   xfail:
@@ -834,6 +831,7 @@ generic_config_updater/test_pfcwd_status.py:
 generic_config_updater/test_pg_headroom_update.py:
   skip:
     reason: "Unsupported topology."
+    conditions_logical_operator: "OR"
     conditions:
       - "topo_type in ['m0', 'mx']"
       - "'t2' in topo_name"
@@ -1020,6 +1018,7 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_to
   skip:
     reason: "Mellanox and Broadcom DNX Asic will drop IP packets with 0xffff checksum
             / Skipping ip packet test since can't provide enough interfaces"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
@@ -1158,18 +1157,14 @@ pc/test_po_cleanup.py:
 pc/test_po_update.py::test_po_update:
   skip:
     reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
-    conditions_logical_operator: or
     conditions:
       - "len(minigraph_portchannels) == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0"
-      - "len(minigraph_portchannels) == 0 and not is_multi_asic"
 
 pc/test_po_update.py::test_po_update_io_no_loss:
   skip:
     reason: "Skip test due to there isn't enough port channel exists in current topology."
-    conditions_logical_operator: or
     conditions:
       - "len(minigraph_portchannel_interfaces) < 2"
-      - "len(minigraph_portchannels) == 0 and not is_multi_asic"
 
 pc/test_po_voq.py:
   skip:
