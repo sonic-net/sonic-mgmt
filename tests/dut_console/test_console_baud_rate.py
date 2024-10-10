@@ -10,6 +10,9 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+BAUD_RATE_MAP = {
+    "default": "9600"
+}
 BOOT_TYPE = {
     "armhf-nokia_ixs7215_52x-r0": "UBoot-ONIE",
     "x86_64-arista_720dt_48s": "ABoot"
@@ -18,23 +21,18 @@ pass_config_test = True
 
 
 def is_sonic_console(conn_graph_facts, dut_hostname):
-    return conn_graph_facts['device_console_info'][dut_hostname].get("Os", "") == "sonic"
-
-
-def get_expected_baud_rate(duthost):
-    DEFAULT_BAUDRATE = "9600"
-    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-    return hostvars.get('console_baudrate', DEFAULT_BAUDRATE)
+    return conn_graph_facts['device_console_info'][dut_hostname]["Os"] == "sonic"
 
 
 def test_console_baud_rate_config(duthost):
-    expected_baud_rate = get_expected_baud_rate(duthost)
+    platform = duthost.facts["platform"]
+    expected_baud_rate = BAUD_RATE_MAP[platform] if platform in BAUD_RATE_MAP else BAUD_RATE_MAP["default"]
     res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
     pytest_require(res["stdout"] != "", "Cannot get baud rate")
     if res["stdout"] != expected_baud_rate:
         global pass_config_test
         pass_config_test = False
-        pytest.fail("Device baud rate is {}, expected {}".format(res["stdout"], expected_baud_rate))
+        pytest.fail("Baud rate {} is unexpected!".format(res["stdout"]))
 
 
 @pytest.fixture(scope="module")
@@ -48,20 +46,16 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     pytest_require(console_type == "ssh", "Unsupported console type: {}".format(console_type))
     pytest_require(is_sonic_console(conn_graph_facts, dut_hostname), "Unsupport non-sonic console swith.")
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
-    console_user = creds['console_user']['console_ssh']
-    console_passwords = creds['console_password']['console_ssh']
+    dutuser = creds['sonicadmin_user']
+    dutpass = creds['sonicadmin_password']
 
     client = None
-    for console_password in console_passwords:
-        try:
-            client = create_ssh_client(console_host, "{}:{}".format(console_user, console_port), console_password)
-            ensure_console_session_up(client, console_port)
-        except Exception:
-            client = None
-        else:
-            break
+    try:
+        client = create_ssh_client(console_host, "{}:{}".format(dutuser, console_port), dutpass)
+    except Exception as err:
+        pytest.fail("Not connect console ssh, error: {}".format(err))
 
-    pytest_assert(client is not None, "Cannot connect to console device")
+    ensure_console_session_up(client, console_port)
     client.sendline()
     yield client, console_port
 

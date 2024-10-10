@@ -37,7 +37,7 @@ def refData(duthosts):
         fileName = lc_sku + "_" + fabric_sku + "_" + "LC" + str(slot) + ".yaml"
         f = open("voq/fabric_data/{}".format(fileName))
         pytest_assert(f, "Need to update expected data for {}".format(fileName))
-        referenceData[slot] = yaml.safe_load(f)
+        referenceData[slot] = yaml.load(f)
     return referenceData
 
 
@@ -54,7 +54,7 @@ def supData(duthosts):
     fileName = fabric_sku + ".yaml"
     f = open("voq/fabric_data/{}".format(fileName))
     pytest_assert(f, "Need to update expected data for {}".format(fileName))
-    supData = yaml.safe_load(f)
+    supData = yaml.load(f)
     f.close()
     return supData
 

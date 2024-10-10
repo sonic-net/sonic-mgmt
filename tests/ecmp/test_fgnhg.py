@@ -27,7 +27,6 @@ FG_ECMP_CFG = '/tmp/fg_ecmp.json'
 USE_INNER_HASHING = False
 NUM_FLOWS = 1000
 ptf_to_dut_port_map = {}
-ptf_to_dut_mac_map = {}
 
 VXLAN_PORT = 13330
 DUT_VXLAN_PORT_JSON_FILE = '/tmp/vxlan.switch.json'
@@ -67,8 +66,8 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip):
             ptf_to_dut_port_map[ptf_port_id] = port
 
     port_list.sort()
-    bank_0_port = port_list[:len(port_list)//2]
-    bank_1_port = port_list[len(port_list)//2:]
+    bank_0_port = port_list[:len(port_list)/2]
+    bank_1_port = port_list[len(port_list)/2:]
 
     # Create vlan if
     duthost.command('config interface ip add Vlan' + str(DEFAULT_VLAN_ID) + ' ' + str(vlan_ip))
@@ -118,16 +117,14 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
 
     for ip, port in list(ip_to_port.items()):
 
-        neigh_mac = ptfhost.shell("cat /sys/class/net/eth" + str(port) + "/address")["stdout_lines"][0]
-        ptf_to_dut_mac_map[port] = neigh_mac
         if isinstance(ipaddress.ip_address(six.text_type(ip)), ipaddress.IPv4Address):
             neigh_entries['NEIGH'][vlan_name + "|" + ip] = {
-                "neigh": neigh_mac,
+                "neigh": ptfhost.shell("cat /sys/class/net/eth" + str(port) + "/address")["stdout_lines"][0],
                 "family": "IPv4"
             }
         else:
             neigh_entries['NEIGH'][vlan_name + "|" + ip] = {
-                "neigh": neigh_mac,
+                "neigh": ptfhost.shell("cat /sys/class/net/eth" + str(port) + "/address")["stdout_lines"][0],
                 "family": "IPv6"
             }
 
@@ -267,33 +264,6 @@ def validate_packet_flow_without_neighbor_resolution(ptfhost, duthost, ip_to_por
     assert neigh_resolved
 
 
-def setup_static_neighbor_entry(duthost, ip, mac, prefix_list):
-    """
-    Performs addition of static entries of ipv4 and v6 neighbors in DUT
-    """
-    if isinstance(ipaddress.ip_network(prefix_list[0]), ipaddress.IPv4Network):
-        logger.info("adding ipv4 static arp entry for ip %s on DUT" % (ip))
-        duthost.shell("sudo arp -s {0} {1}".format(ip, mac))
-    else:
-        logger.info("adding ipv6 static arp entry for ip %s on DUT" % (ip))
-        duthost.shell("sudo ip -6 neigh replace {0} lladdr {1} dev Vlan{2}".format(ip, mac, DEFAULT_VLAN_ID))
-
-
-def link_startup(duthost, ip_to_port, prefix_list, shutdown_link):
-    """
-    Performs link startup on DUT
-    """
-    dut_if_shutdown = ptf_to_dut_port_map[shutdown_link]
-    configure_dut(duthost, "config interface startup " + dut_if_shutdown)
-
-    # add static neighbor
-    for nexthop, port in list(ip_to_port.items()):
-        if port == shutdown_link:
-            setup_static_neighbor_entry(duthost, nexthop, ptf_to_dut_mac_map[port], prefix_list)
-
-    time.sleep(30)
-
-
 def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix_list):
 
     # Init base test params
@@ -357,7 +327,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     logger.info("Send the same flows again, but unshut " + dut_if_shutdown + " and check "
                 "if flows reblanced as expected and are seen on now brought up link")
 
-    link_startup(duthost, ip_to_port, prefix_list, shutdown_link)
+    configure_dut(duthost, "config interface startup " + dut_if_shutdown)
+    time.sleep(30)
 
     flows_per_nh = NUM_FLOWS/len(port_list)
     for port in port_list:
@@ -420,7 +391,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     logger.info("Send the same flows again, but startup " + dut_if_shutdown + " and check "
                 "the flow hash redistribution")
 
-    link_startup(duthost, ip_to_port, prefix_list, shutdown_link)
+    configure_dut(duthost, "config interface startup " + dut_if_shutdown)
+    time.sleep(30)
 
     exp_flow_count = {}
     flows_for_withdrawn_nh_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 1)

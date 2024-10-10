@@ -2,6 +2,7 @@ import pytest
 import logging
 import random
 import re
+import os
 
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
@@ -41,7 +42,7 @@ EXCEED_MAX_ERR = r"Error: The maximum number \(3\) of nameservers exceeded"
 DUPLICATED_IP_ERR = r"Error: .* nameserver is already configured"
 
 MGMT_PORT = "eth0"
-DHCLIENT_PID_FILE = "/run/dhclient-dns-test.pid"
+DHCLIENT_PID_FILE = "/tmp/dhclient-dns-test.pid"
 
 
 def start_dhclient(duthost):
@@ -52,7 +53,7 @@ def start_dhclient(duthost):
 def stop_dhclient(duthost):
     yield
 
-    if duthost.shell(f'ls {DHCLIENT_PID_FILE}', module_ignore_errors=True)['rc'] == 0:
+    if os.path.exists(DHCLIENT_PID_FILE):
         duthost.shell(f"sudo kill $(cat {DHCLIENT_PID_FILE})")
         duthost.shell(f"rm -rf {DHCLIENT_PID_FILE}")
 

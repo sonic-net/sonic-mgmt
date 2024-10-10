@@ -15,7 +15,7 @@ from sub_ports_helpers import remove_vlan
 from sub_ports_helpers import check_sub_port
 from sub_ports_helpers import remove_sub_port
 from sub_ports_helpers import create_sub_port_on_dut
-from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa F401
+
 
 pytestmark = [
     pytest.mark.topology('t0', 't1')
@@ -346,8 +346,7 @@ class TestSubPorts(object):
                                             ttl=63,
                                             pktlen=pktlen)
 
-    def test_tunneling_between_sub_ports(self, duthost, ptfadapter, apply_tunnel_table_to_dut,
-                                         apply_route_config, skip_traffic_test):    # noqa F811
+    def test_tunneling_between_sub_ports(self, duthost, ptfadapter, apply_tunnel_table_to_dut, apply_route_config):
         """
         Validates that packets are routed between sub-ports.
 
@@ -380,11 +379,9 @@ class TestSubPorts(object):
                                             ip_tunnel=sub_ports[src_port]['ip'],
                                             pkt_action='fwd',
                                             type_of_traffic='decap',
-                                            ttl=63,
-                                            skip_traffic_test=skip_traffic_test)
+                                            ttl=63)
 
-    def test_balancing_sub_ports(self, duthost, ptfhost, ptfadapter,
-                                 apply_balancing_config, skip_traffic_test):        # noqa F811
+    def test_balancing_sub_ports(self, duthost, ptfhost, ptfadapter, apply_balancing_config):
         """
         Validates load-balancing when sub-port is part of ECMP
         Test steps:
@@ -417,13 +414,12 @@ class TestSubPorts(object):
                                         dst_port=dst_ports,
                                         ip_dst=ip_dst,
                                         type_of_traffic='balancing',
-                                        ttl=63,
-                                        skip_traffic_test=skip_traffic_test)
+                                        ttl=63)
 
 
 class TestSubPortsNegative(object):
     def test_packet_routed_with_invalid_vlan(self, duthost, ptfadapter, apply_config_on_the_dut,
-                                             apply_config_on_the_ptf, skip_traffic_test):       # noqa F811
+                                             apply_config_on_the_ptf):
         """
         Validates that packet aren't routed if sub-ports have invalid VLAN ID.
 
@@ -447,13 +443,11 @@ class TestSubPortsNegative(object):
                                         ip_src=value['neighbor_ip'],
                                         dst_port=sub_port,
                                         ip_dst=value['ip'],
-                                        pkt_action='drop',
-                                        skip_traffic_test=skip_traffic_test)
+                                        pkt_action='drop')
 
 
 class TestSubPortStress(object):
-    def test_max_numbers_of_sub_ports(self, duthost, ptfadapter, apply_config_on_the_dut,
-                                      apply_config_on_the_ptf, skip_traffic_test):      # noqa F811
+    def test_max_numbers_of_sub_ports(self, duthost, ptfadapter, apply_config_on_the_dut, apply_config_on_the_ptf):
         """
         Validates that 256 sub-ports can be created per port or LAG
 
@@ -486,5 +480,4 @@ class TestSubPortStress(object):
                                         ip_src=value['neighbor_ip'],
                                         dst_port=sub_port,
                                         ip_dst=value['ip'],
-                                        pkt_action='fwd',
-                                        skip_traffic_test=skip_traffic_test)
+                                        pkt_action='fwd')

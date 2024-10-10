@@ -35,7 +35,6 @@
 - name: Find the root fanout switch
   set_fact:
     ansible_host: "{{ item.value['mgmtip'] }}"
-    ansible_connection: switch
     root_dev: "{{ item.key }}"
     root_hwsku: "{{ item.value['HwSku'] }}"
   with_dict: "{{ lab_devices }}"

@@ -1,8 +1,7 @@
 import logging
 import pytest
-from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
-from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_server
-from tests.common.utilities import check_output
+from .test_ro_user import ssh_remote_run
+from .utils import check_output, setup_tacacs_server
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
