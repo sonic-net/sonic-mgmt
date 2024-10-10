@@ -395,7 +395,7 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request, parallel_run_context):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param enhance_inventory: fixture to enhance the capability of parsing the value of pytest cli argument
@@ -404,14 +404,24 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     @param request: pytest request object
+    @param parallel_run_context: tuple of parallel run context
     """
+    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
     try:
         host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_duts(request),
-                        target_hostname=get_target_hostname(request), is_parallel_leader=is_parallel_leader(request))
+                        target_hostname=target_hostname, is_parallel_leader=is_par_leader)
         return host
     except BaseException as e:
         logger.error("Failed to initialize duthosts.")
         request.config.cache.set("duthosts_fixture_failed", True)
+        if is_par_run:
+            initial_check_state = InitialCheckState(par_followers, par_state_file)
+            initial_check_state.set_new_status(
+                InitialCheckStatus.DUTHOSTS_FIXTURE_FAILED,
+                is_par_leader,
+                target_hostname,
+            )
+
         pt_assert(False, "!!!!!!!!!!!!!!!! duthosts fixture failed !!!!!!!!!!!!!!!!"
                   "Exception: {}".format(repr(e)))
 

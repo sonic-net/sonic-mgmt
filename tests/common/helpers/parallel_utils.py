@@ -52,6 +52,7 @@ class InitialCheckStatus(Enum):
     TEARDOWN_STARTED = "teardown_started"
     TEARDOWN_COMPLETED = "teardown_completed"
     SANITY_CHECK_FAILED = "sanity_check_failed"
+    DUTHOSTS_FIXTURE_FAILED = "duthosts_fixture_failed"
 
 
 class ParallelRole(Enum):
@@ -115,9 +116,7 @@ class InitialCheckState:
 
     def _is_expected_status(self, expected_status: InitialCheckStatus) -> bool:
         status_value, _ = self._read_state()
-        if status_value == InitialCheckStatus.SANITY_CHECK_FAILED.value:
-            pt_assert(False, "Leader node sanity check failed. Exiting the test.")
-
+        self._exit_if_failure(status_value=status_value)
         return status_value == expected_status.value
 
     def _acknowledge_status(self, ack_status: InitialCheckStatus, is_leader: bool, hostname: str) -> None:
@@ -147,6 +146,16 @@ class InitialCheckState:
         status_value, acknowledgments = self._read_state()
         return status_value == ack_status.value and acknowledgments >= self.num_followers
 
+    def _exit_if_failure(self, status_value: str = None) -> None:
+        if not status_value:
+            status_value, _ = self._read_state()
+
+        if status_value in (
+            InitialCheckStatus.SANITY_CHECK_FAILED.value,
+            InitialCheckStatus.DUTHOSTS_FIXTURE_FAILED.value,
+        ):
+            pt_assert(False, "Exiting the test now due to {}.".format(status_value))
+
     def mark_tests_completed_for_follower(self, hostname: str) -> None:
         with open(self.state_file, 'r+') as f:
             fcntl.flock(f, fcntl.LOCK_EX)
@@ -168,6 +177,9 @@ class InitialCheckState:
             fcntl.flock(f, fcntl.LOCK_UN)
 
     def set_new_status(self, new_status: InitialCheckStatus, is_leader: bool, hostname: str) -> None:
+        if new_status == InitialCheckStatus.SETUP_STARTED:
+            self._exit_if_failure()
+
         with open(self.state_file, 'a+') as f:
             fcntl.flock(f, fcntl.LOCK_EX)
             f.write("{},{},{},{},{}\n".format(
@@ -183,10 +195,7 @@ class InitialCheckState:
 
     def wait_and_acknowledge_status(self, expected_status: InitialCheckStatus, is_leader: bool, hostname: str) -> None:
         if not self.should_wait:
-            status_value, _ = self._read_state()
-            if status_value == InitialCheckStatus.SANITY_CHECK_FAILED.value:
-                pt_assert(False, "Leader node sanity check failed. Exiting the test.")
-
+            self._exit_if_failure()
             logger.info("Skip waiting and acknowledging status")
             return
 
@@ -202,6 +211,7 @@ class InitialCheckState:
 
     def wait_for_all_acknowledgments(self, ack_status: InitialCheckStatus) -> None:
         if not self.should_wait:
+            self._exit_if_failure()
             logger.info("Skip waiting for all acknowledgments")
             return
 
