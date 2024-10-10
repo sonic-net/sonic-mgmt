@@ -93,11 +93,6 @@ devices:
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
-      sudo systemctl daemon-reload
-      sudo systemctl restart drake
-      sudo systemctl restart lira
-      sudo systemctl restart azimuth
 
   S0:
     <<: *switch
@@ -107,11 +102,6 @@ devices:
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
-      sudo systemctl daemon-reload
-      sudo systemctl restart drake
-      sudo systemctl restart lira
-      sudo systemctl restart azimuth
 
   S1:
     <<: *switch
@@ -121,11 +111,6 @@ devices:
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
-      sudo systemctl daemon-reload
-      sudo systemctl restart drake
-      sudo systemctl restart lira
-      sudo systemctl restart azimuth
 
 connections:
   hubs:
