@@ -731,7 +731,7 @@ root@sonic:/home/admin#
 
    * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
    * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
-   * It runs on the background and `nohup` is also necessary to protect thebackground process.
+   * It runs on the background and `nohup` is also necessary to protect the background process.
    * Added `sleep 5` to ensure ansible receive the result first.
    * Check the status and power on DPUs after switch goes for reboot and comes back
    * Use `show chassis modules status` to check status of the DPUs.
@@ -799,7 +799,7 @@ root@sonic:/home/cisco#
 - DPU:
    * Use `sudo swapoff -a`. Swapping is turned off so the OOM is triggered in a shorter time.
    * Use 'nohup bash -c "sleep 5 && tail /dev/zero" &' to to run out of memory completely.
-   * It runs on the background and `nohup` is also necessary to protect thebackground process.
+   * It runs on the background and `nohup` is also necessary to protect the background process.
    * Added `sleep 5` to ensure ansible receive the result first.
    
     - Switch:
