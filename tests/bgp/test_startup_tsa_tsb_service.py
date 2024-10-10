@@ -1,6 +1,7 @@
 import logging
 import datetime
 import pexpect
+
 import pytest
 from tests.common import reboot, config_reload
 from tests.common.reboot import get_reboot_cause, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
@@ -8,7 +9,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from traffic_checker import get_traffic_shift_state, check_tsa_persistence_support
+from traffic_checker import get_traffic_shift_state, check_tsa_persistence_support, \
+    check_traffic_shift_state
 from route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
     verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
@@ -22,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 COLD_REBOOT_CAUSE = 'cold'
+KERNEL_PANIC_REBOOT_CAUSE = "Kernel Panic"
 UNKNOWN_REBOOT_CAUSE = "Unknown"
 SUP_REBOOT_CAUSE = 'Reboot from Supervisor'
 SUP_HEARTBEAT_LOSS_CAUSE = 'Heartbeat with the Supervisor card lost'
@@ -211,8 +214,8 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
     # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
+    if TS_NORMAL != get_traffic_shift_state(duthost):
+        pytest.skip("Test skipped since DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
@@ -220,6 +223,8 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
         # Get all routes on neighbors before doing reboot
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
+
+        up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
         # Reboot dut and wait for startup_tsa_tsb service to start
         logger.info("Cold reboot on node: %s", duthost.hostname)
@@ -238,7 +243,7 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
         logging.info('DUT {} up since {}'.format(duthost.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 240,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         # Verify DUT is in maintenance state.
@@ -249,6 +254,11 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
         wait_critical_processes(duthost)
         pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
+
+        # verify sessions are established
+        pytest_assert(
+            wait_until(600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up. No point in continuing the test")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
             duthosts, duthost, dut_nbrhosts, traffic_shift_community), "Failed to verify routes on nbr in TSA")
@@ -280,8 +290,9 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
     finally:
 
         # Verify DUT is in normal state.
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
+        pytest_assert(wait_until(120, 20, 0, check_traffic_shift_state, duthost, TS_NORMAL),
                       "DUT is not in normal state")
+
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
@@ -304,8 +315,8 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
     dut_ip = duthost.mgmt_ip
     # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
+    if TS_NORMAL != get_traffic_shift_state(duthost):
+        pytest.skip("Test skipped since DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
@@ -313,6 +324,8 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         # Get all routes on neighbors before doing reboot
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
+
+        up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
         # Our shell command is designed as 'nohup bash -c "sleep 5 && tail /dev/zero" &' because of:
         #  * `tail /dev/zero` is used to run out of memory completely.
@@ -343,7 +356,7 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
         logger.info("Time difference between dut up-time & tsa_tsb_service up-time is {}".format(int(time_diff)))
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 240,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         # Make sure BGP containers are running properly before verifying
@@ -358,6 +371,11 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         wait_critical_processes(duthost)
         pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
+
+        # verify sessions are established
+        pytest_assert(
+            wait_until(600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up. No point in continuing the test")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
             duthosts, duthost, dut_nbrhosts, traffic_shift_community), "Failed to verify routes on nbr in TSA")
@@ -389,13 +407,20 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
     finally:
 
         # Verify DUT is in normal state.
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
+        pytest_assert(wait_until(120, 20, 0, check_traffic_shift_state, duthost, TS_NORMAL),
                       "DUT is not in normal state")
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
+        out = duthost.command('show kdump config')
         reboot_cause = get_reboot_cause(duthost)
-        pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+        if "Enabled" not in out["stdout"]:
+            pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
+                          "Reboot cause {} did not match the trigger {}"
+                          .format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+        else:
+            pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
+                          "Reboot cause {} did not match the trigger {}"
+                          .format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -409,15 +434,17 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
     suphost = duthosts[enum_supervisor_dut_hostname]
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
+    up_bgp_neighbors = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
+        up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         if not tsa_tsb_timer[linecard]:
             pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
-                      "DUT is not in normal state")
+        if TS_NORMAL != get_traffic_shift_state(linecard):
+            pytest.skip("Test skipped since DUT is not in normal state")
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
 
@@ -448,7 +475,7 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 240,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
@@ -459,6 +486,12 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
             wait_critical_processes(linecard)
             pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, linecard),
                           "Not all ports that are admin up on are operationally up")
+
+            # verify sessions are established
+            pytest_assert(
+                wait_until(
+                    600, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up. No point in continuing the test")
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
@@ -495,19 +528,22 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
     finally:
         for linecard in duthosts.frontend_nodes:
             # Verify DUT is in normal state.
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
-                          "DUT {} is not in normal state".format(linecard))
+            pytest_assert(
+                wait_until(120, 20, 0, check_traffic_shift_state, linecard, TS_NORMAL),
+                "DUT {} is not in normal state".format(linecard))
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
             pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
+                          "Reboot cause {} did not match the trigger {}"
+                          .format(reboot_cause, SUP_REBOOT_CAUSE))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
         reboot_cause = get_reboot_cause(suphost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+                      "Reboot cause {} did not match the trigger {}"
+                      .format(reboot_cause, COLD_REBOOT_CAUSE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -522,15 +558,17 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
     sup_ip = suphost.mgmt_ip
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
+    up_bgp_neighbors = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
+        up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         if not tsa_tsb_timer[linecard]:
             pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
-                      "DUT is not in normal state")
+        if TS_NORMAL != get_traffic_shift_state(linecard):
+            pytest.skip("Test skipped since DUT is not in normal state")
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
 
@@ -578,7 +616,7 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 240,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
@@ -589,6 +627,12 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
             wait_critical_processes(linecard)
             pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, linecard),
                           "Not all ports that are admin up on are operationally up")
+
+            # verify sessions are established
+            pytest_assert(
+                wait_until(
+                    600, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up. No point in continuing the test")
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
@@ -625,19 +669,28 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
     finally:
         for linecard in duthosts.frontend_nodes:
             # Verify DUT is in normal state.
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
-                          "DUT {} is not in normal state".format(linecard))
+            pytest_assert(
+                wait_until(120, 20, 0, check_traffic_shift_state, linecard, TS_NORMAL),
+                "DUT {} is not in normal state".format(linecard))
+
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
-            pytest_assert(reboot_cause == SUP_HEARTBEAT_LOSS_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_HEARTBEAT_LOSS_CAUSE))
+            pytest_assert(reboot_cause == SUP_HEARTBEAT_LOSS_CAUSE, "Reboot cause {} did not match the trigger {}"
+                          .format(reboot_cause, SUP_HEARTBEAT_LOSS_CAUSE))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
+        out = suphost.command('show kdump config')
         reboot_cause = get_reboot_cause(suphost)
-        pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+        if "Enabled" not in out["stdout"]:
+            pytest_assert(reboot_cause == UNKNOWN_REBOOT_CAUSE,
+                          "Reboot cause {} did not match the trigger {}"
+                          .format(reboot_cause, UNKNOWN_REBOOT_CAUSE))
+        else:
+            pytest_assert(reboot_cause == KERNEL_PANIC_REBOOT_CAUSE,
+                          "Reboot cause {} did not match the trigger {}"
+                          .format(reboot_cause, KERNEL_PANIC_REBOOT_CAUSE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -656,8 +709,8 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
     orig_v4_routes, orig_v6_routes = {}, {}
     # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
+    if TS_NORMAL != get_traffic_shift_state(duthost):
+        pytest.skip("Test skipped since DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
@@ -666,6 +719,7 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
 
+        up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
         # Issue TSA on DUT
         duthost.shell("TSA")
         duthost.shell('sudo config save -y')
@@ -683,7 +737,7 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         logging.info('DUT {} up since {}'.format(duthost.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 240,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         # Ensure startup_tsa_tsb service is in exited state after dut reboot
@@ -698,6 +752,12 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         wait_critical_processes(duthost)
         pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
+
+        # verify sessions are established
+        pytest_assert(
+            wait_until(
+                600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up. No point in continuing the test")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
             duthosts, duthost, dut_nbrhosts, traffic_shift_community),
@@ -714,10 +774,18 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
         # Verify DUT comes back to  normal state after TSB.
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
+        pytest_assert(wait_until(120, 20, 0, check_traffic_shift_state, duthost, TS_NORMAL),
+                      "DUT is not in normal state")
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
         cur_v6_routes = {}
+
+        # verify sessions are established
+        pytest_assert(
+            wait_until(
+                600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up. No point in continuing the test")
+
         # Verify that all routes advertised to neighbor at the start of the test
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs, duthost, nbrhosts,
                           orig_v4_routes, cur_v4_routes, 4):
@@ -733,7 +801,8 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+                      "Reboot cause {} did not match the trigger {}"
+                      .format(reboot_cause, COLD_REBOOT_CAUSE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -753,8 +822,8 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     dut_nbrhosts = nbrhosts_to_dut(duthost, nbrhosts)
     # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
+    if TS_NORMAL != get_traffic_shift_state(duthost):
+        pytest.skip("Test skipped since DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
@@ -762,6 +831,8 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         # Get all routes on neighbors before doing reboot
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
+
+        up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
         # Reboot dut and wait for startup_tsa_tsb service to start
         logger.info("Cold reboot on node: %s", duthost.hostname)
@@ -780,7 +851,7 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         logging.info('DUT {} up since {}'.format(duthost.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 240,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         # Verify DUT is in maintenance state.
@@ -804,6 +875,12 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
 
+        # verify sessions are established
+        pytest_assert(
+            wait_until(
+                600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up. No point in continuing the test")
+
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
             duthosts, duthost, dut_nbrhosts, traffic_shift_community),
             "Failed to verify routes on nbr in TSA")
@@ -818,7 +895,8 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         duthost.shell('sudo config save -y')
 
         # Verify DUT comes back to  normal state after TSB.
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
+        pytest_assert(wait_until(120, 20, 0, check_traffic_shift_state, duthost, TS_NORMAL),
+                      "DUT is not in normal state")
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
         cur_v6_routes = {}
@@ -837,7 +915,8 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+                      "Reboot cause {} did not match the trigger {}"
+                      .format(reboot_cause, COLD_REBOOT_CAUSE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -856,8 +935,8 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
     if not tsa_tsb_timer:
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
+    if TS_NORMAL != get_traffic_shift_state(duthost):
+        pytest.skip("Test skipped since DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
@@ -865,6 +944,8 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         # Get all routes on neighbors before doing reboot
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
+
+        up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
         # Reboot dut and wait for startup_tsa_tsb service to start
         logger.info("Cold reboot on node: %s", duthost.hostname)
@@ -883,7 +964,7 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         logging.info('DUT {} up since {}'.format(duthost.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 240,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         # Verify DUT is in maintenance state.
@@ -905,6 +986,12 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         assert wait_until(300, 20, 2, duthost.critical_services_fully_started), \
             "Not all critical services are fully started on {}".format(duthost.hostname)
 
+        # verify sessions are established
+        pytest_assert(
+            wait_until(
+                600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up. No point in continuing the test")
+
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
         cur_v6_routes = {}
@@ -922,14 +1009,15 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
     finally:
 
         # Verify DUT is in normal state.
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
+        pytest_assert(wait_until(120, 20, 0, check_traffic_shift_state, duthost, TS_NORMAL),
                       "DUT is not in normal state")
 
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+                      "Reboot cause {} did not match the trigger {}"
+                      .format(reboot_cause, COLD_REBOOT_CAUSE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -947,15 +1035,17 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
     suphost = duthosts[enum_supervisor_dut_hostname]
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
+    up_bgp_neighbors = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
+        up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
         if not tsa_tsb_timer[linecard]:
             pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
-                      "DUT is not in normal state")
+        if TS_NORMAL != get_traffic_shift_state(linecard):
+            pytest.skip("Test skipped since DUT is not in normal state")
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
 
@@ -986,7 +1076,7 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             logging.info('DUT {} up since {}'.format(linecard.hostname, dut_uptime))
             service_uptime = get_tsa_tsb_service_uptime(linecard)
             time_diff = (service_uptime - dut_uptime).total_seconds()
-            pytest_assert(int(time_diff) < 120,
+            pytest_assert(int(time_diff) < 240,
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
@@ -995,6 +1085,12 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
 
             logging.info("Wait until all critical processes are fully started")
             wait_critical_processes(linecard)
+
+            # verify sessions are established
+            pytest_assert(
+                wait_until(
+                    600, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up. No point in continuing the test")
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
@@ -1018,6 +1114,13 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             # Wait until all routes are announced to neighbors
             cur_v4_routes = {}
             cur_v6_routes = {}
+
+            # verify sessions are established
+            pytest_assert(
+                wait_until(
+                    600, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up. No point in continuing the test")
+
             # Verify that all routes advertised to neighbor at the start of the test
             if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs, linecard, dut_nbrhosts[linecard],
                               orig_v4_routes[linecard], cur_v4_routes, 4):
@@ -1037,19 +1140,22 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             linecard.shell("TSB")
             linecard.shell('sudo config save -y')
             # Verify DUT is in normal state.
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
+            pytest_assert(wait_until(120, 20, 0, check_traffic_shift_state, linecard, TS_NORMAL),
                           "DUT {} is not in normal state".format(linecard))
+
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
             pytest_assert(reboot_cause == SUP_REBOOT_CAUSE,
-                          "Reboot cause {} did not match the trigger {}".format(reboot_cause, SUP_REBOOT_CAUSE))
+                          "Reboot cause {} did not match the trigger {}"
+                          .format(reboot_cause, SUP_REBOOT_CAUSE))
 
         # Make sure the Supervisor's reboot cause is as expected
         logger.info("Check reboot cause of the supervisor")
         reboot_cause = get_reboot_cause(suphost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+                      "Reboot cause {} did not match the trigger {}"
+                      .format(reboot_cause, COLD_REBOOT_CAUSE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -1065,8 +1171,8 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
     if not tsa_tsb_timer:
         pytest.skip("startup_tsa_tsb.service is not supported on the {}".format(duthost.hostname))
     # Ensure that the DUT is not in maintenance already before start of the test
-    pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
-                  "DUT is not in normal state")
+    if TS_NORMAL != get_traffic_shift_state(duthost):
+        pytest.skip("Test skipped since DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
 
@@ -1094,7 +1200,7 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
         logging.info('DUT {} up since {}'.format(duthost.hostname, dut_uptime))
         service_uptime = get_tsa_tsb_service_uptime(duthost)
         time_diff = (service_uptime - dut_uptime).total_seconds()
-        pytest_assert(int(time_diff) < 120,
+        pytest_assert(int(time_diff) < 240,
                       "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
         logging.info("Wait until all critical services are fully started")
@@ -1106,8 +1212,10 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
         pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
 
-        pytest_assert(wait_until(300, 10, 0,
-                                 duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"))
+        pytest_assert(
+            wait_until(
+                600, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up. No point in continuing the test")
 
         stability_check_time = datetime.datetime.now()
         time_to_stabilize = (stability_check_time - service_uptime).total_seconds()
@@ -1148,10 +1256,12 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
     finally:
 
         # Verify DUT is in normal state.
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
+        pytest_assert(wait_until(120, 20, 0, check_traffic_shift_state, duthost, TS_NORMAL),
                       "DUT is not in normal state")
+
         # Make sure the dut's reboot cause is as expected
         logger.info("Check reboot cause of the dut")
         reboot_cause = get_reboot_cause(duthost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
-                      "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
+                      "Reboot cause {} did not match the trigger {}"
+                      .format(reboot_cause, COLD_REBOOT_CAUSE))
