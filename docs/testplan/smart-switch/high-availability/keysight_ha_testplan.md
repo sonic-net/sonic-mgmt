@@ -234,7 +234,8 @@ Verify packet flow when Active NPU to DPU link starts dropping probe packets.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Active side.
 * Through mgmt remove link connection between Active DPU and NPU to drop packets.
-* Add ACL to block traffic the state should not change.
+* Add ACL on DPU side to completely block the data port to simulate the DPU
+  link failure.
 * Mark start time at beginning of test as link connection is removed.
 * Role of the DPUs will not change.
 * Standby DPU will start to receive traffic will be verified by rx/tx counters.
@@ -256,8 +257,8 @@ Verify packet flow when Active NPU to DPU link starts dropping probe packets.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Standby side.
 * Through mgmt remove link connection between Active DPU and NPU to drop packets.
-* Add ACL on DPU side to completely block the data port to simulate the DPU
-  link failure.
+* Add ACL on DPU side to block the probe traffic only by using destination port as condition
+to simulate the DPU link failure.
 * Mark start time at beginning of test as link connection is removed.
 * Role of the DPUs will not change.
 * Standby DPU will start to receive traffic will be verified by rx/tx counters.
@@ -279,8 +280,8 @@ Verify packet flow when Standby NPU to DPU link starts dropping probe packets.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Active side.
 * Through mgmt remove link connection between Standby DPU and NPU to drop packets.
-* Add ACL on DPU side to completely block the data port to simulate the DPU
-  link failure.
+* Add ACL on DPU side to block the probe traffic only by using destination port as condition
+  to simulate the DPU link failure.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes standalone.
 * DPU of SmartSwitch1 shall become anything but active.
