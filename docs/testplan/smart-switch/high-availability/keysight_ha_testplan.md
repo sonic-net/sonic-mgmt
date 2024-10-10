@@ -43,21 +43,9 @@
     - [Test case # 11 -  Link Failures Standby T1-T0 Link Drop Standby](#test-case11-link-failures-standby-t1-t0-link-drop-standby-)
       - [Test objective 11](#test-objective-11)
       - [Steps for Test Case 11](#steps-for-test-case-11)
-    - [Test case # 12 -  Link Failures Active T1-T0 Link Down Active](#test-case12-link-failures-active-t1-t0-link-down-active)
+    - [Test case # 12 – DPU Loss HA Set](#test-case12-dpuloss-ha-set)
       - [Test objective 12](#test-objective-12)
-      - [Steps for Test Case 12](#steps-for-test-case-12)
-    - [Test case # 13 -  Link Failures Active T1-T0 Link Down Standby](#test-case13-link-failures-active-t1-t0-link-down-standby)
-      - [Test objective 13](#test-objective-13)
-      - [Steps for Test Case 13](#steps-for-test-case-13)
-    - [Test case # 14 -  Link Failures Standby T1-T0 Link Down Active](#test-case14-link-failures-standby-t1-t0-link-down-active)
-      - [Test objective 14](#test-objective-14)
-      - [Steps for Test Case 14](#steps-for-test-case-14)
-    - [Test case # 15 -  Link Failures Standby T1-T0 Link Down Standby](#test-case15-link-failures-standby-t1-t0-link-down-standby)
-      - [Test objective 15](#test-objective-15)
-      - [Steps for Test Case 15](#steps-for-test-case-15)
-    - [Test case # 16 – DPU Loss HA Set](#test-case16-dpuloss-ha-set)
-      - [Test objective 16](#test-objective-16)
-      - [Test steps 16](#steps-for-test-case-16)
+      - [Test steps 12](#steps-for-test-case-12)
 
 ## Overview
 The purpose of these tests is to evaluate various High Availability (HA)
@@ -137,6 +125,7 @@ established.
 * Apply and start traffic stateful and stateless.
 
 Configuration2: Two Smart Switches with Two DPUs.
+![HA Perfect Sync Between HA Sets](images/ha_linkloss_test.svg)
 * Configure 2 DPUs networked across two SmartSwitches forming an HA set.
 * The SmartSwitch configuration will consist of 2 DPUs sharing the same
 network configurations such as: IPs, MACs, VLan/VxLan, ENIs.
@@ -245,11 +234,12 @@ Verify packet flow when Active NPU to DPU link starts dropping probe packets.
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Active side.
 * Through mgmt remove link connection between Active DPU and NPU to drop packets.
-* Add ACL on DPU side to completely block the data port to simulate the DPU
-link failure.
+* Add ACL to block traffic the state should not change.
 * Mark start time at beginning of test as link connection is removed.
-* DPU of SmartSwitch0 becomes non-active.
-* DPU of SmartSwitch1 shall become the new standalone DPU in the HA set.
+* Role of the DPUs will not change.
+* Standby DPU will start to receive traffic will be verified by rx/tx counters.
+* DPU of SmartSwitch0 stays active.
+* DPU of SmartSwitch1 remains standby.
 * Measure convergence time from start of the link removal between
 SmartSwitch0 and SmartSwitch1 switchover.
 * Using traffic generator tools to verify metrics associated with number of
@@ -269,8 +259,10 @@ Verify packet flow when Active NPU to DPU link starts dropping probe packets.
 * Add ACL on DPU side to completely block the data port to simulate the DPU
   link failure.
 * Mark start time at beginning of test as link connection is removed.
-* DPU of SmartSwitch0 becomes non-active.
-* DPU of SmartSwitch1 shall become the new standalone DPU in the HA set.
+* Role of the DPUs will not change.
+* Standby DPU will start to receive traffic will be verified by rx/tx counters.
+* DPU of SmartSwitch0 stays active.
+* DPU of SmartSwitch1 remains standby.
 * Measure convergence time from start of the link removal between
   SmartSwitch0 and SmartSwitch1 switchover.
 * Using traffic generator tools to verify metrics associated with number of
@@ -326,10 +318,9 @@ Verify packet flow when T1-T0 link drop.
 #### Steps for Test Case 8
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Active side.
-* Through mgmt remove link connection Active DPU side T1-T0 link.
-* Remove link from the BBR ECMP group.  Nothing should fail.
-* Then remove the other link from the BBR ECMP group.  Nothing should
-fail as well.
+* Enable link from the BBR ECMP group and remove other link. Nothing should fail.
+* Then remove the other link from the BBR ECMP group.  DPU to DPU probe will fail
+and HA role will change to standalone.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes non-active.
 * DPU of SmartSwitch1 becomes standalone.
@@ -347,10 +338,9 @@ Verify packet flow when T1-T0 link drop.
 #### Steps for Test Case 9
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Standby side.
-* Through mgmt remove link connection Active DPU side T1-T0 link.
-* Remove link from the BBR ECMP group.  Nothing should fail.
-* Then remove the other link from the BBR ECMP group.  Nothing should
-  fail as well.
+* Enable link from the BBR ECMP group and remove other link. Nothing should fail.
+* Then remove the other link from the BBR ECMP group.  DPU to DPU probe will fail
+  and HA role will change to standalone.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes non-active.
 * DPU of SmartSwitch1 becomes standalone.
@@ -368,10 +358,9 @@ Verify packet flow when T1-T0 link drop.
 #### Steps for Test Case 10
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Active side.
-* Through mgmt remove link connection Standby DPU side T1-T0 link.
-* Remove link from the BBR ECMP group.  Nothing should fail.
-* Then remove the other link from the BBR ECMP group.  Nothing should
-  fail as well.
+* Enable link from the BBR ECMP group and remove other link. Nothing should fail.
+* Then remove the other link from the BBR ECMP group.  DPU to DPU probe will fail
+  and HA role will change to standalone.
 * Mark start time at beginning of test as link connection is removed.
 * DPU of SmartSwitch0 becomes standalone.
 * DPU of SmartSwitch1 becomes anything but active.
@@ -389,11 +378,9 @@ Verify packet flow when T1-T0 link drop.
 #### Steps for Test Case 11
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss through the Standby side.
-* Through mgmt remove link connection Standby DPU side T1-T0 link.
-* Mark start time at beginning of test as link connection is removed.
-* Remove link from the BBR ECMP group.  Nothing should fail.
-* Then remove the other link from the BBR ECMP group.  Nothing should
-  fail as well.
+* Enable link from the BBR ECMP group and remove other link. Nothing should fail.
+* Then remove the other link from the BBR ECMP group.  DPU to DPU probe will fail
+  and HA role will change to standalone.
 * DPU of SmartSwitch0 becomes standalone.
 * DPU of SmartSwitch1 becomes anything but active.
 * Measure convergence time from start of the link removal.
@@ -401,84 +388,12 @@ Verify packet flow when T1-T0 link drop.
   Concurrent Connections, Connection rate, and TCP/UDP failures collect data
   before, during and after unplanned event.
 
-### Test case12 Link Failures Active T1-T0 Link Down Active
+### Test case12 DPULoss HA Set
 #### Test Objective 12
-Verify packet flow when T1-T0 link down.
-* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
-
-![HA LinkLoss](images/ha_linkloss_test.svg)
-#### Steps for Test Case 12
-* Refer to the section Common Steps Configuration2.
-* Verify traffic is flowing without any loss through the Active side.
-* Through mgmt down link connection Active DPU side T1-T0 link.
-* Mark start time at beginning of test as link connection is removed.
-* DPU of SmartSwitch0 becomes active.
-* DPU of SmartSwitch1 becomes standalone.
-* Measure convergence time from start of the link removal.
-* Using traffic generator tools to verify metrics associated with number of
-  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
-  before, during and after unplanned event.
-
-### Test case13 Link Failures Active T1-T0 Link Down Standby
-#### Test Objective 13
-Verify packet flow when T1-T0 link down.
-* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
-
-![HA LinkLoss](images/ha_linkloss_test.svg)
-#### Steps for Test Case 13
-* Refer to the section Common Steps Configuration2.
-* Verify traffic is flowing without any loss through the Standby side.
-* Through mgmt down link connection Active DPU side T1-T0 link.
-* Mark start time at beginning of test as link connection is removed.
-* DPU of SmartSwitch0 becomes non-active.
-* DPU of SmartSwitch1 becomes standalone.
-* Measure convergence time from start of the link removal.
-* Using traffic generator tools to verify metrics associated with number of
-  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
-  before, during and after unplanned event.
-
-### Test case14 Link Failures Standby T1-T0 Link Down Active
-#### Test Objective 14
-Verify packet flow when T1-T0 link down.
-* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
-
-![HA LinkLoss](images/ha_linkloss_test.svg)
-#### Steps for Test Case 14
-* Refer to the section Common Steps Configuration2.
-* Verify traffic is flowing without any loss through the Active side.
-* Through mgmt down link connection Standby DPU side T1-T0 link.
-* Mark start time at beginning of test as link connection is removed.
-* DPU of SmartSwitch0 becomes standalone.
-* DPU of SmartSwitch1 becomes anything but active.
-* Measure convergence time from start of the link removal.
-* Using traffic generator tools to verify metrics associated with number of
-  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
-  before, during and after unplanned event.
-
-### Test case15 Link Failures Standby T1-T0 Link Down Standby
-#### Test Objective 15
-Verify packet flow when T1-T0 link down.
-* Reference HA-SmartSwitch-test_plan Module 4 Link Failures.
-
-![HA LinkLoss](images/ha_linkloss_test.svg)
-#### Steps for Test Case 15
-* Refer to the section Common Steps Configuration2.
-* Verify traffic is flowing without any loss through the Standby side.
-* Through mgmt down link connection Standby DPU side T1-T0 link.
-* Mark start time at beginning of test as link connection is removed.
-* DPU of SmartSwitch0 becomes standalone.
-* DPU of SmartSwitch1 becomes anything but active.
-* Measure convergence time from start of the link removal.
-* Using traffic generator tools to verify metrics associated with number of
-  Concurrent Connections, Connection rate, and TCP/UDP failures collect data
-  before, during and after unplanned event.
-
-### Test case16 DPULoss HA Set
-#### Test Objective 16
 * Reference HA-SmartSwitch-test_plan Module 6 Power down and hardware failure.
 
 ![HA DPULoss HA Set](images/ha_dpuloss_test.svg)
-#### Steps for Test Case 16
+#### Steps for Test Case 12
 * Refer to the section Common Steps Configuration2.
 * Verify traffic is flowing without any loss.
 * Through mgmt port poweroff or reboot Active DPU.
