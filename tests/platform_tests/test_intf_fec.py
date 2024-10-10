@@ -139,8 +139,8 @@ def get_fec_histogram(duthost, intf_name):
     try:
         logging.info("Get output of 'show interfaces counters fec-histogram {intf_name}'")
         fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {intf_name}")
-    except Exception as e:
-        logging.error("Failed to execute 'show interfaces counters fec-histogram {intf_name}': {str(e)}")
+    except Exception as e:  # noqa: F841
+        logging.error("Failed to execute 'show interfaces counters fec-histogram {intf_name}': {e}")
         pytest.fail("Command 'show interfaces counters fec-histogram {intf_name}' not found \
                 or failed: {str(e)}")
         return None
