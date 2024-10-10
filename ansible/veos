@@ -53,6 +53,7 @@ all:
           - mc0
           - mx
           - dpu-1
+          - smartswitch-t1-28-lag
       children:
         server_1:
         server_2:

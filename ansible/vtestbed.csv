@@ -13,3 +13,4 @@ vms-kvm-t0-4,vms6-7,t0,docker-ptf,ptf-07,10.250.0.118/24,fec0::ffff:afb:4/64,ser
 vms-kvm-dual-mixed,vms6-8,dualtor-mixed,docker-ptf,ptf-08,10.250.0.109/24,fec0::ffff:afa:9/64,server_1,VM0140,[vlab-11;vlab-12],veos_vtb,False,Dual-TOR-Mixed testbed
 vms-kvm-wan-pub,vms6-1,wan-pub,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:2/64,server_1,VM0100,[vlab-01],veos_vtb,'False',Tests virtual switch vm
 vms-kvm-dpu,vms6-1,dpu,docker-ptf,ptf-01,10.250.0.102/24,fec0::ffff:afa:2/64,server_1,VM0100,[vlab-01],veos_vtb,'False',Tests virtual switch vm as DPU
+vms-kvm-smartswitch,vms6-2,smartswitch-t1-28-lag,docker-ptf,ptf-02,10.250.0.106/24,fec0::ffff:afa:6/64,server_1,VM0104,[vlab-01;vlab-02;vlab-03],veos_vtb,'False',virtual smartswitch testbed
