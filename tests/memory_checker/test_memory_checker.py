@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.disable_memory_utilization
 ]
 
 CONTAINER_STOP_THRESHOLD_SECS = 200
