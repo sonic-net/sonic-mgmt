@@ -51,8 +51,26 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
 
     # Step 2: Configure DUT into L2 mode.
     # Save original config
+    
+
     duthost.shell("sudo cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
     # Perform L2 configuration
+    mgmt_fact = duthost.get_extended_minigraph_fact()["minigraph_mgmt_interface"]
+    init_cfg = '''
+    {{
+        "MGMT_INTERFACE": {{
+            "eth0|{}/{}": {{
+                "gwaddr": "{}"
+            }}
+        }},
+        "DEVICE_METADATA": {{
+            "localhost": {{
+                "hostname": "{}"
+            }}
+        }}
+    }}
+    '''.format(mgmt_fact["addr"], mgmt_fact["prefixlen"], mgmt_fact["gwaddr"], duthost.hostname)
+    duthost.shell(init_cfg)
     l2_cfg = "sudo sonic-cfggen --preset l2 -p -H -k {}" \
         " | sudo config load /dev/stdin -y".format(hwsku)
     duthost.shell(l2_cfg)
