@@ -118,8 +118,8 @@
       capabilities:
         - net_admin
       privileged: yes
-      memory: 8G
-      memory_swap: 8G
+      memory: 16G
+      memory_swap: 32G
     become: yes
 
   - name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
