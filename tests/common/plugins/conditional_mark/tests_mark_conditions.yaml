@@ -53,11 +53,11 @@ arp/test_unknown_mac.py:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not yet supported in TH5"
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos"
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
-      - "asic_gen in ['th5']"
+      - "'standalone' in topo_name"
 
 #######################################
 #####            bfd              #####
@@ -1109,9 +1109,9 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or currently for TH5."
+     reason: "Warm Reboot is not supported in T2 or for standalone topos."
      conditions:
-        - "'t2' in topo_name or asic_gen in ['th5']"
+        - "'t2' in topo_name or 'standalone' in topo_name"
    xfail:
      reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
      conditions:
