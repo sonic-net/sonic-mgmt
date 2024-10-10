@@ -16,11 +16,14 @@ TARGET_IMG_DUTHOST = '/var/tmp/target_sonic_duthost.bin'
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.sanity_check(skip_sanity=True),
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.skip_check_dut_health
 ]
 
 
-def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localhost):
+def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localhost, tbinfo):
     """
     @summary: A testcase that verifies DB migrator does not add bad data.
         1. Cold reboot.
@@ -51,8 +54,27 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
 
     # Step 2: Configure DUT into L2 mode.
     # Save original config
+    
+
     duthost.shell("sudo cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
     # Perform L2 configuration
+    mgmt_fact = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]
+    init_cfg = '''
+    cat <<EOF | sudo config reload /dev/stdin -y
+    {{
+        "MGMT_INTERFACE": {{
+            "eth0|{}/{}": {{
+                "gwaddr": "{}"
+            }}
+        }},
+        "DEVICE_METADATA": {{
+            "localhost": {{
+                "hostname": "{}"
+            }}
+        }}
+    }}
+    '''.format(mgmt_fact["addr"], mgmt_fact["prefixlen"], mgmt_fact["gwaddr"], duthost.hostname)
+    duthost.shell(init_cfg)
     l2_cfg = "sudo sonic-cfggen --preset l2 -p -H -k {}" \
         " | sudo config load /dev/stdin -y".format(hwsku)
     duthost.shell(l2_cfg)
