@@ -3,6 +3,7 @@ import pytest
 import time
 
 from tests.common.utilities import skip_release, wait_until
+from tests.common.platform.interface_utils import get_valid_interfaces
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -36,24 +37,16 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    logging.info("Get output of '{}'".format("show interface status"))
-    intf_status = duthost.show_and_parse("show interface status")
+    # Get valid interfaces
+    valid_interfaces = get_valid_interfaces(duthost, SUPPORTED_SPEEDS)
 
-    for intf in intf_status:
-        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}"
-                                              .format(intf['interface']))
-        if sfp_presence:
-            presence = sfp_presence[0].get('presence', '').lower()
-            oper = intf.get('oper', '').lower()
-            speed = intf.get('speed', '')
-
-            if presence == "present" and oper == "up" and speed in SUPPORTED_SPEEDS:
-                # Verify the FEC operational mode is valid
-                logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
-                fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
-                fec = fec_status[0].get('fec oper', '').lower()
-                if fec == "n/a":
-                    pytest.fail("FEC status is N/A for interface {}".format(intf['interface']))
+    for intf in valid_interfaces:
+        # Verify the FEC operational mode is valid
+        logging.info("Get output of '{} {}'".format("show interfaces fec status", intf))
+        fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf))
+        fec = fec_status[0].get('fec oper', '').lower()
+        if fec == "n/a":
+            pytest.fail("FEC status is N/A for interface {}".format(intf))
 
 
 def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -64,31 +57,20 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    logging.info("Get output of '{}'".format("show interface status"))
-    intf_status = duthost.show_and_parse("show interface status")
+    # Get valid interfaces
+    valid_interfaces = get_valid_interfaces(duthost, SUPPORTED_SPEEDS)
 
-    for intf in intf_status:
-        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}"
-                                              .format(intf['interface']))
-        if sfp_presence:
-            presence = sfp_presence[0].get('presence', '').lower()
-            oper = intf.get('oper', '').lower()
-            speed = intf.get('speed', '')
-
-            if presence == "not present" or oper != "up" or speed not in SUPPORTED_SPEEDS:
-                continue
-
-        config_status = duthost.command("sudo config interface fec {} rs"
-                                        .format(intf['interface']))
+    for intf in valid_interfaces:
+        config_status = duthost.command("sudo config interface fec {} rs".format(intf))
         if config_status:
             wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"])
             # Verify the FEC operational mode is restored
-            logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
-            fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
+            logging.info("Get output of '{} {}'".format("show interfaces fec status", intf))
+            fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf))
             fec = fec_status[0].get('fec oper', '').lower()
 
             if not (fec == "rs"):
-                pytest.fail("FEC status is not restored for interface {}".format(intf['interface']))
+                pytest.fail("FEC status is not restored for interface {}".format(intf))
 
 
 def get_interface_speed(duthost, interface_name):
@@ -150,6 +132,61 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
                         .format(intf_name, fec_symbol_err_int, fec_corr_int))
 
 
+def get_fec_histogram(duthost, intf_name):
+    """
+    @Summary: Fetch FEC histogram for a given interface.
+    """
+    try:
+        logging.info("Get output of 'show interfaces counters fec-histogram {intf_name}'")
+        fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {intf_name}")
+    except Exception as e:
+        logging.error("Failed to execute 'show interfaces counters fec-histogram {intf_name}': {str(e)}")
+        pytest.fail("Command 'show interfaces counters fec-histogram {intf_name}' not found \
+                or failed: {str(e)}")
+        return None
+
+    if not fec_hist:
+        pytest.fail("No FEC histogram data found for interface {intf_name}")
+
+    logging.info("FEC histogram for interface {intf_name}: {fec_hist}")
+    return fec_hist
+
+
+def collect_fec_histogram_samples(duthost, intf_name, num_samples=3, interval=10):
+    """
+    @Summary: Collect FEC histogram samples over a period of time.
+    """
+    fec_hist_samples = []
+    for sample_index in range(num_samples):
+        fec_hist = get_fec_histogram(duthost, intf_name)
+        fec_hist_samples.append(fec_hist)
+
+        # Log bin values for each sample
+        for bin_index in range(16):
+            bin_label = fec_hist[bin_index].get('symbol errors per codeword')  # noqa: F841
+            bin_value = fec_hist[bin_index].get('codewords')  # noqa: F841
+            logging.info("Sample {sample_index + 1} - Interface {intf_name}: {bin_label} -> {bin_value}")
+
+        if sample_index < num_samples - 1:
+            time.sleep(interval)
+
+    return fec_hist_samples
+
+
+def validate_fec_histogram(fec_hist_samples, intf_name, critical_bins=range(7, 16)):
+    """
+    @Summary: Validate FEC histogram bins to ensure no increasing errors.
+    """
+    for bin_index in critical_bins:
+        previous_value = int(fec_hist_samples[0][bin_index].get('codewords', 0))
+        current_value = int(fec_hist_samples[2][bin_index].get('codewords', 0))
+
+        if current_value > previous_value:
+            pytest.fail("Increasing symbol errors found in bin {fec_hist_samples[2][bin_index].\
+                    get('symbol errors per codeword')} (from {previous_value} to {current_value}) \
+                    on interface {intf_name}")
+
+
 def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                               enum_frontend_asic_index, conn_graph_facts):
     """
@@ -157,73 +194,12 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    logging.info("Get output of 'show interface status'")
-    intf_status = duthost.show_and_parse("show interface status")
+    # Get valid interfaces
+    valid_interfaces = get_valid_interfaces(duthost, SUPPORTED_SPEEDS)
 
-    for intf in intf_status:
-        intf_name = intf['interface']
-        sfp_presence = duthost.show_and_parse("sudo sfpshow presence -p {}".format(intf_name))
-        if sfp_presence:
-            presence = sfp_presence[0].get('presence', '').lower()
-            oper = intf.get('oper', '').lower()
-            speed = intf.get('speed', '')
+    for intf_name in valid_interfaces:
+        # Collect FEC histogram samples
+        fec_hist_samples = collect_fec_histogram_samples(duthost, intf_name)
 
-            # Skip interfaces that are not up or have no SFP module present or for unsupported speeds
-            if presence == "not present" or oper != "up" or speed not in SUPPORTED_SPEEDS:
-                logging.info("Skip the test_verify_fec_histogram for {}: sfp_presence:{} oper_state:{} speed:{}'"
-                             .format(intf_name, presence, oper, speed))
-                continue
-
-            # Verify the FEC histogram
-            logging.info("Get output of 'show interfaces counters fec-histogram {}'".format(intf_name))
-            fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {}".format(intf_name))
-
-            # Check if the FEC histogram data is present
-            if not fec_hist:
-                pytest.fail("No FEC histogram data found for interface {}".format(intf_name))
-
-            # Check and log FEC histogram bins
-            logging.info("FEC histogram for interface {}: {}".format(intf_name, fec_hist))
-
-            # Set thresholds for FEC histogram validation
-            critical_bins = range(7, 16)  # Higher bins indicating serious transmission issues
-
-            # Initialize lists to hold FEC histogram samples
-            fec_hist_samples = []
-
-            for sample_index in range(3):  # Take 3 samples
-                # Verify the FEC histogram
-                logging.info("Get output of 'show interfaces counters fec-histogram {}'".format(intf_name))
-                fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {}".format(intf_name))
-
-                # Check if the FEC histogram data is present
-                if not fec_hist:
-                    pytest.fail("No FEC histogram data found for interface {}".format(intf_name))
-
-                # Check and log FEC histogram bins
-                logging.info("FEC histogram for interface {}: {}".format(intf_name, fec_hist))
-
-                # Store the sample
-                fec_hist_samples.append(fec_hist)
-
-                # Log the bin values
-                for bin_index in range(16):
-                    bin_label = fec_hist[bin_index].get('symbol errors per codeword')
-                    bin_value = fec_hist[bin_index].get('codewords')
-                    logging.info("Sample {} - Interface {}: {} -> {}"
-                                 .format(sample_index + 1, intf_name, bin_label, bin_value))
-
-                # Sleep for 10 seconds before taking the next sample (except after the last one)
-                if sample_index < 2:
-                    time.sleep(10)
-
-            # Validate FEC histogram counters
-            for bin_index in critical_bins:
-                previous_value = int(fec_hist_samples[0][bin_index].get('codewords', 0))
-                current_value = int(fec_hist_samples[2][bin_index].get('codewords', 0))
-
-                # Fail the test if the counter for this bin has increased
-                if current_value > previous_value:
-                    pytest.fail("Increasing symbol errors found in bin {} (from {} to {}) on interface {}".format(
-                        fec_hist_samples[2][bin_index].get('symbol errors per codeword'), previous_value, current_value,
-                        intf_name))
+        # Validate FEC histogram
+        validate_fec_histogram(fec_hist_samples, intf_name)
