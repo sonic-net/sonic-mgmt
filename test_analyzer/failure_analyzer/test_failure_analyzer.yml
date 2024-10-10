@@ -18,7 +18,7 @@ stages:
     jobs:
       - job: TestFailureAnalyzing
         pool: nightly
-        timeoutInMinutes: 240
+        timeoutInMinutes: 350
         variables:
           - group: KUSTO_SECRETS
           - group: sonicbld
