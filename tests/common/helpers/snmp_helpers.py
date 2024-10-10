@@ -10,8 +10,18 @@ logger = logging.getLogger(__name__)
 
 DEF_WAIT_TIMEOUT = 300
 DEF_CHECK_INTERVAL = 10
+SNMP_SUBAGENT_WAIT_TIMEOUT = 120
+SNMP_SUBAGENT_CHECK_INTERVAL = 5
 
 global_snmp_facts = {}
+
+
+def is_snmp_subagent_running(duthost):
+    cmd = "docker exec snmp supervisorctl status snmp-subagent"
+    output = duthost.shell(cmd)
+    if "RUNNING" in output["stdout"]:
+        return True
+    return False
 
 
 def _get_snmp_facts(localhost, host, version, community, is_dell, include_swap, module_ignore_errors):
@@ -20,10 +30,12 @@ def _get_snmp_facts(localhost, host, version, community, is_dell, include_swap, 
     return snmp_facts
 
 
-def _update_snmp_facts(localhost, host, version, community, is_dell, include_swap):
+def _update_snmp_facts(localhost, host, version, community, is_dell, include_swap, duthost):
     global global_snmp_facts
 
     try:
+        pytest_assert(wait_until(SNMP_SUBAGENT_WAIT_TIMEOUT, SNMP_SUBAGENT_CHECK_INTERVAL, 0, is_snmp_subagent_running, duthost),
+                    "SNMP Sub-Agent is not in Running state")
         global_snmp_facts = _get_snmp_facts(localhost, host, version, community, is_dell, include_swap,
                                             module_ignore_errors=False)
     except RunAnsibleModuleFail as e:
@@ -34,7 +46,7 @@ def _update_snmp_facts(localhost, host, version, community, is_dell, include_swa
     return True
 
 
-def get_snmp_facts(localhost, host, version, community, is_dell=False, module_ignore_errors=False,
+def get_snmp_facts(duthost, localhost, host, version, community, is_dell=False, module_ignore_errors=False,
                    wait=False, include_swap=False, timeout=DEF_WAIT_TIMEOUT, interval=DEF_CHECK_INTERVAL):
     if not wait:
         return _get_snmp_facts(localhost, host, version, community, is_dell, include_swap, module_ignore_errors)
@@ -42,7 +54,7 @@ def get_snmp_facts(localhost, host, version, community, is_dell=False, module_ig
     global global_snmp_facts
 
     pytest_assert(wait_until(timeout, interval, 0, _update_snmp_facts, localhost, host, version,
-                             community, is_dell, include_swap), "Timeout waiting for SNMP facts")
+                             community, is_dell, include_swap, duthost), "Timeout waiting for SNMP facts")
     return global_snmp_facts
 
 
