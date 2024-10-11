@@ -38,15 +38,11 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="module", autouse=True)
 def check_dhcp_feature_status(duthost):
     feature_status_output = duthost.show_and_parse("show feature status")
-    dhcp_relay_enabled = False
     for feature in feature_status_output:
         if feature["feature"] == "dhcp_server" and feature["state"] == "enabled":
             pytest.skip("DHCPv4 relay is not supported when dhcp_server is enabled")
-        if feature["feature"] == "dhcp_relay" and feature["state"] == "enabled":
-            dhcp_relay_enabled = True
-            
-    if not dhcp_relay_enabled:
-        pytest.skip("dhcp_relay is not enabled")
+        if feature["feature"] == "dhcp_relay" and feature["state"] != "enabled":
+            pytest.skip("dhcp_relay is not enabled")
 
 
 @pytest.fixture(scope="module")
