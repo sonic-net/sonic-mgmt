@@ -53,10 +53,11 @@ More details can be found in [the SmartSwitch VS setup doc](../docs/testbed/READ
     Password: YourPaSsWoRd
     ```
 
-1. Setup mgmt interface
+1. Setup ether interface
 
     ```bash
     sudo config interface ip add eth0 10.250.0.55/24
+    sudo ifconfig eth1 10.0.0.37/31 up && sudo ifconfig eth2 10.0.0.39/31 up
     sudo config save -y
     ```
 
