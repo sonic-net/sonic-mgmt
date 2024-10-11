@@ -424,6 +424,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
     conditions:
       - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
+platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
+  skip:
+    reason: "platform does not support sfp reset"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+
 platform_tests/api/test_sfp.py::TestSfpApi::test_thermals:
   skip:
     reason: "Unsupported platform API"
@@ -440,7 +446,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-cel_e1031-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
   skip:
@@ -551,6 +557,13 @@ platform_tests/broadcom:
     conditions:
       - "asic_type in ['marvell']"
 
+platform_tests/broadcom/test_ser.py::test_ser:
+  skip:
+    reason: "platform does not support test_ser"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6218
+
 #######################################
 #####  cli/test_show_platform.py  #####
 #######################################
@@ -610,6 +623,21 @@ platform_tests/mellanox/test_reboot_cause.py:
     reason: "Does not support platform_tests/mellanox/test_reboot_cause.py"
     conditions:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
+
+#######################################
+#####            sfp              #####
+#######################################
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
+  skip:
+    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
+    conditions:
+      - "asic_type in ['cisco-8000'] or platform in ['x86_64-cel_e1031-r0']"
+
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
+  skip:
+    reason: "platform does not support sfp reset"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
 
 #######################################
 ####    test_advanced_reboot      #####
