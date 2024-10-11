@@ -27,12 +27,19 @@ def init_underlay():
 
 
 def init_appliance():
-    appliance = p4sh.TableEntry("dash_ingress.appliance")(action="dash_ingress.set_appliance")
-    appliance.match["meta.appliance_id"] = "0&&&0xff"
-    appliance.action["neighbor_mac"] = "62:d6:08:7f:04:e7"
-    appliance.action["mac"] = "22:48:23:27:33:d8"
-    appliance.priority = 1
-    appliance.insert()
+    try:
+        logging.info("Inserting appliance entry ...")
+
+        appliance = p4sh.TableEntry("dash_ingress.appliance")(action="dash_ingress.set_appliance")
+        appliance.match["meta.appliance_id"] = "0&&&0xff"
+        appliance.action["neighbor_mac"] = "62:d6:08:7f:04:e7"
+        appliance.action["mac"] = "22:48:23:27:33:d8"
+        appliance.priority = 1
+        appliance.insert()
+    except p4sh_rt.P4RuntimeWriteException as e:
+        logging.error(f"Failed to insert appliance: {e}")
+    finally:
+        enable_print()
 
 
 if __name__ == "__main__":
@@ -41,3 +48,4 @@ if __name__ == "__main__":
 
     init_p4runtime_shell()
     init_underlay()
+    init_appliance()
