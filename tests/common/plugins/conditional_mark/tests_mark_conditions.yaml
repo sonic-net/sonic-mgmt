@@ -692,8 +692,8 @@ everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_po
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
-    reason: "For Mellanox t0-120 setup - Need to skip the test due to HW resource limitation
-             For Cisco-8000 - EverflowV4 EgressAcl EgressMirror - is not yet fully supported on cisco chassis. Skipping it till it is fully validated"
+    reason: "For Mellanox t0-120 setup - Need to skip the test due to HW resource limitation.
+             For Cisco-8000 - EverflowV4 EgressAcl EgressMirror - is not yet fully supported on cisco chassis. Skipping it till it is fully validated."
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
