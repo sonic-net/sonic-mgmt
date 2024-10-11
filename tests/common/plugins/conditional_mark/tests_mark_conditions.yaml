@@ -456,54 +456,6 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
 
 #######################################
-#####         platform_tests      #####
-#######################################
-platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
-  skip:
-    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
-    conditions:
-      - "asic_type in ['cisco-8000'] or platform in ['x86_64-cel_e1031-r0']"
-
-platform_tests/test_auto_negotiation.py:
-  skip:
-    reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
-    conditions: https://github.com/Azure/sonic-mgmt/issues/5447
-
-platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
-  skip:
-    reason: "platform does not support sfp reset"
-    conditions:
-      - "platform in ['x86_64-cel_e1031-r0']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
-  skip:
-    reason: "platform does not support sfp reset"
-    conditions:
-      - "platform in ['x86_64-cel_e1031-r0']"
-
-platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
-  skip:
-    reason: "platform does not support"
-    conditions:
-      - "platform in ['x86_64-cel_e1031-r0']"
-
-platform_tests/broadcom/test_ser.py::test_ser:
-  skip:
-    reason: "platform does not support test_ser"
-    conditions:
-      - "platform in ['x86_64-cel_e1031-r0']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6218
-
-#######################################
-#####           configlet         #####
-#######################################
-configlet/test_add_rack.py:
-  skip:
-    reason: "AddRack is not yet supported on multi-ASIC platform"
-    conditions:
-      - "is_multi_asic==True"
-
-#######################################
 #####           qos               #####
 #######################################
 qos:
