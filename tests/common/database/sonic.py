@@ -1,10 +1,14 @@
 import redis
 import logging
 import concurrent.futures
-import time
+import queue
+import threading
 
 from datetime import timedelta
 from enum import IntEnum
+from concurrent.futures import ThreadPoolExecutor
+
+import tests.common.database.sonic_internal as sonic_internal
 
 logger = logging.getLogger(__name__)
 
@@ -32,16 +36,26 @@ key_separator_per_db = {
 }
 
 
-def start_db_monitor(executor: concurrent.futures.ThreadPoolExecutor,
+def start_db_monitor(executor: ThreadPoolExecutor,
                      redis_conn: redis.Redis,
                      n: int,
                      key_pattern: str) -> concurrent.futures.Future:
-    future = executor.submit(get_n_keys, redis_conn, n, key_pattern)
-    logger.debug(f'Submission complete returning {future}')
+    """
+    start_db_monitor starts a thread that waits for 'n' key changes
+    specified by the 'key_pattern'. The function returns immediately
+    with a handle to the future (thread).
+    """
+    future = executor.submit(sonic_internal._wait_for_n_keys, redis_conn, n, key_pattern)
+    logger.debug(f'Submission for wait_for_n_keys complete returning {future}')
     return future
 
 
 def await_monitor(future: concurrent.futures.Future, timeout: timedelta):
+    """
+    await_monitor waits for the thread started by 'start_db_monitor' function
+    It waits for the duration of the 'timeout' value for the thread to complete
+    and times out if the thread if it runs beyond the specified value.
+    """
     events = None
     time_spent = None
     try:
@@ -51,32 +65,104 @@ def await_monitor(future: concurrent.futures.Future, timeout: timedelta):
     return events, time_spent
 
 
-def get_n_keys(redis_conn: redis.Redis, n: int, key_pattern: str):
-    start_time = time.perf_counter()
-    db_num = redis_conn.connection_pool.connection_kwargs.get('db')
-    if db_num is None:
-        raise Exception('cannot determine database number')
-    pubsub = redis_conn.pubsub()
-    keyspace_str = f'__keyspace@{db_num}__:'
-    pattern = f'{keyspace_str}{key_pattern}'
-    pubsub.psubscribe(pattern)
-    events = {}
-    logger.debug(f'get_n_keys {n} keys with pattern {pattern}')
-    n_events = 0
-    for message in pubsub.listen():
-        if message['type'] == 'pmessage':
-            if message['pattern'] == pattern:
-                key = message['channel'][len(keyspace_str):]
-                val = redis_conn.hgetall(key)
-                if key not in events:
-                    events[key] = val
-                    n_events += 1
-                if n_events == n:
-                    break
-    pubsub.close()
-    logger.debug(f'Received {n_events} events. Closing pubsub')
-    end_time = time.perf_counter()
-    return events, (end_time - start_time)
+def start_subscribe(redis_conn: redis.Redis, key_pattern: str):
+    """
+    start_subscribe returns a 'queue.Queue' and a context
+    (opaque to the caller). The function creates a producer thread
+    that monitors the database for changes based on the specified key_pattern
+    and adds those events to the queue.
+    """
+    executor = ThreadPoolExecutor(max_workers=3)
+    q = queue.Queue()
+    stop_flag = threading.Event()
+    future = executor.submit(sonic_internal._publish_to_queue,
+                             redis_conn, key_pattern, q, stop_flag)
+    ctx = sonic_internal._SonicDBContext(executor, q, future, stop_flag)
+    logger.debug('Subscription started')
+    return q, ctx
+
+
+def stop_subscribe(ctx: sonic_internal._SonicDBContext):
+    """
+    stop_subscribe stops the thread, the subscription
+    for the key_pattern and deletes the queue.
+    """
+    ctx.stop_flag.set()
+    ctx.executor.shutdown(wait=False)
+    del ctx.q
+    logger.debug('Subscription stopped')
+
+
+def wait_until_condition(q: queue.Queue,
+                         prefix: str,
+                         keys: list,
+                         condition_cb,
+                         timeout: timedelta):
+    """
+    wait_until_condition accepts the 'q' from 'start_subscribe',
+    the 'prefix', 'keys', and a callback function of signature
+    `cb(key, value) -> bool`. The function checks on the specified
+    keys (format: {prefix}{keys[0]}, {prefix}{keys[1]...})
+    until the callback returns true for all the keys in the list
+    or the function times-out. Whichever comes first.
+    """
+    if condition_cb is None:
+        raise Exception('callback not set')
+    executor = ThreadPoolExecutor(max_workers=3)
+    future = executor.submit(sonic_internal._wait_until_condition,
+                             q=q,
+                             prefix=prefix,
+                             keys=keys,
+                             condition_cb=condition_cb)
+    try:
+        logger.debug(f'Wait until condition for {timeout.total_seconds()} seconds')
+        completed, actual_time = future.result(timeout=timeout.total_seconds())
+        return completed, actual_time
+    except concurrent.futures.TimeoutError:
+        logger.debug('wait_until_condition has timed out')
+    finally:
+        executor.shutdown(wait=False)
+
+
+def wait_until_keys_match(q: queue.Queue, prefix: str,
+                          hashes: list, key: str, value: str,
+                          timeout: timedelta):
+    """
+    A convinience wrapper over wait_until_condition.
+    wait_until_keys_match waits until all the given hashes'
+    have the 'key' with the expected value 'value'. Example -
+
+    BFD_SESSION_TABLE|default|default|101.0.0.11: {'state', 'Up', ... }
+    BFD_SESSION_TABLE|default|default|101.0.0.35: {'state', 'Down', ... }
+    BFD_SESSION_TABLE|default|default|101.0.0.28: {'state', 'Up', ... }
+
+    prefix: BFD_SESSION_TABLE|default|default|
+    hashes: neighbor ips ["101.0.0.11", "101.0.0.35",...]
+    key: key of the hash table (from example above like 'state')
+    value: value of the key (from example above like 'Up' or 'Down' etc.)
+    """
+    executor = ThreadPoolExecutor(max_workers=3)
+    future = executor.submit(sonic_internal._wait_until_keys_match,
+                             q,
+                             prefix,
+                             hashes,
+                             key,
+                             value)
+    try:
+        logger.debug(f'Waiting for {timeout.total_seconds()} seconds')
+        completed, actual_time = future.result(timeout=timeout.total_seconds())
+        return completed, actual_time
+    except concurrent.futures.TimeoutError:
+        logger.debug('wait_until_keys_match has timed out')
+    finally:
+        executor.shutdown(wait=False)
+
+
+def check_hash_key(redis_conn: redis.Redis, hash_table, key_name, expected_value):
+    actual = redis_conn.hget(hash_table, key_name)
+    logger.debug(f'check_hash_key table = {hash_table},'
+                 f' key = {key_name}, expected = {expected_value}, actual = {actual}')
+    return actual == expected_value
 
 
 class SonicDB:
