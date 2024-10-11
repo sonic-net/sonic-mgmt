@@ -34,8 +34,10 @@ def _update_snmp_facts(localhost, host, version, community, is_dell, include_swa
     global global_snmp_facts
 
     try:
-        pytest_assert(wait_until(SNMP_SUBAGENT_WAIT_TIMEOUT, SNMP_SUBAGENT_CHECK_INTERVAL, 0, is_snmp_subagent_running, duthost),
-                    "SNMP Sub-Agent is not in Running state")
+        pytest_assert(
+            wait_until(SNMP_SUBAGENT_WAIT_TIMEOUT, SNMP_SUBAGENT_CHECK_INTERVAL, 0,
+                       is_snmp_subagent_running, duthost),
+            "SNMP Sub-Agent is not in Running state")
         global_snmp_facts = _get_snmp_facts(localhost, host, version, community, is_dell, include_swap,
                                             module_ignore_errors=False)
     except RunAnsibleModuleFail as e:
