@@ -47,6 +47,7 @@ jobs:
             # Others success flag:   conclusion in SUCCESS,NEUTRAL
             # Ignore Azure.sonic-mgmt stage check result. It may be set continueOnError
             echo "$name" | grep "Azure.sonic-mgmt (" && continue
+            echo "$name" | grep "cherry_pick" && continue
             # rerun Azure.sonic-mgmt per day
             if [[ "$name" == "Azure.sonic-mgmt" ]] && [[ "$conclusion" == "FAILURE" ]];then
               completedAt=$(echo $check | jq -r '.completedAt')
