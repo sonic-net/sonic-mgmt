@@ -690,10 +690,12 @@ everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_po
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
-    reason: "Due to HW resource limitation, need to skip the test on the Mellanox t0-120 setup. Function is not validated on Cisco platforms"
-    conditions_logical_operator: or
+    reason: "Due to HW resource limitation, need to skip the test on the Mellanox t0-120 setup."
     conditions:
       - "'t0-120' in topo_name and asic_type in ['mellanox']"
+  xfail:
+    reason: "Funtion is not fully validated on Cisco 8000 platforms."
+    conditions:
       - "asic_type in ['cisco-8000']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
