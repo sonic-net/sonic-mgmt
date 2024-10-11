@@ -23,8 +23,16 @@ def init_underlay():
     logging.info("Inserting underlay entries ...")
 
     underlay_entry = p4sh.TableEntry("dash_ingress.underlay.underlay_routing")(action="dash_ingress.underlay.pkt_act")
-    insert_underlay_entry(underlay_entry, "::10.0.0.37/128", action="1", next_hop_id="0")
-    insert_underlay_entry(underlay_entry, "::10.0.0.39/128", action="1", next_hop_id="2")
+    insert_underlay_entry(underlay_entry, "::10.0.0.0/120", action="1", next_hop_id="1")
+
+
+def init_appliance():
+    appliance = p4sh.TableEntry("dash_ingress.appliance")(action="dash_ingress.set_appliance")
+    appliance.match["meta.appliance_id"] = "0&&&0xff"
+    appliance.action["neighbor_mac"] = "62:d6:08:7f:04:e7"
+    appliance.action["mac"] = "22:48:23:27:33:d8"
+    appliance.priority = 1
+    appliance.insert()
 
 
 if __name__ == "__main__":
