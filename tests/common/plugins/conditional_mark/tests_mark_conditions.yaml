@@ -176,6 +176,12 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
 #######################################
 #####            cacl             #####
 #######################################
+cacl/test_cacl_application.py:
+  skip:
+    reason: "Skip test_cacl_application temporarily due to known issue"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13805
+
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
@@ -443,12 +449,6 @@ dualtor/test_tunnel_memory_leak.py::test_tunnel_memory_leak:
     reason: "Testcase ignored on dualtor-64 topology due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/11403"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11403 and 'dualtor-64' in topo_name"
-
-dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_downstream[active-active]:
-  xfail:
-    reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16085"
-    conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/16085 and asic_type in ['mellanox']"
 
 dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_link_up_downstream_standby[active-active]:
   xfail:
