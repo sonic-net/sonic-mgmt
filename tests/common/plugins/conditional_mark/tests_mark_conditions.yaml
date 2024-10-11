@@ -477,12 +477,6 @@ dualtor_io/test_link_failure.py::test_active_link_down_downstream_standby:
       - https://github.com/sonic-net/sonic-mgmt/issues/8272
       - "asic_type in ['mellanox']"
 
-dualtor_io/test_normal_op.py::test_upper_tor_config_reload_upstream[active-active]:
-  xfail:
-    reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/15964"
-    conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/15964 and asic_type in ['mellanox']"
-
 #######################################
 #####         dut_console         #####
 #######################################
