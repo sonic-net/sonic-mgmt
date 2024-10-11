@@ -579,13 +579,6 @@ generic_config_updater/test_eth_interface.py::test_update_speed:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/8143
 
-generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
-  skip:
-    reason: 'Skipping test on mellanox platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/7733'
-    conditions:
-      - "asic_type in ['mellanox']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/7733
-
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
     reason: "This test is not run on this hwsku/asic type currently"
@@ -1104,15 +1097,6 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
     conditions:
       - "asic_type not in ['mellanox']"
 
-show_techsupport/test_techsupport.py::test_techsupport:
-  xfail:
-    reason: "Test issue"
-    strict: True
-    conditions:
-      - "release in ['202305']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/7520
-      - "asic_type not in ['mellanox']"
-
 #######################################
 #####            snmp             #####
 #######################################
@@ -1200,22 +1184,11 @@ sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding[
 #####             syslog          #####
 #######################################
 syslog/test_syslog.py:
-  skip:
-    reason: "Testcase enhancements needed for backend topo"
-    conditions:
-      - "topo_name in ['t0-backend', 't1-backend']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/4469
   xfail:
     reason: "Generic internal image issue"
     conditions:
       - "branch in ['internal-202012']"
       - "int(build_version.split('.')[1]) <= 33"
-
-syslog/test_syslog_rate_limit.py:
-  xfail:
-    reason: "Testcase xfail, raised issue to track"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/11181
 
 syslog/test_syslog_source_ip.py:
   skip:
@@ -1251,12 +1224,6 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
-telemetry/test_telemetry.py::test_osbuild_version:
-  skip:
-    reason: "Testcase ignored due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/12021"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/12021
-
 #######################################
 #####         pktgen              #####
 #######################################
@@ -1275,11 +1242,10 @@ vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
 
 vlan/test_vlan_ping.py:
   skip:
-    reason: "test_vlan_ping doesn't work on Broadcom platform. Ignored on dualtor topo and mellanox and Cisco-8000 setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9642."
+    reason: "test_vlan_ping doesn't work on Broadcom platform."
     conditions_logical_operator: OR
     conditions:
       - "asic_type in ['broadcom']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/9642 and 'dualtor' in topo_name and asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
 #####             voq             #####
