@@ -655,14 +655,6 @@ platform_tests/test_advanced_reboot.py:
       - "'dualtor' in topo_name and release in ['202012']"
 
 #######################################
-#####   test_auto_negotiation.py  #####
-#######################################
-platform_tests/test_auto_negotiation.py:
-  skip:
-    reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
-    conditions: https://github.com/Azure/sonic-mgmt/issues/5447
-
-#######################################
 ####  test_memory_exhaustion.py   #####
 #######################################
 platform_tests/test_memory_exhaustion.py:
