@@ -541,8 +541,10 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
 platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
   skip:
     reason: "Unsupported platform API"
+    conditions_logical_operator: or
     conditions:
       - "'sw_to3200k' in hwsku"
+      - "platform in ['x86_64-cel_e1031-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_thermals:
   skip:
@@ -559,8 +561,9 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable:
 platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
   skip:
     reason: "Unsupported platform API"
+    conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-cel_e1031-r0']"
 
 #######################################
 #####     api/test_thermal.py     #####
@@ -685,6 +688,13 @@ platform_tests/broadcom/test_ser.py:
       - "platform in ['x86_64-arista_720dt_48s'] and https://github.com/sonic-net/sonic-mgmt/issues/7297"
       - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
 
+platform_tests/broadcom/test_ser.py::test_ser:
+  skip:
+    reason: "platform does not support test_ser"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6218
+
 #######################################
 #####  cli/test_show_platform.py  #####
 #######################################
@@ -738,8 +748,14 @@ platform_tests/counterpoll/test_counterpoll_watermark.py::test_counterpoll_queue
       - "topo_type in ['m0', 'mx']"
 
 #######################################
-#####  daemon/test_syseepromd.py  #####
+#####           daemon            #####
 #######################################
+platform_tests/daemon/test_chassisd.py:
+  skip:
+    reason: "chassisd platform daemon introduced in 202106"
+    conditions:
+      - "release in ['201811', '201911', '202012']"
+
 platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
   skip:
     reason: "LEDD daemon auto restart not included in 201911"
@@ -776,6 +792,28 @@ platform_tests/mellanox/test_reboot_cause.py:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
 
 #######################################
+#####             sfp             #####
+#######################################
+platform_tests/sfp/test_sfputil.py:
+  skip:
+    reason: "Skip based at community issue https://github.com/sonic-net/sonic-buildimage/issues/16685"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/16685 and asic_type in ['mellanox']"
+
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
+  skip:
+    reason: "Get/Set low power mode is not supported in x86_64-cel_e1031-r0 platform"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
+  skip:
+    reason: "platform does not support sfp reset"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6218
+
+#######################################
 ####    test_advanced_reboot      #####
 #######################################
 platform_tests/test_advanced_reboot.py:
@@ -789,6 +827,14 @@ platform_tests/test_advanced_reboot.py:
     conditions:
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
+
+#######################################
+####  test_auto_negotiation.py    #####
+#######################################
+platform_tests/test_auto_negotiation.py:
+  skip:
+    reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
+    conditions: https://github.com/sonic-net/sonic-mgmt/issues/7076
 
 #######################################
 ####  test_memory_exhaustion.py   #####
@@ -911,6 +957,12 @@ platform_tests/test_reload_config.py:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
+
+platform_tests/test_reload_config.py::test_reload_configuration_checks:
+  skip:
+    reason: "Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000"
+    conditions:
+      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305']"
 
 #######################################
 #########  test_sensors.py  ###########
