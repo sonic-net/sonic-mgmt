@@ -81,7 +81,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "platform_tests/test_kdump.py"
+    default: " "
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
