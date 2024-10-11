@@ -524,7 +524,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "'sw_to3200k' in hwsku or asic_type in ['nvidia-bluefield']"
+      - "'sw_to3200k' in hwsku"
       - "platform in ['x86_64-cel_e1031-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_thermals:
@@ -967,10 +967,6 @@ platform_tests/test_reload_config.py:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
-  skip:
-    reason: "Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000"
-    conditions:
-      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
   xfail:
     reason: "Known testcase issue in Cisco platforms."
     conditions:
@@ -981,11 +977,9 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
 #######################################
 platform_tests/test_secure_upgrade.py:
   skip:
-    reason: "Skip test_secure_upgrade for m0/mx with 202305 release / platform does not support secure upgrade"
-    conditions_logical_operator: or
+    reason: "Skip test_secure_upgrade for m0/mx with 202305 release"
     conditions:
       - "topo_type in ['m0', 'mx'] and release in ['202305']"
-      - "'sn2' in platform or 'sn3' in platform or 'sn4' in platform"
 
 #######################################
 #########  test_sensors.py  ###########
