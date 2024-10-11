@@ -3,15 +3,6 @@ name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev
 trigger: none
 pr: none
 
-
-schedules:
-  - cron: "0 0 * * 0"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal
-    always: true
-
 resources:
   repositories:
     - repository: sonic-mgmt

@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 2"
+  - cron: "0 14 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms20-t0-7050cx3-2"
+    default: "vms20-t0-7050cx3-2, vms28-t0-7050-13"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
