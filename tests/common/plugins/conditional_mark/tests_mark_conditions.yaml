@@ -176,12 +176,6 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
 #######################################
 #####            cacl             #####
 #######################################
-cacl/test_cacl_application.py:
-  skip:
-    reason: "Skip test_cacl_application temporarily due to known issue"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/13805
-
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
@@ -254,12 +248,6 @@ crm/test_crm.py::test_crm_fdb_entry:
     conditions:
       - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
 
-crm/test_crm.py::test_crm_route:
-  skip:
-    reason: "Skip the test on mellanox  device due to the bug of https://github.com/sonic-net/sonic-mgmt/issues/12725"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/12725
-      - "asic_type in ['mellanox']"
 #######################################
 #####            decap            #####
 #######################################
@@ -708,13 +696,6 @@ generic_config_updater/test_eth_interface.py::test_update_speed:
       - https://github.com/sonic-net/sonic-mgmt/issues/8143
       - https://github.com/sonic-net/sonic-buildimage/issues/13267
 
-generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
-  skip:
-    reason: 'Skipping test on mellanox platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/7733'
-    conditions:
-      - "asic_type in ['mellanox']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/7733
-
 generic_config_updater/test_incremental_qos.py:
   skip:
     reason: "Does not support dualtor right now, due to issue https://github.com/sonic-net/sonic-mgmt/issues/14865"
@@ -889,12 +870,6 @@ ip/test_mgmt_ipv6_only.py:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
-ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
-  xfail:
-    reason: "iburst not enabled by default on 202311 and newer images"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/19425
-
 #######################################
 #####            ipfwd            #####
 #######################################
@@ -987,15 +962,6 @@ nat:
     reason: "Nat feature is not enabled with image version"
     conditions:
       - "'nat' not in feature_status"
-
-#######################################
-#####           ntp               #####
-#######################################
-ntp/test_ntp.py::test_ntp:
-  xfail:
-    reason: "iburst not enabled by default on 202311 and newer images"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/19425
 
 #######################################
 #####    override_config_table    #####
@@ -1410,15 +1376,6 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
     conditions:
       - "asic_type not in ['mellanox']"
 
-show_techsupport/test_techsupport.py::test_techsupport:
-  xfail:
-    reason: "Test issue"
-    strict: True
-    conditions:
-      - "release in ['202305']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/7520
-      - "asic_type not in ['mellanox']"
-
 #######################################
 #####         snappi_tests        #####
 #######################################
@@ -1530,22 +1487,11 @@ sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding[
 #####             syslog          #####
 #######################################
 syslog/test_syslog.py:
-  skip:
-    reason: "Testcase enhancements needed for backend topo"
-    conditions:
-      - "topo_name in ['t0-backend', 't1-backend']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/4469
   xfail:
     reason: "Generic internal image issue"
     conditions:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 33"
-
-syslog/test_syslog_rate_limit.py:
-  xfail:
-    reason: "Testcase xfail, raised issue to track"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/11181
 
 syslog/test_syslog_source_ip.py:
   skip:
@@ -1592,21 +1538,6 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
-telemetry/test_telemetry.py::test_osbuild_version:
-  skip:
-    reason: "Testcase ignored due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/12021"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/12021
-
-#######################################
-#####        neighbor health      #####
-#######################################
-test_nbr_health.py:
-  skip:
-    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/7883"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/7883"
-
 #######################################
 #####         pktgen              #####
 #######################################
@@ -1629,7 +1560,6 @@ vlan/test_vlan_ping.py:
     conditions_logical_operator: OR
     conditions:
       - "asic_type in ['broadcom']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/9642 and 'dualtor' in topo_name and asic_type in ['mellanox']"
 
 #######################################
 #####             voq             #####
