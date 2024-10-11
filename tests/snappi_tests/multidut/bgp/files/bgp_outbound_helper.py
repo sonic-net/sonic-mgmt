@@ -1830,7 +1830,7 @@ def ping_device(duthost, timeout):
     while True:
         response = os.system(f"ping -c 1 {duthost.mgmt_ip}")
         if response == 0:
-            logger.info('PASS:PING SUCCESSFUL')
+            logger.info('PASS:PING SUCCESSFUL for {}'.format(duthost.hostname))
             break
         logger.info('Polling for {} to come UP.....'.format(duthost.hostname))
         elapsed_time = time.time() - start_time
@@ -1934,14 +1934,13 @@ def get_convergence_for_ungraceful_restart(duthosts,
         logger.info('Delta Frames : {}'.format(delta_frames))
         logger.info('PACKET LOSS DURATION  After Device is DOWN (ms): {}'.format(pkt_loss_duration))
         avg_pld.append(pkt_loss_duration)
- 
+
         logger.info('Clearing Stats')
         ixnetwork.ClearStats()
         for duthost in duthosts:
-            if duthost.hostname == device_name:
-                ping_device(duthost, timeout=180)
+            ping_device(duthost, timeout=180)
         wait(DUT_TRIGGER, "Contaniers on the DUT to stabalize after restart")
-       
+
         flow_stats = get_flow_stats(api)
         delta_frames = 0
         for i in range(0, len(traffic_type)):
@@ -1950,7 +1949,7 @@ def get_convergence_for_ungraceful_restart(duthosts,
         logger.info('Delta Frames : {}'.format(delta_frames))
         logger.info('PACKET LOSS DURATION  After device is UP (ms): {}'.format(pkt_loss_duration))
         avg_pld2.append(pkt_loss_duration)
- 
+
         for duthost in duthosts:
             if duthost.hostname == device_name:
                 exec_tsa_tsb_cmd(duthost, creds, "sudo TSB", is_supervisor)
@@ -1958,17 +1957,16 @@ def get_convergence_for_ungraceful_restart(duthosts,
         ts = api.transmit_state()
         ts.state = ts.STOP
         api.set_transmit_state(ts)
- 
+
         logger.info("Stopping all protocols ...")
         ps = api.protocol_state()
         ps.state = ps.STOP
         api.set_protocol_state(ps)
         logger.info('\n')
- 
+
     columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
                'Avg Calculated Packet Loss Duration (ms)']
     logger.info("\n%s" % tabulate([[test_name+' (DOWN))', iteration, traffic_type, portchannel_count,
                                   total_routes, mean(avg_pld)], [test_name+' (UP)', iteration,
                                   traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
                                   tablefmt="psql"))
- 
