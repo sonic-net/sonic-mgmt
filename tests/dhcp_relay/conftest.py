@@ -36,26 +36,17 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def skip_dhcp_relay_tests(tbinfo):
-    """
-    Skip dhcp relay tests on certain testbed types
-
-    Args:
-        tbinfo(fixture): testbed related info fixture
-
-    Yields:
-        None
-    """
-    if 'backend' in tbinfo['topo']['name']:
-        pytest.skip("Skipping dhcp relay tests. Unsupported topology {}".format(tbinfo['topo']['name']))
-
-
-@pytest.fixture(scope="module", autouse=True)
-def check_dhcp_server_enabled(duthost):
+def check_dhcp_feature_status(duthost):
     feature_status_output = duthost.show_and_parse("show feature status")
+    dhcp_relay_enabled = False
     for feature in feature_status_output:
         if feature["feature"] == "dhcp_server" and feature["state"] == "enabled":
             pytest.skip("DHCPv4 relay is not supported when dhcp_server is enabled")
+        if feature["feature"] == "dhcp_relay" and feature["state"] == "enabled":
+            dhcp_relay_enabled = True
+            
+    if not dhcp_relay_enabled:
+        pytest.skip("dhcp_relay is not enabled")
 
 
 @pytest.fixture(scope="module")
