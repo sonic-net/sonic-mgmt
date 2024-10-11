@@ -804,14 +804,6 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
       - https://github.com/sonic-net/sonic-mgmt/issues/11007
 
 #######################################
-#####   test_auto_negotiation.py  #####
-#######################################
-platform_tests/test_auto_negotiation.py:
-  skip:
-    reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
-    conditions: https://github.com/sonic-net/sonic-mgmt/issues/5447
-
-#######################################
 #####   test_cont_warm_reboot.py  #####
 #######################################
 platform_tests/test_cont_warm_reboot.py:
