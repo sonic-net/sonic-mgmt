@@ -9,7 +9,7 @@ eni_id = 0
 
 
 class CounterDef:
-    def __init__(self, id: str, name: str, category: str = "Traffic", type: str = "packet"):
+    def __init__(self, id: str, name: str, category: str = "ENI Pipeline", type: str = "packet"):
         self.id = id
         self.name = name
         self.category = category
@@ -21,13 +21,18 @@ class CounterDef:
 
 
 eni_counter_defs = [
+    CounterDef("port_rx", "RX", "Global"),
+    CounterDef("port_rx_discards", "RX_DROP", "Global"),
+    CounterDef("port_rx_errors", "EX_ERR", "Global"),
+    CounterDef("port_tx", "TX", "Global"),
+    CounterDef("vip_miss_drop", "VIP_MISS", "Global"),
+    CounterDef("eni_miss_drop", "ENI_MISS", "Global"),
     CounterDef("eni_rx", "RX"),
     CounterDef("eni_tx", "TX"),
     CounterDef("eni_outbound_rx", "OUT_RX"),
     CounterDef("eni_outbound_tx", "OUT_TX"),
     CounterDef("eni_inbound_rx", "IN_RX"),
     CounterDef("eni_inbound_tx", "IN_TX"),
-    CounterDef("eni_miss_drop", "ENI_MISS"),
     CounterDef("outbound_routing_group_disabled_drop", "ROUTE_TABLE_DISABLED"),
     CounterDef("outbound_routing_group_miss_drop", "ROUTE_TABLE_MISS"),
     CounterDef("outbound_routing_entry_miss_drop", "ROUTE_MISS"),
@@ -77,6 +82,7 @@ if __name__ == "__main__":
     init_p4runtime_shell()
 
     while True:
+        print("===== Current Time: " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + " =====")
         eni_counters = dump_counters(eni_id)
         output_counters(eni_counters)
         time.sleep(1)

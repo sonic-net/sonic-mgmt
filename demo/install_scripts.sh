@@ -49,6 +49,6 @@ echo ""
 #
 # Installing all contents to host machine
 #
-echo "Installing SONiC gnmi agent docker image..."
-docker load -i $DEMO_SONICVPP_DIR/docker-sonic-gnmi-agent.tar.gz
-echo ""
+# echo "Installing SONiC gnmi agent docker image..."
+# docker load -i $DEMO_SONICVPP_DIR/docker-sonic-gnmi-agent.tar.gz
+# echo ""

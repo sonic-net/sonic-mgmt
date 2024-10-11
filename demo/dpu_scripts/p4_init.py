@@ -30,6 +30,7 @@ def init_appliance():
     try:
         logging.info("Inserting appliance entry ...")
 
+        disable_print()
         appliance = p4sh.TableEntry("dash_ingress.appliance")(action="dash_ingress.set_appliance")
         appliance.match["meta.appliance_id"] = "0&&&0xff"
         appliance.action["neighbor_mac"] = "62:d6:08:7f:04:e7"
