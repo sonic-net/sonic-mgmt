@@ -158,6 +158,9 @@ def find_latest_build_id(branch, success_flag="succeeded"):
     builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}" \
                  "&resultFilter={}&statusFilter=completed&api-version=6.0".format(branch, success_flag)
 
+    if branch=="202205":
+        builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/202205&statusFilter=completed&api-version=6.0"
+
     print("Build URL: ", builds_url)
 
     resp = urlopen(builds_url)
