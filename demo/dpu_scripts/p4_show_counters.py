@@ -9,7 +9,7 @@ eni_id = 0
 
 
 class CounterDef:
-    def __init__(self, id: str, name: str, category: str = "ENI Pipeline", type: str = "packet"):
+    def __init__(self, id: str, name: str, category: str = "", type: str = "packet"):
         self.id = id
         self.name = name
         self.category = category
@@ -20,27 +20,50 @@ class CounterDef:
         return p4sh.CounterEntry(self.id).read()
 
 
+global_counter_defs = [
+    CounterDef("port_rx", "RX"),
+    CounterDef("port_rx_discards", "RX_DROP"),
+    CounterDef("port_rx_errors", "RX_ERR"),
+    CounterDef("port_tx", "TX"),
+    CounterDef("vip_miss_drop", "VIP_MISS"),
+    CounterDef("eni_miss_drop", "ENI_MISS"),
+]
+
 eni_counter_defs = [
-    CounterDef("port_rx", "RX", "Global"),
-    CounterDef("port_rx_discards", "RX_DROP", "Global"),
-    CounterDef("port_rx_errors", "EX_ERR", "Global"),
-    CounterDef("port_tx", "TX", "Global"),
-    CounterDef("vip_miss_drop", "VIP_MISS", "Global"),
-    CounterDef("eni_miss_drop", "ENI_MISS", "Global"),
-    CounterDef("eni_rx", "RX"),
-    CounterDef("eni_tx", "TX"),
-    CounterDef("eni_outbound_rx", "OUT_RX"),
-    CounterDef("eni_outbound_tx", "OUT_TX"),
-    CounterDef("eni_inbound_rx", "IN_RX"),
-    CounterDef("eni_inbound_tx", "IN_TX"),
-    CounterDef("outbound_routing_group_disabled_drop", "ROUTE_TABLE_DISABLED"),
-    CounterDef("outbound_routing_group_miss_drop", "ROUTE_TABLE_MISS"),
-    CounterDef("outbound_routing_entry_miss_drop", "ROUTE_MISS"),
-    CounterDef("outbound_ca_pa_entry_miss_drop", "MAP_MISS"),
+    CounterDef("eni_rx", "RX", "Overall"),
+    CounterDef("eni_outbound_rx", "OUT_RX", "Overall"),
+    CounterDef("eni_inbound_rx", "IN_RX", "Overall"),
+    CounterDef("eni_tx", "TX", "Overall"),
+    CounterDef("eni_outbound_tx", "OUT_TX", "Overall"),
+    CounterDef("eni_inbound_tx", "IN_TX", "Overall"),
+    CounterDef("outbound_routing_group_disabled_drop", "ROUTE_TABLE_DISABLED", "Outbound"),
+    CounterDef("outbound_routing_group_miss_drop", "ROUTE_TABLE_MISS", "Outbound"),
+    CounterDef("outbound_routing_entry_miss_drop", "ROUTE_MISS", "Outbound"),
+    CounterDef("outbound_ca_pa_entry_miss_drop", "MAP_MISS", "Outbound"),
 ]
 
 
-def dump_counters(eni_id: int):
+def dump_global_counters():
+    global_counters = {
+        "headers": [],
+        "rows": [[]],
+    }
+
+    for counter_def in global_counter_defs:
+        c = counter_def.read()
+
+        global_counters["headers"].append(counter_def.name)
+
+        for _, cv in enumerate(c):
+            if counter_def.type == "packet":
+                global_counters["rows"][0].append(cv.packet_count)
+            elif counter_def.type == "byte":
+                global_counters["rows"][0].append(cv.byte_count)
+
+    output_table(global_counters, "Global")
+
+
+def dump_eni_counters(eni_id: int):
     eni_counters = {}
 
     for counter_def in eni_counter_defs:
@@ -63,16 +86,15 @@ def dump_counters(eni_id: int):
             elif counter_def.type == "byte":
                 eni_counters[counter_def.category]["rows"][0].append(cv.byte_count)
 
-    return eni_counters
-
-
-def output_counters(eni_counters):
     for category, counters in eni_counters.items():
-        table = tabulate(counters["rows"], headers=counters["headers"], tablefmt="fancy_grid")
+        output_table(counters, category)
 
-        print(f"{category} counters:")
-        print(table)
-        print("")
+
+def output_table(counters, category):
+    table = tabulate(counters["rows"], headers=counters["headers"], tablefmt="simple_grid")
+    print(f"{category} counters:")
+    print(table)
+    print("")
 
 
 if __name__ == "__main__":
@@ -83,6 +105,8 @@ if __name__ == "__main__":
 
     while True:
         print("===== Current Time: " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + " =====")
-        eni_counters = dump_counters(eni_id)
-        output_counters(eni_counters)
+        print("")
+
+        dump_global_counters()
+        dump_eni_counters(eni_id)
         time.sleep(1)
