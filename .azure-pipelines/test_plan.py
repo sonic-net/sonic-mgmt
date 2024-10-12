@@ -112,7 +112,7 @@ class ExecutingStatus(AbstractStatus):
         super(ExecutingStatus, self).__init__(TestPlanStatus.EXECUTING)
 
     def print_logs(self, test_plan_id, resp_data, start_time):
-        print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
+        print("Test plan id: {}, status: {}, progress: {:.2f}%, elapsed: {:.0f} seconds"
               .format(test_plan_id, resp_data.get("status", None),
                       resp_data.get("progress", 0) * 100, time.time() - start_time))
 
