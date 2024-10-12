@@ -974,7 +974,7 @@ sonic_arista:
         "0x27": "01.00"
         "0x28": "x86_64-arista_7050cx3_32s"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot=Aboot-norcal6-6.1.10-14653765"
+        "0x2E": "Aboot-norcal6-6.1.10-14653765"
         "0x2F": "JPE21041750"
     str2-7050cx3-acs-14:
       ansible_host: 10.3.146.40
