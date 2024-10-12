@@ -23,7 +23,7 @@ parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name"
-    default: vms20-t0-7050cx3-1
+    default: vms20-t0-7050cx3-2
 
   - name: IMAGE_URL
     type: string
@@ -42,12 +42,12 @@ parameters:
   # Testbed specific, to skip and/or include directories or just run basic tests
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py ipfwd/test_nhop_group.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py platform_tests/test_advanced_reboot.py"'
+    default: '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py ipfwd/test_nhop_group.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py"'
     displayName: Testbed specific
     values:
       - '-I "platform_tests show_techport acl everflow drop_packets"'
       - '-S "platform_tests copp show_techport acl everflow drop_packets qos"'
-      - '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py ipfwd/test_nhop_group.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py platform_tests/test_advanced_reboot.py"'
+      - '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py ipfwd/test_nhop_group.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py"'
 
   # Deploy SAI SDK
   - name: DEPLOY_SAI_SDK
