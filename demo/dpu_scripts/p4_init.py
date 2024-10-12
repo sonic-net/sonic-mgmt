@@ -12,6 +12,12 @@ def insert_underlay_entry(entry, match: str, action: str, next_hop_id: str):
         entry.match["meta.dst_ip_addr"] = match
         entry.action["packet_action"] = action
         entry.action["next_hop_id"] = next_hop_id
+
+        try:
+            entry.delete()
+        except p4sh_rt.P4RuntimeWriteException:
+            pass
+
         entry.insert()
     except p4sh_rt.P4RuntimeWriteException as e:
         logging.error(f"Failed to insert underlay entry: {e}")
@@ -33,9 +39,15 @@ def init_appliance():
         disable_print()
         appliance = p4sh.TableEntry("dash_ingress.appliance")(action="dash_ingress.set_appliance")
         appliance.match["meta.appliance_id"] = "0&&&0xff"
-        appliance.action["neighbor_mac"] = "62:d6:08:7f:04:e7"
-        appliance.action["mac"] = "22:48:23:27:33:d8"
+        appliance.action["neighbor_mac"] = "22:48:23:27:33:d8"
+        appliance.action["mac"] = "52:54:00:96:1e:54"
         appliance.priority = 1
+
+        try:
+            appliance.delete()
+        except p4sh_rt.P4RuntimeWriteException:
+            pass
+
         appliance.insert()
     except p4sh_rt.P4RuntimeWriteException as e:
         logging.error(f"Failed to insert appliance: {e}")
