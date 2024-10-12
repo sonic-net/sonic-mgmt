@@ -5,7 +5,7 @@ from p4_utils import init_p4runtime_shell
 from tabulate import tabulate
 
 
-eni_id = 0
+eni_ids = {}
 
 
 class CounterDef:
@@ -63,7 +63,7 @@ def dump_global_counters():
     output_table(global_counters, "Global")
 
 
-def dump_eni_counters(eni_id: int):
+def dump_eni_counters():
     eni_counters = {}
 
     for counter_def in eni_counter_defs:
@@ -72,19 +72,29 @@ def dump_eni_counters(eni_id: int):
         if counter_def.category not in eni_counters:
             eni_counters[counter_def.category] = {
                 "headers": ["ENI"],
-                "rows": [[str(eni_id)]],
+                "rows": [],
             }
 
         eni_counters[counter_def.category]["headers"].append(counter_def.name)
 
         for index, cv in enumerate(c):
-            if index != eni_id:
-                continue
-
             if counter_def.type == "packet":
-                eni_counters[counter_def.category]["rows"][0].append(cv.packet_count)
+                counter = cv.packet_count
             elif counter_def.type == "byte":
-                eni_counters[counter_def.category]["rows"][0].append(cv.byte_count)
+                counter = cv.byte_count
+
+            if len(eni_counters[counter_def.category]["rows"]) <= index:
+                eni_counters[counter_def.category]["rows"].append([f"{index}"])
+
+            if counter > 0:
+                eni_ids[index] = True
+
+            if index in eni_ids:
+                eni_counters[counter_def.category]["rows"][index].append(counter)
+
+    # Remove all ENI counter rows that are not in the eni_ids list
+    for category, counters in eni_counters.items():
+        eni_counters[category]["rows"] = [row for index, row in enumerate(counters["rows"]) if index in eni_ids]
 
     for category, counters in eni_counters.items():
         output_table(counters, category)
@@ -108,5 +118,5 @@ if __name__ == "__main__":
         print("")
 
         dump_global_counters()
-        dump_eni_counters(eni_id)
+        dump_eni_counters()
         time.sleep(1)
