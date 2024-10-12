@@ -193,7 +193,7 @@ class TestPlanManager(object):
 
         cmd = 'az account get-access-token --resource {}'.format(self.client_id)
         attempt = 0
-        while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
+        while attempt < MAX_GET_TOKEN_RETRY_TIMES:
             try:
                 stdout, _, _ = self.az_run(cmd)
 
@@ -947,6 +947,7 @@ if __name__ == "__main__":
     try:
         tp = TestPlanManager(
             env["elastictest_scheduler_backend_url"],
+            env["elastictest_community_url"],
             env["frontend_url"],
             env["client_id"])
 
