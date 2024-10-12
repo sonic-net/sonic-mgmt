@@ -269,7 +269,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             timeout = plt_reboot_ctrl.get('timeout', timeout)
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
-        if duthost.get_facts().get("modular_chassis"):
+        if duthost.get_facts().get("modular_chassis") and safe_reboot:
             wait = max(wait, 900)
             timeout = max(timeout, 600)
     except KeyError:
