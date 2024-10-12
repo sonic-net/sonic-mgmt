@@ -946,6 +946,7 @@ if __name__ == "__main__":
     try:
         tp = TestPlanManager(
             env["elastictest_scheduler_backend_url"],
+            env["elastictest_community_url"],
             env["frontend_url"],
             env["client_id"])
 
