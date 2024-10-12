@@ -158,9 +158,13 @@ def find_latest_build_id(branch, success_flag="succeeded"):
     builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}" \
                  "&resultFilter={}&statusFilter=completed&api-version=6.0".format(branch, success_flag)
 
+    print("Build URL: ", builds_url)
+
     resp = urlopen(builds_url)
 
     j = json.loads(resp.read().decode('utf-8'))
+
+    print("response: ", j)
 
     value = j.get('value', [])
 
@@ -212,6 +216,8 @@ def main():
                                                url_prefix=args.url_prefix,
                                                access_token=args.access_token,
                                                token=args.token)
+
+    print("Download URL: ", dl_url)
 
     download_artifacts(dl_url, args.content, args.platform,
                        buildid, args.num_asic, access_token=args.access_token, token=args.token)
