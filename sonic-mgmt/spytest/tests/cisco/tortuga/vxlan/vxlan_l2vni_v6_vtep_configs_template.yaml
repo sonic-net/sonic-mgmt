@@ -96,7 +96,10 @@ leaf0:
         sudo config interface ipv6 disable use-link-local-only D3T1P1 
         sudo config interface ipv6 disable use-link-local-only D3D2P1 
         sudo config interface ipv6 disable use-link-local-only D3D1P1 
-
+        sudo config interface shutdown D3D1P1 
+        sudo config interface shutdown D3D2P1 
+        sudo config interface shutdown D3T1P1 
+ 
 
     bgp:
       config: |
@@ -160,7 +163,10 @@ leaf1:
         sudo config interface ipv6 disable use-link-local-only D4T1P1 
         sudo config interface ipv6 disable use-link-local-only D4D2P1 
         sudo config interface ipv6 disable use-link-local-only D4D1P1 
-
+        sudo config interface shutdown D4D1P1 
+        sudo config interface shutdown D4D2P1 
+        sudo config interface shutdown D4T1P1 
+ 
     bgp:
       config: |
         router bgp 2363033449
