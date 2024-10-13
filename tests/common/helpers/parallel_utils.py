@@ -145,7 +145,7 @@ class InitialCheckState:
             f.flush()
             fcntl.flock(f, fcntl.LOCK_UN)
 
-    def _is_all_acknowledged(self, ack_status: InitialCheckStatus, required_ack) -> bool:
+    def _is_all_acknowledged(self, ack_status: InitialCheckStatus, required_ack: int) -> bool:
         status_value, acknowledgments = self._read_state()
         return status_value == ack_status.value and acknowledgments >= required_ack
 
