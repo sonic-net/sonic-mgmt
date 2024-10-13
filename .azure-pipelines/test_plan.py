@@ -379,8 +379,8 @@ class TestPlanManager(object):
               .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
 
-        poll_url = "{}/test_plan/{}".format(self.scheduler_url, test_plan_id)
-        poll_url_no_auth = "{}/test_plan/{}".format(self.community_url, test_plan_id)
+        poll_url = "{}/test_plan/{}/get_test_plan_status".format(self.scheduler_url, test_plan_id)
+        poll_url_no_auth = "{}/get_test_plan_status/{}".format(self.community_url, test_plan_id)
         headers = {
             "Content-Type": "application/json"
         }
@@ -395,6 +395,8 @@ class TestPlanManager(object):
                     if self.with_auth:
                         headers["Authorization"] = "Bearer {}".format(self.get_token())
                     resp = requests.get(poll_url, headers=headers, timeout=10).json()
+                    print("request url: ", poll_url)
+                    print("response: ", resp)
                 except Exception as exception:
                     print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
                                                                                               str(exception)))
@@ -411,6 +413,8 @@ class TestPlanManager(object):
                 try:
                     resp = requests.get(poll_url_no_auth, headers={"Content-Type": "application/json"},
                                         timeout=10).json()
+                    print("request url: ", poll_url_no_auth)
+                    print("response: ", resp)
                 except Exception as e:
                     print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url_no_auth, resp,
                                                                                               repr(e)))
