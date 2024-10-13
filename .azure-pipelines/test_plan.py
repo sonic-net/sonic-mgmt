@@ -307,7 +307,7 @@ class TestPlanManager(object):
                 "specific_param": kwargs.get("specific_param", []),
                 "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
-                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
+                "max_execute_seconds": 108000,
                 "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
             },
             "type": test_plan_type,
