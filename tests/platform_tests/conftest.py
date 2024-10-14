@@ -16,6 +16,7 @@ from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from .mellanox.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
 
+logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), "templates")
@@ -525,6 +526,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         base_os_version.append(get_current_sonic_version(duthost))
         bgpd_log = bgpd_log_handler(preboot=True)
         if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+            logger.info("Inserting step to back up logs to /host/ before reboot")
             # For small disk devices, /var/log in mounted in tmpfs.
             # Hence, after reboot the preboot logs are lost.
             # For log_analyzer to work, it needs logs from the shutdown path
@@ -547,6 +549,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     def post_reboot_analysis(marker, event_counters=None, reboot_oper=None, log_dir=None):
         bgpd_log_handler()
         if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+            logger.info("Restoring log backup from /host/ after reboot")
             restore_backup = "mv /host/syslog.99 /var/log/; " +\
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
                 "mv /host/swss.rec.99 /var/log/swss/; " +\
