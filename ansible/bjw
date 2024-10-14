@@ -784,7 +784,13 @@ sonic_nokia_sup:
         "0x2A": "5"
         "0xFE": "0xD37D218D"
       skip_modules:
+        'fabric-cards':
+        - FABRIC-CARD0
+        - FABRIC-CARD1
+        - FABRIC-CARD4
+        - FABRIC-CARD5
         'line-cards':
+        - LINE-CARD2
         - LINE-CARD3
         - LINE-CARD4
         - LINE-CARD5
@@ -798,7 +804,7 @@ sonic_nokia_sup:
         - PSU10
         - PSU11
         - PSU12
-      asics_present: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+      asics_present: [0,1,2,3,4,5,6,7]
 
 sonic_nokia_lc_400G:
   vars:
@@ -820,16 +826,16 @@ sonic_nokia_lc_400G:
       voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
       loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
       loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
-      serial: 19688-0038
-      base_mac:  40:7C:7D:BB:26:0B
+      serial: NS225164196
+      base_mac:  18:C3:00:8E:05:78
       ansible_host: 10.150.22.145
       ansible_hostv6: 2404:f801:10:2200::a96:1691
       model: '3HE12578AARA01'
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-36x400G"
         "0x22": "3HE12578AARA01"
-        "0x23": "19688-0038"
-        "0x24": "40:7C:7D:BB:26:0B"
+        "0x23": "NS225164196"
+        "0x24": "18:C3:00:8E:05:78"
         "0x26": "56"
         "0x2A": "2"
         "0xFE": "0x7412F0DE"
