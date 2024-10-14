@@ -663,7 +663,7 @@ class TestIPPacket(object):
                       "Dropped {} packets in tx, not in expected range".format(tx_err))
 
     def test_drop_l3_ip_packet_non_dut_mac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                           ptfadapter, common_param, skip_traffic_test):  # noqa F811
+                                           ptfadapter, common_param):  # noqa F811
         # GIVEN a random normal ip packet, and random dest mac address
         # WHEN send the packet to DUT with dst_mac != ingress_router_mac to a layer 3 interface
         # THEN DUT should drop it and add drop count
@@ -706,8 +706,6 @@ class TestIPPacket(object):
         tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_rif_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if skip_traffic_test is True:
-            return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
         pytest_assert(rx_drp >= self.PKT_NUM_MIN,
