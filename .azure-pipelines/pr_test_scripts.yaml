@@ -342,7 +342,7 @@ t1-lag:
   - generic_config_updater/test_cacl.py
   - generic_config_updater/test_ecn_config_update.py
   - generic_config_updater/test_eth_interface.py
-  - generic_config_updater/test_ipv6.py
+  - generic_config_updater/test_ip_bgp.py
   - generic_config_updater/test_kubernetes_config.py
   - generic_config_updater/test_monitor_config.py
   - generic_config_updater/test_ntp.py
