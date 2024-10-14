@@ -98,6 +98,11 @@ parameters:
     type: string
     default: "False"
 
+  # Flag to indicate pipeline will use PTF PY3 image pilot testing
+  - name: PTF_IMAGE_TAG
+    type: string
+    default: ""
+    displayName: "Use PTF py3only image"
 
 
 steps:
@@ -126,3 +131,4 @@ steps:
       REQUESTER: "Nightly Test"
       MIN_WORKER: ${{ parameters.MIN_WORKER }}
       MAX_WORKER: ${{ parameters.MAX_WORKER }}
+      PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}

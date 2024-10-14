@@ -87,6 +87,11 @@ parameters:
     type: number
     default: 3600
 
+  - name: PTF_IMAGE_TAG
+    type: string
+    default: "py3only"
+    displayName: "Docker image tag for docker-ptf image"
+
 stages:
 - stage: Test
 
@@ -112,3 +117,4 @@ stages:
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+        PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
