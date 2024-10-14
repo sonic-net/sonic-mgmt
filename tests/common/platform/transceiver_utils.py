@@ -5,6 +5,7 @@ This script contains re-usable functions for checking status of transceivers.
 """
 import logging
 import re
+from copy import deepcopy
 
 
 def parse_transceiver_info(output_lines):
@@ -145,7 +146,8 @@ def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list, port_l
     check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory)
 
 
-def get_map_port_to_start_and_end_line_number_for_sfp_eeporm(eeprom_infos):
+def get_sfp_eeprom_map_per_port(eeprom_infos):
+    sfp_eeprom_map_per_port = {}
     sfp_eeprom_list = eeprom_infos.split("\n")
     regex_port_name = r"^(?P<key>Ethernet\d+):(?P<value>.*)"
     line_start_num_list_per_port = []
@@ -156,7 +158,6 @@ def get_map_port_to_start_and_end_line_number_for_sfp_eeporm(eeprom_infos):
             line_start_num_list_per_port.append([port_name, index])
     logging.info(f"line_start_num_list_per_port :{line_start_num_list_per_port}")
 
-    map_port_to_start_and_end_line_number = {}
     for index in range(len(line_start_num_list_per_port)):
         if index == len(line_start_num_list_per_port) - 1:
             line_start_num_for_current_port = line_start_num_list_per_port[index][1]
@@ -164,28 +165,28 @@ def get_map_port_to_start_and_end_line_number_for_sfp_eeporm(eeprom_infos):
         else:
             line_start_num_for_current_port = line_start_num_list_per_port[index][1]
             line_end_num_for_current_port = line_start_num_list_per_port[index + 1][1] - 1
-        map_port_to_start_and_end_line_number.update(
-            {line_start_num_list_per_port[index][0]: [line_start_num_for_current_port, line_end_num_for_current_port]})
-    logging.info(f"line_start_num and line_end_number per port :{map_port_to_start_and_end_line_number}")
+        sfp_eeprom_map_per_port[line_start_num_list_per_port[index][0]] = deepcopy(
+            sfp_eeprom_list[line_start_num_for_current_port:line_end_num_for_current_port+1])
 
-    return map_port_to_start_and_end_line_number, sfp_eeprom_list
+    logging.info(f"sfp_eeprom_map_per_port :{sfp_eeprom_map_per_port}")
+
+    return sfp_eeprom_map_per_port
 
 
 def get_ports_with_flat_memory(dut):
     ports_with_flat_memory = []
     cmd_show_eeprom = "sudo sfputil show eeprom -d"
+
     eeprom_infos = dut.command(cmd_show_eeprom, module_ignore_errors=True)['stdout']
-    map_port_to_start_and_end_line_number, sfp_eeprom_list = get_map_port_to_start_and_end_line_number_for_sfp_eeporm(
-        eeprom_infos)
-    for port_name, line_number_section in map_port_to_start_and_end_line_number.items():
-        if "DOM values not supported for flat memory module" in " ".join(
-                sfp_eeprom_list[line_number_section[0]: line_number_section[1]+1]):
+    sfp_eerpom_map_per_port = get_sfp_eeprom_map_per_port(eeprom_infos)
+    for port_name, sfp_eeprom in sfp_eerpom_map_per_port.items():
+        if "DOM values not supported for flat memory module" in " ".join(sfp_eeprom):
             ports_with_flat_memory.append(port_name)
     logging.info(f"Ports with flat memory: {ports_with_flat_memory}")
     return ports_with_flat_memory
 
 
-def parse_one_sfp_eeprom_info(sfp_eeprom_info, start, end):
+def parse_one_sfp_eeprom_info(sfp_eeprom_info):
     """
     Parse the one sfp eeprom info, return top_key, sfp_eeprom_info_dict
     e.g
@@ -328,7 +329,7 @@ def parse_one_sfp_eeprom_info(sfp_eeprom_info, start, end):
     second_layer_dict = {}
     previous_key = ""
     top_key = ""
-    for line in sfp_eeprom_info[start:end+1]:
+    for line in sfp_eeprom_info:
         res1 = re.match(pattern_top_layer_key_value, line)
         if res1:
             top_key = res1.groupdict()["key"].strip()
@@ -356,13 +357,12 @@ def parse_one_sfp_eeprom_info(sfp_eeprom_info, start, end):
 
 def parse_sfp_eeprom_infos(eeprom_infos):
     """
-    This method is to pares sfp eeprom infos, and return sfp_eeprom_info_dict
+    This method is to parses sfp eeprom infos, and return sfp_eeprom_info_dict
     """
-    map_port_to_start_and_end_line_nubmer, sfp_eeprom_list = get_map_port_to_start_and_end_line_number_for_sfp_eeporm(
-        eeprom_infos)
+    sfp_eerpom_map_per_port = get_sfp_eeprom_map_per_port(eeprom_infos)
     sfp_eeprom_info_dict = {}
-    for port_name, line_number_section in map_port_to_start_and_end_line_nubmer.items():
-        _, eeprom_info = parse_one_sfp_eeprom_info(sfp_eeprom_list, line_number_section[0], line_number_section[1])
+    for port_name, eeprom_info in sfp_eerpom_map_per_port.items():
+        _, eeprom_info = parse_one_sfp_eeprom_info(eeprom_info)
         sfp_eeprom_info_dict[port_name] = eeprom_info
     return sfp_eeprom_info_dict
 
@@ -387,16 +387,3 @@ def is_passive_cable(sfp_eeprom_info):
                         "CR" in spec_compliance.get("Extended Specification Compliance", " "):
                     return True
     return False
-
-
-def get_passive_cable_port_list(dut):
-    passive_cable_port_list = []
-    cmd_show_eeprom = "sudo sfputil show eeprom -d"
-    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
-    eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
-    for port_name, eeprom_info in eeprom_infos.items():
-        if is_passive_cable(eeprom_info):
-            logging.info(f"{port_name} is passive cable")
-            passive_cable_port_list.append(port_name)
-    logging.info(f"Ports with passive cable are: {passive_cable_port_list}")
-    return passive_cable_port_list

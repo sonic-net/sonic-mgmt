@@ -8,7 +8,6 @@ from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw
 from tests.common.platform.transceiver_utils import get_ports_with_flat_memory
 
 
-
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
