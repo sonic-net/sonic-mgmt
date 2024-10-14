@@ -42,6 +42,7 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
     # Setup.
     duthost = duthosts[rand_one_dut_hostname]
     hwsku = duthost.facts["hwsku"]
+    mgmt_fact = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]
 
     # Get target image path:
     target_image = request.config.getoption('target_image', default=None)
@@ -55,10 +56,8 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
     # Step 2: Configure DUT into L2 mode.
     # Save original config
     
-
     duthost.shell("sudo cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
     # Perform L2 configuration
-    mgmt_fact = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]
     init_cfg = '''
     cat <<EOF | sudo config reload /dev/stdin -y
     {{
