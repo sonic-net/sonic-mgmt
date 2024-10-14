@@ -132,7 +132,7 @@ parameters:
 
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 480
+    default: 1800
 
   - name: KVM_IMAGE_BRANCH
     type: string

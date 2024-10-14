@@ -154,8 +154,10 @@ def parse_list_from_str(s):
 class TestPlanManager(object):
 
     def __init__(self, scheduler_url, community_url, frontend_url, client_id=None):
+        print("scheduler url: ", scheduler_url)
+        print("community url: ", community_url)
         self.scheduler_url = scheduler_url
-        self.community_url = community_url,
+        self.community_url = community_url
         self.frontend_url = frontend_url
         self.client_id = client_id
         self.with_auth = False
