@@ -435,6 +435,11 @@ class AdvancedReboot:
             os.makedirs(log_dir)
         log_dir = log_dir + "/"
 
+        # Create a sub-directory to store the logs before the reboot happened
+        log_dir_before_reboot = log_dir + "before_reboot/"
+        if not os.path.exists(log_dir_before_reboot):
+            os.makedirs(log_dir_before_reboot)
+
         if "warm" in self.rebootType:
             # normalize "warm-reboot -f", "warm-reboot -c" to "warm-reboot" for report collection
             reboot_file_prefix = "warm-reboot"
@@ -481,6 +486,11 @@ class AdvancedReboot:
                 {'src': syslogFile, 'dest': log_dir, 'flat': True},
                 {'src': sairedisRec, 'dest': log_dir, 'flat': True},
                 {'src': swssRec, 'dest': log_dir, 'flat': True},
+                # Logs from before reboot
+                {'src': '/host/syslog.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': True},
+                {'src': '/host/sairedis.rec.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': True},
+                {'src': '/host/swss.rec.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': True},
+                {'src': '/host/bgpd.log.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': True},
             ],
         }
         for host, logs in list(logFiles.items()):
