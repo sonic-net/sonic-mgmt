@@ -154,7 +154,7 @@ class TestPlanManager(object):
 
     def __init__(self, scheduler_url, community_url, frontend_url, client_id=None):
         self.scheduler_url = scheduler_url
-        self.community_url = community_url,
+        self.community_url = community_url
         self.frontend_url = frontend_url
         self.client_id = client_id
         self.with_auth = False
@@ -193,7 +193,7 @@ class TestPlanManager(object):
 
         cmd = 'az account get-access-token --resource {}'.format(self.client_id)
         attempt = 0
-        while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
+        while attempt < MAX_GET_TOKEN_RETRY_TIMES:
             try:
                 stdout, _, _ = self.az_run(cmd)
 
@@ -389,6 +389,7 @@ class TestPlanManager(object):
         http_exception_times_no_auth = 0
         failed_poll_auth_url = False
         while timeout < 0 or (time.time() - start_time) < timeout:
+            resp = None
             # To make the transition smoother, first try to access the original API
             if not failed_poll_auth_url:
                 try:
@@ -407,6 +408,7 @@ class TestPlanManager(object):
 
             # If failed on poll auth url(most likely token has expired), try with no-auth url
             else:
+                print("Polling test plan status failed with auth url, try with no-auth url.")
                 try:
                     resp = requests.get(poll_url_no_auth, headers={"Content-Type": "application/json"},
                                         timeout=10).json()
@@ -421,6 +423,9 @@ class TestPlanManager(object):
                     else:
                         time.sleep(interval)
                         continue
+
+            if not resp:
+                raise Exception("Poll test plan status failed with request error, no response!")
 
             if not resp["success"]:
                 raise Exception("Query test plan at {} failed with error: {}".format(poll_url, resp["errmsg"]))
