@@ -1,0 +1,130 @@
+name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 6 * * 6"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+    displayName: "AGENT POOL"
+
+  - name: TESTBED_NAME
+    type: string
+    default: "vms20-rdma-t1-8102"
+    displayName: "Testbed Name"
+
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "1"
+
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_CISCO_202405)
+    displayName: "Image URL"
+
+  - name: MGMT_BRANCH
+    type: string
+    default: internal-202405
+
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
+  - name: SCRIPTS
+    type: string
+    default: "snappi_tests/multidut/ecn/test_multidut_dequeue_ecn_with_snappi.py,snappi_tests/multidut/ecn/test_multidut_red_accuracy_with_snappi.py,snappi_tests/multidut/pfc/test_lossless_response_to_external_pause_storms.py,snappi_tests/multidut/pfc/test_lossless_response_to_throttling_pause_storms.py,snappi_tests/multidut/pfc/test_m2o_fluctuating_lossless.py,snappi_tests/multidut/pfc/test_m2o_oversubscribe_lossless_lossy.py,snappi_tests/multidut/pfc/test_m2o_oversubscribe_lossless.py,snappi_tests/multidut/pfc/test_m2o_oversubscribe_lossy.py,snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py,snappi_tests/multidut/pfc/test_multidut_pfc_pause_lossless_with_snappi.py,snappi_tests/multidut/pfc/test_multidut_pfc_pause_lossy_with_snappi.py,snappi_tests/multidut/pfcwd/test_multidut_pfcwd_a2a_with_snappi.py,snappi_tests/multidut/pfcwd/test_multidut_pfcwd_basic_with_snappi.py,snappi_tests/multidut/pfcwd/test_multidut_pfcwd_burst_storm_with_snappi.py,snappi_tests/multidut/pfcwd/test_multidut_pfcwd_m2o_with_snappi.py,snappi_tests/multidut/pfcwd/test_multidut_pfcwd_runtime_traffic_with_snappi.py"
+    values:
+      - " "
+      - "snappi_tests/multidut/ecn/test_multidut_dequeue_ecn_with_snappi.py,snappi_tests/multidut/ecn/test_multidut_red_accuracy_with_snappi.py,snappi_tests/multidut/pfc/test_lossless_response_to_external_pause_storms.py,snappi_tests/multidut/pfc/test_lossless_response_to_throttling_pause_storms.py,snappi_tests/multidut/pfc/test_m2o_fluctuating_lossless.py,snappi_tests/multidut/pfc/test_m2o_oversubscribe_lossless_lossy.py,snappi_tests/multidut/pfc/test_m2o_oversubscribe_lossless.py,snappi_tests/multidut/pfc/test_m2o_oversubscribe_lossy.py,snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py,snappi_tests/multidut/pfc/test_multidut_pfc_pause_lossless_with_snappi.py,snappi_tests/multidut/pfc/test_multidut_pfc_pause_lossy_with_snappi.py,snappi_tests/multidut/pfcwd/test_multidut_pfcwd_a2a_with_snappi.py,snappi_tests/multidut/pfcwd/test_multidut_pfcwd_basic_with_snappi.py,snappi_tests/multidut/pfcwd/test_multidut_pfcwd_burst_storm_with_snappi.py,snappi_tests/multidut/pfcwd/test_multidut_pfcwd_m2o_with_snappi.py,snappi_tests/multidut/pfcwd/test_multidut_pfcwd_runtime_traffic_with_snappi.py"
+    displayName: "Scripts to be executed"
+
+  - name: FEATURES
+    type: string
+    default: " "
+    values:
+      - " "
+      - "snappi_tests"
+    displayName: "Features to be executed"
+
+  # Custom skip scripts
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: " "
+    displayName: "Scripts to be excluded"
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: " "
+    displayName: "Features to be excluded"
+
+  # Temporarily disable loganalyzer
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: "--topology tgen,any --disable_loganalyzer --trim_inv --skip_sanity"
+    displayName: "Common test parameters"
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: ' '
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
+
+  # Test timeout
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 8640
+
+stages:
+- stage: Test
+
+  variables:
+    - group: SONiC-Elastictest
+
+  jobs:
+  - job:
+    displayName: multidut.rdma-t1-8102.202405.NightlyTest_by_Elastictest
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    continueOnError: false
+    pool: ${{ parameters.AGENT_POOL }}
+    steps:
+    - template: ../../run-test-nightly-elastictest-template.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        SCRIPTS: ${{ parameters.SCRIPTS }}
+        FEATURES: ${{ parameters.FEATURES }}
+        SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+        FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        AFFINITY: ${{ parameters.AFFINITY }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
