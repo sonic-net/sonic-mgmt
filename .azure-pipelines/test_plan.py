@@ -392,7 +392,7 @@ class TestPlanManager(object):
         start_time = time.time()
         http_exception_times = 0
         http_exception_times_no_auth = 0
-        failed_poll_auth_url = True
+        failed_poll_auth_url = False
         while timeout < 0 or (time.time() - start_time) < timeout:
             resp = None
             # To make the transition smoother, first try to access the original API
@@ -432,6 +432,9 @@ class TestPlanManager(object):
                     else:
                         time.sleep(interval)
                         continue
+
+            if not resp:
+                raise Exception("Poll test plan status failed with request error, no response!")
 
             if not resp["success"]:
                 raise Exception("Query test plan at {} failed with error: {}".format(poll_url, resp["errmsg"]))
