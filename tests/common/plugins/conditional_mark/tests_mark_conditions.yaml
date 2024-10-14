@@ -249,7 +249,7 @@ copp/test_copp.py::TestCOPP::test_add_new_trap:
     reason: "Copp test_add_new_trap is not yet supported on these testbeds"
     conditions_logical_operator: or
     conditions:
-      - "is_multi_asic==True
+      - "is_multi_asic==True"
       - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
   xfail:
     reason: "Test failed due to known issue on broadcom platform, xfail it on 202305 and 202311"
@@ -787,8 +787,7 @@ generic_config_updater/test_dhcp_relay.py:
 
 generic_config_updater/test_dynamic_acl.py:
   skip:
-    reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test
-    on m0-2vlan testbed causes consistent failures / generic_config_updater is not a supported feature for T2"
+    reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test on m0-2vlan testbed causes consistent failures / generic_config_updater is not a supported feature for T2"
     conditions_logical_operator: "OR"
     conditions:
       - "release in ['202311', '202405'] and platform in ['armhf-nokia_ixs7215_52x-r0']"
@@ -1473,9 +1472,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
     reason: "Headroom pool size not supported. / M0/MX topo does not support qos"
     conditions_logical_operator: or
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100']
-      and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
-      and asic_type in ['cisco-8000']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100'] and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox'] and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
