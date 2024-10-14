@@ -2,6 +2,7 @@ from __future__ import print_function, division
 
 import argparse
 import ast
+import base64
 import json
 import os
 import sys
@@ -321,6 +322,8 @@ class TestPlanManager(object):
             "priority": 10
         }
         print('Creating test plan with payload:\n{}'.format(json.dumps(payload, indent=4)))
+        token = base64.b64encode(self.get_token().encode("utf-8")).decode("utf-8")
+        print("token: ", token)
         headers = {
             "Authorization": "Bearer {}".format(self.get_token()),
             "scheduler-site": "PRTest",
