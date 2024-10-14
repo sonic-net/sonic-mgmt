@@ -2039,8 +2039,9 @@ Totals               6450                 6449
         return self.command("sudo config feature state bgp enabled")
 
     def no_shutdown_bgp(self, asn):
-        logging.warning("SONiC don't support `no shutdown bgp`")
-        return None
+        command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
+        logging.info('No shut BGP: {}'.format(asn))
+        return self.command(command)
 
     def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
         if not neighbors:
@@ -2517,6 +2518,17 @@ Totals               6450                 6449
                     return False
                 logging.info("Interface {} is up on {}".format(output_port, self.hostname))
         return True
+
+    def is_interface_status_up(self, interface):
+        """
+            Check if the status of a single interface is oper and admin up.
+                Args:
+                    interface: the interface to check
+                Returns:
+                    True if the interface is oper and admin up
+        """
+        output = self.shell('show interface status {}'.format(interface))
+        return re.search('up +up', output['stdout_lines'][-1])
 
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
