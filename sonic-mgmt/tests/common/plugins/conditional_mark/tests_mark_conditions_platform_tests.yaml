@@ -776,9 +776,11 @@ platform_tests/mellanox:
 
 platform_tests/mellanox/test_check_sfp_using_ethtool.py:
   skip:
-    reason: "Deprecated as Mellanox do not use ethtool in release 202305 or higher"
+    reason: "Deprecated as Mellanox do not use ethtool in release 202305 or higher / Mellanox platform tests only supported on Mellanox devices"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
+      - "asic_type not in ['mellanox', 'nvidia-bluefield']"
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
