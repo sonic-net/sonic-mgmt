@@ -390,7 +390,7 @@ class TestPlanManager(object):
         start_time = time.time()
         http_exception_times = 0
         http_exception_times_no_auth = 0
-        failed_poll_auth_url = False
+        failed_poll_auth_url = True
         while timeout < 0 or (time.time() - start_time) < timeout:
             # To make the transition smoother, first try to access the original API
             if not failed_poll_auth_url:
