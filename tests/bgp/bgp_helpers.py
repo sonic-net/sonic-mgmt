@@ -871,14 +871,14 @@ def verify_dut_configdb_tsa_value(duthost):
     @summary: Returns the line cards' asic CONFIG_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
     """
     tsa_config = list()
-    tsa_enabled = 'false'
+    tsa_enabled = False
     for asic_index in duthost.get_frontend_asic_ids():
         prefix = "-n asic{}".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
         output = duthost.shell('sonic-db-cli {} CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' \'tsa_enabled\''.
                                format(prefix))['stdout']
         tsa_config.append(output)
     if 'true' in tsa_config:
-        tsa_enabled = 'true'
+        tsa_enabled = True
 
     return tsa_enabled
 
@@ -898,7 +898,7 @@ def initial_tsa_check_before_and_after_test(duthosts):
 
     for linecard in duthosts.frontend_nodes:
         # Issue TSB on the line card before proceeding further
-        if verify_dut_configdb_tsa_value(linecard) != 'false' or get_tsa_chassisdb_config(linecard) != 'false' or \
+        if verify_dut_configdb_tsa_value(linecard) is not False or get_tsa_chassisdb_config(linecard) != 'false' or \
                 get_traffic_shift_state(linecard, cmd='TSC no-stats') != TS_NORMAL:
             linecard.shell('TSB')
             linecard.shell('sudo config save -y')

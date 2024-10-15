@@ -29,16 +29,6 @@ BGP_CRIT_PROCESS = "bgpcfgd"
 supported_tsa_configs = ['false', 'true']
 
 
-@pytest.fixture
-def traffic_shift_community(duthost):
-    """
-    @summary: Fetch device's traffic_shift_community string
-    """
-    community = duthost.shell('sonic-cfggen -y /etc/sonic/constants.yml -v constants.bgp.traffic_shift_community')[
-        'stdout']
-    return community
-
-
 def nbrhosts_to_dut(duthost, nbrhosts):
     """
     @summary: Fetch the neighbor hosts' details for duthost
@@ -98,7 +88,7 @@ def set_tsb_on_sup_duts_before_and_after_test(duthosts, enum_supervisor_dut_host
 
     for linecard in duthosts.frontend_nodes:
         # Issue TSB on line card before proceeding further
-        if verify_dut_configdb_tsa_value(linecard) != 'false' or get_tsa_chassisdb_config(linecard) != 'false' or \
+        if verify_dut_configdb_tsa_value(linecard) is not False or get_tsa_chassisdb_config(linecard) != 'false' or \
                 get_traffic_shift_state(linecard, cmd='TSC no-stats') != TS_NORMAL:
             linecard.shell('TSB')
             linecard.shell('sudo config save -y')
@@ -470,7 +460,7 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -534,7 +524,7 @@ def test_dut_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -597,7 +587,7 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
                           "DUT is not in maintenance state")
             # Verify line card config TSA enabled is still false
-            pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                           "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
 
         # Issue TSA from line card and verify line cards' BGP operational state continues to be in TSA
@@ -605,7 +595,7 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -663,7 +653,7 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -681,7 +671,7 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
             linecard.shell('TSB')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to tsa_enabled false
-            pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                           "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
             # Ensure that the DUT is in normal state
             pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -752,7 +742,7 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -763,7 +753,7 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
             linecard.shell('TSB')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to tsa_enabled false
-            pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                           "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -885,7 +875,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
                 pytest_assert('true' == get_tsa_chassisdb_config(linecard),
                               "{} tsa_enabled config is not enabled".format(linecard.hostname))
                 # Verify line card config changed to TSB after startup-tsa-tsb service expiry
-                pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+                pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                               "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
@@ -1022,7 +1012,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1056,7 +1046,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             pytest_assert('false' == get_tsa_chassisdb_config(linecard),
                           "{} tsa_enabled config is enabled".format(linecard.hostname))
             # Verify line card config changed is still TSA enabled true after reboot
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
 
         # Make sure the ports, interfaces are UP and running after reboot
@@ -1127,7 +1117,7 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
         # Verify line cards' BGP operational state changes to TSA
         for linecard in duthosts.frontend_nodes:
             # Verify line card BGP operational state changes to TSA
-            pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                           "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1196,7 +1186,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supe
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1214,7 +1204,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsa(duthosts, localhost, enum_supe
         # Verify line cards' BGP operational state continues in mainternance state
         for linecard in duthosts.frontend_nodes:
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1268,7 +1258,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1286,7 +1276,7 @@ def test_user_init_tsa_on_dut_followed_by_sup_tsb(duthosts, localhost, enum_supe
         # Verify line cards' BGP operational state continues in mainternance state
         for linecard in duthosts.frontend_nodes:
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1367,7 +1357,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             pytest_assert('true' == get_tsa_chassisdb_config(linecard),
                           "{} tsa_enabled config is not enabled".format(linecard.hostname))
             # Verify line card config changed to tsa_enabled true during service run
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
 
         for linecard in duthosts.frontend_nodes:
@@ -1387,7 +1377,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
                 pytest_assert('true' == get_tsa_chassisdb_config(linecard),
                               "{} tsa_enabled config is not enabled".format(linecard.hostname))
                 # Verify line card config changed to tsa_enabled false after timer expiry
-                pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+                pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                               "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
         # Verify only loopback routes are announced to neighbors at this state
         for linecard in duthosts.frontend_nodes:
@@ -1482,7 +1472,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
                 pytest_assert('false' == get_tsa_chassisdb_config(linecard),
                               "{} tsa_enabled config is enabled".format(linecard.hostname))
                 # Verify line card config changed to tsa_enabled false after timer expiry
-                pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+                pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                               "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
             break
 
@@ -1569,7 +1559,7 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_on_tsa_duts_on_tsb(
                           "DUT is not in normal state with supervisor TSB action")
             pytest_assert('false' == get_tsa_chassisdb_config(linecard),
                           "{} tsa_enabled config is enabled".format(linecard.hostname))
-            pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                           "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
 
     finally:
@@ -1618,7 +1608,7 @@ def test_sup_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1697,7 +1687,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1715,7 +1705,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
             linecard.shell('TSB')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to tsa_enabled false
-            pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                           "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
             # Ensure that the DUT is in normal state
             pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1737,7 +1727,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_on_tsb_duts_on_tsa(duthost
         # Verify line cards are in the same state as before docker restart
         for linecard in duthosts.frontend_nodes:
             # Verify line card config changed to tsa_enabled false
-            pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                           "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1809,7 +1799,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
             linecard.shell('TSA')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to TSA enabled true
-            pytest_assert('true' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is True,
                           "DUT {} tsa_enabled config is not enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1820,7 +1810,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
             linecard.shell('TSB')
             linecard.shell('sudo config save -y')
             # Verify line card config changed to tsa_enabled false
-            pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                           "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
@@ -1842,7 +1832,7 @@ def test_dut_tsb_followed_by_dut_bgp_restart_when_sup_and_duts_on_tsa(duthosts, 
         # Verify line cards are in the same state as before bgp restart
         for linecard in duthosts.frontend_nodes:
             # Verify line card config changed to tsa_enabled false
-            pytest_assert('false' == verify_dut_configdb_tsa_value(linecard),
+            pytest_assert(verify_dut_configdb_tsa_value(linecard) is False,
                           "DUT {} tsa_enabled config is enabled".format(linecard.hostname))
             # Ensure that the DUT is in maintenance state
             pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
