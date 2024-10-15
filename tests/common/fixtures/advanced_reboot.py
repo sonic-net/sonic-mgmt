@@ -436,7 +436,7 @@ class AdvancedReboot:
         log_dir = log_dir + "/"
 
         # Create a sub-directory to store the logs before the reboot happened
-        log_dir_before_reboot = log_dir + "before_reboot/"
+        log_dir_before_reboot = os.path.join(log_dir, "before_reboot/")
         if not os.path.exists(log_dir_before_reboot):
             os.makedirs(log_dir_before_reboot)
 
@@ -487,10 +487,11 @@ class AdvancedReboot:
                 {'src': sairedisRec, 'dest': log_dir, 'flat': True},
                 {'src': swssRec, 'dest': log_dir, 'flat': True},
                 # Logs from before reboot
-                {'src': '/host/syslog.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': True},
-                {'src': '/host/sairedis.rec.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': True},
-                {'src': '/host/swss.rec.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': True},
-                {'src': '/host/bgpd.log.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': True},
+                {'src': '/host/syslog.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': False},
+                {'src': '/host/sairedis.rec.99', 'dest': log_dir_before_reboot, 'flat': True,
+                 'fail_on_missing': False},
+                {'src': '/host/swss.rec.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': False},
+                {'src': '/host/bgpd.log.99', 'dest': log_dir_before_reboot, 'flat': True, 'fail_on_missing': False},
             ],
         }
         for host, logs in list(logFiles.items()):
