@@ -335,7 +335,7 @@ def test_update_saithrift_ptf(request, ptfhost):
     SRC_PATH = PY_PATH + "saithrift-0.9-py3.11.egg/switch_sai_thrift"
     DST_PATH = PY_PATH + "switch_sai_thrift"
     if ptfhost.stat(path=SRC_PATH)['stat']['exists'] and not ptfhost.stat(path=DST_PATH)['stat']['exists']:
-        ptfhost.copy(src=SRC_PATH, dest=DST_PATH, remote_src=True)
+        ptfhost.copy(src=SRC_PATH, dest=PY_PATH, remote_src=True)
     logging.info("Python saithrift package installed successfully")
 
 
