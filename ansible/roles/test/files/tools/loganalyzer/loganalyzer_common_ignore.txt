@@ -282,3 +282,8 @@ r, ".* INFO .*[duty_cycle_map]: illegal pwm value .*"
 r, ".* INFO .*command '/usr/sbin/smartctl' failed: [116] Stale file handle.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'high_threshold' unavailable in database 'STATE_DB'.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'temperature' unavailable in database 'STATE_DB'.*"
+
+# Errors for config reload/reboot on mellanox platform
+# SAI implement missing for the https://github.com/sonic-net/sonic-buildimage/pull/18912 caused the err msg pop up, need to ignore the err msgs before it SAI implement is done.
+r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
+r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
