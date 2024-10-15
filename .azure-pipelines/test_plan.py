@@ -2,7 +2,6 @@ from __future__ import print_function, division
 
 import argparse
 import ast
-import base64
 import json
 import os
 import sys
@@ -154,8 +153,6 @@ def parse_list_from_str(s):
 class TestPlanManager(object):
 
     def __init__(self, scheduler_url, community_url, frontend_url, client_id=None):
-        print("scheduler url: ", scheduler_url)
-        print("community url: ", community_url)
         self.scheduler_url = scheduler_url
         self.community_url = community_url
         self.frontend_url = frontend_url
@@ -324,8 +321,6 @@ class TestPlanManager(object):
             "priority": 10
         }
         print('Creating test plan with payload:\n{}'.format(json.dumps(payload, indent=4)))
-        token = base64.b64encode(self.get_token().encode("utf-8")).decode("utf-8")
-        print("token: ", token)
         headers = {
             "Authorization": "Bearer {}".format(self.get_token()),
             "scheduler-site": "PRTest",
@@ -383,7 +378,7 @@ class TestPlanManager(object):
         print("Polling progress and status of test plan at {}/scheduler/testplan/{}"
               .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
-        print("community url: ", self.community_url)
+
         poll_url = "{}/test_plan/{}/get_test_plan_status".format(self.scheduler_url, test_plan_id)
         poll_url_no_auth = "{}/get_test_plan_status/{}".format(self.community_url, test_plan_id)
         headers = {
@@ -399,30 +394,7 @@ class TestPlanManager(object):
             if not failed_poll_auth_url:
                 try:
                     if self.with_auth:
-                        token_encoded = ("ZXlKMGVYQWlPaUpLVjFRaUxDSmhiR2NpT2lKU1V6STFOaUlzSW10cFpDSTZJak5RWVVzMFJ"
-                                         "XWjVRazVSZFRORGRHcFpjMkV6V1cxb1VUVkZNQ0o5LmV5SmhkV1FpT2lJME4yTm1NR0ZpWlM"
-                                         "wNVpqRTVMVFE1TjJNdFlUQmtaQzFqWW1Zek56QTBabVk0TnpFaUxDSnBjM01pT2lKb2RIUnd"
-                                         "jem92TDJ4dloybHVMbTFwWTNKdmMyOW1kRzl1YkdsdVpTNWpiMjB2TnpKbU9UZzRZbVl0T0"
-                                         "RabU1TMDBNV0ZtTFRreFlXSXRNbVEzWTJRd01URmtZalEzTDNZeUxqQWlMQ0pwWVhRaU9qRT"
-                                         "NNamc0TnpFd09Ua3NJbTVpWmlJNk1UY3lPRGczTVRBNU9Td2laWGh3SWpveE56STRPVFUzT"
-                                         "nprNUxDSmhhVzhpT2lKck1rSm5XVTVxS3pZd2NGUmtVR2RPY25wVU1YQjRjSFp2Y0hCc0wyU"
-                                         "XJla3RDWjFWTU9IWTBXVEpLVlhCd2JUZGhhamhCSWl3aVlYcHdJam9pWW1NMVpESXpNakF0W"
-                                         "m1aaE15MDBNRE5rTFRreVl6QXROMkl5TjJFNFlXVTBNVFZsSWl3aVlYcHdZV055SWpvaU1pSXN"
-                                         "JbTlwWkNJNklqY3hPRGsyWldReExXVXhaR1V0TkRabE55MDVZalV4TFdWa1pURXhOMkkwT1dSa"
-                                         "E5DSXNJbkpvSWpvaU1TNUJVbTlCZGpScU5XTjJSMGR5TUVkU2NYa3hPREJDU0dKU056UkxlakJq"
-                                         "V200emVFcHZUak5NT0ROQ1VDMUlSV0ZCUVVGaFFVRXVJaXdpYzNWaUlqb2lOekU0T1RabFpERX"
-                                         "RaVEZrWlMwME5tVTNMVGxpTlRFdFpXUmxNVEUzWWpRNVpHRTBJaXdpZEdsa0lqb2lOekptT1"
-                                         "RnNFltWXRPRFptTVMwME1XRm1MVGt4WVdJdE1tUTNZMlF3TVRGa1lqUTNJaXdpZFhScElqb2"
-                                         "lORzlFTm5oeFV6aERNRmRVVDA1eFNYTlNjMDlCUVNJc0luWmxjaUk2SWpJdU1DSjkuZWkxSH"
-                                         "pnek9fZWRGbUh5cHVKeWJoMU02VXZLeHZBSk43bUNpRmUxV21fcWRraDJIVTRiMHZXRHpweUR"
-                                         "DWUdDY0pwbDV0YzBvZGJYYjBYbGRaYVc0OXdCZXoxaTllRExINFl1R2hhZ3gtX1JlWGFiLTJt"
-                                         "N3lfMGVaUzE5TFp5SE5TNzZKOF9Hd1lHVUdjMFpaOFN0cHhseFljdlNPeVVGQXZCVzg0ZlFMd"
-                                         "3dodXZrZjNhUml4YWVCem94V19iOU91TDcxWnlTLVBLZ2JqbjBFRWI3bEtYSGVJLXlQQ01SeW"
-                                         "NQNTJkTEVxdTRHb2FITjVRbHVjSktWc2ZpYUlhV0J2bzlKV3kzdmZNZzdVUFBYN1lEQXZRbWo0"
-                                         "SEM2Q0Z4bkFnQ1A4bmxVVUEzSm9oTENxNlRpU0JRUUtsZWdSZ1NoT05Qdm4xT0ZhMUlHQkxpWW"
-                                         "JkdmNvQjdR")
-                        headers["Authorization"] = "Bearer {}".format(
-                            base64.b64decode(token_encoded.encode("utf-8")).decode("utf-8"))
+                        headers["Authorization"] = "Bearer {}".format(self.get_token())
                     resp = requests.get(poll_url, headers=headers, timeout=10).json()
                     print("request url: ", poll_url)
                     print("response: ", resp)
