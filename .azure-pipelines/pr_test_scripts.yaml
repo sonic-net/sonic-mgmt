@@ -70,7 +70,7 @@ t0:
   - generic_config_updater/test_ecn_config_update.py
   - generic_config_updater/test_eth_interface.py
   - generic_config_updater/test_incremental_qos.py
-  - generic_config_updater/test_ipv6.py
+  - generic_config_updater/test_ip_bgp.py
   - generic_config_updater/test_kubernetes_config.py
   - generic_config_updater/test_lo_interface.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
