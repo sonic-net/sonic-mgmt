@@ -563,6 +563,13 @@ dualtor_io/test_link_failure.py::test_standby_link_down_upstream:
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
 
+dualtor_mgmt/test_dualtor_bgp_update_delay.py:
+  xfail:
+    reason: "Has flaky issue on kvm testbed"
+    conditions:
+      - asic_type in ['vs']
+      - https://github.com/sonic-net/sonic-mgmt/issues/14996
+
 #######################################
 #####         dut_console         #####
 #######################################
