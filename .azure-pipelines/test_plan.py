@@ -379,8 +379,8 @@ class TestPlanManager(object):
               .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
 
-        poll_url = "{}/test_plan/{}".format(self.scheduler_url, test_plan_id)
-        poll_url_no_auth = "{}/test_plan/{}".format(self.community_url, test_plan_id)
+        poll_url = "{}/test_plan/{}/get_test_plan_status".format(self.scheduler_url, test_plan_id)
+        poll_url_no_auth = "{}/get_test_plan_status/{}".format(self.community_url, test_plan_id)
         headers = {
             "Content-Type": "application/json"
         }
