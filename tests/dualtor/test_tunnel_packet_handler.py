@@ -230,17 +230,27 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
                       .format(upper_tor_host.hostname))
 
 
-def check_tph_counter_increased(duthost):
+def tph_counter_value(duthost, expected, prev_val=0, tolerance=0.1):
+    # Tunnel packet handler is implemented with scapy, which will miss packets under heavy load.
+    # 100% accuracy is not required, so allow some tolerance for missed packets
+    counter_val = get_tph_counter(duthost)
+    lower_bound = expected * (1 - tolerance)
+    logger.info(f"Prev value: {prev_val}, Counter value: {counter_val}")
+    return lower_bound <= counter_val - prev_val <= expected
+
+
+def get_tph_counter(duthost):
     try:
         counter_val = int(
             duthost.shell(
                 "sonic-db-cli COUNTERS_DB hget 'COUNTERS:IPINIP_TUNNEL' 'RX_COUNT'"
             )["stdout"].strip()
         )
-    except TypeError:
+    except ValueError:
         counter_val = 0
+
     logger.info("TPH counter value: {}".format(counter_val))
-    return counter_val > 0
+    return counter_val
 
 
 def test_tph_counter(
@@ -252,7 +262,7 @@ def test_tph_counter(
     stop_arp_services,
     ip_version,
 ):
-
+    num_packets = 100
     ptf_t1_intf = random.choice(get_t1_ptf_ports(lower_tor_host, tbinfo))
 
     config = lower_tor_host.config_facts(
@@ -273,18 +283,17 @@ def test_tph_counter(
         if ip == vlan_intf.ip or ip == vlan_intf.network.network_address:
             continue
         pkts.append(build_packet_to_server(lower_tor_host, ptfadapter, str(ip))[0])
-        if len(pkts) >= 100:
+        if len(pkts) >= num_packets:
             break
 
+    prev_counter_val = get_tph_counter(upper_tor_host)
     upper_tor_host.shell("ip -{} neigh flush all".format(ip_version))
-
+    logger.info("Sending {} packets".format(len(pkts)))
     for pkt in pkts:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=1)
         time.sleep(1)
 
-    # Tunnel packet handler is implemented with scapy, which will miss packets under heavy load.
-    # 100% accuracy is not required, so pass the test as long as some packets are counted.
     pytest_assert(
-        wait_until(60, 5, 0, check_tph_counter_increased, upper_tor_host),
+        wait_until(60, 5, 0, tph_counter_value, upper_tor_host, len(pkts), prev_counter_val),
         "TPH counter does not match expected value of {}".format(len(pkts)),
     )
