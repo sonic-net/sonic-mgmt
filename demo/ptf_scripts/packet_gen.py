@@ -15,7 +15,7 @@ class EniConfig:
         self.vnet = vnet
 
 
-def new_underlay_ping_packet(local_dev=UnderlayConfig(mac="9a:50:c1:b1:9f:00", ip="10.0.0.1"),
+def new_underlay_ping_packet(local_dev=UnderlayConfig(mac="9a:50:c1:b1:9f:00", ip="10.0.0.2"),
                              remote_dev=UnderlayConfig(mac="22:48:23:27:33:d8", ip="10.0.0.37")):
     return testutils.simple_icmp_packet(
         eth_src=local_dev.mac,
@@ -39,7 +39,7 @@ def new_overlay_packet(local_eni, remote_eni):
 
 def new_dash_packet(local_eni,
                     remote_eni,
-                    local_dev=UnderlayConfig(mac="9a:50:c1:b1:9f:00", ip="10.0.0.1"),
+                    local_dev=UnderlayConfig(mac="9a:50:c1:b1:9f:00", ip="10.0.0.2"),
                     remote_dev=UnderlayConfig(mac="22:48:23:27:33:d8", ip="10.0.0.37")):
     return testutils.simple_vxlan_packet(
         eth_src=local_dev.mac,
