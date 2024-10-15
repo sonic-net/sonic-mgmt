@@ -246,11 +246,11 @@ def run_pfc_test(api,
 
     # Verify PFC pause frames
     if valid_pfc_frame_test:
-        if is_cisco_device(duthost):
+        if not is_cisco_device(duthost):
+            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+        else:
             is_valid_pfc_frame, error_msg = validate_pfc_frame_cisco(
                                                               snappi_extra_params.packet_capture_file + ".pcapng")
-        else:
-            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
         pytest_assert(is_valid_pfc_frame, error_msg)
         return
 
