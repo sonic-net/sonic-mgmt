@@ -152,14 +152,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
 
-    nslist = duthost.get_asic_namespace_list()
-    ns = random.choice(nslist)
-    cmd = ''
-    if ns is None:
-        cmd = "sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB)
-    else:
-        cmd = "sonic-cfggen -n {} -d --print-data > {}".format(ns, ORIG_CFG_DB)
-    duthost.shell(cmd)
+    duthost.shell("sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB))
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                     verbose=False)['stdout'])
     buffer_queues = list(data['BUFFER_QUEUE'].keys())
@@ -286,22 +279,16 @@ def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
 def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path,
                            setup_streaming_telemetry):
     logger.info("Testing on change update notifications")
+
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
     skip_201911_and_older(duthost)
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
                               target="STATE_DB")
-    nslist = duthost.get_asic_namespace_list()
-    ns = random.choice(nslist)
 
-    bgp_nbrs = list(duthost.get_bgp_neighbors_for_asic(ns).keys())
+    bgp_nbrs = list(duthost.get_bgp_neighbors().keys())
     bgp_neighbor = random.choice(bgp_nbrs)
-
-    asic_id = duthost.get_asic_id_from_namespace(ns)
-    bgp_info = duthost.get_bgp_neighbor_info(bgp_neighbor, asic_id)
+    bgp_info = duthost.get_bgp_neighbor_info(bgp_neighbor)
     original_state = bgp_info["bgpState"]
     new_state = "Established" if original_state.lower() == "active" else "Active"
 
@@ -310,10 +297,8 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
         try:
             assert result != "", "Did not get output from PTF client"
         finally:
-            ccmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                             original_state)
-            ccmd = duthost.get_cli_cmd_for_namespace(ccmd, ns)
-            duthost.shell(ccmd)
+            duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
+                                                                                                    original_state))
         ret = parse_gnmi_output(result, 1, bgp_neighbor)
         assert ret is True, "Did not find key in update"
 
@@ -321,10 +306,8 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     client_thread.start()
 
     wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
-    cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                    new_state)
-    cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
-    duthost.shell(cmd)
+    duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
+                                                                                            new_state))
     client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
 
 

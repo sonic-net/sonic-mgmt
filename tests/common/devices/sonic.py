@@ -1385,16 +1385,13 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         @param neighbor_ip: bgp neighbor IP
         """
         nbip = ipaddress.ip_address(neighbor_ip)
+        vtysh = "vtysh"
+        if asic_id is not None:
+            vtysh = "vtysh -n {}".format(asic_id)
         if nbip.version == 4:
-            if asic_id is None:
-                out = self.command("vtysh -c \"show ip bgp neighbor {} json\"".format(neighbor_ip))
-            else:
-                out = self.command("vtysh -n {} -c \"show ip bgp neighbor {} json\"".format(asic_id, neighbor_ip))
+            out = self.command("{} -c \"show ip bgp neighbor {} json\"".format(vtysh, neighbor_ip))
         else:
-            if asic_id is None:
-                out = self.command("vtysh -c \"show bgp ipv6 neighbor {} json\"".format(neighbor_ip))
-            else:
-                out = self.command("vtysh -n {} -c \"show bgp ipv6 neighbor {} json\"".format(asic_id, neighbor_ip))
+            out = self.command("{} -c \"show bgp ipv6 neighbor {} json\"".format(vtysh, neighbor_ip))
 
         nbinfo = json.loads(re.sub(r"\\\"", '"', re.sub(r"\\n", "", out['stdout'])))
         logging.info("bgp neighbor {} info {}".format(neighbor_ip, nbinfo))
