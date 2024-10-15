@@ -50,11 +50,11 @@ so the number of instances should be dynamically adjusted for cost efficiency.
 The number of instances we allocate will be determined by the total estimated execution time of the scripts that need to be run.
 We can leverage historical data to obtain the average running time of each script from previous test executions.
 
-We now have a Kusto table that logs details about the execution of test cases, 
-including the running time, date, results, and more. 
-To determine the preset running time for each test script, 
-we will calculate the average running time of successful runs over the past three days. 
-If no relevant records are found in Kusto, a default value will be used for the preset running time. 
+We now have a Kusto table that logs details about the execution of test cases,
+including the running time, date, results, and more.
+To determine the preset running time for each test script,
+we will calculate the average running time of successful runs over the past three days.
+If no relevant records are found in Kusto, a default value will be used for the preset running time.
 This approach allows us to estimate the total execution time for our scripts accurately.
 
 Using this information, we will evenly distribute the scripts across instances,
