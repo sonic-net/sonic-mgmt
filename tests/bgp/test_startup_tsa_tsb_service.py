@@ -250,6 +250,8 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
         initial_tsa_check_before_and_after_test(duthosts)
         # Verify DUT is in normal state after cold reboot scenario.
         if not (int_status_result and crit_process_check and TS_NORMAL == get_traffic_shift_state(duthost)):
+            logger.info("DUT's current interface status is {}, critical process check is {} "
+                        "or traffic shift state is not {}".format(int_status_result, crit_process_check, TS_NORMAL))
             logging.info("DUT is not in normal state after cold reboot, doing config-reload")
             config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
         # Make sure the dut's reboot cause is as expected
@@ -361,6 +363,8 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         initial_tsa_check_before_and_after_test(duthosts)
         # Verify DUT is in normal state after abnormal reboot scenario.
         if not (int_status_result and crit_process_check and TS_NORMAL == get_traffic_shift_state(duthost)):
+            logger.info("DUT's current interface status is {}, critical process check is {} "
+                        "or traffic shift state is not {}".format(int_status_result, crit_process_check, TS_NORMAL))
             logging.info("DUT is not in normal state after abnormal reboot, doing config-reload")
             config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
         # Make sure the dut's reboot cause is as expected
@@ -473,6 +477,9 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
         for linecard in duthosts.frontend_nodes:
             if not (int_status_result[linecard] and crit_process_check[linecard] and
                     TS_NORMAL == get_traffic_shift_state(linecard)):
+                logger.info("DUT's current interface status is {}, critical process check is {} "
+                            "or traffic shift state is not {}".
+                            format(int_status_result[linecard], crit_process_check[linecard], TS_NORMAL))
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
                 config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
 
@@ -616,6 +623,9 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
         for linecard in duthosts.frontend_nodes:
             if not (int_status_result[linecard] and crit_process_check[linecard] and
                     TS_NORMAL == get_traffic_shift_state(linecard)):
+                logger.info("DUT's current interface status is {}, critical process check is {} "
+                            "or traffic shift state is not {}".
+                            format(int_status_result[linecard], crit_process_check[linecard], TS_NORMAL))
                 logging.info("DUT is not in normal state after SUP abnormal reboot, doing config-reload")
                 config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
 
@@ -814,6 +824,8 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
 
         # Verify DUT is in normal state after cold reboot scenario.
         if not (int_status_result and crit_process_check and TS_NORMAL == get_traffic_shift_state(duthost)):
+            logger.info("DUT's current interface status is {}, critical process check is {} "
+                        "or traffic shift state is not {}".format(int_status_result, crit_process_check, TS_NORMAL))
             logging.info("DUT is not in normal state after cold reboot, doing config-reload")
             config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
         # Wait until all routes are announced to neighbors
@@ -926,6 +938,8 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         initial_tsa_check_before_and_after_test(duthosts)
         # Verify DUT is in normal state after cold reboot scenario.
         if not (int_status_result and crit_process_check and TS_NORMAL == get_traffic_shift_state(duthost)):
+            logger.info("DUT's current interface status is {}, critical process check is {} "
+                        "or traffic shift state is not {}".format(int_status_result, crit_process_check, TS_NORMAL))
             logging.info("DUT is not in normal state after cold reboot, doing config-reload")
             config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
@@ -1050,6 +1064,9 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             # Make sure linecards are in Normal state and save the config to proceed further
             if not (int_status_result[linecard] and crit_process_check[linecard] and
                     TS_NORMAL == get_traffic_shift_state(linecard)):
+                logger.info("DUT's current interface status is {}, critical process check is {} "
+                            "or traffic shift state is not {}".
+                            format(int_status_result[linecard], crit_process_check[linecard], TS_NORMAL))
                 logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
                 config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
             # Make sure the dut's reboot cause is as expected
@@ -1163,6 +1180,8 @@ def test_tsa_tsb_timer_efficiency(duthosts, localhost, enum_rand_one_per_hwsku_f
         initial_tsa_check_before_and_after_test(duthosts)
         # Verify DUT is in normal state after cold reboot scenario.
         if not (int_status_result and crit_process_check and TS_NORMAL == get_traffic_shift_state(duthost)):
+            logger.info("DUT's current interface status is {}, critical process check is {} "
+                        "or traffic shift state is not {}".format(int_status_result, crit_process_check, TS_NORMAL))
             logging.info("DUT is not in normal state after cold reboot, doing config-reload")
             config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
         # Make sure the dut's reboot cause is as expected
