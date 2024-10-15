@@ -404,7 +404,7 @@ class TestPlanManager(object):
                         failed_poll_auth_url = True
                     else:
                         time.sleep(interval)
-                        continue
+                    continue
 
             # If failed on poll auth url(most likely token has expired), try with no-auth url
             else:
