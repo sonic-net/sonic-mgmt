@@ -1167,6 +1167,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     self.src_client, port_list['src'][src_port_id])
 
                 # send pkts with dscps that map to the same pg
+                print("Testing DSCPs mapping to PG {}".format(pg), file=sys.stderr)
                 for dscp in dscps:
                     tos = (dscp << 2)
                     tos |= 1
@@ -1195,7 +1196,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     # pg = 0 => Some extra packets with unmarked TC
                     # pg = 4 => Extra packets for LACP/BGP packets
                     # pg = 7 => packets from cpu to front panel ports
-                    if platform_asic and platform_asic == "broadcom-dnx":
+                    if platform_asic and platform_asic in ["broadcom-dnx", "cisco-8000"]:
                         if i == pg:
                             if i == 3:
                                 assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
@@ -5718,14 +5719,14 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
 
         try:
             for i in range(len(prio_list)):
-                log_message("DSCP index {}/{}".format(i + 1, len(prio_list)))
+                print("DSCP index {}/{}".format(i + 1, len(prio_list)), file=sys.stderr)
                 queue = queue_list[i]
                 for p_cnt in range(len(dst_port_ids)):
                     dst_port = dst_port_ids[p_cnt]
                     self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port])
 
                     # leakout
-                    log_message("Sending {} leakout packets".format(pkts_num_leak_out))
+                    print("Sending {} leakout packets".format(pkts_num_leak_out), file=sys.stderr)
                     send_packet(self, src_port_id, pkts[dst_port][i], pkts_num_leak_out)
                     if 'cisco-8000' in asic_type:
                         fill_leakout_plus_one(
@@ -5740,7 +5741,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
             # get all q_wm values for all port
             dst_q_wm_res_all_port = [sai_thrift_read_port_watermarks(
                 self.dst_client, port_list['dst'][sid])[0] for sid in dst_port_ids]
-            log_message("queue watermark for all port is {}".format(dst_q_wm_res_all_port))
+            print("queue watermark for all port is {}".format(dst_q_wm_res_all_port), file=sys.stderr)
             expected_wm = pkt_count * cell_occupancy
 
             def offset_text(offset):
@@ -5756,10 +5757,10 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
                     upper = (expected_wm + margin) * cell_size
                     msg = "Queue: {}, lower {} {} = queue_wm {} = upper {} {}".format(
                         queue, lower, offset_text(qwm - lower), qwm, upper, offset_text(qwm - upper))
-                    log_message(msg)
+                    print(msg, file=sys.stderr)
                     if not (lower <= qwm <= upper):
                         failures.append((dst_port_ids[dst_i], queue))
-                        log_message("Failed check")
+                        print("Failed check", file=sys.stderr)
             assert len(failures) == 0, "Failed on (dst port id, queue) for the following: {}".format(failures)
 
         finally:
