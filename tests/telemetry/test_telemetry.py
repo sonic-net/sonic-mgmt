@@ -285,9 +285,6 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
         pytest.skip(
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
     skip_201911_and_older(duthost)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
-                              target="STATE_DB")
 
     nslist = duthost.get_asic_namespace_list()
     ns = random.choice(nslist)
@@ -297,6 +294,10 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     bgp_info = duthost.get_bgp_neighbor_info(bgp_neighbor, asic_id)
     original_state = bgp_info["bgpState"]
     new_state = "Established" if original_state.lower() == "active" else "Active"
+
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
+                              submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
+                              target="STATE_DB", namespace=ns)
 
     def callback(result):
         logger.info("Assert that ptf client output is non empty and contains on change update")
