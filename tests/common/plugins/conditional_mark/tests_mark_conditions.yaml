@@ -370,6 +370,16 @@ dhcp_relay/test_dhcpv6_relay.py:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
 #######################################
+#####             disk            #####
+#######################################
+disk/test_disk_exhaustion.py:
+  skip:
+    reason: "Skip due to https://github.com/sonic-net/sonic-mgmt/issues/14091"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/14091
+      - "asic_type in ['mellanox']"
+
+#######################################
 #####         drop_packets        #####
 #######################################
 drop_packets:
@@ -1692,9 +1702,23 @@ span/test_port_mirroring.py:
 #######################################
 #####             ssh             #####
 #######################################
+ssh/test_ssh_ciphers.py:
+  skip:
+    reason: "Skip due to https://github.com/sonic-net/sonic-mgmt/issues/14091"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/14091
+      - "asic_type in ['mellanox']"
+
 ssh/test_ssh_default_password:
   skip:
     reason: "Skip because the default password test is no longer appropriate after password rotation."
+
+ssh/test_ssh_limit.py:
+  skip:
+    reason: "Skip due to https://github.com/sonic-net/sonic-mgmt/issues/14091"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/14091
+      - "asic_type in ['mellanox']"
 
 ssh/test_ssh_stress.py::test_ssh_stress:
   # This test is not stable, skip it for now.
