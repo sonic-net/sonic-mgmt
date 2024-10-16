@@ -151,7 +151,7 @@ steps:
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
           set -ex
-          curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
+          curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./test_plan.py
         displayName: "Download test plan script"
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download pr_test_scripts.yaml
@@ -159,11 +159,11 @@ steps:
 
           # If public build image repo, download pr test scripts from public sonic-mgmt repo
           if [[ "$(BUILD.REPOSITORY.NAME)" = "sonic-net/sonic-buildimage" ]]; then
-            curl "${{ parameters.MGMT_URL }}/${{ parameters.MGMT_BRANCH }}/.azure-pipelines/pr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+            curl "${{ parameters.MGMT_URL }}/${{ parameters.MGMT_BRANCH }}/.azure-pipelines/pr_test_scripts.yaml" -o ./pr_test_scripts.yaml
 
           # Else, internal build image repo, download from internal sonic-mgmt repo
           else
-            curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+            curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./pr_test_scripts.yaml
           fi
         displayName: "Download pr script"
   - ${{ else }}:
@@ -171,7 +171,7 @@ steps:
           - script: |
               # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
               set -ex
-              curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
+              curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./test_plan.py
             displayName: "Download test plan script"
 
   - script: |
@@ -196,7 +196,7 @@ steps:
 
         rm -f new_test_plan_id.txt
 
-        python ./.azure-pipelines/test_plan.py create \
+        python ./test_plan.py create \
         -t ${{ parameters.TOPOLOGY }} \
         -o new_test_plan_id.txt \
         --min-worker ${{ parameters.MIN_WORKER }} \
@@ -265,7 +265,7 @@ steps:
             echo -e "\033[33mfor detailed test plan progress \033[0m"
             # When "LOCK_TESTBED" finish, it changes into "PREPARE_TESTBED"
             echo "[test_plan.py] poll LOCK_TESTBED status"
-            python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state LOCK_TESTBED
+            python ./test_plan.py poll -i $TEST_PLAN_ID --expected-state LOCK_TESTBED
             RET=$?
             if [ $RET -ne 0 ]; then
                 ((failure_count++))
@@ -299,7 +299,7 @@ steps:
             echo -e "\033[33mfor detailed test plan progress \033[0m"
             # When "PREPARE_TESTBED" finish, it changes into "EXECUTING"
             echo "[test_plan.py] poll PREPARE_TESTBED status"
-            python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state PREPARE_TESTBED
+            python ./test_plan.py poll -i $TEST_PLAN_ID --expected-state PREPARE_TESTBED
             RET=$?
             if [ $RET -ne 0 ]; then
                 ((failure_count++))
@@ -332,7 +332,7 @@ steps:
             echo -e "\033[33mfor detailed test plan progress \033[0m"
             # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
             echo "[test_plan.py] poll EXECUTING status, timeout 22 hours"
-            python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }} --timeout 79200
+            python ./test_plan.py poll -i $TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }} --timeout 79200
             RET=$?
             # RC==2 means polling test plan timeout, do not consider it as failure so far
             if [ $RET -ne 0 ] && [ $RET -ne 2 ]; then
@@ -368,7 +368,7 @@ steps:
                 echo -e "\033[33mfor detailed test plan progress \033[0m"
                 # When "KVMDUMP" finish, it changes into "FAILED", "CANCELLED" or "FINISHED"
                 echo "##[group][test_plan.py] poll KVMDUMP status"
-                python ./.azure-pipelines/test_plan.py poll -i $TEST_PLAN_ID --expected-state KVMDUMP
+                python ./test_plan.py poll -i $TEST_PLAN_ID --expected-state KVMDUMP
             done
 
         condition: succeededOrFailed()
@@ -394,7 +394,7 @@ steps:
         IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
         for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
         do
-            python ./.azure-pipelines/test_plan.py cancel -i $TEST_PLAN_ID
+            python ./test_plan.py cancel -i $TEST_PLAN_ID
         done
     condition: always()
     displayName: "Finalize running test plan"
