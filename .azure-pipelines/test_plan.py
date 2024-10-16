@@ -20,6 +20,7 @@ MGMT_REPO_FLAG = "sonic-mgmt"
 INTERNAL_REPO_LIST = ["Networking-acs-buildimage", "sonic-mgmt-int", "sonic-metadata"]
 GITHUB_SONIC_MGMT_REPO = "https://github.com/sonic-net/sonic-mgmt"
 INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mgmt-int"
+INTERNAL_SONIC_METADATA_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-metadata"
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
@@ -301,6 +302,10 @@ class TestPlanManager(object):
                     "repo_url": sonic_mgmt_repo_url,
                     "branch": kwargs["mgmt_branch"],
                     "pull_request_id": sonic_mgmt_pull_request_id
+                },
+                "sonic_metadata": {
+                    "repo_url": INTERNAL_SONIC_METADATA_REPO,
+                    "branch": "master",
                 },
                 "common_param": common_extra_params,
                 "specific_param": kwargs.get("specific_param", []),
