@@ -37,17 +37,17 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw2-can-t0-7260-2, testbed-bjw2-can-t0-7260-1"
+    default: "testbed-bjw-can-t0-7260-11"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202311)
+    default: $(IMAGE_BRCM_ABOOT_202305)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202311
+    default: internal-202305
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -68,12 +68,12 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "sub_port_interfaces"
+    default: "pfc_asym, span, sub_port_interfaces, metadata-scripts"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_202311)"
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -89,7 +89,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7260cx3.t0.202311.NightlyTest_by_Elastictest
+    displayName: 7260cx3.t0.202305.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -105,4 +105,3 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-
