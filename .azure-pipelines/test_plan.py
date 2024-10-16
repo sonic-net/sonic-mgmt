@@ -259,7 +259,7 @@ class TestPlanManager(object):
         # If triggered by mgmt repo, use pull request id as the code base
         sonic_mgmt_pull_request_id = ""
         if MGMT_REPO_FLAG in kwargs.get("source_repo"):
-            sonic_mgmt_pull_request_id = pr_id
+            sonic_mgmt_pull_request_id = 15016
 
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id

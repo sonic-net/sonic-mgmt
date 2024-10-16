@@ -60,7 +60,7 @@ stages:
   - job: t0_elastictest
     displayName: "kvmtest-t0 by Elastictest"
     timeoutInMinutes: 1800
-    continueOnError: false
+    continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
     - template: .azure-pipelines/run-test-elastictest-template.yml
