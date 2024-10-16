@@ -374,7 +374,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=-1, expected_state="", expected_result=None):
+    def poll(self, test_plan_id, interval=1800, timeout=-1, expected_state="", expected_result=None):
         print("Polling progress and status of test plan at {}/scheduler/testplan/{}"
               .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
@@ -503,7 +503,11 @@ class TestPlanManager(object):
                                                     test_plan_id))
 
                     print("Current step status is {}".format(step_status))
-                    return
+                    # Check if the function has been running for more than 24 hours
+                    # Make run to hit 24h token issue
+                    if time.time() - start_time > 24 * 3600:  # 24 hours in seconds
+                        print("The function has been running for more than 24 hours.")
+                        return
                 else:
                     print("Current test plan state is {}, waiting for the expected state {}".format(current_tp_status,
                                                                                                     expected_state))
