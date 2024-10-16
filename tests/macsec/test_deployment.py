@@ -25,6 +25,7 @@ class TestDeployment():
         # Recover the original config file
         duthost.shell("sudo cp config_db.json /etc/sonic/config_db.json")
 
+    # Test to try and delete and add an in use policy
     def test_delete_add_policy(self, macsec_duthost, ctrl_links, profile_name, default_priority,
                                cipher_suite, primary_cak, primary_ckn, policy, rekey_period):
         port_name, nbr = list(ctrl_links.items())[0]
