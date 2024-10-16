@@ -341,9 +341,9 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac:
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress:
   skip:
-    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    reason: "Need to skip for platform armhf-nokia_ixs7215_52x-r0 due to buffer issues"
     conditions:
-      - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover]:
   skip:
