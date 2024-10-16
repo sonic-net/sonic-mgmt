@@ -75,6 +75,10 @@ parameters:
     type: string
     default: ""
 
+  - name: KVM_BUILD_ID
+    type: string
+    default: ""
+  
   - name: FEATURES
     type: string
     default: ""
@@ -149,9 +153,14 @@ parameters:
 steps:
   - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
       - script: |
-          # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
+          # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py
           set -ex
-          curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
+          # If sonic-metadata repo, need to download test_plan.py from sonic-mgmt-int
+          if [[ "${{ variables['BUILD.REPOSITORY.NAME'] }}" == *"sonic-metadata"* ]]; then
+            curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Ftest_plan.py" -o ./.azure-pipelines/test_plan.py
+          else
+            curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
+          fi
         displayName: "Download test plan script"
       - script: |
           # If not sonic-mgmt/sonic-mgmt-int repo, need to download pr_test_scripts.yaml
@@ -203,7 +212,7 @@ steps:
         --max-worker ${{ parameters.MAX_WORKER }} \
         --lock-wait-timeout-seconds ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }} \
         --test-set ${{ parameters.TEST_SET }} \
-        --kvm-build-id $(KVM_BUILD_ID) \
+        --kvm-build-id ${{ parameters.KVM_BUILD_ID }} \
         --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
         --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
         --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
