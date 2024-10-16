@@ -58,7 +58,7 @@ stages:
 
   jobs:
   - job: t0_elastictest
-    displayName: "kvmtest-t0 by Elastictest"
+    displayName: "kvmtest-t0 by Elastictest (need to run over 24h)"
     timeoutInMinutes: 1800
     continueOnError: true
     pool: sonic-ubuntu-1c
