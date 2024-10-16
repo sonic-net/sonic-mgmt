@@ -10,6 +10,6 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def test_postupgrade_actions(duthosts, rand_one_dut_hostname, tbinfo):
+def test_postupgrade_actions(duthosts, localhost, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    run_postupgrade_actions(duthost, tbinfo, True, False)
+    run_postupgrade_actions(duthost, localhost, tbinfo, True, False)

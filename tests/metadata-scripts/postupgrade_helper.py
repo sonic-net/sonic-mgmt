@@ -19,13 +19,16 @@ def _failed_due_to_isc_dhcp_relay_fix_server_inaccessible(result) -> bool:
     return rc_matches and stderr_matches
 
 
-def run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_actions):
+def run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions):
     if not metadata_process:
         return
     if skip_postupgrade_actions:
         logger.info("Skipping postupgrade_actions")
         return
     base_path = os.path.dirname(__file__)
+    metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
+    pytest_assert(os.path.exists(metadata_scripts_path), "SONiC Metadata scripts not found in {}"
+            .format(metadata_scripts_path))
     postupgrade_actions_data_dir_path = os.path.join(base_path, "../../../sonic-metadata/scripts/postupgrade_actions_data")
     postupgrade_actions_path = os.path.join(base_path, "../../../sonic-metadata/scripts/postupgrade_actions")
     pytest_assert(os.path.exists(postupgrade_actions_path), "SONiC Metadata postupgrade_action script not found in {}"
@@ -37,6 +40,7 @@ def run_postupgrade_actions(duthost, tbinfo, metadata_process, skip_postupgrade_
     duthost.file(path="/tmp/anpscripts", state="absent")
     duthost.file(path="/tmp/anpscripts", state="directory")
     metadata_tar_stat = duthost.stat(path="/host/metadata.tar.gz")
+    localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
     if metadata_tar_stat["stat"]["exists"]:
         duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
         duthost.file(path="/host/metadata.tar.gz", state="absent")
