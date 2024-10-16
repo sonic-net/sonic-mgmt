@@ -1156,7 +1156,7 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
                     validate_traffic(ptfadapter, [traffic_data_ipv4_drop, traffic_data_ipv6_drop], router_mac,
                                      ptf_interfaces, recv_port)
 
-                with allure.step("Validate static route traffic could be forwarded to Downstream VM"):
+                with allure.step("Validate static route traffic is received back to Upstream VM"):
                     static_routes = generate_routes(STATIC_ROUTE_PREFIX)
                     static_traffic_data = [generate_traffic_data(static_routes, FORWARD)[0]]
                     static_ptf_recvport = {4: ptf_interfaces}
