@@ -919,7 +919,7 @@ if __name__ == "__main__":
         "--interval",
         type=int,
         required=False,
-        default=60,
+        default=600,
         dest="interval",
         help="Polling interval. Default 60 seconds."
     )
