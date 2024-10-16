@@ -28,12 +28,12 @@ parameters:
   - name: TOPOLGY_TYPE
     type: string
     default: 'dualtor'
-    displayName: "Topology Type, t0, t1 or dualtor"
+    displayName: "Topology Type, t0, t1, mx or dualtor"
 
   - name: BRANCH
     type: string
     default: 'All'
-    displayName: "Branch name, 20230531, 20231105, 20231110"
+    displayName: "Branch name, 20230531, 20231110, 20240531"
 
   - name: BUILD_ID
     type: string
