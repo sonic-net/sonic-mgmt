@@ -70,7 +70,7 @@ t0:
   - generic_config_updater/test_ecn_config_update.py
   - generic_config_updater/test_eth_interface.py
   - generic_config_updater/test_incremental_qos.py
-  - generic_config_updater/test_ipv6.py
+  - generic_config_updater/test_ip_bgp.py
   - generic_config_updater/test_kubernetes_config.py
   - generic_config_updater/test_lo_interface.py
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
@@ -253,6 +253,7 @@ dualtor:
   - dualtor_mgmt/test_ingress_drop.py
   - dualtor_mgmt/test_server_failure.py
   - dualtor_mgmt/test_toggle_mux.py
+  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
 
 t1-lag:
   - acl/test_acl.py
@@ -342,7 +343,7 @@ t1-lag:
   - generic_config_updater/test_cacl.py
   - generic_config_updater/test_ecn_config_update.py
   - generic_config_updater/test_eth_interface.py
-  - generic_config_updater/test_ipv6.py
+  - generic_config_updater/test_ip_bgp.py
   - generic_config_updater/test_kubernetes_config.py
   - generic_config_updater/test_monitor_config.py
   - generic_config_updater/test_ntp.py
@@ -465,8 +466,6 @@ onboarding_t1:
   - snmp/test_snmp_link_local.py
   - lldp/test_lldp_syncd.py
 
-onboarding_dualtor:
-  - dualtor_mgmt/test_dualtor_bgp_update_delay.py
 
 specific_param:
   t0-sonic:
