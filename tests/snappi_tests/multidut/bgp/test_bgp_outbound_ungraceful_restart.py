@@ -184,11 +184,11 @@ def test_bgp_outbound_downlink_ungraceful_restart(snappi_api,                   
 
 
 def test_bgp_outbound_supervisor_ungraceful_restart(snappi_api,                                     # noqa: F811
-                                                  multidut_snappi_ports_for_bgp,                  # noqa: F811
-                                                  conn_graph_facts,                             # noqa: F811
-                                                  fanout_graph_facts_multidut,                  # noqa: F811
-                                                  duthosts,
-                                                  creds):                                # noqa: F811
+                                                    multidut_snappi_ports_for_bgp,                  # noqa: F811
+                                                    conn_graph_facts,                             # noqa: F811
+                                                    fanout_graph_facts_multidut,                  # noqa: F811
+                                                    duthosts,
+                                                    creds):                                # noqa: F811
 
     """
     Gets the packet loss duration on issuing ungraceful restart in supervisor

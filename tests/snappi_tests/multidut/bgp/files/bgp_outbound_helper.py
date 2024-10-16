@@ -1432,7 +1432,8 @@ def exec_tsa_tsb_cmd(duthost, creds, tsa_tsb_cmd, is_supervisor):
             sonic_username = creds['sonicadmin_user']
             sonic_password = creds['sonicadmin_password']
             logger.info('sonic-username: {}, sonic_password: {}'.format(sonic_username, sonic_password))
-            ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {}@{}".format(sonic_username, dut_ip)
+            ssh_cmd = "ssh -o UserKnownHostsFile=/dev/null -o \
+                       StrictHostKeyChecking=no {}@{}".format(sonic_username, dut_ip)
             connect = pexpect.spawn(ssh_cmd)
             time.sleep(10)
             connect.expect('.*[Pp]assword:')
