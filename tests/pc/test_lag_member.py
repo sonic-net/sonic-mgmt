@@ -10,7 +10,7 @@ from collections import Counter
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_acstests_directory, copy_ptftests_directory, copy_arp_responder_py   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_acstests_directory # noqa F401
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -346,7 +346,7 @@ def get_vlan_id(cfg_facts, number_of_lag_member):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfhost):
+def common_setup_teardown(copy_acstests_directory, ptfhost):  # noqa: F811
     logger.info("########### Setup for lag testing ###########")
 
     yield ptfhost
