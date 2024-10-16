@@ -192,6 +192,9 @@ steps:
       inlineScript: |
         set -e
 
+        echo "sleep 1 hour..."
+        sleep 3600
+
         pip install PyYAML
 
         rm -f new_test_plan_id.txt
