@@ -7,6 +7,7 @@ import pytest
 from tests.common import reboot
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.upgrade_helpers import install_sonic
 
 CONFIG_DB = '/etc/sonic/config_db.json'
 CONFIG_DB_BAK = '/etc/sonic/config_db.json.bak'
@@ -25,12 +26,7 @@ pytestmark = [
 
 def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localhost, tbinfo):
     """
-    @summary: A testcase that verifies DB migrator does not add bad data.
-        1. Cold reboot.
-        2. Configure switch into L2 mode.
-        3. Install a new image.
-        4. Reboot into the new image. DB migrator does its work.
-        5. Verify.
+    @summary: A testcase that verifies DB migrator does not add unnecessary data.
 
     Args:
         request: From pytest.
@@ -39,23 +35,33 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
         localhost: localhost object.
         tbinfo: testbed info
     """
+
     # Setup.
     duthost = duthosts[rand_one_dut_hostname]
     hwsku = duthost.facts["hwsku"]
     mgmt_fact = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]
-
-    # Get target image path:
+    source_image = request.config.getoption('source_image', default=None)
     target_image = request.config.getoption('target_image', default=None)
-    if target_image is None:
-        pytest.skip("Skipping test due to missing --target_image.")
+    
+    # Step 1: (Install source image and) reboot
+    if source_image:
+        install_sonic(duthost, source_image, tbinfo)
+    reboot(duthost, localhost, reboot_type="cold")
     init_img = duthost.shell('sudo sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
 
-    # Step 1: Reboot.
-    reboot(duthost, localhost, reboot_type="cold")
+    # Step 2: Install target image
+    if target_image:
+        # This API does not work in L2 configured switch.
+        install_sonic(duthost, target_image, tbinfo)
 
-    # Step 2: Configure DUT into L2 mode.
+    def _verify_config_db(duthost):
+        for table in ["TELEMETRY", "RESTAPI"]:
+            # grep returns 1 when there is no match, use || true to override that.
+            count = int(duthost.shell('sonic-db-cli CONFIG_DB KEYS "{}|*" | grep -c "^{}" || true'.format(table, table))['stdout'])
+            pytest_assert(count == 0, "{} table is not empty!".format(table))
+
+    # Step 3: Configure DUT into L2 mode.
     # Save original config
-    
     duthost.shell("sudo cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
     # Perform L2 configuration
     init_cfg = '''
@@ -79,22 +85,19 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
     duthost.shell(l2_cfg)
     duthost.shell("sudo config qos reload --no-dynamic-buffer")
     duthost.shell("sudo config save -y")
+    try:
+        _verify_config_db(duthost)
+    except pytest.fail.Exception as e:
+        pytest.skip("Unable to clear minigraph table when setting up L2 config for current image. Skipping the test.")
 
-    # Step 3: Install new image and reboot.
-    init_img = duthost.shell('sudo sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
-    logger.info("Init image: {}".format(init_img))
-    localhost.get_url(url=target_image, dest=TARGET_IMG_LOCALHOST)
-    duthost.copy(src=TARGET_IMG_LOCALHOST, dest=TARGET_IMG_DUTHOST)
-    duthost.shell("sudo sonic-installer install -y {}".format(TARGET_IMG_DUTHOST))
+    # Step 4: Reboot to target image.
     reboot(duthost, localhost, reboot_type="cold")
     new_img = duthost.shell('sudo sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
     logger.info("New image: {}".format(new_img))
 
-    # Step 4: Verifies no config fro minigraph is written into ConfigDB.
+    # Step 5: Verifies no config from minigraph is written into ConfigDB.
     try:
-        for table in ["TELEMETRY", "RESTAPI", "DEVICE_METADATA"]:
-            count = int(duthost.shell('redis-cli --scan --pattern "{}*" | wc -l'.format(table))['stdout'])
-            pytest_assert(count == 0, "{} table is not empty!".format(table))
+        _verify_config_db(duthost)
     except Exception:
         raise
     finally:

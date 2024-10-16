@@ -9,3 +9,10 @@ def pytest_addoption(parser):
         default="",
         help="Specify a target image for upgrade",
         )
+    parser.addoption(
+        "--source_image",
+        action="store",
+        default="",
+        help="Specify a target image for upgrade",
+        )
+
