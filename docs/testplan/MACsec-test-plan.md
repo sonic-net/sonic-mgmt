@@ -33,7 +33,6 @@
     - [Config reload done on DUT with macsec configuration](#config-reload-done-on-dut-with-macsec-configuration)
     - [Everflow, port mirroring on macsec enabled interfaces](#everflow-port-mirroring-on-macsec-enabled-interfaces)
   - [Testcase : Macsec scenario's for multi-asic, multi-dut](#testcase--macsec-scenarios-for-multi-asic-multi-dut)
-  - [Testcase : Macsec docker restart](#testcase--macsec-docker-restart)
   - [Testcase : Scale tests](#testcase--scale-tests)
     - [Large number of interfaces having macsec enabled on the DUT/linecard](#large-number-of-interfaces-having-macsec-enabled-on-the-dutlinecard)
     - [Simultaneous rekeying in all macsec sessions](#simultaneous-rekeying-in-all-macsec-sessions)
@@ -493,10 +492,6 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 
 - Verify deleting an in use policy fails
 - Verify adding an already configured policy fails
-
-### Testcase : Macsec docker restart
-
-- Verify that macsec sessions are restored when macsec docker containers are restarted
 
 ### Testcase : Scale tests
 
