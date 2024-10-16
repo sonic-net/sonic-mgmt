@@ -1,0 +1,21 @@
+steps:
+- task: AzureCLI@2
+  displayName: Analyze Test Results
+  inputs:
+    azureSubscription: "SONiC-Automation"
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+
+      accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+      export ACCESS_TOKEN=$accessToken
+
+      TEST_PLAN_ID=$(cat new_test_plan_id.txt)
+      cd .azure-pipelines/repo_mgmt/
+      python3 elastictest_analyze_test_results.py -i $TEST_PLAN_ID --min-passing-rate ${{ parameters.MIN_PASSING_RATE }} --passing-rate-tolerance ${{ parameters.PASSING_RATE_TOLERANCE }}
+
+  env:
+    ELASTICTEST_COMMUNITY_URL: $(ELASTICTEST_COMMUNITY_URL)
+    TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+
+  condition: always()

@@ -1,0 +1,31 @@
+steps:
+- checkout: self
+  persistCredentials: true
+
+- script: |
+    set -xe
+
+    if [[ "${{ parameters.SKIP_MERGE_GITHUB }}" == "False" ]]; then
+      git gc --auto || true
+
+      if [[ ${{ parameters.FORCE_PUSH }} == "YES"  ]]; then
+        force_push="--force"
+      else
+        force_push=""
+      fi
+
+      git config --global user.email "mssonic@microsoft.com"
+      git config --global user.name "Build Service Account"
+
+      git branch -D ${{ parameters.MGMT_BRANCH }} || true
+      git checkout -b ${{ parameters.MGMT_BRANCH }} origin/${{ parameters.MGMT_BRANCH }}
+
+      git fetch origin
+      git merge origin/internal    # Pick up PRs merged to internal after the internal-stage branch was updated.
+
+      # git push $force_push origin HEAD:internal
+    else
+      echo "Skip merge github"
+      exit 0
+    fi
+  displayName: Push sonic-mgmt

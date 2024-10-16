@@ -1,0 +1,135 @@
+name: SmokeTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+
+schedules:
+  - cron: "0 3 * * 0-5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+    displayName: "AGENT POOL"
+
+  - name: TESTBED_NAME
+    type: string
+    default: "testbed-bjw2-can-t0-8102-5,testbed-bjw2-can-t0-8102-6"
+    displayName: "Testbed Name"
+
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_CISCO_INTERNAL)
+    displayName: "Image URL"
+
+  - name: MGMT_BRANCH
+    type: string
+    default: internal-stage
+
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
+  - name: SCRIPTS
+    type: string
+    default: " "
+    displayName: "Scripts to be executed"
+
+  - name: FEATURES
+    type: string
+    default: " "
+    displayName: "Features to be executed"
+
+  # Custom skip scripts
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: " "
+    displayName: "Scripts to be excluded"
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: "platform_tests,sub_port_interfaces,qos,pfc_asym"
+    displayName: "Features to be excluded"
+
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_INTERNAL)"
+    displayName: "Common test parameters"
+
+  # Test timeout
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 3600
+
+  - name: MIN_PASSING_RATE
+    type: number
+    default: 60
+    displayName: "Minimum passing rate"
+
+  - name: PASSING_RATE_TOLERANCE
+    type: number
+    default: 3
+    displayName: "Allowed passing rate drop"
+
+  # Sometimes we may just want to run a smoke test to see if the new changes from Github do not break anything,
+  # then we can specify this parameter to
+  - name: SKIP_MERGE_GITHUB
+    type: boolean
+    default: false
+
+stages:
+- stage: Test
+
+  variables:
+    - group: SONiC-Elastictest
+    - group: KUSTO_SECRETS
+
+  jobs:
+  - job: SmokeTest
+    displayName: 8102.t0.SmokeTest_by_Elastictest
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    continueOnError: false
+    pool: ${{ parameters.AGENT_POOL }}
+    steps:
+    - template: ../../run-test-nightly-elastictest-template.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        SCRIPTS: ${{ parameters.SCRIPTS }}
+        FEATURES: ${{ parameters.FEATURES }}
+        SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+        FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+
+    - template: ../../repo_mgmt/elastictest-analyze-test-results.yml
+      parameters:
+        MIN_PASSING_RATE: ${{ parameters.MIN_PASSING_RATE }}
+        PASSING_RATE_TOLERANCE: ${{ parameters.PASSING_RATE_TOLERANCE }}
+
+    - template: ../../repo_mgmt/push-sonic-mgmt.yml
+      parameters:
+        SKIP_MERGE_GITHUB: ${{ parameters.SKIP_MERGE_GITHUB }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        FORCE_PUSH: NO
