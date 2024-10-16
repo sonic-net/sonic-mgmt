@@ -114,15 +114,15 @@ def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
         if ipv6:
             local_addrs.append(t1_ipv6_pattern.format(idx * 2))
             neighbor_addrs.append(t1_ipv6_pattern.format(idx * 2 + 1))
-            neighbor_devs.append(neighbor_intfs[index])
-            ptf_devs.append(ptf_intfs[index])
+            neighbor_devs.append(neighbor_intfs[index % len(neighbor_intfs)])
+            ptf_devs.append(ptf_intfs[index % len(ptf_intfs)])
         else:
             rolloveridx = idx % 125
             idx2 = idx // 125
             local_addrs.append(t1_ipv4_pattern.format(idx2, rolloveridx * 2))
             neighbor_addrs.append(t1_ipv4_pattern.format(idx2, rolloveridx * 2 + 1))
-            neighbor_devs.append(neighbor_intfs[index])
-            ptf_devs.append(ptf_intfs[index])
+            neighbor_devs.append(neighbor_intfs[index % len(neighbor_intfs)])
+            ptf_devs.append(ptf_intfs[index % len(ptf_intfs)])
     prefix = 127 if ipv6 else 31
     return local_addrs, prefix, neighbor_addrs, neighbor_devs, ptf_devs
 
