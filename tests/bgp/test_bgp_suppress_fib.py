@@ -691,6 +691,8 @@ def validate_route_states(duthost, ipv4_route_list, ipv6_route_list, exabgp_port
     """
     Verify ipv4 and ipv6 routes install status
     On a Multi-Asic and Environment as well
+    verify_suppress_oth_asic : To Verify that the other asic has no routes with supress enable
+    verify_oth_asic: To Verify that the other asic has same routes.
     """
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     as_ns = asic_namespace
@@ -917,7 +919,6 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                 param_reboot(request, duthost_down, localhost)
                 if multi_dut:
                     param_reboot(request, duthost_up, localhost)
-                    logger.debug("dd")
             for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
                 try:
                     with allure.step("Suspend orchagent process to simulate a route install delay"):
