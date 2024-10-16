@@ -1847,6 +1847,9 @@ class QosSaiBase(QosBase):
                     duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
                         "stdout_lines"][0]
             except IndexError:
+                logger.info(
+                    "Couldnot get the ipv6 address for docker0 for the"
+                    " host:{}".format(duthost.hostname))
                 all_docker0_ipv6_addrs[duthost.hostname] = None
 
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
