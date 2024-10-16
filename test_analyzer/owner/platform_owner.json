@@ -330,24 +330,24 @@
     {
         "hwsku": "Mellanox-SN4700-O8C48",
         "topo": "t1",
-        "owner": "Shahzad Iqbal",
-        "email": "shahzadiqbal@microsoft.com",
+        "owner": "Yan Mo",
+        "email": "yanmo@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
     {
         "hwsku": "Mellanox-SN4700-O8V48",
         "topo": "t0",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Yan Mo",
+        "email": "yanmo@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
     {
         "hwsku": "Mellanox-SN4700-O28",
         "topo": "t1",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Yan Mo",
+        "email": "yanmo@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
@@ -362,8 +362,8 @@
     {
         "hwsku": "Mellanox-SN4700-V64",
         "topo": "dualtor",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Yan Mo",
+        "email": "yanmo@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },

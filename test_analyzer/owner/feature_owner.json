@@ -718,8 +718,8 @@
                 "scripts": [
                     "ip.test_mgmt_ipv6_only"
                 ],
-                "owner": "Jianqun Ye",
-                "email": "jianquanye@microsoft.com"
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
             }
         ]
     },
