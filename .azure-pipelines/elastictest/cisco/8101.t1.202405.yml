@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 9 * * 1"
+  - cron: "0 9 * * 3,5,0"
     displayName: Nightly Scheduler
     branches:
       include:

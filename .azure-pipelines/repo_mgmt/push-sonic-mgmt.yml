@@ -1,7 +1,4 @@
 steps:
-- checkout: self
-  persistCredentials: true
-
 - script: |
     set -xe
 

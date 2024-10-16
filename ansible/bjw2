@@ -769,6 +769,19 @@ sonic_cisco_8102:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x400C319E"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     bjw2-can-8102-2:
       ansible_host: 10.150.22.45
       ansible_hostv6: 2404:f801:10:2200::a96:162d
@@ -787,6 +800,19 @@ sonic_cisco_8102:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x0D5C960E"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     bjw2-can-8102-3:
       ansible_host: 10.150.22.47
       ansible_hostv6: 2404:f801:10:2200::a96:162f
@@ -805,6 +831,19 @@ sonic_cisco_8102:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xF25D05E6"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     bjw2-can-8102-4:
       ansible_host: 10.150.22.49
       ansible_hostv6: 2404:f801:10:2200::a96:1631
@@ -823,6 +862,19 @@ sonic_cisco_8102:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xDA497DEF"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     bjw2-can-8102-5:
       ansible_host: 10.150.22.51
       ansible_hostv6: 2404:f801:10:2200::a96:1633
@@ -841,6 +893,19 @@ sonic_cisco_8102:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xCF1C5351"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     bjw2-can-8102-6:
       ansible_host: 10.150.22.53
       ansible_hostv6: 2404:f801:10:2200::a96:1635
@@ -859,6 +924,19 @@ sonic_cisco_8102:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x21A605A2"
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
 
 
 sonic_mlnx_sn4600c:
