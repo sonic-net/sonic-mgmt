@@ -60,6 +60,7 @@ ANNOUNCE = 'announce'
 DEFAULT = "default"
 IP_VER = 4
 QUEUED = "queued"
+EMPTY = "empty"
 ACTION_IN = "in"
 ACTION_NOT_IN = "not"
 ACTION_STOP = "stop"
@@ -685,8 +686,11 @@ def check_route_status(duthost, route, check_field, vrf=DEFAULT, ip_ver=IP_VER, 
     Get 'offloaded' or 'queu' value of specific route
     """
     out = get_vrf_route_json(duthost, route, vrf, ip_ver, asic_namespace)
-    if out == '{}':
-        return False
+    if not out:
+        if check_field == EMPTY:
+            return False is expect_status
+        else:
+            return False
     check_field_status = out[route][0].get(check_field, None)
     if check_field_status:
         logging.info("Route:{} - {} status:{} - expect status:{}"
