@@ -9,47 +9,85 @@
 
 - name: Set SONiC backplane port name
   set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int + 1 }}"
+  when: '"hwsku" not in configuration[hostname]'
+
+- name: Set SONiC backplane port name for cisco-8101-p4-32x100-vs
+  set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int *4 }}"
+  when: '"hwsku" in configuration[hostname] and  configuration[hostname]["hwsku"]=="cisco-8101-p4-32x100-vs"'
 
 - set_fact:
     mgmt_ip: "{{ ansible_host }}/{{ mgmt_prefixlen }}"
     mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
 
-- name: create mgmt config
-  template: src="configdb-mgmt.j2"
-            dest=config-mgmt.json
-  when: hostname in configuration
+- name: create config via mininet config
+  block:
+  - name: create mgmt config
+    template: src="configdb-mgmt.j2"
+              dest=config-mgmt.json
 
-- name: create device metadata config
-  shell: >
-          sonic-cfggen -H -k Force10-S6000 --preset empty
-          | jq '.DEVICE_METADATA.localhost.hostname="{{ hostname }}"'
-          | jq '.DEVICE_METADATA.localhost.bgp_asn="{{ configuration[hostname]['bgp']['asn'] }}"'
-          | jq '.DEVICE_METADATA.localhost.deployment_id="1"'
-          > config-metadata.json
-  when: hostname in configuration
+  - name: create device metadata config for {{ configuration[hostname]['hwsku'] }}
+    shell: >
+            sonic-cfggen -H -k  {{ configuration[hostname]['hwsku'] }} --preset empty
+            | jq '.DEVICE_METADATA.localhost.hostname="{{ hostname }}"'
+            | jq '.DEVICE_METADATA.localhost.bgp_asn="{{ configuration[hostname]['bgp']['asn'] }}"'
+            | jq '.DEVICE_METADATA.localhost.deployment_id="1"'
+            > config-metadata.json
+    when: '"hwsku" in configuration[hostname]'
 
-- name: create interface config
-  shell: >
-          sonic-cfggen -p /usr/share/sonic/device/x86_64-kvm_x86_64-r0/SONiC-VM/port_config.ini -k SONiC-VM --print-data
-          | jq '.PORT[].admin_status |= "up"'
-          > config-port.json
-  when: hostname in configuration
+  - name: create device metadata config
+    shell: >
+            sonic-cfggen -H -k Force10-S6000 --preset empty
+            | jq '.DEVICE_METADATA.localhost.hostname="{{ hostname }}"'
+            | jq '.DEVICE_METADATA.localhost.bgp_asn="{{ configuration[hostname]['bgp']['asn'] }}"'
+            | jq '.DEVICE_METADATA.localhost.deployment_id="1"'
+            > config-metadata.json
+    when: '"hwsku" not in configuration[hostname]'
 
-- name: create topo config
-  template: src="configdb.j2"
-            dest=config-topo.json
-  when: hostname in configuration
+  - name: create interface config for {{ configuration[hostname]['hwsku'] }}
+    shell: >
+            sonic-cfggen -p /usr/share/sonic/device/x86_64-kvm_x86_64-r0/{{ configuration[hostname]['hwsku'] }}/port_config.ini -k {{ configuration[hostname]['hwsku'] }} --print-data
+            | jq '.PORT[].admin_status |= "up"'
+            > config-port.json
+    when: '"hwsku" in configuration[hostname]'
 
-- name: create config db json
-  shell: |
-          set -e
-          sonic-cfggen -j config-mgmt.json -j config-metadata.json -j config-port.json -j config-topo.json --print-data > /etc/sonic/config_db.json
-          rm -f config-mgmt.json config-metadata.json config-port.json config-topo.json
-  become: yes
-  when: hostname in configuration
-  notify:
-    - Update config db
-    - wait for SONiC update config db to finish
+  - name: create interface config
+    shell: >
+            sonic-cfggen -p /usr/share/sonic/device/x86_64-kvm_x86_64-r0/SONiC-VM/port_config.ini -k SONiC-VM --print-data
+            | jq '.PORT[].admin_status |= "up"'
+            > config-port.json
+    when: '"hwsku" not in configuration[hostname]'
+
+  - name: create topo config
+    template: src="configdb.j2"
+              dest=config-topo.json
+
+  - name: create config db json
+    shell: |
+            set -e
+            sonic-cfggen -j config-mgmt.json -j config-metadata.json -j config-port.json -j config-topo.json --print-data > /etc/sonic/config_db.json
+            rm -f config-mgmt.json config-metadata.json config-port.json config-topo.json
+    become: yes
+    notify:
+      - Update config db
+      -  wait for SONiC update config db to finish
+  when: hostname in configuration and "cfg_file_loc" not in configuration[hostname]
+
+- name: Update config via provided json
+  block:
+    - name: Get playbook directory
+      debug:
+        msg: "The playbook dir {{ playbook_dir }}"
+    - name: Copy over config_db.json from file system
+      copy :
+        src: "{{ playbook_dir }}/{{ configuration[hostname].cfg_file_loc }}"
+        dest: /tmp/config_db.json
+    - name: Overwrite config_db.json
+      shell: cat /tmp/config_db.json > /etc/sonic/config_db.json
+      become: yes
+      notify:
+        - Update config db
+        - wait for SONiC update config db to finish
+  when: hostname in configuration and configuration[hostname]['cfg_file_loc'] is defined
 
 - name: Load PTF image
   block:
