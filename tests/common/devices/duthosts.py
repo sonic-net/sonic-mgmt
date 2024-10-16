@@ -5,6 +5,8 @@ from tests.common.devices.multi_asic import MultiAsicSonicHost
 from tests.common.helpers.parallel_utils import is_initial_checks_active
 
 logger = logging.getLogger(__name__)
+NON_INITIAL_CHECKS_STAGE = "non_initial_checks"
+INITIAL_CHECKS_STAGE = "initial_checks"
 
 
 class DutHosts(object):
@@ -62,7 +64,7 @@ class DutHosts(object):
         self.is_parallel_run = target_hostname is not None
         # TODO: Initialize the nodes in parallel using multi-threads?
         if self.is_parallel_run:
-            self.parallel_run_stage = "non_initial_checks"
+            self.parallel_run_stage = NON_INITIAL_CHECKS_STAGE
             self.target_hostname = target_hostname
             self.is_parallel_leader = is_parallel_leader
             self.__initialize_nodes_for_parallel()
@@ -111,17 +113,17 @@ class DutHosts(object):
     def __should_reinit_when_parallel(self):
         return (
             self.is_parallel_leader and (
-                self.parallel_run_stage == "initial_checks" and not is_initial_checks_active(self.request) or
-                self.parallel_run_stage == "non_initial_checks" and is_initial_checks_active(self.request)
+                self.parallel_run_stage == INITIAL_CHECKS_STAGE and not is_initial_checks_active(self.request) or
+                self.parallel_run_stage == NON_INITIAL_CHECKS_STAGE and is_initial_checks_active(self.request)
             )
         )
 
     def __reinit_nodes_for_parallel(self):
         if is_initial_checks_active(self.request):
-            self.parallel_run_stage = "initial_checks"
+            self.parallel_run_stage = INITIAL_CHECKS_STAGE
             self._nodes_for_parallel = self._nodes_for_parallel_initial_checks
         else:
-            self.parallel_run_stage = "non_initial_checks"
+            self.parallel_run_stage = NON_INITIAL_CHECKS_STAGE
             self._nodes_for_parallel = self._nodes_for_parallel_tests
 
         self._supervisor_nodes = self._Nodes([node for node in self._nodes_for_parallel if node.is_supervisor_node()])
