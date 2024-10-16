@@ -307,7 +307,7 @@ class TestPlanManager(object):
                 "specific_param": kwargs.get("specific_param", []),
                 "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
-                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
+                "max_execute_seconds": 108000,
                 "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
             },
             "type": test_plan_type,
@@ -374,7 +374,7 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=-1, expected_state="", expected_result=None):
+    def poll(self, test_plan_id, interval=1800, timeout=-1, expected_state="", expected_result=None):
         print("Polling progress and status of test plan at {}/scheduler/testplan/{}"
               .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
@@ -396,6 +396,8 @@ class TestPlanManager(object):
                     if self.with_auth:
                         headers["Authorization"] = "Bearer {}".format(self.get_token())
                     resp = requests.get(poll_url, headers=headers, timeout=10).json()
+                    print("request url: ", poll_url)
+                    print("response: ", resp)
                 except Exception as exception:
                     print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
                                                                                               str(exception)))
@@ -412,6 +414,8 @@ class TestPlanManager(object):
                 try:
                     resp = requests.get(poll_url_no_auth, headers={"Content-Type": "application/json"},
                                         timeout=10).json()
+                    print("request url: ", poll_url_no_auth)
+                    print("response: ", resp)
                 except Exception as e:
                     print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url_no_auth, resp,
                                                                                               repr(e)))
@@ -499,7 +503,14 @@ class TestPlanManager(object):
                                                     test_plan_id))
 
                     print("Current step status is {}".format(step_status))
-                    return
+                    # Check if the run test step has been running for more than 24 hours
+                    # Make run test to hit 24h token issue
+                    if expected_state == "EXECUTING":
+                        if time.time() - start_time > 24 * 3600:  # 24 hours in seconds
+                            print("Run test has been running for more than 24 hours.")
+                            return
+                    else:
+                        return
                 else:
                     print("Current test plan state is {}, waiting for the expected state {}".format(current_tp_status,
                                                                                                     expected_state))
