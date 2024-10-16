@@ -125,7 +125,7 @@ def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = "gnmi/gnmi_set -target_addr %s:%s " % (ip, port)
-    cmd += "-alsologtostderr -cert ./gnmiclient.crt -key ./gnmiclient.key -ca ./gnmiCA.pem -time_out 60s"
+    cmd += "-alsologtostderr -cert ./gnmiclient.crt -key ./gnmiclient.key -ca ./gnmiCA.pem -time_out 240s"
     for delete in delete_list:
         cmd += " -delete " + delete
     for update in update_list:
