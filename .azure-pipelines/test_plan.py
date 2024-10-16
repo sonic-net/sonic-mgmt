@@ -503,10 +503,13 @@ class TestPlanManager(object):
                                                     test_plan_id))
 
                     print("Current step status is {}".format(step_status))
-                    # Check if the function has been running for more than 24 hours
-                    # Make run to hit 24h token issue
-                    if time.time() - start_time > 24 * 3600:  # 24 hours in seconds
-                        print("The function has been running for more than 24 hours.")
+                    # Check if the run test step has been running for more than 24 hours
+                    # Make run test to hit 24h token issue
+                    if expected_state == "EXECUTING":
+                        if time.time() - start_time > 24 * 3600:  # 24 hours in seconds
+                            print("Run test has been running for more than 24 hours.")
+                            return
+                    else:
                         return
                 else:
                     print("Current test plan state is {}, waiting for the expected state {}".format(current_tp_status,
