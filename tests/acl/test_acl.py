@@ -1320,8 +1320,8 @@ class TestAclWithReboot(TestBasicAcl):
             pytest_assert(
                 wait_until(120, 10, 0, dut.check_bgp_session_state_all_asics, bgp_neighbors),
                 "Not all bgp sessions are established after reboot")
-            # Delay 5 seconds for route convergence
-            time.sleep(5)
+            # Delay 10 seconds for route convergence
+            time.sleep(10)
         # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
         if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
             interfaces = conn_graph_facts["device_conn"][dut.hostname]
