@@ -245,7 +245,7 @@ def check_sonic_installer(sonichost, sonic_username, sonic_password, sonic_ip, i
     client.expect("admin@{}'s password:".format(sonic_ip))
     client.sendline(sonic_password)
     client.expect(["admin@sonic", "admin@{}".format(sonichost.hostname)])
-    client.sendline("sudo sonic-installer install {}"
+    client.sendline("sudo sonic_installer install {}"
                     .format(image_url))
     client.expect("New image will be installed")
     client.close()

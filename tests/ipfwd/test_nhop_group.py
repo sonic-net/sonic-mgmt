@@ -16,8 +16,7 @@ from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.innovium_data import is_innovium_device
 from tests.common.utilities import wait_until
-from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link
-from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
 
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
@@ -595,27 +594,27 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                         45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
                         47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
-    gb_asic_flow_map = {0: 'c0:ff:ee:00:00:0b', 1: 'c0:ff:ee:00:00:11',
-                        2: 'c0:ff:ee:00:00:0c', 3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:10',
-                        5: 'c0:ff:ee:00:00:0b', 6: 'c0:ff:ee:00:00:0c',
-                        7: 'c0:ff:ee:00:00:0d', 8: 'c0:ff:ee:00:00:0f', 9: 'c0:ff:ee:00:00:12',
-                        10: 'c0:ff:ee:00:00:0b', 11: 'c0:ff:ee:00:00:10',
-                        12: 'c0:ff:ee:00:00:0d', 13: 'c0:ff:ee:00:00:0c',
+    gb_asic_flow_map = {0: 'c0:ff:ee:00:00:0c', 1: 'c0:ff:ee:00:00:0e',
+                        2: 'c0:ff:ee:00:00:11', 3: 'c0:ff:ee:00:00:0c', 4: 'c0:ff:ee:00:00:0e',
+                        5: 'c0:ff:ee:00:00:0d', 6: 'c0:ff:ee:00:00:0c',
+                        7: 'c0:ff:ee:00:00:11', 8: 'c0:ff:ee:00:00:10', 9: 'c0:ff:ee:00:00:0d',
+                        10: 'c0:ff:ee:00:00:12', 11: 'c0:ff:ee:00:00:11',
+                        12: 'c0:ff:ee:00:00:0f', 13: 'c0:ff:ee:00:00:0e',
                         14: 'c0:ff:ee:00:00:12',
-                        15: 'c0:ff:ee:00:00:0c', 16: 'c0:ff:ee:00:00:11',
-                        17: 'c0:ff:ee:00:00:12', 18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:12',
-                        20: 'c0:ff:ee:00:00:0f', 21: 'c0:ff:ee:00:00:0d',
-                        22: 'c0:ff:ee:00:00:0f', 23: 'c0:ff:ee:00:00:12', 24: 'c0:ff:ee:00:00:0e',
-                        25: 'c0:ff:ee:00:00:0b', 26: 'c0:ff:ee:00:00:0d',
-                        27: 'c0:ff:ee:00:00:0f', 28: 'c0:ff:ee:00:00:12', 29: 'c0:ff:ee:00:00:10',
-                        30: 'c0:ff:ee:00:00:11', 31: 'c0:ff:ee:00:00:12',
-                        32: 'c0:ff:ee:00:00:0b', 33: 'c0:ff:ee:00:00:0c', 34: 'c0:ff:ee:00:00:0b',
-                        35: 'c0:ff:ee:00:00:0e', 36: 'c0:ff:ee:00:00:0d',
-                        37: 'c0:ff:ee:00:00:0e', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:0d',
-                        40: 'c0:ff:ee:00:00:10', 41: 'c0:ff:ee:00:00:12',
-                        42: 'c0:ff:ee:00:00:12', 43: 'c0:ff:ee:00:00:11', 44: 'c0:ff:ee:00:00:0e',
-                        45: 'c0:ff:ee:00:00:0b', 46: 'c0:ff:ee:00:00:12',
-                        47: 'c0:ff:ee:00:00:0d', 48: 'c0:ff:ee:00:00:0c', 49: 'c0:ff:ee:00:00:0f'}
+                        15: 'c0:ff:ee:00:00:10', 16: 'c0:ff:ee:00:00:0b',
+                        17: 'c0:ff:ee:00:00:10', 18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0e',
+                        20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:12',
+                        22: 'c0:ff:ee:00:00:0e', 23: 'c0:ff:ee:00:00:0f', 24: 'c0:ff:ee:00:00:11',
+                        25: 'c0:ff:ee:00:00:0c', 26: 'c0:ff:ee:00:00:0c',
+                        27: 'c0:ff:ee:00:00:0e', 28: 'c0:ff:ee:00:00:0d', 29: 'c0:ff:ee:00:00:0f',
+                        30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:0b',
+                        32: 'c0:ff:ee:00:00:10', 33: 'c0:ff:ee:00:00:0b', 34: 'c0:ff:ee:00:00:0e',
+                        35: 'c0:ff:ee:00:00:0f', 36: 'c0:ff:ee:00:00:0b',
+                        37: 'c0:ff:ee:00:00:10', 38: 'c0:ff:ee:00:00:0f', 39: 'c0:ff:ee:00:00:0d',
+                        40: 'c0:ff:ee:00:00:0b', 41: 'c0:ff:ee:00:00:11',
+                        42: 'c0:ff:ee:00:00:0f', 43: 'c0:ff:ee:00:00:0c', 44: 'c0:ff:ee:00:00:0c',
+                        45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0e',
+                        47: 'c0:ff:ee:00:00:0d', 48: 'c0:ff:ee:00:00:0e', 49: 'c0:ff:ee:00:00:0d'}
 
     td2_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
                          2: 'c0:ff:ee:00:00:11',
@@ -778,8 +777,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                       "Flow {} is not picking expected Neighbor".format(flow_count))
 
 
-def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
-                                   enum_rand_one_frontend_asic_index, fanouthosts):
+def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter,
+                                   gather_facts, enum_rand_one_frontend_asic_index, fanouthosts):
     """
     Test for packet drop when route is added with ECMP and all ECMP member's
     interfaces are down. Use kernel flag 'arp_evict_nocarrier' to disable ARP
@@ -788,6 +787,7 @@ def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
     Nexthop members. Without this kernel flag, static route addition fails when
     Nexthop ARP entries are not resolved.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     # Check Gather facts IP Interface is active one
@@ -847,7 +847,7 @@ def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
                                                             gather_facts['src_port'][i])
             logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
             fanout.no_shutdown(fanout_port)
-        time.sleep(10)
+        time.sleep(20)
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)

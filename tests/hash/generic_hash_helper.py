@@ -3,12 +3,13 @@ import json
 import time
 import logging
 import pytest
+import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common import config_reload
 from tests.conftest import get_testbed_metadata
-from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils as VxLAN_Ecmp_Utils
+from tests.common.vxlan_ecmp_utils import Ecmp_Utils as VxLAN_Ecmp_Utils
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports  # noqa:F401
 from tests.common.dualtor.constants import UPPER_TOR
 
@@ -431,7 +432,7 @@ def get_asic_type(request):
     else:
         # Always get the asic type from the first dut
         dut_info = metadata[list(metadata.keys())[0]]
-        asic_type = dut_info['asic_type']
+        asic_type = dut_info.get('asic_type', "")
     return asic_type
 
 
@@ -552,6 +553,17 @@ def get_encap_type_from_option(encap_type_option):
         return [encap_type_option]
 
 
+def format_ip_mask(ip_network, strict=False):
+    """
+    Format the full mask notation to the mask in dotted decimal notation
+    """
+    ip_addr = ipaddress.ip_network(ip_network, strict=strict)
+    if ip_addr.version == 4:
+        return str(ip_addr)
+    else:
+        return ip_network
+
+
 def remove_ip_interface_and_config_vlan(duthost, mg_facts, tbinfo, downlink_interface, uplink_interfaces, hash_field):
     """
     Re-configure the interface and vlan on dut to enable switching of L2 traffic.
@@ -579,23 +591,25 @@ def remove_ip_interface_and_config_vlan(duthost, mg_facts, tbinfo, downlink_inte
         # if topology is t1, remove the ip address on downlink interface
         for ip_interface in mg_facts['minigraph_interfaces']:
             if ip_interface['attachto'] == downlink_interface:
-                duthost.shell(f"config interface ip remove {ip_interface['attachto']} "
-                              f"{ip_interface['addr']}/{ip_interface['mask']}")
+                formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
+                duthost.shell(f"config interface ip remove {ip_interface['attachto']} {formatted_ip_addr}")
                 ip_interface_to_restore.append(ip_interface)
                 l2_ports.add(downlink_interface)
         for portchannel in mg_facts['minigraph_portchannels'].values():
             if downlink_interface in portchannel['members']:
                 for portchannel_ip_interface in mg_facts['minigraph_portchannel_interfaces']:
                     if portchannel_ip_interface['attachto'] == portchannel['name']:
-                        duthost.shell(f"config interface ip remove {portchannel_ip_interface['attachto']} "
-                                      f"{portchannel_ip_interface['addr']}/{portchannel_ip_interface['mask']}")
+                        formatted_ip_addr = format_ip_mask(
+                            f"{portchannel_ip_interface['addr']}/{portchannel_ip_interface['mask']}")
+                        duthost.shell(
+                            f"config interface ip remove {portchannel_ip_interface['attachto']} {formatted_ip_addr}")
                         ip_interface_to_restore.append(portchannel_ip_interface)
                         l2_ports.add(portchannel_ip_interface['attachto'])
     # re-config the uplink interfaces, remove the ip address on the egress portchannel interfaces
     for ip_interface in mg_facts['minigraph_portchannel_interfaces']:
         if ip_interface['attachto'] in uplink_interfaces:
-            duthost.shell(f"config interface ip remove {ip_interface['attachto']} "
-                          f"{ip_interface['addr']}/{ip_interface['mask']}")
+            formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
+            duthost.shell(f"config interface ip remove {ip_interface['attachto']} {formatted_ip_addr}")
             ip_interface_to_restore.append(ip_interface)
             l2_ports.add(ip_interface['attachto'])
     # Configure VLANs for VLAN_ID test

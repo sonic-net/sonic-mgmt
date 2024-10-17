@@ -11,8 +11,7 @@ from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions        
 from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions_on_duthost
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
                                                 copy_ptftests_directory, change_mac_addresses       # noqa F401
-# Temporary work around to add skip_traffic_test fixture from duthost_utils
-from tests.common.fixtures.duthost_utils import skip_traffic_test                                   # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test                                   # noqa F401
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
@@ -65,7 +64,11 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
     ignore_errors = [
         r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: vtysh -c 'show bgp summary json'",
-        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: \['vtysh', '-c', 'show bgp summary json'\]"
+        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: \['vtysh', '-c', 'show bgp summary json'\]",
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_tnl_route_event_add:\d+ ecmp table entry lookup "
+        "failed with error.*",
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_process_route_add_mode_default_and_host:\d+ "
+        "_brcm_sai_mptnl_tnl_route_event_add failed with error.*"
     ]
 
     if loganalyzer:
