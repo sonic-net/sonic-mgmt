@@ -795,6 +795,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
     tsa_tsb_timer = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
+    up_bgp_neighbors = dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
@@ -806,6 +807,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
+            up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
             # Get all routes on neighbors
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
@@ -860,6 +862,11 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
             logging.info("Wait until all critical processes are fully started")
             crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
             int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
+            # verify bgp sessions are established
+            pytest_assert(
+                wait_until(
+                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up, no point in continuing the test")
 
         # Once all line cards are in maintenance state, proceed further
         for linecard in duthosts.frontend_nodes:
@@ -992,6 +999,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
     orig_v4_routes, orig_v6_routes = dict(), dict()
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
+    up_bgp_neighbors = dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
@@ -1003,6 +1011,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
+            up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
             # Get all routes on neighbors
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
@@ -1054,6 +1063,12 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             logging.info("Wait until all critical processes are fully started")
             crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
             int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
+
+            # verify bgp sessions are established
+            pytest_assert(
+                wait_until(
+                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up, no point in continuing the test")
 
         for linecard in duthosts.frontend_nodes:
             # Verify only loopback routes are announced to neighbors when the linecards are in TSA
@@ -1312,6 +1327,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     tsa_tsb_timer = dict()
+    up_bgp_neighbors = dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
@@ -1323,6 +1339,7 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
+            up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
             # Get all routes on neighbors
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
@@ -1364,6 +1381,12 @@ def test_sup_tsa_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             logging.info("Wait until all critical processes are fully started")
             crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
             int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
+
+            # verify bgp sessions are established
+            pytest_assert(
+                wait_until(
+                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up, no point in continuing the test")
 
             # Verify startup_tsa_tsb service stopped after expected time
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
@@ -1415,6 +1438,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     orig_v4_routes, orig_v6_routes = dict(), dict()
     dut_nbrhosts = dict()
     tsa_tsb_timer = dict()
+    up_bgp_neighbors = dict()
     int_status_result, crit_process_check = True, True
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
@@ -1424,6 +1448,7 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
     try:
         # Get the original routes present on the neighbors for each line card
         for linecard in duthosts.frontend_nodes:
+            up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
             # Get all routes on neighbors
             orig_v4_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 4)
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
@@ -1459,6 +1484,12 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             logging.info("Wait until all critical processes are fully started")
             crit_process_check = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
             int_status_result = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
+
+            # verify bgp sessions are established
+            pytest_assert(
+                wait_until(
+                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up, no point in continuing the test")
 
             # Verify startup_tsa_tsb service stopped after expected time
             pytest_assert(wait_until(tsa_tsb_timer[linecard], 20, 0, get_tsa_tsb_service_status, linecard, 'exited'),
