@@ -12,6 +12,7 @@ from tests.common.utilities import paramiko_ssh
 
 logger = logging.getLogger(__name__)
 
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
     pytest.mark.topology('any'),
