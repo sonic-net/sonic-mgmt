@@ -35,8 +35,9 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby# noqa F401
 
 from tests.common.helpers.constants import (
-    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
+    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT, DUT_CHECK_NAMESPACE
 )
+from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
@@ -72,6 +73,7 @@ logger = logging.getLogger(__name__)
 cache = FactsCache()
 
 DUTHOSTS_FIXTURE_FAILED_RC = 15
+CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -381,6 +383,16 @@ def get_specified_duts(request):
                      .format(str(duts)))
 
     return duts
+
+
+def pytest_sessionstart(session):
+    # reset all the sonic_custom_msg keys from cache
+    # reset here because this fixture will always be very first fixture to be called
+    cache_dir = session.config.cache._cachedir
+    keys = [p.name for p in cache_dir.glob('**/*') if p.is_file() and p.name.startswith(CUSTOM_MSG_PREFIX)]
+    for key in keys:
+        logger.debug("reset existing key: {}".format(key))
+        session.config.cache.set(key, None)
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -901,12 +913,50 @@ def creds_all_duts(duthosts):
     return creds_all_duts
 
 
+def update_custom_msg(custom_msg, key, value):
+    if custom_msg is None:
+        custom_msg = {}
+    chunks = key.split('.')
+    if chunks[0] == CUSTOM_MSG_PREFIX:
+        chunks = chunks[1:]
+    if len(chunks) == 1:
+        custom_msg.update({chunks[0]: value})
+        return custom_msg
+    if chunks[0] not in custom_msg:
+        custom_msg[chunks[0]] = {}
+    custom_msg[chunks[0]] = update_custom_msg(custom_msg[chunks[0]], '.'.join(chunks[1:]), value)
+    return custom_msg
+
+
+def log_custom_msg(item):
+    # temp log output to track module name
+    logger.debug("[log_custom_msg] item: {}".format(item))
+
+    cache_dir = item.session.config.cache._cachedir
+    keys = [p.name for p in cache_dir.glob('**/*') if p.is_file() and p.name.startswith(CUSTOM_MSG_PREFIX)]
+
+    custom_msg = {}
+    for key in keys:
+        value = item.session.config.cache.get(key, None)
+        if value is not None:
+            custom_msg = update_custom_msg(custom_msg, key, value)
+
+    if custom_msg:
+        logger.debug("append custom_msg: {}".format(custom_msg))
+        item.user_properties.append(('CustomMsg', json.dumps(custom_msg)))
+
+
+# This function is a pytest hook implementation that is called to create a test report.
+# By placing the call to log_custom_msg in the 'teardown' phase, we ensure that it is executed
+# at the end of each test, after all other fixture teardowns. This guarantees that any custom
+# messages are logged at the latest possible stage in the test lifecycle.
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
 
     if call.when == 'setup':
         item.user_properties.append(('start', str(datetime.fromtimestamp(call.start))))
     elif call.when == 'teardown':
+        log_custom_msg(item)
         item.user_properties.append(('end', str(datetime.fromtimestamp(call.stop))))
 
     # Filter out unnecessary logs captured on "stdout" and "stderr"
@@ -2450,10 +2500,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
-
         if check_result:
-            request.config.cache.set("core_dump_check_pass", core_dump_check_pass)
-            request.config.cache.set("config_db_check_pass", config_db_check_pass)
+            logger.debug("core_dump_and_config_check failed, check_result: {}".format(json.dumps(check_result)))
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.core_dump_check_pass", core_dump_check_pass)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_pass", config_db_check_pass)
 
 
 @pytest.fixture(scope="function")
