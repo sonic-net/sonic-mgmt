@@ -5,10 +5,11 @@ import logging
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut      # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, snappi_api, \
-    snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config      # noqa: F401
+    snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
+    get_snappi_ports_multi_dut       # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.port import select_ports
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map  # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list  # noqa: F401
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 logger = logging.getLogger(__name__)
 SNAPPI_POLL_DELAY_SEC = 2
@@ -25,7 +26,7 @@ def __gen_all_to_all_traffic(testbed_config,
                              prio_dscp_map              # noqa: F811
                              ):
 
-    rate_percent = 100 / (len(port_config_list) - 1)
+    rate_percent = 50 / (len(port_config_list) - 1)
     duration_sec = 2
     pkt_size = 1024
 
@@ -135,7 +136,7 @@ def test_snappi(request,
                                                                                 snappi_api)
 
     lossless_prio = random.sample(lossless_prio_list, 1)
-    lossless_prio = int(lossless_prio)
+    lossless_prio = int(lossless_prio[0])
 
     pytest_require(len(port_config_list) >= 2, "This test requires at least 2 ports")
 
