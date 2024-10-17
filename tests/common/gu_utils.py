@@ -56,7 +56,7 @@ def apply_patch(duthost, json_data, dest_file, scope=None):
                     "op": operation["op"],
                     "path": operation["path"],
                 }
-                
+
                 if operation["op"] in ["add", "replace", "test"]:
                     template["value"] = operation["value"]
 
