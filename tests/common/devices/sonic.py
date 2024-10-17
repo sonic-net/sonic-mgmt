@@ -87,7 +87,7 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
         if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
             self.DEFAULT_ASIC_SERVICES.append("macsec")
-        feature_status = self.get_feature_status()
+        feature_status = self.get_feature_status(disable_cache=False)
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
         # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
         gbsyncd_enabled = 'gbsyncd' in feature_status[0].keys() and feature_status[0]['gbsyncd'] == 'enabled'
@@ -335,6 +335,7 @@ class SonicHost(AnsibleHostBase):
 
         return result
 
+    @cached(name='os_version')
     def _get_os_version(self):
         """
         Gets the SONiC OS version that is running on this device.
@@ -343,6 +344,7 @@ class SonicHost(AnsibleHostBase):
         output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
         return output["stdout_lines"][0].strip()
 
+    @cached(name='sonic_release')
     def _get_sonic_release(self):
         """
         Gets the SONiC Release that is running on this device.
@@ -358,6 +360,7 @@ class SonicHost(AnsibleHostBase):
             return 'none'
         return output["stdout_lines"][0].strip()
 
+    @cached(name='kernel_version')
     def _get_kernel_version(self):
         """
         Gets the SONiC kernel version
@@ -1528,9 +1531,13 @@ Totals               6450                 6449
 
         return container_autorestart_states
 
-    def get_feature_status(self):
+    @cached(name='feature_status')
+    def get_feature_status(self, disable_cache=True):
         """
         Gets the list of features and states
+
+        params:
+            disable_cache: disable cache and get real-time feature status, default True
 
         Returns:
             dict: feature status dict. { <feature name> : <status: enabled | disabled> }
@@ -2032,8 +2039,9 @@ Totals               6450                 6449
         return self.command("sudo config feature state bgp enabled")
 
     def no_shutdown_bgp(self, asn):
-        logging.warning("SONiC don't support `no shutdown bgp`")
-        return None
+        command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
+        logging.info('No shut BGP: {}'.format(asn))
+        return self.command(command)
 
     def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
         if not neighbors:
@@ -2510,6 +2518,17 @@ Totals               6450                 6449
                     return False
                 logging.info("Interface {} is up on {}".format(output_port, self.hostname))
         return True
+
+    def is_interface_status_up(self, interface):
+        """
+            Check if the status of a single interface is oper and admin up.
+                Args:
+                    interface: the interface to check
+                Returns:
+                    True if the interface is oper and admin up
+        """
+        output = self.shell('show interface status {}'.format(interface))
+        return re.search('up +up', output['stdout_lines'][-1])
 
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))

@@ -3,10 +3,10 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, create_path
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.route.test_forced_mgmt_route import FORCED_MGMT_ROUTE_PRIORITY, wait_for_file_changed
+from tests.common.gu_utils import apply_patch, create_path
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.utilities import wait_for_file_changed, FORCED_MGMT_ROUTE_PRIORITY
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -81,10 +81,10 @@ def update_and_check_forced_mgmt_routes(duthost, forced_mgmt_routes, interface_a
     interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
     logging.debug("interfaces: {}".format(interfaces))
 
-    pytest_assert("up ip {} rule add pref {} to {} table default"
-                  .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces == expect_exist)
-    pytest_assert("pre-down ip {} rule delete pref {} to {} table default"
-                  .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces == expect_exist)
+    pytest_assert(("up ip {} rule add pref {} to {} table default"
+                  .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces) == expect_exist)
+    pytest_assert(("pre-down ip {} rule delete pref {} to {} table default"
+                  .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces) == expect_exist)
 
 
 def test_forced_mgmt_routes_update(duthost, ensure_dut_readiness):

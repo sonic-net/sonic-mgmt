@@ -37,7 +37,7 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
+from tests.common.helpers.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
@@ -1129,6 +1129,9 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in list(qosConfig[bufPool].keys()):
             testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
 
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' and dutConfig["dutAsic"] == "gr2":
+            testParams["extra_cap_margin"] = 20
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.BufferPoolWatermarkTest",
             testParams=testParams
@@ -1311,7 +1314,8 @@ class TestQosSai(QosSaiBase):
             raise
 
     def testQosSaiDscpQueueMapping(
-        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps # noqa F811
+        self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps, # noqa F811
+        tc_to_dscp_count
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -1323,6 +1327,7 @@ class TestQosSai(QosSaiBase):
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
                 dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
+                tc_to_dscp_count(Fixture): A fixture, return tc to dscp_count map on DUT host
             Returns:
                 None
 
@@ -1346,7 +1351,8 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "hwsku": dutTestParams['hwsku'],
             "dual_tor": dutConfig['dualTor'],
-            "dual_tor_scenario": dutConfig['dualTorScenario']
+            "dual_tor_scenario": dutConfig['dualTorScenario'],
+            "tc_to_dscp_count_map": tc_to_dscp_count
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1723,8 +1729,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        _check_ingress_speed_gte_400g
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig, skip_400g_longlink
     ):
         """
             Test QoS SAI PG drop counter
@@ -2166,7 +2171,7 @@ class TestQosSai(QosSaiBase):
             "src_port_id": src_port_id,
             "src_port_ip": src_port_ip,
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "pkts_num_leak_out": qosConfig[queueProfile]["pkts_num_leak_out"],
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku'],

@@ -256,9 +256,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             timeout = plt_reboot_ctrl.get('timeout', timeout)
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
+        if duthost.get_facts().get("modular_chassis") and safe_reboot:
+            wait = max(wait, 900)
+            timeout = max(timeout, 600)
     except KeyError:
         raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
-
+    logger.info('Reboot {}: wait[{}], timeout[{}]'.format(hostname, wait, timeout))
     # Create a temporary file in tmpfs before reboot
     logger.info('DUT {} create a file /dev/shm/test_reboot before rebooting'.format(hostname))
     duthost.command('sudo touch /dev/shm/test_reboot')
@@ -276,19 +279,18 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     wait_for_startup(duthost, localhost, delay, timeout)
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
-    wait = max(wait, 900) if duthost.get_facts().get("modular_chassis") else wait
     if safe_reboot:
         # The wait time passed in might not be guaranteed to cover the actual
         # time it takes for containers to come back up. Therefore, add 5
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
         pytest_assert(wait_until(wait + 400, 20, 0, duthost.critical_services_fully_started),
-                      "All critical services should be fully started!")
+                      "{}: All critical services should be fully started!".format(hostname))
         wait_critical_processes(duthost)
 
         if check_intf_up_ports:
             pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
-                          "Not all ports that are admin up on are operationally up")
+                          "{}: Not all ports that are admin up on are operationally up".format(hostname))
     else:
         time.sleep(wait)
 
