@@ -9,7 +9,7 @@ from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_FAST, REBOOT_TYPE_
 from tests.common.reboot import reboot
 from tests.common.utilities import wait
 from . import constants
-from ...helpers.parallel_utils import config_reload_parallel_compatible
+from ...helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -200,8 +200,8 @@ def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recove
 
 def recover_chassis(duthosts):
     logger.warning(f"Try to recover chassis {[dut.hostname for dut in duthosts]} using config reload")
-    return parallel_run(config_reload_parallel_compatible, (),
-                        {
-                            'config_source': 'running_golden_config', 'safe_reload': True,
-                            'check_intf_up_ports': True, 'wait_for_bgp': True},
-                        duthosts, timeout=1200)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(config_reload, duthost, config_source='running_golden_config',
+                            safe_reload=True,
+                            check_intf_up_ports=True, wait_for_bgp=True)

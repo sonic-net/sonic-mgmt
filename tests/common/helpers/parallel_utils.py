@@ -7,15 +7,10 @@ from enum import Enum
 from threading import Lock
 from typing import Tuple
 
-from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
-
-
-def config_reload_parallel_compatible(node, results, *args, **kwargs):
-    return config_reload(node, *args, **kwargs)
 
 
 def is_initial_checks_active(request):
