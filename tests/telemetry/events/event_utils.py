@@ -4,6 +4,9 @@ import pytest
 import json
 import re
 
+import ptf.packet as scapy
+import ptf.testutils as testutils
+
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
@@ -134,3 +137,58 @@ def verify_counter_increase(duthost, current_value, increase, stat):
     current_counters = read_event_counters(duthost)
     current_stat_counter = current_counters[stat]
     return current_stat_counter >= current_value + increase
+
+
+def find_test_vlan(duthost):
+    """Returns vlan information for dhcp_relay tests
+    Returns dictionary of vlan port name, dhcrelay process name, ipv4 address,
+    dhc6relay process name, ipv6 address, and member interfaces
+    """
+    vlan_brief = duthost.get_vlan_brief()
+    for vlan in vlan_brief:
+        # Find dhcrelay process
+        dhcrelay_process = duthost.shell("docker exec dhcp_relay supervisorctl status \
+                                         | grep isc-dhcpv4-relay-%s | awk '{print $1}'" % vlan)['stdout']
+        dhcp6relay_process = duthost.shell("docker exec dhcp_relay supervisorctl status \
+                                           | grep dhcp6relay | awk '{print $1}'")['stdout']
+        interface_ipv4 = vlan_brief[vlan]['interface_ipv4']
+        interface_ipv6 = vlan_brief[vlan]['interface_ipv6']
+        members = vlan_brief[vlan]['members']
+
+        # Check all returning fields are non empty
+        results = [dhcrelay_process, interface_ipv4, dhcp6relay_process, interface_ipv6, members]
+        if all(result for result in results):
+            return {
+                "vlan": vlan,
+                "dhcrelay_process": dhcrelay_process,
+                "ipv4_address": interface_ipv4[0],
+                "dhcp6relay_process": dhcp6relay_process,
+                "ipv6_address": interface_ipv6[0],
+                "member_interface": members
+            }
+    return {}
+
+
+def find_test_port_and_mac(duthost, members, count):
+    # Will return up to count many up ports with their port index and mac address
+    results = []
+    interf_status = duthost.show_interface(command="status")['ansible_facts']['int_status']
+    for member_interface in members:
+        if len(results) == count:
+            return results
+        if interf_status[member_interface]['admin_state'] == "up":
+            mac = duthost.get_dut_iface_mac(member_interface)
+            minigraph_info = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+            port_index = minigraph_info['minigraph_port_indices'][member_interface]
+            if mac != "" and port_index != "":
+                results.append([int(port_index), mac])
+    return results
+
+
+def create_dhcp_discover_packet(client_mac):
+    dst_mac = 'ff:ff:ff:ff:ff:ff'
+    dhcp_client_port = 68
+    discover_packet = testutils.dhcp_discover_packet(eth_client=client_mac, set_broadcast_bit=True)
+    discover_packet[scapy.Ether].dst = dst_mac
+    discover_packet[scapy.IP].sport = dhcp_client_port
+    return discover_packet
