@@ -173,13 +173,7 @@ def batch_control_interface_state(dut, asic, interfaces, action):
         oper_state = int_status[interface]["oper_state"]
         if oper_state != target_state:
             command = "shutdown" if action == "shutdown" else "startup"
-            exec_cmd = "sudo ip netns exec asic{} config interface -n asic{} {} {}".format(
-                asic.asic_index,
-                asic.asic_index,
-                command,
-                interface,
-            )
-
+            exec_cmd = "sudo config interface -n asic{} {} {}".format(asic.asic_index, command, interface)
             cmds.append(exec_cmd)
             logger.info("Target state for interface {} is {}. Command: {}".format(
                 interface,
@@ -492,13 +486,7 @@ def ensure_interfaces_are_up(dut, asic, interfaces):
     cmds = []
     for interface in interfaces:
         if int_status[interface]["oper_state"] == "down":
-            cmds.append(
-                "sudo ip netns exec asic{} config interface -n asic{} startup {}".format(
-                    asic.asic_index,
-                    asic.asic_index,
-                    interface,
-                )
-            )
+            cmds.append("sudo config interface -n asic{} startup {}".format(asic.asic_index, interface))
 
     toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, "up")
 
