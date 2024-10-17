@@ -112,7 +112,7 @@ class ExecutingStatus(AbstractStatus):
         super(ExecutingStatus, self).__init__(TestPlanStatus.EXECUTING)
 
     def print_logs(self, test_plan_id, resp_data, start_time):
-        print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
+        print("Test plan id: {}, status: {}, progress: {:.2f}%, elapsed: {:.0f} seconds"
               .format(test_plan_id, resp_data.get("status", None),
                       resp_data.get("progress", 0) * 100, time.time() - start_time))
 
@@ -152,8 +152,9 @@ def parse_list_from_str(s):
 
 class TestPlanManager(object):
 
-    def __init__(self, url, frontend_url, client_id=None):
-        self.url = url
+    def __init__(self, scheduler_url, community_url, frontend_url, client_id=None):
+        self.scheduler_url = scheduler_url
+        self.community_url = community_url
         self.frontend_url = frontend_url
         self.client_id = client_id
         self.with_auth = False
@@ -192,7 +193,7 @@ class TestPlanManager(object):
 
         cmd = 'az account get-access-token --resource {}'.format(self.client_id)
         attempt = 0
-        while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
+        while attempt < MAX_GET_TOKEN_RETRY_TIMES:
             try:
                 stdout, _, _ = self.az_run(cmd)
 
@@ -216,7 +217,7 @@ class TestPlanManager(object):
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
                min_worker=None, max_worker=None, pr_id="unknown", output=None,
                common_extra_params="", **kwargs):
-        tp_url = "{}/test_plan".format(self.url)
+        tp_url = "{}/test_plan".format(self.scheduler_url)
         testbed_name = parse_list_from_str(kwargs.get("testbed_name", None))
         image_url = kwargs.get("image_url", None)
         hwsku = kwargs.get("hwsku", None)
@@ -258,7 +259,7 @@ class TestPlanManager(object):
         # If triggered by mgmt repo, use pull request id as the code base
         sonic_mgmt_pull_request_id = ""
         if MGMT_REPO_FLAG in kwargs.get("source_repo"):
-            sonic_mgmt_pull_request_id = pr_id
+            sonic_mgmt_pull_request_id = 15016
 
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id
@@ -266,6 +267,8 @@ class TestPlanManager(object):
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
+
+        print(kvm_image_branch)
         affinity = json.loads(kwargs.get("affinity", "[]"))
         payload = {
             "name": test_plan_name,
@@ -281,7 +284,7 @@ class TestPlanManager(object):
                 "lock_wait_timeout_seconds": kwargs.get("lock_wait_timeout_seconds", None),
             },
             "test_option": {
-                "stop_on_failure": kwargs.get("stop_on_failure", True),
+                "stop_on_failure": False,
                 "retry_times": kwargs.get("retry_times", 2),
                 "test_cases": {
                     "features": features,
@@ -295,7 +298,7 @@ class TestPlanManager(object):
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
-                    "kvm_image_branch": kvm_image_branch
+                    "kvm_image_branch": "master"
                 },
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
@@ -306,7 +309,7 @@ class TestPlanManager(object):
                 "specific_param": kwargs.get("specific_param", []),
                 "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
-                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
+                "max_execute_seconds": 108000,
                 "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
             },
             "type": test_plan_type,
@@ -348,7 +351,7 @@ class TestPlanManager(object):
 
     def cancel(self, test_plan_id):
 
-        tp_url = "{}/test_plan/{}".format(self.url, test_plan_id)
+        tp_url = "{}/test_plan/{}".format(self.scheduler_url, test_plan_id)
         cancel_url = "{}/cancel".format(tp_url)
 
         print("Cancelling test plan at {}".format(cancel_url))
@@ -373,32 +376,63 @@ class TestPlanManager(object):
         print("Result of cancelling test plan at {}:".format(tp_url))
         print(str(resp["data"]))
 
-    def poll(self, test_plan_id, interval=60, timeout=-1, expected_state="", expected_result=None):
+    def poll(self, test_plan_id, interval=1800, timeout=-1, expected_state="", expected_result=None):
         print("Polling progress and status of test plan at {}/scheduler/testplan/{}"
               .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
 
-        poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
+        poll_url = "{}/test_plan/{}/get_test_plan_status".format(self.scheduler_url, test_plan_id)
+        poll_url_no_auth = "{}/get_test_plan_status/{}".format(self.community_url, test_plan_id)
         headers = {
             "Content-Type": "application/json"
         }
         start_time = time.time()
         http_exception_times = 0
+        http_exception_times_no_auth = 0
+        failed_poll_auth_url = False
         while timeout < 0 or (time.time() - start_time) < timeout:
-            try:
-                if self.with_auth:
-                    headers["Authorization"] = "Bearer {}".format(self.get_token())
-                resp = requests.get(poll_url, headers=headers, timeout=10).json()
-            except Exception as exception:
-                print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
-                                                                                          str(exception)))
-                http_exception_times = http_exception_times + 1
-                if http_exception_times >= TOLERATE_HTTP_EXCEPTION_TIMES:
-                    raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
-                                    .format(poll_url, resp, str(exception)))
-                else:
-                    time.sleep(interval)
+            resp = None
+            # To make the transition smoother, first try to access the original API
+            if not failed_poll_auth_url:
+                try:
+                    if self.with_auth:
+                        headers["Authorization"] = "Bearer {}".format(self.get_token())
+                    resp = requests.get(poll_url, headers=headers, timeout=10).json()
+                    print("request url: ", poll_url)
+                    print("response: ", resp)
+                except Exception as exception:
+                    print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
+                                                                                              str(exception)))
+                    http_exception_times = http_exception_times + 1
+                    if http_exception_times >= TOLERATE_HTTP_EXCEPTION_TIMES:
+                        failed_poll_auth_url = True
+                    else:
+                        time.sleep(interval)
                     continue
+
+            # If failed on poll auth url(most likely token has expired), try with no-auth url
+            else:
+                print("Polling test plan status failed with auth url, try with no-auth url.")
+                try:
+                    resp = requests.get(poll_url_no_auth, headers={"Content-Type": "application/json"},
+                                        timeout=10).json()
+                    print("request url: ", poll_url_no_auth)
+                    print("response: ", resp)
+                except Exception as e:
+                    print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url_no_auth, resp,
+                                                                                              repr(e)))
+                    http_exception_times_no_auth = http_exception_times_no_auth + 1
+                    if http_exception_times_no_auth >= TOLERATE_HTTP_EXCEPTION_TIMES:
+                        raise Exception(
+                            "HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url_no_auth, resp,
+                                                                                                repr(e)))
+                    else:
+                        time.sleep(interval)
+                        continue
+
+            if not resp:
+                raise Exception("Poll test plan status failed with request error, no response!")
+
             if not resp["success"]:
                 raise Exception("Query test plan at {} failed with error: {}".format(poll_url, resp["errmsg"]))
 
@@ -471,7 +505,14 @@ class TestPlanManager(object):
                                                     test_plan_id))
 
                     print("Current step status is {}".format(step_status))
-                    return
+                    # Check if the run test step has been running for more than 24 hours
+                    # Make run test to hit 24h token issue
+                    if expected_state == "EXECUTING":
+                        if time.time() - start_time > 24 * 3600:  # 24 hours in seconds
+                            print("Run test has been running for more than 24 hours.")
+                            return
+                    else:
+                        return
                 else:
                     print("Current test plan state is {}, waiting for the expected state {}".format(current_tp_status,
                                                                                                     expected_state))
@@ -878,7 +919,7 @@ if __name__ == "__main__":
         "--interval",
         type=int,
         required=False,
-        default=60,
+        default=600,
         dest="interval",
         help="Polling interval. Default 60 seconds."
     )
@@ -911,6 +952,7 @@ if __name__ == "__main__":
 
     env = {
         "elastictest_scheduler_backend_url": os.environ.get("ELASTICTEST_SCHEDULER_BACKEND_URL"),
+        "elastictest_community_url": os.environ.get("ELASTICTEST_COMMUNITY_URL"),
         "client_id": os.environ.get("ELASTICTEST_MSAL_CLIENT_ID"),
         "frontend_url": os.environ.get("ELASTICTEST_FRONTEND_URL", "https://elastictest.org"),
     }
@@ -922,6 +964,7 @@ if __name__ == "__main__":
     try:
         tp = TestPlanManager(
             env["elastictest_scheduler_backend_url"],
+            env["elastictest_community_url"],
             env["frontend_url"],
             env["client_id"])
 
