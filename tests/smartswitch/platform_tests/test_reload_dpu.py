@@ -22,8 +22,7 @@ pytestmark = [
 
 
 def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                               localhost, platform_api_conn,
-                               check_dpu_ping_status, num_dpu_modules):
+                               localhost, platform_api_conn, num_dpu_modules):
     """
     @summary: Verify output of `config chassis modules startup <DPU_Number>`
     """
@@ -47,14 +46,13 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
         duthosts.shell("config chassis modules startup %s" % (dpu))
         time.sleep(2)
 
-    pytest_assert(wait_until(120, 30, 0, check_dpu_ping_status,
+    pytest_assert(wait_until(120, 30, 0, check_dpu_ping_status,  # noqa: F405
                   duthost, ip_address_list),
                   "Not all DPUs operationally up")
 
 
 def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    localhost, platform_api_conn,
-                                    check_dpu_ping_status, num_dpu_modules):
+                                    localhost, platform_api_conn, num_dpu_modules):
     """
     @summary: To Check Ping between NPU and DPU
               after configuration reload on NPU
@@ -73,6 +71,6 @@ def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(duthost)
 
-    pytest_assert(wait_until(30, 10, 0, check_dpu_ping_status,
+    pytest_assert(wait_until(30, 10, 0, check_dpu_ping_status,  # noqa: F405
                   duthost, ip_address_list),
                   "Not all DPUs operationally up")

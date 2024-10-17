@@ -78,7 +78,7 @@ def is_dark_mode_enabled(duthost, platform_api_conn):
     return False
 
 
-def dpu_power_on(duthost, platform_api_conn, check_dpu_ping_status):
+def dpu_power_on(duthost, platform_api_conn):
     """
     Executes power on all DPUs
     Returns:
@@ -94,7 +94,7 @@ def dpu_power_on(duthost, platform_api_conn, check_dpu_ping_status):
                 module.get_midplane_ip(platform_api_conn, index))
         duthost.shell("config chassis modules startup %s" % (dpu))
 
-    pytest_assert(wait_until(180, 60, 0, check_dpu_ping_status,
+    pytest_assert(wait_until(180, 60, 0, check_dpu_ping_status,  # noqa: F405
                   duthost, ip_address_list), "Not all DPUs are operationally up")
 
 
