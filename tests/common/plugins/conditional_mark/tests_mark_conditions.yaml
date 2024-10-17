@@ -1669,6 +1669,12 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
+telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
+  skip:
+    reason: "Testcase ignored due to switch type is voq"
+    conditions:
+      - "(switch_type=='voq')"
+
 #######################################
 #####         pktgen              #####
 #######################################
