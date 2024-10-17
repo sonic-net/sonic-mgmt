@@ -19,7 +19,8 @@ GCUTIMEOUT = 240
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TMP_DIR = '/tmp'
-
+HOST_NAME = "/localhost"
+ASIC_PREFIX = "/asic"
 
 def generate_tmpfile(duthost):
     """Generate temp file
@@ -33,7 +34,7 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
-def apply_patch(duthost, json_data, dest_file):
+def apply_patch(duthost, json_data, dest_file, scope=None):
     """Run apply-patch on target duthost
 
     Args:
@@ -41,6 +42,32 @@ def apply_patch(duthost, json_data, dest_file):
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
     """
+    # In multi asic case, if scope was not given, then populate jsonpatch
+    # for each asic includes localhost.
+    # But if one of operation has set with scope, this operation will be skipped.
+    if duthost.is_multi_asic and scope is None:
+        json_patch = []
+        for operation in json_data:
+            if not operation["path"].startswith("{}".format(HOST_NAME)) and \
+               not operation["path"].startswith("{}".format(ASIC_PREFIX)):
+
+                template = {
+                    "op": operation["op"],
+                    "path": operation["path"],
+                }
+                
+                if operation["op"] in ["add", "replace", "test"]:
+                    template["value"] = operation["value"]
+
+                template["path"] = "{}{}".format(HOST_NAME, operation["path"])
+                json_patch.append(template.copy())
+                for asic_index in range(0, duthost.facts.get('num_asic')):
+                    asic_ns = "{}{}".format(ASIC_PREFIX, asic_index)
+                    template["path"] = "{}{}".format(asic_ns, operation["path"])
+                    json_patch.append(template.copy())
+
+        json_data = json_patch
+
     duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
 
     cmds = 'config apply-patch {}'.format(dest_file)
