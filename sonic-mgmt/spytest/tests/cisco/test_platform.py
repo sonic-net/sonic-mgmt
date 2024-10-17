@@ -68,6 +68,21 @@ def platform_module_hooks(request):
 def platform_func_hooks(request):
     yield
 
+@pytest.fixture(scope="module", autouse=True)
+def copy_spytest_helper(request):
+    dut = st.get_testbed_vars().D1
+    st.config(dut, "cp /etc/spytest/remote/spytest-helper.py /etc/sonic/spytest-helper.py ")
+    st.config(dut, " ls -lrt  /etc/spytest/remote")
+    st.config(dut, " ls -lrt /etc/sonic")
+    yield
+    st.config(dut,"rm /etc/sonic/spytest-helper.py")
+
+def restore_spytest_helper():
+    dut = st.get_testbed_vars().D1
+    st.config(dut, "mkdir -p /etc/spytest/remote")
+    st.config(dut, "cp /etc/sonic/spytest-helper.py /etc/spytest/remote/spytest-helper.py")
+    st.config(dut,"ls -lrt /etc | grep spytest")
+
 def get_platform_data(platform_name):
     for key, value in platform_summary_data.items():
         if key == platform_name:
@@ -142,6 +157,8 @@ def test_ft_platform_idprom_with_reboot():
             st.log(result1)
             st.log("##### Reboot the DUT {}".format(dut))
             st.reboot(dut)
+            st.banner('restore helper file')
+            restore_spytest_helper()
             st.log("###### FETCH IDPROM DATA AFTER REBOOT ######")
             result2 = basic_obj.get_platform_idprom(dut)
             st.log("###### COMPARE DATA BEFORE AND AFTER REBOOT ######")
@@ -317,7 +334,7 @@ def test_ft_platform_syseeprom_valid():
         st.report_fail("test_case_failed")
  
 @pytest.mark.alpha
-def test_ft_platform_inventory():
+def test_ft_platform_inventory_with_reboot():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
     Validate 'show platform inventory' command
@@ -328,6 +345,8 @@ def test_ft_platform_inventory():
         result1 = basic_obj.get_platform_inventory(vars.D1)
         st.log(result1)
         st.reboot(vars.D1)
+        st.banner('restore helper file')
+        restore_spytest_helper()
         result2 = basic_obj.get_platform_inventory(vars.D1)
         if result1 == result2:
             st.log("The Inventory data before and after reboot for show platform fan is same")
@@ -576,7 +595,6 @@ def test_ft_platform_temperature_valid():
     Author: Deekshitha Kankanala <dkankana@cisco.com>
     Validate 'show platform temperature' command
     """
-    
     vars = st.get_testbed_vars()
     dut = vars.D1
     try:
@@ -616,6 +634,8 @@ def test_ft_platform_temperature_with_reboot():
             st.log(result1)
             st.log("##### Reboot the DUT {}".format(dut))
             st.reboot(dut)
+            st.banner('restore helper file')
+            restore_spytest_helper()
             st.log("###### FETCH TEMPERATURE DATA AFTER REBOOT ######")
             result2 = basic_obj.get_platform_temperature(dut)
             st.log(result2)
@@ -930,7 +950,7 @@ def test_ft_platform_rebootcause():
         st.report_fail("test_case_failed")
 
 @pytest.mark.alpha
-def test_ft_platform_rebootcause_valid():
+def test_ft_platform_rebootcause_valid_with_reboot():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
     Validate 'show platform reboot-cause' command 
@@ -945,6 +965,8 @@ def test_ft_platform_rebootcause_valid():
             raise Exception("The Parsed Date object retuned None")
         date1 = datetime.datetime.strptime(date_before_reboot, '%a %d %b %Y %I:%M:%S %p %Z')
         st.reboot(vars.D1)
+        st.banner('restore helper file')
+        restore_spytest_helper()
         result = reboot_obj.get_reboot_cause(vars.D1)
         #if result is None, then report fail
         if result is None:
