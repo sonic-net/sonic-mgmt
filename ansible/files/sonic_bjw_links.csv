@@ -1165,10 +1165,8 @@ bjw-can-7260-8,Ethernet61/1,bjw-can-7260-9,Ethernet61/1,100000,1430,Access
 bjw-can-7260-8,Ethernet62/1,bjw-can-7260-9,Ethernet62/1,100000,1431,Access
 bjw-can-7260-8,Ethernet63/1,bjw-can-7260-9,Ethernet63/1,100000,1432,Access
 bjw-can-7260-8,Ethernet64/1,bjw-can-7260-9,Ethernet64/1,100000,1433,Access
-bjw-can-7260-11,Ethernet0,bjw-can-7260-10,Ethernet1/1,50000,1434,Access
-bjw-can-7260-11,Ethernet2,bjw-can-7260-10,Ethernet1/3,50000,1435,Access
-bjw-can-7260-11,Ethernet4,bjw-can-7260-10,Ethernet2/1,50000,1436,Access
-bjw-can-7260-11,Ethernet6,bjw-can-7260-10,Ethernet2/3,50000,1437,Access
+bjw-can-7260-11,Ethernet0,bjw-can-7260-10,Ethernet1/1,100000,1434,Access
+bjw-can-7260-11,Ethernet4,bjw-can-7260-10,Ethernet2/1,100000,1436,Access
 bjw-can-7260-11,Ethernet8,bjw-can-7260-10,Ethernet3/1,50000,1438,Access
 bjw-can-7260-11,Ethernet10,bjw-can-7260-10,Ethernet3/3,50000,1439,Access
 bjw-can-7260-11,Ethernet12,bjw-can-7260-10,Ethernet4/1,50000,1440,Access

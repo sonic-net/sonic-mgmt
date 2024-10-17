@@ -183,6 +183,7 @@ all:
           - t0-80
           - t0-120
           - t0-116
+          - t0-118
           - t0-backend
           - fullmesh
           - t0-standalone-32

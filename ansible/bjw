@@ -908,7 +908,7 @@ sonic_arista_7260cx3:
     bjw-can-7260-11:
       ansible_host: 10.150.22.157
       ansible_hostv6: 2404:f801:10:2200::a96:169d
-      hwsku: Arista-7260CX3-D108C8
+      hwsku: Arista-7260CX3-D108C10
       model: DCS-7260CX3-64
       serial: JPA22391787
       base_mac: 38:38:a6:67:c7:b8

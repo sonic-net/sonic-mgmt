@@ -76,6 +76,7 @@ The T0 type topology has different variations. The differences are just the numb
 * t0-56
 * t0-56-po2vlan
 * t0-80
+* t0-118
 * t0-116
 * t0-120
 * t0-backend

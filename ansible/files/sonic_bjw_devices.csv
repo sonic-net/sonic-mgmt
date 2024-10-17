@@ -75,7 +75,7 @@ bjw-can-7250-lc1-1,10.150.22.145/23,Nokia-IXR7250E-36x400G,DevSonic,,sonic
 bjw-can-7250-lc2-1,10.150.22.146/23,Nokia-IXR7250E-36x400G,DevSonic,,sonic
 bjw-can-a7280cr3-1,10.150.22.153/23,Arista-7280CR3-C40,DevSonic,,sonic
 bjw-can-7260-8,10.150.22.154/23,Arista-7260CX3-C64,DevSonic,,sonic
-bjw-can-7260-11,10.150.22.157/23,Arista-7260CX3-D108C8,DevSonic,,sonic
+bjw-can-7260-11,10.150.22.157/23,Arista-7260CX3-D108C10,DevSonic,,sonic
 bjw-can-7260-12,10.150.22.158/23,Arista-7260CX3-C64,DevSonic,,sonic
 bjw-can-7260-14,10.150.22.160/23,Arista-7260CX3-C64,DevSonic,,sonic
 bjw-can-7260-16,10.150.22.162/23,Arista-7260CX3-C64,DevSonic,,sonic

@@ -225,13 +225,15 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             s100G_ports += [x for x in range(23, 27)]
 
             port_alias_to_name_map = _port_alias_to_name_map_50G(all_ports, s100G_ports)
-        elif hwsku in ["Arista-7260CX3-D108C8", "Arista-7260CX3-D108C8-AILAB", "Arista-7260CX3-D108C8-CSI"]:
+        elif hwsku in ["Arista-7260CX3-D108C8", "Arista-7260CX3-D108C8-AILAB", "Arista-7260CX3-D108C8-CSI", "Arista-7260CX3-D108C10"]:
             # All possible breakout 50G port numbers:
             all_ports = [x for x in range(1, 65)]
 
             # 100G ports
             s100G_ports = [x for x in range(13, 21)]
-
+            if hwsku == "Arista-7260CX3-D108C10":
+                # The first 2 ports are 100G
+                s100G_ports.extend([x for x in range(1, 3)])
             if hwsku == "Arista-7260CX3-D108C8-AILAB":
                 s100G_ports = [x for x in range(45, 53)]
             elif hwsku == "Arista-7260CX3-D108C8-CSI":

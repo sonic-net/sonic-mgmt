@@ -2587,7 +2587,7 @@
 
 - conf-name: testbed-bjw-can-t0-7260-11
   group-name: bjw13-5
-  topo: t0-116
+  topo: t0-118
   ptf_image_name: docker-ptf
   ptf: bjw13-5
   ptf_ip: 10.150.23.73/23
