@@ -22,6 +22,7 @@ TMP_DIR = '/tmp'
 HOST_NAME = "/localhost"
 ASIC_PREFIX = "/asic"
 
+
 def generate_tmpfile(duthost):
     """Generate temp file
     """
