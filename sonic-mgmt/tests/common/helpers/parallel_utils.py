@@ -1,20 +1,16 @@
 import fcntl
 import logging
+import time
 
 from datetime import datetime
 from enum import Enum
 from threading import Lock
 from typing import Tuple
 
-from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
-
-
-def config_reload_parallel_compatible(node, results, *args, **kwargs):
-    return config_reload(node, *args, **kwargs)
 
 
 def is_initial_checks_active(request):
@@ -46,6 +42,7 @@ def read_last_line_of_file(file, lock_type=fcntl.LOCK_SH):
 
 class InitialCheckStatus(Enum):
     IDLE = "idle"
+    BEFORE_SETUP = "before_setup"
     SETUP_STARTED = "setup_started"
     SETUP_COMPLETED = "setup_completed"
     TESTS_COMPLETED = "tests_completed"
@@ -143,11 +140,11 @@ class InitialCheckState:
             f.flush()
             fcntl.flock(f, fcntl.LOCK_UN)
 
-    def _is_all_acknowledged(self, ack_status: InitialCheckStatus) -> bool:
+    def _is_all_acknowledged(self, ack_status: InitialCheckStatus, required_ack: int) -> bool:
         status_value, acknowledgments = self._read_state()
-        return status_value == ack_status.value and acknowledgments >= self.num_followers
+        return status_value == ack_status.value and acknowledgments >= required_ack
 
-    def mark_tests_completed_for_follower(self, hostname: str) -> None:
+    def _mark_status(self, status_to_mark: InitialCheckStatus, is_leader: bool, hostname: str) -> None:
         with open(self.state_file, 'r+') as f:
             fcntl.flock(f, fcntl.LOCK_EX)
             lines = f.readlines()
@@ -158,14 +155,38 @@ class InitialCheckState:
             _, status_value, acknowledgments, _, _ = last_line.split(',')
             f.write("{},{},{},{},{}\n".format(
                 datetime.utcnow(),
-                InitialCheckStatus.TESTS_COMPLETED.value,
-                int(acknowledgments) + 1 if status_value == InitialCheckStatus.TESTS_COMPLETED.value else 1,
-                ParallelRole.FOLLOWER.value,
+                status_to_mark.value,
+                int(acknowledgments) + 1 if status_value == status_to_mark.value else 1,
+                ParallelRole.LEADER.value if is_leader else ParallelRole.FOLLOWER.value,
                 hostname,
             ))
 
             f.flush()
             fcntl.flock(f, fcntl.LOCK_UN)
+
+    def _wait_for_all_before_setup(self, wait_interval: int) -> None:
+        if not wait_until(
+            600,
+            wait_interval,
+            0,
+            self._is_all_acknowledged, InitialCheckStatus.BEFORE_SETUP, self.num_followers + 1
+        ):
+            pt_assert(False, "Timed out waiting for all hosts to be ready for setup")
+
+    def mark_and_wait_before_setup(self, hostname: str, is_leader: bool) -> None:
+        self._mark_status(InitialCheckStatus.BEFORE_SETUP, is_leader, hostname)
+        if not self.should_wait:
+            logger.info("Skip waiting for all hosts to be ready for setup")
+            return
+
+        wait_interval = 2
+        self._wait_for_all_before_setup(wait_interval)
+        # Wait longer than the interval to prevent the situation where a host starts writing new status to the file
+        # while others are still within the waiting interval for the BEFORE_SETUP status
+        time.sleep(wait_interval * 5)
+
+    def mark_tests_completed_for_follower(self, hostname: str) -> None:
+        self._mark_status(InitialCheckStatus.TESTS_COMPLETED, False, hostname)
 
     def set_new_status(self, new_status: InitialCheckStatus, is_leader: bool, hostname: str) -> None:
         with open(self.state_file, 'a+') as f:
@@ -215,6 +236,6 @@ class InitialCheckState:
             status_to_timeout.get(ack_status, 120),
             5,
             0,
-            self._is_all_acknowledged, ack_status,
+            self._is_all_acknowledged, ack_status, self.num_followers
         ):
             pt_assert(False, "Timed out waiting for all acknowledgments for status {}".format(ack_status))
