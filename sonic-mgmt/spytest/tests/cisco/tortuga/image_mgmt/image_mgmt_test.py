@@ -361,10 +361,11 @@ class ImageMgmtTests(unittest.TestCase):
         else:
             im.log("Img Subdirectory is " + str(img_base_dir + "/" + img_dir))
 
-        sig_file = str(img_base_dir + "/" + img_dir) + "/" + "fssquash.signature"
+        sig_file = str(img_base_dir + "/" + img_dir) + "/" + "fs.squashfs.signature"
         bkp_sig_file = sig_file + ".test_signature_failure"
 
         im.exec_cmd("sudo mv " + sig_file + " " + bkp_sig_file)
+        im.exec_cmd("touch " + sig_file)
 
         im.log("Rebooting device")
         im.reboot()
@@ -434,7 +435,7 @@ class ImageMgmtTests(unittest.TestCase):
         else:
             im.log("Img Subdirectory is " + str(img_base_dir + "/" + img_dir))
 
-        sig_file = str(img_base_dir + "/" + img_dir) + "/" + "dockerfs.signature"
+        sig_file = str(img_base_dir + "/" + img_dir) + "/" + "dockerfs.tar.signature"
         bkp_sig_file = sig_file + ".test_signature_failure"
 
         im.exec_cmd("sudo mv " + sig_file + " " + bkp_sig_file)
