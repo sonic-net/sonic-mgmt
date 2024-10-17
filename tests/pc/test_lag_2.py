@@ -23,20 +23,6 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
-    """Ignore expected failures logs during test execution."""
-    if loganalyzer:
-        for duthost in duthosts:
-            loganalyzer[duthost.hostname].ignore_regex.extend(
-                [
-                    r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
-                ]
-            )
-
-    return
-
-
 @pytest.fixture(scope="module")
 def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfhost, duthosts): # noqa F811
 
@@ -116,7 +102,8 @@ class LagTest:
             'ether_type': 0x8809,
             'interval_count': 3
         }
-        ptf_runner(self.ptfhost, 'acstests', "lag_test.LacpTimingTest", '/root/ptftests', params=params)
+        ptf_runner(self.ptfhost, 'acstests', "lag_test.LacpTimingTest",
+                   '/root/ptftests', params=params, is_python3=True)
 
     def __verify_lag_minlink(self, host, lag_name, lag_facts,
                              neighbor_intf, deselect_time, wait_timeout=30):
@@ -358,7 +345,7 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
 
 
 @pytest.fixture(scope='function')
-def ignore_expected_loganalyzer_exceptions_lag2(duthosts, rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions_lag(duthosts, rand_one_dut_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
 
@@ -369,15 +356,14 @@ def ignore_expected_loganalyzer_exceptions_lag2(duthosts, rand_one_dut_hostname,
             rand_one_dut_hostname: Hostname of a random chosen dut
             loganalyzer: Loganalyzer utility fixture
     """
-    # When loganalyzer is disabled, the object could be None
-    duthost = duthosts[rand_one_dut_hostname]
-    if loganalyzer:
-        ignoreRegex = [
-            # Valid test_lag_db_status and test_lag_db_status_with_po_update
-            ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
-            r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
-        ]
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+    ignoreRegex = [
+        r".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
+        r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
+    ]
+
+    for duthost in duthosts.frontend_nodes:
+        if duthost.loganalyzer:
+            duthost.loganalyzer.ignore_regex.extend(ignoreRegex)
 
 
 @pytest.fixture(scope='function')
@@ -464,7 +450,7 @@ def check_link_is_down(asichost, po_intf):
 
 
 def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level,
-                       ignore_expected_loganalyzer_exceptions_lag2):
+                       ignore_expected_loganalyzer_exceptions_lag):
     # Test state_db status for lag interfaces
     dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
     logger.info("Start test_lag_db_status test on dut {} for lag {}".format(dut_name, dut_lag))
@@ -538,7 +524,7 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level,
 
 
 def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_with_completeness_level,
-                                      ignore_expected_loganalyzer_exceptions_lag2):
+                                      ignore_expected_loganalyzer_exceptions_lag):
     """
     test port channel add/deletion and check interface status in state_db
     """

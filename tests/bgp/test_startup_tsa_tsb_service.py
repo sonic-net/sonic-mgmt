@@ -1,18 +1,18 @@
 import logging
 import datetime
 import pexpect
-
 import pytest
-
 from tests.common import reboot, config_reload
 from tests.common.reboot import get_reboot_cause, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.bgp.test_traffic_shift import get_traffic_shift_state, parse_routes_on_neighbors,\
-    check_tsa_persistence_support, verify_current_routes_announced_to_neighs, check_and_log_routes_diff, \
-    verify_only_loopback_routes_are_announced_to_neighs
+from traffic_checker import get_traffic_shift_state, check_tsa_persistence_support
+from route_checker import parse_routes_on_neighbors, check_and_log_routes_diff, \
+    verify_current_routes_announced_to_neighs, verify_only_loopback_routes_are_announced_to_neighs
+from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
+
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -20,10 +20,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-TS_NORMAL = "System Mode: Normal"
-TS_MAINTENANCE = "System Mode: Maintenance"
-TS_INCONSISTENT = "System Mode: Not consistent"
-TS_NO_NEIGHBORS = "System Mode: No external neighbors"
+
 COLD_REBOOT_CAUSE = 'cold'
 UNKNOWN_REBOOT_CAUSE = "Unknown"
 SUP_REBOOT_CAUSE = 'Reboot from Supervisor'
@@ -105,8 +102,8 @@ def get_tsa_tsb_service_uptime(duthost):
     service_status = duthost.shell("sudo systemctl status startup_tsa_tsb.service | grep 'Active'")
     for line in service_status["stdout_lines"]:
         if 'active' in line:
-            tmp_time = line.split('since')[1].strip().encode('utf-8')
-            act_time = tmp_time.split('UTC')[0].strip().encode('utf-8')
+            tmp_time = line.split('since')[1].strip()
+            act_time = tmp_time.split('UTC')[0].strip()
             service_uptime = datetime.datetime.strptime(act_time[4:], '%Y-%m-%d %H:%M:%S')
             return service_uptime
     return service_uptime

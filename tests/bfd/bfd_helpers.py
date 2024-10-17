@@ -7,8 +7,8 @@ import time
 import pytest
 from ptf import testutils
 
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
-from tests.platform_tests.cli import util
 
 logger = logging.getLogger(__name__)
 
@@ -159,11 +159,7 @@ def verify_static_route(
         )
 
 
-def control_interface_state(dut, asic, interface, action):
-    int_status = dut.show_interface(
-        command="status", include_internal_intfs=True, asic_index=asic.asic_index
-    )["ansible_facts"]["int_status"][interface]
-    oper_state = int_status["oper_state"]
+def batch_control_interface_state(dut, asic, interfaces, action):
     if action == "shutdown":
         target_state = "down"
     elif action == "startup":
@@ -171,29 +167,54 @@ def control_interface_state(dut, asic, interface, action):
     else:
         raise ValueError("Invalid action specified")
 
-    if oper_state != target_state:
-        command = "shutdown" if action == "shutdown" else "startup"
-        exec_cmd = (
-            "sudo ip netns exec asic{} config interface -n asic{} {} {}".format(
-                asic.asic_index, asic.asic_index, command, interface
-            )
-        )
-        logger.info("Command: {}".format(exec_cmd))
-        logger.info("Target state: {}".format(target_state))
-        dut.shell(exec_cmd)
+    int_status = get_interfaces_status(dut, asic)
+    cmds = []
+    for interface in interfaces:
+        oper_state = int_status[interface]["oper_state"]
+        if oper_state != target_state:
+            command = "shutdown" if action == "shutdown" else "startup"
+            exec_cmd = "sudo config interface -n asic{} {} {}".format(asic.asic_index, command, interface)
+            cmds.append(exec_cmd)
+            logger.info("Target state for interface {} is {}. Command: {}".format(
+                interface,
+                target_state,
+                exec_cmd,
+            ))
+        else:
+            raise ValueError("Invalid action specified for interface {}".format(interface))
+
+    toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, target_state)
+
+
+def toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, target_state):
+    if cmds:
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for cmd in cmds:
+                executor.submit(dut.shell, cmd)
+
         assert wait_until(
             180,
             10,
             0,
-            lambda: dut.show_interface(
-                command="status",
-                include_internal_intfs=True,
-                asic_index=asic.asic_index,
-            )["ansible_facts"]["int_status"][interface]["oper_state"]
-            == target_state,
+            lambda: check_interfaces_oper_state(dut, asic, interfaces, target_state),
         )
-    else:
-        raise ValueError("Invalid action specified")
+
+
+def check_interfaces_oper_state(dut, asic, interfaces, target_state):
+    int_status = get_interfaces_status(dut, asic)
+    for interface in interfaces:
+        if int_status[interface]["oper_state"] != target_state:
+            return False
+
+    return True
+
+
+def get_interfaces_status(dut, asic):
+    return dut.show_interface(
+        command="status",
+        include_internal_intfs=True,
+        asic_index=asic.asic_index,
+    )["ansible_facts"]["int_status"]
 
 
 def check_bgp_status(request):
@@ -224,12 +245,28 @@ def selecting_route_to_delete(asic_routes, nexthops):
                 return prefix
 
 
+def parse_colon_speparated_lines(lines):
+    """
+    @summary: Helper function for parsing lines which consist of key-value pairs
+              formatted like "<key>: <value>", where the colon can be surrounded
+              by 0 or more whitespace characters
+    @return: A dictionary containing key-value pairs of the output
+    """
+    res = {}
+    for line in lines:
+        fields = line.split(":")
+        if len(fields) != 2:
+            continue
+        res[fields[0].strip()] = fields[1].strip()
+    return res
+
+
 def modify_all_bfd_sessions(dut, flag):
     # Extracting asic count
     cmd = "show platform summary"
     logging.info("Verifying output of '{}' on '{}'...".format(cmd, dut.hostname))
     summary_output_lines = dut.command(cmd)["stdout_lines"]
-    summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
+    summary_dict = parse_colon_speparated_lines(summary_output_lines)
     asic_count = int(summary_dict["ASIC Count"])
 
     # Creating bfd.json, bfd0.json, bfd1.json, bfd2.json ...
@@ -444,32 +481,14 @@ def extract_routes(static_route_output, version):
     return asic_routes
 
 
-def ensure_interface_is_up(dut, asic, interface):
-    int_oper_status = dut.show_interface(
-        command="status", include_internal_intfs=True, asic_index=asic.asic_index
-    )["ansible_facts"]["int_status"][interface]["oper_state"]
-    if int_oper_status == "down":
-        logger.info(
-            "Starting downed interface {} on {} asic{}".format(interface, dut, asic.asic_index)
-        )
-        exec_cmd = (
-            "sudo ip netns exec asic{} config interface -n asic{} startup {}".format(
-                asic.asic_index, asic.asic_index, interface
-            )
-        )
+def ensure_interfaces_are_up(dut, asic, interfaces):
+    int_status = get_interfaces_status(dut, asic)
+    cmds = []
+    for interface in interfaces:
+        if int_status[interface]["oper_state"] == "down":
+            cmds.append("sudo config interface -n asic{} startup {}".format(asic.asic_index, interface))
 
-        logger.info("Command: {}".format(exec_cmd))
-        dut.shell(exec_cmd)
-        assert wait_until(
-            180,
-            10,
-            0,
-            lambda: dut.show_interface(
-                command="status",
-                include_internal_intfs=True,
-                asic_index=asic.asic_index,
-            )["ansible_facts"]["int_status"][interface]["oper_state"] == "up",
-        )
+    toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, "up")
 
 
 def prepare_traffic_test_variables(get_src_dst_asic, request, version):
@@ -713,7 +732,7 @@ def toggle_port_channel_or_member(
     request.config.selected_portchannels = [target_to_toggle]
     request.config.asic = asic
 
-    control_interface_state(dut, asic, target_to_toggle, action)
+    batch_control_interface_state(dut, asic, [target_to_toggle], action)
     if action == "shutdown":
         time.sleep(120)
 

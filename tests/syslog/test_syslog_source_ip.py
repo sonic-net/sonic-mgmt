@@ -7,8 +7,9 @@ import re
 
 from scapy.all import rdpcap
 from .syslog_utils import create_vrf, remove_vrf, add_syslog_server, del_syslog_server, capture_syslog_packets,\
-    replace_ip_neigh, is_mgmt_vrf_enabled, bind_interface_to_vrf, check_vrf, TCPDUMP_CAPTURE_TIME, DUT_PCAP_FILEPATH
+    replace_ip_neigh, bind_interface_to_vrf, check_vrf, TCPDUMP_CAPTURE_TIME, DUT_PCAP_FILEPATH
 from tests.common.utilities import wait_until
+from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network, IPv6Network

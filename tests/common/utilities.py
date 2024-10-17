@@ -40,6 +40,14 @@ logger = logging.getLogger(__name__)
 cache = FactsCache()
 LA_START_MARKER_SCRIPT = "scripts/find_la_start_marker.sh"
 FIND_SYSLOG_MSG_SCRIPT = "scripts/find_log_msg.sh"
+# forced mgmt route priority hardcoded to 32764 in following j2 template:
+# https://github.com/sonic-net/sonic-buildimage/blob/master/files/image_config/interfaces/interfaces.j2#L82
+FORCED_MGMT_ROUTE_PRIORITY = 32764
+# Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
+# interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
+FILE_CHANGE_TIMEOUT = 300
+
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
 
 
 def check_skip_release(duthost, release_list):
@@ -1137,7 +1145,7 @@ def capture_and_check_packet_on_dut(
         wait_time: the time to wait before stopping the packet capture, default is 1 second
     """
     pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
-    cmd_capture_pkts = "sudo nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
+    cmd_capture_pkts = "nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
         % (interface, pcap_save_path, pkts_filter)
     tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
     cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
@@ -1231,3 +1239,122 @@ def check_msg_in_syslog(duthost, log_msg):
             return False
     except Exception:
         return False
+
+
+def increment_ipv4_addr(ipv4_addr, incr=1):
+    octets = str(ipv4_addr).split('.')
+    last_octet = int(octets[-1])
+    last_octet += incr
+    octets[-1] = str(last_octet)
+
+    return '.'.join(octets)
+
+
+def increment_ipv6_addr(ipv6_addr, incr=1):
+    octets = str(ipv6_addr).split(':')
+    last_octet = octets[-1]
+    if last_octet == '':
+        last_octet = '0'
+    incremented_octet = int(last_octet, 16) + incr
+    new_octet_str = '{:x}'.format(incremented_octet)
+
+    return ':'.join(octets[:-1]) + ':' + new_octet_str
+
+
+def get_file_hash(duthost, file):
+    hash = duthost.command("sha1sum {}".format(file))["stdout"]
+    logger.debug("file hash: {}".format(hash))
+
+    return hash
+
+
+def get_interface_reload_timestamp(duthost):
+    timestamp = duthost.command("sudo systemctl show --no-pager interfaces-config"
+                                " -p ExecMainExitTimestamp --value")["stdout"]
+    logger.info("interfaces config timestamp {}".format(timestamp))
+
+    return timestamp
+
+
+def wait_for_file_changed(duthost, file, action, *args, **kwargs):
+    original_hash = get_file_hash(duthost, file)
+    last_timestamp = get_interface_reload_timestamp(duthost)
+
+    action(*args, **kwargs)
+
+    def hash_and_timestamp_changed(duthost, file):
+        latest_hash = get_file_hash(duthost, file)
+        latest_timestamp = get_interface_reload_timestamp(duthost)
+        return latest_hash != original_hash and latest_timestamp != last_timestamp
+
+    exist = wait_until(FILE_CHANGE_TIMEOUT, 1, 0, hash_and_timestamp_changed, duthost, file)
+    pytest_assert(exist, "File {} does not change after {} seconds.".format(file, FILE_CHANGE_TIMEOUT))
+
+
+def backup_config(duthost, config, config_backup):
+    logger.info("Backup {} to {} on {}".format(
+        config, config_backup, duthost.hostname))
+    duthost.shell("cp {} {}".format(config, config_backup))
+
+
+def restore_config(duthost, config, config_backup):
+    logger.info("Restore {} with {} on {}".format(
+        config, config_backup, duthost.hostname))
+    duthost.shell("mv {} {}".format(config_backup, config))
+
+
+def get_running_config(duthost, asic=None):
+    ns = "-n " + asic if asic else ""
+    return json.loads(duthost.shell("sonic-cfggen {} -d --print-data".format(ns))['stdout'])
+
+
+def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
+    """
+    for multi-asic/single-asic devices, we only have 1 golden_config_db.json
+    """
+    from tests.common.config_reload import config_reload
+    golden_config = "/etc/sonic/golden_config_db.json"
+    duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
+    config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+    # Cleanup golden config because some other test or device recover may reload config with golden config
+    duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
+
+
+def file_exists_on_dut(duthost, filename):
+    return duthost.stat(path=filename).get('stat', {}).get('exists', False)
+
+
+def compare_dicts_ignore_list_order(dict1, dict2):
+    def normalize(data):
+        if isinstance(data, list):
+            return set(data)
+        elif isinstance(data, dict):
+            return {k: normalize(v) for k, v in data.items()}
+        else:
+            return data
+
+    dict1_normalized = normalize(dict1)
+    dict2_normalized = normalize(dict2)
+
+    return dict1_normalized == dict2_normalized
+
+
+def check_output(output, exp_val1, exp_val2):
+    pytest_assert(not output['failed'], output['stderr'])
+    for line in output['stdout_lines']:
+        fds = line.split(':')
+        if fds[0] == exp_val1:
+            pytest_assert(fds[4] == exp_val2)
+
+
+def run_show_features(duthosts, enum_dut_hostname):
+    """Verify show features command output against CONFIG_DB
+    """
+    duthost = duthosts[enum_dut_hostname]
+    features_dict, succeeded = duthost.get_feature_status()
+    pytest_assert(succeeded, "failed to obtain feature status")
+    for cmd_key, cmd_value in list(features_dict.items()):
+        redis_value = duthost.shell('/usr/bin/redis-cli -n 4 --raw hget "FEATURE|{}" "state"'
+                                    .format(cmd_key), module_ignore_errors=False)['stdout']
+        pytest_assert(redis_value.lower() == cmd_value.lower(),
+                      "'{}' is '{}' which does not match with config_db".format(cmd_key, cmd_value))
