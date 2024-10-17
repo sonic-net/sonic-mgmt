@@ -1316,9 +1316,9 @@ class TestAclWithReboot(TestBasicAcl):
         if 't1' in tbinfo["topo"]["name"]:
             # Wait BGP sessions up on T1 as we saw BGP sessions to T0
             # established later than T2
-            bgp_neighbors = dut.get_bgp_neighbors_per_asic()
+            bgp_neighbors = dut.get_bgp_neighbors()
             pytest_assert(
-                wait_until(120, 10, 0, dut.check_bgp_session_state_all_asics, bgp_neighbors),
+                wait_until(120, 10, 0, dut.check_bgp_session_state, list(bgp_neighbors.keys())),
                 "Not all bgp sessions are established after reboot")
             # Delay 10 seconds for route convergence
             time.sleep(10)
