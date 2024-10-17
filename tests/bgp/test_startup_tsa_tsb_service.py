@@ -186,6 +186,8 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     initial_tsa_check_before_and_after_test(duthosts)
 
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+
     try:
         # Get all routes on neighbors before doing reboot
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
@@ -218,6 +220,11 @@ def test_tsa_tsb_service_with_dut_cold_reboot(duthosts, localhost, enum_rand_one
         logging.info("Wait until all critical processes are fully started")
         crit_process_check = wait_until(600, 20, 0, _all_critical_processes_healthy, duthost)
         int_status_result = wait_until(1200, 20, 0, check_interface_status_of_up_ports, duthost)
+
+        # verify bgp sessions are established
+        pytest_assert(
+            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up, no point in continuing the test")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
             duthosts, duthost, dut_nbrhosts, traffic_shift_community), "Failed to verify routes on nbr in TSA")
@@ -283,6 +290,8 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     initial_tsa_check_before_and_after_test(duthosts)
 
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+
     try:
         # Get all routes on neighbors before doing reboot
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
@@ -331,6 +340,11 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
         logging.info("Wait until all critical processes are fully started")
         crit_process_check = wait_until(600, 20, 0, _all_critical_processes_healthy, duthost)
         int_status_result = wait_until(1200, 20, 0, check_interface_status_of_up_ports, duthost)
+
+        # verify bgp sessions are established
+        pytest_assert(
+            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up, no point in continuing the test")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
             duthosts, duthost, dut_nbrhosts, traffic_shift_community), "Failed to verify routes on nbr in TSA")
@@ -386,6 +400,7 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
     suphost = duthosts[enum_supervisor_dut_hostname]
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
+    up_bgp_neighbors = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
@@ -397,6 +412,7 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
+        up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     initial_tsa_check_before_and_after_test(duthosts)
 
@@ -437,6 +453,12 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
             logging.info("Wait until all critical processes are fully started")
             crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
             int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
+
+            # verify bgp sessions are established
+            pytest_assert(
+                wait_until(
+                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up, no point in continuing the test")
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
@@ -510,6 +532,7 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
     sup_ip = suphost.mgmt_ip
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
+    up_bgp_neighbors = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
@@ -521,6 +544,7 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
+        up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
 
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     initial_tsa_check_before_and_after_test(duthosts)
@@ -583,6 +607,12 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
             logging.info("Wait until all critical processes are fully started")
             crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
             int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
+
+            # verify bgp sessions are established
+            pytest_assert(
+                wait_until(
+                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up, no point in continuing the test")
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
@@ -665,6 +695,8 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     initial_tsa_check_before_and_after_test(duthosts)
 
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+
     try:
         # Get all routes on neighbors before doing reboot
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
@@ -702,6 +734,11 @@ def test_tsa_tsb_service_with_user_init_tsa(duthosts, localhost, enum_rand_one_p
         wait_critical_processes(duthost)
         pytest_assert(wait_until(1200, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
+
+        # verify bgp sessions are established
+        pytest_assert(
+            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up, no point in continuing the test")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
             duthosts, duthost, dut_nbrhosts, traffic_shift_community),
@@ -765,6 +802,8 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     initial_tsa_check_before_and_after_test(duthosts)
 
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+
     try:
         # Get all routes on neighbors before doing reboot
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
@@ -809,6 +848,11 @@ def test_user_init_tsa_while_service_run_on_dut(duthosts, localhost, enum_rand_o
         logging.info("Wait until all critical processes are fully started")
         crit_process_check = wait_until(600, 20, 0, _all_critical_processes_healthy, duthost)
         int_status_result = wait_until(1200, 20, 0, check_interface_status_of_up_ports, duthost)
+
+        # verify bgp sessions are established
+        pytest_assert(
+            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up, no point in continuing the test")
 
         pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
             duthosts, duthost, dut_nbrhosts, traffic_shift_community),
@@ -874,6 +918,8 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     initial_tsa_check_before_and_after_test(duthosts)
 
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+
     try:
         # Get all routes on neighbors before doing reboot
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
@@ -919,6 +965,11 @@ def test_user_init_tsb_while_service_run_on_dut(duthosts, localhost, enum_rand_o
             "Not all critical services are fully started on {}".format(duthost.hostname)
         crit_process_check = wait_until(600, 20, 0, _all_critical_processes_healthy, duthost)
         int_status_result = wait_until(1200, 20, 0, check_interface_status_of_up_ports, duthost)
+
+        # verify bgp sessions are established
+        pytest_assert(
+            wait_until(300, 10, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"),
+            "All BGP sessions are not up, no point in continuing the test")
 
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
@@ -966,6 +1017,7 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
     int_status_result, crit_process_check = dict(), dict()
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
+    up_bgp_neighbors = dict()
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
@@ -976,6 +1028,7 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
+        up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
 
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     initial_tsa_check_before_and_after_test(duthosts)
@@ -1017,6 +1070,12 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost,
             logging.info("Wait until all critical processes are fully started")
             crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
             int_status_result[linecard] = wait_until(1200, 20, 10, check_interface_status_of_up_ports, linecard)
+
+            # verify bgp sessions are established
+            pytest_assert(
+                wait_until(
+                    300, 10, 0, linecard.check_bgp_session_state_all_asics, up_bgp_neighbors[linecard], "established"),
+                "All BGP sessions are not up, no point in continuing the test")
 
             pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(
                 duthosts, linecard, dut_nbrhosts[linecard], traffic_shift_community),
