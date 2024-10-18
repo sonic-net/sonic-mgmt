@@ -90,7 +90,7 @@ class SonicDbCli(object):
             raise SonicDbKeyNotFound("Key: %s, field: %s not found in sonic-db cmd: %s" % (key, field, cmd))
         else:
             if six.PY2:
-                return result['stdout'].decode('unicode-escape')
+                return result['stdout'].decode('unicode-escape').splitlines()
             else:
                 return result['stdout']
 
