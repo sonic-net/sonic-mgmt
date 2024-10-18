@@ -5,8 +5,9 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import apply_patch_wrapper, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import create_path, check_show_ip_intf
 
@@ -148,6 +149,7 @@ def vlan_interface_tc1_add_duplicate(duthost, vlan_info):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     logger.info("json patch {}".format(json_patch))
 
@@ -155,7 +157,7 @@ def vlan_interface_tc1_add_duplicate(duthost, vlan_info):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(duthost, vlan_info["v4"]["name"], [vlan_info["v4"]["prefix"]],
@@ -233,12 +235,13 @@ def vlan_interface_tc1_xfail(duthost, vlan_info):
                 "value": {}
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_failure(output)
         finally:
             delete_tmpfile(duthost, tmpfile)
@@ -304,12 +307,13 @@ def vlan_interface_tc1_add_new(duthost):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(duthost, "Vlan{}".format(NEW_VLAN_ID), ["192.168.8.1/21"],
@@ -362,12 +366,13 @@ def vlan_interface_tc1_replace(duthost, vlan_info):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(duthost, vlan_info["v4"]["name"], [ipaddr_plus(vlan_info["v4"]["prefix"])],
@@ -387,12 +392,13 @@ def vlan_interface_tc1_remove(duthost, vlan_info):
             "path": "/VLAN_INTERFACE"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(duthost, vlan_info["v4"]["name"], [],
@@ -430,12 +436,13 @@ def test_vlan_interface_tc2_incremental_change(rand_selected_dut):
             "value": "incremental test for Vlan{}".format(EXIST_VLAN_ID)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(rand_selected_dut, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(rand_selected_dut, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(rand_selected_dut, output)
     finally:
         delete_tmpfile(rand_selected_dut, tmpfile)

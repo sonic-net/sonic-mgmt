@@ -3,8 +3,9 @@ import logging
 
 from tests.common.utilities import skip_release
 from tests.common.config_reload import config_reload
-from tests.common.gu_utils import apply_patch
+from tests.common.gu_utils import apply_patch_wrapper
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.before_gcu_test"
@@ -58,7 +59,7 @@ def reset_and_restore_test_environment(duthosts, rand_one_dut_hostname):
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -98,7 +99,7 @@ def verify_configdb_with_empty_input(duthosts, rand_one_dut_hostname):
     tmpfile = generate_tmpfile(duthost)
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         if output['rc'] or "Patch applied successfully" not in output['stdout']:
             pytest.fail(
                 "SETUP FAILURE: ConfigDB fail to validate Yang. rc:{} msg:{}"

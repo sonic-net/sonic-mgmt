@@ -35,7 +35,65 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
-def apply_patch(duthost, json_data, dest_file, scope=None):
+def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False):
+    """
+    Adjust the JSON patch for multi-ASIC hosts.
+
+    This function processes the JSON data to append additional information for multi-ASIC hosts.
+    For multi-ASIC hosts, it modifies the 'path' in each JSON patch operation by adding the host
+    and ASIC namespaces. The function skips this processing if the data is ASIC-specific.
+
+    Args:
+        duthost (object): The DUT (Device Under Test) host object.
+        json_data (list): List of JSON patch operations.
+        is_asic_specific (bool): A flag to indicate if the data is ASIC-specific. 
+                                 If True, no massaging will occur for ASIC-specific data.
+
+    Returns:
+        list: The modified JSON patch for multi-ASIC hosts.
+    """
+    if is_asic_specific:
+        # If data is ASIC-specific, return it without modification
+        return json_data
+
+    json_patch = []
+
+    # Check if the host is multi-ASIC
+    if duthost.is_multi_asic:
+        num_asic = duthost.facts.get('num_asic', 0)
+
+        for operation in json_data:
+            path = operation["path"]
+
+            # If the path is already in the correct format, keep it
+            if path.startswith(HOST_NAME) and ASIC_PREFIX in path:
+                json_patch.append(operation)
+            else:
+                # Prepare a template for each operation type
+                template = {
+                    "op": operation["op"],
+                    "path": "{}{}".format(HOST_NAME, path)  # Append host name
+                }
+
+                if operation["op"] in ["add", "replace", "test"]:
+                    template["value"] = operation["value"]
+
+                # Add the initial host-level operation
+                json_patch.append(template.copy())
+
+                # Add a copy for each ASIC namespace
+                for asic_index in range(num_asic):
+                    asic_ns = "{}{}".format(ASIC_PREFIX, asic_index)
+                    template["path"] = "{}{}".format(asic_ns, path)  # Update for each ASIC
+                    json_patch.append(template.copy())
+
+        # Update json_data with the modified patch
+        json_data = json_patch
+
+    return json_data
+
+
+def apply_patch_wrapper(duthost, json_data, dest_file):
     """Run apply-patch on target duthost
 
     Args:
@@ -43,32 +101,6 @@ def apply_patch(duthost, json_data, dest_file, scope=None):
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
     """
-    # In multi asic case, if scope was not given, then populate jsonpatch
-    # for each asic includes localhost.
-    # But if one of operation has set with scope, this operation will be skipped.
-    if duthost.is_multi_asic and scope is None:
-        json_patch = []
-        for operation in json_data:
-            if not operation["path"].startswith("{}".format(HOST_NAME)) and \
-               not operation["path"].startswith("{}".format(ASIC_PREFIX)):
-
-                template = {
-                    "op": operation["op"],
-                    "path": operation["path"],
-                }
-
-                if operation["op"] in ["add", "replace", "test"]:
-                    template["value"] = operation["value"]
-
-                template["path"] = "{}{}".format(HOST_NAME, operation["path"])
-                json_patch.append(template.copy())
-                for asic_index in range(0, duthost.facts.get('num_asic')):
-                    asic_ns = "{}{}".format(ASIC_PREFIX, asic_index)
-                    template["path"] = "{}{}".format(asic_ns, operation["path"])
-                    json_patch.append(template.copy())
-
-        json_data = json_patch
-
     duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
 
     cmds = 'config apply-patch {}'.format(dest_file)
@@ -420,7 +452,7 @@ def apply_formed_json_patch(duthost, json_patch, setup):
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch(dut, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch_wrapper(dut, json_data=json_patch, dest_file=tmpfile)
             outputs.append(output)
         finally:
             delete_tmpfile(dut, tmpfile)

@@ -6,9 +6,10 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.common.gu_utils import apply_patch, expect_op_success, \
+from tests.common.gu_utils import apply_patch_wrapper, expect_op_success, \
     expect_op_failure         # noqa F401
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import is_valid_platform_and_version
 from tests.common.mellanox_data import is_mellanox_device
@@ -236,9 +237,10 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
             "path": "/BUFFER_POOL/{}".format(configdb_field),
             "value": "{}".format(value)
         }]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         if op == "replace" and not field_value:
             expect_op_failure(output)
 
