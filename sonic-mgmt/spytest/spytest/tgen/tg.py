@@ -1896,12 +1896,7 @@ class TGIxia(TGBase):
 
         if not params.get('config_file'):
             if self.ports_fec_disable:
-                logger.info('Disabling FEC for ports: {}'.format(self.ports_fec_disable))
-                res = self.ixia_eval('interface_config', port_handle=list(self.tg_port_handle.values()), mode="modify",
-                                     autonegotiation=0, ieee_media_defaults=0, enable_rs_fec=0, force_enable_rs_fec='0',
-                                     firecode_force_on='0')
-                self.ixia_eval('interface_config', port_handle=self.ports_fec_disable, mode="modify", autonegotiation=0)
-                logger.info(res)
+                logger.info("Not disabling FEC") 
             self.auto_neg = 1 if self.auto_neg else 0
             if self.tg_link_params.get('port_speed') and self.tg_link_params.get('auto_neg'):
                 if self.tg_link_params.get('port_speed')[0] == self.tg_link_params.get('auto_neg')[0]:
