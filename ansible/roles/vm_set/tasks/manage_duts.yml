@@ -26,3 +26,9 @@
   when:
     - hostvars[dut_name] is defined
     - hostvars[dut_name].type is defined
+
+- block:
+    - name: Start SONiC DPU VM
+      include_tasks: start_dpu_vm.yml
+
+  when: dpu_targets is defined and dpu_targets | length > 0
