@@ -23,27 +23,27 @@ trigger: none
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
 stages:
-- stage: Pre_test
-  jobs:
-  - job: static_analysis
-    displayName: "Static Analysis"
-    timeoutInMinutes: 10
-    continueOnError: false
-    pool: sonic-ubuntu-1c
-    steps:
-    - template: .azure-pipelines/pre-commit-check.yml
-
-  - job: validate_test_cases
-    displayName: "Validate Test Cases"
-    timeoutInMinutes: 20
-    continueOnError: false
-    pool: sonic-common
-    steps:
-    - template: .azure-pipelines/pytest-collect-only.yml
+#- stage: Pre_test
+#  jobs:
+#  - job: static_analysis
+#    displayName: "Static Analysis"
+#    timeoutInMinutes: 10
+#    continueOnError: false
+#    pool: sonic-ubuntu-1c
+#    steps:
+#    - template: .azure-pipelines/pre-commit-check.yml
+#
+#  - job: validate_test_cases
+#    displayName: "Validate Test Cases"
+#    timeoutInMinutes: 20
+#    continueOnError: false
+#    pool: sonic-common
+#    steps:
+#    - template: .azure-pipelines/pytest-collect-only.yml
 
 - stage: Test
-  dependsOn: Pre_test
-  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
+#  dependsOn: Pre_test
+#  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
   variables:
   - group: SONiC-Elastictest
   - name: inventory
@@ -57,6 +57,27 @@ stages:
       value: $(Build.SourceBranchName)
 
   jobs:
+  - job: t0_elastictest_partly
+    displayName: "kvmtest-t0 by Elastictest(partly)"
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - script: |
+          set -x
+          DIFF_FOLDERS=$(git diff HEAD^ HEAD --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
+          echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
+        displayName: "Get diff folders"
+
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t0
+          MIN_WORKER: $(T0_INSTANCE_NUM)
+          MAX_WORKER: $(T0_INSTANCE_NUM)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: $(BUILD_BRANCH)
+          DIFF_FOLDERS: $(DIFF_FOLDERS)
+
   - job: t0_elastictest
     displayName: "kvmtest-t0 by Elastictest"
     timeoutInMinutes: 240

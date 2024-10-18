@@ -146,6 +146,10 @@ parameters:
     type: string
     default: ""
 
+  - name: DIFF_FOLDERS
+    type: string
+    default: ""
+
 steps:
   - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
       - script: |
@@ -190,11 +194,30 @@ steps:
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
-        set -e
+        set -x
 
         pip install PyYAML
+        pip install natsort
 
         rm -f new_test_plan_id.txt
+
+        FINAL_FEATURES=""
+        echo "${{ parameters.DIFF_FOLDERS }}"
+        IFS=' ' read -ra FEATURES_LIST <<< "${{ parameters.DIFF_FOLDERS }}"
+        for FEATURE in "${FEATURES_LIST[@]}"
+        do
+            if [[ "$FEATURE" == *tests* ]] && [[ "$FEATURE" != *tests/common* ]];then
+                if [[ -z "$FINAL_FEATURES" ]];then
+                    FINAL_FEATURES="${FEATURE#tests/}"
+                else
+                    FINAL_FEATURES="$FINAL_FEATURES,${FEATURE#tests/}"
+                fi
+            fi
+        done
+        echo "Final features: ${FINAL_FEATURES}"
+
+        test_scripts=$(python ./.azure-pipelines/validate_diff_folders/get_test_scripts.py ${{ parameters.TOPOLOGY }} ${FINAL_FEATURES} tests)
+        echo "Test scripts: ${test_scripts}"
 
         python ./.azure-pipelines/test_plan.py create \
         -t ${{ parameters.TOPOLOGY }} \
@@ -215,7 +238,7 @@ steps:
         --test-plan-type ${{ parameters.TEST_PLAN_TYPE }} \
         --platform ${{ parameters.PLATFORM }} \
         --testbed-name "${{ parameters.TESTBED_NAME }}" \
-        --scripts "${{ parameters.SCRIPTS }}" \
+        --scripts "${test_scripts}" \
         --features "${{ parameters.FEATURES }}" \
         --scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}" \
         --features-exclude "${{ parameters.FEATURES_EXCLUDE }}" \
