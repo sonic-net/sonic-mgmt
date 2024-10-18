@@ -221,7 +221,7 @@ def get_dpu_npu_ports_from_hwsku(duthost):
 
 def get_valid_interfaces(duthost, supported_speeds):
     """
-    Get interfaces that are up, have an SFP module present, and have supported speeds.
+    Get interfaces that are up and have supported speeds.
 
     Args:
         duthost: The device under test.
@@ -237,15 +237,12 @@ def get_valid_interfaces(duthost, supported_speeds):
     valid_interfaces = []
     for intf in intf_status:
         intf_name = intf['interface']
-        sfp_presence = duthost.show_and_parse(f"sudo sfpshow presence -p {intf_name}")
-        if sfp_presence:
-            presence = sfp_presence[0].get('presence', '').lower()
-            oper = intf.get('oper', '').lower()
-            speed = intf.get('speed', '')
+        oper = intf.get('oper', '').lower()
+        speed = intf.get('speed', '')
 
-            if presence == "present" and oper == "up" and speed in supported_speeds:
-                valid_interfaces.append(intf_name)
-            else:
-                logging.info(f"Skip for {intf_name}: sfp_presence:{presence} oper_state:{oper} speed:{speed}")
+        if oper == "up" and speed in supported_speeds:
+            valid_interfaces.append(intf_name)
+        else:
+            logging.info(f"Skip for {intf_name}: oper_state:{oper} speed:{speed}")
 
     return valid_interfaces
