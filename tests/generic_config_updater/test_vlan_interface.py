@@ -436,7 +436,7 @@ def test_vlan_interface_tc2_incremental_change(rand_selected_dut):
             "value": "incremental test for Vlan{}".format(EXIST_VLAN_ID)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=json_patch)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))

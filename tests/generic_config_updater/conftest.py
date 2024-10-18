@@ -5,7 +5,6 @@ from tests.common.utilities import skip_release
 from tests.common.config_reload import config_reload
 from tests.common.gu_utils import apply_patch_wrapper
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.common.gu_utils import format_json_patch_for_multiasic
 
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.before_gcu_test"

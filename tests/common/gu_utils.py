@@ -36,58 +36,30 @@ def delete_tmpfile(duthost, tmpfile):
 
 
 def format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=False):
-    """
-    Adjust the JSON patch for multi-ASIC hosts.
-
-    This function processes the JSON data to append additional information for multi-ASIC hosts.
-    For multi-ASIC hosts, it modifies the 'path' in each JSON patch operation by adding the host
-    and ASIC namespaces. The function skips this processing if the data is ASIC-specific.
-
-    Args:
-        duthost (object): The DUT (Device Under Test) host object.
-        json_data (list): List of JSON patch operations.
-        is_asic_specific (bool): A flag to indicate if the data is ASIC-specific. 
-                                 If True, no massaging will occur for ASIC-specific data.
-
-    Returns:
-        list: The modified JSON patch for multi-ASIC hosts.
-    """
     if is_asic_specific:
-        # If data is ASIC-specific, return it without modification
         return json_data
 
     json_patch = []
-
-    # Check if the host is multi-ASIC
     if duthost.is_multi_asic:
-        num_asic = duthost.facts.get('num_asic', 0)
+        num_asic = duthost.facts.get('num_asic')
 
         for operation in json_data:
             path = operation["path"]
-
-            # If the path is already in the correct format, keep it
             if path.startswith(HOST_NAME) and ASIC_PREFIX in path:
                 json_patch.append(operation)
             else:
-                # Prepare a template for each operation type
                 template = {
                     "op": operation["op"],
-                    "path": "{}{}".format(HOST_NAME, path)  # Append host name
+                    "path": "{}{}".format(HOST_NAME, path)
                 }
 
                 if operation["op"] in ["add", "replace", "test"]:
                     template["value"] = operation["value"]
-
-                # Add the initial host-level operation
                 json_patch.append(template.copy())
-
-                # Add a copy for each ASIC namespace
                 for asic_index in range(num_asic):
                     asic_ns = "{}{}".format(ASIC_PREFIX, asic_index)
-                    template["path"] = "{}{}".format(asic_ns, path)  # Update for each ASIC
+                    template["path"] = "{}{}".format(asic_ns, path)
                     json_patch.append(template.copy())
-
-        # Update json_data with the modified patch
         json_data = json_patch
 
     return json_data
