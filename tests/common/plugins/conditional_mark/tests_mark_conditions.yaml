@@ -80,7 +80,8 @@ bfd/test_bfd.py::test_bfd_basic:
              and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test"
     conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
       - "release in ['201811', '201911']"
 
 bfd/test_bfd.py::test_bfd_scale:
@@ -89,7 +90,8 @@ bfd/test_bfd.py::test_bfd_scale:
              and not supported for platforms other than Nvidia 4600c/4700/5600. Skipping the test"
     conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
       - "release in ['201811', '201911']"
 
 bfd/test_bfd_static_route.py:
@@ -561,6 +563,13 @@ dualtor_io/test_link_failure.py::test_standby_link_down_upstream:
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
 
+dualtor_mgmt/test_dualtor_bgp_update_delay.py:
+  xfail:
+    reason: "Has flaky issue on kvm testbed"
+    conditions:
+      - asic_type in ['vs']
+      - https://github.com/sonic-net/sonic-mgmt/issues/14996
+
 #######################################
 #####         dut_console         #####
 #######################################
@@ -690,25 +699,27 @@ everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_po
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
-    reason: "Due to HW resource limitation, need to skip the test on the Mellanox t0-120 setup"
+    reason: "For Mellanox t0-120 setup - Need to skip the test due to HW resource limitation.
+             For Cisco-8000 - EverflowV4 EgressAcl EgressMirror - is not yet fully supported on cisco chassis. Skipping it till it is fully validated."
+    conditions_logical_operator: "OR"
     conditions:
+      - "asic_type in ['cisco-8000']"
       - "'t0-120' in topo_name and asic_type in ['mellanox']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms and Broadcom DNX platforms."
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
+      - "asic_type in ['cisco-8000']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
-  xfail:
-    strict: True
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms."
-    conditions:
-      - "asic_type=='cisco-8000'"
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms and Broadcom DNX platforms."
+    conditions_logical_operator: "OR"
     conditions:
+      - "asic_type in ['cisco-8000']"
       - "asic_subtype in ['broadcom-dnx']"
 
 #######################################
@@ -1810,6 +1821,12 @@ telemetry/test_telemetry.py:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
+
+telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
+  skip:
+    reason: "Testcase ignored due to switch type is voq"
+    conditions:
+      - "(switch_type=='voq')"
 
 #######################################
 #####         pktgen              #####
