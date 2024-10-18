@@ -126,5 +126,4 @@ stages:
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
-        AFFINITY: ${{ parameters.AFFINITY }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
