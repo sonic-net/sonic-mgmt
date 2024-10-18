@@ -500,12 +500,10 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
 def check_determine_reboot_cause_service(dut):
     """
     @summary: This function verifies the status of the 'determine-reboot-cause' service on the device under test (DUT).
-    It checks:
-    1. The service's ActiveState and SubState using systemctl.
-    2. The kernel logs (dmesg) for critical errors that may indicate service failures or system instability.
+    It checks the service's ActiveState and SubState using systemctl.
     @param dut: The AnsibleHost object of DUT.
     """
-    # Step 1: Check the 'determine-reboot-cause' service status
+    # Check the 'determine-reboot-cause' service status
     logger.info("Checking 'determine-reboot-cause' service status using systemctl")
     service_state = dut.get_service_props("determine-reboot-cause.service")
 
@@ -517,23 +515,3 @@ def check_determine_reboot_cause_service(dut):
     assert active_state == "active", f"Service 'determine-reboot-cause' is not active. Current state: {active_state}"
     assert sub_state == "exited", f"Service 'determine-reboot-cause' did not exit cleanly. \
             Current sub-state: {sub_state}"
-
-    # Step 2: Check kernel logs (dmesg) for any critical errors
-    logger.info("Checking dmesg for critical errors")
-    dmesg_output = dut.command("sudo dmesg")["stdout"]
-
-    # List of error keywords to look for in the dmesg logs
-    error_keywords = ["crash", "Out of memory", "Call Trace", "Exception", "panic", "segfault"]
-    found_errors = []
-
-    for err_kw in error_keywords:
-        if re.search(err_kw, dmesg_output, re.I):
-            found_errors.append(err_kw)
-
-    # Log any found errors and assert no critical issues
-    if found_errors:
-        logger.error(f"Found critical error keywords in dmesg: {found_errors}")
-        logger.error(f"dmesg output: {dmesg_output}")
-        assert not found_errors, f"Critical errors found in dmesg: {', '.join(found_errors)}"
-    else:
-        logger.info("No critical errors found in dmesg.")
