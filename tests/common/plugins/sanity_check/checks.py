@@ -6,6 +6,7 @@ import time
 
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
+from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa F401
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
 from tests.common.dualtor.dual_tor_common import CableType, active_standby_ports                # noqa F401
@@ -642,7 +643,7 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
 @pytest.fixture(scope='module')
 def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status,     # noqa F811
                         reset_simulator_port, restart_nic_simulator,                # noqa F811
-                        active_standby_ports):                                      # noqa F811
+                        restart_mux_simulator, active_standby_ports):               # noqa F811
     def _recover():
         duthosts.shell('config muxcable mode auto all; config save -y')
         if active_standby_ports:
@@ -681,6 +682,14 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
             return results
 
         mux_simulator_status = get_mux_status()
+        if active_standby_ports and mux_simulator_status is None:
+            err_msg = "Failed to get mux status from mux simulator."
+            logger.warning(err_msg)
+            results['failed'] = True
+            results['failed_reason'] = err_msg
+            results['hosts'] = [dut.hostname for dut in duthosts]
+            results['action'] = restart_mux_simulator
+            return results
         upper_tor_mux_status = duts_mux_status[duthosts[0].hostname]
 
         for status in list(mux_simulator_status.values()):
