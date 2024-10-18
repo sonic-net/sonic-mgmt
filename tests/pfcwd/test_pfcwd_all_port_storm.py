@@ -29,7 +29,7 @@ def pfc_queue_idx():
     yield 3   # Hardcoded in the testcase as well.
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     A fixture to degrade PFC Watchdog detection logic.
@@ -73,7 +73,7 @@ def degrade_pfcwd_detection(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost.file(path='/tmp/pfc_detect_mellanox.lua', state='absent')
 
 
-@pytest.fixture(scope='class', autouse=True)
+@pytest.fixture(scope='function', autouse=True)
 def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Fixture that stops PFC Watchdog before each test run
@@ -91,7 +91,7 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("pfcwd start_default")
 
 
-@pytest.fixture(scope='class', autouse=True)
+@pytest.fixture(scope='function', autouse=True)
 def storm_test_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,     # noqa F811
                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
