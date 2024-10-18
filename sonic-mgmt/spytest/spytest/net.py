@@ -2501,7 +2501,7 @@ class Net(object):
     @staticmethod
     def is_vtysh_prompt(access, prompt):
         hostname = access.get("hostname", "sonic")
-        for pattern in [r'(sonic|{})#', r'(sonic|{})\(config[^)]*\)#']:
+        for pattern in [r'(sonic|{}|.{11})#', r'(sonic|{}|.{11})\(config[^)]*\)#']:
             if re.compile(pattern.format(hostname)).match(prompt):
                 return True
         return False
