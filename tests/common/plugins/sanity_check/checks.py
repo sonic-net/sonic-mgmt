@@ -1,9 +1,12 @@
 import re
 import json
 import logging
+import threading
+
 import pytest
 import time
 
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
 from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa F401
@@ -22,6 +25,7 @@ SYSTEM_STABILIZE_MAX_TIME = 300
 MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES = 10485760     # 10MB
 cache = FactsCache()
+lock = threading.Lock()
 
 CHECK_ITEMS = [
     'check_processes',
@@ -33,7 +37,8 @@ CHECK_ITEMS = [
     'check_neighbor_macsec_empty',
     'check_ipv6_mgmt',
     'check_mux_simulator',
-    'check_orchagent_usage']
+    'check_orchagent_usage',
+    'check_mac_entry_count']
 
 __all__ = CHECK_ITEMS
 
@@ -1055,6 +1060,60 @@ def check_orchagent_usage(duthosts):
         res = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
         check_result["orchagent_usage"] = res
         logger.info("Done checking orchagent CPU usage on %s" % dut.hostname)
+        results[dut.hostname] = check_result
+
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_mac_entry_count(duthosts):
+    def _calc_expected_mac_entry_count():
+        expected_count = 0
+        for duthost in duthosts.frontend_nodes:
+            expected_count += len(duthost.asics)
+
+        return expected_count
+
+    expected_mac_entry_count = _calc_expected_mac_entry_count()
+
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "mac_entry_count"}
+        if expected_mac_entry_count == 0:
+            logger.error("Failed to calculate expected MAC entry count")
+            return [init_result]
+
+        logger.info("Expected MAC entry count is: {}".format(expected_mac_entry_count))
+        result = parallel_run(_check_mac_entry_count_on_dut, args, kwargs, duthosts.supervisor_nodes,
+                              timeout=600, init_result=init_result)
+
+        return list(result.values())
+
+    def _check_mac_entry_count_on_asic(asic, dut, check_result):
+        asic_id = "asic{}".format(asic.asic_index)
+        show_mac_output = dut.shell("ip netns exec {} show mac".format(asic_id))["stdout"]
+        try:
+            match = re.search(r'Total number of entries (\d+)', show_mac_output)
+            mac_entry_count = int(match.group(1)) if match else 0
+        except Exception as e:
+            logger.error("Failed to parse MAC entry count on {} of {}: {}".format(asic_id, dut.hostname, e))
+            mac_entry_count = -1
+
+        with lock:
+            check_result["mac_entry_count"][asic_id] = mac_entry_count
+            if mac_entry_count != expected_mac_entry_count:
+                check_result["failed"] = True
+                logger.error("MAC entry count on {} of {} is not as expected".format(asic_id, dut.hostname))
+
+    def _check_mac_entry_count_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        check_result = {"failed": False, "check_item": "mac_entry_count", "host": dut.hostname, "mac_entry_count": {}}
+        logger.info("Checking MAC entry count on {}...".format(dut.hostname))
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for asic in dut.asics:
+                executor.submit(_check_mac_entry_count_on_asic, asic, dut, check_result)
+
+        logger.info("Done checking MAC entry count on {}".format(dut.hostname))
         results[dut.hostname] = check_result
 
     return _check

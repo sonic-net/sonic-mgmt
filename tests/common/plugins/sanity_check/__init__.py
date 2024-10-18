@@ -109,6 +109,9 @@ def filter_check_items(tbinfo, check_items):
     if 'dualtor' not in tbinfo['topo']['name'] and 'check_mux_simulator' in filtered_check_items:
         filtered_check_items.remove('check_mux_simulator')
 
+    if 't2' not in tbinfo['topo']['name'] and 'check_mac_entry_count' in filtered_check_items:
+        filtered_check_items.remove('check_mac_entry_count')
+
     return filtered_check_items
 
 
