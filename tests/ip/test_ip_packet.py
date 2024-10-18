@@ -1,6 +1,7 @@
 import re
 import time
 import logging
+import random
 
 import ipaddress
 import ptf.testutils as testutils
@@ -106,6 +107,12 @@ class TestIPPacket(object):
 
         return results
 
+    @staticmethod
+    def random_mac():
+        return "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
+                                            random.randint(0, 255),
+                                            random.randint(0, 255))
+
     @pytest.fixture(scope="class")
     def common_param(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -114,6 +121,7 @@ class TestIPPacket(object):
         # generate peer_ip and port channel pair, be like:[("10.0.0.57", "PortChannel0001")]
         peer_ip_pc_pair = [(pc["peer_addr"], pc["attachto"]) for pc in mg_facts["minigraph_portchannel_interfaces"]
                            if ipaddress.ip_address(pc['peer_addr']).version == 4]
+        # generate port channel and member ports pair, be like:{"PortChannel0001": ["Ethernet48", "Ethernet56"]}
         pc_ports_map = {pair[1]: mg_facts["minigraph_portchannels"][pair[1]]["members"] for pair in
                         peer_ip_pc_pair}
 
@@ -653,3 +661,56 @@ class TestIPPacket(object):
                       "Forwarded {} packets in tx, not in expected range".format(tx_ok))
         pytest_assert(max(tx_drp, tx_err) <= self.PKT_NUM_ZERO,
                       "Dropped {} packets in tx, not in expected range".format(tx_err))
+
+    def test_drop_l3_ip_packet_non_dut_mac(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                           ptfadapter, common_param):  # noqa F811
+        # GIVEN a random normal ip packet, and random dest mac address
+        # WHEN send the packet to DUT with dst_mac != ingress_router_mac to a layer 3 interface
+        # THEN DUT should drop it and add drop count
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
+         pc_ports_map, _, ingress_router_mac) = common_param
+
+        dst_mac = TestIPPacket.random_mac()
+        while dst_mac == ingress_router_mac:
+            dst_mac = TestIPPacket.random_mac()
+
+        pkt = testutils.simple_ip_packet(
+            eth_dst=dst_mac,
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
+            ip_src=peer_ip_ifaces_pair[0][0],
+            ip_dst=peer_ip_ifaces_pair[1][0])
+
+        out_rif_ifaces, out_ifaces = TestIPPacket.parse_interfaces(
+            duthost.command("show ip route %s" % peer_ip_ifaces_pair[1][0])["stdout_lines"], pc_ports_map)
+
+        duthost.command("portstat -c")
+        if rif_support:
+            duthost.command("sonic-clear rifcounters")
+        ptfadapter.dataplane.flush()
+
+        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        time.sleep(5)
+
+        portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
+        if rif_support:
+            rif_counter_out = TestIPPacket.parse_rif_counters(
+                duthost.command("show interfaces counters rif")["stdout_lines"])
+
+        # rx_ok counter to increase to show packets are being received correctly at layer 2
+        # rx_drp counter to increase to show packets are being dropped
+        # tx_ok, tx_drop, tx_err counter to zero to show no packets are being forwarded
+        rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
+        rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
+        tx_ok = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
+        tx_drp = TestIPPacket.sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
+        tx_rif_err = TestIPPacket.sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
+
+        pytest_assert(rx_ok >= self.PKT_NUM_MIN,
+                      "Received {} packets in rx, not in expected range".format(rx_ok))
+        pytest_assert(rx_drp >= self.PKT_NUM_MIN,
+                      "Dropped {} packets in rx, not in expected range".format(rx_drp))
+        pytest_assert(tx_ok <= self.PKT_NUM_ZERO,
+                      "Forwarded {} packets in tx, not in expected range".format(tx_ok))
+        pytest_assert(max(tx_drp, tx_rif_err) <= self.PKT_NUM_ZERO,
+                      "Dropped {} packets in tx, tx_rif_err {}, not in expected range".format(tx_drp, tx_rif_err))
