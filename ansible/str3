@@ -102,6 +102,9 @@ all:
         vms66-8:
           ansible_host: 10.64.247.87
           ansible_hostv6: 2a01:111:e210:b000::a40:f754
+        vms67-1:
+          ansible_host: 10.64.246.47
+          ansible_hostv6: 2a01:111:e210:b000::a40:f62f
         vms68-1:
           ansible_host: 10.64.247.51
           ansible_hostv6: 2a01:111:e210:b000::a40:f733
@@ -367,6 +370,10 @@ fanout:
       os: sonic
     str3-7060x6-64pe-fan-2:
       ansible_host: 10.64.246.8
+      ansible_hostv6:
+      os: sonic
+    str3-7060x6-64pe-th5p-fan-1:
+      ansible_host: 10.64.246.36
       ansible_hostv6:
       os: sonic
 
@@ -1671,6 +1678,26 @@ sonic_arista_7060x6:
         "0x2D": "Arista Networks"
         "0x2B": "Arista Networks"
         "0x2F": "HBG24270155"
+    str3-7060x6-64pe-th5p-1:
+      ansible_host: 10.64.246.35
+      ansible_hostv6: 2a01:111:e210:b000::a40:f623
+      mgmt_subnet_mask_length: 23
+      hwsku: Arista-7060X6-64PE-C256S2
+      model: DCS-7060X6-64PE
+      serial: HBG243302UL
+      base_mac: 68:bf:6c:e3:ad:10
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE"
+        "0x22": "ASY0783905A0"
+        "0x23": "HBG243302UL"
+        "0x24": "68:bf:6c:e3:ad:10"
+        "0x25": "2024/08/15 02:53:40"
+        "0x26": "11.21"
+        "0x27": "41.00"
+        "0x28": "x86_64-arista_7060x6_64pe"
+        "0x2D": "Arista Networks"
+        "0x2B": "Arista Networks"
+        "0x2F": "HBG243302UL"
 
 sonic_dell64_40:
   hosts:

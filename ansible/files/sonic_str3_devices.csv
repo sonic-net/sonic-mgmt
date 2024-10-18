@@ -105,6 +105,7 @@ console-184,10.3.145.184,Cisco,ConsoleServer,ssh,
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh,
 console-196,10.3.145.196,Cisco,ConsoleServer,ssh,
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
+console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
 console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
 str3-z9332f-01,10.3.146.248/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str3-z9332f-02,10.3.146.118/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
@@ -134,6 +135,8 @@ str3-7060x6-64pe-2,10.64.246.4/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
 str3-7060x6-64pe-fan-2,10.64.246.8/23,Arista-7060X6-64PE-256x200G,FanoutLeafSonic,,sonic
 str3-7060x6-64pe-3,10.64.246.20/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
 str3-7060x6-64pe-4,10.64.246.64/23,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
+str3-7060x6-64pe-th5p-1,10.64.246.35/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
+str3-7060x6-64pe-th5p-fan-1,10.64.246.36/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 str3-sn5600-1,10.64.246.9/23,ACS-SN5600,DevSonic,,sonic
 str3-sn5600-fan-1,10.64.246.12/23,ACS-SN5600,FanoutLeafSonic,,sonic
 str3-8102-07,10.3.146.173/23,32x400Gb,DevSonic,,sonic
