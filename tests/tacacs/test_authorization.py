@@ -184,7 +184,7 @@ def check_authorization_tacacs_only(
     )
 
 
-def test_authorization_tacacs_only(
+def test_authorization_tacacs_only_commands_1(
                                 duthosts,
                                 enum_rand_one_per_hwsku_hostname,
                                 setup_authorization_tacacs,
@@ -212,7 +212,25 @@ def test_authorization_tacacs_only(
         "find -type f -name testfile -print | xargs /bin/rm -f",
         "touch testfile",
         "rm -f testfi*",
-        "mkdir -p test",
+        "mkdir -p test"
+    ]
+
+    for subcommand in commands:
+        exit_code, stdout, stderr = ssh_run_command(remote_user_client, subcommand)
+        pytest_assert(exit_code == 0)
+
+
+def test_authorization_tacacs_only_commands_2(
+                                duthosts,
+                                enum_rand_one_per_hwsku_hostname,
+                                setup_authorization_tacacs,
+                                tacacs_creds,
+                                check_tacacs,
+                                remote_user_client,
+                                remote_rw_user_client):
+
+    # check commands used by scripts
+    commands = [
         "portstat -c",
         "show ip bgp summary",
         "show ipv6 bgp summary",
@@ -237,6 +255,16 @@ def test_authorization_tacacs_only(
     for subcommand in commands:
         exit_code, stdout, stderr = ssh_run_command(remote_user_client, subcommand)
         pytest_assert(exit_code == 0)
+
+
+def test_authorization_tacacs_only_rw_commands(
+                                duthosts,
+                                enum_rand_one_per_hwsku_hostname,
+                                setup_authorization_tacacs,
+                                tacacs_creds,
+                                check_tacacs,
+                                remote_user_client,
+                                remote_rw_user_client):
 
     rw_commands = [
         "sudo config interface",
