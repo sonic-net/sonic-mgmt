@@ -1160,6 +1160,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_id = get_rx_port(
             self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip)
         print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
+        time.sleep(3)
 
         try:
             for pg, dscps in list(pg_dscp_map.items()):
