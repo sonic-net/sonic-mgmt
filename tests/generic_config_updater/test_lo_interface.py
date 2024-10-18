@@ -3,8 +3,9 @@ import pytest
 import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import apply_patch_wrapper, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import create_path, check_show_ip_intf, check_vrf_route_for_intf
 
@@ -111,12 +112,13 @@ def lo_interface_tc1_add_init(duthost, lo_intf):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(
@@ -156,12 +158,13 @@ def lo_interface_tc1_add_duplicate(duthost, lo_intf):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(
@@ -205,12 +208,13 @@ def lo_interface_tc1_xfail(duthost, lo_intf):
                 "value": {}
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_failure(output)
         finally:
             delete_tmpfile(duthost, tmpfile)
@@ -258,12 +262,13 @@ def lo_interface_tc1_replace(duthost, lo_intf):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(duthost, DEFAULT_LOOPBACK, [REPLACE_IP],
@@ -283,12 +288,13 @@ def lo_interface_tc1_remove(duthost, lo_intf):
             "path": "/LOOPBACK_INTERFACE"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(duthost, DEFAULT_LOOPBACK, [],
@@ -325,12 +331,13 @@ def setup_vrf_config(duthost, lo_intf):
             "value": "Vrf_01"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(
@@ -377,12 +384,13 @@ def test_lo_interface_tc2_vrf_change(rand_selected_dut, lo_intf):
             "value": "Vrf_02"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=json_patch)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(rand_selected_dut, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(rand_selected_dut, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(rand_selected_dut, output)
 
         check_show_ip_intf(

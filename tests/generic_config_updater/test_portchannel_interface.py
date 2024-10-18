@@ -4,8 +4,9 @@ import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import apply_patch_wrapper, expect_op_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import create_path, check_show_ip_intf
 
@@ -99,12 +100,13 @@ def portchannel_interface_tc1_add_duplicate(duthost, portchannel_table):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(duthost, "PortChannel101", [dup_ip], [], is_ipv4=True)
@@ -143,12 +145,13 @@ def portchannel_interface_tc1_xfail(duthost):
                 "value": {}
             }
         ]
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
             expect_op_failure(output)
         finally:
             delete_tmpfile(duthost, tmpfile)
@@ -185,12 +188,13 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table):
             "value": {}
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         check_show_ip_intf(duthost, "PortChannel101", [rep_ip], [org_ip], is_ipv4=True)
@@ -263,11 +267,12 @@ def portchannel_interface_tc2_replace(duthost):
         }
         json_patch.append(patch)
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         verify_po_running(duthost, ["PortChannel101"])
@@ -287,12 +292,13 @@ def portchannel_interface_tc2_incremental(duthost):
          "value": "Description for PortChannel101"
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)
