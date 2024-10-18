@@ -9,7 +9,8 @@ import logging
 from tests.common.helpers.assertions import pytest_assert  # pylint: disable=import-error
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.disable_memory_utilization
 ]
 
 logger = logging.getLogger(__name__)
