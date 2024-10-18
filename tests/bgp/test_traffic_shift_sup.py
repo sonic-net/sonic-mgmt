@@ -4,7 +4,8 @@ import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
-from traffic_checker import get_traffic_shift_state
+from tests.bgp.traffic_checker import get_traffic_shift_state
+from tests.bgp.bgp_helpers import initial_tsa_check_before_and_after_test
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -77,10 +78,12 @@ class TestTrafficShiftOnSup:
         Test TSA
         Verify all linecards transition to maintenance state after TSA on supervisor
         """
+        # Initially make sure both supervisor and line cards are in BGP operational normal state
+        initial_tsa_check_before_and_after_test(duthosts)
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
             # Issue TSA on DUT
-            self.run_cmd_on_sup("sudo TSA")
+            self.duthost.shell('TSA')
             # Verify DUT is in maintenance state.
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
         except Exception as e:
@@ -88,23 +91,29 @@ class TestTrafficShiftOnSup:
             logger.error("Exception caught in TSB test. Error message: {}".format(e))
         finally:
             # Issue TSB on DUT to recover the chassis
-            self.run_cmd_on_sup("sudo TSB")
+            self.duthost.shell('TSB')
+            # Bring back the supervisor and line cards to the BGP operational normal state
+            initial_tsa_check_before_and_after_test(duthosts)
 
     def test_TSB(self, duthosts, enum_supervisor_dut_hostname, check_support, creds):
         """
         Test TSB
         Verify all linecards transition back to normal state from maintenance after TSB on supervisor
         """
+        # Initially make sure both supervisor and line cards are in BGP operational normal state
+        initial_tsa_check_before_and_after_test(duthosts)
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
             # Issue TSA on DUT to move chassis to maintenance
-            self.run_cmd_on_sup("sudo TSA")
+            self.duthost.shell('TSA')
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
 
             # Recover to Normal state
-            self.run_cmd_on_sup("sudo TSB")
+            self.duthost.shell('TSB')
             # Verify DUT is in normal state
             self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")
+            # Bring back the supervisor and line cards to the BGP operational normal state
+            initial_tsa_check_before_and_after_test(duthosts)
         except Exception as e:
             # Log exception
             logger.error("Exception caught in TSB test. Error message: {}".format(e))
@@ -116,27 +125,31 @@ class TestTrafficShiftOnSup:
         Verify all linecards remain in Maintenance state after TSA and config reload on supervisor
         Verify all linecards remain in Normal state after TSB and config reload on supervisor
         """
+        # Initially make sure both supervisor and line cards are in BGP operational normal state
+        initial_tsa_check_before_and_after_test(duthosts)
         self.setup_dutinfo(duthosts, enum_supervisor_dut_hostname, creds)
         try:
             # Issue TSA on DUT to move chassis to maintenance
-            self.run_cmd_on_sup("sudo TSA")
+            self.duthost.shell('TSA')
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
 
             # Save config and perform config reload on all LCs
-            self.run_cmd_on_sup("rexec all -c 'sudo config save -y'")
+            self.duthost.shell('sudo config save -y')
             self.config_reload_all_lcs()
 
             # Verify DUT is still in maintenance state.
             self.verify_traffic_shift_state_all_lcs(TS_MAINTENANCE, "maintenance")
         finally:
             # Recover to Normal state
-            self.run_cmd_on_sup("sudo TSB")
+            self.duthost.shell('TSB')
             # Verify DUT is in normal state.
             self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")
 
             # Save config and perform config reload on all LCs
-            self.run_cmd_on_sup("rexec all -c 'sudo config save -y'")
+            self.duthost.shell('sudo config save -y')
             self.config_reload_all_lcs()
 
             # Verify DUT is in normal state.
             self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")
+            # Bring back the supervisor and line cards to the BGP operational normal state
+            initial_tsa_check_before_and_after_test(duthosts)
