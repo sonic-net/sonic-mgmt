@@ -495,3 +495,23 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
     logger.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
         reboot_type_history_len, len(reboot_type_history_queue)))
     return False
+
+
+def check_determine_reboot_cause_service(dut):
+    """
+    @summary: This function verifies the status of the 'determine-reboot-cause' service on the device under test (DUT).
+    It checks the service's ActiveState and SubState using systemctl.
+    @param dut: The AnsibleHost object of DUT.
+    """
+    # Check the 'determine-reboot-cause' service status
+    logger.info("Checking 'determine-reboot-cause' service status using systemctl")
+    service_state = dut.get_service_props("determine-reboot-cause.service")
+
+    # Validate service is active
+    active_state = service_state.get("ActiveState", "")
+    sub_state = service_state.get("SubState", "")
+    logger.info(f"'determine-reboot-cause' ActiveState: {active_state}, SubState: {sub_state}")
+
+    assert active_state == "active", f"Service 'determine-reboot-cause' is not active. Current state: {active_state}"
+    assert sub_state == "exited", f"Service 'determine-reboot-cause' did not exit cleanly. \
+            Current sub-state: {sub_state}"
