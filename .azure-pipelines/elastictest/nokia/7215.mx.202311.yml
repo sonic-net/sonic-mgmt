@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "1 0,12 * * *"
+  - cron: "1 0,6,12,18 * * *"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -101,7 +101,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 690  # 11.5 hours
+    default: 1050  # 17.5 hours
 
 stages:
 - stage: Test
