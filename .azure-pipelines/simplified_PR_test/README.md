@@ -13,7 +13,7 @@ To address these issues, we propose a new PR testing model called 'Impacted Area
 
 ## Preparation 
 We can organization the test scripts in this way:
-```buildoutcfg
+```
 sonic-mgmgt
      |
      | - tests
