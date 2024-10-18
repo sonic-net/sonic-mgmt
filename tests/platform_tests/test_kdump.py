@@ -5,7 +5,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup,\
-    REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC
+    REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC, REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 pytestmark = [
@@ -27,12 +27,16 @@ class TestKernelPanic:
     def wait_lc_healthy_if_sup(self, duthost, duthosts, localhost, conn_graph_facts, xcvr_skip_list):
         # For sup, we also need to ensure linecards are back and healthy for following tests
         is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
+        if 'chassis-packet' in duthost.facts.get('switch_type'):
+            reboot_type = REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
+        else:
+            reboot_type = REBOOT_TYPE_COLD
         if is_sup:
             for lc in duthosts.frontend_nodes:
                 wait_for_startup(lc, localhost, delay=10, timeout=300)
                 wait_critical_processes(lc)
                 check_interfaces_and_services(lc, conn_graph_facts["device_conn"][lc.hostname],
-                                              xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
+                                              xcvr_skip_list, reboot_type=reboot_type)
 
     @pytest.fixture(autouse=True)
     def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname,
