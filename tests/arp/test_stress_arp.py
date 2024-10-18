@@ -215,3 +215,63 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
                     raise e
             # Wait for 10 seconds before starting next loop
             time.sleep(10)
+
+
+@pytest.fixture
+def create_incomplete_neighbor(duthost):
+    # creating incomplete ND neighbors involves several steps
+    # 1. adding ip6tables entry to drop all incoming neighbor advertisement packets
+    # 2. remove current neighbor entries
+    # 3. on the neighbor device, ping dut
+    duthost.command("sudo ip6tables -I INPUT -p ipv6-icmp -j DROP --icmpv6-type neighbour-advertisement")
+
+    duthost.command("sudo ip -6 neigh flush all")
+
+    yield
+
+    duthost.command("sudo ip6tables -D INPUT -p ipv6-icmp -j DROP --icmpv6-type neighbour-advertisement")
+
+
+def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
+                            ptfadapter, get_function_completeness_level, proxy_arp_enabled,
+                            skip_traffic_test, create_incomplete_neighbor):    # noqa F811
+    _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
+    ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
+    pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
+    pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
+
+    normalized_level = get_function_completeness_level
+    if normalized_level is None:
+        normalized_level = "debug"
+
+    loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
+    ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available")
+    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available")
+    pytest_assert(ipv6_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
+
+    nd_avaliable = min(min(ipv6_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
+
+    while loop_times > 0:
+        loop_times -= 1
+        try:
+            add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable)
+            logger.debug("neigh {}".format(duthost.command("ip -6 neigh show")))
+            if not skip_traffic_test:
+                # There is a certain probability of hash collision, we set the percentage as 1% here
+                # The entries we add will not exceed 10000, so the number we tolerate is 100
+                logger.debug("Expected route number: {}, real route number {}"
+                             .format(nd_avaliable, get_fdb_dynamic_mac_count(duthost)))
+                pytest_assert(wait_until(20, 1, 0,
+                                         lambda: abs(nd_avaliable - get_fdb_dynamic_mac_count(duthost)) < 250),
+                              "Neighbor Table Add failed")
+        finally:
+            try:
+                clear_dut_arp_cache(duthost)
+                fdb_cleanup(duthost)
+            except RunAnsibleModuleFail as e:
+                if 'Failed to send flush request: No such file or directory' in str(e):
+                    logger.warning("Failed to clear arp cache, file may not exist yet")
+                else:
+                    raise e
+            # Wait for 10 seconds before starting next loop
+            time.sleep(10)
