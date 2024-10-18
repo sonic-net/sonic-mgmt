@@ -1,48 +1,69 @@
-## Background
-In the current PR test process, we run a fixed set of test scripts regardless of the scope of changes,
-leading to unnecessary resource consumption.
-However, in the sonic-mgmt repository,
-it's sufficient to run only the relevant test scripts to validate the changes.
+## Terminology
+- Instance: A KVM running on an Azure VMSS used for executing PR tests. 
+            Each instance corresponds to a specific topology and is utilized to perform the tests.
+- Scope: The set of test scripts that are executed during the PR test.
 
-To optimize this, we propose a simplified PR test
-that runs only the necessary test scripts located in the same folder as the modified files,
-which reduces both time and cost efficiently.
+## Background
+In current PR testing process, a fixed set of test scripts is executed regardless of the change scope.
+With approximately 440 test scripts running, the process has become excessively large.
+Due to the maximum execution time limit, more instances are needed to run the tests in parallel.
+For example, to meet this requirement, we need 20 instances for t0 and 25 instances for t1.
+The cost per PR has reached $35, which is considerably high.
+To address these issues, we propose a new PR testing model called 'Impacted Area-Based PR Testing.
+
+## Preparation 
+We can organization the test scripts in this way:
+```buildoutcfg
+sonic-mgmgt
+     |
+     | - tests
+           | 
+           | - common      ---------- shared 
+           | - arp         -----|
+           | - ecmp             | --- features
+           | - vlan             |
+           | - ......      -----|
+```
+Within the tests directory in sonic-mgmt, we categorize scripts into two sections: shared and features. 
+Scripts in the common folder fall under the shared section and can be utilized across different folders. 
+In contrast, scripts in other folders belong to the features section, representing specific functionalities such as arp, ecmp, and vlan, 
+and are intended for use within their respective folders. 
+This hierarchy helps us more effectively identify the impacted areas for the new PR testing process.
+
+However, the previous code had numerous cross-feature dependencies. 
+To achieve our goal, we carried out some preparatory work by eliminating these cross-feature dependencies.
 
 
 ## Design
-Our new simplified PR test will follow below principles:
-- If changes are made only to the scripts within the features folder,
-we will run only the specific scripts in those feature folders.
-- If our change related to the common folder, we will run all test scripts,
-which is same as our previous PR test.
+### Impcated Area
+We introduce a new term called `impacted area`, which represents the scope of PR testing. 
+This term can be defined as follows:
+- If changes are made solely to the scripts within the feature folders, 
+  the impacted area is considered to be those specific feature folders.
+- If changes occur in the common folder, 
+  the impacted area encompasses both common and all feature folders.
+We can determine the impcated area using command `git diff`.
 
+### Distribute scripts to PR checkers
 In our new PR test, we will have multiple PR checkers classified by topology type.
-To collect all required scripts for each PR checker, which means,
+To distribute all required scripts for each PR checker, which means,
 these scripts should not only within the scope that we changed, but also meet the requirement of topology.
 
-Because the number of scripts per test is variable,
-the instances used by Elastictest will also be automatically scheduled concurrently,
-
-
-### To meet the requirement of topology
-One approach to achieve this is by using the `--topology` parameter supported by pytest.
+We can suggest two approaches to achieve this:
+- One approach is by using the `--topology` parameter supported by pytest.
 It compares against the topology marked with `pytest.mark.topology` in script,
 and if the mark matches, the script is deemed necessary.
 However, this method triggers pytest's collection process for each script,
-leading to unnecessary time consumption.
+leading to unnecessary time consumption, which is not expected.
 
-Another approach is to collect and analyze all scripts before execution.
+- Another approach is to collect and analyze all scripts before execution.
 Each script includes the `pytest.mark.topology` marker to indicate the applicable topology it can run on.
-We will perform a global scan of all test scripts to identify this marker and extract its value,
+We will perform a global scan of all test scripts in the impacted area to identify this marker and extract its value,
 which represents the topology type compatible with the script.
-After determining the valid topology for each script,
-we will group them accordingly and maintain a set of test scripts for each topology.
-Then, in each PR checker, we will select relevant scripts in the set within the change scope.
-This method eliminates unnecessary processes by executing only the on-demand scripts,
-resulting in reduced running time.
+After determining the valid topology for each script, we can distribute the script to corresponding PR checkers.
+This method eliminates unnecessary processes by executing only the on-demand scripts, resulting in reduced running time.
 
-
-### To schedule instances automatically
+### Allocate instances dynamically
 Our goal is to complete the entire PR test within 2 hours.
 In the current PR test, each checker uses a fixed number of instances.
 However, in the new simplified test, the number of scripts executed varies,
@@ -53,14 +74,20 @@ We can leverage historical data to obtain the average running time of each scrip
 We now have a Kusto table that logs details about the execution of test cases,
 including the running time, date, results, and more.
 To determine the preset running time for each test script,
-we will calculate the average running time of successful runs over the past three days.
-If no relevant records are found in Kusto, a default value will be used for the preset running time.
+we will calculate the average running time of the latest five run times.
+If no relevant records are found in Kusto, a default value(1800s per script) will be used for the preset running time.
 This approach allows us to estimate the total execution time for our scripts accurately.
 
 Using this information, we will evenly distribute the scripts across instances,
 ensuring that the workload is balanced of each instance.
 Ideally, each instance will run its assigned scripts in approximately 1.5 hours,
-leaving additional time for tasks such as testbed preparation and keeping the total runtime within 2 hours.
+leaving additional time for tasks such as testbed preparation and clean-up and keeping the total runtime within 2 hours.
 
-## Benefits
-This new simplified PR test will run on demand, reducing both time and cost efficiently.
+## Advantages
+Impacted area based PR testing runs test scripts on demand, reducing the overall scale of the PR test and saving execution time. 
+Additionally, instances will be allocated as needed, resulting in more cost-efficient resource usage.
+
+## Safeguard
+As impacted area based PR testing would not cover all test scripts, 
+we need a safeguard to run all test scripts daily to prevent any unforeseen issues. 
+Fortunately, we have Baseline test to do so. 
