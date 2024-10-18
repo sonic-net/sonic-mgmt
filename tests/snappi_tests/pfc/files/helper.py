@@ -19,6 +19,7 @@ from tests.common.snappi_tests.traffic_generation import setup_base_traffic_conf
     verify_rx_frame_count_dut
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame
+from tests.common.cisco_data import is_cisco_device
 
 
 logger = logging.getLogger(__name__)
@@ -270,7 +271,8 @@ def run_pfc_test(api,
     # Verify PFC pause frame count on the DUT
     # rx_dut is Ingress DUT receiving traffic.
     # tx_dut is Egress DUT sending traffic to IXIA and also receiving PFCs.
-    verify_pause_frame_count_dut(rx_dut=rx_dut,
+    verify_pause_frame_count_dut(duthost,
+                                 rx_dut=rx_dut,
                                  tx_dut=tx_dut,
                                  test_traffic_pause=test_traffic_pause,
                                  global_pause=global_pause,
