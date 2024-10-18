@@ -878,6 +878,42 @@ class TestConfigInterface():
 
         assert speed == native_speed
 
+    def test_config_interface_speed_40G_100G(self, setup_config_mode, sample_intf,
+                                             duthosts, fanout, enum_rand_one_per_hwsku_frontend_hostname):
+        dutHostGuest, mode, ifmode = setup_config_mode
+        test_intf = sample_intf[mode]
+        interface = sample_intf['default']
+        native_speed = sample_intf['native_speed']
+        cli_ns_option = sample_intf['cli_ns_option']
+        asic_index = sample_intf['asic_index']
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        speeds_to_test = [100000, 40000]
+
+        if native_speed not in speeds_to_test:
+            pytest.skip("Native speed is not 100G or 40G, it is {}".format(native_speed))
+
+        target_speed = speeds_to_test[0] if native_speed == speeds_to_test[1] else speeds_to_test[1]
+        # Get supported speeds for interface
+        supported_speeds = duthost.get_supported_speeds(interface)
+        if native_speed not in supported_speeds or target_speed not in supported_speeds:
+            pytest.skip("Native speed {} or target speed {} is not supported".format(native_speed, target_speed))
+
+        # Configure speed on the DUT and Fanout
+        dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {} speed {} {}'
+                           .format(ifmode, cli_ns_option, test_intf, target_speed))
+        # TODO: Configure speed on the fanout switch
+
+        # Verify the speed on DUT and Fanout
+        db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
+            .format(duthost.asic_instance(asic_index).sonic_db_cli, interface)
+        dut_speed = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} {}'.format(ifmode, db_cmd))['stdout']
+        pytest_assert(dut_speed == target_speed, 'DUT expected speed: {}, but got {}'.format(target_speed, dut_speed))
+        # TODO: verify the speed on fanout
+
+        # TODO: Verify link status
+
+        # TODO: Restore to native speed after test
+
 
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
