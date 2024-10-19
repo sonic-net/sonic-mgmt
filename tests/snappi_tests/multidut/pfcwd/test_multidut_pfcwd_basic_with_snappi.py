@@ -229,7 +229,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    for duthost in [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]:
+    for duthost in set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]):
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
         reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
         logger.info("Wait until the system is stable")
@@ -309,7 +309,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
                                                                                 snappi_ports,
                                                                                 snappi_api)
 
-    for duthost in [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]:
+    for duthost in set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]):
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
         reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
         logger.info("Wait until the system is stable")

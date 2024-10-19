@@ -191,7 +191,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
                                                fanout_graph_facts_multidut,          # noqa: F811
                                                duthosts,
                                                localhost,
-                                               enum_dut_lossless_prio,    # noqa: F811
+                                               rand_lossless_prio,    # noqa: F811
                                                prio_dscp_map,            # noqa: F811
                                                lossless_prio_list,         # noqa: F811
                                                all_prio_list,        # noqa: F811
@@ -210,7 +210,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
         localhost (pytest fixture): localhost handle
         all_prio_list (pytest fixture): list of all the priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        lossless_prio_list (pytest fixture): list of all the lossless priorities
+        rand_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
         reboot_type (str): reboot type to be issued on the DUT
         tbinfo (pytest fixture): fixture provides information about testbed
         get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
@@ -246,7 +246,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
     skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
 
-    _, lossless_prio = enum_dut_lossless_prio.split('|')
+    _, lossless_prio = rand_lossless_prio.split('|')
     lossless_prio = int(lossless_prio)
     pause_prio_list = [lossless_prio]
     test_prio_list = [lossless_prio]
@@ -257,7 +257,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    for duthost in [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]:
+    for duthost in set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]):
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
         reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
         logger.info("Wait until the system is stable")
@@ -347,7 +347,7 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    for duthost in [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]:
+    for duthost in set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]):
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
         reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
         logger.info("Wait until the system is stable")
