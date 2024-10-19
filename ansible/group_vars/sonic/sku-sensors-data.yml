@@ -6044,6 +6044,199 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
+  x86_64-8101_32fh_o-r0:
+    alarms:
+      voltage:
+      - tps53679c-i2c-17-58/TI_PVCCIN_P12V_CPU/in1_lcrit_alarm
+      - tps53679c-i2c-17-58/TI_PVCCIN_P12V_CPU/in1_crit_alarm
+      - tps53679c-i2c-17-58/TI_VP1P8_VCCIN_CPU/in2_lcrit_alarm
+      - tps53679c-i2c-17-58/TI_VP1P8_VCCIN_CPU/in2_crit_alarm
+      - tps53679c-i2c-17-58/TI_P1V05_VCCSUS_CPU/in3_lcrit_alarm
+      - tps53679c-i2c-17-58/TI_P1V05_VCCSUS_CPU/in3_crit_alarm
+
+      - tps53679c-i2c-17-59/TI_DIMM_VCCIN_CPU/in1_lcrit_alarm
+      - tps53679c-i2c-17-59/TI_DIMM_VCCIN_CPU/in1_crit_alarm
+      - tps53679c-i2c-17-59/TI_DIMM_1_2V_CPU/in2_lcrit_alarm
+      - tps53679c-i2c-17-59/TI_DIMM_1_2V_CPU/in2_crit_alarm
+      - tps53679c-i2c-17-59/TI_PCH_1_05V_CPU/in3_lcrit_alarm
+      - tps53679c-i2c-17-59/TI_PCH_1_05V_CPU/in3_crit_alarm
+
+      - xdpe132g5c-i2c-21-40/MB_GB_CORE_VIN_L1/in1_crit_alarm
+      - xdpe132g5c-i2c-21-40/MB_GB_CORE_VIN_L1/in1_min_alarm
+      - xdpe132g5c-i2c-21-40/MB_GB_CORE_VOUT_L1/in3_lcrit_alarm
+      - xdpe132g5c-i2c-21-40/MB_GB_CORE_VOUT_L1/in3_crit_alarm
+      - xdpe132g5c-i2c-21-40/MB_GB_CORE_VOUT_L1/in3_min_alarm
+      - xdpe132g5c-i2c-21-40/MB_GB_CORE_VOUT_L1/in3_max_alarm
+
+      - tps53679c-i2c-21-58/MB_GB_VDDS_L1_VIN/in1_lcrit_alarm
+      - tps53679c-i2c-21-58/MB_GB_VDDS_L1_VIN/in1_crit_alarm
+      - tps53679c-i2c-21-58/MB_GB_VDDS_L1_VOUT/in2_lcrit_alarm
+      - tps53679c-i2c-21-58/MB_GB_VDDS_L1_VOUT/in2_crit_alarm
+      - tps53679c-i2c-21-58/MB_GB_VDDA_L2_VOUT/in3_lcrit_alarm
+      - tps53679c-i2c-21-58/MB_GB_VDDA_L2_VOUT/in3_crit_alarm
+
+      - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_VIN/in1_lcrit_alarm
+      - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_VIN/in1_crit_alarm
+      - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_VOUT/in2_lcrit_alarm
+      - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_VOUT/in2_crit_alarm
+
+      - tps53679c-i2c-21-5a/MB_3_3V_L_L1_VIN/in1_lcrit_alarm
+      - tps53679c-i2c-21-5a/MB_3_3V_L_L1_VIN/in1_crit_alarm
+
+      - tps53679c-i2c-21-5b/MB_3_3V_R_L1_VIN/in1_lcrit_alarm
+      - tps53679c-i2c-21-5b/MB_3_3V_R_L1_VIN/in1_crit_alarm
+
+      current:
+      - tps53679c-i2c-17-58/TI_U17_PVCCIN_IINSEN_CPU/curr1_crit_alarm
+      - tps53679c-i2c-17-58/TI_U17_PVCCIN_IINSEN_CPU/curr1_max_alarm
+      - tps53679c-i2c-17-58/TI_U17_PVCCIN_ISEN_CPU/curr2_crit_alarm
+      - tps53679c-i2c-17-58/TI_U17_PVCCIN_ISEN_CPU/curr2_max_alarm
+      - tps53679c-i2c-17-58/TI_U17_1_05V_ISEN_CPU/curr3_crit_alarm
+      - tps53679c-i2c-17-58/TI_U17_1_05V_ISEN_CPU/curr3_max_alarm
+
+      - tps53679c-i2c-17-59/TI_U117_IINSEN_CPU/curr1_crit_alarm
+      - tps53679c-i2c-17-59/TI_U117_IINSEN_CPU/curr1_max_alarm
+      - tps53679c-i2c-17-59/TI_U117_1_2V_ISEN_CPU/curr2_crit_alarm
+      - tps53679c-i2c-17-59/TI_U117_1_2V_ISEN_CPU/curr2_max_alarm
+      - tps53679c-i2c-17-59/TI_U117_1_05V_ISEN_CPU/curr3_crit_alarm
+      - tps53679c-i2c-17-59/TI_U117_1_05V_ISEN_CPU/curr3_max_alarm
+
+      - xdpe132g5c-i2c-21-40/MB_GB_CORE_IIN_L1/curr1_max_alarm
+      - xdpe132g5c-i2c-21-40/MB_GB_CORE_IOUT_L1/curr3_crit_alarm
+      - xdpe132g5c-i2c-21-40/MB_GB_CORE_IOUT_L1/curr3_max_alarm
+
+      - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_crit_alarm
+      - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_max_alarm
+      - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IOUT/curr2_crit_alarm
+      - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IOUT/curr2_max_alarm
+      - tps53679c-i2c-21-58/MB_GB_VDDA_L2_IOUT/curr3_crit_alarm
+      - tps53679c-i2c-21-58/MB_GB_VDDA_L2_IOUT/curr3_max_alarm
+
+      - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_crit_alarm
+      - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_max_alarm
+      - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_crit_alarm
+      - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_max_alarm
+
+      - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_crit_alarm
+      - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_max_alarm
+      - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_crit_alarm
+      - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_max_alarm        
+
+      - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IIN/curr1_crit_alarm
+      - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IIN/curr1_max_alarm
+      - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IOUT/curr2_crit_alarm
+      - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IOUT/curr2_max_alarm  
+
+    compares:
+      voltage:
+      - - tps53679c-i2c-17-58/TI_PVCCIN_P12V_CPU/in1_input
+        - tps53679c-i2c-17-58/TI_PVCCIN_P12V_CPU/in1_crit
+      - - tps53679c-i2c-17-58/TI_VP1P8_VCCIN_CPU/in2_input
+        - tps53679c-i2c-17-58/TI_VP1P8_VCCIN_CPU/in2_crit
+      - - tps53679c-i2c-17-58/TI_P1V05_VCCSUS_CPU/in3_input
+        - tps53679c-i2c-17-58/TI_P1V05_VCCSUS_CPU/in3_crit
+
+      - - tps53679c-i2c-17-59/TI_DIMM_VCCIN_CPU/in1_input
+        - tps53679c-i2c-17-59/TI_DIMM_VCCIN_CPU/in1_crit
+      - - tps53679c-i2c-17-59/TI_DIMM_1_2V_CPU/in2_input
+        - tps53679c-i2c-17-59/TI_DIMM_1_2V_CPU/in2_crit
+      - - tps53679c-i2c-17-59/TI_PCH_1_05V_CPU/in3_input
+        - tps53679c-i2c-17-59/TI_PCH_1_05V_CPU/in3_crit
+
+      - - xdpe132g5c-i2c-21-40/MB_GB_CORE_VIN_L1/in1_input
+        - xdpe132g5c-i2c-21-40/MB_GB_CORE_VIN_L1/in1_crit
+      - - xdpe132g5c-i2c-21-40/MB_GB_CORE_VOUT_L1/in3_input
+        - xdpe132g5c-i2c-21-40/MB_GB_CORE_VOUT_L1/in3_crit
+      - - xdpe132g5c-i2c-21-40/MB_GB_CORE_VOUT_L1/in3_input
+        - xdpe132g5c-i2c-21-40/MB_GB_CORE_VOUT_L1/in3_max
+
+      - - tps53679c-i2c-21-58/MB_GB_VDDS_L1_VIN/in1_input
+        - tps53679c-i2c-21-58/MB_GB_VDDS_L1_VIN/in1_crit
+      - - tps53679c-i2c-21-58/MB_GB_VDDS_L1_VOUT/in2_input
+        - tps53679c-i2c-21-58/MB_GB_VDDS_L1_VOUT/in2_crit
+      - - tps53679c-i2c-21-58/MB_GB_VDDA_L2_VOUT/in3_input
+        - tps53679c-i2c-21-58/MB_GB_VDDA_L2_VOUT/in3_crit
+
+      - - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_VIN/in1_input
+        - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_VIN/in1_crit
+      - - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_VOUT/in2_input
+        - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_VOUT/in2_crit
+
+      - - tps53679c-i2c-21-5a/MB_3_3V_L_L1_VIN/in1_input
+        - tps53679c-i2c-21-5a/MB_3_3V_L_L1_VIN/in1_crit
+
+      - - tps53679c-i2c-21-5b/MB_3_3V_R_L1_VIN/in1_input
+        - tps53679c-i2c-21-5b/MB_3_3V_R_L1_VIN/in1_crit
+
+      current:
+      - - tps53679c-i2c-17-58/TI_U17_PVCCIN_IINSEN_CPU/curr1_input
+        - tps53679c-i2c-17-58/TI_U17_PVCCIN_IINSEN_CPU/curr1_crit
+      - - tps53679c-i2c-17-58/TI_U17_PVCCIN_ISEN_CPU/curr2_input
+        - tps53679c-i2c-17-58/TI_U17_PVCCIN_ISEN_CPU/curr2_crit
+      - - tps53679c-i2c-17-58/TI_U17_1_05V_ISEN_CPU/curr3_input
+        - tps53679c-i2c-17-58/TI_U17_1_05V_ISEN_CPU/curr3_crit
+
+      - - tps53679c-i2c-17-59/TI_U117_IINSEN_CPU/curr1_input
+        - tps53679c-i2c-17-59/TI_U117_IINSEN_CPU/curr1_crit
+      - - tps53679c-i2c-17-59/TI_U117_1_2V_ISEN_CPU/curr2_input
+        - tps53679c-i2c-17-59/TI_U117_1_2V_ISEN_CPU/curr2_crit
+      - - tps53679c-i2c-17-59/TI_U117_1_05V_ISEN_CPU/curr3_input
+        - tps53679c-i2c-17-59/TI_U117_1_05V_ISEN_CPU/curr3_crit
+
+      - - xdpe132g5c-i2c-21-40/MB_GB_CORE_IIN_L1/curr1_input
+        - xdpe132g5c-i2c-21-40/MB_GB_CORE_IIN_L1/curr1_max
+      - - xdpe132g5c-i2c-21-40/MB_GB_CORE_IOUT_L1/curr3_input
+        - xdpe132g5c-i2c-21-40/MB_GB_CORE_IOUT_L1/curr3_crit
+      - - xdpe132g5c-i2c-21-40/MB_GB_CORE_IOUT_L1/curr3_input
+        - xdpe132g5c-i2c-21-40/MB_GB_CORE_IOUT_L1/curr3_max
+
+      - - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_input
+        - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_crit
+      - - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_input
+        - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_max
+      - - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IOUT/curr2_input
+        - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IOUT/curr2_crit
+      - - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IOUT/curr2_input
+        - tps53679c-i2c-21-58/MB_GB_VDDS_L1_IOUT/curr2_crit
+      - - tps53679c-i2c-21-58/MB_GB_VDDA_L2_IOUT/curr3_input
+        - tps53679c-i2c-21-58/MB_GB_VDDA_L2_IOUT/curr3_crit
+      - - tps53679c-i2c-21-58/MB_GB_VDDA_L2_IOUT/curr3_input
+        - tps53679c-i2c-21-58/MB_GB_VDDA_L2_IOUT/curr3_crit
+
+      - - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_input
+        - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_crit
+      - - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_input
+        - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_max
+      - - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_input
+        - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_crit
+      - - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_input
+        - tps53679c-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_crit
+
+      - - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_input
+        - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_crit
+      - - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_input
+        - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_max
+      - - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_input
+        - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_crit
+      - - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_input
+        - tps53679c-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_crit
+
+      - - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IIN/curr1_input
+        - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IIN/curr1_crit
+      - - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IIN/curr1_input
+        - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IIN/curr1_max
+      - - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IOUT/curr2_input
+        - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IOUT/curr2_crit
+      - - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IOUT/curr2_input
+        - tps53679c-i2c-21-5b/MB_3_3V_R_L1_IOUT/curr2_crit
+
+    non_zero:
+      fan: []
+      power: []
+      temp: []
+    psu_skips: {}
+    sensor_skip_per_version: {}
+
   x86_64-8101_32h_o-r0:
     alarms:
       voltage:
