@@ -29,8 +29,12 @@ spine0:
         redistribute connected
         neighbor TRANSIT activate
         exit-address-family
+        end
+        exit
       deconfig: |
         no router bgp 2363070545
+        end
+        exit
 
 
 spine1:
@@ -64,8 +68,12 @@ spine1:
         redistribute connected
         neighbor TRANSIT activate
         exit-address-family
+        end
+        exit
       deconfig: |
         no router bgp 2363070546
+        end
+        exit
 
 
 leaf0:
@@ -164,15 +172,19 @@ leaf0:
         address-family l2vpn evpn
         advertise ipv4 unicast
         exit-address-family
+        end
         exit
 
       deconfig: |
         vrf Vrf43
         no vni 5043
         exit-vrf
+        end
+        exit
       deconfig2: |
         no router bgp 2363073663 vrf Vrf43
         no router bgp 2363073663 
+        end
         exit
 
 
@@ -271,15 +283,19 @@ leaf1:
         address-family l2vpn evpn
         advertise ipv4 unicast
         exit-address-family
+        end
         exit
 
       deconfig: |
         vrf Vrf43
         no vni 5043
         exit-vrf
+        end
+        exit
       deconfig2: |
         no router bgp 2363033449 vrf Vrf43
         no router bgp 2363033449 
+        end
         exit
 
 

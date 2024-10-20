@@ -54,9 +54,12 @@ spine0:
         route-map FROM_BGP_PEER_V6 permit 100
         exit
         route-map TO_BGP_PEER_V6 permit 100
+        end
         exit
       deconfig: |
         no router bgp 1001
+        end
+        exit
 
 leaf0:
     sonic:
@@ -104,9 +107,12 @@ leaf0:
         route-map FROM_BGP_PEER_V6 permit 100
         exit
         route-map TO_BGP_PEER_V6 permit 100
+        end
         exit
       deconfig: |
         no router bgp 1002
+        end
+        exit
 
 leaf1:
     sonic:
@@ -157,6 +163,9 @@ leaf1:
         route-map FROM_BGP_PEER_V6 permit 100
         exit
         route-map TO_BGP_PEER_V6 permit 100
+        end
         exit
       deconfig: |
         no router bgp 1003
+        end
+        exit
