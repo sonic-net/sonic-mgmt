@@ -641,11 +641,11 @@ topology:
       vlans:
         - 223
       vm_offset: 127
-    ARISTA129T1:
+    ARISTA01PT1:
       vlans:
         - 256
       vm_offset: 128
-    ARISTA130T1:
+    ARISTA02PT1:
       vlans:
         - 257
       vm_offset: 129
@@ -655,142 +655,142 @@ topology:
       one_vlan_a:
         Vlan1000:
           id: 1000
-          intfs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257]
+          intfs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]
           prefix: 192.168.0.1/21
           prefix_v6: fc02:1000::1/64
           tag: 1000
       two_vlan_a:
         Vlan1000:
           id: 1000
-          intfs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127]
+          intfs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127]
           prefix: 192.168.0.1/22
           prefix_v6: fc02:400::1/64
           tag: 1000
         Vlan1100:
           id: 1100
-          intfs: [128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]
+          intfs: [128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]
           prefix: 192.168.4.1/22
           prefix_v6: fc02:401::1/64
           tag: 1100
       four_vlan_a:
         Vlan1000:
           id: 1000
-          intfs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
+          intfs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
           prefix: 192.168.0.1/24
           prefix_v6: fc02:400::1/64
           tag: 1000
         Vlan1100:
           id: 1100
-          intfs: [64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127]
+          intfs: [96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127]
           prefix: 192.168.1.1/24
           prefix_v6: fc02:401::1/64
           tag: 1100
         Vlan1200:
           id: 1200
-          intfs: [128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191]
+          intfs: [128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159]
           prefix: 192.168.2.1/24
           prefix_v6: fc02:402::1/64
           tag: 1200
         Vlan1300:
           id: 1300
-          intfs: [192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]
+          intfs: [224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]
           prefix: 192.168.3.1/24
           prefix_v6: fc02:403::1/64
           tag: 1300
       hexa_vlan_a:
         Vlan1000:
           id: 1000
-          intfs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+          intfs: [0, 1, 2, 3, 4, 5, 6, 7]
           prefix: 192.168.0.1/24
           prefix_v6: fc02:400::1/64
           tag: 1000
         Vlan1100:
           id: 1100
-          intfs: [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+          intfs: [8, 9, 10, 11, 12, 13, 14, 15]
           prefix: 192.168.1.1/24
           prefix_v6: fc02:401::1/64
           tag: 1100
         Vlan1200:
           id: 1200
-          intfs: [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47]
+          intfs: [16, 17, 18, 19, 20, 21, 22, 23]
           prefix: 192.168.2.1/24
           prefix_v6: fc02:402::1/64
           tag: 1200
         Vlan1300:
           id: 1300
-          intfs: [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
+          intfs: [24, 25, 26, 27, 28, 29, 30, 31]
           prefix: 192.168.3.1/24
           prefix_v6: fc02:403::1/64
           tag: 1300
         Vlan1400:
           id: 1400
-          intfs: [64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+          intfs: [96, 97, 98, 99, 100, 101, 102, 103]
           prefix: 192.168.4.1/24
           prefix_v6: fc02:404::1/64
           tag: 1400
         Vlan1500:
           id: 1500
-          intfs: [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]
+          intfs: [104, 105, 106, 107, 108, 109, 110, 111]
           prefix: 192.168.5.1/24
           prefix_v6: fc02:405::1/64
           tag: 1500
         Vlan1600:
           id: 1600
-          intfs: [96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111]
+          intfs: [112, 113, 114, 115, 116, 117, 118, 119]
           prefix: 192.168.6.1/24
           prefix_v6: fc02:406::1/64
           tag: 1600
         Vlan1700:
           id: 1700
-          intfs: [112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127]
+          intfs: [120, 121, 122, 123, 124, 125, 126, 127]
           prefix: 192.168.7.1/24
           prefix_v6: fc02:407::1/64
           tag: 1700
         Vlan1800:
           id: 1800
-          intfs: [128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143]
+          intfs: [128, 129, 130, 131, 132, 133, 134, 135]
           prefix: 192.168.8.1/24
           prefix_v6: fc02:408::1/64
           tag: 1800
         Vlan1900:
           id: 1900
-          intfs: [144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159]
+          intfs: [136, 137, 138, 139, 140, 141, 142, 143]
           prefix: 192.168.9.1/24
           prefix_v6: fc02:409::1/64
           tag: 1900
         Vlan2000:
           id: 2000
-          intfs: [160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175]
+          intfs: [144, 145, 146, 147, 148, 149, 150, 151]
           prefix: 192.168.10.1/24
           prefix_v6: fc02:410::1/64
           tag: 2000
         Vlan2100:
           id: 2100
-          intfs: [176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191]
+          intfs: [152, 153, 154, 155, 156, 157, 158, 159]
           prefix: 192.168.11.1/24
           prefix_v6: fc02:411::1/64
           tag: 2100
         Vlan2200:
           id: 2200
-          intfs: [192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207]
+          intfs: [224, 225, 226, 227, 228, 229, 230, 231]
           prefix: 192.168.12.1/24
           prefix_v6: fc02:412::1/64
           tag: 2200
         Vlan2300:
           id: 2300
-          intfs: [208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223]
+          intfs: [232, 233, 234, 235, 236, 237, 238, 239]
           prefix: 192.168.13.1/24
           prefix_v6: fc02:413::1/64
           tag: 2300
         Vlan2400:
           id: 2400
-          intfs: [224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239]
+          intfs: [240, 241, 242, 243, 244, 245, 246, 247]
           prefix: 192.168.14.1/24
           prefix_v6: fc02:414::1/64
           tag: 2400
         Vlan2500:
           id: 2500
-          intfs: [240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255]
+          intfs: [248, 249, 250, 251, 252, 253, 254, 255]
           prefix: 192.168.15.1/24
           prefix_v6: fc02:415::1/64
           tag: 2500
@@ -827,8 +827,6 @@ configuration:
            ipv4: 100.1.0.33/32
            ipv6: 2064:100::21/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.65/31
            ipv6: fc00::82/126
        bp_interfaces:
@@ -848,8 +846,6 @@ configuration:
            ipv4: 100.1.0.34/32
            ipv6: 2064:100::22/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.67/31
            ipv6: fc00::86/126
        bp_interfaces:
@@ -869,8 +865,6 @@ configuration:
            ipv4: 100.1.0.35/32
            ipv6: 2064:100::23/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.69/31
            ipv6: fc00::8a/126
        bp_interfaces:
@@ -890,8 +884,6 @@ configuration:
            ipv4: 100.1.0.36/32
            ipv6: 2064:100::24/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.71/31
            ipv6: fc00::8e/126
        bp_interfaces:
@@ -911,8 +903,6 @@ configuration:
            ipv4: 100.1.0.37/32
            ipv6: 2064:100::25/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.73/31
            ipv6: fc00::92/126
        bp_interfaces:
@@ -932,8 +922,6 @@ configuration:
            ipv4: 100.1.0.38/32
            ipv6: 2064:100::26/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.75/31
            ipv6: fc00::96/126
        bp_interfaces:
@@ -953,8 +941,6 @@ configuration:
            ipv4: 100.1.0.39/32
            ipv6: 2064:100::27/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.77/31
            ipv6: fc00::9a/126
        bp_interfaces:
@@ -974,8 +960,6 @@ configuration:
            ipv4: 100.1.0.40/32
            ipv6: 2064:100::28/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.79/31
            ipv6: fc00::9e/126
        bp_interfaces:
@@ -995,8 +979,6 @@ configuration:
            ipv4: 100.1.0.41/32
            ipv6: 2064:100::29/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.81/31
            ipv6: fc00::a2/126
        bp_interfaces:
@@ -1016,8 +998,6 @@ configuration:
            ipv4: 100.1.0.42/32
            ipv6: 2064:100::2a/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.83/31
            ipv6: fc00::a6/126
        bp_interfaces:
@@ -1037,8 +1017,6 @@ configuration:
            ipv4: 100.1.0.43/32
            ipv6: 2064:100::2b/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.85/31
            ipv6: fc00::aa/126
        bp_interfaces:
@@ -1058,8 +1036,6 @@ configuration:
            ipv4: 100.1.0.44/32
            ipv6: 2064:100::2c/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.87/31
            ipv6: fc00::ae/126
        bp_interfaces:
@@ -1079,8 +1055,6 @@ configuration:
            ipv4: 100.1.0.45/32
            ipv6: 2064:100::2d/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.89/31
            ipv6: fc00::b2/126
        bp_interfaces:
@@ -1100,8 +1074,6 @@ configuration:
            ipv4: 100.1.0.46/32
            ipv6: 2064:100::2e/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.91/31
            ipv6: fc00::b6/126
        bp_interfaces:
@@ -1121,8 +1093,6 @@ configuration:
            ipv4: 100.1.0.47/32
            ipv6: 2064:100::2f/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.93/31
            ipv6: fc00::ba/126
        bp_interfaces:
@@ -1142,8 +1112,6 @@ configuration:
            ipv4: 100.1.0.48/32
            ipv6: 2064:100::30/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.95/31
            ipv6: fc00::be/126
        bp_interfaces:
@@ -1163,8 +1131,6 @@ configuration:
            ipv4: 100.1.0.49/32
            ipv6: 2064:100::31/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.97/31
            ipv6: fc00::c2/126
        bp_interfaces:
@@ -1184,8 +1150,6 @@ configuration:
            ipv4: 100.1.0.50/32
            ipv6: 2064:100::32/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.99/31
            ipv6: fc00::c6/126
        bp_interfaces:
@@ -1205,8 +1169,6 @@ configuration:
            ipv4: 100.1.0.51/32
            ipv6: 2064:100::33/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.101/31
            ipv6: fc00::ca/126
        bp_interfaces:
@@ -1226,8 +1188,6 @@ configuration:
            ipv4: 100.1.0.52/32
            ipv6: 2064:100::34/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.103/31
            ipv6: fc00::ce/126
        bp_interfaces:
@@ -1247,8 +1207,6 @@ configuration:
            ipv4: 100.1.0.53/32
            ipv6: 2064:100::35/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.105/31
            ipv6: fc00::d2/126
        bp_interfaces:
@@ -1268,8 +1226,6 @@ configuration:
            ipv4: 100.1.0.54/32
            ipv6: 2064:100::36/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.107/31
            ipv6: fc00::d6/126
        bp_interfaces:
@@ -1289,8 +1245,6 @@ configuration:
            ipv4: 100.1.0.55/32
            ipv6: 2064:100::37/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.109/31
            ipv6: fc00::da/126
        bp_interfaces:
@@ -1310,8 +1264,6 @@ configuration:
            ipv4: 100.1.0.56/32
            ipv6: 2064:100::38/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.111/31
            ipv6: fc00::de/126
        bp_interfaces:
@@ -1331,8 +1283,6 @@ configuration:
            ipv4: 100.1.0.57/32
            ipv6: 2064:100::39/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.113/31
            ipv6: fc00::e2/126
        bp_interfaces:
@@ -1352,8 +1302,6 @@ configuration:
            ipv4: 100.1.0.58/32
            ipv6: 2064:100::3a/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.115/31
            ipv6: fc00::e6/126
        bp_interfaces:
@@ -1373,8 +1321,6 @@ configuration:
            ipv4: 100.1.0.59/32
            ipv6: 2064:100::3b/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.117/31
            ipv6: fc00::ea/126
        bp_interfaces:
@@ -1394,8 +1340,6 @@ configuration:
            ipv4: 100.1.0.60/32
            ipv6: 2064:100::3c/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.119/31
            ipv6: fc00::ee/126
        bp_interfaces:
@@ -1415,8 +1359,6 @@ configuration:
            ipv4: 100.1.0.61/32
            ipv6: 2064:100::3d/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.121/31
            ipv6: fc00::f2/126
        bp_interfaces:
@@ -1436,8 +1378,6 @@ configuration:
            ipv4: 100.1.0.62/32
            ipv6: 2064:100::3e/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.123/31
            ipv6: fc00::f6/126
        bp_interfaces:
@@ -1457,8 +1397,6 @@ configuration:
            ipv4: 100.1.0.63/32
            ipv6: 2064:100::3f/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.125/31
            ipv6: fc00::fa/126
        bp_interfaces:
@@ -1478,8 +1416,6 @@ configuration:
            ipv4: 100.1.0.64/32
            ipv6: 2064:100::40/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.127/31
            ipv6: fc00::fe/126
        bp_interfaces:
@@ -1499,8 +1435,6 @@ configuration:
            ipv4: 100.1.0.65/32
            ipv6: 2064:100::41/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.129/31
            ipv6: fc00::102/126
        bp_interfaces:
@@ -1520,8 +1454,6 @@ configuration:
            ipv4: 100.1.0.66/32
            ipv6: 2064:100::42/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.131/31
            ipv6: fc00::106/126
        bp_interfaces:
@@ -1541,8 +1473,6 @@ configuration:
            ipv4: 100.1.0.67/32
            ipv6: 2064:100::43/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.133/31
            ipv6: fc00::10a/126
        bp_interfaces:
@@ -1562,8 +1492,6 @@ configuration:
            ipv4: 100.1.0.68/32
            ipv6: 2064:100::44/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.135/31
            ipv6: fc00::10e/126
        bp_interfaces:
@@ -1583,8 +1511,6 @@ configuration:
            ipv4: 100.1.0.69/32
            ipv6: 2064:100::45/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.137/31
            ipv6: fc00::112/126
        bp_interfaces:
@@ -1604,8 +1530,6 @@ configuration:
            ipv4: 100.1.0.70/32
            ipv6: 2064:100::46/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.139/31
            ipv6: fc00::116/126
        bp_interfaces:
@@ -1625,8 +1549,6 @@ configuration:
            ipv4: 100.1.0.71/32
            ipv6: 2064:100::47/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.141/31
            ipv6: fc00::11a/126
        bp_interfaces:
@@ -1646,8 +1568,6 @@ configuration:
            ipv4: 100.1.0.72/32
            ipv6: 2064:100::48/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.143/31
            ipv6: fc00::11e/126
        bp_interfaces:
@@ -1667,8 +1587,6 @@ configuration:
            ipv4: 100.1.0.73/32
            ipv6: 2064:100::49/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.145/31
            ipv6: fc00::122/126
        bp_interfaces:
@@ -1688,8 +1606,6 @@ configuration:
            ipv4: 100.1.0.74/32
            ipv6: 2064:100::4a/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.147/31
            ipv6: fc00::126/126
        bp_interfaces:
@@ -1709,8 +1625,6 @@ configuration:
            ipv4: 100.1.0.75/32
            ipv6: 2064:100::4b/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.149/31
            ipv6: fc00::12a/126
        bp_interfaces:
@@ -1730,8 +1644,6 @@ configuration:
            ipv4: 100.1.0.76/32
            ipv6: 2064:100::4c/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.151/31
            ipv6: fc00::12e/126
        bp_interfaces:
@@ -1751,8 +1663,6 @@ configuration:
            ipv4: 100.1.0.77/32
            ipv6: 2064:100::4d/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.153/31
            ipv6: fc00::132/126
        bp_interfaces:
@@ -1772,8 +1682,6 @@ configuration:
            ipv4: 100.1.0.78/32
            ipv6: 2064:100::4e/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.155/31
            ipv6: fc00::136/126
        bp_interfaces:
@@ -1793,8 +1701,6 @@ configuration:
            ipv4: 100.1.0.79/32
            ipv6: 2064:100::4f/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.157/31
            ipv6: fc00::13a/126
        bp_interfaces:
@@ -1814,8 +1720,6 @@ configuration:
            ipv4: 100.1.0.80/32
            ipv6: 2064:100::50/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.159/31
            ipv6: fc00::13e/126
        bp_interfaces:
@@ -1835,8 +1739,6 @@ configuration:
            ipv4: 100.1.0.81/32
            ipv6: 2064:100::51/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.161/31
            ipv6: fc00::142/126
        bp_interfaces:
@@ -1856,8 +1758,6 @@ configuration:
            ipv4: 100.1.0.82/32
            ipv6: 2064:100::52/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.163/31
            ipv6: fc00::146/126
        bp_interfaces:
@@ -1877,8 +1777,6 @@ configuration:
            ipv4: 100.1.0.83/32
            ipv6: 2064:100::53/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.165/31
            ipv6: fc00::14a/126
        bp_interfaces:
@@ -1898,8 +1796,6 @@ configuration:
            ipv4: 100.1.0.84/32
            ipv6: 2064:100::54/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.167/31
            ipv6: fc00::14e/126
        bp_interfaces:
@@ -1919,8 +1815,6 @@ configuration:
            ipv4: 100.1.0.85/32
            ipv6: 2064:100::55/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.169/31
            ipv6: fc00::152/126
        bp_interfaces:
@@ -1940,8 +1834,6 @@ configuration:
            ipv4: 100.1.0.86/32
            ipv6: 2064:100::56/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.171/31
            ipv6: fc00::156/126
        bp_interfaces:
@@ -1961,8 +1853,6 @@ configuration:
            ipv4: 100.1.0.87/32
            ipv6: 2064:100::57/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.173/31
            ipv6: fc00::15a/126
        bp_interfaces:
@@ -1982,8 +1872,6 @@ configuration:
            ipv4: 100.1.0.88/32
            ipv6: 2064:100::58/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.175/31
            ipv6: fc00::15e/126
        bp_interfaces:
@@ -2003,8 +1891,6 @@ configuration:
            ipv4: 100.1.0.89/32
            ipv6: 2064:100::59/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.177/31
            ipv6: fc00::162/126
        bp_interfaces:
@@ -2024,8 +1910,6 @@ configuration:
            ipv4: 100.1.0.90/32
            ipv6: 2064:100::5a/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.179/31
            ipv6: fc00::166/126
        bp_interfaces:
@@ -2045,8 +1929,6 @@ configuration:
            ipv4: 100.1.0.91/32
            ipv6: 2064:100::5b/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.181/31
            ipv6: fc00::16a/126
        bp_interfaces:
@@ -2066,8 +1948,6 @@ configuration:
            ipv4: 100.1.0.92/32
            ipv6: 2064:100::5c/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.183/31
            ipv6: fc00::16e/126
        bp_interfaces:
@@ -2087,8 +1967,6 @@ configuration:
            ipv4: 100.1.0.93/32
            ipv6: 2064:100::5d/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.185/31
            ipv6: fc00::172/126
        bp_interfaces:
@@ -2108,8 +1986,6 @@ configuration:
            ipv4: 100.1.0.94/32
            ipv6: 2064:100::5e/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.187/31
            ipv6: fc00::176/126
        bp_interfaces:
@@ -2129,8 +2005,6 @@ configuration:
            ipv4: 100.1.0.95/32
            ipv6: 2064:100::5f/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.189/31
            ipv6: fc00::17a/126
        bp_interfaces:
@@ -2150,8 +2024,6 @@ configuration:
            ipv4: 100.1.0.96/32
            ipv6: 2064:100::60/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.0.191/31
            ipv6: fc00::17e/126
        bp_interfaces:
@@ -2171,8 +2043,6 @@ configuration:
            ipv4: 100.1.0.161/32
            ipv6: 2064:100::a1/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.65/31
            ipv6: fc00::282/126
        bp_interfaces:
@@ -2192,8 +2062,6 @@ configuration:
            ipv4: 100.1.0.162/32
            ipv6: 2064:100::a2/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.67/31
            ipv6: fc00::286/126
        bp_interfaces:
@@ -2213,8 +2081,6 @@ configuration:
            ipv4: 100.1.0.163/32
            ipv6: 2064:100::a3/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.69/31
            ipv6: fc00::28a/126
        bp_interfaces:
@@ -2234,8 +2100,6 @@ configuration:
            ipv4: 100.1.0.164/32
            ipv6: 2064:100::a4/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.71/31
            ipv6: fc00::28e/126
        bp_interfaces:
@@ -2255,8 +2119,6 @@ configuration:
            ipv4: 100.1.0.165/32
            ipv6: 2064:100::a5/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.73/31
            ipv6: fc00::292/126
        bp_interfaces:
@@ -2276,8 +2138,6 @@ configuration:
            ipv4: 100.1.0.166/32
            ipv6: 2064:100::a6/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.75/31
            ipv6: fc00::296/126
        bp_interfaces:
@@ -2297,8 +2157,6 @@ configuration:
            ipv4: 100.1.0.167/32
            ipv6: 2064:100::a7/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.77/31
            ipv6: fc00::29a/126
        bp_interfaces:
@@ -2318,8 +2176,6 @@ configuration:
            ipv4: 100.1.0.168/32
            ipv6: 2064:100::a8/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.79/31
            ipv6: fc00::29e/126
        bp_interfaces:
@@ -2339,8 +2195,6 @@ configuration:
            ipv4: 100.1.0.169/32
            ipv6: 2064:100::a9/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.81/31
            ipv6: fc00::2a2/126
        bp_interfaces:
@@ -2360,8 +2214,6 @@ configuration:
            ipv4: 100.1.0.170/32
            ipv6: 2064:100::aa/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.83/31
            ipv6: fc00::2a6/126
        bp_interfaces:
@@ -2381,8 +2233,6 @@ configuration:
            ipv4: 100.1.0.171/32
            ipv6: 2064:100::ab/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.85/31
            ipv6: fc00::2aa/126
        bp_interfaces:
@@ -2402,8 +2252,6 @@ configuration:
            ipv4: 100.1.0.172/32
            ipv6: 2064:100::ac/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.87/31
            ipv6: fc00::2ae/126
        bp_interfaces:
@@ -2423,8 +2271,6 @@ configuration:
            ipv4: 100.1.0.173/32
            ipv6: 2064:100::ad/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.89/31
            ipv6: fc00::2b2/126
        bp_interfaces:
@@ -2444,8 +2290,6 @@ configuration:
            ipv4: 100.1.0.174/32
            ipv6: 2064:100::ae/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.91/31
            ipv6: fc00::2b6/126
        bp_interfaces:
@@ -2465,8 +2309,6 @@ configuration:
            ipv4: 100.1.0.175/32
            ipv6: 2064:100::af/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.93/31
            ipv6: fc00::2ba/126
        bp_interfaces:
@@ -2486,8 +2328,6 @@ configuration:
            ipv4: 100.1.0.176/32
            ipv6: 2064:100::b0/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.95/31
            ipv6: fc00::2be/126
        bp_interfaces:
@@ -2507,8 +2347,6 @@ configuration:
            ipv4: 100.1.0.177/32
            ipv6: 2064:100::b1/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.97/31
            ipv6: fc00::2c2/126
        bp_interfaces:
@@ -2528,8 +2366,6 @@ configuration:
            ipv4: 100.1.0.178/32
            ipv6: 2064:100::b2/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.99/31
            ipv6: fc00::2c6/126
        bp_interfaces:
@@ -2549,8 +2385,6 @@ configuration:
            ipv4: 100.1.0.179/32
            ipv6: 2064:100::b3/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.101/31
            ipv6: fc00::2ca/126
        bp_interfaces:
@@ -2570,8 +2404,6 @@ configuration:
            ipv4: 100.1.0.180/32
            ipv6: 2064:100::b4/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.103/31
            ipv6: fc00::2ce/126
        bp_interfaces:
@@ -2591,8 +2423,6 @@ configuration:
            ipv4: 100.1.0.181/32
            ipv6: 2064:100::b5/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.105/31
            ipv6: fc00::2d2/126
        bp_interfaces:
@@ -2612,8 +2442,6 @@ configuration:
            ipv4: 100.1.0.182/32
            ipv6: 2064:100::b6/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.107/31
            ipv6: fc00::2d6/126
        bp_interfaces:
@@ -2633,8 +2461,6 @@ configuration:
            ipv4: 100.1.0.183/32
            ipv6: 2064:100::b7/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.109/31
            ipv6: fc00::2da/126
        bp_interfaces:
@@ -2654,8 +2480,6 @@ configuration:
            ipv4: 100.1.0.184/32
            ipv6: 2064:100::b8/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.111/31
            ipv6: fc00::2de/126
        bp_interfaces:
@@ -2675,8 +2499,6 @@ configuration:
            ipv4: 100.1.0.185/32
            ipv6: 2064:100::b9/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.113/31
            ipv6: fc00::2e2/126
        bp_interfaces:
@@ -2696,8 +2518,6 @@ configuration:
            ipv4: 100.1.0.186/32
            ipv6: 2064:100::ba/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.115/31
            ipv6: fc00::2e6/126
        bp_interfaces:
@@ -2717,8 +2537,6 @@ configuration:
            ipv4: 100.1.0.187/32
            ipv6: 2064:100::bb/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.117/31
            ipv6: fc00::2ea/126
        bp_interfaces:
@@ -2738,8 +2556,6 @@ configuration:
            ipv4: 100.1.0.188/32
            ipv6: 2064:100::bc/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.119/31
            ipv6: fc00::2ee/126
        bp_interfaces:
@@ -2759,8 +2575,6 @@ configuration:
            ipv4: 100.1.0.189/32
            ipv6: 2064:100::bd/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.121/31
            ipv6: fc00::2f2/126
        bp_interfaces:
@@ -2780,8 +2594,6 @@ configuration:
            ipv4: 100.1.0.190/32
            ipv6: 2064:100::be/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.123/31
            ipv6: fc00::2f6/126
        bp_interfaces:
@@ -2801,8 +2613,6 @@ configuration:
            ipv4: 100.1.0.191/32
            ipv6: 2064:100::bf/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.125/31
            ipv6: fc00::2fa/126
        bp_interfaces:
@@ -2822,8 +2632,6 @@ configuration:
            ipv4: 100.1.0.192/32
            ipv6: 2064:100::c0/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.127/31
            ipv6: fc00::2fe/126
        bp_interfaces:
@@ -2843,8 +2651,6 @@ configuration:
            ipv4: 100.1.0.193/32
            ipv6: 2064:100::c1/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.129/31
            ipv6: fc00::302/126
        bp_interfaces:
@@ -2864,8 +2670,6 @@ configuration:
            ipv4: 100.1.0.194/32
            ipv6: 2064:100::c2/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.131/31
            ipv6: fc00::306/126
        bp_interfaces:
@@ -2885,8 +2689,6 @@ configuration:
            ipv4: 100.1.0.195/32
            ipv6: 2064:100::c3/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.133/31
            ipv6: fc00::30a/126
        bp_interfaces:
@@ -2906,8 +2708,6 @@ configuration:
            ipv4: 100.1.0.196/32
            ipv6: 2064:100::c4/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.135/31
            ipv6: fc00::30e/126
        bp_interfaces:
@@ -2927,8 +2727,6 @@ configuration:
            ipv4: 100.1.0.197/32
            ipv6: 2064:100::c5/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.137/31
            ipv6: fc00::312/126
        bp_interfaces:
@@ -2948,8 +2746,6 @@ configuration:
            ipv4: 100.1.0.198/32
            ipv6: 2064:100::c6/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.139/31
            ipv6: fc00::316/126
        bp_interfaces:
@@ -2969,8 +2765,6 @@ configuration:
            ipv4: 100.1.0.199/32
            ipv6: 2064:100::c7/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.141/31
            ipv6: fc00::31a/126
        bp_interfaces:
@@ -2990,8 +2784,6 @@ configuration:
            ipv4: 100.1.0.200/32
            ipv6: 2064:100::c8/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.143/31
            ipv6: fc00::31e/126
        bp_interfaces:
@@ -3011,8 +2803,6 @@ configuration:
            ipv4: 100.1.0.201/32
            ipv6: 2064:100::c9/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.145/31
            ipv6: fc00::322/126
        bp_interfaces:
@@ -3032,8 +2822,6 @@ configuration:
            ipv4: 100.1.0.202/32
            ipv6: 2064:100::ca/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.147/31
            ipv6: fc00::326/126
        bp_interfaces:
@@ -3053,8 +2841,6 @@ configuration:
            ipv4: 100.1.0.203/32
            ipv6: 2064:100::cb/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.149/31
            ipv6: fc00::32a/126
        bp_interfaces:
@@ -3074,8 +2860,6 @@ configuration:
            ipv4: 100.1.0.204/32
            ipv6: 2064:100::cc/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.151/31
            ipv6: fc00::32e/126
        bp_interfaces:
@@ -3095,8 +2879,6 @@ configuration:
            ipv4: 100.1.0.205/32
            ipv6: 2064:100::cd/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.153/31
            ipv6: fc00::332/126
        bp_interfaces:
@@ -3116,8 +2898,6 @@ configuration:
            ipv4: 100.1.0.206/32
            ipv6: 2064:100::ce/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.155/31
            ipv6: fc00::336/126
        bp_interfaces:
@@ -3137,8 +2917,6 @@ configuration:
            ipv4: 100.1.0.207/32
            ipv6: 2064:100::cf/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.157/31
            ipv6: fc00::33a/126
        bp_interfaces:
@@ -3158,8 +2936,6 @@ configuration:
            ipv4: 100.1.0.208/32
            ipv6: 2064:100::d0/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.159/31
            ipv6: fc00::33e/126
        bp_interfaces:
@@ -3179,8 +2955,6 @@ configuration:
            ipv4: 100.1.0.209/32
            ipv6: 2064:100::d1/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.161/31
            ipv6: fc00::342/126
        bp_interfaces:
@@ -3200,8 +2974,6 @@ configuration:
            ipv4: 100.1.0.210/32
            ipv6: 2064:100::d2/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.163/31
            ipv6: fc00::346/126
        bp_interfaces:
@@ -3221,8 +2993,6 @@ configuration:
            ipv4: 100.1.0.211/32
            ipv6: 2064:100::d3/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.165/31
            ipv6: fc00::34a/126
        bp_interfaces:
@@ -3242,8 +3012,6 @@ configuration:
            ipv4: 100.1.0.212/32
            ipv6: 2064:100::d4/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.167/31
            ipv6: fc00::34e/126
        bp_interfaces:
@@ -3263,8 +3031,6 @@ configuration:
            ipv4: 100.1.0.213/32
            ipv6: 2064:100::d5/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.169/31
            ipv6: fc00::352/126
        bp_interfaces:
@@ -3284,8 +3050,6 @@ configuration:
            ipv4: 100.1.0.214/32
            ipv6: 2064:100::d6/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.171/31
            ipv6: fc00::356/126
        bp_interfaces:
@@ -3305,8 +3069,6 @@ configuration:
            ipv4: 100.1.0.215/32
            ipv6: 2064:100::d7/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.173/31
            ipv6: fc00::35a/126
        bp_interfaces:
@@ -3326,8 +3088,6 @@ configuration:
            ipv4: 100.1.0.216/32
            ipv6: 2064:100::d8/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.175/31
            ipv6: fc00::35e/126
        bp_interfaces:
@@ -3347,8 +3107,6 @@ configuration:
            ipv4: 100.1.0.217/32
            ipv6: 2064:100::d9/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.177/31
            ipv6: fc00::362/126
        bp_interfaces:
@@ -3368,8 +3126,6 @@ configuration:
            ipv4: 100.1.0.218/32
            ipv6: 2064:100::da/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.179/31
            ipv6: fc00::366/126
        bp_interfaces:
@@ -3389,8 +3145,6 @@ configuration:
            ipv4: 100.1.0.219/32
            ipv6: 2064:100::db/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.181/31
            ipv6: fc00::36a/126
        bp_interfaces:
@@ -3410,8 +3164,6 @@ configuration:
            ipv4: 100.1.0.220/32
            ipv6: 2064:100::dc/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.183/31
            ipv6: fc00::36e/126
        bp_interfaces:
@@ -3431,8 +3183,6 @@ configuration:
            ipv4: 100.1.0.221/32
            ipv6: 2064:100::dd/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.185/31
            ipv6: fc00::372/126
        bp_interfaces:
@@ -3452,8 +3202,6 @@ configuration:
            ipv4: 100.1.0.222/32
            ipv6: 2064:100::de/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.187/31
            ipv6: fc00::376/126
        bp_interfaces:
@@ -3473,8 +3221,6 @@ configuration:
            ipv4: 100.1.0.223/32
            ipv6: 2064:100::df/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.189/31
            ipv6: fc00::37a/126
        bp_interfaces:
@@ -3494,14 +3240,12 @@ configuration:
            ipv4: 100.1.0.224/32
            ipv6: 2064:100::e0/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.1.191/31
            ipv6: fc00::37e/126
        bp_interfaces:
          ipv4: 10.10.246.129/24
          ipv6: fc0a::81/64
-    ARISTA129T1:
+    ARISTA01PT1:
       properties:
       - common
       bgp:
@@ -3515,14 +3259,12 @@ configuration:
            ipv4: 100.1.1.1/32
            ipv6: 2064:100::101/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.2.1/31
            ipv6: fc00::402/126
        bp_interfaces:
          ipv4: 10.10.246.130/24
          ipv6: fc0a::82/64
-    ARISTA130T1:
+    ARISTA02PT1:
       properties:
       - common
       bgp:
@@ -3536,8 +3278,6 @@ configuration:
            ipv4: 100.1.1.2/32
            ipv6: 2064:100::102/128
          Ethernet1:
-           lacp: 1
-         Port-Channel1:
            ipv4: 10.0.2.3/31
            ipv6: fc00::406/126
        bp_interfaces:
