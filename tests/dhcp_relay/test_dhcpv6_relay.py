@@ -494,35 +494,31 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 class TestDhcpv6RelayWithMultipleVlan:
 
     def restart_dhcp_relay_and_wait(self, duthost):
-        duthost.shell('systemctl reset-failed dhcp_relay')
-        duthost.restart_service("dhcp_relay")
-        duthost.shell('systemctl reset-failed dhcp_relay')
+        duthost.shell("sudo systemctl reset-failed dhcp_relay")
+        duthost.shell("sudo systemctl restart dhcp_relay")
 
         def verify_dhcpv6_relayd_running():
             cmd = 'docker exec dhcp_relay supervisorctl status | grep dhcp6relay'
             return "RUNNING" in duthost.shell(cmd)["stdout"]
-        wait_until(60, 3, 0, verify_dhcpv6_relayd_running)
+
+        pytest_assert(wait_until(180, 3, 0, verify_dhcpv6_relayd_running))
 
     @pytest.fixture(scope="class", autouse=True)
-    def teardown(self, duthost):
+    def restart_dhcp_relay_after_test(self, duthost):
 
         yield
         self.restart_dhcp_relay_and_wait(duthost)
 
-    @pytest.mark.parametrize("setup_multiple_vlans_and_teardown", ["3"], indirect=True)
-    def test_dhcp_relay_default(self, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, tbinfo,
+    @pytest.mark.parametrize("setup_multiple_vlans_and_teardown", [3], indirect=True)
+    def test_dhcp_relay_default(self, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                                                 toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
                                                 setup_active_active_as_active_standby,             # noqa F811
                                                 setup_multiple_vlans_and_teardown):                # noqa F811
         '''
             Test DHCP relay should set correct link address when relay packet to DHCP server
         '''
-        if 'dualtor-aa' in tbinfo['topo']['name']:
-            pytest.skip("skip the multiple vlan test on aa dualtor as interface state is not aa after vlan split")
-
         vlans_info = setup_multiple_vlans_and_teardown
         _, duthost = testing_config
-        skip_release(duthost, ["201811", "201911", "202106"])  # TO-DO: delete skip release on 201811 and 201911
         # Please note: relay interface always means vlan interface
         pytest_assert(len(dut_dhcp_relay_data) > 0, "No VLAN data")
         common_dhcp_relay_data = dut_dhcp_relay_data[0]
