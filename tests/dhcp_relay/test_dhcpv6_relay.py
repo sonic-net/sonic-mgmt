@@ -494,7 +494,9 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 class TestDhcpv6RelayWithMultipleVlan:
 
     def restart_dhcp_relay_and_wait(self, duthost):
+        duthost.shell('systemctl reset-failed dhcp_relay')
         duthost.restart_service("dhcp_relay")
+        duthost.shell('systemctl reset-failed dhcp_relay')
 
         def verify_dhcpv6_relayd_running():
             cmd = 'docker exec dhcp_relay supervisorctl status | grep dhcp6relay'
@@ -515,6 +517,9 @@ class TestDhcpv6RelayWithMultipleVlan:
         '''
             Test DHCP relay should set correct link address when relay packet to DHCP server
         '''
+        if 'dualtor-aa' in tbinfo['topo']['name']:
+            pytest.skip("skip the multiple vlan test on aa dualtor as interface state is not aa after vlan split")
+
         vlans_info = setup_multiple_vlans_and_teardown
         _, duthost = testing_config
         skip_release(duthost, ["201811", "201911", "202106"])  # TO-DO: delete skip release on 201811 and 201911
