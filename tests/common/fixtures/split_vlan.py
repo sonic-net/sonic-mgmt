@@ -73,7 +73,7 @@ def generate_sub_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_i
 
     sub_vlans_info, config_patch = [], []
     config_patch += remove_vlan_patch(vlan_name) \
-        + remove_vlan_relay_patch(vlan_name) \
+        + remove_dhcpv6_relay_patch(vlan_name) \
         + [remove_vlan_ip_patch(vlan_name, ip)[0] for ip in vlan_info['interface_ipv4']] \
         + [remove_vlan_ip_patch(vlan_name, ip)[0] for ip in vlan_info['interface_ipv6']] \
         + [remove_vlan_member_patch(vlan_name, member)[0] for member in vlan_info['members']]
@@ -102,7 +102,7 @@ def generate_sub_vlans_config_patch(vlan_name, vlan_info, vlan_member_with_ptf_i
         new_interface_ipv6 = info['interface_ipv6']
         new_members_with_ptf_idx = info['members_with_ptf_idx']
         config_patch += add_vlan_patch(new_vlan_name, vlan_info['dhcp_servers'], vlan_info['dhcpv6_servers']) \
-            + add_vlan_relay_patch(new_vlan_name, vlan_info['dhcp_relay'], vlan_info['dhcpv6_relay']) \
+            + add_dhcpv6_relay_patch(new_vlan_name, vlan_info['dhcpv6_relay']) \
             + add_vlan_ip_patch(new_vlan_name, new_interface_ipv4) \
             + add_vlan_ip_patch(new_vlan_name, new_interface_ipv6) \
             + [add_vlan_member_patch(new_vlan_name, member)[0] for member, _ in new_members_with_ptf_idx]
@@ -153,20 +153,18 @@ def remove_vlan_patch(vlan_name):
     return patch
 
 
-def add_vlan_relay_patch(vlan_name, dhcp_servers, dhcpv6_servers):
+def add_dhcpv6_relay_patch(vlan_name, dhcpv6_servers):
     patch = [{
         "op": "add",
         "path": "/DHCP_RELAY/%s" % vlan_name,
         "value": {}
     }]
-    if dhcp_servers:
-        patch[0]["value"]["dhcp_servers"] = dhcp_servers
     if dhcpv6_servers:
         patch[0]["value"]["dhcpv6_servers"] = dhcpv6_servers
     return patch
 
 
-def remove_vlan_relay_patch(vlan_name):
+def remove_dhcpv6_relay_patch(vlan_name):
     patch = [{
         "op": "remove",
         "path": "/DHCP_RELAY/%s" % vlan_name
