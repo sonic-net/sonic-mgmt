@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require       
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                                # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
-     stop_pfcwd, disable_packet_aging                                                               # noqa: F401
+     stop_pfcwd, disable_packet_aging, get_interface_stats                                          # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                             # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, \
@@ -24,8 +24,8 @@ TEST_FLOW_AGGR_RATE_PERCENT = 30
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 25
 DATA_PKT_SIZE = 1024
-DATA_FLOW_DURATION_SEC = 5
-DATA_FLOW_DELAY_SEC = 2
+DATA_FLOW_DURATION_SEC = 10
+DATA_FLOW_DELAY_SEC = 5
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
 
@@ -77,6 +77,7 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
 
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
+    ingress_duthost = tx_port[0]['duthost']
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
     # add ingress DUT into the set
     dut_asics_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
@@ -125,6 +126,20 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
                                                    all_flow_names=all_flow_names,
                                                    exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                    snappi_extra_params=snappi_extra_params)
+
+    tx_port1 = tx_port[0]['peer_port']
+    tx_port2 = tx_port[1]['peer_port']
+    pkt_drop1 = get_interface_stats(ingress_duthost, tx_port1)[ingress_duthost.hostname][tx_port1]['rx_fail']
+    pkt_drop2 = get_interface_stats(ingress_duthost, tx_port2)[ingress_duthost.hostname][tx_port2]['rx_fail']
+    rx_pkts_1 = get_interface_stats(ingress_duthost, tx_port1)[ingress_duthost.hostname][tx_port1]['rx_pkts']
+    rx_pkts_2 = get_interface_stats(ingress_duthost, tx_port2)[ingress_duthost.hostname][tx_port2]['rx_pkts']
+    # Calculate the total packet drop
+    pkt_drop = pkt_drop1 + pkt_drop2
+    # Calculate the total received packets
+    total_rx_pkts = rx_pkts_1 + rx_pkts_2
+    # Calculate the drop percentage
+    drop_percentage = 100 * pkt_drop / total_rx_pkts
+    pytest_assert(ceil(drop_percentage) == 10, 'FAIL: Drop packets must be around 10 percent')
 
     """ Verify Results """
     verify_m2o_oversubscribe_lossy_result(flow_stats,
