@@ -641,11 +641,11 @@ topology:
       vlans:
         - 223
       vm_offset: 127
-    ARISTA01PT1:
+    ARISTA01PT0:
       vlans:
         - 256
       vm_offset: 128
-    ARISTA02PT1:
+    ARISTA02PT0:
       vlans:
         - 257
       vm_offset: 129
@@ -811,7 +811,7 @@ configuration_properties:
     failure_rate: 0
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
-    
+
 configuration:
   ARISTA01T1:
     properties:
@@ -3245,11 +3245,11 @@ configuration:
     bp_interfaces:
       ipv4: 10.10.246.129/24
       ipv6: fc0a::81/64
-  ARISTA01PT1:
+  ARISTA01PT0:
     properties:
     - common
     bgp:
-      asn: 64802
+      asn: 64601
       peers:
         64601:
           - 10.0.2.0
@@ -3264,11 +3264,11 @@ configuration:
     bp_interfaces:
       ipv4: 10.10.246.130/24
       ipv6: fc0a::82/64
-  ARISTA02PT1:
+  ARISTA02PT0:
     properties:
     - common
     bgp:
-      asn: 64802
+      asn: 64601
       peers:
         64601:
           - 10.0.2.2
