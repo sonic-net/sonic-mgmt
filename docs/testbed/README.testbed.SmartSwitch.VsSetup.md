@@ -3,10 +3,11 @@
 1. [1. Prepare the environment](#1-prepare-the-environment)
 2. [2. Deploy the testbed](#2-deploy-the-testbed)
 3. [3. Configurate DPU](#3-configurate-dpu)
-   1. [3.1. Setup network connection on DPU](#31-setup-network-connection-on-dpu)
-   2. [3.2. Upgrade DPU image to DASH BMv2](#32-upgrade-dpu-image-to-dash-bmv2)
-   3. [3.3. Enable DASH BMv2 Pipeline](#33-enable-dash-bmv2-pipeline)
-   4. [3.4. Initialize DASH BMv2 Pipeline](#34-initialize-dash-bmv2-pipeline)
+   1. [3.1. Setup mgmt network connection on DPU](#31-setup-mgmt-network-connection-on-dpu)
+   2. [3.2. Setup port config on DPU](#32-setup-port-config-on-dpu)
+   3. [3.3. Upgrade DPU image to DASH BMv2](#33-upgrade-dpu-image-to-dash-bmv2)
+   4. [3.4. Enable DASH BMv2 Pipeline](#34-enable-dash-bmv2-pipeline)
+   5. [3.5. Initialize DASH BMv2 Pipeline](#35-initialize-dash-bmv2-pipeline)
 
 ## 1. Prepare the environment
 
@@ -52,7 +53,7 @@
 
 ## 3. Configurate DPU
 
-### 3.1. Setup network connection on DPU
+### 3.1. Setup mgmt network connection on DPU
 
 1. telnet to DPU VM
 
@@ -68,6 +69,8 @@
     ```bash
     sudo config interface ip add eth0 10.250.0.55/24
     ```
+
+### 3.2. Setup port config on DPU
 
 1. copy minigraph to DPU
 
@@ -121,7 +124,7 @@ Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
 
 </details>
 
-### 3.2. Upgrade DPU image to DASH BMv2
+### 3.3. Upgrade DPU image to DASH BMv2
 
 1. Login on sonic VM and upgrade it with the 1st-step compiled vsonic image sonic-vs.bin and reboot it
 
@@ -130,7 +133,7 @@ Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
     admin@vlab-01:~$ sudo reboot
     ```
 
-### 3.3. Enable DASH BMv2 Pipeline
+### 3.4. Enable DASH BMv2 Pipeline
 
 1. Specify switch type dpu
 
@@ -154,7 +157,7 @@ Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
 1. Manually configure IP on dpu interface eth1/eth2
 
     ```bash
-    admin@vlab-01:~$ sudo ifconfig eth1 10.0.1.1/24 up && sudo ifconfig eth2 10.0.2.1/24 up
+    admin@vlab-01:~$ sudo ifconfig eth1 10.0.0.37/31 up && sudo ifconfig eth2 10.0.0.39/31 up
     ```
 
 1. config reload
@@ -163,16 +166,16 @@ Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
     admin@vlab-01:~$ sudo config reload -y
     ```
 
-### 3.4. Initialize DASH BMv2 Pipeline
+### 3.5. Initialize DASH BMv2 Pipeline
 
 1. Update libdashsai package on your sonic-mgmt test repo. Without this, calling gNMI and set DASH config will not work:
 
     ```bash
     r12f@r12f-dl380:~/code/sonic/mgmt
-    $ dpkg -I libdashapi_1.0.0_amd64.deb
+    $ sudo dpkg -i libdashapi_1.0.0_amd64.deb
     ```
 
-    libdashapi_1.0.0_amd64.deb can be found under “target/debs/bookworm”. And for unblocking us, I will upload this package along with the image.
+    libdashapi_1.0.0_amd64.deb can be found under “target/debs/bookworm”.
 
 1. Install p4runtime shell in DPU KVM: [p4lang/p4runtime-shell](https://github.com/p4lang/p4runtime-shell)
 
@@ -197,12 +200,12 @@ Thus, the packets are supposed to be sniffed on `eth4` (binding to DPU) on PTF.
     ```bash
     $ docker run --rm -ti --network=host p4lang/p4runtime-sh --grpc-addr 127.0.0.1:9559 --device-id 0 --election-id 0,1
     underlay_entry = table_entry["dash_ingress.underlay.underlay_routing"](action="dash_ingress.underlay.pkt_act")
-    underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.37/128"
+    underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.37/127"
     underlay_entry.action["packet_action"] = "1"
     underlay_entry.action["next_hop_id"] = "0"
     underlay_entry.insert
 
-    underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.39/128"
+    underlay_entry.match["meta.dst_ip_addr"] = "::10.0.0.39/127"
     underlay_entry.action["packet_action"] = "1"
     underlay_entry.action["next_hop_id"] = "1"
     underlay_entry.insert

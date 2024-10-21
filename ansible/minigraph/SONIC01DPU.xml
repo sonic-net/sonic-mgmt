@@ -89,22 +89,22 @@
       <IPInterfaces>
         <IPInterface>
           <Name i:nil="true"/>
-          <AttachTo>fortyGigE0/0</AttachTo>
+          <AttachTo>eth1</AttachTo>
           <Prefix>10.0.0.37/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>fortyGigE0/0</AttachTo>
+          <AttachTo>eth1</AttachTo>
           <Prefix>fc00::4a/126</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:nil="true"/>
-          <AttachTo>fortyGigE0/4</AttachTo>
+          <AttachTo>eth2</AttachTo>
           <Prefix>10.0.0.39/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>fortyGigE0/4</AttachTo>
+          <AttachTo>eth2</AttachTo>
           <Prefix>fc00::4e/126</Prefix>
         </IPInterface>
       </IPInterfaces>
