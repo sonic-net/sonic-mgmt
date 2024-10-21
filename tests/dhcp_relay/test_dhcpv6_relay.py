@@ -494,8 +494,9 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 class TestDhcpv6RelayWithMultipleVlan:
 
     def restart_dhcp_relay_and_wait(self, duthost):
-        duthost.shell("sudo systemctl reset-failed dhcp_relay")
-        duthost.shell("sudo systemctl restart dhcp_relay")
+        duthost.shell("systemctl reset-failed dhcp_relay")
+        duthost.shell("systemctl restart dhcp_relay")
+        duthost.shell('systemctl reset-failed dhcp_relay')
 
         def verify_dhcpv6_relayd_running():
             cmd = 'docker exec dhcp_relay supervisorctl status | grep dhcp6relay'
