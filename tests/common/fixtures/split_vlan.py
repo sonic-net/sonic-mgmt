@@ -8,11 +8,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 
 
-def parse_request_param(param):
-    vlan_count = int(param)
-    return vlan_count
-
-
 @pytest.fixture(scope="class")
 def setup_multiple_vlans_and_teardown(request, rand_selected_dut, rand_unselected_dut, tbinfo):
     '''
@@ -20,7 +15,7 @@ def setup_multiple_vlans_and_teardown(request, rand_selected_dut, rand_unselecte
         The count of sub vlans is determined by the parameter vlan_count which is passed to the test.
         It will split prefix and members evenly to each sub vlan.
     '''
-    vlan_count = parse_request_param(request.param)
+    vlan_count = request.param
     is_dualtor = 'dualtor' in tbinfo['topo']['name']
     duthost = rand_selected_dut
     vlan_brief = duthost.get_vlan_brief()
