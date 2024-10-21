@@ -18,6 +18,7 @@ from tests.common.snappi_tests.traffic_generation import setup_base_traffic_conf
     verify_rx_frame_count_dut
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame
+from common.cisco_data import is_cisco_device
 
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,7 @@ def run_pfc_test(api,
 
     # Port id of Rx port for traffic config
     port_id = 0
+    is_dut_cisco = is_cisco_device(duthost)
 
     # Rate percent must be an integer
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
@@ -203,14 +205,16 @@ def run_pfc_test(api,
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_prio_list=test_prio_list,
                         prio_dscp_map=prio_dscp_map,
-                        snappi_extra_params=snappi_extra_params)
+                        snappi_extra_params=snappi_extra_params,
+                        number_of_streams=2 if is_dut_cisco else 1)
 
     if snappi_extra_params.gen_background_traffic:
         # Generate background flow config
         generate_background_flows(testbed_config=testbed_config,
                                   bg_flow_prio_list=bg_prio_list,
                                   prio_dscp_map=prio_dscp_map,
-                                  snappi_extra_params=snappi_extra_params)
+                                  snappi_extra_params=snappi_extra_params,
+                                  number_of_streams=2 if is_dut_cisco else 1)
 
     # Generate pause storm config
     generate_pause_flows(testbed_config=testbed_config,
