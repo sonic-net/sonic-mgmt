@@ -5,6 +5,7 @@ import time
 import netaddr
 import logging
 
+from dhcp_relay_utils import restart_dhcp_service
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.split_vlan import setup_multiple_vlans_and_teardown  # noqa F401
@@ -493,22 +494,11 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
 class TestDhcpv6RelayWithMultipleVlan:
 
-    def restart_dhcp_relay_and_wait(self, duthost):
-        duthost.shell("systemctl reset-failed dhcp_relay")
-        duthost.shell("systemctl restart dhcp_relay")
-        duthost.shell('systemctl reset-failed dhcp_relay')
-
-        def verify_dhcpv6_relayd_running():
-            cmd = 'docker exec dhcp_relay supervisorctl status | grep dhcp6relay'
-            return "RUNNING" in duthost.shell(cmd)["stdout"]
-
-        pytest_assert(wait_until(180, 3, 0, verify_dhcpv6_relayd_running))
-
     @pytest.fixture(scope="class", autouse=True)
     def restart_dhcp_relay_after_test(self, duthost):
 
         yield
-        self.restart_dhcp_relay_and_wait(duthost)
+        self.restart_dhcp_service(duthost)
 
     @pytest.mark.parametrize("setup_multiple_vlans_and_teardown", [3], indirect=True)
     def test_dhcp_relay_default(self, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
@@ -524,7 +514,7 @@ class TestDhcpv6RelayWithMultipleVlan:
         pytest_assert(len(dut_dhcp_relay_data) > 0, "No VLAN data")
         common_dhcp_relay_data = dut_dhcp_relay_data[0]
 
-        self.restart_dhcp_relay_and_wait(duthost)  # restart dhcp_relay to make new vlans config take into effect
+        self.restart_dhcp_service(duthost)  # restart dhcp_relay to make new vlans config take into effect
         for vlan_info in vlans_info:
             vlan_name = vlan_info['vlan_name']
             exp_link_addr = vlan_info['interface_ipv6'].split('/')[0]
