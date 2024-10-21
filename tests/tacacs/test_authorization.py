@@ -575,8 +575,7 @@ def test_tacacs_authorization_wildcard(
                                     setup_authorization_tacacs,
                                     tacacs_creds,
                                     check_tacacs,
-                                    remote_user_client,
-                                    remote_rw_user_client):
+                                    remote_user_client):
     # Create files for command with wildcards
     create_test_files(remote_user_client)
 
@@ -601,6 +600,15 @@ def test_tacacs_authorization_wildcard(
     check_server_received(ptfhost, "cmd=/usr/bin/ls")
     check_server_received(ptfhost, "cmd-arg=test*.?")
 
+
+def test_tacacs_authorization_wildcard_rw(
+                                    ptfhost,
+                                    duthosts,
+                                    enum_rand_one_per_hwsku_hostname,
+                                    setup_authorization_tacacs,
+                                    tacacs_creds,
+                                    check_tacacs,
+                                    remote_rw_user_client):
     # Create files for command with wildcards
     create_test_files(remote_rw_user_client)
 
