@@ -510,7 +510,7 @@ class TestDhcpv6RelayWithMultipleVlan:
         self.restart_dhcp_relay_and_wait(duthost)
 
     @pytest.mark.parametrize("setup_multiple_vlans_and_teardown", ["3"], indirect=True)
-    def test_dhcp_relay_default(self, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+    def test_dhcp_relay_default(self, ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config, tbinfo,
                                                 toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
                                                 setup_active_active_as_active_standby,             # noqa F811
                                                 setup_multiple_vlans_and_teardown):                # noqa F811
