@@ -417,8 +417,8 @@ Temperature sensor components consists of the following gNMI paths:
 <table>
   <thead>
     <tr>
-      <th><br>
-/components/component[name=<cpu>]/state/temperature/instant</th>
+      <td><br>
+/components/component[name=<cpu>]/state/temperature/instant</td>
     </tr>
   </thead>
   <tbody>
@@ -451,8 +451,8 @@ Temperature sensor components consists of the following gNMI paths:
 <table>
   <thead>
     <tr>
-      <th><br>
-/components/component[name=<cpu>]/state/temperature/instant</th>
+      <td><br>
+/components/component[name=<cpu>]/state/temperature/instant</td>
     </tr>
   </thead>
   <tbody>
@@ -1986,8 +1986,8 @@ Power hotswap component consists of the following gNMI paths:
 <table>
   <thead>
     <tr>
-      <th><br>
-/components/component[name=<power_hotswap>]/state/name</th>
+      <td><br>
+/components/component[name=<power_hotswap>]/state/name</td>
     </tr>
   </thead>
   <tbody>
@@ -2114,8 +2114,8 @@ Power hotswap component consists of the following gNMI paths:
 <table>
   <thead>
     <tr>
-      <th><br>
-/components/component[name=<power_hotswap>]/state/temperature/instant</th>
+      <td><br>
+/components/component[name=<power_hotswap>]/state/temperature/instant</td>
     </tr>
   </thead>
   <tbody>
@@ -2244,16 +2244,19 @@ Haven security component consists of the following gNMI paths:
 
 ### Test 1: Haven information
 
-**Paths Verified:**
 
 <table>
   <thead>
     <tr>
       <th><br>
-/components/component[name=<haven>]/state/name</th>
+Paths Verified</th>
     </tr>
   </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<haven>]/state/name</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<haven>]/state/type</td>
