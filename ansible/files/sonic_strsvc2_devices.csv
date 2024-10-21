@@ -14,5 +14,5 @@ svcstr2-8800-lc4-1,10.206.144.123/24,Cisco-88-LC0-36FH-M-O36,DevSonic,
 svc5-ixia-2,10.206.144.17/24,SNAPPI-tester,DevSnappiApiServ,
 svc5-ixia-2-api-serv,10.206.144.17/24,SNAPPI-tester,DevSnappiApiServ,
 console-6,10.206.144.246,Sonic,ConsoleServer,
-pdu-1,10.206.144.16,Sentry4,Pdu,snmp
-pdu-2,10.206.144.127,Sentry4,Pdu,snmp
+pdu-16,10.206.144.16,Sentry4,Pdu,snmp
+pdu-127,10.206.144.127,Sentry4,Pdu,snmp
