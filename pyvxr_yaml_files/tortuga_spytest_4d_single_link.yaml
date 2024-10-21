@@ -33,7 +33,6 @@ devices:
         sudo systemctl disable drake
         sudo systemctl disable lira
         sudo systemctl disable azimuth
-    console_ports: [62101]
   leaf1:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
@@ -60,7 +59,6 @@ devices:
         sudo systemctl disable drake
         sudo systemctl disable lira
         sudo systemctl disable azimuth
-    console_ports: [62102]
   spine0:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
@@ -87,7 +85,6 @@ devices:
         sudo systemctl disable drake
         sudo systemctl disable lira
         sudo systemctl disable azimuth
-    console_ports: [62103]
   spine1:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
@@ -114,7 +111,6 @@ devices:
         sudo systemctl disable drake
         sudo systemctl disable lira
         sudo systemctl disable azimuth
-    console_ports: [62104]
 
   sonic_mgmt :
     platform: linux
