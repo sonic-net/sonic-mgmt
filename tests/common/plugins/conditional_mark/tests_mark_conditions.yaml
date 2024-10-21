@@ -337,6 +337,12 @@ dhcp_relay/test_dhcpv6_relay.py:
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
+dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
+  skip:
+    reason: "skip the multiple vlan test on aa dualtor as interface state is not aa after vlan split"
+    conditions:
+      - "'dualtor-aa' in topo_name"
+
 #######################################
 #####         drop_packets        #####
 #######################################
