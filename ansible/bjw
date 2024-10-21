@@ -804,7 +804,7 @@ sonic_nokia_sup:
         - PSU10
         - PSU11
         - PSU12
-      asics_present: [0,1,2,3,4,5,6,7]
+      asics_present: [4,5,6,7,12,13,14,15]
 
 sonic_nokia_lc_400G:
   vars:
