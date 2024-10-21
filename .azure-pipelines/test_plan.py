@@ -112,7 +112,7 @@ class ExecutingStatus(AbstractStatus):
         super(ExecutingStatus, self).__init__(TestPlanStatus.EXECUTING)
 
     def print_logs(self, test_plan_id, resp_data, start_time):
-        print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
+        print("Test plan id: {}, status: {}, progress: {:.2f}%, elapsed: {:.0f} seconds"
               .format(test_plan_id, resp_data.get("status", None),
                       resp_data.get("progress", 0) * 100, time.time() - start_time))
 
@@ -152,8 +152,9 @@ def parse_list_from_str(s):
 
 class TestPlanManager(object):
 
-    def __init__(self, url, frontend_url, client_id=None):
-        self.url = url
+    def __init__(self, scheduler_url, community_url, frontend_url, client_id=None):
+        self.scheduler_url = scheduler_url
+        self.community_url = community_url
         self.frontend_url = frontend_url
         self.client_id = client_id
         self.with_auth = False
@@ -192,7 +193,7 @@ class TestPlanManager(object):
 
         cmd = 'az account get-access-token --resource {}'.format(self.client_id)
         attempt = 0
-        while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
+        while attempt < MAX_GET_TOKEN_RETRY_TIMES:
             try:
                 stdout, _, _ = self.az_run(cmd)
 
@@ -216,7 +217,7 @@ class TestPlanManager(object):
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
                min_worker=None, max_worker=None, pr_id="unknown", output=None,
                common_extra_params="", **kwargs):
-        tp_url = "{}/test_plan".format(self.url)
+        tp_url = "{}/test_plan".format(self.scheduler_url)
         testbed_name = parse_list_from_str(kwargs.get("testbed_name", None))
         image_url = kwargs.get("image_url", None)
         hwsku = kwargs.get("hwsku", None)
@@ -226,6 +227,7 @@ class TestPlanManager(object):
         features = parse_list_from_str(kwargs.get("features", None))
         scripts_exclude = parse_list_from_str(kwargs.get("scripts_exclude", None))
         features_exclude = parse_list_from_str(kwargs.get("features_exclude", None))
+        ptf_image_tag = kwargs.get("ptf_image_tag", None)
 
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
@@ -288,6 +290,7 @@ class TestPlanManager(object):
                     "features_exclude": features_exclude,
                     "scripts_exclude": scripts_exclude
                 },
+                "ptf_image_tag": ptf_image_tag,
                 "image": {
                     "url": image_url,
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
@@ -346,7 +349,7 @@ class TestPlanManager(object):
 
     def cancel(self, test_plan_id):
 
-        tp_url = "{}/test_plan/{}".format(self.url, test_plan_id)
+        tp_url = "{}/test_plan/{}".format(self.scheduler_url, test_plan_id)
         cancel_url = "{}/cancel".format(tp_url)
 
         print("Cancelling test plan at {}".format(cancel_url))
@@ -376,27 +379,54 @@ class TestPlanManager(object):
               .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
 
-        poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
+        poll_url = "{}/test_plan/{}/get_test_plan_status".format(self.scheduler_url, test_plan_id)
+        poll_url_no_auth = "{}/get_test_plan_status/{}".format(self.community_url, test_plan_id)
         headers = {
             "Content-Type": "application/json"
         }
         start_time = time.time()
         http_exception_times = 0
+        http_exception_times_no_auth = 0
+        failed_poll_auth_url = False
         while timeout < 0 or (time.time() - start_time) < timeout:
-            try:
-                if self.with_auth:
-                    headers["Authorization"] = "Bearer {}".format(self.get_token())
-                resp = requests.get(poll_url, headers=headers, timeout=10).json()
-            except Exception as exception:
-                print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
-                                                                                          str(exception)))
-                http_exception_times = http_exception_times + 1
-                if http_exception_times >= TOLERATE_HTTP_EXCEPTION_TIMES:
-                    raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
-                                    .format(poll_url, resp, str(exception)))
-                else:
-                    time.sleep(interval)
+            resp = None
+            # To make the transition smoother, first try to access the original API
+            if not failed_poll_auth_url:
+                try:
+                    if self.with_auth:
+                        headers["Authorization"] = "Bearer {}".format(self.get_token())
+                    resp = requests.get(poll_url, headers=headers, timeout=10).json()
+                except Exception as exception:
+                    print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
+                                                                                              str(exception)))
+                    http_exception_times = http_exception_times + 1
+                    if http_exception_times >= TOLERATE_HTTP_EXCEPTION_TIMES:
+                        failed_poll_auth_url = True
+                    else:
+                        time.sleep(interval)
                     continue
+
+            # If failed on poll auth url(most likely token has expired), try with no-auth url
+            else:
+                print("Polling test plan status failed with auth url, try with no-auth url.")
+                try:
+                    resp = requests.get(poll_url_no_auth, headers={"Content-Type": "application/json"},
+                                        timeout=10).json()
+                except Exception as e:
+                    print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url_no_auth, resp,
+                                                                                              repr(e)))
+                    http_exception_times_no_auth = http_exception_times_no_auth + 1
+                    if http_exception_times_no_auth >= TOLERATE_HTTP_EXCEPTION_TIMES:
+                        raise Exception(
+                            "HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url_no_auth, resp,
+                                                                                                repr(e)))
+                    else:
+                        time.sleep(interval)
+                        continue
+
+            if not resp:
+                raise Exception("Poll test plan status failed with request error, no response!")
+
             if not resp["success"]:
                 raise Exception("Query test plan at {} failed with error: {}".format(poll_url, resp["errmsg"]))
 
@@ -656,6 +686,16 @@ if __name__ == "__main__":
         help="Testbed name, Split by ',', like: 'testbed1, testbed2'"
     )
     parser_create.add_argument(
+        "--ptf_image_tag",
+        type=str,
+        dest="ptf_image_tag",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="PTF image tag"
+    )
+    parser_create.add_argument(
         "--image_url",
         type=str,
         dest="image_url",
@@ -899,6 +939,7 @@ if __name__ == "__main__":
 
     env = {
         "elastictest_scheduler_backend_url": os.environ.get("ELASTICTEST_SCHEDULER_BACKEND_URL"),
+        "elastictest_community_url": os.environ.get("ELASTICTEST_COMMUNITY_URL"),
         "client_id": os.environ.get("ELASTICTEST_MSAL_CLIENT_ID"),
         "frontend_url": os.environ.get("ELASTICTEST_FRONTEND_URL", "https://elastictest.org"),
     }
@@ -910,6 +951,7 @@ if __name__ == "__main__":
     try:
         tp = TestPlanManager(
             env["elastictest_scheduler_backend_url"],
+            env["elastictest_community_url"],
             env["frontend_url"],
             env["client_id"])
 
@@ -972,6 +1014,7 @@ if __name__ == "__main__":
                     affinity=args.affinity,
                     vm_type=args.vm_type,
                     testbed_name=args.testbed_name,
+                    ptf_image_tag=args.ptf_image_tag,
                     image_url=args.image_url,
                     upgrade_image_param=args.upgrade_image_param,
                     hwsku=args.hwsku,
