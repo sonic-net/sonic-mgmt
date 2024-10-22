@@ -32,7 +32,12 @@
   <LinkMetadataDeclaration>
     <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% for if_index in vm_topo_config['autoneg_interfaces']['intfs'] %}
+
+{% if "mellanox" in device_info[inventory_hostname]['HwSku']|lower %}
+{% set autoneg_intf = "etp" ~ if_index %}
+{% else %}
 {% set autoneg_intf = "Ethernet" ~ if_index ~ "/1" %}
+{% endif %}
 {% if device_conn[inventory_hostname][port_alias_map[autoneg_intf]]['autoneg']|lower == "on" %}
         <a:LinkMetadata>
             <a:Name i:nil="true"/>
