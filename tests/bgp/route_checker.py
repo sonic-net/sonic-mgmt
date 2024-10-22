@@ -92,7 +92,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
         # So we have to parse the raw output instead json.
         if 4 == ip_ver:
             cmd = "show ip bgp neighbors {} received-routes detail | grep -E \"{}|{}\""\
-                  .format(peer_ip_v4, BGP_ENTRY_HEADING,  BGP_COMMUNITY_HEADING)
+                  .format(peer_ip_v4, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
             cmd_backup = ""
         else:
             cmd = "show ipv6 bgp peers {} received-routes detail | grep -E \"{}|{}\""\
@@ -128,11 +128,13 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
                     entry = None
                     community = ""
         if entry:
-            routes[entry] = community
-            if my_community:
-                for comm in my_community:
-                    if comm in community:
-                        routes_with_community[entry] = comm
+            routes[entry] = ""
+            if community:
+                routes[entry] = community[0]
+                if my_community:
+                    for comm in my_community:
+                        if comm in community[0]:
+                            routes_with_community[entry] = comm
         if my_community:
             results[hostname] = routes_with_community
         else:
