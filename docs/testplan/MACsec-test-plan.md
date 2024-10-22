@@ -511,3 +511,9 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 #### Macsec enabled on all interfaces and the DUT is rebooted
 
 - Check the macsec docker comes up and macsec sessions are established.
+
+### Testcase : Static Key Ciphers
+
+- Cycle through each macsec profile listed in the profiles.json file
+   - Disable previous profile and configure new one
+   - Verify macsec connection between peers comes online
