@@ -94,7 +94,8 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
     only_lossless_rx_counters = "Cisco-8122" in asic.sonichost.facts["hwsku"]
     # Devices that do not support XON counters
     no_xon_counters = "Cisco-8122" in asic.sonichost.facts["hwsku"]
-    config_facts = asic.config_facts(host=asic.hostname, source='persistent')['ansible_facts']
+    if only_lossless_rx_counters:
+        config_facts = asic.config_facts(host=asic.hostname, source='persistent')['ansible_facts']
     if not check_continuous_pfc:
         """ Generate PFC or FC packets for active physical interfaces """
         for intf in active_phy_intfs:
@@ -142,7 +143,8 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
         """ Check results """
         counter_facts = duthost.sonic_pfc_counters(method="get")[
             'ansible_facts']
-        pfc_enabled_prios = [int(prio) for prio in config_facts["PORT_QOS_MAP"][intf]['pfc_enable'].split(',')]
+        if only_lossless_rx_counters:
+            pfc_enabled_prios = [int(prio) for prio in config_facts["PORT_QOS_MAP"][intf]['pfc_enable'].split(',')]
         failures = []
         for intf in active_phy_intfs:
             if is_pfc and (not no_xon_counters or pause_time != 0):
