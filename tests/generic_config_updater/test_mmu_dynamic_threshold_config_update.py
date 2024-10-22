@@ -92,7 +92,7 @@ def get_pg_lossless_profiles(duthost):
     Args:
     duthost: DUT host object
     """
-    pg_lossless_profiles_str = duthost.shell("redis-cli -n 0 KEYS *BUFFER_PROFILE_TABLE:pg_lossless*")["stdout_lines"]
+    pg_lossless_profiles_str = duthost.shell("sonic-db-cli APPL_DB KEYS *BUFFER_PROFILE_TABLE:pg_lossless*")["stdout_lines"]
     pg_lossless_profiles_lst = []
 
     for pg_lossless_profile_str in pg_lossless_profiles_str:
