@@ -30,4 +30,3 @@ def test_bgp_config(
             bgp_config_result
         ),
     )
-
