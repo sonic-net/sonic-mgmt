@@ -10,11 +10,25 @@ class UnsupportedAnsibleModule(Exception):
 
 
 def dump_ansible_results(results, stdout_callback='json'):
-    try:
-        cb = callback_loader.get(stdout_callback)
-        return cb._dump_results(results) if cb else results
-    except Exception:
-        return str(results)
+    simple_attrs = ""
+    stdout = "stdout =\n"
+    stderr = "stderr =\n"
+    for key in results:
+        if key in ['stdout', 'stderr', 'stdout_lines', 'stderr_lines']:
+            if '_lines' in key:
+                text = "\n".join(results[key])
+            else:
+                if str(key) + "_lines" in results:
+                    # Skip when _lines is present
+                    continue
+                text = str(results[key])
+            if "err" in key:
+                stderr += text
+            else:
+                stdout += text
+        else:
+            simple_attrs += "{} = {}\n".format(key, results[key])
+    return "{}\n\n{}\n\n{}".format(simple_attrs, stdout, stderr)
 
 
 class RunAnsibleModuleFail(AnsibleError):
