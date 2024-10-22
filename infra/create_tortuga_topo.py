@@ -278,8 +278,8 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
         ssh.connect(host, port, user, passwd)
         stdin, stdout, stderr = ssh.exec_command(cmd)
         stdout.channel.recv_exit_status()
-        out = stdout.read().decode("ascii").strip()
-        error = stderr.read().decode("ascii")
+        out = stdout.read().decode("utf-8").strip()
+        error = stderr.read().decode("utf-8")
         print(out)
         if error:
             print('There was an error pulling the runtime: {}'.format(error))
@@ -544,6 +544,22 @@ def replace_fabric_name(topo_type, topo_yaml,fabric_name):
                     newline = "sudo config hostname {}-spine{}".format(fabric_name,i)
                     os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
 
+def collect_showtechsupport(data, leaf_ports):
+    for port in leaf_ports:
+        tar_file_output = run_exec_cmds(data['L0']['HostAgent'], port ,"cisco","cisco123",["show techsupport"])
+        print(tar_file_output)
+        tar_file = [j for j in tar_file_output.split('\n') if j != ''][-1]
+        get_showtechsupport(data, port, tar_file)
+
+def get_showtechsupport(data, port, tar_file):
+    print("Getting report file")
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['L0']['HostAgent'], port,"cisco","cisco123")
+    ftp_client=ssh.open_sftp()
+    ftp_client.get(tar_file,os.path.basename(tar_file))
+    ftp_client.close()
+
 def create_report_json(sanity_success):
     sum = {"total": 1, "failed": 0, "passed": 0, "status" : "", "success_rate": 0}
 
@@ -674,7 +690,7 @@ def main():
             print("Successfully pushed configuration and Traffic Test passed")
         else:
             print("Test Failed. Something went wrong, Please check the test logs")
-
+        collect_showtechsupport(data, leaf_ports)
         create_report_json(sanity_success)
 
     if cicd_clean:
