@@ -36,6 +36,9 @@ LOGS_ON_TMPFS_PLATFORMS = [
     "armhf-nokia_ixs7215_52x-r0"
 ]
 
+MGFX_HWSKU = ["Arista-720DT-G48S4", "Nokia-7215", "Nokia-M0-7215", "Celestica-E1031-T48S4"]
+MGFX_XCVR_INTF = ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
+
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 
 FMT = "%b %d %H:%M:%S.%f"
@@ -294,6 +297,8 @@ def check_interfaces_and_transceivers(duthost, request):
     xcvr_info = duthost.command("redis-cli -n 6 keys TRANSCEIVER_INFO*")
     parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
     interfaces = conn_graph_facts["device_conn"][duthost.hostname]
+    if duthost.facts['hwsku'] in MGFX_HWSKU:
+        interfaces = MGFX_XCVR_INTF
     for intf in interfaces:
         if intf not in parsed_xcvr_info:
             raise RebootHealthError(
