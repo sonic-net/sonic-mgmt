@@ -406,6 +406,9 @@ class QosParamCisco(object):
                       "pkts_num_trig_pfc": self.pause_thr // self.buffer_size // packet_buffs,
                       "pkts_num_trig_ingr_drp": self.lossless_drop_thr // self.buffer_size // packet_buffs,
                       "packet_size": packet_size}
+            if dscp_pg == 4:
+                # Some control traffic maps to DSCP 4, increase margin.
+                params["pkts_num_margin"] = 8
             self.write_params("xoff_{}".format(param_i), params)
 
     def __define_pfc_xon_limit(self):
@@ -576,8 +579,8 @@ class QosParamCisco(object):
             lossy_lossless_action_thr = min(self.lossy_drop_bytes, self.pause_thr)
             pkts_num_leak_out = 0
             if self.dutAsic == "gr2":
-                # Send a burst of leakout packets to optimize runtime. Expected leakout is around 1250
-                pkts_num_leak_out = 1150
+                # Send a burst of leakout packets to optimize runtime. Expected leakout is around 950
+                pkts_num_leak_out = 800
             self.log("In __define_q_watermark_all_ports, using min lossy-drop/lossless-pause threshold of {}".format(
                 lossy_lossless_action_thr))
             params = {"ecn": 1,
