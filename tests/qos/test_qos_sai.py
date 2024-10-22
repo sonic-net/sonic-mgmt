@@ -1129,6 +1129,9 @@ class TestQosSai(QosSaiBase):
         if "packet_size" in list(qosConfig[bufPool].keys()):
             testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
 
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' and dutConfig["dutAsic"] == "gr2":
+            testParams["extra_cap_margin"] = 20
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.BufferPoolWatermarkTest",
             testParams=testParams
@@ -1616,6 +1619,12 @@ class TestQosSai(QosSaiBase):
                     "cisco-8000 Q100 platform.")
             pktsNumFillShared = int(
                 qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
+
+        if dutTestParams["basicParams"].get("platform_asic", None) \
+                == "cisco-8000":
+            if not get_src_dst_asic_and_duts['single_asic_test']:
+                if pgProfile == "wm_pg_shared_lossy":
+                    pytest.skip("The lossy test is not valid for multiAsic configuration.")
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
 
@@ -2168,7 +2177,7 @@ class TestQosSai(QosSaiBase):
             "src_port_id": src_port_id,
             "src_port_ip": src_port_ip,
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "pkts_num_leak_out": qosConfig[queueProfile]["pkts_num_leak_out"],
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku'],
