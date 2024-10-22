@@ -90,9 +90,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, fanout_graph_facts, leaf_fa
                         intf.startswith('Ethernet') and
                         int_status[intf]['admin_state'] == 'up' and
                         int_status[intf]['oper_state'] == 'up']
-    # Devices that do not support lossy RX counters
     only_lossless_rx_counters = "Cisco-8122" in asic.sonichost.facts["hwsku"]
-    # Devices that do not support XON counters
     no_xon_counters = "Cisco-8122" in asic.sonichost.facts["hwsku"]
     if only_lossless_rx_counters:
         config_facts = asic.config_facts(host=asic.hostname, source='persistent')['ansible_facts']
