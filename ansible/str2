@@ -729,6 +729,7 @@ sonic_nexus_3164:
 sonic_arista:
   vars:
     iface_speed: 100000
+    msft_an_enabled: True
   hosts:
     str2-7050cx3-acs-01:
       ansible_host: 10.3.146.85
@@ -1181,6 +1182,7 @@ sonic_arista32_100:
 sonic_arista64_100:
   vars:
     iface_speed: 100000
+    msft_an_enabled: True
   hosts:
     str2-7260cx3-acs-9:
       ansible_host: 10.3.146.137
