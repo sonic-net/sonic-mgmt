@@ -103,11 +103,14 @@ spine0:
          redistribute connected
          neighbor 2001:db1::1 activate
          exit-address-family
+         end
          exit
       deconfig: |
          no router bgp 201 vrf Vrf01
          no router bgp 202 vrf Vrf02
          no router bgp 203 vrf Vrf03
+         end
+         exit
 
 spine1:
     sonic:
@@ -213,11 +216,14 @@ spine1:
          redistribute connected
          neighbor 2001:db2::1 activate
          exit-address-family
+         end
          exit
       deconfig: |
          no router bgp 201 vrf Vrf01
          no router bgp 202 vrf Vrf02
          no router bgp 203 vrf Vrf03
+         end
+         exit
 
 leaf0:
     sonic:
@@ -378,9 +384,12 @@ leaf0:
          exit
          route-map AS_PRE permit 10
          set as-path prepend 64514 64515
+         end
          exit
       deconfig: |
          no router bgp 100 vrf Vrf01
          no router bgp 100 vrf Vrf02
          no router bgp 100 vrf Vrf03
          no route-map AS_PRE permit 10
+         end
+         exit

@@ -207,16 +207,29 @@ def dut_bgp_ip_cleanup():
     return True 
 
 
+def create_ipv4_addr(n,peer_no):
+    '''Parameters: 
+           n: interface numbering 
+           peer_no: 1 for local_dut, 2 for remote_dut
+    ''' 
+    if len(str(n))<3:
+        return "100.0."+str(n)+"."+str(peer_no) 
+    elif len(str(n))==3:
+        return "100."+str(n)[:1]+"."+str(int(str(n)[-2:]))+"."+str(peer_no)  
+    elif len(str(n))==4:
+        return "100."+str(n)[:2]+"."+str(int(str(n)[-2:]))+"."+str(peer_no)   
+    else:
+        raise AssertionError("Can not generate IPv4 address for interface of Ethernet{}".format(n)) 
+    
 def generate_addresses():
 
     for i, link in enumerate(local_links_dut1):
         name=data.local_links_info["D1D2P{}".format(i+1)]["name"] 
-        n=name.lstrip("Ethernet") 
 
-        data.local_links_info["D1D2P{}".format(i+1)]["ipaddr"]="100.100."+str(n)+".1"
-        data.local_links_info["D2D1P{}".format(i+1)]["ipaddr"]="100.100."+str(n)+".2"
-        data.local_links_info["D1D2P{}".format(i+1)]["ipv6addr"]="2012:"+str(n)+"::1"
-        data.local_links_info["D2D1P{}".format(i+1)]["ipv6addr"]="2012:"+str(n)+"::2"
+        data.local_links_info["D1D2P{}".format(i+1)]["ipaddr"]=create_ipv4_addr(i+1,1)  
+        data.local_links_info["D2D1P{}".format(i+1)]["ipaddr"]=create_ipv4_addr(i+1,2)  
+        data.local_links_info["D1D2P{}".format(i+1)]["ipv6addr"]="2012:"+str(i+1)+"::1"
+        data.local_links_info["D2D1P{}".format(i+1)]["ipv6addr"]="2012:"+str(i+1)+"::2"
 
     data.d1t1_ip_addr = "200.200.1.1"
     data.d2t1_ip_addr = "200.100.1.1"
@@ -388,7 +401,7 @@ def ping_neighbor(dut,address,count=10,size=56,asic=None):
 
 def parse_ping_output(ping_output): 
     import re 
-    match=re.findall('([\d]+) +packets transmitted.*([\d]+) +received.*([\d]+)% +packet loss.*time ([\w]+)',ping_output)
+    match=re.findall('([\d]+) +packets transmitted.*([\d]+) +received.*, ([\d]+)% packet loss.*time ([\w]+)',ping_output)
 
     if match: 
         return (100-int(match[0][2])) 
@@ -432,7 +445,11 @@ def ip_base_config(interface_list1=[],interface_list2=[]):
         for i, link in enumerate(interface_list1):
             addr1=data.local_links_info["D1D2P{}".format(i+1)]["ipaddr"] 
             addr2=data.local_links_info["D2D1P{}".format(i+1)]["ipaddr"]  
-            ipapi.config_ip_addr_interface(dut1, globalVars.get("D1D2P{}".format(i+1)), addr1,data.mask)
+            try: 
+                out=ipapi.config_ip_addr_interface(dut1, globalVars.get("D1D2P{}".format(i+1)), addr1,data.mask)
+                print(out)
+            except Exception as e:
+                print("error: "+str(e)) 
 
             ipapi.config_ip_addr_interface(dut2, globalVars.get("D2D1P{}".format(i+1)), addr2,data.mask)
     
@@ -513,7 +530,7 @@ def bgp_base_config(interface_list1=[],interface_list2=[]):
     except Exception as e:
         raise AssertionError("BGP config Error:" +str(e)) 
 
-def config_traffic_bgp(is_multi_asic=False):
+def config_traffic_bgp(is_multi_asic=False, line_rate=99.5):
     '''
     BGP Configuration
     Traffic ingressing into LC0 & egressing out of LC1
@@ -575,6 +592,7 @@ def config_traffic_bgp(is_multi_asic=False):
         else:
             break
     else:
+
         return False
 
     #Configuring BGP on TGEN-T1D1P1 towards SFD-LC0-NPU0
@@ -612,14 +630,14 @@ def config_traffic_bgp(is_multi_asic=False):
     st.banner("Configuring Traffic Stream on  TGEN port2 towards SFD-LC3")
     tr2 = tg2.tg_traffic_config(port_handle=tg_handle_2,emulation_src_handle=tg2_interface['handle'],
             emulation_dst_handle=bgp_route['handle'], circuit_endpoint_type='ipv4',mode='create', 
-            high_speed_result_analysis='1',  transmit_mode='continuous', rate_percent=99.5)
+            high_speed_result_analysis='1',  transmit_mode='continuous', frame_size='1024',rate_percent=line_rate)
 
     data.stream_id2 = tr2['stream_id']
     return tr2['stream_id'] 
 
-def run_traffic(): 
+def run_traffic(line_rate=99.5): 
     #Running the Streamblock
-    stream=config_traffic_bgp(is_multi_asic)
+    stream=config_traffic_bgp(is_multi_asic,line_rate=line_rate)
     if not stream: 
         return False 
     try: 
@@ -1233,6 +1251,22 @@ def run_interface_flaps(dut_end):
 
     return test_fail
 
+def get_min_line_rate(intf1_speed,intf2_speed):
+    def convert_speed(intf):
+        if intf[-1] in ['G','g']:
+            return float(intf[:-1])*1000000000 
+        elif intf[-1] in ['M','m']:
+            return float(intf[:-1])*1000000 
+        elif intf[-1] in ['T','t']:
+            return float(intf[:-1])*1000000000000 
+        else:
+            return float(intf)  
+        
+    if convert_speed(intf1_speed)<convert_speed(intf2_speed): 
+        return convert_speed(intf1_speed)/convert_speed(intf2_speed)*100  
+    else:
+        return convert_speed(intf2_speed)/convert_speed(intf1_speed)*100  
+    
 def test_traffic_on_each_interface():
     fail=0
 
@@ -1242,8 +1276,14 @@ def test_traffic_on_each_interface():
 
     time.sleep(15)
 
+    tg_intf_out=intapi.interface_status_show(dut1,globalVars.get("D1T1P1"))  
+    tg_intf_line_rate=tg_intf_out[0].get("speed") 
+ 
     for i, intf in enumerate(local_links_dut1):
         st.log("Sending traffic on Interface %s"%intf)
+        intf_out=intapi.interface_status_show(dut1,intf) 
+        dut_intf_line_rate=intf_out[0].get("speed")  
+        line_rate=get_min_line_rate(tg_intf_line_rate, dut_intf_line_rate) 
         try:
             tg1.clean_all()
             tg2.clean_all()
@@ -1262,7 +1302,7 @@ def test_traffic_on_each_interface():
             st.log('### On dut2: Link %s with optics Type %s###'%(link2,optics2))
 
 
-            if not run_traffic():
+            if not run_traffic(line_rate=line_rate):
                 fail+=1
                 st.log("Running traffic failed on interface %s"%intf)
 

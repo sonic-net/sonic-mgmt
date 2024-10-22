@@ -19,8 +19,8 @@ patterns:
     # =====================================================================
     # VTYSH Patterns
     # =====================================================================
-    vtysh-user: '(sonic|{})#'
-    vtysh-config: '(sonic|{})\(config(-s)?\)#'
+    vtysh-user: '(sonic|{}|.{11})#'
+    vtysh-config: '(sonic|{}|.{11})\(config(-s)?\)#'
     vtysh-multi-asic-user: '(sonic|{})#'
     vtysh-multi-asic-config: '(sonic|{})\(config\)#'
     vtysh-intf-config: '(sonic|{})\(config-if\)#'
@@ -37,7 +37,7 @@ patterns:
     vtysh-router-config: '(sonic|{})\(config-router\)#'
     vtysh-router-af-config: '(sonic|{})\(config-router-af\)#'
     vtysh-vrf-config: '(sonic|{})\(config-vrf\)#'
-    vtysh-any-config: '(sonic|{})\(config[^)]*\)#'
+    vtysh-any-config: '(sonic|{}|.{11})\(config[^)]*\)#'
     # =====================================================================
     # LLDP Patterns
     # =====================================================================

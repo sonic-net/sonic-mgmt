@@ -26,7 +26,6 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
-    console_ports: [60001]
   trex2:
     data_ports:
       - eth1
@@ -45,7 +44,6 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
-    console_ports: [60002]
   trex3:
     data_ports:
       - eth1
@@ -64,7 +62,6 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
-    console_ports: [60003]
   trex4:
     data_ports:
       - eth1
@@ -83,7 +80,6 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
-    console_ports: [60004]
   trex5:
     data_ports:
       - eth1
@@ -102,7 +98,6 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
-    console_ports: [60005]
   trex6:
     data_ports:
       - eth1
@@ -121,7 +116,6 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
-    console_ports: [60006]
   trex7:
     data_ports:
       - eth1
@@ -140,7 +134,6 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
-    console_ports: [60007]
   trex8:
     data_ports:
       - eth1
@@ -159,7 +152,6 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
-    console_ports: [60008]
   trex9:
     data_ports:
       - eth1
@@ -178,7 +170,6 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
-    console_ports: [60009]
 
   L0:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -214,7 +205,6 @@ devices:
     xr_port_redir:
       - 22
       - 23
-    console_ports: [60010]
     cli_commands: |
       sleep 60
       sudo config hostname tortuga-1x3-leaf0
@@ -261,7 +251,6 @@ devices:
     xr_port_redir:
       - 22
       - 23
-    console_ports: [60011]
     cli_commands: |
       sleep 60
       sudo config hostname tortuga-1x3-leaf1
@@ -303,7 +292,6 @@ devices:
     xr_port_redir:
       - 22
       - 23
-    console_ports: [60012]
     cli_commands: |
       sleep 60
       sudo config hostname tortuga-1x3-leaf2
@@ -345,7 +333,6 @@ devices:
     xr_port_redir:
       - 22
       - 23
-    console_ports: [60020]
     cli_commands: |
       sleep 60
       sudo config hostname tortuga-1x3-spine0

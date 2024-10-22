@@ -43,7 +43,7 @@ def setup_teardown_bgp_vrf():
     with open(dir_path + '/' + CONFIGS_FILE) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
-            common_obj.config_static(node, 'bgp', True, update_path)
+            common_obj.config_frr(node, config['bgp']['config'])
             common_obj.config_static(node, 'sonic', True, update_path)
 
     count = 5    
@@ -58,7 +58,7 @@ def setup_teardown_bgp_vrf():
     with open(dir_path + '/' + CONFIGS_FILE) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
-            common_obj.config_static(node, 'bgp', False, update_path)
+            common_obj.config_frr(node, config['bgp']['deconfig'])
             common_obj.config_static(node, 'sonic', False, update_path)
 
 def setup_bgp_vrf_network_scale(node, add=True):
@@ -193,10 +193,10 @@ def test_check_routers_are_unambiguous():
             'redistribute static',
             'exit-address-family',
             'exit']
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
 
-    cmd_output = st.vtysh(nodes['leaf0'], "show ip route vrf Vrf01")
+    common_obj.config_frr(nodes['leaf0'], cmds)
+
+    cmd_output = st.show(nodes['leaf0'], "vtysh -c 'show ip route vrf Vrf01'")
     if "13.1.1.0/24" not in str(cmd_output):
         st.report_fail("test_case_failed", nodes['leaf0'])
 
@@ -207,10 +207,9 @@ def test_check_routers_are_unambiguous():
             'exit-address-family',
             'exit']
 
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    common_obj.config_frr(nodes['leaf0'], cmds)
 
-    cmd_output = st.vtysh(nodes['leaf0'], "show ip route vrf Vrf01 13.1.1.0")
+    cmd_output = st.show(nodes['leaf0'], "vtysh -c 'show ip route vrf Vrf01 13.1.1.0'")
     if str(cmd_output).count("13.1.1.0") > 1 or "tag 100" not in str(cmd_output):
         st.report_fail("test_case_failed", nodes['leaf0'])
 
@@ -221,10 +220,9 @@ def test_check_routers_are_unambiguous():
         'redistribute static',
         'exit-address-family',
         'exit']
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    common_obj.config_frr(nodes['leaf0'], cmds)
 
-    cmd_output = st.vtysh(nodes['leaf0'], "show ip route")
+    cmd_output = st.show(nodes['leaf0'], "vtysh -c 'show ip route'")
     if "13.1.1.0/24" not in str(cmd_output):
         st.report_fail("test_case_failed", nodes['leaf0'])
 
@@ -254,32 +252,31 @@ def test_check_routers_are_unambiguous():
         'address-family ipv4 unicast',
         'neighbor 20.1.1.2 route-map ALLOW_PREFIX out']
 
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    common_obj.config_frr(nodes['leaf0'], cmds)
 
     #check 9009 is present in spine1
-    cmd = "show bgp vrf Vrf01 ipv4 neighbors 20.1.1.1 routes"
-    cmd_output = st.vtysh(nodes['spine1'], cmd)
+    cmd = "vtysh -c 'show bgp vrf Vrf01 ipv4 neighbors 20.1.1.1 routes'"
+    cmd_output = st.show(nodes['spine1'], cmd)
 
     if "2002 9009" not in str(cmd_output):
         st.report_fail("test_case_failed", nodes['spine1'])
 
     #check 9009 is not present in spine0
-    cmd = "show bgp ipv4 neighbors 10.1.1.2 routes"
-    cmd_output = st.vtysh(nodes['spine0'], cmd)
+    cmd = "vtysh -c 'show bgp ipv4 neighbors 10.1.1.2 routes'"
+    cmd_output = st.show(nodes['spine0'], cmd)
 
     if "2002 9009" in str(cmd_output):
         st.report_fail("test_case_failed", nodes['spine0'])
 
     cmd = 'no route-map ALLOW_PREFIX'
-    st.vtysh_config(nodes['leaf0'], cmd)
+    common_obj.config_frr(nodes['leaf0'], cmd)
     cmd = 'no ip prefix-list allow_list permit 13.1.1.0/24'
-    st.vtysh_config(nodes['leaf0'], cmd)
+    common_obj.config_frr(nodes['leaf0'], cmd)
 
     cmd = 'no ip route 13.1.1.0/24 Null0 tag 100 vrf Vrf01'
-    st.vtysh_config(nodes['leaf0'], cmd)
+    common_obj.config_frr(nodes['leaf0'], cmd)
     cmd = 'no ip route 13.1.1.0/24 Null0'
-    st.vtysh_config(nodes['leaf0'], cmd)
+    common_obj.config_frr(nodes['leaf0'], cmd)
 
     st.report_pass('test_case_passed', nodes['spine0'])
     st.report_pass('test_case_passed', nodes['spine1'])
@@ -306,8 +303,7 @@ def test_bgp_vrf_check_static_route_redist():
             'redistribute static',
             'exit-address-family',
             'exit']
-    for cmd in cmds:
-        st.vtysh_config(nodes['spine1'], cmd)
+    common_obj.config_frr(nodes['spine1'], cmds)
 
     # configure 15.1.1.0/24 in default instance of spine0.
     cmds = ['ip route 15.1.1.0/24 Null0',
@@ -316,8 +312,7 @@ def test_bgp_vrf_check_static_route_redist():
             'redistribute static',
             'exit-address-family',
             'exit']
-    for cmd in cmds:
-        st.vtysh_config(nodes['spine0'], cmd)
+    common_obj.config_frr(nodes['spine0'], cmds)
 
     # check same route from spine1 and spine0 of different instance is
     # installed in leaf0 of default and Vrf02 instance
@@ -338,9 +333,9 @@ def test_bgp_vrf_check_static_route_redist():
         st.report_fail("test_case_failed", nodes['leaf0'])
 
     cmd = 'no ip route 15.1.1.0/24 Null0'
-    st.vtysh_config(nodes['spine0'], cmd)
+    common_obj.config_frr(nodes['spine0'], cmd)
     cmd = 'no ip route 15.1.1.0/24 Null0 vrf Vrf01'
-    st.vtysh_config(nodes['spine1'], cmd)
+    common_obj.config_frr(nodes['spine1'], cmd)
 
     st.report_pass('test_case_passed', nodes['spine0'])
     st.report_pass('test_case_passed', nodes['spine1'])
@@ -365,8 +360,7 @@ def test_bgp_vrf_static_route_inter_vrf_comm():
             'redistribute static',
             'exit-address-family',
             'exit']
-    for cmd in cmds:
-        st.vtysh_config(nodes['leaf0'], cmd)
+    common_obj.config_frr(nodes['leaf0'], cmds)
 
     cmd = "show ip route 30.1.1.0"
 
@@ -386,7 +380,7 @@ def test_bgp_vrf_static_route_inter_vrf_comm():
         st.report_fail("test_case_failed", nodes['spine0'])
 
     cmd = 'no ip route 30.1.1.0/24 {} nexthop-vrf Vrf01'.format(vars.D3D2P1)
-    st.vtysh_config(nodes['leaf0'], cmd)
+    common_obj.config_frr(nodes['leaf0'], cmd)
 
     st.report_pass('test_case_passed', nodes['spine0'])
     st.report_pass('test_case_passed', nodes['spine1'])

@@ -38,9 +38,12 @@ spine0:
         neighbor 10.1.1.2 activate
         neighbor 10::2 activate
         exit-address-family
+        end
         exit
       deconfig: |
         no router bgp 1001
+        end
+        exit
 
 leaf0:
     sonic:
@@ -113,10 +116,13 @@ leaf0:
         neighbor 20::2 activate
         redistribute connected
         exit-address-family
+        end
         exit
       deconfig: |
         no router bgp 1002
         no router bgp 2002 vrf Vrf01
+        end
+        exit
 
 spine1:
     sonic:
@@ -178,10 +184,13 @@ spine1:
         address-family ipv6 unicast
         redistribute connected
         exit-address-family
+        end
         exit
       deconfig: |
         no router bgp 1003 vrf Vrf01
         no router bgp 1004 vrf Vrf02
+        end
+        exit
 
 leaf1:
     sonic:
@@ -211,6 +220,9 @@ leaf1:
         address-family ipv6 unicast
         redistribute connected
         exit-address-family
+        end
         exit
       deconfig: |
         no router bgp 1004 vrf Vrf02
+        end
+        exit

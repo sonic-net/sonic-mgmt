@@ -1,0 +1,107 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    D1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 10.29.158.71, port: 22}
+        rps: {model: Raritan, ip: 172.25.184.145, outlet: 14, username: admin, password: raritan}
+        credentials: {username: cisco, password: cisco123, altpassword: sonic123}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    D2:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 10.29.158.72, port: 22}
+        rps: {model: Raritan, ip: 172.25.184.145, outlet: 15, username: admin, password: raritan}
+        credentials: {username: cisco, password: cisco123, altpassword: sonic123}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+    T1:
+        device_type: TGEN
+        properties: {type: ixia, version: 9.20, ip: 10.29.158.194, ix_server: 10.29.158.65}
+        credentials: {username: admin, password: admin, altpassword: admin}
+
+
+topology:
+    D1:
+        interfaces:
+            Ethernet1_32: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
+            Ethernet1_1: {EndDevice: D2, EndPort: Ethernet1_1, params: def_link}
+            Ethernet1_2: {EndDevice: D2, EndPort: Ethernet1_2, params: def_link}
+            Ethernet1_3: {EndDevice: D2, EndPort: Ethernet1_3, params: def_link}
+            Ethernet1_4_1: {EndDevice: D2, EndPort: Ethernet1_5, params: def_link}
+            Ethernet1_4_2: {EndDevice: D2, EndPort: Ethernet1_6, params: def_link}
+            Ethernet1_5: {EndDevice: D2, EndPort: Ethernet1_4_1, params: def_link}
+            Ethernet1_6: {EndDevice: D2, EndPort: Ethernet1_4_2, params: def_link}
+            Ethernet1_7: {EndDevice: D2, EndPort: Ethernet1_7, params: def_link}
+            Ethernet1_8: {EndDevice: D2, EndPort: Ethernet1_8, params: def_link}
+            Ethernet1_9: {EndDevice: D2, EndPort: Ethernet1_9, params: def_link}
+            Ethernet1_10: {EndDevice: D2, EndPort: Ethernet1_10, params: def_link}
+            Ethernet1_11: {EndDevice: D2, EndPort: Ethernet1_11, params: def_link}
+            Ethernet1_12: {EndDevice: D2, EndPort: Ethernet1_12, params: def_link}
+            Ethernet1_13: {EndDevice: D2, EndPort: Ethernet1_13, params: def_link}
+            Ethernet1_14: {EndDevice: D2, EndPort: Ethernet1_14, params: def_link}
+            Ethernet1_15: {EndDevice: D2, EndPort: Ethernet1_15, params: def_link}
+            Ethernet1_16: {EndDevice: D2, EndPort: Ethernet1_16, params: def_link}
+            Ethernet1_17: {EndDevice: D2, EndPort: Ethernet1_17, params: def_link}
+            Ethernet1_18: {EndDevice: D2, EndPort: Ethernet1_18, params: def_link}
+            Ethernet1_19: {EndDevice: D2, EndPort: Ethernet1_19, params: def_link}
+            Ethernet1_20: {EndDevice: D2, EndPort: Ethernet1_20, params: def_link}
+            Ethernet1_21: {EndDevice: D2, EndPort: Ethernet1_21, params: def_link}
+            Ethernet1_22: {EndDevice: D2, EndPort: Ethernet1_22, params: def_link}
+            Ethernet1_23: {EndDevice: D2, EndPort: Ethernet1_23, params: def_link}
+            Ethernet1_24: {EndDevice: D2, EndPort: Ethernet1_24, params: def_link}
+            Ethernet1_25: {EndDevice: D2, EndPort: Ethernet1_25, params: def_link}
+            Ethernet1_26: {EndDevice: D2, EndPort: Ethernet1_26, params: def_link}
+            Ethernet1_27: {EndDevice: D2, EndPort: Ethernet1_27, params: def_link}
+            Ethernet1_28: {EndDevice: D2, EndPort: Ethernet1_28, params: def_link}
+            Ethernet1_29: {EndDevice: D2, EndPort: Ethernet1_29, params: def_link}
+            Ethernet1_30: {EndDevice: D2, EndPort: Ethernet1_30, params: def_link}
+            Ethernet1_31: {EndDevice: D2, EndPort: Ethernet1_31, params: def_link}
+
+    D2:
+        interfaces:
+            Ethernet1_32: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}
+            Ethernet1_1: {EndDevice: D1, EndPort: Ethernet1_1, params: def_link}
+            Ethernet1_2: {EndDevice: D1, EndPort: Ethernet1_2, params: def_link}
+            Ethernet1_3: {EndDevice: D1, EndPort: Ethernet1_3, params: def_link}
+            Ethernet1_4_1: {EndDevice: D1, EndPort: Ethernet1_5, params: def_link}
+            Ethernet1_4_2: {EndDevice: D1, EndPort: Ethernet1_6, params: def_link}
+            Ethernet1_5: {EndDevice: D1, EndPort: Ethernet1_4_1, params: def_link}
+            Ethernet1_6: {EndDevice: D1, EndPort: Ethernet1_4_2, params: def_link}
+            Ethernet1_7: {EndDevice: D1, EndPort: Ethernet1_7, params: def_link}
+            Ethernet1_8: {EndDevice: D1, EndPort: Ethernet1_8, params: def_link}
+            Ethernet1_9: {EndDevice: D1, EndPort: Ethernet1_9, params: def_link}
+            Ethernet1_10: {EndDevice: D1, EndPort: Ethernet1_10, params: def_link}
+            Ethernet1_11: {EndDevice: D1, EndPort: Ethernet1_11, params: def_link}
+            Ethernet1_12: {EndDevice: D1, EndPort: Ethernet1_12, params: def_link}
+            Ethernet1_13: {EndDevice: D1, EndPort: Ethernet1_13, params: def_link}
+            Ethernet1_14: {EndDevice: D1, EndPort: Ethernet1_14, params: def_link}
+            Ethernet1_15: {EndDevice: D1, EndPort: Ethernet1_15, params: def_link}
+            Ethernet1_16: {EndDevice: D1, EndPort: Ethernet1_16, params: def_link}
+            Ethernet1_17: {EndDevice: D1, EndPort: Ethernet1_17, params: def_link}
+            Ethernet1_18: {EndDevice: D1, EndPort: Ethernet1_18, params: def_link}
+            Ethernet1_19: {EndDevice: D1, EndPort: Ethernet1_19, params: def_link}
+            Ethernet1_20: {EndDevice: D1, EndPort: Ethernet1_20, params: def_link}
+            Ethernet1_21: {EndDevice: D1, EndPort: Ethernet1_21, params: def_link}
+            Ethernet1_22: {EndDevice: D1, EndPort: Ethernet1_22, params: def_link}
+            Ethernet1_23: {EndDevice: D1, EndPort: Ethernet1_23, params: def_link}
+            Ethernet1_24: {EndDevice: D1, EndPort: Ethernet1_24, params: def_link}
+            Ethernet1_25: {EndDevice: D1, EndPort: Ethernet1_25, params: def_link}
+            Ethernet1_26: {EndDevice: D1, EndPort: Ethernet1_26, params: def_link}
+            Ethernet1_27: {EndDevice: D1, EndPort: Ethernet1_27, params: def_link}
+            Ethernet1_28: {EndDevice: D1, EndPort: Ethernet1_28, params: def_link}
+            Ethernet1_29: {EndDevice: D1, EndPort: Ethernet1_29, params: def_link}
+            Ethernet1_30: {EndDevice: D1, EndPort: Ethernet1_30, params: def_link}
+            Ethernet1_31: {EndDevice: D1, EndPort: Ethernet1_31, params: def_link}
+

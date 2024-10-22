@@ -800,11 +800,10 @@ def test_local_bias():
     # 2 Swith DF/NDF, check traffic forwarding path with current DF/NDF status
     
     # Make leaf0 NDF, leaf1 DF
-    st.config(nodes['leaf0'], 'interface PortChannel2', type='vtysh')
-    st.config(nodes['leaf0'], 'evpn mh es-df-pref 1', type='vtysh')
+    st.config(nodes['leaf0'], 'interface PortChannel2\nevpn mh es-df-pref 1\nend\nexit\n', type='vtysh')
     
-    st.config(nodes['leaf1'], 'interface PortChannel2', type='vtysh')
-    st.config(nodes['leaf1'], 'evpn mh es-df-pref 1000', type='vtysh')
+    st.config(nodes['leaf1'], 'interface PortChannel2\nevpn mh es-df-pref 1000\nend\nexit\n', type='vtysh')
+   
     st.wait(10)
     
     st.show(nodes['leaf0'], 'show evpn es detail', type='vtysh', skip_tmpl=True, skip_error_check=True)
@@ -826,11 +825,9 @@ def test_local_bias():
     st.log("ndf_downlink_curr is {}".format(ndf_downlink_curr))
     
     # Restore original DF/NDF status
-    st.config(nodes['leaf0'], 'interface PortChannel2', type='vtysh')
-    st.config(nodes['leaf0'], 'evpn mh es-df-pref 32767', type='vtysh')
+    st.config(nodes['leaf0'], 'interface PortChannel2\nevpn mh es-df-pref 32767\nend\nexit\n', type='vtysh')
     
-    st.config(nodes['leaf1'], 'interface PortChannel2', type='vtysh')
-    st.config(nodes['leaf1'], 'evpn mh es-df-pref 32767', type='vtysh') 
+    st.config(nodes['leaf1'], 'interface PortChannel2\nevpn mh es-df-pref 32767\nend\nexit\n', type='vtysh')
     
     ##for temporary use
     st.show(nodes['leaf0'], 'show evpn es detail', type='vtysh', skip_tmpl=True, skip_error_check=True)

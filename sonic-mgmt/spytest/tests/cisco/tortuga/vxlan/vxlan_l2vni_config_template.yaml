@@ -45,9 +45,13 @@ spine0:
         advertise-all-vni
         advertise ipv4 unicast
         exit-address-family
+        end
+        exit
 
       deconfig: |
         no router bgp 2363070745
+        end
+        exit
 
 
 spine1:
@@ -97,9 +101,13 @@ spine1:
         advertise-all-vni
         advertise ipv4 unicast
         exit-address-family
+        end
+        exit
 
       deconfig: |
         no router bgp 2363070746
+        end
+        exit
 
 
 leaf0:
@@ -159,10 +167,12 @@ leaf0:
         advertise-all-vni
         advertise ipv4 unicast
         exit-address-family
+        end
         exit
 
       deconfig: |
         no router bgp 2363073763
+        end
         exit
 
 
@@ -223,8 +233,10 @@ leaf1:
         advertise-all-vni
         advertise ipv4 unicast
         exit-address-family
+        end
         exit
 
       deconfig: |
         no router bgp 2363033749
+        end
         exit
