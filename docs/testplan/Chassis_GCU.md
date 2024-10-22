@@ -2,10 +2,8 @@
 
 ## Overview
 
-TBD
-
 ##  Generic Config Updater (GCU) Test Coverage for Multi-ASIC Support
-The existing community test coverage for the Generic Config Updater (GCU) has been enhanced to support running in multi-ASIC platforms.
+The existing community test coverage for the Generic Config Updater (GCU) has been enhanced to support running in multi-ASIC platforms and t2 topology.
 
 ### Key Changes
 1. Multi-ASIC Adaptation:
@@ -42,11 +40,23 @@ TBD
 
 #### Test Objective
 
-TBD
+To verify updates in config paths:
+    /asic/BGP_NEIGHBOR
+    /asic/DEVICE_NEIGHBOR
+    /asic/DEVICE_NEIGHBOR_METADATA
+    /asic/PORTCHANNEL_MEMBER
+    /asic/PORTCHANNEL_INTERFACE
+    /asic/INTERFACE
+    /asic/PORT
+    /localhost/BGP_NEIGHBOR
+    /localhost/DEVICE_NEIGHBOR_METADATA
+    /localhost/INTERFACE
+    /localhost/PORTCHANNEL_INTERFACE
+    /localhost/PORTCHANNEL_MEMBER
 
 #### Test Requirements:
 
-At least 2 DUT hosts (one upstream, one downstream)
+At least two frontend DUT hosts are required to perform traffic. Modifications via apply-patch are applied on the downstream frontend DUT host. The scenario verifies data traffic from upstream to downstream and downstream to downstream.
 
 #### Testing Steps
 
@@ -55,60 +65,54 @@ At least 2 DUT hosts (one upstream, one downstream)
 - Verify the route table in the downstream DUT host to ensure that the static route is visible.
 
 Remove Peers from Downstream Namespace:
-- [S] Remove all BGP neighbors for the selected ASIC namespace via apply-patch.
-- [V] Verify the route table. All routes for BGP neighbors should be gone. Additionally, all kernel and directly connected routes toward the neighbor IPs should be removed.
-- [S] Shutdown local interfaces for the selected ASIC namespace via apply-patch.
-- [V] Verify that the admin status of local interfaces in the selected ASIC namespace is down/down.
-- [SV] Perform data traffic tests toward a randomly selected neighbor. Traffic should fail.
-- [SV] Perform data traffic tests toward the static route from the randomly selected neighbor. Traffic should fail.
+- Remove all BGP neighbors for the selected ASIC namespace via apply-patch.
+- Verify the route table. All routes for BGP neighbors should be gone. Additionally, all kernel and directly connected routes toward the neighbor IPs should be removed.
+- Shutdown local interfaces for the selected ASIC namespace via apply-patch.
+- Verify that the admin status of local interfaces in the selected ASIC namespace is down/down.
+- Perform data traffic tests toward a randomly selected neighbor. Traffic should fail.
+- Perform data traffic tests toward the static route from the randomly selected neighbor. Traffic should fail.
 
 Re-add Peers and Re-enable Interfaces:
-- [S] Change cable lengths.
-- [S] Re-add peers in the downstream namespace. -
-- [S] Re-enable interfaces.
-- [V] Verify that the peers are re-added, BGP sessions are established, and the route table is updated.
-- [V] Verify the buffer profile created for the new cable length in CONFIG_DB, APPL_DB, and ASIC_DB.
-- [SV] Perform data traffic tests toward a randomly selected neighbor. Traffic should pass.
-- [SV] Perform data traffic tests toward the static route from the randomly selected neighbor. Traffic should pass.
+- Change cable lengths.
+- Re-add peers in the downstream namespace. -
+- Re-enable interfaces.
+- Verify that the peers are re-added, BGP sessions are established, and the route table is updated.
+- Verify the buffer profile created for the new cable length in CONFIG_DB, APPL_DB, and ASIC_DB.
+- Perform data traffic tests toward a randomly selected neighbor. Traffic should pass.
+- Perform data traffic tests toward the static route from the randomly selected neighbor. Traffic should pass.
 
 Send PFC Frame Pause/Continue:
-- [S] Send a PFC pause frame.
-- [SV] Perform data traffic tests toward the static route. Traffic should not pass.
-- [S] Send a PFC continue frame.
-- [SV] Perform data traffic tests toward the static route. Traffic should pass.
+- Send a PFC pause frame.
+- Perform data traffic tests toward the static route. Traffic should not pass.
+- Send a PFC continue frame.
+- Perform data traffic tests toward the static route. Traffic should pass.
 
-### Test Case # 2 - Update Buffer Queue
+### Test Case # 2 - Update CABLE Length
 
 #### Test Objective
-TBD
+To verify updates in config path "CABLE_LENGTH".
 
 #### Testing Steps
 
 - Select a random ASIC namespace and shut down the interfaces.
-- Create new egress lossy and lossless profiles under BUFFER_PROFILE via apply-patch.
-- Assign the new profiles to queues (path /BUFFER_QUEUE) of the shutdown interfaces via apply-patch.
+- Update cable length via apply-patch. Identify the current cable length and add the previous or next supported length value for this frontend card.
 - Bring the interfaces back up via apply-patch.
 - Verify that the interfaces are up.
-- Verify in CONFIG_DB and APPL_DB that the new profile names are configured.
+- Verify in CONFIG_DB and APPL_DB that the new cable length is applied.
+- Verify that updated pg lossless profile was created in CONFIG_DB and APPL_DB and that it was assigned to active interfaces.
 
 
-### Test Case # 3 - Update WRED Profiles
+### Test Case # 3 - Load QoS
 
 #### Test Objective
-TBD
+To verify qos updates in multi-asic t2 platform. To verify updates in tables "BUFFER_PG", "BUFFER_QUEUE", "PORT_QOS_MAP", and "QUEUE".
 
 #### Testing Steps
 
 - Select a random ASIC namespace and shut down the interfaces.
-- Remove WRED profile from queues (path /QUEUE) of the shutdown interfaces via apply-patch.
+- Remove QoS config via apply-patch remove operation for tables "BUFFER_PG", "BUFFER_QUEUE", "PORT_QOS_MAP", and "QUEUE".
+- Verify that configuration is cleared in CONFIG_DB, APPL_DB and ASIC_DB.
+- Add back QoS config via apply-patch add operation in tables "BUFFER_PG", "BUFFER_QUEUE", "PORT_QOS_MAP", and "QUEUE".
+- Verify that configuration is populated to CONFIG_DB, APPL_DB and ASIC_DB.
 - Bring the interfaces back up via apply-patch.
 - Verify that the interfaces are up.
-- Verify in CONFIG_DB that the profile name is removed.
-- Add WRED profile to queues (path /QUEUE) of the shutdown interfaces via apply-patch.
-- Verify in CONFIG_DB that the profile name is successfully configured.
-
-
-## Notes:
-[S]: Setup
-[V]: Verification
-[SV]: Setup & Verification
