@@ -24,7 +24,7 @@ def global_config():
             Save config to avoid seeing following logs:
             sudo: unable to resolve host sonic: Name or service not known
             '''
-            config = "sudo hostname sonic;sudo config save -y"
+            config = "sudo config hostname sonic;sudo config save -y"
             st.config(device, config, skip_error_check=False, conf=True)
 
             st.upload_file_to_dut(device, "{0}/{1}".format(REMOTE_FILES, FRR_PYTHON_TOOLS),

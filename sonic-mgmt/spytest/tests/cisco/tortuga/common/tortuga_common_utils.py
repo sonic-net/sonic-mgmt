@@ -515,3 +515,18 @@ def config_storm_control(node, type, action, interface_name, bits_per_sec):
     else:
         cmd = "config interface storm-control {} {} {}".format(action, interface_name, type)
     st.config(node, cmd)
+
+# File base FRR configuration
+def config_frr(dut, commands):
+
+    if not isinstance(commands, list):
+        commands = [commands]
+
+    st.log("Configuring on frr: {}".format(commands))
+    with open("/tmp/spytest_frr.conf", "w") as fd:
+        fd.write("\n".join(commands))
+    st.upload_file_to_dut(dut, "/tmp/spytest_frr.conf", "/tmp/spytest_frr.conf")
+
+    st.config(dut, "docker cp /tmp/spytest_frr.conf bgp:/")
+    st.config(dut, "docker exec bgp bash -c 'vtysh -f /spytest_frr.conf'")
+
