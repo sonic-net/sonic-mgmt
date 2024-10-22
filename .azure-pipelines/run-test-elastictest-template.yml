@@ -185,7 +185,11 @@ steps:
     displayName: "Install azure-cli"
 
   - script: |
-      python ./.azure-pipelines/test_az_login.py
+      set -ex
+      az login --identity --username e41c8a84-4662-48b0-b8a6-3f52230bcc5e
+      accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
+      export ACCESS_TOKEN=$accessToken
+#      python ./.azure-pipelines/test_az_login.py
     displayName: "test az login"
 
 #  - task: AzureCLI@2
