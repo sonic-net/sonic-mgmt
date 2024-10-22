@@ -108,6 +108,9 @@ def get_neighbors_scale(duthost, tbinfo, ipv6=False, scale_count=1):
     neighbor_devs = []
     ptf_devs = []
     index = 0
+    # The arrays: neighbor_intfs and ptf_intfs are filled only upto 128.
+    # Beyond that we need to re-use the same addresses. We do this by
+    # using the modulus(% operation) instead of the actual index intself.
     for idx in range(1, scale_count):
         if idx != 0 and idx % 127 == 0:
             index += 1
