@@ -2,35 +2,35 @@ import pytest
 import random
 import logging
 
-from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
-    fanout_graph_facts                                                                  # noqa: F401
+from tests.common.helpers.assertions import pytest_assert, pytest_require    # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
+    fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
-    get_multidut_tgen_peer_port_set, cleanup_config                                       # noqa: F401
+    get_snappi_ports_single_dut, snappi_testbed_config, \
+    get_snappi_ports_multi_dut, is_snappi_multidut, \
+    snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
 
-from tests.snappi_tests.variables import config_set, line_card_choice
+from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test
 from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.snappi_tests.files.helper import skip_ecn_tests
 from tests.common.snappi_tests.common_helpers import packet_capture
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology('multidut-tgen')]
+pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-@pytest.mark.parametrize('line_card_choice', [line_card_choice])
-@pytest.mark.parametrize('linecard_configuration_set', [config_set])
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_dequeue_ecn(request,
                      snappi_api,                    # noqa: F811
                      conn_graph_facts,              # noqa: F811
-                     fanout_graph_facts,            # noqa: F811
+                     fanout_graph_facts_multidut,            # noqa: F811
                      duthosts,
-                     rand_one_dut_lossless_prio,
-                     line_card_choice,
-                     linecard_configuration_set,
-                     get_multidut_snappi_ports,      # noqa: F811
+                     lossless_prio_list,   # noqa: F811
+                     get_snappi_ports,  # noqa: F811
+                     tbinfo,      # noqa: F811
+                     multidut_port_info,     # noqa: F811
                      prio_dscp_map):                # noqa: F811
     """
     Test if the device under test (DUT) performs ECN marking at the egress
@@ -39,48 +39,51 @@ def test_dequeue_ecn(request,
         request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
+        lossless_prio_list (pytest fixture): list of all the lossless priorities
         rand_one_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
         line_card_choice: Line card choice to be mentioned in the variable.py file
         linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-
+        tbinfo (pytest fixture): fixture provides information about testbed
+        get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
     Returns:
         N/A
     """
 
-    if line_card_choice not in linecard_configuration_set.keys():
-        pytest_require(False, "Invalid line_card_choice value passed in parameter")
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
+        tx_port_count = 1
+        rx_port_count = 1
+        snappi_port_list = get_snappi_ports
+        pytest_assert(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                      "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
 
-    if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
-        dut_list = random.sample(duthosts.frontend_nodes, 2)
-        duthost1, duthost2 = dut_list
-    elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
-        dut_list = [dut for dut in duthosts.frontend_nodes if
-                    linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
-        duthost1, duthost2 = dut_list[0], dut_list[0]
-    else:
-        pytest_require(False, "Hostname can't be an empty list")
+        pytest_assert(len(rdma_ports['tx_ports']) >= tx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
 
-    snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
-                                                 line_card_info=linecard_configuration_set[line_card_choice])
-    if len(snappi_port_list) < 2:
-        pytest_require(False, "Need Minimum of 2 ports for the test")
+        pytest_assert(len(rdma_ports['rx_ports']) >= rx_port_count,
+                      'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                      format(MULTIDUT_TESTBED, testbed_subtype))
+        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
+                                                                                snappi_ports,
+                                                                                snappi_api)
 
-    snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
-
-    testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            snappi_ports,
-                                                                            snappi_api)
-
-    _, lossless_prio = rand_one_dut_lossless_prio.split('|')
-    skip_ecn_tests(duthost1)
-    skip_ecn_tests(duthost2)
-    lossless_prio = int(lossless_prio)
+    lossless_prio = random.sample(lossless_prio_list, 1)
+    skip_ecn_tests(snappi_ports[0]['duthost'])
+    skip_ecn_tests(snappi_ports[1]['duthost'])
+    lossless_prio = int(lossless_prio[0])
     snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.multi_dut_params.duthost1 = duthost1
-    snappi_extra_params.multi_dut_params.duthost2 = duthost2
+
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
     snappi_extra_params.packet_capture_type = packet_capture.IP_CAPTURE
     snappi_extra_params.is_snappi_ingress_port_cap = True
@@ -99,7 +102,7 @@ def test_dequeue_ecn(request,
                            testbed_config=testbed_config,
                            port_config_list=port_config_list,
                            conn_data=conn_graph_facts,
-                           fanout_data=fanout_graph_facts,
+                           fanout_data=fanout_graph_facts_multidut,
                            dut_port=snappi_ports[0]['peer_port'],
                            lossless_prio=lossless_prio,
                            prio_dscp_map=prio_dscp_map,
@@ -117,3 +120,4 @@ def test_dequeue_ecn(request,
     # Check if the last packet is not ECN marked
     pytest_assert(not is_ecn_marked(ip_pkts[-1]),
                   "The last packet should not be marked")
+    cleanup_config(duthosts, snappi_ports)

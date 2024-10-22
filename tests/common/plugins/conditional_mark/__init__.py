@@ -273,6 +273,9 @@ def load_config_facts(inv_name, dut_name):
             results['VOQ_INBAND_INTERFACE'] = output_fields.get('VOQ_INBAND_INTERFACE', {})
             results['BGP_VOQ_CHASSIS_NEIGHBOR'] = output_fields.get('BGP_VOQ_CHASSIS_NEIGHBOR', {})
             results['INTERFACE'] = output_fields.get('INTERFACE', {})
+            if 'switch_type' in output_fields['DEVICE_METADATA']['localhost']:
+                results['switch_type'] = output_fields['DEVICE_METADATA']['localhost']['switch_type']
+
     except Exception as e:
         logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
 
@@ -428,7 +431,7 @@ def find_all_matches(nodeid, conditions):
         marks = match[case_starting_substring].keys()
         for mark in marks:
             if mark in conditional_marks:
-                if length > max_length:
+                if length >= max_length:
                     conditional_marks.update({
                         mark: {
                             case_starting_substring: {
@@ -441,6 +444,7 @@ def find_all_matches(nodeid, conditions):
                         case_starting_substring: {
                             mark: match[case_starting_substring][mark]}
                     }})
+                max_length = length
 
     # We may have the same matches of different marks
     # Need to remove duplicate here

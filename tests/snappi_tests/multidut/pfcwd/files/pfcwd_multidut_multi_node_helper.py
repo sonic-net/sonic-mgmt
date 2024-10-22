@@ -1,6 +1,7 @@
 import time
 from math import ceil
 import logging
+import random
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
@@ -107,6 +108,16 @@ def run_pfcwd_multi_node_test(api,
         pfc_storm_dur_sec = 0.5 * detect_time_sec
 
     exp_dur_sec = ceil(pfc_storm_dur_sec + 1)
+    cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
+
+    speed_str = testbed_config.layer1[0].speed
+    speed_gbps = int(speed_str.split('_')[1])
+    # Backplane is 200G in Cisco platforms.
+    if speed_gbps > 200 and cisco_platform:
+        global TEST_FLOW_AGGR_RATE_PERCENT
+        global BG_FLOW_AGGR_RATE_PERCENT
+        TEST_FLOW_AGGR_RATE_PERCENT = TEST_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
+        BG_FLOW_AGGR_RATE_PERCENT = BG_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
 
     """ Generate traffic config """
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT /
@@ -143,9 +154,6 @@ def run_pfcwd_multi_node_test(api,
                                config=testbed_config,
                                all_flow_names=all_flow_names,
                                exp_dur_sec=exp_dur_sec)
-
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
 
     __verify_results(rows=flow_stats,
                      speed_gbps=speed_gbps,
@@ -409,7 +417,12 @@ def __gen_data_flow(testbed_config,
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
 
-    eth, ipv4 = flow.packet.ethernet().ipv4()
+    eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+    src_port = random.randint(5000, 6000)
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = 1
+
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
     if pfcQueueGroupSize == 8:

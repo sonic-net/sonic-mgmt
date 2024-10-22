@@ -3,6 +3,7 @@ This module allows various snappi based tests to generate various traffic config
 """
 import time
 import logging
+import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
     get_lossless_buffer_size, get_pg_dropped_packets, \
@@ -93,7 +94,8 @@ def setup_base_traffic_config(testbed_config,
 def generate_test_flows(testbed_config,
                         test_flow_prio_list,
                         prio_dscp_map,
-                        snappi_extra_params):
+                        snappi_extra_params,
+                        number_of_streams=1):
     """
     Generate configurations of test flows. Test flows and background flows are also known as data flows.
 
@@ -102,6 +104,7 @@ def generate_test_flows(testbed_config,
         test_flow_prio_list (list): list of test flow priorities
         prio_dscp_map (dict): priority to DSCP mapping
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        number_of_streams (int): number of UDP streams
     """
     base_flow_config = snappi_extra_params.base_flow_config
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
@@ -116,7 +119,12 @@ def generate_test_flows(testbed_config,
         test_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
         test_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
-        eth, ipv4 = test_flow.packet.ethernet().ipv4()
+        eth, ipv4, udp = test_flow.packet.ethernet().ipv4().udp()
+        src_port = random.randint(5000, 6000)
+        udp.src_port.increment.start = src_port
+        udp.src_port.increment.step = 1
+        udp.src_port.increment.count = number_of_streams
+
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
         if pfcQueueGroupSize == 8:
@@ -526,7 +534,7 @@ def verify_basic_test_flow(flow_metrics,
 
 def verify_in_flight_buffer_pkts(duthost,
                                  flow_metrics,
-                                 snappi_extra_params):
+                                 snappi_extra_params, asic_value=None):
     """
     Verify in-flight TX bytes of test flows should be held by switch buffer unless PFC delay is applied
     for when test traffic is expected to be paused
@@ -560,7 +568,7 @@ def verify_in_flight_buffer_pkts(duthost,
 
         for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
-                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
+                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets > 0,
                               "Total TX dropped packets {} should be more than 0".
                               format(dropped_packets))
@@ -571,7 +579,7 @@ def verify_in_flight_buffer_pkts(duthost,
 
         for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
-                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
+                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets == 0,
                               "Total TX dropped packets {} should be 0".
                               format(dropped_packets))
