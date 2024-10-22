@@ -47,13 +47,14 @@ def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
         "primary_cak": primary_cak,
         "primary_ckn": primary_ckn,
         "policy": policy,
-        "send_sci": send_sci,
+        "send_sci" if send_sci else "no_send_sci": "",
         "rekey_period": rekey_period,
     }
-    cmd = "sonic-db-cli {} CONFIG_DB HMSET 'MACSEC_PROFILE|{}' ".format(
-        getns_prefix(host, port), profile_name)
+    opts = ""
     for k, v in list(macsec_profile.items()):
-        cmd += " '{}' '{}' ".format(k, v)
+        opts += " --{} {}".format(k, v)
+    cmd = "config macsec {} profile add {} {}".format(
+        getns_prefix(host, port), profile_name, opts)
     host.command(cmd)
     if send_sci == "false":
         # The MAC address of SONiC host is locally administrated
@@ -77,10 +78,10 @@ def delete_macsec_profile(host, port, profile_name):
     if host.is_multi_asic and port is None:
         for ns in host.get_asic_namespace_list():
             CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
-            cmd = "sonic-db-cli {} CONFIG_DB DEL 'MACSEC_PROFILE|{}'".format(CMD_PREFIX, profile_name)
+            cmd = "config macsec {} profile del {}".format(CMD_PREFIX, profile_name)
             host.command(cmd)
     else:
-        cmd = ("sonic-db-cli {} CONFIG_DB DEL 'MACSEC_PROFILE|{}'"
+        cmd = ("config macsec {} profile del {}"
                .format(getns_prefix(host, port), profile_name))
         host.command(cmd)
 
@@ -100,7 +101,7 @@ def enable_macsec_port(host, port, profile_name):
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
         time.sleep(2)
 
-    cmd = "sonic-db-cli {} CONFIG_DB HSET 'PORT|{}' 'macsec' '{}'".format(getns_prefix(host, port), port, profile_name)
+    cmd = "config macsec {} port add {} {}".format(getns_prefix(host, port), port, profile_name)
     host.command(cmd)
 
     if dnx_platform and pc:
@@ -125,7 +126,7 @@ def disable_macsec_port(host, port):
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
         time.sleep(2)
 
-    cmd = "sonic-db-cli {} CONFIG_DB HDEL 'PORT|{}' 'macsec'".format(getns_prefix(host, port), port)
+    cmd = "config macsec {} port del {}".format(getns_prefix(host, port), port)
     host.command(cmd)
 
     if dnx_platform and pc:
