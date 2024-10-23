@@ -277,13 +277,11 @@ Temperature sensor components consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<cpu>]/state/name</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<cpu>]/state/name</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<cpu>]/state/parent</td>
@@ -529,13 +527,11 @@ Fan components consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<fan>]/state/type</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<fan>]/state/type</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<fan>]/state/location</td>
@@ -566,12 +562,11 @@ Fan components consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
+  <tbody>
     <tr>
-      <th><br>
-/components/component[name=<fan>]/fan/state/speed</th>
+      <td><br>
+/components/component[name=<fan>]/fan/state/speed</td>
     </tr>
-  </thead>
   <tbody>
     <tr>
       <td><br>
@@ -635,12 +630,11 @@ FPGAs consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
+  <tbody>
     <tr>
-      <th><br>
-/components/component[name=<fpga>]/state/name</th>
+      <td><br>
+/components/component[name=<fpga>]/state/name</td>
     </tr>
-  </thead>
   <tbody>
     <tr>
       <td><br>
@@ -723,13 +717,11 @@ Storage device components consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<storage_device>]/state/name</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<storage_device>]/state/name</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<storage_device>]/state/type</td>
@@ -811,13 +803,11 @@ Power supply unit component consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<psu>]/state/name</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<psu>]/state/name</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<psu>]/state/type</td>
@@ -914,13 +904,11 @@ Integrated circuits component consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<integrated-circuit>]/state/parent</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<integrated-circuit>]/state/parent</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<integrated-circuit>]/state/type</td>
@@ -938,13 +926,11 @@ Integrated circuits component consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<integrated-circuit>]/integrated-circuit/memory/state/corrected-parity-errors</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<integrated-circuit>]/integrated-circuit/memory/state/corrected-parity-errors</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<integrated-circuit>]/integrated-circuit/memory/state/total-parity-errors</td>
@@ -963,13 +949,11 @@ Integrated circuits component consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<integrated-circuit>]/config/name</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<integrated-circuit>]/config/name</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<integrated-circuit>]/state/name</td>
@@ -999,13 +983,11 @@ This test assumes that a default config with `name` and `fully-qualified-name` f
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<integrated-circuit>]/config/name</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<integrated-circuit>]/config/name</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<integrated-circuit>]/state/name</td>
@@ -1024,13 +1006,11 @@ This test assumes that a default config with `name` and `fully-qualified-name` f
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<integrated-circuit>]/integrated-circuit/config/node-id</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<integrated-circuit>]/integrated-circuit/config/node-id</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<integrated-circuit>]/integrated-circuit/state/node-id</td>
@@ -1050,13 +1030,11 @@ This test assumes that a default config with `name` and `fully-qualified-name` f
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<integrated-circuit>]/config/name</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<integrated-circuit>]/config/name</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<integrated-circuit>]/state/name</td>
@@ -1196,13 +1174,11 @@ Power sequencer component consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<power_sequencer>]/state/name</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<power_sequencer>]/state/name</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<power_sequencer>]/state/location</td>
@@ -1305,13 +1281,11 @@ Power sequencer component consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<power_sequencer>]/state/temperature/instant</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<power_sequencer>]/state/temperature/instant</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<power_sequencer>]/power-supply/state/commanded-frequency</td>
@@ -1468,13 +1442,11 @@ Power brick component consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<power_brick>]/state/name</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<power_brick>]/state/name</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<power_brick>]/state/location</td>
@@ -1572,13 +1544,11 @@ Power brick component consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<power_brick>]/state/temperature/instant</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<power_brick>]/state/temperature/instant</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<power_brick>]/power-supply/state/commanded-frequency</td>
@@ -1723,13 +1693,11 @@ Power voltage regulator component consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<power_voltage_regulator>]/state/name</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<power_voltage_regulator>]/state/name</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<power_voltage_regulator>]/state/location</td>
@@ -1814,13 +1782,11 @@ Power voltage regulator component consists of the following gNMI paths:
 **Paths Verified:**
 
 <table>
-  <thead>
-    <tr>
-      <th><br>
-/components/component[name=<power_voltage_regulator>]/state/temperature/instant</th>
-    </tr>
-  </thead>
   <tbody>
+    <tr>
+      <td><br>
+/components/component[name=<power_voltage_regulator>]/state/temperature/instant</td>
+    </tr>
     <tr>
       <td><br>
 /components/component[name=<power_voltage_regulator>]/power-supply/state/commanded-frequency</td>
