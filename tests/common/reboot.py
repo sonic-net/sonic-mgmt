@@ -218,6 +218,64 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
         reboot_res = pool.apply_async(execute_reboot_helper)
     return [reboot_res, dut_datetime]
 
+def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
+                                  interfaces_wait_time=None, reboot_type=None):
+    """
+    Perform a further check after reboot-cause, including transceiver status, interface status
+    @param localhost: The Localhost object.
+    @param dut: The AnsibleHost object of DUT.
+    @param interfaces: DUT's interfaces defined by minigraph
+    """
+    logging.info("Wait until all critical services are fully started")
+    wait_critical_processes(dut)
+    if interfaces_wait_time is None:
+        interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES
+    if dut.is_supervisor_node():
+        logging.info("skipping interfaces related check for supervisor")
+    else:
+        logging.info("Wait {} seconds for all the transceivers to be detected".format(
+            interfaces_wait_time))
+        result = wait_until(interfaces_wait_time, 20, 0, check_all_interface_information, dut, interfaces,
+                            xcvr_skip_list)
+        assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
+            interfaces_wait_time)
+        logging.info("Check transceiver status")
+        for asic_index in dut.get_frontend_asic_ids():
+            # Get the interfaces pertaining to that asic
+            interface_list = get_port_map(dut, asic_index)
+            interfaces_per_asic = {k: v for k, v in list(
+                interface_list.items()) if k in interfaces}
+            check_transceiver_basic(
+                dut, asic_index, interfaces_per_asic, xcvr_skip_list)
+        logging.info("Check pmon daemon status")
+        if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+            result = wait_until(300, 20, 0, check_pmon_daemon_status, dut)
+        else:
+            result = check_pmon_daemon_status(dut)
+        assert result, "Not all pmon daemons running."
+    if dut.facts["asic_type"] in ["mellanox"]:
+        from .mellanox.check_hw_mgmt_service import check_hw_management_service
+        from .mellanox.check_sysfs import check_sysfs
+        logging.info("Check the hw-management service")
+        check_hw_management_service(dut)
+        logging.info("Check sysfs")
+        check_sysfs(dut)
+    if reboot_type is not None:
+        logging.info("Check reboot cause")
+        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30, check_reboot_cause, dut, reboot_type), \
+            "got reboot-cause failed after rebooted by %s" % reboot_type
+        if "201811" in dut.os_version or "201911" in dut.os_version:
+            logging.info(
+                "Skip check reboot-cause history for version before 202012")
+        else:
+            logging.info("Check reboot-cause history")
+            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
+                              REBOOT_TYPE_HISTOYR_QUEUE), \
+                "Check reboot-cause history failed after rebooted by %s" % reboot_type
+        if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
+            logging.info(
+                "Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
+            return
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
