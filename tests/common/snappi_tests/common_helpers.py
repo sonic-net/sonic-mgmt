@@ -472,12 +472,12 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
 
     color = 'green'
 
-    # Broadcom ASIC only supports RED.
-    if asic_type == 'broadcom':
+    # Broadcom DNX ASIC only supports RED.
+    if "platform_asic" in host_ans.facts and host_ans.facts["platform_asic"] == "broadcom-dnx":
         color = 'red'
 
-    kmax_arg = '-{}max' % color[0]
-    kmin_arg = '-{}min' % color[0]
+    kmax_arg = '-{}max'.format(color[0])
+    kmin_arg = '-{}min'.format(color[0])
 
     for p in profiles:
         """ This is not the profile to configure """
