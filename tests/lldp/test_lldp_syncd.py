@@ -255,7 +255,7 @@ def test_lldp_entry_table_after_lldp_restart(
         60, 2, 5, verify_lldp_table, duthost
     )  # Adjust based on LLDP service restart time
     pytest_assert(result, "no output for show lldp table after restarting lldp")
-    result = duthost.shell("sudo systemctl status lldp")
+    result = duthost.shell("sudo systemctl status lldp")["stdout"]
     pytest_assert(
         "active (running)" in result["stdout"],
         "LLDP service is not running",
