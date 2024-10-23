@@ -472,6 +472,7 @@ sonic_mlnx_40:
   vars:
     hwsku: Mellanox-SN2700-A1
     iface_speed: 100000
+    msft_an_enabled: True
 
 sonic_mlnx_100:
   hosts:
@@ -515,6 +516,7 @@ sonic_mlnx_100:
         "0xFE": "0x4DA03DB4"
   vars:
     iface_speed: 100000
+    msft_an_enabled: True
 
 sonic_arista64_100:
   hosts:
