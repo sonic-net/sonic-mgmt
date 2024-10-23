@@ -107,8 +107,10 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
     """
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(dut)
+
     if interfaces_wait_time is None:
-        interfaces_wait_time = 300
+        interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES
+
     if dut.is_supervisor_node():
         logging.info("skipping interfaces related check for supervisor")
     else:
@@ -118,6 +120,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
                             xcvr_skip_list)
         assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
             interfaces_wait_time)
+
         logging.info("Check transceiver status")
         for asic_index in dut.get_frontend_asic_ids():
             # Get the interfaces pertaining to that asic
@@ -126,23 +129,38 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
                 interface_list.items()) if k in interfaces}
             check_transceiver_basic(
                 dut, asic_index, interfaces_per_asic, xcvr_skip_list)
+
         logging.info("Check pmon daemon status")
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
             result = wait_until(300, 20, 0, check_pmon_daemon_status, dut)
         else:
             result = check_pmon_daemon_status(dut)
         assert result, "Not all pmon daemons running."
+
     if dut.facts["asic_type"] in ["mellanox"]:
+
         from .mellanox.check_hw_mgmt_service import check_hw_management_service
         from .mellanox.check_sysfs import check_sysfs
+
         logging.info("Check the hw-management service")
         check_hw_management_service(dut)
+
         logging.info("Check sysfs")
         check_sysfs(dut)
+
     if reboot_type is not None:
+        logging.info("Check the determine-reboot-cause service")
+        os_version = dut.os_version.split(".")[0]
+        if os_version < "202106":
+            logging.info("DUT has OS version {}, skip the check determine-reboot-cause service \
+                    for release before 202106" .format(os_version))
+        else:
+            check_determine_reboot_cause_service(dut)
+
         logging.info("Check reboot cause")
         assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30, check_reboot_cause, dut, reboot_type), \
             "got reboot-cause failed after rebooted by %s" % reboot_type
+
         if "201811" in dut.os_version or "201911" in dut.os_version:
             logging.info(
                 "Skip check reboot-cause history for version before 202012")
