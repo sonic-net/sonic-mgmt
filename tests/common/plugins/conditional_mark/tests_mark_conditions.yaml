@@ -1490,9 +1490,9 @@ restapi/test_restapi.py::test_create_vrf:
 
 restapi/test_restapi_vxlan_ecmp.py:
   skip:
-    reason: "Only supported on cisco 8102 T1"
+    reason: "Only supported on cisco 8102, 8101 and mlnx 4600C T1"
     conditions:
-      - "not (asic_type in ['cisco-8000'] and 't1' in topo_type)"
+      - "not (platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0']  and 't1' in topo_type)"
 
 #######################################
 #####           route             #####
