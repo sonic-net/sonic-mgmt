@@ -162,8 +162,6 @@ def get_acl_count_by_mark(rand_unselected_dut, mark):
 def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, testing_config, tbinfo):
     testing_mode, _ = testing_config
     if testing_mode == DUAL_TOR_MODE and "dualtor-aa" not in tbinfo["topo"]["name"]:
-        # Clear DHCP acl counter
-        rand_unselected_dut.shell("iptables -Z")
         pre_client_dhcp_acl_counts = {}
         for dhcp_relay in dut_dhcp_relay_data:
             client_interface_name = dhcp_relay["client_iface"]["name"]
