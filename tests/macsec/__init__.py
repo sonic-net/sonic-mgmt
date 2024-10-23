@@ -51,7 +51,7 @@ class MacsecPlugin(object):
                                  ids=profiles,
                                  scope="module")
 
-    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts):
+    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
         return NotImplementedError()
 
     def downstream_neighbor(self,tbinfo, neighbor):
@@ -127,7 +127,7 @@ class MacsecPlugin(object):
             topo_name = tbinfo['topo']['name']
             pytest.skip("None of neighbors on topology {}".format(topo_name))
 
-        ctrl_nbr_names = self.get_ctrl_nbr_names(macsec_duthost, nbrhosts)
+        ctrl_nbr_names = self.get_ctrl_nbr_names(macsec_duthost, nbrhosts, tbinfo)
         logger.info("Controlled links {}".format(ctrl_nbr_names))
         nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
         return self.find_links_from_nbr(macsec_duthost, tbinfo, nbrhosts)
@@ -227,7 +227,7 @@ class MacsecPluginT0(MacsecPlugin):
     def __init__(self):
          super(MacsecPluginT0, self).__init__()
 
-    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts):
+    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
         ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:2]
         return ctrl_nbr_names
 
@@ -250,8 +250,8 @@ class MacsecPluginT2(MacsecPlugin):
     def __init__(self):
          super(MacsecPluginT2, self).__init__()
 
-    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts):
-        mg_facts = macsec_duthost.get_extended_minigraph_facts()
+    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
+        mg_facts = macsec_duthost.get_extended_minigraph_facts(tbinfo)
         ctrl_nbr_names = mg_facts['macsec_neighbors']
         return ctrl_nbr_names
 
