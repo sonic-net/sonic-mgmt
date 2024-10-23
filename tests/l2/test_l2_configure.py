@@ -6,7 +6,6 @@ import pytest
 
 from tests.common import reboot, config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.upgrade_helpers import install_sonic
 
@@ -45,7 +44,7 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
     target_image = request.config.getoption('target_image', default=None)
     if target_image is None:
         pytest.skip("Must specify a target image through --target_image. Skipping the test.")
-    
+
     # Step 1: (Install source image and) reboot
     if source_image:
         install_sonic(duthost, source_image, tbinfo)
@@ -82,7 +81,7 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
         }},
         "MGMT_PORT": {{
             "eth0": {{
-                "admin_status": "up", 
+                "admin_status": "up",
                 "alias": "eth0"
             }}
         }}
@@ -95,12 +94,12 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
     wait_critical_processes(duthost)
     try:
         _verify_config_db(duthost)
-    except pytest.fail.Exception as e:
+    except pytest.fail.Exception:
         pytest.skip("Unable to clear minigraph table when setting up L2 config for current image. Skipping the test.")
 
     # Step 3: Install target image.
     if target_image:
-        # This is a hack: install_sonic thinks the device is configured with minigraph if minigraph.xml is present 
+        # This is a hack: install_sonic thinks the device is configured with minigraph if minigraph.xml is present
         # in the old config and will attempt to force the device to load_minigraph after reboot.
         # Remove old minigraph.xml to prevent that.
         # See ansible/library/reduce_and_add_sonic_images.py
@@ -129,4 +128,3 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
         if minigraph_back_up:
             duthost.shell("sudo cp {} {}".format(MINIGRAPH_BAK, MINIGRAPH))
             duthost.shell("sudo rm {}".format(MINIGRAPH_BAK))
-        
