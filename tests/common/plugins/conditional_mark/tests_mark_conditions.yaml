@@ -827,6 +827,18 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash:
     conditions:
       - "asic_gen == 'spc1'"
 
+hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
+hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
 hash/test_generic_hash.py::test_hash_capability:
   xfail:
     reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
@@ -834,11 +846,23 @@ hash/test_generic_hash.py::test_hash_capability:
       - "asic_type not in ['mellanox']"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
+hash/test_generic_hash.py::test_lag_hash[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
 hash/test_generic_hash.py::test_lag_member_flap:
   skip:
     reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
     conditions:
       - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
@@ -846,17 +870,35 @@ hash/test_generic_hash.py::test_lag_member_remove_add:
     conditions:
       - "asic_gen == 'spc1'"
 
+hash/test_generic_hash.py::test_lag_member_remove_add[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
     reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
     conditions:
       - "asic_gen == 'spc1'"
 
+hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
+
 hash/test_generic_hash.py::test_reboot:
   skip:
     reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm'
     conditions:
       - "asic_gen == 'spc1'"
+
+hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
+  skip:
+    reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
+    conditions:
+    - "asic_type in ['mellanox']"
 
 #######################################
 #####           http              #####
