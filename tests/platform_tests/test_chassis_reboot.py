@@ -64,7 +64,7 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
         time.sleep(rand_interval)
 
     for dut in duthosts:
-        if dut.is_supervisor_node:
+        if dut.is_supervisor_node():
             continue
         post_core_dump = get_core_dump(dut)
         new_core_dumps = (post_core_dump - core_dumps[dut.hostname])
