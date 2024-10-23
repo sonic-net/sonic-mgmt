@@ -256,7 +256,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     bg_prio_list = [p for p in all_prio_list]
     bg_prio_list.remove(lossy_prio)
     try:
-        for duthost in [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]:
+        for duthost in set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]):
             logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
             reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
             logger.info("Wait until the system is stable")
@@ -351,7 +351,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     test_prio_list = lossy_prio_list
     bg_prio_list = lossless_prio_list
     try:
-        for duthost in [snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]:
+        for duthost in set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]):
             logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
             reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
             logger.info("Wait until the system is stable")
