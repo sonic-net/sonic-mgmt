@@ -257,7 +257,7 @@ def test_lldp_entry_table_after_lldp_restart(
     pytest_assert(result, "no output for show lldp table after restarting lldp")
     result = duthost.shell("sudo systemctl status lldp")["stdout"]
     pytest_assert(
-        "active (running)" in result["stdout"],
+        "active (running)" in result,
         "LLDP service is not running",
     )
     lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
