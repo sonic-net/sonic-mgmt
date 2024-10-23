@@ -47,15 +47,14 @@ def get_dev_conn(duthost, conn_graph_facts, asic_index):
     return portmap, dev_conn
 
 
-def validate_transceiver_lpmode(output):
-    lines = output.strip().split('\n')
-    # Check if the header is present
-    if lines[0].replace(" ", "") != "Port        Low-power Mode".replace(" ", ""):
-        logging.error("Invalid output format: Header missing")
+def validate_transceiver_lpmode(sfp_lpmode, port):
+    lpmode = sfp_lpmode.get(port)
+    if lpmode is None:
+        logging.error(f"Interface {port} does not present in the show command")
         return False
-    for line in lines[2:]:
-        port, lpmode = line.strip().split()
-        if lpmode not in ["Off", "On"]:
-            logging.error("Invalid low-power mode {} for port {}".format(lpmode, port))
-            return False
+
+    if lpmode not in ["Off", "On"]:
+        logging.error("Invalid low-power mode {} for port {}".format(lpmode, port))
+        return False
+
     return True
