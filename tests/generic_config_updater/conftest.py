@@ -3,7 +3,7 @@ import logging
 
 from tests.common.utilities import skip_release
 from tests.common.config_reload import config_reload
-from tests.common.gu_utils import apply_patch
+from tests.common.gu_utils import apply_patch, restore_backup_test_config, save_backup_test_config
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 
 CONFIG_DB = "/etc/sonic/config_db.json"
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Module Fixture
 @pytest.fixture(scope="module")
-def cfg_facts(duthosts, rand_one_dut_hostname):
+def cfg_facts(duthosts, rand_one_dut_hostname, rand_asic_namespace):
     """
     Config facts for selected DUT
     Args:
@@ -22,7 +22,8 @@ def cfg_facts(duthosts, rand_one_dut_hostname):
         rand_one_dut_hostname: Hostname of a random chosen dut
     """
     duthost = duthosts[rand_one_dut_hostname]
-    return duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    asic_namespace, asic_id = rand_asic_namespace
+    return duthost.config_facts(host=duthost.hostname, source="persistent", namespace=asic_namespace)['ansible_facts']
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -62,9 +63,7 @@ def reset_and_restore_test_environment(duthosts, rand_one_dut_hostname):
     finally:
         delete_tmpfile(duthost, tmpfile)
 
-    logger.info("Backup {} to {} on {}".format(
-        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
-    duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BACKUP))
+    save_backup_test_config(duthost, file_postfix="before_gcu_test")
 
     if output['rc'] or "Patch applied successfully" not in output['stdout']:
         logger.info("Running config failed SONiC Yang validation. Reload minigraph. config: {}"
@@ -73,9 +72,7 @@ def reset_and_restore_test_environment(duthosts, rand_one_dut_hostname):
 
     yield
 
-    logger.info("Restore {} with {} on {}".format(
-        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
-    duthost.shell("mv {} {}".format(CONFIG_DB_BACKUP, CONFIG_DB))
+    restore_backup_test_config(duthost, file_postfix="before_gcu_test", config_reload=False)
 
     if output['rc'] or "Patch applied successfully" not in output['stdout']:
         logger.info("Restore Config after GCU test.")

@@ -577,6 +577,40 @@ def rand_one_dut_lossless_prio(request):
     return lossless_prio_list[0]
 
 
+@pytest.fixture(scope="module")
+def rand_asic_namespace(duthosts, rand_one_dut_hostname):
+    """
+    Return the randomly selected asic namespace in case of multi-asic duthost.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    asic_namespace = None
+    asic_index = None
+    if duthost.is_multi_asic:
+        namespace_list = duthost.get_asic_namespace_list()
+        asic_namespace = random.choice(namespace_list)
+        asic_index = duthost.get_asic_id_from_namespace(asic_namespace)
+
+    return asic_namespace, asic_index
+
+
+@pytest.fixture(scope="module")
+def rand_front_end_asic_namespace(duthosts, rand_one_dut_front_end_hostname):
+    """
+    Return the randomly selected asic namespace in case of multi-asic frontend duthost.
+    """
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+
+    asic_namespace = None
+    asic_index = None
+    if duthost.is_multi_asic:
+        namespace_list = duthost.get_asic_namespace_list()
+        asic_namespace = random.choice(namespace_list)
+        asic_index = duthost.get_asic_id_from_namespace(asic_namespace)
+
+    return asic_namespace, asic_index
+
+
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthosts):
     """
@@ -2070,7 +2104,7 @@ def dut_test_params_qos(duthosts, tbinfo, ptfhost, get_src_dst_asic_and_duts, lo
     yield rtn_dict
 
 
-@ pytest.fixture(scope='class')
+@pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
                     ptf_portmap_file, lower_tor_host, creds):   # noqa F811
     """
