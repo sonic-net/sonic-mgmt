@@ -692,6 +692,8 @@ def test_reboot(duthost, tbinfo, ptfhost, localhost, fine_params, mg_facts, rest
                       "Not all critical services are fully started.")
     with allure.step('Check the generic hash config after the reboot'):
         check_global_hash_config(duthost, global_hash_capabilities['ecmp'], global_hash_capabilities['lag'])
+        if ptf_params.get('vxlan_port') and ptf_params['vxlan_port'] != DEFAULT_VXLAN_PORT:
+            config_custom_vxlan_port(duthost, ptf_params['vxlan_port'])
     with allure.step('Check the route is established'):
         pytest_assert(wait_until(60, 10, 0, check_default_route, duthost, uplink_interfaces.keys()),
                       "The default route is not established after the cold reboot.")
