@@ -59,6 +59,7 @@ vlans_to_remove = []
 interfaces_to_startup = []
 balancing_test_times = 240
 balancing_range = 0.25
+balancing_range_in_port = 0.8
 vxlan_ecmp_utils = VxLAN_Ecmp_Utils()
 vxlan_port_list = [13330, 4789]
 restore_vxlan = False
@@ -691,6 +692,8 @@ def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipv
         ptf_params['encap_type'] = encap_type
         if encap_type == 'vxlan':
             ptf_params['vxlan_port'] = random.choice(vxlan_port_list)
+    if ecmp_hash and lag_hash and hash_field == "IN_PORT" and duthost.facts['asic_type'] == "mellanox":
+        ptf_params['balancing_range'] = balancing_range_in_port
     return ptf_params
 
 
