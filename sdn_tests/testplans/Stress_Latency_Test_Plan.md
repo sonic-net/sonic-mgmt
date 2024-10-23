@@ -24,7 +24,7 @@ The robustness is validated through the following methods
 
 -   Validation for the any unwanted process termination during the test
 -   Monitoring the memory usage of the system during the test
--   Validate that the responses are received in the client from the gNMI server.
+-   Validate that the responses are received in the client from the NMI server.
 
 ## SET UPDATE operation
 
@@ -62,11 +62,6 @@ The GET response should contain the value of the request nodes. The expectation 
     -   Covered Subtrees
 
 <table>
-  <thead>
-    <tr>
-      <th><em>/</em></th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><em>/interfaces</em></td>
@@ -153,11 +148,6 @@ The plan is to implement a latency measurement as part of the Ondatra get/set AP
     -   Covered Paths
 
 <table>
-  <thead>
-    <tr>
-      <th><em>/</em></th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><em>/interfaces</em></td>
@@ -178,12 +168,6 @@ The plan is to implement a latency measurement as part of the Ondatra get/set AP
     -   Covered Paths
 
     <table>
-  <thead>
-    <tr>
-      <th><em>/</em><br>
-    </th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><em>/interfaces</em><br>
@@ -209,12 +193,10 @@ The plan is to implement a latency measurement as part of the Ondatra get/set AP
     -  Covered Paths
 
 <table>
-  <thead>
+    <tbody>
     <tr>
-      <th><em>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/admin-status</em></td>
     </tr>
-  </thead>
-  <tbody>
     <tr>
       <td><em>/openconfig/interfaces/interface[name=*]/state/id </em></td>
     </tr>
@@ -267,11 +249,6 @@ The plan is to implement a latency measurement as part of the Ondatra get/set AP
     -  Covered Paths
 
 <table>
-  <thead>
-    <tr>
-      <th><em>/</em></th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td><em>/interfaces</em></td>
