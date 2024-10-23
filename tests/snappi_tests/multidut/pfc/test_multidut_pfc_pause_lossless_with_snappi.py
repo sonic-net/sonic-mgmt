@@ -27,7 +27,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                                         conn_graph_facts,               # noqa: F811
                                         fanout_graph_facts_multidut,             # noqa: F811
                                         duthosts,
-                                        enum_dut_lossless_prio,
+                                        rand_one_dut_lossless_prio,
                                         prio_dscp_map,                   # noqa: F811
                                         lossless_prio_list,              # noqa: F811
                                         all_prio_list,                   # noqa: F811
@@ -43,7 +43,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
-        enum_dut_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
+        rand_one_dut_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
         all_prio_list (pytest fixture): list of all the priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         lossless_prio_list (pytest fixture): list of all the lossless priorities
@@ -82,7 +82,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                                                                                 snappi_ports,
                                                                                 snappi_api)
 
-    _, lossless_prio = enum_dut_lossless_prio.split('|')
+    _, lossless_prio = rand_one_dut_lossless_prio.split('|')
     lossless_prio = int(lossless_prio)
     pause_prio_list = [lossless_prio]
     test_prio_list = [lossless_prio]
@@ -197,7 +197,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
                                                fanout_graph_facts_multidut,          # noqa: F811
                                                duthosts,
                                                localhost,
-                                               enum_dut_lossless_prio,    # noqa: F811
+                                               rand_one_dut_lossless_prio,    # noqa: F811
                                                prio_dscp_map,            # noqa: F811
                                                lossless_prio_list,         # noqa: F811
                                                all_prio_list,        # noqa: F811
@@ -254,7 +254,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
     skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
 
-    _, lossless_prio = enum_dut_lossless_prio.split('|')
+    _, lossless_prio = rand_one_dut_lossless_prio.split('|')
     lossless_prio = int(lossless_prio)
     pause_prio_list = [lossless_prio]
     test_prio_list = [lossless_prio]
