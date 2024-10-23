@@ -40,7 +40,7 @@ def get_core_dump(duthost):
         return duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
     else:
         return duthost.shell('ls /var/core/')['stdout'].split()
-    
+
 
 def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
     """
