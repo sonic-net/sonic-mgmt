@@ -87,8 +87,8 @@ def get_startup_tsb_timer(duthost):
                                module_ignore_errors=True)['stdout']
         timer = int(output.split('=', 2)[1].strip().encode('utf-8'))
     else:
-        logger.warn("{} file does not exist in the specified path on dut {}".
-                    format(startup_tsa_tsb_file_path, duthost.hostname))
+        logger.warning("{} file does not exist in the specified path on dut {}".
+                       format(startup_tsa_tsb_file_path, duthost.hostname))
 
     return timer
 
@@ -1263,9 +1263,12 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost,
     tsa_tsb_timer = dict()
     dut_nbrhosts = dict()
     up_bgp_neighbors = dict()
+    int_status_result, crit_process_check = dict(), dict()
     for linecard in duthosts.frontend_nodes:
         up_bgp_neighbors[linecard] = linecard.get_bgp_neighbors_per_asic("established")
         tsa_tsb_timer[linecard] = get_startup_tsb_timer(linecard)
+        int_status_result[linecard] = True
+        crit_process_check[linecard] = True
         if not tsa_tsb_timer[linecard]:
             pytest.skip("startup_tsa_tsb.service is not supported on the duts under {}".format(suphost.hostname))
         dut_nbrhosts[linecard] = nbrhosts_to_dut(linecard, nbrhosts)
@@ -1274,7 +1277,8 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost,
                       "DUT is not in normal state")
         if not check_tsa_persistence_support(linecard):
             pytest.skip("TSA persistence not supported in the image")
-
+    # Initially make sure both supervisor and line cards are in BGP operational normal state
+    initial_tsa_check_before_and_after_test(duthosts)
     try:
         # Execute user initiated TSA from supervisor card
         suphost.shell("TSA")
@@ -1313,9 +1317,8 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost,
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
             logging.info("Wait until all critical processes are fully started")
-            wait_critical_processes(linecard)
-            pytest_assert(wait_until(600, 20, 0, check_interface_status_of_up_ports, linecard),
-                          "Not all ports that are admin up on are operationally up")
+            crit_process_check[linecard] = wait_until(600, 20, 0, _all_critical_processes_healthy, linecard)
+            int_status_result[linecard] = wait_until(1200, 20, 0, check_interface_status_of_up_ports, linecard)
 
             # Verify BGP sessions are established
             pytest_assert(
@@ -1343,16 +1346,18 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost,
                 "Failed to verify routes on nbr in TSA")
 
     finally:
-        # Make sure sup card is in normal state save save the config to proceed further
-        suphost.shell("TSB")
-        suphost.shell("sudo config save -y")
+        # Bring back the supervisor and line cards to the BGP operational normal state
+        initial_tsa_check_before_and_after_test(duthosts)
+
         for linecard in duthosts.frontend_nodes:
             # Make sure linecards are in Normal state and save the config to proceed further
-            linecard.shell("TSB")
-            linecard.shell('sudo config save -y')
-            # Verify DUT is in normal state.
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
-                          "DUT {} is not in normal state".format(linecard))
+            if not (int_status_result[linecard] and crit_process_check[linecard] and
+                    TS_NORMAL == get_traffic_shift_state(linecard)):
+                logger.info("DUT's current interface status is {}, critical process check is {} "
+                            "or traffic shift state is not {}".
+                            format(int_status_result[linecard], crit_process_check[linecard], TS_NORMAL))
+                logging.info("DUT is not in normal state after supervisor cold reboot, doing config-reload")
+                config_reload(linecard, safe_reload=True, check_intf_up_ports=True)
             # Make sure the dut's reboot cause is as expected
             logger.info("Check reboot cause of the dut {}".format(linecard))
             reboot_cause = get_reboot_cause(linecard)
@@ -1364,4 +1369,3 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost,
         reboot_cause = get_reboot_cause(suphost)
         pytest_assert(reboot_cause == COLD_REBOOT_CAUSE,
                       "Reboot cause {} did not match the trigger {}".format(reboot_cause, COLD_REBOOT_CAUSE))
-
