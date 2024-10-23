@@ -27,7 +27,6 @@ from tests.common.utilities import compare_crm_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa F401
 from tests.common.dualtor.dual_tor_mock import *                    # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 pytestmark = [
     pytest.mark.topology("t0")

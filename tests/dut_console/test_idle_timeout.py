@@ -3,7 +3,6 @@ import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger(__name__)
 

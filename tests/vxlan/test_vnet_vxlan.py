@@ -13,11 +13,9 @@ from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY,\
 from .vnet_utils import generate_dut_config_files, safe_open_template, \
     apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses, change_mac_addresses, \
-    copy_arp_responder_py, copy_ptftests_directory      # noqa F401
-from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext,\
-    is_route_flow_counter_supported     # noqa F401
-import tests.arp.test_wr_arp as test_wr_arp
+from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa F401
+from tests.common.arp_utils import set_up, tear_down, testWrArp
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test
 
 from tests.common.config_reload import config_reload
 
@@ -159,13 +157,11 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
         cleanup_dut_vnets(duthost, vnet_config)
         cleanup_vxlan_tunnels(duthost, vnet_test_params)
     elif request.param == "WR_ARP":
-        testWrArp = test_wr_arp.TestWrArp()
-        testWrArp.Setup(duthost, ptfhost, tbinfo)
+        route, ptfIp, gwIp = set_up(duthost, ptfhost, tbinfo)
         try:
-            test_wr_arp.TestWrArp.testWrArp(
-                testWrArp, request, duthost, ptfhost, creds)
+            testWrArp(request, duthost, ptfhost, creds, skip_traffic_test)
         finally:
-            testWrArp.Teardown(duthost)
+            tear_down(duthost, route, ptfIp, gwIp)
 
     return vxlan_enabled, request.param
 
@@ -194,7 +190,7 @@ def is_neigh_reachable(duthost, vnet_config):
 
 
 def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost,
-                    vnet_test_params, creds, is_route_flow_counter_supported):  # noqa F811
+                    vnet_test_params, creds, is_route_flow_counter_supported, skip_traffic_test):  # noqa F811
     """
     Test case for VNET VxLAN
 
@@ -233,6 +229,9 @@ def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhos
         logger.info("Skipping cleanup")
         pytest.skip("Skip cleanup specified")
 
+    if skip_traffic_test is True:
+        logger.info("Skipping traffic test")
+        return
     logger.debug("Starting PTF runner")
     if scenario == 'Enabled' and vxlan_enabled:
         route_pattern = 'Vnet1|100.1.1.1/32'

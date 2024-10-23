@@ -209,3 +209,262 @@ func TestRebootSuccess(t *testing.T) {
 		t.Fatalf("Failed to reboot DUT: %v", err)
 	}
 }
+
+func TestRebootStatus(t *testing.T) {
+	// Verify RebootStatus when there is no active reboot.
+	defer testhelper.NewTearDownOptions(t).WithID("dcc5d482-9417-42a5-9801-b51cbf7c9ff3").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	req := &syspb.RebootStatusRequest{}
+
+	resp, err := dut.RawAPIs().GNOI(t).System().RebootStatus(context.Background(), req)
+	if err != nil {
+		t.Fatalf("Failed to send RebootStatus RPC: %v", err)
+	}
+
+	if got, want := resp.GetActive(), false; got != want {
+		t.Errorf("RebootStatus(whenInactiveReboot).active = %v, want:%v", got, want)
+	}
+	if got, want := resp.GetWhen(), uint64(0); got != want {
+		t.Errorf("RebootStatus(whenInactiveReboot).when = %v, want:%v", got, want)
+	}
+	if got, want := resp.GetReason(), ""; got != want {
+		t.Errorf("RebootStatus(whenInactiveReboot).reason = %v, want:%v", got, want)
+	}
+}
+
+func TestCancelRebootNotSupported(t *testing.T) {
+	// This test is Google specific as other vendors might support CancelReboot.
+	// Validate that CancelReboot RPC is not supported.
+	defer testhelper.NewTearDownOptions(t).WithID("54890e78-97c2-4c08-b03c-0822870691e7").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	req := &syspb.CancelRebootRequest{
+		Message: "Test message to cancel reboot",
+	}
+
+	wantError := grpcErr{code: codes.Unimplemented, desc: "Method System.CancelReboot is unimplemented"}
+	if _, err := dut.RawAPIs().GNOI(t).System().CancelReboot(context.Background(), req); !wantError.Is(err) {
+		t.Errorf("Failed to validate that CancelReboot is not supported: %v", err)
+	}
+}
+
+func TestScheduledRebootNotSupported(t *testing.T) {
+	// Validate that scheduled Reboot RPC is not supported.
+	defer testhelper.NewTearDownOptions(t).WithID("9d5c0ded-7474-47cf-8310-9444189928cd").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	waitTime, err := testhelper.RebootTimeForDevice(t, dut)
+	if err != nil {
+		t.Fatalf("Unable to get reboot wait time: %v", err)
+	}
+
+	req := &syspb.RebootRequest{
+		Method:  syspb.RebootMethod_COLD,
+		Delay:   10, // in nanoseconds
+		Message: "Test Delayed Reboot",
+	}
+
+	params := testhelper.NewRebootParams().WithWaitTime(waitTime).WithCheckInterval(30 * time.Second).WithRequest(req)
+	if err := testhelper.Reboot(t, dut, params); err == nil || extractCanonicalCodeString(err) != codes.InvalidArgument.String() {
+		t.Errorf("Failed to validate that delayed reboot is not supported: %v", err)
+	}
+}
+
+func TestRebootMethodsValidation(t *testing.T) {
+	defer testhelper.NewTearDownOptions(t).WithID("c416cba7-12f0-4efa-a341-0c5d1c806fc1").Teardown(t)
+	dut := ondatra.DUT(t, "DUT")
+
+	waitTime, err := testhelper.RebootTimeForDevice(t, dut)
+	if err != nil {
+		t.Fatalf("Unable to get reboot wait time: %v", err)
+	}
+
+	tests := []struct {
+		method  syspb.RebootMethod
+		wantErr grpcErr
+	}{
+		{
+			method:  syspb.RebootMethod_UNKNOWN,
+			wantErr: errMethodNotSupported,
+		},
+		{
+			method:  syspb.RebootMethod_HALT,
+			wantErr: errMethodNotSupported,
+		},
+		{
+			method:  syspb.RebootMethod_WARM,
+			wantErr: grpcErr{code: errHostService.code, desc: errHostService.desc + "Warm reboot is currently not supported."},
+		},
+		{
+			method:  syspb.RebootMethod_NSF,
+			wantErr: errMethodNotSupported,
+		},
+		{
+			method:  syspb.RebootMethod_POWERUP,
+			wantErr: errMethodNotSupported,
+		},
+		{
+			method:  syspb.RebootMethod_POWERDOWN,
+			wantErr: grpcErr{code: errHostService.code, desc: errHostService.desc + "Invalid reboot method: 2"},
+		},
+	}
+
+	for _, tt := range tests {
+		params := testhelper.NewRebootParams().WithWaitTime(waitTime).WithCheckInterval(30 * time.Second).WithRequest(tt.method)
+		if err := testhelper.Reboot(t, dut, params); !tt.wantErr.Is(err) {
+			t.Errorf("Failed to validate that %v reboot method is not supported: %v", tt.method, err)
+		}
+	}
+}
+
+func TestRebootStatusWhenActiveReboot(t *testing.T) {
+        // Verify RebootStatus response when there is an active reboot.
+        defer testhelper.NewTearDownOptions(t).WithID("23bbc091-ba7f-4424-9db6-fe5e25274791").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        waitTime, err := testhelper.RebootTimeForDevice(t, dut)
+        if err != nil {
+                t.Fatalf("Unable to get reboot wait time: %v", err)
+        }
+
+        rebootStatusReq := &syspb.RebootStatusRequest{}
+
+        rebootReqMessage := "Test message to issue reboot."
+        rebootReq := &syspb.RebootRequest{
+                Method:  syspb.RebootMethod_COLD,
+                Message: rebootReqMessage,
+        }
+
+        // Issue a reboot.
+        timeBeforeReboot := time.Now().UnixNano()
+        systemClient := dut.RawAPIs().GNOI(t).System()
+        if _, err := systemClient.Reboot(context.Background(), rebootReq); err != nil {
+                t.Fatalf("Failed to issue Reboot: %v", err)
+        }
+
+        // Retrieve RebootStatus immediately after issuing reboot and verify the response.
+        resp, err := systemClient.RebootStatus(context.Background(), rebootStatusReq)
+        if err != nil {
+                t.Errorf("Failed to get RebootStatus: %v", err)
+        } else {
+                if got, want := resp.GetActive(), true; got != want {
+                        t.Errorf("RebootStatus(whenActiveReboot).active = %v, want:%v", got, want)
+                }
+                if got, wantMin, wantMax := resp.GetWhen(), uint64(timeBeforeReboot), uint64(time.Now().UnixNano()); got >= wantMin && got <= wantMax {
+                        t.Errorf("RebootStatus(whenActiveReboot).when = %v, wantMin:%v, wantMax:%v", got, wantMin, wantMax)
+                }
+                if got, want := resp.GetReason(), rebootReqMessage; got != want {
+                        t.Errorf("RebootStatus(whenActiveReboot).reason = %v, want:%v", got, want)
+                }
+        }
+
+        params := attainGnoiStateParams{
+                waitTime:         waitTime,
+                checkInterval:    30 * time.Second,
+                timeBeforeReboot: timeBeforeReboot,
+                gnoiReachability: true,
+        }
+        if err := attainGnoiStateDuringReboot(t, dut, params); err != nil {
+                t.Errorf("Failed to poll gNOI reachability and verify reboot: %v", err)
+        }
+}
+
+func TestRebootRequestWhenActiveReboot(t *testing.T) {
+        // Verify that new Reboot request will be rejected during an active reboot.
+        defer testhelper.NewTearDownOptions(t).WithID("e399daad-f61e-4918-a02c-1802f27de983").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        waitTime, err := testhelper.RebootTimeForDevice(t, dut)
+        if err != nil {
+                t.Fatalf("Unable to get reboot wait time: %v", err)
+        }
+
+        firstRebootReq := &syspb.RebootRequest{
+                Method:  syspb.RebootMethod_COLD,
+                Message: "First test message to issue reboot.",
+        }
+
+        SecondRebootReq := &syspb.RebootRequest{
+                Method:  syspb.RebootMethod_COLD,
+                Message: "Second test message to issue reboot.",
+        }
+
+        timeBeforeReboot := time.Now().UnixNano()
+        systemClient := dut.RawAPIs().GNOI(t).System()
+
+        // Issue first reboot.
+        if _, err := systemClient.Reboot(context.Background(), firstRebootReq); err != nil {
+                t.Fatalf("Failed to issue Reboot: %v", err)
+        }
+
+        wantErr := grpcErr{code: errHostService.code, desc: errHostService.desc + "Previous reboot is ongoing"}
+        // Issue another reboot immediately after issuing the first reboot and verify that the second reboot got rejected.
+        if _, err := systemClient.Reboot(context.Background(), SecondRebootReq); !wantErr.Is(err) {
+                t.Errorf("Failed to validate that the switch rejects second reboot: %v", err)
+        }
+
+        params := attainGnoiStateParams{
+                waitTime:         waitTime,
+                checkInterval:    30 * time.Second,
+                timeBeforeReboot: timeBeforeReboot,
+                gnoiReachability: true,
+        }
+        if err := attainGnoiStateDuringReboot(t, dut, params); err != nil {
+                t.Errorf("Failed to poll gNOI reachability and verify reboot: %v", err)
+        }
+
+}
+
+func TestRebootRequestWhenGnoiUnreachable(t *testing.T) {
+        // Verify Reboot request will be rejected if issued when gNOI is unreachable.
+        defer testhelper.NewTearDownOptions(t).WithID("bfbe4e85-4559-4184-acf0-b00bb4bf46ba").Teardown(t)
+        dut := ondatra.DUT(t, "DUT")
+
+        waitTime, err := testhelper.RebootTimeForDevice(t, dut)
+        if err != nil {
+                t.Fatalf("Unable to get reboot wait time: %v", err)
+        }
+
+        firstRebootReq := &syspb.RebootRequest{
+                Method:  syspb.RebootMethod_COLD,
+                Message: "First test message to issue reboot.",
+        }
+
+        SecondRebootReq := &syspb.RebootRequest{
+                Method:  syspb.RebootMethod_COLD,
+                Message: "Second test message to issue reboot.",
+        }
+
+        timeBeforeReboot := time.Now().UnixNano()
+        systemClient := dut.RawAPIs().GNOI(t).System()
+
+        // Issue first reboot.
+        if _, err := systemClient.Reboot(context.Background(), firstRebootReq); err != nil {
+                t.Fatalf("Failed to issue Reboot: %v", err)
+        }
+
+        // Poll gNOI until it is unreachable and issue a second reboot.
+        params := attainGnoiStateParams{
+                waitTime:         waitTime,
+                checkInterval:    15 * time.Second,
+                timeBeforeReboot: timeBeforeReboot,
+                gnoiReachability: false,
+        }
+        if err := attainGnoiStateDuringReboot(t, dut, params); err != nil {
+                t.Fatalf("Failed to reach a state where GNOI is unreachable: %v", err)
+        }
+
+        wantErr := grpcErr{code: codes.Unavailable}
+        // Issue second reboot while gNOI is unreachable and verify it's rejection.
+        if _, err := systemClient.Reboot(context.Background(), SecondRebootReq); !wantErr.Is(err) {
+                t.Errorf("Failed to validate that the switch rejects reboot when gNOI is unreachable: %v", err)
+        }
+
+        params.checkInterval = 30 * time.Second
+        params.gnoiReachability = true
+        if err := attainGnoiStateDuringReboot(t, dut, params); err != nil {
+                t.Errorf("Failed to poll gNOI reachability and verify reboot: %v", err)
+        }
+
+}

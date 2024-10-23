@@ -6,15 +6,17 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from .files.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
-from .files.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import send_background_traffic
 
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
+ITERATION_NUM = 20
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +186,7 @@ class TestPfcwdAllTimer(object):
         with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info):
             self.storm_handle.start_storm()
             logger.info("Wait for queue to recover from PFC storm")
-            time.sleep(8)
+            time.sleep(32)
             self.storm_handle.stop_storm()
             time.sleep(16)
 
@@ -206,6 +208,9 @@ class TestPfcwdAllTimer(object):
             self.all_restore_time.append(real_restore_time)
 
         dut_detect_restore_time = storm_restore_ms - storm_detect_ms
+        logger.info(
+            "Iteration all_dut_detect_time list {} and length {}".format(
+                ",".join(str(i) for i in self.all_detect_time), len(self.all_detect_time)))
         self.all_dut_detect_restore_time.append(dut_detect_restore_time)
         logger.info(
             "Iteration all_dut_detect_restore_time list {} and length {}".format(
@@ -218,32 +223,58 @@ class TestPfcwdAllTimer(object):
         self.all_detect_time.sort()
         self.all_restore_time.sort()
         logger.info("Verify that real detection time is not greater than configured")
+        logger.info("all detect time {}".format(self.all_detect_time))
+        logger.info("all restore time {}".format(self.all_restore_time))
+
+        check_point = ITERATION_NUM // 2 - 1
         config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
+        # Loose the check if two conditions are met
+        # 1. Leaf-fanout is Non-Onyx or non-Mellanox SONiC devices
+        # 2. Device is Mellanox plaform, Loose the check
+        # 3. Device is broadcom plaform, add half of polling time as compensation for the detect config time
+        # It's because the pfc_gen.py running on leaf-fanout can't guarantee the PFCWD is triggered consistently
+        logger.debug("dut asic_type {}".format(self.dut.facts['asic_type']))
+        for fanouthost in list(self.fanout.values()):
+            if fanouthost.get_fanout_os() != "onyx" or \
+                    fanouthost.get_fanout_os() == "sonic" and fanouthost.facts['asic_type'] != "mellanox":
+                if self.dut.facts['asic_type'] == "mellanox":
+                    logger.info("Loose the check for non-Onyx or non-Mellanox leaf-fanout testbed")
+                    check_point = ITERATION_NUM // 3 - 1
+                    break
+                elif self.dut.facts['asic_type'] == "broadcom":
+                    logger.info("Configuring detect time for broadcom DUT")
+                    config_detect_time = (
+                        self.timers['pfc_wd_detect_time'] +
+                        self.timers['pfc_wd_poll_time'] +
+                        (self.timers['pfc_wd_poll_time'] // 2)
+                    )
+                    break
+
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
-                   "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[9],
+                   "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[check_point],
                                                                          config_detect_time))
-        pytest_assert(self.all_detect_time[9] < config_detect_time, err_msg)
+        pytest_assert(self.all_detect_time[check_point] < config_detect_time, err_msg)
 
         if self.timers['pfc_wd_poll_time'] < self.timers['pfc_wd_detect_time']:
             logger.info("Verify that real detection time is not less than configured")
             err_msg = ("Real detection time is less than configured: Real detect time: {} "
-                       "Expected: {} (wd_detect_time)".format(self.all_detect_time[9],
+                       "Expected: {} (wd_detect_time)".format(self.all_detect_time[check_point],
                                                               self.timers['pfc_wd_detect_time']))
-            pytest_assert(self.all_detect_time[9] > self.timers['pfc_wd_detect_time'], err_msg)
+            pytest_assert(self.all_detect_time[check_point] > self.timers['pfc_wd_detect_time'], err_msg)
 
         if self.timers['pfc_wd_poll_time'] < self.timers['pfc_wd_restore_time']:
             logger.info("Verify that real restoration time is not less than configured")
             err_msg = ("Real restoration time is less than configured: Real restore time: {} "
-                       "Expected: {} (wd_restore_time)".format(self.all_restore_time[9],
+                       "Expected: {} (wd_restore_time)".format(self.all_restore_time[check_point],
                                                                self.timers['pfc_wd_restore_time']))
-            pytest_assert(self.all_restore_time[9] > self.timers['pfc_wd_restore_time'], err_msg)
+            pytest_assert(self.all_restore_time[check_point] > self.timers['pfc_wd_restore_time'], err_msg)
 
         logger.info("Verify that real restoration time is less than configured")
         config_restore_time = self.timers['pfc_wd_restore_time'] + self.timers['pfc_wd_poll_time']
         err_msg = ("Real restoration time is greater than configured: Real restore time: {} "
-                   "Expected: {} (wd_restore_time + wd_poll_time)".format(self.all_restore_time[9],
+                   "Expected: {} (wd_restore_time + wd_poll_time)".format(self.all_restore_time[check_point],
                                                                           config_restore_time))
-        pytest_assert(self.all_restore_time[9] < config_restore_time, err_msg)
+        pytest_assert(self.all_restore_time[check_point] < config_restore_time, err_msg)
 
     def verify_pfcwd_timers_t2(self):
         """
@@ -286,7 +317,7 @@ class TestPfcwdAllTimer(object):
         return int(timestamp_ms)
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,
-                                  pfcwd_timer_setup_restore):
+                                  pfcwd_timer_setup_restore, fanouthosts):
         """
         Tests PFCwd timer accuracy
 
@@ -300,6 +331,7 @@ class TestPfcwdAllTimer(object):
         self.timers = setup_info['timers']
         self.dut = duthost
         self.ptf = ptfhost
+        self.fanout = fanouthosts
         self.all_detect_time = list()
         self.all_restore_time = list()
         self.all_dut_detect_restore_time = list()
@@ -310,7 +342,7 @@ class TestPfcwdAllTimer(object):
                     self.run_test(setup_info)
                 self.verify_pfcwd_timers_t2()
             else:
-                for i in range(1, 20):
+                for i in range(1, ITERATION_NUM):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
 
                     cmd = "show pfc counters"

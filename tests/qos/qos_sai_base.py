@@ -36,12 +36,12 @@ class QosBase:
     Common APIs
     """
     SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-64", "dualtor-120",
-                          "dualtor", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32",
-                          "t0-standalone-64", "t0-standalone-128", "t0-standalone-256"]
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag"]
+                          "dualtor", "dualtor-64-breakout", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag",
+                          "t0-standalone-32", "t0-standalone-64", "t0-standalone-128", "t0-standalone-256", "t0-28"]
+    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
-                           "j2c+", "jr2"]
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
+                           "j2c+", "jr2", "th5"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
 
@@ -114,7 +114,7 @@ class QosBase:
 
         yield dut_test_params_qos
 
-    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False):
+    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False, pdb=False):
         """
             Runs QoS SAI test case on PTF host
 
@@ -132,19 +132,24 @@ class QosBase:
         """
         custom_options = " --disable-ipv6 --disable-vxlan --disable-geneve" \
                          " --disable-erspan --disable-mpls --disable-nvgre"
+        # Append a suffix to the logfile name if log_suffix is present in testParams
+        log_suffix = testParams.get("log_suffix", "")
+        logfile_suffix = "_{0}".format(log_suffix) if log_suffix else ""
+
         ptf_runner(
             ptfhost,
             "saitests",
             testCase,
             platform_dir="ptftests",
             params=testParams,
-            log_file="/tmp/{0}.log".format(testCase),
+            log_file="/tmp/{0}{1}.log".format(testCase, logfile_suffix),  # Include suffix in the logfile name,
             qlen=10000,
             is_python3=True,
             relax=relax,
             timeout=1200,
             socket_recv_size=16384,
-            custom_options=custom_options
+            custom_options=custom_options,
+            pdb=pdb
         )
 
 
@@ -586,7 +591,10 @@ class QosSaiBase(QosBase):
                     docker.restore_default_syncd(duthost, new_creds)
 
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
-                    params=("single_asic", "single_dut_multi_asic", "multi_dut"))
+                    params=["single_asic", "single_dut_multi_asic",
+                            "multi_dut_longlink_to_shortlink",
+                            "multi_dut_shortlink_to_shortlink",
+                            "multi_dut_shortlink_to_longlink"])
     def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo, lower_tor_host): # noqa F811
         test_port_selection_criteria = request.param
         logger.info("test_port_selection_criteria is {}".format(test_port_selection_criteria))
@@ -602,12 +610,21 @@ class QosSaiBase(QosBase):
                     lower_tor_dut_index = a_dut_index
                     break
 
+        number_of_duts = len(duthosts.frontend_nodes)
+        is_longlink_list = [False] * number_of_duts
+        for i in range(number_of_duts):
+            if self.isLonglink(duthosts.frontend_nodes[i]):
+                is_longlink_list[i] = True
+        shortlink_indices = [i for i, longlink in enumerate(is_longlink_list) if not longlink]
+
         duthost = duthosts.frontend_nodes[0]
         if test_port_selection_criteria == 'single_asic':
             # We should randomly pick a dut from duthosts.frontend_nodes and a random asic in that selected DUT
             # for now hard code the first DUT and the first asic
             if 'dualtor' in tbinfo['topo']['name']:
                 src_dut_index = lower_tor_dut_index
+            elif topo not in (self.SUPPORTED_T0_TOPOS + self.SUPPORTED_T1_TOPOS) and shortlink_indices:
+                src_dut_index = random.choice(shortlink_indices)
             else:
                 src_dut_index = 0
             dst_dut_index = src_dut_index
@@ -617,20 +634,24 @@ class QosSaiBase(QosBase):
         elif test_port_selection_criteria == "single_dut_multi_asic":
             if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
                 pytest.skip("single_dut_multi_asic is not supported on T0 topologies")
-            found_multi_asic_dut = False
-            for a_dut_index in range(len(duthosts.frontend_nodes)):
-                a_dut = duthosts.frontend_nodes[a_dut_index]
-                if a_dut.sonichost.is_multi_asic:
-                    src_dut_index = a_dut_index
-                    dst_dut_index = a_dut_index
-                    src_asic_index = 0
-                    dst_asic_index = 1
-                    found_multi_asic_dut = True
-                    logger.info("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
-                    break
-            if not found_multi_asic_dut:
-                pytest.skip(
-                    "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
+            if topo not in self.SUPPORTED_T1_TOPOS and shortlink_indices:
+                src_dut_index = random.choice(shortlink_indices)
+            else:
+                found_multi_asic_dut = False
+                for a_dut_index in range(len(duthosts.frontend_nodes)):
+                    a_dut = duthosts.frontend_nodes[a_dut_index]
+                    if a_dut.sonichost.is_multi_asic:
+                        src_dut_index = a_dut_index
+                        found_multi_asic_dut = True
+                        logger.info("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
+                        break
+                if not found_multi_asic_dut:
+                    pytest.skip(
+                        "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
+            dst_dut_index = src_dut_index
+            src_asic_index = 0
+            dst_asic_index = 1
+
         else:
             # Dealing with multi-dut
             if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
@@ -641,8 +662,23 @@ class QosSaiBase(QosBase):
             if (len(duthosts.frontend_nodes)) < 2:
                 pytest.skip("Don't have 2 frontend nodes - so can't run multi_dut tests")
 
-            src_dut_index = 0
-            dst_dut_index = 1
+            if test_port_selection_criteria == 'multi_dut_shortlink_to_shortlink':
+                if is_longlink_list.count(False) < 2:
+                    pytest.skip("Don't have 2 shortlink frontend nodes - so can't run {}"
+                                "tests".format(test_port_selection_criteria))
+                src_dut_index = is_longlink_list.index(False)
+                dst_dut_index = is_longlink_list.index(False, src_dut_index + 1)
+            else:
+                if is_longlink_list.count(False) == 0 or is_longlink_list.count(True) == 0:
+                    pytest.skip("Don't have longlink or shortlink frontend nodes - so can't"
+                                "run {} tests".format(test_port_selection_criteria))
+                if test_port_selection_criteria == 'multi_dut_longlink_to_shortlink':
+                    src_dut_index = is_longlink_list.index(True)
+                    dst_dut_index = is_longlink_list.index(False)
+                else:
+                    src_dut_index = is_longlink_list.index(False)
+                    dst_dut_index = is_longlink_list.index(True)
+
             src_asic_index = 0
             dst_asic_index = 0
 
@@ -811,9 +847,32 @@ class QosSaiBase(QosBase):
             port_speeds[attr['speed']].append(etp)
         return port_speeds
 
+    @pytest.fixture(scope='class', autouse=False)
+    def configure_ip_on_ptf_intfs(self, ptfhost, get_src_dst_asic_and_duts, tbinfo):
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+        src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
+        topo = tbinfo["topo"]["name"]
+
+        # if PTF64 and is Cisco, set ip IP address on eth interfaces of the ptf"
+        if topo == 'ptf64' and is_cisco_device(src_dut):
+            minigraph_ip_interfaces = src_mgFacts['minigraph_interfaces']
+            for entry in minigraph_ip_interfaces:
+                ptfhost.shell("ip addr add {}/31 dev eth{}".format(
+                      entry['peer_addr'], src_mgFacts["minigraph_ptf_indices"][entry['attachto']])
+                    )
+            yield
+            for entry in minigraph_ip_interfaces:
+                ptfhost.shell("ip addr del {}/31 dev eth{}".format(
+                      entry['peer_addr'], src_mgFacts["minigraph_ptf_indices"][entry['attachto']])
+                    )
+            return
+        else:
+            yield
+            return
+
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
-        self, request, duthosts, get_src_dst_asic_and_duts,
+        self, request, duthosts, configure_ip_on_ptf_intfs, get_src_dst_asic_and_duts,
         lower_tor_host, tbinfo, dualtor_ports_for_duts, dut_qos_maps):  # noqa F811
         """
             Build DUT host config pertaining to QoS SAI tests
@@ -933,7 +992,7 @@ class QosSaiBase(QosBase):
                 testPortIds[src_dut_index][src_asic_index] = sorted(
                     list(testPortIps[src_dut_index][src_asic_index].keys()))
 
-        elif topo in self.SUPPORTED_T1_TOPOS:
+        elif topo in self.SUPPORTED_T1_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and is_cisco_device(src_dut)):
             # T1 is supported only for 'single_asic' or 'single_dut_multi_asic'.
             # So use src_dut as the dut
             use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(dut_qos_maps)
@@ -1016,7 +1075,7 @@ class QosSaiBase(QosBase):
                     # Map port IDs to system port for dnx chassis
                     if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                             get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
-                        sys_key = src_asic.namespace + '|' + iface
+                        sys_key = src_asic.namespace + '|' + iface if src_asic.namespace else iface
                         if sys_key in src_system_port:
                             system_port = src_system_port[sys_key]['system_port_id']
                             sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
@@ -1033,7 +1092,7 @@ class QosSaiBase(QosBase):
                     if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                             get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                         for portName in src_mgFacts["minigraph_portchannels"][iface]["members"]:
-                            sys_key = src_asic.namespace + '|' + portName
+                            sys_key = src_asic.namespace + '|' + portName if src_asic.namespace else portName
                             port_Index = src_mgFacts["minigraph_ptf_indices"][portName]
                             if sys_key in src_system_port:
                                 system_port = src_system_port[sys_key]['system_port_id']
@@ -1069,7 +1128,7 @@ class QosSaiBase(QosBase):
                         # Map port IDs to system port IDs
                         if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                                 get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
-                            sys_key = dst_asic.namespace + '|' + iface
+                            sys_key = dst_asic.namespace + '|' + iface if dst_asic.namespace else iface
                             if sys_key in dst_system_port:
                                 system_port = dst_system_port[sys_key]['system_port_id']
                                 sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
@@ -1086,7 +1145,7 @@ class QosSaiBase(QosBase):
                         if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                                 get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                             for portName in dst_mgFacts["minigraph_portchannels"][iface]["members"]:
-                                sys_key = dst_asic.namespace + '|' + portName
+                                sys_key = dst_asic.namespace + '|' + portName if dst_asic.namespace else portName
                                 port_Index = dst_mgFacts["minigraph_ptf_indices"][portName]
                                 if sys_key in dst_system_port:
                                     system_port = dst_system_port[sys_key]['system_port_id']
@@ -1248,7 +1307,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def stopServices(
-        self, duthosts, get_src_dst_asic_and_duts,
+        self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
         swapSyncd_on_selected_duts, enable_container_autorestart, disable_container_autorestart, get_mux_status, # noqa F811
         tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports):  # noqa F811
         """
@@ -1602,6 +1661,13 @@ class QosSaiBase(QosBase):
                 get_src_dst_asic_and_duts['src_asic_index'] ==
                     get_src_dst_asic_and_duts['dst_asic_index']):
                 dutTopo = "topo-any"
+            # Initialize parameter dicts if no info exists yet, typically if no yaml file
+            # is provided for this asic.
+            if dutAsic not in qosConfigs['qos_params']:
+                qosConfigs['qos_params'][dutAsic] = {}
+            if dutTopo not in qosConfigs['qos_params'][dutAsic]:
+                qosConfigs['qos_params'][dutAsic][dutTopo] = {}
+
             qpm = qos_param_generator.QosParamCisco(
                       qosConfigs['qos_params'][dutAsic][dutTopo],
                       duthost,
@@ -2043,14 +2109,21 @@ class QosSaiBase(QosBase):
                     ]
                 )
 
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        qosConfig = dutQosConfig["param"]
+        if "wrr_chg" in qosConfig[portSpeedCableLength]:
+            qosConfigWrrChg = qosConfig[portSpeedCableLength]["wrr_chg"]
+        else:
+            qosConfigWrrChg = qosConfig["wrr_chg"]
+
         wrrSchedParams = [
             {
                 "profile": lossySchedProfile["schedProfile"],
-                "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossy_weight"]
+                "qosConfig": qosConfigWrrChg["lossy_weight"]
             },
             {
                 "profile": losslessSchedProfile["schedProfile"],
-                "qosConfig": dutQosConfig["param"]["wrr_chg"]["lossless_weight"]
+                "qosConfig": qosConfigWrrChg["lossless_weight"]
             },
         ]
 
@@ -2261,19 +2334,20 @@ class QosSaiBase(QosBase):
         return mapping
 
     @pytest.fixture(autouse=False)
-    def _check_ingress_speed_gte_400g(
+    def skip_400g_longlink(
             self,
             get_src_dst_asic_and_duts,
             dutQosConfig):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        m = re.search("([0-9]+)_([0-9]+m)", portSpeedCableLength)
+        m = re.search("([0-9]+)_([0-9]+)m", portSpeedCableLength)
         if not m:
             raise RuntimeError(
                 "Format error in portSpeedCableLength:{}".
                 format(portSpeedCableLength))
         speed = int(m.group(1))
-        if speed >= 400000:
-            pytest.skip("PGDrop test is not supported for 400G port speed.")
+        cable_length = int(m.group(2))
+        if speed >= 400000 and cable_length >= 120000:
+            pytest.skip("PGDrop test is not supported for 400G longlink.")
 
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds, dualtor_dut_ports=None):
         """
@@ -2380,6 +2454,67 @@ class QosSaiBase(QosBase):
             )
 
     @pytest.fixture(scope="function", autouse=False)
+    def set_static_route_ptf64(self, dutConfig, get_src_dst_asic_and_duts, dutTestParams, enum_frontend_asic_index):
+        def generate_ip_address(base_ip, new_first_octet):
+            octets = base_ip.split('.')
+            if len(octets) != 4:
+                raise ValueError("Invalid IP address format")
+            octets[0] = str(new_first_octet)
+            octets[2] = octets[3]
+            octets[3] = '1'
+            return '.'.join(octets)
+
+        def combine_ips(src_ips, dst_ips, new_first_octet):
+            combined_ips_map = {}
+
+            for key, src_info in src_ips.items():
+                src_ip = src_info['peer_addr']
+                new_ip = generate_ip_address(src_ip, new_first_octet)
+                combined_ips_map[key] = {'original_ip': src_ip, 'generated_ip': new_ip}
+
+            for key, dst_info in dst_ips.items():
+                dst_ip = dst_info['peer_addr']
+                new_ip = generate_ip_address(dst_ip, new_first_octet)
+                combined_ips_map[key] = {'original_ip': dst_ip, 'generated_ip': new_ip}
+
+            return combined_ips_map
+
+        def configRoutePrefix(add_route):
+            action = "add" if add_route else "del"
+            for port, entry in combined_ips_map.items():
+                if enum_frontend_asic_index is None:
+                    src_asic.shell("config route {} prefix {}.0/24 nexthop {}".format(
+                        action, '.'.join(entry['generated_ip'].split('.')[:3]), entry['original_ip']))
+                else:
+                    src_asic.shell("ip netns exec asic{} config route {} prefix {}.0/24 nexthop {}".format(
+                        enum_frontend_asic_index,
+                        action, '.'.join(entry['generated_ip'].split('.')[:3]),
+                        entry['original_ip'])
+                      )
+
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Traffic sanity test is not supported")
+
+        if dutTestParams["topo"] != "ptf64":
+            pytest.skip("Test not supported in {} topology. Use ptf64 topo".format(dutTestParams["topo"]))
+
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+
+        src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+
+        new_first_octet = 100
+        combined_ips_map = combine_ips(src_testPortIps, dst_testPortIps, new_first_octet)
+
+        configRoutePrefix(True)
+        yield combined_ips_map
+        configRoutePrefix(False)
+
+    @pytest.fixture(scope="function", autouse=False)
     def skip_longlink(self, dutQosConfig):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         match = re.search("_([0-9]*)m", portSpeedCableLength)
@@ -2388,3 +2523,30 @@ class QosSaiBase(QosBase):
                 "This test is skipped for longlink.")
         yield
         return
+
+    @pytest.fixture(scope="class", autouse=False)
+    def tc_to_dscp_count(self, get_src_dst_asic_and_duts):
+        duthost = get_src_dst_asic_and_duts['src_dut']
+        tc_to_dscp_count_map = {}
+        for tc in range(8):
+            tc_to_dscp_count_map[tc] = 0
+        config_facts = duthost.asic_instance().config_facts(source="running")["ansible_facts"]
+        dscp_to_tc_map = config_facts['DSCP_TO_TC_MAP']['AZURE']
+        for dscp, tc in dscp_to_tc_map.items():
+            tc_to_dscp_count_map[int(tc)] += 1
+        yield tc_to_dscp_count_map
+
+    def isLonglink(self, dut_host):
+        config_facts = dut_host.asics[0].config_facts(source="running")["ansible_facts"]
+        buffer_pg = config_facts["BUFFER_PG"]
+        for intf, value_of_intf in buffer_pg.items():
+            for _, v in value_of_intf.items():
+                if "pg_lossless" in v['profile']:
+                    profileName = v['profile']
+                    logger.info("Lossless Buffer profile is {}".format(profileName))
+                    m = re.search("^pg_lossless_[0-9]+_([0-9]+)m_profile", profileName)
+                    pytest_assert(m.group(1), "Cannot find cable length")
+                    cable_length = int(m.group(1))
+                    if cable_length >= 120000:
+                        return True
+        return False

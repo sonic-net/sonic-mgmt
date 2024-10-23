@@ -13,15 +13,14 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from bgp_helpers import update_routes
 from tests.generic_config_updater.test_bgp_speaker import get_bgp_speaker_runningconfig
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import (
+from tests.common.gu_utils import apply_patch, expect_op_success
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import (
     create_checkpoint,
     delete_checkpoint,
     rollback_or_reload,
 )
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 pytestmark = [pytest.mark.topology("t0")]

@@ -1,0 +1,132 @@
+---
+- name: Include tacacs_passkey by testbed_facts['inv_name']
+  block:
+  - name: set default testbed file
+    set_fact:
+      testbed_file: testbed.yaml
+    when: testbed_file is not defined
+
+  - name: Gathering testbed information
+    test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+    delegate_to: localhost
+    ignore_errors: yes
+
+  - name: Include tacacs_passkey by inv_name
+    include_vars: "{{ playbook_dir }}/group_vars/{{testbed_facts['inv_name']}}/{{testbed_facts['inv_name']}}.yml"
+    when: testbed_facts is defined
+
+  when: tacacs_passkey is not defined
+
+- name: Include tacacs_passkey by  inventory_file
+  block:
+  - name: Get inventory folder name
+    set_fact: inv_file="{{ playbook_dir }}/group_vars/{{ inventory_file.split("/")[-1] }}/{{ inventory_file.split("/")[-1] }}.yml"
+
+  - debug: msg="inv_file {{ inv_file }}"
+
+  - name: Check inventory file exist
+    stat:
+      path: "{{ inv_file }}"
+    register: inventory_file
+
+  - name: Include tacacs_passkey from inventory file
+    include_vars: "{{ inv_file }}"
+    when: inventory_file.stat.exists
+
+  when: tacacs_passkey is not defined
+
+- name: Include default tacacs_passkey
+  include_vars: "{{ playbook_dir }}/group_vars/lab/lab.yml"
+  when: tacacs_passkey is not defined
+
+- debug: msg="tacacs_passkey {{ tacacs_passkey }}"
+
+- name: Set ptf host
+  set_fact:
+    ptf_host: "ptf_{{ vm_set_name }}"
+
+- debug: msg="ptf_host {{ ptf_host }}"
+
+- name: Include duthost user name
+  block:
+  - name: Set duthost user name
+    set_fact:
+      dut_host_user: "{{ secret_group_vars['str']['ansible_ssh_user'] }}"
+
+    when:
+      - secret_group_vars is defined
+      - secret_group_vars['str'] is defined
+      - secret_group_vars['str']['ansible_ssh_user'] is defined
+
+  - name: Set default duthost user name from group_vars/lab/secrets.yml
+    block:
+    - name: Include sonicadmin_user from group_vars/lab/secrets.yml
+      include_vars: "{{ playbook_dir }}/group_vars/lab/secrets.yml"
+
+    - name: Set dut user name
+      set_fact:
+        dut_host_user: "{{ sonicadmin_user }}"
+
+    when:
+      - dut_host_user is not defined
+
+- debug: msg="dut_host_user {{ dut_host_user }}"
+
+- name: Include duthost password
+  block:
+  - name: Encrypt encrypted_sonic_password from secret_group_vars
+    block:
+
+    - name: Encrypt TACACS password from secret_group_vars
+      shell: python3 -c "import crypt; print(crypt.crypt('{{secret_group_vars['str']['altpasswords'][0]}}', 'abc'))"
+      register: encrypted_sonic_password
+      delegate_to: "{{ ptf_host }}"
+
+    when:
+      - secret_group_vars is defined
+      - secret_group_vars['str'] is defined
+      - secret_group_vars['str']['altpasswords'] is defined
+
+  - name: Encrypt default encrypted_sonic_password from group_vars/lab/secrets.yml
+    block:
+    - name: Include sonicadmin_password from group_vars/lab/secrets.yml
+      include_vars: "{{ playbook_dir }}/group_vars/lab/secrets.yml"
+
+    - name: Encrypt TACACS password from sonicadmin_password
+      shell: python3 -c "import crypt; print(crypt.crypt('{{sonicadmin_password}}', 'abc'))"
+      register: encrypted_sonic_password
+      delegate_to: "{{ ptf_host }}"
+
+    when:
+      - tacacs_user_passwd is not defined
+
+  - name: Set TACACS password from encrypted_sonic_password
+    set_fact:
+      tacacs_user_passwd: '{{ encrypted_sonic_password.stdout }}'
+
+- debug: msg="tacacs_user_passwd {{ tacacs_user_passwd }}"
+
+- block:
+    - name: Generate tacacs daily daemon config file
+      template:
+        src: tac_plus_daily.conf.j2
+        dest: /etc/tac_plus_daily.conf
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Upload tacacs daily daemon file
+      copy:
+        src: 'scripts/tacacs_daily_daemon'
+        dest: /root/tacacs_daily_daemon
+        mode: "0755"
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Upload tacacs daily start script
+      copy:
+        src: 'scripts/start_tacacs.sh'
+        dest: /root/start_tacacs.sh
+        mode: "0755"
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Start tacacs daily daemon
+      shell: /root/start_tacacs.sh
+      delegate_to: "{{ptf_host}}"

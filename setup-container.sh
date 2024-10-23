@@ -34,6 +34,8 @@ declare -r VERBOSE_INFO="4"
 declare -r VERBOSE_MAX="${VERBOSE_INFO}"
 declare -r VERBOSE_MIN="${VERBOSE_ERROR}"
 
+declare EXISTING_CONTAINER_NAME=""
+
 #
 # Arguments -----------------------------------------------------------------------------------------------------------
 #
@@ -295,13 +297,54 @@ EOF
     fi
 }
 
-function start_local_container() {
-    log_info "creating a container: ${CONTAINER_NAME} ..."
+function container_exists() {
+    container_id=`docker ps --all --filter=name=$CONTAINER_NAME --format '{{.ID}}'`
+    count=`echo $container_id | wc -w`
+    return $count
+}
 
-    eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
-    -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
-    --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
-    exit_failure "failed to start a container: ${CONTAINER_NAME}"
+function get_existing_container() {
+    img_id=${IMAGE_ID}
+    if [ -z ${img_id} ]
+    then
+        img_id=${LOCAL_IMAGE}
+    fi
+    container_id=`docker container ls --all --filter=ancestor=${img_id} --format '{{.ID}}'`
+    count=`echo $container_id | wc -w`
+    case $count in
+        0)
+            EXISTING_CONTAINER_NAME=""
+            ;;
+        1)
+            container_name=`docker inspect $container_id --format '{{.Name}}'`
+            if [[ $container_name == /* ]]
+            then
+                container_name="${container_name:1}"
+            fi
+            EXISTING_CONTAINER_NAME=${container_name}
+            ;;
+        *)
+            echo "Multiple container IDs found: ${container_id}"
+            EXISTING_CONTAINER_NAME=""
+            ;;
+    esac
+}
+
+function start_local_container() {
+
+    container_exists
+    local exists=$?
+    if [ $exists -eq 1 ]
+    then
+        log_info "starting existing container ${CONTAINER_NAME} ..."
+        docker start ${CONTAINER_NAME}
+    else
+        log_info "creating a container: ${CONTAINER_NAME} ..."
+        eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
+        -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
+        --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
+        exit_failure "failed to start a container: ${CONTAINER_NAME}"
+    fi
 
     eval "docker exec --user root \"${CONTAINER_NAME}\" \
     bash -c \"service ssh restart\" ${SILENT_HOOK}" || \
@@ -321,8 +364,15 @@ function start_local_container() {
 }
 
 function parse_arguments() {
+
     if [[ -z "${CONTAINER_NAME}" ]]; then
-        exit_failure "container name is not set"
+        get_existing_container
+        if [ -z $EXISTING_CONTAINER_NAME ]
+        then
+            exit_failure "container name is not set."
+        else
+            exit_failure "found existing container (\"docker start $EXISTING_CONTAINER_NAME\")"
+        fi
     fi
 
     if [[ -z "${LINK_DIR}" ]]; then
