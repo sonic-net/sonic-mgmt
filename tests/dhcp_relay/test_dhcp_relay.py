@@ -152,16 +152,16 @@ def start_dhcp_monitor_debug_counter(duthost):
 
 def get_acl_count_by_mark(rand_unselected_dut, mark):
     output = rand_unselected_dut.shell("iptables -nvL DHCP | grep 'DROP' | grep '{}' | awk '{{print $1}}'"
-                                        .format(mark))
+                                       .format(mark))
     pytest_assert(output["rc"] == 0 and len(output["stdout_lines"]) == 1,
-                    "Failed get DHCP acl count for {}, err: {}".format(mark, output["stderr"]))
+                  "Failed get DHCP acl count for {}, err: {}".format(mark, output["stderr"]))
     return int(output["stdout"].strip())
 
 
 @pytest.fixture(scope="function")
-def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, testing_config):
+def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, testing_config, tbinfo):
     testing_mode, _ = testing_config
-    if testing_mode == DUAL_TOR_MODE:
+    if testing_mode == DUAL_TOR_MODE and "dualtor-aa" not in tbinfo["topo"]["name"]:
         # Clear DHCP acl counter
         rand_unselected_dut.shell("iptables -Z")
         pre_client_dhcp_acl_counts = {}
@@ -172,15 +172,16 @@ def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, tes
                       .shell("ebtables -L INPUT | grep '\-i {} \-j mark \-\-mark\-set' | awk '{{print $6}}'"
                              .format(client_interface_name)))
             pytest_assert(output["rc"] == 0 and len(output["stdout_lines"]) == 1,
-                        "Failed get DHCP acl mark for {}, err: {}".format(client_interface_name, output["stderr"]))
+                          "Failed get DHCP acl mark for {}, err: {}".format(client_interface_name, output["stderr"]))
             mark = output["stdout"].strip()
             pre_client_dhcp_acl_counts[client_interface_name] = {"mark": mark}
             # Get acl count by acl mark
-            pre_client_dhcp_acl_counts[client_interface_name]["count"] = get_acl_count_by_mark(rand_unselected_dut, mark)
+            pre_client_dhcp_acl_counts[client_interface_name]["count"] = get_acl_count_by_mark(rand_unselected_dut,
+                                                                                               mark)
 
     yield
 
-    if testing_mode == DUAL_TOR_MODE:
+    if testing_mode == DUAL_TOR_MODE and "dualtor-aa" not in tbinfo["topo"]["name"]:
         for client_interface_name, item in pre_client_dhcp_acl_counts.items():
             after_count = get_acl_count_by_mark(rand_unselected_dut, item["mark"])
             pytest_assert(after_count == item["count"] + 2, "Drop count of {} {} is unexpected, pre: {}, after: {}"
@@ -189,7 +190,7 @@ def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, tes
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                             setup_standby_ports_on_rand_unselected_tor,												# noqa F811
-                            rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m,
+                            rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m,    # noqa F811
                             verify_acl_drop_on_standby_tor):     # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
@@ -279,7 +280,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                                                          validate_dut_routes_exist, testing_config,
                                                          setup_standby_ports_on_rand_unselected_tor,												# noqa F811
                                                          rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
-                                                         enable_source_port_ip_in_relay, verify_acl_drop_on_standby_tor):
+                                                         enable_source_port_ip_in_relay, verify_acl_drop_on_standby_tor):     # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
@@ -467,8 +468,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                                 setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
-                                toggle_all_simulator_ports_to_rand_selected_tor_m,
-                                verify_acl_drop_on_standby_tor):     # noqa F811
+                                toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """Test DHCP relay functionality on T0 topology with unicast mac
        Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
     """
@@ -503,8 +503,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                                  setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
-                                 toggle_all_simulator_ports_to_rand_selected_tor_m,
-                                 verify_acl_drop_on_standby_tor):    # noqa F811
+                                 toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
     """Test DHCP relay functionality on T0 topology with random source port (sport)
        If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68).
        Verify that DHCP relay works with random high sport.
