@@ -74,7 +74,7 @@ def simulate_small_var_log_partition(rand_selected_dut, localhost):
         logger.info('Remove the small var log partition')
         duthost.shell('sudo rm -f log-new-partition')
 
-        config_reload(duthost, safe_reload=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         logger.info('Restart logrotate-config service')
         duthost.shell('sudo service logrotate-config restart')
