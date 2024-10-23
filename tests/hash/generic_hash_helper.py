@@ -128,8 +128,8 @@ def restore_configuration(duthost):
             duthost.shell(f'config vlan del {vlan}')
         # Re-config ip interface
         for ip_interface in ip_interface_to_restore:
-            duthost.shell(f"config interface ip add {ip_interface['attachto']} "
-                          f"{ip_interface['addr']}/{ip_interface['mask']}")
+            formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
+            duthost.shell(f"config interface ip add {ip_interface['attachto']} {formatted_ip_addr}")
         # Re-config vlan interface
         if vlan_member_to_restore:
             duthost.shell(f"config vlan member add {vlan_member_to_restore['vlan_id']} "
