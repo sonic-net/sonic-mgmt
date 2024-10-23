@@ -35,6 +35,7 @@ from ansible.executor.task_queue_manager import TaskQueueManager
 from ansible.inventory.manager import InventoryManager
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
+from ansible.vars.hostvars import HostVars
 from ansible.playbook.play import Play
 
 from ansible.plugins.callback import CallbackBase
@@ -237,6 +238,12 @@ class AnsibleHostsBase(object):
             self.vm = variable_manager
         else:
             self.vm = VariableManager(loader=self.loader, inventory=self.im)
+
+        # Trigger ansible to load and render host variables
+        # After this operation, self.vm._hostvars will be populated with content
+        # self.vm._hostvars["example_hostname"] will return all variables visible by "example_hostname"
+        # The best part is that if the variable is a template, it is automatically rendered with correct data type
+        HostVars(inventory=self.im, variable_manager=self.vm, loader=self.loader)
 
         self.options = {
             "forks": 6,
@@ -734,6 +741,7 @@ class AnsibleHostsBase(object):
                 }
         """
         caller_info = kwargs.pop("caller_info", None)
+        target_hosts = kwargs.pop("target_hosts", None)
         if not caller_info:
             previous_frame = inspect.currentframe().f_back
             caller_info = inspect.getframeinfo(previous_frame)
@@ -756,7 +764,10 @@ class AnsibleHostsBase(object):
         self._log_modules(caller_info, module_info, verbosity)
 
         task = self.build_task(**module_info)
-        results = self.run_tasks(self.host_pattern, self.loader, self.im, self.vm, self.options, tasks=[task])
+        host_pattern = self.host_pattern
+        if target_hosts:
+            host_pattern = target_hosts
+        results = self.run_tasks(host_pattern, self.loader, self.im, self.vm, self.options, tasks=[task])
 
         self._log_results(caller_info, module_info, results, verbosity)
         self._check_results(caller_info, module_info, results, module_ignore_errors, verbosity)

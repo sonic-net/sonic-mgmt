@@ -3,8 +3,8 @@ import logging
 
 from tests.common.utilities import skip_release
 from tests.common.config_reload import config_reload
-from tests.generic_config_updater.gu_utils import apply_patch
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import apply_patch
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.before_gcu_test"
@@ -153,5 +153,10 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
 
             # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation
             ".*ERR syncd[0-9]*#syncd.*tap2veth_fun: failed to write to socket.*",   # test_portchannel_interface tc2
+            ".*ERR.*'apply-patch' executed failed.*",  # negative cases that are expected to fail
+
+            # Ignore errors from k8s config test
+            ".*ERR ctrmgrd.py: Refer file.*",
+            ".*ERR ctrmgrd.py: Join failed.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)

@@ -52,3 +52,35 @@
     </Link>
   </LinkMetadataDeclaration>
 {% endif %}
+
+{% if msft_an_enabled is defined %}
+  <LinkMetadataDeclaration>
+    <Link xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% for if_index in vm_topo_config['autoneg_interfaces']['intfs'] %}
+
+{% if "mellanox" in device_info[inventory_hostname]['HwSku']|lower %}
+{% set autoneg_intf = "etp" ~ if_index %}
+{% else %}
+{% set autoneg_intf = "Ethernet" ~ if_index ~ "/1" %}
+{% endif %}
+{% if device_conn[inventory_hostname][port_alias_map[autoneg_intf]]['autoneg']|lower == "on" %}
+        <a:LinkMetadata>
+            <a:Name i:nil="true"/>
+            <a:Properties>
+            <a:DeviceProperty>
+                 <a:Name>AutoNegotiation</a:Name>
+                 <a:Value>True</a:Value>
+            </a:DeviceProperty>
+            <a:DeviceProperty>
+                 <a:Name>FECDisabled</a:Name>
+                 <a:Reference i:nil="true"/>
+                 <a:Value>True</a:Value>
+            </a:DeviceProperty>
+            </a:Properties>
+            <a:Key>{{ device_conn[inventory_hostname][port_alias_map[autoneg_intf]]['peerdevice'] }}:{{ device_conn[inventory_hostname][port_alias_map[autoneg_intf]]['peerport'] }};{{ inventory_hostname }}:{{ autoneg_intf }}</a:Key>
+        </a:LinkMetadata>
+{% endif %}
+{% endfor %}
+    </Link>
+  </LinkMetadataDeclaration>
+{% endif %}

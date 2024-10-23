@@ -32,39 +32,18 @@ def get_pdu_visible_vars(inventories, pdu_hostnames):
 
 def _get_pdu_controller(duthost, conn_graph_facts):
     hostname = duthost.hostname
-    device_pdu_links = conn_graph_facts['device_pdu_links']
-    device_pdu_info = conn_graph_facts['device_pdu_info']
-    if hostname not in device_pdu_links or hostname not in device_pdu_info:
-        # fall back to using inventory
-        inv_mgr = duthost.host.options["inventory_manager"]
-        pdu_host = inv_mgr.get_host(duthost.hostname).get_vars().get("pdu_host")
-        hosts = inv_mgr.get_host_list('all', pdu_host)
-        pdu_links = {}
-        pdu_info = {}
-        pdu_vars = {}
-        index = 1
-        for ph in pdu_host.split(','):
-            if ph in hosts:
-                host_vars = hosts[ph]
-                pdu_links['PSU{}'.format(index)] = {
-                    'N/A': {
-                        'peerdevice': ph,
-                        'peerport': 'probing',
-                        'feed': 'N/A',
-                    }
-                }
-                pdu_info[ph] = {
-                    'Hostname': ph,
-                    'Protocol': host_vars['protocol'],
-                    'ManagementIp': host_vars['ansible_host'],
-                    'Type': 'Pdu',
-                }
-                pdu_vars[ph] = host_vars
-                index = index + 1
-    else:
-        pdu_links = device_pdu_links[hostname]
-        pdu_info = device_pdu_info[hostname]
-        pdu_vars = get_pdu_visible_vars(duthost.host.options["inventory_manager"]._sources, pdu_info.keys())
+    # To adapt to the kvm testbed, conn_graph_facts is None for kvm.
+    # Unfortunately, for most DUTs
+    # we will get None because there is no key pdu_host under most of the hosts in iventory.
+    # And although we can get the pdu hosts list of a DUT from inventory
+    # we can not get the hwsku and os of pdu host from inventory.
+    # So we give the default value `{}` to kvm.
+    device_pdu_links = conn_graph_facts.get('device_pdu_links', {})
+    device_pdu_info = conn_graph_facts.get('device_pdu_info', {})
+
+    pdu_links = device_pdu_links.get(hostname, {})
+    pdu_info = device_pdu_info.get(hostname, {})
+    pdu_vars = get_pdu_visible_vars(duthost.host.options["inventory_manager"]._sources, pdu_info.keys())
 
     return pdu_manager_factory(duthost.hostname, pdu_links, pdu_info, pdu_vars)
 

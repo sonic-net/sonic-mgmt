@@ -15,15 +15,19 @@ SLEEP_TIME = 10
 
 
 @pytest.fixture
-def pause_orchagent(duthosts, enum_rand_one_per_hwsku_hostname):
+def pause_orchagent(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     pid = None
+    if duthost.is_multi_asic:
+        asic_id = enum_rand_one_asic_index
+    else:
+        asic_id = ''
     retry = 3
     while True:
         retry -= 1
         # find orchagent pid: https://www.man7.org/linux/man-pages/man1/pidof.1.html
         pid_result = duthost.shell(
-                        r"pidof orchagent",
+                        r"docker exec -i swss{} pidof orchagent".format(asic_id),
                         module_ignore_errors=True)
 
         rc = pid_result['rc']
@@ -40,11 +44,11 @@ def pause_orchagent(duthosts, enum_rand_one_per_hwsku_hostname):
         logger.info('Get orchagent pid: {}'.format(pid))
 
         # pause orchagent
-        duthost.shell(r"sudo kill -STOP {}".format(pid), module_ignore_errors=True)
+        duthost.shell(r"sudo docker exec -i swss{}  kill -STOP {}".format(asic_id, pid), module_ignore_errors=True)
 
         # validate orchagent paused, the stat colum should be Tl:
         # root         124  0.3  1.6 596616 63600 pts/0    Tl   02:33   0:06 /usr/bin/orchagent
-        result = check_process_status(duthost, "'Tl.*/usr/bin/orchagent''")
+        result = check_process_status(duthost, "'Tl.*/usr/bin/orchagent''", asic_id)
         if result:
             # continue UT when Orchagent paused
             break
@@ -62,27 +66,27 @@ def pause_orchagent(duthosts, enum_rand_one_per_hwsku_hostname):
     yield
 
     # resume orchagent and clear syslog
-    duthost.shell(r"sudo kill -CONT {}".format(pid), module_ignore_errors=True)
+    duthost.shell(r"sudo docker exec -i swss{} kill -CONT {}".format(asic_id, pid), module_ignore_errors=True)
     duthost.shell(r"sudo truncate -s 0 /var/log/syslog", module_ignore_errors=True)
 
 
-def check_process_status(duthost, process):
+def check_process_status(duthost, process, asic_id):
     result = duthost.shell(
-                        r"docker exec -i swss sh -c 'ps -au | grep {}".format(process),
+                        r"docker exec -i swss{} sh -c 'ps -au | grep {}".format(asic_id, process),
                         module_ignore_errors=True)['stdout']
     logger.info('Check supervisor-proc-exit-listener running: {}'.format(result))
     return result
 
 
-def make_ut_fail_if_process_not_running(duthost):
-    result = check_process_status(duthost, "/usr/bin/supervisor-proc-exit-listener'")
+def make_ut_fail_if_process_not_running(duthost, asic_id):
+    result = check_process_status(duthost, "/usr/bin/supervisor-proc-exit-listener'", asic_id)
     if not result:
-        pytest.fail("Watchfog process does not running.")
+        pytest.fail("Watchfog process is not running.")
 
     # if orchagent not running, alert will never been triggered
-    result = check_process_status(duthost, "/usr/bin/orchagent'")
+    result = check_process_status(duthost, "/usr/bin/orchagent'", asic_id)
     if not result:
-        pytest.fail("Orchagent does not running.")
+        pytest.fail("Orchagent is not running.")
 
 
 def create_log_analyzer(duthost):
@@ -93,18 +97,28 @@ def create_log_analyzer(duthost):
     return loganalyzer, marker
 
 
-def test_orchagent_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, pause_orchagent):           # noqa: F401
+def test_orchagent_watchdog(duthosts,
+                            enum_rand_one_per_hwsku_hostname,
+                            enum_rand_one_asic_index,
+                            pause_orchagent):           # noqa: F401
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_multi_asic:
+        asic_id = enum_rand_one_asic_index
+    else:
+        asic_id = ''
+
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # if watchdog_processes does not exits, watchdog been disabled
     result = duthost.shell(
-                        r"docker exec -i swss sh -c 'test -f /etc/supervisor/watchdog_processes && echo exist'",
+                        r"docker exec -i swss{} sh -c \
+                                'test -f /etc/supervisor/watchdog_processes && echo exist'".format(asic_id),
                         module_ignore_errors=True)['stdout']
     logger.info('Check watchdog exist: {}'.format(result))
     if result != 'exist':
         pytest.skip("Skip orchagent watchdog test.")
 
-    make_ut_fail_if_process_not_running(duthost)
+    make_ut_fail_if_process_not_running(duthost, asic_id)
 
     # initialize LogAnalyzer for check stuck warning message
     last_loganalyzer, last_marker = create_log_analyzer(duthost)
@@ -133,5 +147,5 @@ def test_orchagent_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, pause_or
                             False,
                             "orchagent watchdog did not been trigger after {} seconds".format(WATCHDOG_TIMEOUT))
             else:
-                make_ut_fail_if_process_not_running(duthost)
+                make_ut_fail_if_process_not_running(duthost, asic_id)
                 current_attempt += 1

@@ -91,7 +91,7 @@ def get_skip_mod_list(duthost, mod_key=None):
     """
 
     skip_mod_list = []
-    dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    dut_vars = duthost.host.options['variable_manager'].get_vars()['hostvars'][duthost.hostname]
     if 'skip_modules' in dut_vars:
         if mod_key is None:
             for mod_type in list(dut_vars['skip_modules'].keys()):
@@ -123,7 +123,7 @@ def get_skip_logical_module_list(duthost, mod_key=None):
     """
 
     skip_logical_mod_list = []
-    dut_vars = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
+    dut_vars = duthost.host.options['variable_manager'].get_vars()['hostvars'][duthost.hostname]
     if 'skip_logical_modules' in dut_vars:
         if mod_key is None:
             for mod_type in list(dut_vars['skip_logical_modules'].keys()):

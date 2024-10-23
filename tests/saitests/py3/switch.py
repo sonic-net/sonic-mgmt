@@ -65,7 +65,7 @@ from switch_sai_thrift.sai_headers import SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRES
     SAI_SWITCH_ATTR_PORT_NUMBER, SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V4_STATE, SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V6_STATE,\
     SAI_VLAN_MEMBER_ATTR_VLAN_ID, SAI_PORT_STAT_IF_IN_UCAST_PKTS,\
     SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_QLEN, \
-    SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES
+    SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES, SAI_SWITCH_ATTR_CREDIT_WD
 
 
 from switch_sai_thrift.sai_headers import SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, SAI_SYSTEM_PORT_ATTR_QOS_VOQ_LIST
@@ -773,6 +773,24 @@ def sai_thrift_port_tx_enable(client, asic_type, port_ids, target='dst'):
         client.sai_thrift_set_port_attribute(port_list[target][port_id], attr)
 
 
+def sai_thrift_credit_wd_disable(client):
+    # Disable credit-watchdog on target asic index
+    attr_value = sai_thrift_attribute_value_t(booldata=0)
+    attr = sai_thrift_attribute_t(
+        id=SAI_SWITCH_ATTR_CREDIT_WD, value=attr_value)
+    status = client.sai_thrift_set_switch_attribute(attr)
+    return status
+
+
+def sai_thrift_credit_wd_enable(client):
+    # Enable credit-watchdog  on target asic-index
+    attr_value = sai_thrift_attribute_value_t(booldata=1)
+    attr = sai_thrift_attribute_t(
+        id=SAI_SWITCH_ATTR_CREDIT_WD, value=attr_value)
+    status = client.sai_thrift_set_switch_attribute(attr)
+    return status
+
+
 def sai_thrift_read_port_counters(client, asic_type, port):
     port_cnt_ids = []
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_DISCARDS)
@@ -787,7 +805,14 @@ def sai_thrift_read_port_counters(client, asic_type, port):
     port_cnt_ids.append(SAI_PORT_STAT_PFC_7_TX_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_OCTETS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_OUT_UCAST_PKTS)
-    port_cnt_ids.append(SAI_PORT_STAT_IN_DROPPED_PKTS)
+
+    # broadcom-dnx does not support SAI_PORT_STAT_IN_DROPPED_PKTS. Reading this counter may fail
+    # to retrieve other counters (https://github.com/sonic-net/sonic-buildimage/issues/19998).
+    # Since we cannot tell if the ASIC is DNX or or not from provided asic_type, read the counter
+    # separately in another SAI call for all broadcom ASIC.
+    if asic_type != 'broadcom':
+        port_cnt_ids.append(SAI_PORT_STAT_IN_DROPPED_PKTS)
+
     port_cnt_ids.append(SAI_PORT_STAT_OUT_DROPPED_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_IN_UCAST_PKTS)
     port_cnt_ids.append(SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS)
@@ -800,6 +825,14 @@ def sai_thrift_read_port_counters(client, asic_type, port):
         port, port_cnt_ids, len(port_cnt_ids))
     if asic_type == 'mellanox':
         counters_results.append(0)
+
+    # Read SAI_PORT_STAT_IN_DROPPED_PKTS now and insert the cnt at the correct
+    # index in the counter results.
+    if asic_type == 'broadcom':
+        in_drop_pkts_cnt_id = [SAI_PORT_STAT_IN_DROPPED_PKTS]
+        in_drop_pkts_cnt_result = client.sai_thrift_get_port_stats(
+            port, in_drop_pkts_cnt_id, 1)
+        counters_results.insert(12, in_drop_pkts_cnt_result[0])
 
     queue_list = []
     port_attr_list = client.sai_thrift_get_port_attribute(port)

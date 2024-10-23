@@ -62,6 +62,21 @@ grep 'vlab-01' -A 2 ./veos_vtb
 ```
 this is the IP for the DUT.
 
+#### DUT user name and password
+The DUT may enable TACACS AAA, if you can't login DUT with local user, please find TACACS user name and password by following steps:
+
+##### User name:
+```
+  1. If secret_group_vars['str']['ansible_ssh_user'] defined, the DUT user name is the value of secret_group_vars['str']['ansible_ssh_user']
+  2. If secret_group_vars['str']['ansible_ssh_user'] not defined, the DUT user name is the value of sonicadmin_user variable defined in group_vars/lab/secrets.yml
+```
+
+##### Password:
+```
+  1. If secret_group_vars['str']['altpasswords'] defined, the DUT user name is the value of secret_group_vars['str']['altpasswords'][0]
+  2. If secret_group_vars['str']['altpasswords'] not defined, the DUT user name is the value of sonicadmin_password variable defined in group_vars/lab/secrets.yml
+```
+
 
 Then, you can use this IP `10.250.0.101` to access that DUT.
 
@@ -153,3 +168,4 @@ For this article, some of the reference docs as:
 - [```Testbed Configuration```](/docs/testbed/README.testbed.Config.md): Introduction about Testbed configuration, mainly about the testbed.csv (Will be replaced by testbed.yaml).
 - [```New Testbed Configuration```](/docs/testbed/README.new.testbed.Configuration.md): Introduction about Testbed configuration, mainly about the Testbed.yaml.
 - [```KVM Testbed Setup```](/docs/testbed/README.testbed.VsSetup.md)
+- [```Testbed TACACS server```](/docs/testbed/README.testbed.TACACS.md)
