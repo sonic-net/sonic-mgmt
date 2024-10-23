@@ -4,10 +4,11 @@ This test file is created for T2 chassis specific reboot test, need to skip for 
 import pytest
 import random
 import logging
+import time
 from tests.common.reboot import wait_for_startup,\
                                 sync_reboot_history_queue_with_dut,\
-                                REBOOT_TYPE_HISTOYR_QUEUE,\
-                                check_interfaces_and_services
+                                REBOOT_TYPE_HISTOYR_QUEUE
+from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 
 pytestmark = [
@@ -15,13 +16,14 @@ pytestmark = [
     pytest.mark.topology('t2')
 ]
 
+
 def chassis_cold_reboot(dut, localhost):
     logging.info(
         "Sync reboot cause history queue with T2 reboot cause history queue")
     sync_reboot_history_queue_with_dut(dut)
 
     logging.info("Run cold reboot on {}".format(dut))
-    reboot_res, dut_datetime = duthost.command("reboot")
+    reboot_res, dut_datetime = dut.command("reboot")
 
     # Append the last reboot type to the queue
     logging.info("Append the latest reboot type to the queue")
@@ -42,7 +44,8 @@ def get_core_dump(duthost):
 
 def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
     """
-    @summary: This test case is to perform cold reboot on different linecards within 30 seconds(we consider it as parallel reboot).
+    @summary: This test case is to perform cold reboot on different linecards within 30 seconds, 
+    we consider it as parallel reboot.
 
     """
     core_dumps = {}
@@ -69,9 +72,9 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
         if new_core_dumps:
             logging.info("New core dump found on  {} during reboot! {}".format(dut.hostname, new_core_dumps))
             assert False
-        #After test, make sure all LCs are up and links are up
+        # After test, make sure all LCs are up and links are up
         wait_for_startup(dut, localhost, delay=10, timeout=300)
-        interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
+        interfaces = conn_graph_facts.get("device_conn", {}).get(dut.hostname, {})
         check_interfaces_and_services(dut, interfaces, xcvr_skip_list)
 
     
