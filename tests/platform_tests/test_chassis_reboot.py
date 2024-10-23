@@ -64,6 +64,8 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
         time.sleep(rand_interval)
 
     for dut in duthosts:
+        # After test, make sure all LCs are up and links are up
+        wait_for_startup(dut, localhost, delay=10, timeout=300)
         if dut.is_supervisor_node():
             continue
         post_core_dump = get_core_dump(dut)
@@ -72,7 +74,5 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
         if new_core_dumps:
             logging.info("New core dump found on  {} during reboot! {}".format(dut.hostname, new_core_dumps))
             assert False
-        # After test, make sure all LCs are up and links are up
-        wait_for_startup(dut, localhost, delay=10, timeout=300)
         interfaces = conn_graph_facts.get("device_conn", {}).get(dut.hostname, {})
         check_interfaces_and_services(dut, interfaces, xcvr_skip_list)
