@@ -1528,6 +1528,12 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
     conditions:
       - "topo_type in ['tgen']"
 
+snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py:
+  skip:
+    reason: "Global pause is not supported in cisco-8000."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####            snmp             #####
 #######################################
