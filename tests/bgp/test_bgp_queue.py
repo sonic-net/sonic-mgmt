@@ -59,6 +59,11 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
     for k, v in list(bgp_facts['bgp_neighbors'].items()):
         # Only consider established bgp sessions
         if v['state'] == 'established':
+            # For "peer group" if it's internal it will be "INTERNAL_PEER_V4" or "INTERNAL_PEER_V6"
+            # If it's external it will be "RH_V4", "RH_V6", "AH_V4", "AH_V6", ...
+            if "INTERNAL" in v["peer group"] and duthost.get_facts().get('modular_chassis'):
+                # Skip iBGP neighbors since we only want to verify eBGP
+                continue
             assert (k in arp_dict.keys() or k in ndp_dict.keys())
             if k in arp_dict:
                 ifname = arp_dict[k].split('.', 1)[0]
@@ -70,9 +75,9 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
                 for port in mg_facts['minigraph_portchannels'][ifname]['members']:
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
                     for q in range(0, 7):
-                        assert(get_queue_counters(asichost, port, q) == 0)
+                        assert (get_queue_counters(asichost, port, q) == 0)
             else:
                 logger.info(ifname)
                 for q in range(0, 7):
-                    assert(get_queue_counters(asichost, ifname, q) == 0)
+                    assert (get_queue_counters(asichost, ifname, q) == 0)
             processed_intfs.add(ifname)

@@ -32,6 +32,13 @@ r, ".* sonic systemd.* kdump-tools.service - Kernel crash dump capture service.*
 r, ".* ERR swss#orchagent: :- getPort: Failed to get cached bridge port ID.*"
 r, ".* ERR syncd#syncd: .* SAI_API_PORT:brcm_sai_get_port_attribute:\d+ Error -2 processing  port attribute ID: 17.*"
 
+# Errors for config reload on broadcom platform on 202311
+r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListEnumCapabilities: Failed to get attribute.*"
+r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListAttrCapabilities: Failed to get attribute.*"
+r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Failed to get attribute.*"
+r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
+
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
 r, ".* ERR macsec#wpa_supplicant.*could not process SIGINT or SIGTERM in two seconds.*"
@@ -49,6 +56,7 @@ r, ".* ERR syncd\d*#syncd.*translateVidToRid: unable to get RID for VID.*"
 r, ".* ERR dhcp_relay.*setsockopt.*No such device.*"
 r, ".* ERR syncd\d*#syncd.*Failed to get attr of SAI_OBJECT_TYPE_ACL_COUNTER.*"
 r, ".* ERR syncd\d*#syncd.*Failed to get (stats|attr) of .*(MACSEC|MACsec).*"
+r, ".*Metadata file \/etc\/sonic\/vs_chassis_metadata.json not found.*"
 
 ##### White list below messages found on physical devices for now. Need to address them later.
 
@@ -60,7 +68,7 @@ r, ".* ERR bgp#bgpcfgd: .*BGPVac.*attribute is supported.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/14233938
 r, ".* ERR swss\d*#fdbsyncd: :- readData: netlink reports an error=-25 on reading a netlink socket.*"
-r, ".* ERR swss\d*#fdbsyncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
+r, ".* ERR swss\d*#.*syncd: :- readData: netlink reports an error=-33 on reading a netlink socket.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14213168
 r, ".* ERR /hostcfgd: sonic-kdump-config --disable - failed.*"
@@ -231,6 +239,11 @@ r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
 r, ".*ERR kernel: \[.*\] firmware_class: See https:\/\/wiki.debian.org\/Firmware for information about missing firmware.*"
 r, ".*ERR kernel: \[.*\] snd_hda_intel.*no codecs found!.*"
 
+# https://msazure.visualstudio.com/One/_workitems/edit/26734952
+# https://msazure.visualstudio.com/One/_workitems/edit/27214953
+r, ".* ERR syncd#syncd.* SAI_API_QUEUE:_brcm_sai_cosq_stat_get.* Bulk read not supported.*"
+r, ".* ERR syncd#syncd.* SAI_API_SWITCH:sai_bulk_object_get_stats.* get bulk queue stats failed.*"
+
 #Cisco platform ignore messages
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_0 is not ready.*"
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_1 is not ready.*"
@@ -248,14 +261,15 @@ r, ".* ERR syncd#syncd:.*-E-HLD-0- get_dependent_objects: NULL dependee.*"
 r, ".* ERR syncd\d*#syncd:.*la_acl_key_profile_base::initialize failed to place udk for key type IPV6.*"
 r, ".* ERR syncd#syncd:.*SAI_LOG|SAI_API_TUNNEL: VLAN to VNI not implemented yet.*"
 r, ".* ERR syncd\d*#syncd: :- setEndTime: event 'create:SAI_OBJECT_TYPE_SWITCH:oid:0x[0-9a-fA-F]*' took \d* ms to execute.*"
-r, ".* ERR syncd\d*#syncd: :- threadFunction: time span WD exceeded \d* ms for create:SAI_OBJECT_TYPE_SWITCH:oid:0x21000000000000.*"
+r, ".* ERR syncd.*#syncd: :- threadFunction: time span WD exceeded \d* ms for create:SAI_OBJECT_TYPE_SWITCH:oid:0x21000000000000.*"
 r, ".* ERR syncd\d*#syncd:.* SDK_LOG|-E-API-0- shared/src/hld/system/la_device_impl_pacgbakpg.cpp::\d* get_trap_configuration API returned: status = Leaba_Err: Entry requested not found: la_status silicon_one::gibraltar::la_device_impl_pacgbakpg::do_get_trap_configuration.*"
 r, ".* ERR syncd\d*#syncd:.*Failed to retrieve system port SAI ID for port ID .*, switch not in VOQ mode.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_ACL: Invalid or unsupported ACL match field 4143.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_BUFFER: get_buffer_pool_stats unknown counter 20.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_BUFFER: get_ingress_priority_group_stats unknown counter 5.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_BUFFER: get_ingress_priority_group_stats unknown counter 7.*"
-r, ".* ERR syncd\d*#syncd:.*SAI_API_HOSTIF: src/sai_trap.cpp:.*: Invalid trap event code .*"
+r, ".* ERR syncd.*#syncd:.*SAI_API_HOSTIF: src/sai_trap.cpp:.*: Invalid trap event code .*"
+r, ".* ERR syncd.*#syncd:.*SDK_LOG|-E-HLD-0.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_LAG: resolve_feat_over_member_ports: found port index .*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_LAG: resolve_feat_over_member_ports: port index .* now selected.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_PORT: Invalid port counter .*index.*"
@@ -268,3 +282,12 @@ r, ".* INFO .*[duty_cycle_map]: illegal pwm value .*"
 r, ".* INFO .*command '/usr/sbin/smartctl' failed: [116] Stale file handle.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'high_threshold' unavailable in database 'STATE_DB'.*"
 r, ".* INFO healthd.*Key 'TEMPERATURE_INFO|ASIC' field 'temperature' unavailable in database 'STATE_DB'.*"
+
+# Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
+r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
+r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"
+
+# Errors for config reload/reboot on mellanox platform
+# SAI implement missing for the https://github.com/sonic-net/sonic-buildimage/pull/18912 caused the err msg pop up, need to ignore the err msgs before it SAI implement is done.
+r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
+r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"

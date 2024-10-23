@@ -98,6 +98,7 @@ def collect_dut_info(dut):
         back_end_asics = dut.get_backend_asic_ids()
 
     asic_services = defaultdict(list)
+    asic_type = dut.facts['asic_type']
     for service in dut.sonichost.DEFAULT_ASIC_SERVICES:
         # for multi ASIC randomly select one frontend ASIC
         # and one backend ASIC
@@ -114,6 +115,7 @@ def collect_dut_info(dut):
         "intf_status": status,
         "features": features,
         "asic_services": asic_services,
+        "asic_type": asic_type
     }
 
     if dut.sonichost.is_multi_asic:
@@ -317,10 +319,25 @@ def test_update_saithrift_ptf(request, ptfhost):
         pytest.skip("No URL specified for python saithrift package")
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
-    result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
+    # Retry download of saithrift library
+    retry_count = 5
+    while retry_count > 0:
+        result = ptfhost.get_url(url=py_saithrift_url, dest="/root", module_ignore_errors=True, timeout=60)
+        if not result["failed"] or "OK" in result["msg"]:
+            break
+        time.sleep(60)
+        retry_count -= 1
+
     if result["failed"] or "OK" not in result["msg"]:
         pytest.skip("Download failed/error while installing python saithrift package")
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
+    # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
+    # We need to move it out to the correct location
+    PY_PATH = "/usr/lib/python3/dist-packages/"
+    SRC_PATH = PY_PATH + "saithrift-0.9-py3.11.egg/switch_sai_thrift"
+    DST_PATH = PY_PATH + "switch_sai_thrift"
+    if ptfhost.stat(path=SRC_PATH)['stat']['exists'] and not ptfhost.stat(path=DST_PATH)['stat']['exists']:
+        ptfhost.copy(src=SRC_PATH, dest=PY_PATH, remote_src=True)
     logging.info("Python saithrift package installed successfully")
 
 
@@ -357,11 +374,52 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
         logger.warning('Unable to create a datafile for autoneg tests: {}. Err: {}'.format(filepath, e))
 
 
+def test_disable_startup_tsa_tsb_service(duthosts, localhost):
+    """disable startup-tsa-tsb.service.
+    Args:
+        duthosts: Fixture returns a list of Ansible object DuT.
+
+    Returns:
+        None.
+    """
+    for duthost in duthosts.frontend_nodes:
+        platform = duthost.facts['platform']
+        file_check = {}
+        startup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/startup-tsa-tsb.conf".format(platform)
+        backup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/backup-startup-tsa-tsb.bck".format(platform)
+        file_check = duthost.shell("[ -f {} ]".format(startup_tsa_tsb_file_path), module_ignore_errors=True)
+        if file_check.get('rc') == 0:
+            out = duthost.shell("cat {}".format(startup_tsa_tsb_file_path), module_ignore_errors=True)['rc']
+            if not out:
+                duthost.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path))
+                output = duthost.shell("TSB", module_ignore_errors=True)
+                pytest_assert(not output['rc'], "Failed TSB")
+        else:
+            logger.info("{} file does not exist in the specified path on dut {}".
+                        format(startup_tsa_tsb_file_path, duthost.hostname))
+
+
 """
     Separator for internal pretests.
     Please add public pretest above this comment and keep internal
     pretests below this comment.
 """
+
+
+def test_backend_acl_load(duthosts, enum_dut_hostname, tbinfo):
+    duthost = duthosts[enum_dut_hostname]
+    pytest_require("t0-backend" in tbinfo["topo"]["name"],
+                   "Skip 'test_backend_acl_load' on non t0-backend testbeds.")
+    out = duthost.command("systemctl restart backend-acl.service")
+    pytest_assert(out["rc"] == 0, "Failed to load backend acl: {}".format(out["stderr"]))
+    rules = duthost.show_and_parse("show acl rule DATAACL")
+    for rule in rules:
+        if "DATAACL" not in rule["table"]:
+            continue
+        if ((rule["rule"].startswith("RULE") and rule["action"] != "FORWARD")
+                or (rule["rule"].startswith("DEFAULT") and rule["action"] != "DROP")
+                or rule["status"] != "Active"):
+            pytest.fail("Backend acl not installed succesfully: {}".format(rule))
 
 
 # This one is special. It is public, but we need to ensure that it is the last one executed in pre-test.
