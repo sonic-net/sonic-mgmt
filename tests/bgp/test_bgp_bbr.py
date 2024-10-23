@@ -20,8 +20,9 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until, delete_running_config
-from tests.common.gu_utils import apply_patch, expect_op_success
+from tests.common.gu_utils import apply_patch_wrapper, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 
 
 pytestmark = [
@@ -75,12 +76,13 @@ def add_bbr_config_to_running_config(duthost, status):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)
@@ -97,12 +99,13 @@ def config_bbr_by_gcu(duthost, status):
             "value": "{}".format(status)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        output = apply_patch_wrapper(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)

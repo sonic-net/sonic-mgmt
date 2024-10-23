@@ -1,7 +1,8 @@
 import os
 import logging
 import json
-from tests.common.gu_utils import apply_patch, generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import apply_patch_wrapper, generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
 
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -39,6 +40,7 @@ def load_and_apply_json_patch(duthost, file_name, setup):
     with open(os.path.join(TEMPLATES_DIR, file_name)) as file:
         json_patch = json.load(file)
 
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
     duts_to_apply = [duthost]
     outputs = []
     if setup["is_dualtor"]:
@@ -50,7 +52,7 @@ def load_and_apply_json_patch(duthost, file_name, setup):
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
-            output = apply_patch(dut, json_data=json_patch, dest_file=tmpfile)
+            output = apply_patch_wrapper(dut, json_data=json_patch, dest_file=tmpfile)
             outputs.append(output)
         finally:
             delete_tmpfile(dut, tmpfile)
