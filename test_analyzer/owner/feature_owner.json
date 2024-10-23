@@ -1292,6 +1292,21 @@
         ]
     },
     {
+        "feature": "smartswitch",
+        "owner": "Prince George",
+        "email": "prgeor@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "smartswitch.platform_tests.test_reload_dpu",
+                    "smartswitch.platform_tests.test_show_platform_dpu"
+                ],
+                "owner": "Prince George",
+                "email": "prgeor@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "scp",
         "owner": "Hua Liu",
         "email": "liuh@microsoft.com",
