@@ -670,7 +670,7 @@ def skip_sonic_leaf_fanout(fanouthosts):
                 pytest.skip("OS Version of fanout is older than 202205, unsupported")
             asic_type = fanouthost.facts['asic_type']
             platform = fanouthost.facts["platform"]
-            if not (asic_type in ["broadcom"] or platform in ["armhf-nokia_ixs7215_52x-r0"]):
+            if not (asic_type in ["broadcom", "mellanox"] or platform in ["armhf-nokia_ixs7215_52x-r0"]):
                 pytest.skip("Not supporteds on SONiC leaf-fanout platform")
 
 
