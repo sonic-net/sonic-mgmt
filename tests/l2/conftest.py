@@ -15,4 +15,3 @@ def pytest_addoption(parser):
         default="",
         help="Specify a target image for upgrade",
         )
-

@@ -11,8 +11,7 @@ from tests.common.helpers.upgrade_helpers import install_sonic
 
 CONFIG_DB = '/etc/sonic/config_db.json'
 CONFIG_DB_BAK = '/etc/sonic/config_db.json.bak'
-MINIGRAPH = '/etc/sonic/minigraph.xml'
-MINIGRAPH_BAK = '/etc/sonic/minigraph.xml.bak'
+DUT_IMG_PATH = '/tmp/tmp-sonic-img.bin'
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,14 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.skip_check_dut_health
 ]
+
+
+def simple_install_sonic(duthost, path):
+    """
+    @summary: Install an image onto DUT and activate it.
+    """
+    duthost.copy(src=path, dest=DUT_IMG_PATH)
+    duthost.shell("sudo sonic-installer install {} -y".format(DUT_IMG_PATH))
 
 
 def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localhost, tbinfo):
@@ -49,7 +56,6 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
     if source_image:
         install_sonic(duthost, source_image, tbinfo)
     reboot(duthost, localhost, reboot_type="cold")
-    init_img = duthost.shell('sudo sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
 
     def _verify_config_db(duthost):
         for table in ["TELEMETRY", "RESTAPI"]:
@@ -98,34 +104,13 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
         pytest.skip("Unable to clear minigraph table when setting up L2 config for current image. Skipping the test.")
 
     # Step 3: Install target image.
-    minigraph_back_up = False
     if target_image:
-        # This is a hack: install_sonic thinks the device is configured with minigraph if minigraph.xml is present
-        # in the old config and will attempt to force the device to load_minigraph after reboot.
-        # Remove old minigraph.xml to prevent that.
-        # See ansible/library/reduce_and_add_sonic_images.py
-        minigraph_back_up = True
-        duthost.shell("sudo mv {} {}".format(MINIGRAPH, MINIGRAPH_BAK))
-        # After configuration to L2 switch, target no longer support url download.
-        install_sonic(duthost, target_image, tbinfo)
+        # Use simple_install_sonic to avoid messing with config logic.
+        simple_install_sonic(duthost, target_image)
+        _verify_config_db(duthost)
 
     # Step 4: Reboot to target image.
     reboot(duthost, localhost, reboot_type="cold")
 
     # Step 5: Verifies no config from minigraph is written into ConfigDB.
-    try:
-        _verify_config_db(duthost)
-    except Exception:
-        raise
-    finally:
-        # Restore from L2 and new images, restore image first.
-        duthost.shell("sudo sonic-installer set-next-boot {}".format(init_img))
-        reboot(duthost, localhost, reboot_type="cold")
-        cur_img = duthost.shell('sudo sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
-        logger.info("Current image: {}".format(cur_img))
-        duthost.shell("sudo cp {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
-        config_reload(duthost)
-        duthost.shell("sudo rm {}".format(CONFIG_DB_BAK))
-        if minigraph_back_up:
-            duthost.shell("sudo cp {} {}".format(MINIGRAPH_BAK, MINIGRAPH))
-            duthost.shell("sudo rm {}".format(MINIGRAPH_BAK))
+    _verify_config_db(duthost)
