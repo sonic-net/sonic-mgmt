@@ -18,8 +18,8 @@ pytestmark = [
 ]
 
 NTP_CONF = "/etc/ntp.conf"
-NTP_SERVER_INIT = "10.0.0.1"
-NTP_SERVER_DUMMY = "10.0.0.2"
+NTP_SERVER_INIT = "10.11.0.1"
+NTP_SERVER_DUMMY = "10.11.0.2"
 NTP_SERVER_RE = "server {} iburst"
 
 
