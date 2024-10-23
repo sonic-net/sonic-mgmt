@@ -98,6 +98,7 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
         pytest.skip("Unable to clear minigraph table when setting up L2 config for current image. Skipping the test.")
 
     # Step 3: Install target image.
+    minigraph_back_up = False
     if target_image:
         # This is a hack: install_sonic thinks the device is configured with minigraph if minigraph.xml is present
         # in the old config and will attempt to force the device to load_minigraph after reboot.
