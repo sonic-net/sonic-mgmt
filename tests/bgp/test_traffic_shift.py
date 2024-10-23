@@ -225,8 +225,8 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
 
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut,
-                                                                          traffic_shift_community),
+        pytest_assert(wait_until(90, 10, 0, verify_only_loopback_routes_are_announced_to_neighs, duthosts, duthost,
+                                 nbrhosts_to_dut, traffic_shift_community),
                       "Failed to verify routes on nbr in TSA")
     finally:
         """
