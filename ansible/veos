@@ -3883,6 +3883,468 @@ vms_67:
   hosts:
     VM67000:
       ansible_host: 172.16.150.10
+    VM67001:
+      ansible_host: 172.16.150.11
+    VM67002:
+      ansible_host: 172.16.150.12
+    VM67003:
+      ansible_host: 172.16.150.13
+    VM67004:
+      ansible_host: 172.16.150.14
+    VM67005:
+      ansible_host: 172.16.150.15
+    VM67006:
+      ansible_host: 172.16.150.16
+    VM67007:
+      ansible_host: 172.16.150.17
+    VM67008:
+      ansible_host: 172.16.150.18
+    VM67009:
+      ansible_host: 172.16.150.19
+    VM67010:
+      ansible_host: 172.16.150.20
+    VM67011:
+      ansible_host: 172.16.150.21
+    VM67012:
+      ansible_host: 172.16.150.22
+    VM67013:
+      ansible_host: 172.16.150.23
+    VM67014:
+      ansible_host: 172.16.150.24
+    VM67015:
+      ansible_host: 172.16.150.25
+    VM67016:
+      ansible_host: 172.16.150.26
+    VM67017:
+      ansible_host: 172.16.150.27
+    VM67018:
+      ansible_host: 172.16.150.28
+    VM67019:
+      ansible_host: 172.16.150.29
+    VM67020:
+      ansible_host: 172.16.150.30
+    VM67021:
+      ansible_host: 172.16.150.31
+    VM67022:
+      ansible_host: 172.16.150.32
+    VM67023:
+      ansible_host: 172.16.150.33
+    VM67024:
+      ansible_host: 172.16.150.34
+    VM67025:
+      ansible_host: 172.16.150.35
+    VM67026:
+      ansible_host: 172.16.150.36
+    VM67027:
+      ansible_host: 172.16.150.37
+    VM67028:
+      ansible_host: 172.16.150.38
+    VM67029:
+      ansible_host: 172.16.150.39
+    VM67030:
+      ansible_host: 172.16.150.40
+    VM67031:
+      ansible_host: 172.16.150.41
+    VM67032:
+      ansible_host: 172.16.150.42
+    VM67033:
+      ansible_host: 172.16.150.43
+    VM67034:
+      ansible_host: 172.16.150.44
+    VM67035:
+      ansible_host: 172.16.150.45
+    VM67036:
+      ansible_host: 172.16.150.46
+    VM67037:
+      ansible_host: 172.16.150.47
+    VM67038:
+      ansible_host: 172.16.150.48
+    VM67039:
+      ansible_host: 172.16.150.49
+    VM67040:
+      ansible_host: 172.16.150.50
+    VM67041:
+      ansible_host: 172.16.150.51
+    VM67042:
+      ansible_host: 172.16.150.52
+    VM67043:
+      ansible_host: 172.16.150.53
+    VM67044:
+      ansible_host: 172.16.150.54
+    VM67045:
+      ansible_host: 172.16.150.55
+    VM67046:
+      ansible_host: 172.16.150.56
+    VM67047:
+      ansible_host: 172.16.150.57
+    VM67048:
+      ansible_host: 172.16.150.58
+    VM67049:
+      ansible_host: 172.16.150.59
+    VM67050:
+      ansible_host: 172.16.150.60
+    VM67051:
+      ansible_host: 172.16.150.61
+    VM67052:
+      ansible_host: 172.16.150.62
+    VM67053:
+      ansible_host: 172.16.150.63
+    VM67054:
+      ansible_host: 172.16.150.64
+    VM67055:
+      ansible_host: 172.16.150.65
+    VM67056:
+      ansible_host: 172.16.150.66
+    VM67057:
+      ansible_host: 172.16.150.67
+    VM67058:
+      ansible_host: 172.16.150.68
+    VM67059:
+      ansible_host: 172.16.150.69
+    VM67060:
+      ansible_host: 172.16.150.70
+    VM67061:
+      ansible_host: 172.16.150.71
+    VM67062:
+      ansible_host: 172.16.150.72
+    VM67063:
+      ansible_host: 172.16.150.73
+    VM67064:
+      ansible_host: 172.16.150.74
+    VM67065:
+      ansible_host: 172.16.150.75
+    VM67066:
+      ansible_host: 172.16.150.76
+    VM67067:
+      ansible_host: 172.16.150.77
+    VM67068:
+      ansible_host: 172.16.150.78
+    VM67069:
+      ansible_host: 172.16.150.79
+    VM67070:
+      ansible_host: 172.16.150.80
+    VM67071:
+      ansible_host: 172.16.150.81
+    VM67072:
+      ansible_host: 172.16.150.82
+    VM67073:
+      ansible_host: 172.16.150.83
+    VM67074:
+      ansible_host: 172.16.150.84
+    VM67075:
+      ansible_host: 172.16.150.85
+    VM67076:
+      ansible_host: 172.16.150.86
+    VM67077:
+      ansible_host: 172.16.150.87
+    VM67078:
+      ansible_host: 172.16.150.88
+    VM67079:
+      ansible_host: 172.16.150.89
+    VM67080:
+      ansible_host: 172.16.150.90
+    VM67081:
+      ansible_host: 172.16.150.91
+    VM67082:
+      ansible_host: 172.16.150.92
+    VM67083:
+      ansible_host: 172.16.150.93
+    VM67084:
+      ansible_host: 172.16.150.94
+    VM67085:
+      ansible_host: 172.16.150.95
+    VM67086:
+      ansible_host: 172.16.150.96
+    VM67087:
+      ansible_host: 172.16.150.97
+    VM67088:
+      ansible_host: 172.16.150.98
+    VM67089:
+      ansible_host: 172.16.150.99
+    VM67090:
+      ansible_host: 172.16.150.100
+    VM67091:
+      ansible_host: 172.16.150.101
+    VM67092:
+      ansible_host: 172.16.150.102
+    VM67093:
+      ansible_host: 172.16.150.103
+    VM67094:
+      ansible_host: 172.16.150.104
+    VM67095:
+      ansible_host: 172.16.150.105
+    VM67096:
+      ansible_host: 172.16.150.106
+    VM67097:
+      ansible_host: 172.16.150.107
+    VM67098:
+      ansible_host: 172.16.150.108
+    VM67099:
+      ansible_host: 172.16.150.109
+    VM67100:
+      ansible_host: 172.16.150.110
+    VM67101:
+      ansible_host: 172.16.150.111
+    VM67102:
+      ansible_host: 172.16.150.112
+    VM67103:
+      ansible_host: 172.16.150.113
+    VM67104:
+      ansible_host: 172.16.150.114
+    VM67105:
+      ansible_host: 172.16.150.115
+    VM67106:
+      ansible_host: 172.16.150.116
+    VM67107:
+      ansible_host: 172.16.150.117
+    VM67108:
+      ansible_host: 172.16.150.118
+    VM67109:
+      ansible_host: 172.16.150.119
+    VM67110:
+      ansible_host: 172.16.150.120
+    VM67111:
+      ansible_host: 172.16.150.121
+    VM67112:
+      ansible_host: 172.16.150.122
+    VM67113:
+      ansible_host: 172.16.150.123
+    VM67114:
+      ansible_host: 172.16.150.124
+    VM67115:
+      ansible_host: 172.16.150.125
+    VM67116:
+      ansible_host: 172.16.150.126
+    VM67117:
+      ansible_host: 172.16.150.127
+    VM67118:
+      ansible_host: 172.16.150.128
+    VM67119:
+      ansible_host: 172.16.150.129
+    VM67120:
+      ansible_host: 172.16.150.130
+    VM67121:
+      ansible_host: 172.16.150.131
+    VM67122:
+      ansible_host: 172.16.150.132
+    VM67123:
+      ansible_host: 172.16.150.133
+    VM67124:
+      ansible_host: 172.16.150.134
+    VM67125:
+      ansible_host: 172.16.150.135
+    VM67126:
+      ansible_host: 172.16.150.136
+    VM67127:
+      ansible_host: 172.16.150.137
+    VM67128:
+      ansible_host: 172.16.150.138
+    VM67129:
+      ansible_host: 172.16.150.139
+    VM67130:
+      ansible_host: 172.16.150.140
+    VM67131:
+      ansible_host: 172.16.150.141
+    VM67132:
+      ansible_host: 172.16.150.142
+    VM67133:
+      ansible_host: 172.16.150.143
+    VM67134:
+      ansible_host: 172.16.150.144
+    VM67135:
+      ansible_host: 172.16.150.145
+    VM67136:
+      ansible_host: 172.16.150.146
+    VM67137:
+      ansible_host: 172.16.150.147
+    VM67138:
+      ansible_host: 172.16.150.148
+    VM67139:
+      ansible_host: 172.16.150.149
+    VM67140:
+      ansible_host: 172.16.150.150
+    VM67141:
+      ansible_host: 172.16.150.151
+    VM67142:
+      ansible_host: 172.16.150.152
+    VM67143:
+      ansible_host: 172.16.150.153
+    VM67144:
+      ansible_host: 172.16.150.154
+    VM67145:
+      ansible_host: 172.16.150.155
+    VM67146:
+      ansible_host: 172.16.150.156
+    VM67147:
+      ansible_host: 172.16.150.157
+    VM67148:
+      ansible_host: 172.16.150.158
+    VM67149:
+      ansible_host: 172.16.150.159
+    VM67150:
+      ansible_host: 172.16.150.160
+    VM67151:
+      ansible_host: 172.16.150.161
+    VM67152:
+      ansible_host: 172.16.150.162
+    VM67153:
+      ansible_host: 172.16.150.163
+    VM67154:
+      ansible_host: 172.16.150.164
+    VM67155:
+      ansible_host: 172.16.150.165
+    VM67156:
+      ansible_host: 172.16.150.166
+    VM67157:
+      ansible_host: 172.16.150.167
+    VM67158:
+      ansible_host: 172.16.150.168
+    VM67159:
+      ansible_host: 172.16.150.169
+    VM67160:
+      ansible_host: 172.16.150.170
+    VM67161:
+      ansible_host: 172.16.150.171
+    VM67162:
+      ansible_host: 172.16.150.172
+    VM67163:
+      ansible_host: 172.16.150.173
+    VM67164:
+      ansible_host: 172.16.150.174
+    VM67165:
+      ansible_host: 172.16.150.175
+    VM67166:
+      ansible_host: 172.16.150.176
+    VM67167:
+      ansible_host: 172.16.150.177
+    VM67168:
+      ansible_host: 172.16.150.178
+    VM67169:
+      ansible_host: 172.16.150.179
+    VM67170:
+      ansible_host: 172.16.150.180
+    VM67171:
+      ansible_host: 172.16.150.181
+    VM67172:
+      ansible_host: 172.16.150.182
+    VM67173:
+      ansible_host: 172.16.150.183
+    VM67174:
+      ansible_host: 172.16.150.184
+    VM67175:
+      ansible_host: 172.16.150.185
+    VM67176:
+      ansible_host: 172.16.150.186
+    VM67177:
+      ansible_host: 172.16.150.187
+    VM67178:
+      ansible_host: 172.16.150.188
+    VM67179:
+      ansible_host: 172.16.150.189
+    VM67180:
+      ansible_host: 172.16.150.190
+    VM67181:
+      ansible_host: 172.16.150.191
+    VM67182:
+      ansible_host: 172.16.150.192
+    VM67183:
+      ansible_host: 172.16.150.193
+    VM67184:
+      ansible_host: 172.16.150.194
+    VM67185:
+      ansible_host: 172.16.150.195
+    VM67186:
+      ansible_host: 172.16.150.196
+    VM67187:
+      ansible_host: 172.16.150.197
+    VM67188:
+      ansible_host: 172.16.150.198
+    VM67189:
+      ansible_host: 172.16.150.199
+    VM67190:
+      ansible_host: 172.16.150.200
+    VM67191:
+      ansible_host: 172.16.150.201
+    VM67192:
+      ansible_host: 172.16.150.202
+    VM67193:
+      ansible_host: 172.16.150.203
+    VM67194:
+      ansible_host: 172.16.150.204
+    VM67195:
+      ansible_host: 172.16.150.205
+    VM67196:
+      ansible_host: 172.16.150.206
+    VM67197:
+      ansible_host: 172.16.150.207
+    VM67198:
+      ansible_host: 172.16.150.208
+    VM67199:
+      ansible_host: 172.16.150.209
+    VM67200:
+      ansible_host: 172.16.150.210
+    VM67201:
+      ansible_host: 172.16.150.211
+    VM67202:
+      ansible_host: 172.16.150.212
+    VM67203:
+      ansible_host: 172.16.150.213
+    VM67204:
+      ansible_host: 172.16.150.214
+    VM67205:
+      ansible_host: 172.16.150.215
+    VM67206:
+      ansible_host: 172.16.150.216
+    VM67207:
+      ansible_host: 172.16.150.217
+    VM67208:
+      ansible_host: 172.16.150.218
+    VM67209:
+      ansible_host: 172.16.150.219
+    VM67210:
+      ansible_host: 172.16.150.220
+    VM67211:
+      ansible_host: 172.16.150.221
+    VM67212:
+      ansible_host: 172.16.150.222
+    VM67213:
+      ansible_host: 172.16.150.223
+    VM67214:
+      ansible_host: 172.16.150.224
+    VM67215:
+      ansible_host: 172.16.150.225
+    VM67216:
+      ansible_host: 172.16.150.226
+    VM67217:
+      ansible_host: 172.16.150.227
+    VM67218:
+      ansible_host: 172.16.150.228
+    VM67219:
+      ansible_host: 172.16.150.229
+    VM67220:
+      ansible_host: 172.16.150.230
+    VM67221:
+      ansible_host: 172.16.150.231
+    VM67222:
+      ansible_host: 172.16.150.232
+    VM67223:
+      ansible_host: 172.16.150.233
+    VM67224:
+      ansible_host: 172.16.150.234
+    VM67225:
+      ansible_host: 172.16.150.235
+    VM67226:
+      ansible_host: 172.16.150.236
+    VM67227:
+      ansible_host: 172.16.150.237
+    VM67228:
+      ansible_host: 172.16.150.238
+    VM67229:
+      ansible_host: 172.16.150.239
+    VM67230:
+      ansible_host: 172.16.150.240
+    VM67231:
+      ansible_host: 172.16.150.241
 
 vms_68:
   hosts:

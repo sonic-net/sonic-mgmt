@@ -44,7 +44,7 @@ str3-7260cx3-acs-root03,Ethernet50/1,str3-msn4700-fanout-02,Ethernet248,100000,"
 str3-7260cx3-acs-root03,Ethernet53/1,str3-7060x6-64pe-fan-1,Ethernet504,100000,"3200-3399",Trunk,off
 str3-7260cx3-acs-root03,Ethernet54/1,str3-7060x6-64pe-fan-2,Ethernet496,100000,"3400-3659",Trunk,off
 str3-7260cx3-acs-root03,Ethernet55/1,str3-sn5600-fan-1,Ethernet504,100000,"3660-3920",Trunk,off
-str3-7260cx3-acs-root03,Ethernet56/1,str3-7060x6-64pe-th5p-fan-1,Ethernet496,100000,"2745-2992",Trunk,off
+str3-7260cx3-acs-root03,Ethernet56/1,str3-7060x6-64pe-th5p-fan-1,Ethernet496,100000,"2745-2999,3970-3972",Trunk,off
 str3-7260cx3-acs-root03,Ethernet47/1,str3-msn4700-fanout-04,etp32,100000,"2650-2680",Trunk,off
 str3-7260cx3-acs-root03,Ethernet57/1,str3-msn4700-fanout-05,etp32,100000,"2681-2711",Trunk,off
 str3-7260cx3-acs-root03,Ethernet58/1,str3-msn4700-fanout-06,etp32,100000,"2712-2742",Trunk,off
@@ -2684,6 +2684,16 @@ str3-7060x6-64pe-th5p-1,Ethernet484,str3-7060x6-64pe-th5p-fan-1,Ethernet484,1000
 str3-7060x6-64pe-th5p-1,Ethernet485,str3-7060x6-64pe-th5p-fan-1,Ethernet485,100000,2990,Access,off
 str3-7060x6-64pe-th5p-1,Ethernet486,str3-7060x6-64pe-th5p-fan-1,Ethernet486,100000,2991,Access,off
 str3-7060x6-64pe-th5p-1,Ethernet487,str3-7060x6-64pe-th5p-fan-1,Ethernet487,100000,2992,Access,off
+str3-7060x6-64pe-th5p-1,Ethernet496,str3-7060x6-64pe-th5p-fan-1,Ethernet496,100000,2993,Access,off
+str3-7060x6-64pe-th5p-1,Ethernet497,str3-7060x6-64pe-th5p-fan-1,Ethernet497,100000,2994,Access,off
+str3-7060x6-64pe-th5p-1,Ethernet498,str3-7060x6-64pe-th5p-fan-1,Ethernet498,100000,2995,Access,off
+str3-7060x6-64pe-th5p-1,Ethernet499,str3-7060x6-64pe-th5p-fan-1,Ethernet499,100000,2996,Access,off
+str3-7060x6-64pe-th5p-1,Ethernet500,str3-7060x6-64pe-th5p-fan-1,Ethernet500,100000,2997,Access,off
+str3-7060x6-64pe-th5p-1,Ethernet501,str3-7060x6-64pe-th5p-fan-1,Ethernet501,100000,2998,Access,off
+str3-7060x6-64pe-th5p-1,Ethernet502,str3-7060x6-64pe-th5p-fan-1,Ethernet502,100000,2999,Access,off
+str3-7060x6-64pe-th5p-1,Ethernet503,str3-7060x6-64pe-th5p-fan-1,Ethernet503,100000,3970,Access,off
+str3-7060x6-64pe-th5p-1,Ethernet512,str3-7060x6-64pe-th5p-fan-1,Ethernet512,10000,3971,Access,off
+str3-7060x6-64pe-th5p-1,Ethernet513,str3-7060x6-64pe-th5p-fan-1,Ethernet513,10000,3972,Access,off
 str3-8102-07,Ethernet184,str3-8101-fanout-07,etp24,400000,3940,Access,off
 str3-8102-07,Ethernet192,str3-8101-fanout-07,etp25,400000,3941,Access,off
 str3-8102-07,Ethernet200,str3-8101-fanout-07,etp26,400000,3942,Access,off
