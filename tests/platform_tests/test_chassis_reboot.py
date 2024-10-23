@@ -44,7 +44,7 @@ def get_core_dump(duthost):
 
 def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
     """
-    @summary: This test case is to perform cold reboot on different linecards within 30 seconds, 
+    @summary: This test case is to perform cold reboot on different linecards within 30 seconds,
     we consider it as parallel reboot.
 
     """
