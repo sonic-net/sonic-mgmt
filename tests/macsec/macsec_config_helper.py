@@ -220,9 +220,9 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
 
     # 3. Wait for interface's macsec ready
     for dut_port, nbr in list(ctrl_links.items()):
-        wait_until(20, 3, 0,
-                   lambda: duthost.iface_macsec_ok(dut_port) and
-                   nbr["host"].iface_macsec_ok(nbr["port"]))
+        assert wait_until(20, 3, 0,
+                          lambda: duthost.iface_macsec_ok(dut_port) and
+                          nbr["host"].iface_macsec_ok(nbr["port"]))
 
     # Enabling macsec may cause link flap, which impacts LACP, BGP, etc
     # protocols. To hold some time for protocol recovery.
