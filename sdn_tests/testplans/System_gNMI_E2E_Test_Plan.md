@@ -1,7 +1,19 @@
 # Overview
 
-This document describes the test plan for exercising the following system related Openconfig paths:
+This document describes the test plan for exercising the following system related Openconfig paths with the headings:
+- /system/logging
+- /system/memory
+- /system/ntp
+- /system/state
+- /system/cpus
 
+End to end tests may only access the device using the gNMI interface.  
+
+State paths are read-only paths.  They are used to reflect the state of the system.  For end to end tests, state paths cannot be directly modified unless there is a corresponding config path.
+
+Config paths can be read or written.  Writing a config path indicates a desired system change.  There is a corresponding state path that is updated once the change takes effect.  Most of the gNMI config path tests verify both the gNMI get (read) path is operating as expected and that the gNMI set (write) path updates the system state as expected.
+
+## Full List of Paths Covered
 
 <table>
   <tbody>
