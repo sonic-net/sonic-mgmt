@@ -4,9 +4,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
     fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, is_snappi_multidut, \
-    get_snappi_ports_for_rdma, cleanup_config, get_snappi_ports_multi_dut, \
-    snappi_testbed_config, get_snappi_ports_single_dut, \
-    get_snappi_ports, is_snappi_multidut                                        # noqa: F401
+    get_snappi_ports_for_rdma, cleanup_config, get_snappi_ports                              # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list                         # noqa F401
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED  # noqa F401
