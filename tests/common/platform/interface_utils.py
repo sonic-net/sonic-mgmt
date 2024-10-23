@@ -203,17 +203,3 @@ def get_dpu_npu_ports_from_hwsku(duthost):
             dpu_npu_port_list.append(intf)
     logging.info(f"DPU NPU ports in hwsku.json are {dpu_npu_port_list}")
     return dpu_npu_port_list
-
-
-def check_interface_running_status(duthost, interface):
-    """
-    @summary: Check if the oper status of the specified interface is up.
-    @param duthost: The AnsibleHost object of DUT. For interacting with DUT.
-    @param interface: The interface that needs to be checked.
-    @return: True if the oper status is up, False otherwise.
-    """
-    logging.info("Checking oper status for interface {interface}")
-    output = duthost.command("show interface status {}".format(interface))
-    intf_status = output["stdout_lines"][2].split()
-
-    return intf_status[7] == "up"

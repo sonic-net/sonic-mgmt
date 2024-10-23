@@ -2,7 +2,6 @@ import logging
 import pytest
 
 from tests.common.utilities import skip_release, wait_until
-from tests.common.platform.interface_utils import check_interface_running_status
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -81,7 +80,7 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         config_status = duthost.command("sudo config interface fec {} rs"
                                         .format(intf['interface']))
         if config_status:
-            wait_until(12, 1, 0, check_interface_running_status, duthost, intf["interface"])
+            wait_until(30, 2, 0, duthost.is_interface_status_up, intf["interface"])
             # Verify the FEC operational mode is restored
             logging.info("Get output of '{} {}'".format("show interfaces fec status", intf['interface']))
             fec_status = duthost.show_and_parse("show interfaces fec status {}".format(intf['interface']))
