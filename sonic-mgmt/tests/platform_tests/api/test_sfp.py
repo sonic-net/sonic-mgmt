@@ -45,6 +45,7 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
     physical_intfs = conn_graph_facts["device_conn"][duthost.hostname]
 
     physical_port_index_map = get_physical_port_indices(duthost, physical_intfs)
+    sfp_setup["physical_port_index_map"] = physical_port_index_map
 
     sfp_port_indices = set([physical_port_index_map[intf] for intf in list(physical_port_index_map.keys())])
     sfp_setup["sfp_port_indices"] = sorted(sfp_port_indices)
@@ -429,11 +430,15 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_transceiver_bulk_status(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                         localhost, platform_api_conn):
+                                         localhost, platform_api_conn, port_list_with_flat_memory):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
+        index_physical_port_map = {port: index for index, port in self.sfp_setup["physical_port_index_map"].items()}
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            if index_physical_port_map[i] in port_list_with_flat_memory[duthost.hostname]:
+                logger.info(f"skip test on spf {i} due to the port with flat memory")
+                continue
             bulk_status_dict = sfp.get_transceiver_bulk_status(platform_api_conn, i)
             if self.expect(bulk_status_dict is not None, "Unable to retrieve transceiver {} bulk status".format(i)):
                 if self.expect(isinstance(bulk_status_dict, dict),

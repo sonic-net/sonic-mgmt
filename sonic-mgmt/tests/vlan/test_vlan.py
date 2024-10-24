@@ -344,8 +344,7 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, 
 
         # take two untagged ports for test
         src_port = ports_for_test[0]
-        # dst_port = ports_for_test[-1]
-        dst_port = [6]
+        dst_port = ports_for_test[-1]
 
         src_mac = ptfadapter.dataplane.get_mac(0, src_port[0])
         dst_mac = ptfadapter.dataplane.get_mac(0, dst_port[0])
