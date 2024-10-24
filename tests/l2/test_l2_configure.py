@@ -4,6 +4,7 @@ Tests related to L2 configuration
 import logging
 import pytest
 
+from six.moves.urllib.parse import urlparse
 from tests.common import reboot, config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.helpers.assertions import pytest_assert
@@ -11,7 +12,8 @@ from tests.common.helpers.upgrade_helpers import install_sonic
 
 CONFIG_DB = '/etc/sonic/config_db.json'
 CONFIG_DB_BAK = '/etc/sonic/config_db.json.bak'
-DUT_IMG_PATH = '/tmp/tmp-sonic-img.bin'
+DUT_IMG_PATH = '/tmp/dut-sonic-img.bin'
+LOCALHOST_IMG_PATH = '/tmp/localhost-sonic-img.bin'
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +25,16 @@ pytestmark = [
 ]
 
 
-def simple_install_sonic(duthost, path):
+def simple_install_sonic(duthost, localhost, where):
     """
     @summary: Install an image onto DUT and activate it.
     """
-    duthost.copy(src=path, dest=DUT_IMG_PATH)
+    localhost_img = where
+    if urlparse(where).scheme in ('http', 'https'):
+        # Download image if provided url.
+        localhost.get_url(url=where, dest=LOCALHOST_IMG_PATH)
+        localhost_img = LOCALHOST_IMG_PATH
+    duthost.copy(src=localhost_img, dest=DUT_IMG_PATH)
     duthost.shell("sudo sonic-installer install {} -y".format(DUT_IMG_PATH))
 
 
@@ -42,7 +49,6 @@ def test_l2_config_and_upgrade(request, duthosts, rand_one_dut_hostname, localho
         localhost: localhost object.
         tbinfo: testbed info
     """
-
     # Setup.
     duthost = duthosts[rand_one_dut_hostname]
     hwsku = duthost.facts["hwsku"]
