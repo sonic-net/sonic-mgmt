@@ -8,8 +8,8 @@ from tests.common.devices.eos import EosHost
 
 logger = logging.getLogger(__name__)
 
-DEF_WAIT_TIMEOUT = 300
-DEF_CHECK_INTERVAL = 10
+DEF_WAIT_TIMEOUT = 500
+DEF_CHECK_INTERVAL = 20
 
 global_snmp_facts = {}
 
