@@ -144,8 +144,8 @@ The plan is to implement a latency measurement as part of the Ondatra get/set AP
 
 ## Covered Paths
 
--   ONCE Subscription
-    -   Covered Paths
+### ONCE Subscription
+- Covered Paths
 
 <table>
   <tbody>
@@ -164,10 +164,10 @@ The plan is to implement a latency measurement as part of the Ondatra get/set AP
   </tbody>
 </table>
 
--   SAMPLE Subscription
-    -   Covered Paths
+### SAMPLE Subscription
+- Covered Paths
 
-    <table>
+<table>
   <tbody>
     <tr>
       <td><em>/interfaces</em><br>
@@ -188,9 +188,8 @@ The plan is to implement a latency measurement as part of the Ondatra get/set AP
   </tbody>
     </table>
 
-
--  ON_CHANGE Subscription
-    -  Covered Paths
+### ON_CHANGE Subscription
+- Covered Paths
 
 <table>
     <tbody>
@@ -245,8 +244,8 @@ The plan is to implement a latency measurement as part of the Ondatra get/set AP
   </tbody>
 </table>
 
--  TARGET_DEFINED Subscription
-    -  Covered Paths
+### TARGET_DEFINED Subscription
+- Covered Paths
 
 <table>
   <tbody>
