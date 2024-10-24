@@ -368,3 +368,68 @@ def is_lag_in_app_db(asic):
             return True
 
     return False
+
+
+def verify_lag_member_status_in_app_db(asic, pc_member, enabled=True):
+    """Verifies if the status of a LAG member is enabled or disabled in given ASIC APP DB"""
+    appdb = AppDbCli(asic)
+    app_db_lag_member_list = appdb.get_app_db_lag_member_list()
+
+    pattern = "{}:{}".format(TMP_PC, pc_member)
+    for lag in app_db_lag_member_list:
+        if pattern in lag:
+            status = appdb.hget_key_value(lag, "status")
+            logging.info("LAG member {} is {} in ASIC APPL_DB".format(pc_member, status))
+            fail_msg = "LAG member {} is {} in ASIC APPL_DB when it shouldn't be".format(pc_member, status)
+            status = True if status == "enabled" else False
+            pytest_assert(status == enabled, fail_msg)
+            return
+
+    pytest.fail('LAG member {} does not exist in ASIC APPL_DB'.format(TMP_PC))
+
+
+def verify_lag_member_status_in_chassis_db(duthosts, pc_member, enabled=False):
+    """Verifies if the status of a LAG member is enabled or disabled in CHASSIS DB"""
+    for sup in duthosts.supervisor_nodes:
+        voqdb = VoqDbCli(sup)
+        lag_member_list = voqdb.get_lag_member_list()
+        pattern = "{}.*{}".format(TMP_PC, pc_member)
+        for lag_member in lag_member_list:
+            if re.search(pattern, lag_member):
+                status = voqdb.hget_key_value(lag_member, "status")
+                logging.info("LAG member {} is {} in CHASSIS_APP_DB".format(pc_member, status))
+                fail_msg = "LAG member {} is {} in CHASSIS_APP_DB when it shouldn't be".format(pc_member, status)
+                status = True if status == "enabled" else False
+                pytest_assert(status == enabled, fail_msg)
+                return
+
+        pytest.fail('LAG member {} does not exist in CHASSIS_APP_DB'.format(TMP_PC))
+
+
+def verify_lag_member_status_in_asic_db(asics, lag_id, exp_disabled=0):
+    """Verifies if expected amount of LAG members are disabled in given ASIC DBs"""
+    for asic in asics:
+        asicdb = AsicDbCli(asic)
+        asic_lag_list = asicdb.get_asic_db_lag_list()
+        asic_db_lag_member_list = asicdb.get_asic_db_lag_member_list()
+        lag_oid = None
+        count = 0
+        disabled = 0
+        # Find LAG members OIDs from lag id
+        for lag in asic_lag_list:
+            if asicdb.hget_key_value(lag, "SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID") == lag_id:
+                lag_oid = ":".join(lag for lag in lag.split(':')[-2::1])
+                break
+
+        # Find LAG members of LAG by OID, one should have disabled status
+        for lag_member in asic_db_lag_member_list:
+            if asicdb.hget_key_value(lag_member, "SAI_LAG_MEMBER_ATTR_LAG_ID") == lag_oid:
+                status = asicdb.hget_key_value(lag_member, "SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE")
+                count += 1
+                if status == "true":
+                    disabled += 1
+
+        logging.info("Found {} members of LAG in {} asic {} ASIC_DB, {} are disabled".format(count, asic.sonichost.hostname, asic.asic_index, disabled))
+        pytest_assert(count != 0, "No members matching LAG exist in {} asic {} ASIC_DB".format(asic.sonichost.hostname, asic.asic_index))
+        pytest_assert(disabled == exp_disabled, "Found {} disabled members of LAG in {} asic {} ASIC_DB, expected {}"
+                                                .format(disabled, asic.sonichost.hostname, asic.asic_index, exp_disabled))

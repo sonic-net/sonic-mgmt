@@ -1,6 +1,8 @@
 import pytest
 import tests.common.helpers.voq_lag as voq_lag
 from tests.common.helpers.voq_helpers import verify_no_routes_from_nexthop
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 import logging
 logger = logging.getLogger(__name__)
 
@@ -126,3 +128,45 @@ def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     voq_lag.verify_lag_member_in_asic_db(duthost.asics, tmp_lag_id, portchannel_members)
     remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
     voq_lag.verify_lag_member_in_remote_asic_db(remote_duthosts, tmp_lag_id, portchannel_members, deleted=True)
+
+
+def test_voq_po_down_via_cli_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown):
+    """Test to verify when a LAG goes down on an ASIC via CLI, it is synced across all DBs
+
+    All DBs = local app db, chassis app db, local & remote asic db
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
+    asic, portchannel_ip, portchannel_members = setup_teardown
+    tmp_lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
+    num_portchannels = len(portchannel_members)
+
+    # Make sure LAG is up across all DBs (all PC members are up across all DBs)
+    for portchannel_member in portchannel_members:
+        voq_lag.verify_lag_member_status_in_app_db(asic, portchannel_member, enabled=True)
+        voq_lag.verify_lag_member_status_in_chassis_db(duthosts, portchannel_member, enabled=True)
+    # For checking LAG member status in ASIC_DB,
+    # we check how many members are disabled in a LAG since we can't identify individual members
+    voq_lag.verify_lag_member_status_in_asic_db(duthost.asics, tmp_lag_id, exp_disabled=0)
+    for remote_duthost in remote_duthosts:
+        voq_lag.verify_lag_member_status_in_asic_db(remote_duthost.asics, tmp_lag_id, exp_disabled=0)
+
+    try:
+        # Bring down LAG, check that LAG down is synced across all DBs (all PC members are down across all DBs)
+        logging.info("Disabling {}".format(voq_lag.TMP_PC))
+        duthost.shell("config interface {} shutdown {}".format(asic.cli_ns_option, voq_lag.TMP_PC))
+        pytest_assert(wait_until(30, 5, 0, lambda: not duthost.check_intf_link_state(voq_lag.TMP_PC)),
+                      "{} is not disabled".format(voq_lag.TMP_PC))
+
+        for portchannel_member in portchannel_members:
+            voq_lag.verify_lag_member_status_in_app_db(asic, portchannel_member, enabled=False)
+            voq_lag.verify_lag_member_status_in_chassis_db(duthosts, portchannel_member, enabled=False)
+        voq_lag.verify_lag_member_status_in_asic_db(duthost.asics, tmp_lag_id, exp_disabled=num_portchannels)
+        for remote_duthost in remote_duthosts:
+            voq_lag.verify_lag_member_status_in_asic_db(remote_duthost.asics, tmp_lag_id, exp_disabled=num_portchannels)
+    finally:
+        # Bring LAG back up
+        logging.info("Enabling {}".format(voq_lag.TMP_PC))
+        duthost.shell("config interface {} startup {}".format(asic.cli_ns_option, voq_lag.TMP_PC))
+        pytest_assert(wait_until(30, 5, 0, lambda: duthost.check_intf_link_state(voq_lag.TMP_PC)),
+                      "{} is not enabled".format(voq_lag.TMP_PC))
