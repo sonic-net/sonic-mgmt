@@ -159,8 +159,10 @@ def verify_lag_id_in_asic_dbs(asics, lag_id, expected=True):
                 exists = True
                 break
 
-        lag_id_exists_msg = "LAG ID {} exists in {} asic{} ASIC_DB".format(lag_id, asic.sonichost.hostname, asic.asic_index)
-        lag_id_missing_msg = "LAG ID {} doesn't exist in {} asic{} ASIC_DB".format(lag_id, asic.sonichost.hostname, asic.asic_index)
+        lag_id_exists_msg = "LAG ID {} exists in {} asic{} ASIC_DB"\
+                            .format(lag_id, asic.sonichost.hostname, asic.asic_index)
+        lag_id_missing_msg = "LAG ID {} doesn't exist in {} asic{} ASIC_DB"\
+                             .format(lag_id, asic.sonichost.hostname, asic.asic_index)
         lag_msg = lag_id_exists_msg if exists else lag_id_missing_msg
         if exists == expected:
             logging.info(lag_msg)
@@ -291,7 +293,10 @@ def verify_lag_member_status_in_asic_db(asics, lag_id, exp_disabled=0):
                 if status == "true":
                     disabled += 1
 
-        logging.info("Found {} members of LAG in {} asic {} ASIC_DB, {} are disabled".format(count, asic.sonichost.hostname, asic.asic_index, disabled))
-        pytest_assert(count != 0, "No members matching LAG exist in {} asic {} ASIC_DB".format(asic.sonichost.hostname, asic.asic_index))
-        pytest_assert(disabled == exp_disabled, "Found {} disabled members of LAG in {} asic {} ASIC_DB, expected {}"
-                                                .format(disabled, asic.sonichost.hostname, asic.asic_index, exp_disabled))
+        logging.info("Found {} members of LAG in {} asic {} ASIC_DB, {} are disabled"
+                     .format(count, asic.sonichost.hostname, asic.asic_index, disabled))
+        pytest_assert(count != 0, "No members matching LAG exist in {} asic {} ASIC_DB"
+                                  .format(asic.sonichost.hostname, asic.asic_index))
+        pytest_assert(disabled == exp_disabled,
+                      "Found {} disabled members of LAG in {} asic {} ASIC_DB, expected {}"
+                      .format(disabled, asic.sonichost.hostname, asic.asic_index, exp_disabled))
