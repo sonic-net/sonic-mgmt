@@ -108,18 +108,21 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
         == list(lldpctl_interface["chassis"].keys())[0],
         "lldp_rem_sys_name does not match for {}".format(interface),
     )
-    pytest_assert(
-        entry_content["lldp_rem_sys_desc"] == chassis_info["descr"],
-        "lldp_rem_sys_desc does not match for {}".format(interface),
-    )
-    pytest_assert(
-        entry_content["lldp_rem_port_desc"] == port_info.get("descr", ""),
-        "lldp_rem_port_desc does not match for {}".format(interface),
-    )
-    pytest_assert(
-        entry_content["lldp_rem_man_addr"] == chassis_info.get("mgmt-ip", ""),
-        "lldp_rem_man_addr does not match for {}".format(interface),
-    )
+    if 'descr' in chassis_info.keys():
+        pytest_assert(
+            entry_content["lldp_rem_sys_desc"] == chassis_info["descr"],
+            "lldp_rem_sys_desc does not match for {}".format(interface),
+        )
+    if 'descr' in port_info.keys():
+        pytest_assert(
+            entry_content["lldp_rem_port_desc"] == port_info.get("descr", ""),
+            "lldp_rem_port_desc does not match for {}".format(interface),
+        )
+    if 'mgmt-ip' in chassis_info.keys():
+        pytest_assert(
+            entry_content["lldp_rem_man_addr"] == chassis_info.get("mgmt-ip", ""),
+            "lldp_rem_man_addr does not match for {}".format(interface),
+        )
     pytest_assert(
         entry_content["lldp_rem_sys_cap_supported"] == "28 00",
         "lldp_rem_sys_cap_supported does not match for {}".format(interface),
