@@ -60,34 +60,28 @@ def verify_lag_interface(duthost, asic, portchannel, expected=True):
     return False
 
 
-def add_lag(duthost, asic, portchannel_members=None, portchannel_ip=None,
-            portchannel=TMP_PC, add=True):
-    """
-    Add LAG to an ASIC
-    runs command e.g. 'sudo config portchannel -n asic0 add PortChannel99'
-    Args:
-        duthost<object>: duthost
-        asic<object>: asic object
-        portchannel_members<list> : portchannel members
-        portchannel_ip<str>: portchannel ip
-        portchannel<str> : portchannel
-        add<bool> : True adds portchannel
-    """
-    if add:
-        config_cmd = "config portchannel {}"\
-            .format(asic.cli_ns_option if asic.cli_ns_option else "")
-        duthost.shell("{} add {}".format(config_cmd, portchannel))
-        int_facts = duthost.interface_facts(namespace=asic.namespace)['ansible_facts']
-        pytest_assert(int_facts['ansible_interface_facts'][portchannel])
+def add_lag(duthost, asic, portchannel=TMP_PC):
+    """Creates a LAG on given ASIC"""
+    logging.info("Adding LAG {} to {} asic{}".format(portchannel, duthost, asic.asic_index))
+    duthost.shell("config portchannel {} add {}".format(asic.cli_ns_option, portchannel))
 
+
+def delete_lag(duthost, asic, portchannel=TMP_PC):
+    """Deletes a LAG on given ASIC"""
+    logging.info("Deleting lag from {}".format(duthost.hostname))
+    duthost.shell("config portchannel {} del {}".format(asic.cli_ns_option, portchannel))
+
+
+def add_members_ip_to_lag(duthost, asic, portchannel_members=None, portchannel_ip=None, portchannel=TMP_PC):
+    """Add members and IP to LAG"""
     if portchannel_members:
+        logging.info("Adding members {} to LAG {}".format(portchannel_members, portchannel))
         for member in portchannel_members:
-            duthost.shell("config portchannel {} member add {} {}"
-                          .format(asic.cli_ns_option, portchannel, member))
+            duthost.shell("config portchannel {} member add {} {}".format(asic.cli_ns_option, portchannel, member))
 
     if portchannel_ip:
-        duthost.shell("config interface {} ip add {} {}"
-                      .format(asic.cli_ns_option, portchannel, portchannel_ip))
+        logging.info("Assigning IP {} to LAG {}".format(portchannel_ip, portchannel))
+        duthost.shell("config interface {} ip add {} {}".format(asic.cli_ns_option, portchannel, portchannel_ip))
         int_facts = duthost.interface_facts(namespace=asic.namespace)['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts']
                       [portchannel]['ipv4']['address'] == portchannel_ip.split('/')[0])
@@ -96,136 +90,82 @@ def add_lag(duthost, asic, portchannel_members=None, portchannel_ip=None,
                       'For added Portchannel {} link is not up'.format(portchannel))
 
 
-def verify_lag_id_is_unique_in_chassis_db(duthosts, duthost, asic):
-    """
-    Verifies lag id is unique for a newly added LAG in CHASSIS_DB
-    args:
-        duthosts <list>: duthost
-        duthost <obj>: duthost
-        asic <obje>: asic
+def delete_members_ip_from_lag(duthost, asic, portchannel_members=None, portchannel_ip=None, portchannel=TMP_PC):
+    """Deletes members and IP from LAG"""
+    if portchannel_members:
+        logging.info("Deleting members {} from LAG {}".format(portchannel_members, portchannel))
+        for member in portchannel_members:
+            duthost.shell("config portchannel {} member del {} {}".format(asic.cli_ns_option, portchannel, member))
 
-    """
-    logging.info("Verifying on duthost {} asic {} that lag id is unique"
-                 .format(duthost.hostname, asic.asic_index))
-    lag_id_list = get_lag_ids_from_chassis_db(duthosts)
-    add_lag(duthost, asic)
-    added_pc_lag_id = get_lag_id_from_chassis_db(duthosts)
-    if added_pc_lag_id in lag_id_list:
-        pytest.fail('LAG id {} for newly added LAG {} already exist in lag_id_list {}'
-                    .format(added_pc_lag_id, TMP_PC, lag_id_list))
-
-    logging.info('LAG id {} for newly added LAG {} is unique.'
-                 .format(added_pc_lag_id, TMP_PC))
-
-
-def verify_lag_in_app_db(asic, deleted=False):
-    """
-    Verifies lag in ASIC APP DB.
-    It runs the command e.g. 'sonic-db-cli APPL_DB keys "*LAG_TABLE*"'
-    Args:
-        asic<obj>: asic
-        deleted<bool>: False if lag is not deleted
-    """
-    appdb = AppDbCli(asic)
-    app_db_lag_list = appdb.get_app_db_lag_list()
-    if deleted:
-        for lag in app_db_lag_list:
-            if TMP_PC in lag:
-                pytest.fail('LAG {} still exist in ASIC app db,'
-                            ' Expected was should be deleted from asic app db.'.format(TMP_PC))
-
-        logging.info('LAG {} is deleted in ASIC app db'.format(TMP_PC))
-        return
-
-    else:
-        for lag in app_db_lag_list:
-            if TMP_PC in lag:
-                logging.info('LAG {} exist in ASIC app db'.format(TMP_PC))
-                return
-        pytest.fail('LAG {} does not exist in ASIC app db,'
-                    ' Expected was should should exist in asic app db. '.format(TMP_PC))
-
-
-def verify_lag_in_asic_db(asics, lag_id, deleted=False):
-    """
-    Verifies LAG in ASIC DB
-    Args:
-        asics<list>: asic
-        lag_id<int>: lag id
-        deleted<bool>: True if lag is deleted
-    """
-    for asic in asics:
-        asicdb = AsicDbCli(asic)
-        asic_db_lag_list = asicdb.get_asic_db_lag_list()
-        if deleted:
-            for lag in asic_db_lag_list:
-                if asicdb.hget_key_value(lag, "SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID") == lag_id:
-                    pytest.fail('LAG id {} for LAG {} exist in ASIC DB,'
-                                ' Expected was should not be present'.format(lag_id, TMP_PC))
-
-            logging.info('LAG id {} for LAG {} does not exist in ASIC DB'.format(lag_id, TMP_PC))
-
-        else:
-            for lag in asic_db_lag_list:
-                if asicdb.hget_key_value(lag, "SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID") == lag_id:
-                    logging.info('LAG id {} for LAG {} exist in ASIC DB'.format(lag_id, TMP_PC))
-                    return
-            pytest.fail('LAG id {} for LAG {} does not exist in ASIC DB'.format(lag_id, TMP_PC))
-
-
-def verify_lag_in_remote_asic_db(remote_duthosts, lag_id, deleted=False):
-    """
-    Verifies lag in remote asic db
-    Args:
-        remote_duthosts<list>: list of remote dut
-        lag_id<int>: lag id of added/deleted lag
-        deleted<bool>: True if lag is deleted
-    """
-    for dut in remote_duthosts:
-        logging.info("Verifing lag in remote {} asic db ".format(dut.hostname))
-        verify_lag_in_asic_db(dut.asics, lag_id, deleted)
-
-
-def delete_lag(duthost, asic, portchannel=TMP_PC):
-    """
-    Deletes a LAG
-
-    """
-    logging.info("Deleting lag from {}".format(duthost.hostname))
-    duthost.shell("config portchannel {} del {}".format(asic.cli_ns_option, portchannel))
-
-
-def delete_lag_members_ip(duthost, asic, portchannel_members,
-                          portchannel_ip=None, portchannel=TMP_PC):
-    """
-    deletes lag members and ip
-    """
     if portchannel_ip:
+        logging.info("Dismissing IP {} from LAG {}".format(portchannel_ip, portchannel))
         duthost.shell("config interface {} ip remove {} {}"
                       .format(asic.cli_ns_option, portchannel, portchannel_ip))
-
-    logging.info('Deleting lag members {} from lag {} on dut {}'
-                 .format(portchannel_members, portchannel, duthost.hostname))
-    for member in portchannel_members:
-        duthost.shell("config portchannel {} member del {} {}"
-                      .format(asic.cli_ns_option, portchannel, member))
-
-    if portchannel_ip:
         pytest_assert(wait_until(30, 5, 0, verify_lag_interface, duthost, asic, portchannel, expected=False),
                       'For deleted Portchannel {} ip link is not down'.format(portchannel))
 
 
-def verify_lag_id_deleted_in_chassis_db(duthosts, duthost, asic, lag_id):
-    """
-    Verifies lag id is deletes in CHASSIS_DB
-    """
-    delete_lag(duthost, asic)
-    lag_id_list = get_lag_ids_from_chassis_db(duthosts)
-    if lag_id in lag_id_list:
-        pytest.fail('LAG id {} for lag {} still exist in chassis db lag_id_list {}, '
-                    'Expected was should be deleted. '.format(lag_id, TMP_PC, lag_id_list))
+def is_lag_in_app_db(asic, pc=TMP_PC):
+    """Returns True if LAG in given ASIC APP DB else False"""
+    appdb = AppDbCli(asic)
+    app_db_lag_list = appdb.get_app_db_lag_list()
+    for lag in app_db_lag_list:
+        if pc in lag:
+            return True
 
-    logging.info('LAG id {} for lag {} is deleted in chassis db.'.format(lag_id, TMP_PC))
+    return False
+
+
+def verify_lag_in_app_db(asic, pc=TMP_PC, expected=True):
+    """Verifies if LAG exists or not in given ASIC APP DB"""
+    exists = is_lag_in_app_db(asic, pc)
+    lag_exists_msg = "LAG {} exists in {} asic{} APPL_DB".format(pc, asic.sonichost.hostname, asic.asic_index)
+    lag_missing_msg = "LAG {} doesn't exist in {} asic{} APPL_DB".format(pc, asic.sonichost.hostname, asic.asic_index)
+    lag_msg = lag_exists_msg if exists else lag_missing_msg
+    if exists == expected:
+        logging.info(lag_msg)
+    else:
+        pytest.fail(lag_msg)
+
+
+def verify_lag_in_chassis_db(duthosts, pc=TMP_PC, expected=True):
+    """Verifies if LAG exists or not in CHASSIS DB"""
+    for sup in duthosts.supervisor_nodes:
+        voqdb = VoqDbCli(sup)
+        lag_list = voqdb.get_lag_list()
+        exists = False
+        for lag in lag_list:
+            if pc in lag:
+                exists = True
+                break
+
+        lag_exists_msg = "LAG {} exists CHASSIS_APP_DB on {}".format(pc, sup)
+        lag_missing_msg = "LAG {} doesn't exist in CHASSIS_APP_DB on {}".format(pc, sup)
+        lag_msg = lag_exists_msg if exists else lag_missing_msg
+        if exists == expected:
+            logging.info(lag_msg)
+        else:
+            pytest.fail(lag_msg)
+
+
+def verify_lag_id_in_asic_dbs(asics, lag_id, expected=True):
+    """Verifies if LAG exists or not in given ASIC DBs"""
+    for asic in asics:
+        asicdb = AsicDbCli(asic)
+        asic_db_lag_list = asicdb.get_asic_db_lag_list()
+        exists = False
+        for lag in asic_db_lag_list:
+            if asicdb.hget_key_value(lag, "SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID") == lag_id:
+                exists = True
+                break
+
+        lag_id_exists_msg = "LAG ID {} exists in {} asic{} ASIC_DB".format(lag_id, asic.sonichost.hostname, asic.asic_index)
+        lag_id_missing_msg = "LAG ID {} doesn't exist in {} asic{} ASIC_DB".format(lag_id, asic.sonichost.hostname, asic.asic_index)
+        lag_msg = lag_id_exists_msg if exists else lag_id_missing_msg
+        if exists == expected:
+            logging.info(lag_msg)
+        else:
+            pytest.fail(lag_msg)
 
 
 def verify_lag_member_in_app_db(asic, pc_members, deleted=False):
@@ -352,22 +292,6 @@ def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
                 if not exist:
                     pytest.fail('lag member {} not found in system lag member table {}'
                                 .format(member, lag_member_list))
-
-
-def is_lag_in_app_db(asic):
-    """
-    Returnes True if lag in app db else False
-    It runs the command e.g. 'sonic-db-cli APPL_DB keys "*LAG_TABLE*"'
-    Args:
-        asic<obj>: asic
-    """
-    appdb = AppDbCli(asic)
-    app_db_lag_list = appdb.get_app_db_lag_list()
-    for lag in app_db_lag_list:
-        if TMP_PC in lag:
-            return True
-
-    return False
 
 
 def verify_lag_member_status_in_app_db(asic, pc_member, enabled=True):

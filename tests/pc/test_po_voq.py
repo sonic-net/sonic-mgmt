@@ -38,21 +38,22 @@ def _get_random_asic_with_pc(duthost):
 @pytest.fixture(scope='module')
 def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
-     Prepares dut for the testcase by deleting the existing port channel members and ip,
-     adds a new portchannel and assignes port channel members and ip
-      from the previous port channel
+    Setup:
+    Create a temporary test portchannel, moves members and IP from an existing portchannel
+    to the temporary test portchannel
 
-     Args:
-         duthosts <list>: The duthosts object
-         enum_rand_one_per_hwsku_frontend_hostname <int>:
-          random per fromtend per hwsku duthost
+    Teardown:
+    Moves members from temporary test portchannel back to the original portchannel,
+    deletes temporary test portchannel
 
-    Returns:
-        portchannel_ip <str> : portchannel ip address
-        portchannle_members <list> : portchannel members
-
+    Yields:
+        (asic: ASIC that hosts the portchannel,
+        portchannel_ip: portchannel ip address,
+        portchannel_members: portchannel members)
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    # Choose a random portchannel and corresponding ASIC
     asic = _get_random_asic_with_pc(duthost)
     config_facts = duthost.config_facts(source='persistent',
                                         asic_index=asic.asic_index)['ansible_facts']
@@ -71,46 +72,52 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         if portchannel_ip.split('/')[0] == config_facts['BGP_NEIGHBOR'][addr]['local_addr']:
             nbr_addr = addr
 
-    voq_lag.delete_lag_members_ip(duthost, asic, portchannel_members, portchannel_ip, portchannel)
+    # Move members and IP from original lag to newly created temporary lag
+    voq_lag.delete_members_ip_from_lag(duthost, asic, portchannel_members, portchannel_ip, portchannel)
     verify_no_routes_from_nexthop(duthosts, nbr_addr)
-    voq_lag.add_lag(duthost, asic, portchannel_members, portchannel_ip)
+    voq_lag.add_lag(duthost, asic)
+    voq_lag.add_members_ip_to_lag(duthost, asic, portchannel_members, portchannel_ip)
 
     yield asic, portchannel_ip, portchannel_members
 
-    voq_lag.delete_lag_members_ip(duthost, asic, portchannel_members, portchannel_ip)
-    # remove tmp portchannel
+    # Move members and IP from new temporary LAG back to original lag, delete old LAG
+    voq_lag.delete_members_ip_from_lag(duthost, asic, portchannel_members, portchannel_ip)
     voq_lag.delete_lag(duthost, asic)
     verify_no_routes_from_nexthop(duthosts, nbr_addr)
-    # add only lag members and ip since lag already exist
-    voq_lag.add_lag(duthost, asic, portchannel_members, portchannel_ip, portchannel, add=False)
+    voq_lag.add_members_ip_to_lag(duthost, asic, portchannel_members, portchannel_ip, portchannel)
 
 
 def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """
-    test to verify when a LAG is added/deleted via CLI on an ASIC,
-     It is populated in remote ASIC_DB.
-    Steps:
-        1. On any ASIC, add a new LAG
-        2. verify added lag gets a unique lag id in chassis app db
-        3. verify added lag exist in app db
-        4. verify lag exist in asic db on remote and local asic db
-        5. delete the added lag
+    """Test to verify when a LAG is added/deleted via CLI, it is synced across all DBs
+
+    All DBs = local app db, chassis app db, local & remote asic db
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
     asic = _get_random_asic_with_pc(duthost)
+    prev_lag_id_list = voq_lag.get_lag_ids_from_chassis_db(duthosts)
     try:
-        voq_lag.verify_lag_id_is_unique_in_chassis_db(duthosts, duthost, asic)
-        voq_lag.verify_lag_in_app_db(asic)
+        # Add LAG and verify LAG creation is synced across all DBs
+        voq_lag.add_lag(duthost, asic)
+
+        # Verify LAG is created with unique LAG ID in chassis db
         tmp_lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
-        voq_lag.verify_lag_in_asic_db(duthost.asics, tmp_lag_id)
-        # to verify lag in remote asic db
-        remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
-        voq_lag.verify_lag_in_remote_asic_db(remote_duthosts, tmp_lag_id)
-        voq_lag.verify_lag_id_deleted_in_chassis_db(duthosts, duthost, asic, tmp_lag_id)
-        voq_lag.verify_lag_in_app_db(asic, deleted=True)
-        voq_lag.verify_lag_in_asic_db(duthost.asics, tmp_lag_id, deleted=True)
-        remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
-        voq_lag.verify_lag_in_remote_asic_db(remote_duthosts, tmp_lag_id, deleted=True)
+        pytest_assert(tmp_lag_id not in prev_lag_id_list, "Temporary PC LAG ID {} is not unique")
+
+        voq_lag.verify_lag_in_app_db(asic)
+        voq_lag.verify_lag_in_chassis_db(duthosts)
+        voq_lag.verify_lag_id_in_asic_dbs(duthost.asics, tmp_lag_id)
+        for remote_duthost in remote_duthosts:
+            voq_lag.verify_lag_id_in_asic_dbs(remote_duthost.asics, tmp_lag_id)
+
+        # Delete LAG and verify LAG deletion is synced across all DBs
+        voq_lag.delete_lag(duthost, asic)
+
+        voq_lag.verify_lag_in_app_db(asic, expected=False)
+        voq_lag.verify_lag_in_chassis_db(duthosts, expected=False)
+        voq_lag.verify_lag_id_in_asic_dbs(duthost.asics, tmp_lag_id, expected=False)
+        for remote_duthost in remote_duthosts:
+            voq_lag.verify_lag_id_in_asic_dbs(remote_duthost.asics, tmp_lag_id, expected=False)
     finally:
         if voq_lag.is_lag_in_app_db(asic):
             voq_lag.delete_lag(duthost, asic)
