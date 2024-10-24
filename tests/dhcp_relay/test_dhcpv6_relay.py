@@ -21,7 +21,7 @@ from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_s
 from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa F401
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0', 'm0', 'mx', 't0-2vlan'),
     pytest.mark.device_type('vs')
 ]
 
