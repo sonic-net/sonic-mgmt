@@ -196,7 +196,7 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology / Skip test_cacl_application temporarily due to known issue"
     conditions_logical_operator: or
     conditions:
-      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-120']"
+      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-64-breakout', 'dualtor-120']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/13805"
 
 cacl/test_cacl_application.py::test_cacl_application_nondualtor:
