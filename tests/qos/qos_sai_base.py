@@ -1371,8 +1371,6 @@ class QosSaiBase(QosBase):
         src_services = [
             {"docker": src_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
             {"docker": src_asic.get_docker_name("lldp"), "service": "lldpd"},
-            {"docker": src_asic.get_docker_name("bgp"),  "service": "bgpd"},
-            {"docker": src_asic.get_docker_name("bgp"),  "service": "bgpmon"},
             {"docker": src_asic.get_docker_name("radv"), "service": "radvd"},
             {"docker": src_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
@@ -1381,8 +1379,6 @@ class QosSaiBase(QosBase):
             dst_services = [
                 {"docker": dst_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
                 {"docker": dst_asic.get_docker_name("lldp"), "service": "lldpd"},
-                {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpd"},
-                {"docker": dst_asic.get_docker_name("bgp"), "service": "bgpmon"},
                 {"docker": dst_asic.get_docker_name("radv"), "service": "radvd"},
                 {"docker": dst_asic.get_docker_name("swss"), "service": "arp_update"}
             ]
@@ -1395,17 +1391,22 @@ class QosSaiBase(QosBase):
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         for service in src_services:
             updateDockerService(src_dut, action="stop", **service)
+        src_dut.shell("sudo config bgp shutdown all")
         if src_asic != dst_asic:
             disable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
             for service in dst_services:
                 updateDockerService(dst_dut, action="stop", **service)
+            dst_dut.shell("sudo config bgp shutdown all")
+
         yield
 
         for service in src_services:
             updateDockerService(src_dut, action="start", **service)
+        src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
             for service in dst_services:
                 updateDockerService(dst_dut, action="start", **service)
+            dst_dut.shell("sudo config bgp start all")
 
         """ Start mux conatiner for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
