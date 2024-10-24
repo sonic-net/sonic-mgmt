@@ -11,14 +11,13 @@ TMP_PC = 'PortChannel999'
 
 def get_lag_ids_from_chassis_db(duthosts):
     """
-    Get lag_ids from CHASSIS_DB
-    cmd = 'redis-dump -H 10.0.5.16 -p 6380 -d 12 -y -k "*SYSTEM_LAG_TABLE*PortChannel0016"'
-      Args:
-          duthosts: The duthost fixture.
+    Get all LAG IDs from CHASSIS_DB
 
-      Returns:
-          lag_ids<list>: lag id
+    Args:
+        duthosts: duthosts to probe
 
+    Returns:
+        lag_ids: List of LAG ids in CHASSIS_DB
     """
     lag_ids = list()
     for sup in duthosts.supervisor_nodes:
@@ -27,29 +26,30 @@ def get_lag_ids_from_chassis_db(duthosts):
         for lag in lag_list:
             lag_ids.append(voqdb.hget_key_value(lag, "lag_id"))
 
-    logging.info("LAG id's preset in CHASSIS_DB are {}".format(lag_ids))
+    logging.info("LAG IDs present in CHASSIS_DB are {}".format(lag_ids))
     return lag_ids
 
 
-def get_lag_id_from_chassis_db(duthosts):
+def get_lag_id_from_chassis_db(duthosts, pc=TMP_PC):
     """
-    Get LAG id for a lag form CHASSIS_DB
+    Get LAG ID for a LAG from CHASSIS_DB
+
     Args:
-        duthosts: The duthost fixture.
+        duthosts: duthosts to probe
 
     Returns:
-        lag_ids <int>: lag id
+        lag_id: LAG ID of LAG
     """
     for sup in duthosts.supervisor_nodes:
         voqdb = VoqDbCli(sup)
         lag_list = voqdb.get_lag_list()
         for lag in lag_list:
-            if TMP_PC in lag:
+            if pc in lag:
                 lag_id = voqdb.hget_key_value(lag, "lag_id")
-                logging.info("LAG id for lag {} is {}".format(TMP_PC, lag_id))
+                logging.info("LAG ID for LAG {} is {}".format(pc, lag_id))
                 return lag_id
 
-        pytest.fail("LAG id for lag {} is not preset in CHASSIS_DB".format(TMP_PC))
+        pytest.fail("LAG ID for LAG {} is not present in CHASSIS_DB".format(pc))
 
 
 def verify_lag_interface(duthost, asic, portchannel, expected=True):
