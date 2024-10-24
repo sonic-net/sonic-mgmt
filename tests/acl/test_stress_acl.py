@@ -93,7 +93,7 @@ def prepare_test_file(rand_selected_dut):
 def prepare_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     if tbinfo["topo"]["type"] == "mx":
-        dut_port = rand_selected_dut.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"][0]
+        dut_port = mg_facts["minigraph_acls"]["DataAcl"][0]
     else:
         dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
     if not dut_port:
