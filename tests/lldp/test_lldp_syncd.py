@@ -56,7 +56,8 @@ def get_lldpctl_output(duthost):
     jsondict = {}
     if duthost.is_multi_asic:
         for asic in duthost.asics:
-            result = json.loads(duthost.shell("docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic.asic_index))["stdout"])
+            result = json.loads(duthost.shell("docker exec lldp{} /usr/sbin/lldpctl -f json"
+                                              .format(asic.asic_index))["stdout"])
             if len(jsondict) == 0:
                 jsondict = result
             else:
