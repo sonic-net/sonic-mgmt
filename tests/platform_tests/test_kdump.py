@@ -27,12 +27,12 @@ class TestKernelPanic:
     def wait_lc_healthy_if_sup(self, duthost, duthosts, localhost, conn_graph_facts, xcvr_skip_list):
         # For sup, we also need to ensure linecards are back and healthy for following tests
         is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
-        if (duthost.facts["hwsku"] ==
-        if 'Cisco-8800-RP' in duthost.facts.get('hwsku'):    
-            reboot_type = REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
-        else:
-            reboot_type = REBOOT_TYPE_COLD
         if is_sup:
+            if 'Cisco-8800-RP' in duthost.facts.get('hwsku'):
+                reboot_type = REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
+            else:
+                reboot_type = REBOOT_TYPE_COLD
+
             for lc in duthosts.frontend_nodes:
                 wait_for_startup(lc, localhost, delay=10, timeout=300)
                 wait_critical_processes(lc)
