@@ -124,23 +124,43 @@ def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 def test_voq_po_member_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown):
-    """
-    Test to verify when a LAG members is added/deleted via CLI on an ASIC,
-     It is synced to remote ASIC_DB.
-    Steps:
-        1. On any ASIC, add LAG members to a lag
-        2. verify lag members exist in local asic app db
-        3. verify lag members exist in chassis app db
-        4. verify lag members exist in local and remote asic db
+    """Test to verify when LAG members are added/deleted via CLI, it is synced across all DBs
+
+    All DBs = local app db, chassis app db, local & remote asic db
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
     asic, portchannel_ip, portchannel_members = setup_teardown
     tmp_lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
-    voq_lag.verify_lag_member_in_app_db(asic, portchannel_members)
-    voq_lag.verify_lag_member_in_chassis_db(duthosts, portchannel_members)
-    voq_lag.verify_lag_member_in_asic_db(duthost.asics, tmp_lag_id, portchannel_members)
-    remote_duthosts = [dut_host for dut_host in duthosts.frontend_nodes if dut_host != duthost]
-    voq_lag.verify_lag_member_in_remote_asic_db(remote_duthosts, tmp_lag_id, portchannel_members, deleted=True)
+
+    # Check that members added to LAG in setup is synced across all DBs
+    for portchannel_member in portchannel_members:
+        voq_lag.verify_lag_member_in_app_db(asic, portchannel_member)
+        voq_lag.verify_lag_member_in_chassis_db(duthosts, portchannel_member)
+    # For checking LAG member added/deleted in ASIC_DB,
+    # we check how many members exist in a LAG since we can't identify individual members
+    voq_lag.verify_lag_member_in_asic_db(duthost.asics, tmp_lag_id, expected=len(portchannel_members))
+    for remote_duthost in remote_duthosts:
+        voq_lag.verify_lag_member_in_asic_db(remote_duthost.asics, tmp_lag_id, expected=len(portchannel_members))
+
+    # Choose a random LAG member to delete, verify deletion is synced across all DBs
+    del_pc_member = random.choice(portchannel_members)
+    remaining_pc_members = [pc_member for pc_member in portchannel_members if pc_member != del_pc_member]
+    try:
+        voq_lag.delete_members_ip_from_lag(duthost, asic, portchannel_members=[del_pc_member])
+
+        # Verify other LAG members are still up
+        for remaining_pc_member in remaining_pc_members:
+            voq_lag.verify_lag_member_in_app_db(asic, remaining_pc_member)
+            voq_lag.verify_lag_member_in_chassis_db(duthosts, remaining_pc_member)
+
+        voq_lag.verify_lag_member_in_app_db(asic, del_pc_member, expected=False)
+        voq_lag.verify_lag_member_in_chassis_db(duthosts, del_pc_member, expected=False)
+        voq_lag.verify_lag_member_in_asic_db(duthost.asics, tmp_lag_id, expected=len(remaining_pc_members))
+        for remote_duthost in remote_duthosts:
+            voq_lag.verify_lag_member_in_asic_db(remote_duthost.asics, tmp_lag_id, expected=len(remaining_pc_members))
+    finally:
+        voq_lag.add_members_ip_to_lag(duthost, asic, portchannel_members=[del_pc_member])
 
 
 def test_voq_po_down_via_cli_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown):

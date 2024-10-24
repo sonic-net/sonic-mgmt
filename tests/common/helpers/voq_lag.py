@@ -168,130 +168,68 @@ def verify_lag_id_in_asic_dbs(asics, lag_id, expected=True):
             pytest.fail(lag_msg)
 
 
-def verify_lag_member_in_app_db(asic, pc_members, deleted=False):
-    """"
-    Verifies lag member in asic app db
-    cmd = sonic-db-cli APPL_DB KEYS "*LAG_MEMBER_TABLE*"
-    """
+def verify_lag_member_in_app_db(asic, pc_member, pc=TMP_PC, expected=True):
+    """"Verifies if LAG member exists or not in given ASICs APP DB"""
     appdb = AppDbCli(asic)
     app_db_lag_member_list = appdb.get_app_db_lag_member_list()
-    if deleted:
-        for member in pc_members:
-            pattern = "{}:{}".format(TMP_PC, member)
-            exist = False
-            for lag_member in app_db_lag_member_list:
-                if pattern in lag_member:
-                    exist = True
-                    break
+    exists = False
+    pattern = "{}:{}".format(pc, pc_member)
+    for lag_member in app_db_lag_member_list:
+        if pattern in lag_member:
+            exists = True
+            break
 
-            if exist:
-                pytest.fail('LAG {} still exist in ASIC app db, '
-                            'Expected was should be deleted from asic app db.'.format(TMP_PC))
-
-        logging.info('For lag {} lag members {} are deleted in ASIC app db'.format(TMP_PC, pc_members))
+    lag_member_exists_msg = "LAG {} member {} exists in {} asic{} APPL_DB".\
+                            format(pc, pc_member, asic.sonichost.hostname, asic.asic_index)
+    lag_member_missing_msg = "LAG {} member {} doesn't exist in {} asic{} APPL_DB".\
+                             format(pc, pc_member, asic.sonichost.hostname, asic.asic_index)
+    lag_member_msg = lag_member_exists_msg if exists else lag_member_missing_msg
+    if exists == expected:
+        logging.info(lag_member_msg)
     else:
-        for member in pc_members:
-            pattern = "{}:{}".format(TMP_PC, member)
-            exist = False
-            for lag in app_db_lag_member_list:
-                if pattern in lag:
-                    exist = True
-                    break
-
-            if not exist:
-                pytest.fail('LAG {} does not exist in ASIC app db,'
-                            ' Expected was should should exist in asic app db. '.format(TMP_PC))
-
-        logging.info('For lag {} lag members {} are present in ASIC app db'.format(TMP_PC, pc_members))
+        pytest.fail(lag_member_msg)
 
 
-def verify_lag_member_in_asic_db(asics, lag_id, pc_members, deleted=False):
-    """
-       Verifies lag member in ASIC DB
-       It runs the command e.g.
-    """
+def verify_lag_member_in_chassis_db(duthosts, pc_member, pc=TMP_PC, expected=True):
+    """Verifies if LAG member exists or not in CHASSIS DB"""
+    for sup in duthosts.supervisor_nodes:
+        voqdb = VoqDbCli(sup)
+        lag_member_list = voqdb.get_lag_member_list()
+        exists = False
+        pattern = "{}.*{}".format(pc, pc_member)
+        for lag_member in lag_member_list:
+            if re.search(pattern, lag_member):
+                exists = True
+                break
+
+        lag_member_exists_msg = "LAG {} member {} exists in {} CHASSIS_APP_DB".format(pc, pc_member, sup)
+        lag_member_missing_msg = "LAG {} member {} doesn't exist in {} CHASSIS_APP_DB".format(pc, pc_member, sup)
+        lag_member_msg = lag_member_exists_msg if exists else lag_member_missing_msg
+        if exists == expected:
+            logging.info(lag_member_msg)
+        else:
+            pytest.fail(lag_member_msg)
+
+
+def verify_lag_member_in_asic_db(asics, lag_id, expected=0):
+    """Verifies if expected amount of LAG members exist in given ASIC DBs"""
     for asic in asics:
         asicdb = AsicDbCli(asic)
         asic_lag_list = asicdb.get_asic_db_lag_list()
         asic_db_lag_member_list = asicdb.get_asic_db_lag_member_list()
         lag_oid = None
-        if deleted:
-            for lag in asic_lag_list:
-                if asicdb.hget_key_value(lag,
-                                         "SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID") == lag_id:
-                    lag_oid = ":".join(lag for lag in lag.split(':')[-1:-3:-1])
 
-            for lag_member in asic_db_lag_member_list:
-                if asicdb.hget_key_value(lag_member, "SAI_LAG_MEMBER_ATTR_LAG_ID") == lag_oid:
-                    pytest.fail("lag members {} still exist in lag member table on {},"
-                                " Expected was should be deleted"
-                                .format(pc_members, asic.sonichost.hostname))
-            logging.info('Lag members are deleted from {} on {}'.format(asic.asic_index,
-                                                                        asic.sonichost.hostname))
+        for lag in asic_lag_list:
+            if asicdb.hget_key_value(lag, "SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID") == lag_id:
+                lag_oid = ":".join(lag for lag in lag.split(':')[-2::1])
 
-        else:
-            for lag in asic_lag_list:
-                if asicdb.hget_key_value(lag, "SAI_LAG_ATTR_SYSTEM_PORT_AGGREGATE_ID") == lag_id:
-                    lag_oid = ":".join(lag for lag in lag.split(':')[-2::1])
-                    break
+        count = 0
+        for lag_member in asic_db_lag_member_list:
+            if asicdb.hget_key_value(lag_member, "SAI_LAG_MEMBER_ATTR_LAG_ID") == lag_oid:
+                count += 1
 
-            for lag_member in asic_db_lag_member_list:
-                if asicdb.hget_key_value(lag_member, "SAI_LAG_MEMBER_ATTR_LAG_ID") == lag_oid:
-                    logging.info('Lag members exist in {} on {}'
-                                 .format(asic.asic_index, asic.sonichost.hostname))
-                    return
-
-            pytest.fail('Lag members {} does not exist in {} on {}'
-                        .format(pc_members, asic.asic_index, asic.sonichost.hostname))
-
-
-def verify_lag_member_in_remote_asic_db(remote_dut, lag_id, pc_members, deleted=False):
-    """
-      Verifies lag member in remote ASIC DB
-
-    """
-    for dut in remote_dut:
-        logging.info('Verifying lag members {} on dut {}'.format(pc_members, dut.hostname))
-        verify_lag_member_in_asic_db(dut.asics, lag_id, pc_members, deleted)
-
-
-def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
-    """
-    verifies lag members for a lag exist in chassis db
-    cmd = 'sonic-db-cli CHASSIS_APP_DB KEYS "*SYSTEM_LAG_MEMBER_TABLE*|PortChannel0051*|Ethernet*"'
-    """
-    for sup in duthosts.supervisor_nodes:
-        voqdb = VoqDbCli(sup)
-        lag_member_list = voqdb.get_lag_member_list()
-        if deleted:
-            for member in members:
-                exist = False
-                pattern = "{}.*{}".format(TMP_PC, member)
-                for lag_member in lag_member_list:
-                    if re.search(pattern, lag_member):
-                        exist = True
-                        break
-                if exist:
-                    pytest.fail('lag member {} not found in system lag member table {}'
-                                .format(member, lag_member_list))
-
-            logging.info('lag members {} found in system lag member table {}'
-                         .format(members, lag_member_list))
-
-        else:
-            for member in members:
-                exist = False
-                pattern = "{}.*{}".format(TMP_PC, member)
-                for lag_member in lag_member_list:
-                    if re.search(pattern, lag_member):
-                        exist = True
-                        logging.info('lag member {} found in system lag member table {}'
-                                     .format(member, lag_member))
-                        break
-
-                if not exist:
-                    pytest.fail('lag member {} not found in system lag member table {}'
-                                .format(member, lag_member_list))
+        pytest_assert(count == expected, "Found {} LAG members in {} asic{} ASIC_DB, expected {}"
+                                         .format(count, asic.sonichost.hostname, asic.asic_index, expected))
 
 
 def verify_lag_member_status_in_app_db(asic, pc_member, enabled=True):
