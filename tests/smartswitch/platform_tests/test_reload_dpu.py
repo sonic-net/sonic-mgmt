@@ -22,7 +22,8 @@ pytestmark = [
 
 
 def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                               localhost, platform_api_conn, num_dpu_modules):
+                               localhost, platform_api_conn, num_dpu_modules,
+                               check_smartswitch_and_dark_mode):
     """
     @summary: Verify output of `config chassis modules startup <DPU_Number>`
     """
@@ -52,7 +53,8 @@ def test_dpu_ping_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_show_ping_int_after_reload(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    localhost, platform_api_conn, num_dpu_modules):
+                                    localhost, platform_api_conn, num_dpu_modules,
+                                    check_smartswitch_and_dark_mode):
     """
     @summary: To Check Ping between NPU and DPU
               after configuration reload on NPU
