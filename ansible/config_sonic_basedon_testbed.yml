@@ -580,7 +580,11 @@
           timeout: 600
         changed_when: false
 
-      - name: Sync DUT system time with NTP server
+      - name: Check if chrony exists
+        service: name=chrony
+        register: chrony_service
+
+      - name: Sync DUT system time with NTP server with ntpd
         block:
           - name: Wait for ntp.service restart after reload minigraph
             become: true
@@ -605,6 +609,29 @@
           - name: Start ntp.service on DUT
             become: true
             service: name=ntp state=restarted enabled=true
+        when: chrony_service.status.LoadState == "not-found"
+
+      - name: Sync DUT system time with NTP server with chrony
+        block:
+          - name: Wait for chrony.service restart after reload minigraph
+            become: true
+            service: name=chrony state=started
+
+          - name: Stop chrony.service on DUT
+            become: true
+            service: name=chrony state=stopped
+
+          - name: Sync DUT system time with NTP server
+            become: true
+            command: chronyd -F 1 -q
+            ignore_errors: true
+            async: 60
+            poll: 10
+
+          - name: Start chrony.service on DUT
+            become: true
+            service: name=chrony state=restarted enabled=true
+        when: chrony_service.status.LoadState != "not-found"
 
       - name: config static route for trex traffic passthrough
         become: true
