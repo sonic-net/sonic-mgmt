@@ -2,7 +2,7 @@ import pytest
 from tests.common.helpers.bgp import run_bgp_facts
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't0-sonic'),
     pytest.mark.device_type('vs')
 ]
 
