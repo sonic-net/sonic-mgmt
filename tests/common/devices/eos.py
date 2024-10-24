@@ -322,6 +322,9 @@ class EosHost(AnsibleHostBase):
     def run_command(self, cmd):
         return self.eos_command(commands=[cmd])
 
+      def run_command_list(self, cmd):
+        return self.eos_command(commands=cmd)
+
     def get_auto_negotiation_mode(self, interface_name):
         output = self.eos_command(commands=[{
             'command': 'show interfaces %s status' % interface_name,

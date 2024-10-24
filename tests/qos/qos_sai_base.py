@@ -591,7 +591,10 @@ class QosSaiBase(QosBase):
                     docker.restore_default_syncd(duthost, new_creds)
 
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
-                    params=("single_asic", "single_dut_multi_asic", "multi_dut"))
+                    params=["single_asic", "single_dut_multi_asic",
+                            "multi_dut_longlink_to_shortlink",
+                            "multi_dut_shortlink_to_shortlink",
+                            "multi_dut_shortlink_to_longlink"])
     def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo, lower_tor_host): # noqa F811
         test_port_selection_criteria = request.param
         logger.info("test_port_selection_criteria is {}".format(test_port_selection_criteria))
@@ -607,12 +610,21 @@ class QosSaiBase(QosBase):
                     lower_tor_dut_index = a_dut_index
                     break
 
+        number_of_duts = len(duthosts.frontend_nodes)
+        is_longlink_list = [False] * number_of_duts
+        for i in range(number_of_duts):
+            if self.isLonglink(duthosts.frontend_nodes[i]):
+                is_longlink_list[i] = True
+        shortlink_indices = [i for i, longlink in enumerate(is_longlink_list) if not longlink]
+
         duthost = duthosts.frontend_nodes[0]
         if test_port_selection_criteria == 'single_asic':
             # We should randomly pick a dut from duthosts.frontend_nodes and a random asic in that selected DUT
             # for now hard code the first DUT and the first asic
             if 'dualtor' in tbinfo['topo']['name']:
                 src_dut_index = lower_tor_dut_index
+            elif topo not in (self.SUPPORTED_T0_TOPOS + self.SUPPORTED_T1_TOPOS) and shortlink_indices:
+                src_dut_index = random.choice(shortlink_indices)
             else:
                 src_dut_index = 0
             dst_dut_index = src_dut_index
@@ -622,20 +634,24 @@ class QosSaiBase(QosBase):
         elif test_port_selection_criteria == "single_dut_multi_asic":
             if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
                 pytest.skip("single_dut_multi_asic is not supported on T0 topologies")
-            found_multi_asic_dut = False
-            for a_dut_index in range(len(duthosts.frontend_nodes)):
-                a_dut = duthosts.frontend_nodes[a_dut_index]
-                if a_dut.sonichost.is_multi_asic:
-                    src_dut_index = a_dut_index
-                    dst_dut_index = a_dut_index
-                    src_asic_index = 0
-                    dst_asic_index = 1
-                    found_multi_asic_dut = True
-                    logger.info("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
-                    break
-            if not found_multi_asic_dut:
-                pytest.skip(
-                    "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
+            if topo not in self.SUPPORTED_T1_TOPOS and shortlink_indices:
+                src_dut_index = random.choice(shortlink_indices)
+            else:
+                found_multi_asic_dut = False
+                for a_dut_index in range(len(duthosts.frontend_nodes)):
+                    a_dut = duthosts.frontend_nodes[a_dut_index]
+                    if a_dut.sonichost.is_multi_asic:
+                        src_dut_index = a_dut_index
+                        found_multi_asic_dut = True
+                        logger.info("Using dut {} for single_dut_multi_asic testing".format(a_dut.hostname))
+                        break
+                if not found_multi_asic_dut:
+                    pytest.skip(
+                        "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
+            dst_dut_index = src_dut_index
+            src_asic_index = 0
+            dst_asic_index = 1
+
         else:
             # Dealing with multi-dut
             if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(duthost):
@@ -646,8 +662,23 @@ class QosSaiBase(QosBase):
             if (len(duthosts.frontend_nodes)) < 2:
                 pytest.skip("Don't have 2 frontend nodes - so can't run multi_dut tests")
 
-            src_dut_index = 0
-            dst_dut_index = 1
+            if test_port_selection_criteria == 'multi_dut_shortlink_to_shortlink':
+                if is_longlink_list.count(False) < 2:
+                    pytest.skip("Don't have 2 shortlink frontend nodes - so can't run {}"
+                                "tests".format(test_port_selection_criteria))
+                src_dut_index = is_longlink_list.index(False)
+                dst_dut_index = is_longlink_list.index(False, src_dut_index + 1)
+            else:
+                if is_longlink_list.count(False) == 0 or is_longlink_list.count(True) == 0:
+                    pytest.skip("Don't have longlink or shortlink frontend nodes - so can't"
+                                "run {} tests".format(test_port_selection_criteria))
+                if test_port_selection_criteria == 'multi_dut_longlink_to_shortlink':
+                    src_dut_index = is_longlink_list.index(True)
+                    dst_dut_index = is_longlink_list.index(False)
+                else:
+                    src_dut_index = is_longlink_list.index(False)
+                    dst_dut_index = is_longlink_list.index(True)
+
             src_asic_index = 0
             dst_asic_index = 0
 
@@ -947,6 +978,12 @@ class QosSaiBase(QosBase):
                             uplinkPortIds.append(portIndex)
                             uplinkPortIps.append(portConfig["peer_addr"])
                             uplinkPortNames.append(intf)
+
+            if isMellanoxDevice(src_dut):
+                dualtor_dut_ports = dualtor_ports_for_duts if topo in self.SUPPORTED_PTF_TOPOS else None
+                testPortIds[src_dut_index][src_asic_index] = self.select_port_ids_for_mellnaox_device(
+                    src_dut, src_mgFacts, testPortIds[src_dut_index][src_asic_index], dualtor_dut_ports)
+                dualTorPortIndexes = testPortIds
 
             testPortIps[src_dut_index] = {}
             testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
@@ -1630,6 +1667,13 @@ class QosSaiBase(QosBase):
                 get_src_dst_asic_and_duts['src_asic_index'] ==
                     get_src_dst_asic_and_duts['dst_asic_index']):
                 dutTopo = "topo-any"
+            # Initialize parameter dicts if no info exists yet, typically if no yaml file
+            # is provided for this asic.
+            if dutAsic not in qosConfigs['qos_params']:
+                qosConfigs['qos_params'][dutAsic] = {}
+            if dutTopo not in qosConfigs['qos_params'][dutAsic]:
+                qosConfigs['qos_params'][dutAsic][dutTopo] = {}
+
             qpm = qos_param_generator.QosParamCisco(
                       qosConfigs['qos_params'][dutAsic][dutTopo],
                       duthost,
@@ -2492,8 +2536,23 @@ class QosSaiBase(QosBase):
         tc_to_dscp_count_map = {}
         for tc in range(8):
             tc_to_dscp_count_map[tc] = 0
-        config_facts = duthost.get_running_config_facts()
+        config_facts = duthost.asic_instance().config_facts(source="running")["ansible_facts"]
         dscp_to_tc_map = config_facts['DSCP_TO_TC_MAP']['AZURE']
         for dscp, tc in dscp_to_tc_map.items():
             tc_to_dscp_count_map[int(tc)] += 1
         yield tc_to_dscp_count_map
+
+    def isLonglink(self, dut_host):
+        config_facts = dut_host.asics[0].config_facts(source="running")["ansible_facts"]
+        buffer_pg = config_facts["BUFFER_PG"]
+        for intf, value_of_intf in buffer_pg.items():
+            for _, v in value_of_intf.items():
+                if "pg_lossless" in v['profile']:
+                    profileName = v['profile']
+                    logger.info("Lossless Buffer profile is {}".format(profileName))
+                    m = re.search("^pg_lossless_[0-9]+_([0-9]+)m_profile", profileName)
+                    pytest_assert(m.group(1), "Cannot find cable length")
+                    cable_length = int(m.group(1))
+                    if cable_length >= 120000:
+                        return True
+        return False
