@@ -13,22 +13,26 @@ pytestmark = [
 ]
 
 
-def get_asic_with_pc(duthost):
-    """
-    Returns Asic with portchannel
+def _get_random_asic_with_pc(duthost):
+    """Returns a random ASIC with portchannel from given duthost
 
     Args:
-        duthost <obj>: The duthost object
+        duthost: A duthost object to probe ASICs
 
     Returns:
-        asic <obj> : Asic object
-
+        asic: Random ASIC with PC from the duthost
     """
+    asics_with_pc = []
     for asic in duthost.asics:
         config_facts = duthost.config_facts(source='persistent',
                                             asic_index=asic.asic_index)['ansible_facts']
         if 'PORTCHANNEL' in config_facts:
-            return asic
+            asics_with_pc.append(asic)
+
+    if asics_with_pc:
+        return random.choice(asics_with_pc)
+    else:
+        pytest.fail("{} has no ASICs with portchannels".format(duthost))
 
 
 @pytest.fixture(scope='module')
@@ -49,11 +53,11 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asic = get_asic_with_pc(duthost)
+    asic = _get_random_asic_with_pc(duthost)
     config_facts = duthost.config_facts(source='persistent',
                                         asic_index=asic.asic_index)['ansible_facts']
 
-    portchannel = list(config_facts['PORTCHANNEL'].keys())[0]
+    portchannel = random.choice(list(config_facts['PORTCHANNEL'].keys()))
     portchannel_members = config_facts['PORTCHANNEL'][portchannel].get('members')
 
     portchannel_ip = None
@@ -93,7 +97,7 @@ def test_voq_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         5. delete the added lag
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asic = get_asic_with_pc(duthost)
+    asic = _get_random_asic_with_pc(duthost)
     try:
         voq_lag.verify_lag_id_is_unique_in_chassis_db(duthosts, duthost, asic)
         voq_lag.verify_lag_in_app_db(asic)
