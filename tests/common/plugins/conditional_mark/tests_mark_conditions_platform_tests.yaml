@@ -839,6 +839,13 @@ platform_tests/test_cont_warm_reboot.py:
     conditions:
       - "'dualtor' in topo_name"
 
+platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
+  xfail:
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13627
+      - "neighbor_type!='eos'"
+
+
 #######################################
 ####        test_kdump.py         #####
 #######################################
