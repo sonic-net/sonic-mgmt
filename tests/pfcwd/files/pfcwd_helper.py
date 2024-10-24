@@ -328,19 +328,22 @@ def select_test_ports(test_ports):
     """
     selected_ports = dict()
     rx_ports = set()
-    seed = int(datetime.datetime.today().day)
-    for port, port_info in list(test_ports.items()):
-        rx_port = port_info["rx_port"]
-        if isinstance(rx_port, (list, tuple)):
-            rx_ports.update(rx_port)
-        else:
-            rx_ports.add(rx_port)
-        if (int(port_info['test_port_id']) % 15) == (seed % 15):
-            selected_ports[port] = port_info
-
-    # filter out selected ports that also act as rx ports
-    selected_ports = {p: pi for p, pi in list(selected_ports.items())
-                      if p not in rx_port}
+    if len(test_ports) > 2:
+        modulo = int(len(test_ports)/3)
+        seed = int(len(test_ports)/2)
+        for port, port_info in test_ports.items():
+            rx_port = port_info["rx_port"]
+            if isinstance(rx_port, (list, tuple)):
+                rx_ports.update(rx_port)
+            else:
+                rx_ports.add(rx_port)
+            if (int(port_info['test_port_id']) % modulo) == (seed % modulo):
+                selected_ports[port] = port_info
+        # filter out selected ports that also act as rx ports
+        selected_ports = {p: pi for p, pi in list(selected_ports.items())
+                          if p not in rx_port}
+    elif len(test_ports) == 2:
+        selected_ports = test_ports
 
     if not selected_ports:
         random_port = list(test_ports.keys())[0]
