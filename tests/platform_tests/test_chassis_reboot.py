@@ -23,7 +23,7 @@ def chassis_cold_reboot(dut, localhost):
     sync_reboot_history_queue_with_dut(dut)
 
     logging.info("Run cold reboot on {}".format(dut))
-    reboot_res, dut_datetime = dut.command("reboot")
+    dut.command("reboot")
 
     # Append the last reboot type to the queue
     logging.info("Append the latest reboot type to the queue")
