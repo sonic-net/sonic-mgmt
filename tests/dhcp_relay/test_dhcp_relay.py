@@ -167,7 +167,7 @@ def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, tes
             client_interface_name = dhcp_relay["client_iface"]["name"]
             # Get acl mark per interface
             output = (rand_unselected_dut
-                      .shell("ebtables -L INPUT | grep '\-i {} \-j mark \-\-mark\-set' | awk '{{print $6}}'"
+                      .shell(r"ebtables -L INPUT | grep '\-i {} \-j mark \-\-mark\-set' | awk '{{print $6}}'"
                              .format(client_interface_name)))
             pytest_assert(output["rc"] == 0 and len(output["stdout_lines"]) == 1,
                           "Failed get DHCP acl mark for {}, err: {}".format(client_interface_name, output["stderr"]))
