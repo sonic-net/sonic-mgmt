@@ -206,7 +206,8 @@ def test_voq_po_down_via_cli_update(duthosts, enum_rand_one_per_hwsku_frontend_h
 
 
 @pytest.mark.parametrize("flap_method", ["local", "remote"])
-def test_voq_po_member_down_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_teardown, fanouthosts, flap_method):
+def test_voq_po_member_down_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                   setup_teardown, fanouthosts, flap_method):
     """
     Test to verify when a LAG member goes down on an ASIC, it is synced across all DBs
 
