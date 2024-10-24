@@ -250,7 +250,7 @@ copp/test_copp.py::TestCOPP::test_add_new_trap:
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True"
-      - "topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx'] and 't2' not in topo_type)"
   xfail:
     reason: "Test failed due to known issue on broadcom platform, xfail it on 202305 and 202311"
     conditions:
@@ -1181,13 +1181,13 @@ mvrf:
 #######################################
 #####            mx               #####
 #######################################
-mx/test_dhcp_server_internal_only.py:
+mx/test_dhcp_server_init_internal_only.py:
   skip:
     reason: "Not support to run in release >= 202311"
     conditions:
       - "release not in ['202205', '202305']"
 
-mx/test_dhcp_server_init_internal_only.py:
+mx/test_dhcp_server_internal_only.py:
   skip:
     reason: "Not support to run in release >= 202311"
     conditions:
