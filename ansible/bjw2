@@ -1213,9 +1213,20 @@ sonic_cisco_8101_O8C48:
       ansible_hostv6: 2404:f801:10:2200::a96:163b
       mgmt_subnet_mask_length: 23
       model: 8101-32FH-O
-      serial:
-      base_mac:
+      serial: FLM2728045L
+      base_mac: 48:1B:A4:5D:18:00
       syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "477691"
+        "0x23": "FLM2728045L"
+        "0x24": "48:1B:A4:5D:18:00"
+        "0x26": "2"
+        "0x28": "x86_64-8101_32fh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xDF2EAE42"
       plt_reboot_dict:
         cold:
           timeout: 600
@@ -1234,9 +1245,20 @@ sonic_cisco_8101_O8C48:
       ansible_hostv6: 2404:f801:10:2200::a96:163e
       mgmt_subnet_mask_length: 23
       model: 8101-32FH-O
-      serial:
-      base_mac:
+      serial: FLM27290649
+      base_mac: 34:88:18:B8:4E:00
       syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "477691"
+        "0x23": "FLM27290649"
+        "0x24": "34:88:18:B8:4E:00"
+        "0x26": "2"
+        "0x28": "x86_64-8101_32fh_o-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0xDDBED6CC"
       plt_reboot_dict:
         cold:
           timeout: 600
