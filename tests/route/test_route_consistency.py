@@ -14,6 +14,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+
 def kill_process_by_pid(duthost, container_name, program_name, program_pid):
     """Kills a process in the specified container by its pid.
 
@@ -194,8 +195,14 @@ class TestRouteConsistency():
             time.sleep(self.sleep_interval)
 
     @pytest.mark.disable_loganalyzer
-    def test_bgpd_crash_and_recover(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    def test_bgpd_crash_and_recover(self, duthosts):
+        duthost = None
+        for idx, dut in enumerate(duthosts.frontend_nodes):
+            if dut.facts['switch_type'] == "voq" and idx == 0:
+                # pick a UpstreamLC to get higher route churn in VoQ chassis
+                duthost = dut
+        if duthost is None:
+            duthost = duthosts[0]
         logger.info("test_bgp_crash_and_recover: DUT{}".format(duthost.hostname))
 
         namespace_ids, succeeded = duthost.get_namespace_ids("bgp")
@@ -205,7 +212,7 @@ class TestRouteConsistency():
         try:
             logger.info("kill bgpd(s) for {}".format(duthost.hostname))
             for id in namespace_ids:
-                if id == None:
+                if id is None:
                     id = ""
                 check_and_kill_process(duthost, "bgp" + str(id), "bgpd")
             time.sleep(30)
@@ -223,7 +230,7 @@ class TestRouteConsistency():
 
             logger.info("start bgpd for {}".format(duthost.hostname))
             for id in namespace_ids:
-                if id == None:
+                if id is None:
                     id = ""
                 duthost.shell("docker exec {} supervisorctl start {}".format("bgp" + str(id), "bgpd"))
                 duthost.shell("docker exec {} supervisorctl restart {}".format("bgp" + str(id), "bgpcfgd"))
@@ -241,23 +248,24 @@ class TestRouteConsistency():
             time.sleep(self.sleep_interval)
 
     @pytest.mark.disable_loganalyzer
-    def test_syncd_crash_and_recover(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    def test_syncd_crash_and_recover(self, duthosts):
+        duthost = None
+        for idx, dut in enumerate(duthosts.frontend_nodes):
+            if dut.facts['switch_type'] == "voq" and idx == 0:
+                # pick a UpstreamLC to get higher route churn in VoQ chassis
+                duthost = dut
+        if duthost is None:
+            duthost = duthosts[0]
         logger.info("test_syncd_crash_and_recover: DUT{}".format(duthost.hostname))
 
         namespace_ids, succeeded = duthost.get_namespace_ids("syncd")
         pytest_assert(succeeded, "Failed to get namespace ids of container '{}'".format("syncd"))
         logger.info("namespace_ids: {}".format(namespace_ids))
-        # for id in namespace_ids:
-        #     if id == None:
-        #         id = ""
-        #     duthost.shell("sudo config feature autorestart {} disabled".format("syncd" + str(id)))
-        #     logger.info(duthost.shell("show feature status"))
 
         try:
             logger.info("kill syncd(s) for {}".format(duthost.hostname))
             for id in namespace_ids:
-                if id == None:
+                if id is None:
                     id = ""
                 check_and_kill_process(duthost, "syncd" + str(id), "syncd")
             time.sleep(30)
@@ -288,23 +296,24 @@ class TestRouteConsistency():
             time.sleep(self.sleep_interval)
 
     @pytest.mark.disable_loganalyzer
-    def test_orchagent_crash_and_recover(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    def test_orchagent_crash_and_recover(self, duthosts):
+        duthost = None
+        for idx, dut in enumerate(duthosts.frontend_nodes):
+            if dut.facts['switch_type'] == "voq" and idx == 0:
+                # pick a UpstreamLC to get higher route churn in VoQ chassis
+                duthost = dut
+        if duthost is None:
+            duthost = duthosts[0]
         logger.info("test_orchagent_crash_and_recover: DUT{}".format(duthost.hostname))
 
         namespace_ids, succeeded = duthost.get_namespace_ids("swss")
         pytest_assert(succeeded, "Failed to get namespace ids of container '{}'".format("swss"))
         logger.info("namespace_ids: {}".format(namespace_ids))
-        # for id in namespace_ids:
-        #     if id == None:
-        #         id = ""
-        #     duthost.shell("sudo config feature autorestart {} disabled".format("syncd" + str(id)))
-        #     logger.info(duthost.shell("show feature status"))
 
         try:
             logger.info("kill orchagent(s) for {}".format(duthost.hostname))
             for id in namespace_ids:
-                if id == None:
+                if id is None:
                     id = ""
                 check_and_kill_process(duthost, "swss" + str(id), "orchagent")
             time.sleep(30)
