@@ -577,6 +577,14 @@ def rand_one_dut_lossless_prio(request):
     return lossless_prio_list[0]
 
 
+@pytest.fixture(scope="module")
+def rand_one_dut_lossy_prio(request):
+    lossless_prio_list = generate_priority_lists(request, 'lossy')
+    if len(lossless_prio_list) > 1:
+        lossless_prio_list = random.sample(lossless_prio_list, 1)
+    return lossless_prio_list[0]
+
+
 @pytest.fixture(scope="module", autouse=True)
 def reset_critical_services_list(duthosts):
     """
