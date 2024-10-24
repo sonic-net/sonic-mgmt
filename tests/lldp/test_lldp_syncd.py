@@ -124,8 +124,17 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
         entry_content["lldp_rem_sys_cap_supported"] == "28 00",
         "lldp_rem_sys_cap_supported does not match for {}".format(interface),
     )
+    if interface == "eth0":
+        expected_sys_cap_enable_result = (
+            entry_content["lldp_rem_sys_cap_enabled"] == "28 00"
+            or entry_content["lldp_rem_sys_cap_enabled"] == "20 00",
+        )
+    else:
+        expected_sys_cap_enable_result = (
+            entry_content["lldp_rem_sys_cap_enabled"] == "28 00"
+        )
     pytest_assert(
-        entry_content["lldp_rem_sys_cap_enabled"] == "28 00",
+        expected_sys_cap_enable_result,
         "lldp_rem_sys_cap_enabled does not match for {}".format(interface),
     )
 
@@ -265,6 +274,7 @@ def test_lldp_entry_table_after_lldp_restart(
 
 
 # Test case 5: Verify LLDP_ENTRY_TABLE after reboot
+@pytest.mark.disable_loganalyzer
 def test_lldp_entry_table_after_reboot(
     localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):

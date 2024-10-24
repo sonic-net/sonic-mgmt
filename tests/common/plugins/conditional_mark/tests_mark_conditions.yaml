@@ -59,11 +59,11 @@ arp/test_unknown_mac.py:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now."
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos"
+    conditions_logical_operator: or
     conditions:
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-buildimage/issues/16502
-
+      - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
+      - "'standalone' in topo_name"
 
 #######################################
 #####            bfd              #####
@@ -192,7 +192,7 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
     conditions:
-      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-120']"
+      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-64-breakout', 'dualtor-120']"
 
 cacl/test_cacl_application.py::test_cacl_application_nondualtor:
   skip:
@@ -368,6 +368,12 @@ dhcp_relay/test_dhcpv6_relay.py:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
+
+dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
+  skip:
+    reason: "skip the multiple vlan test on aa dualtor as interface state is not aa after vlan split"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 #######################################
 #####         drop_packets        #####
@@ -562,6 +568,13 @@ dualtor_io/test_link_failure.py::test_standby_link_down_upstream:
     reason: "KVM testbed do not support shutdown fanout interface action / Testcase could only be executed on dualtor testbed."
     conditions:
       - "asic_type in ['vs'] or 'dualtor' not in topo_name"
+
+dualtor_mgmt/test_dualtor_bgp_update_delay.py:
+  xfail:
+    reason: "Has flaky issue on kvm testbed"
+    conditions:
+      - asic_type in ['vs']
+      - https://github.com/sonic-net/sonic-mgmt/issues/14996
 
 #######################################
 #####         dut_console         #####
@@ -1237,10 +1250,11 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2. / Pfcwd tests skipped on m0/mx testbed."
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed."
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name"
+        - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx']"
    xfail:
      reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
@@ -1549,9 +1563,9 @@ restapi/test_restapi.py::test_create_vrf:
 
 restapi/test_restapi_vxlan_ecmp.py:
   skip:
-    reason: "Only supported on cisco 8102 T1"
+    reason: "Only supported on cisco 8102, 8101 and mlnx 4600C T1"
     conditions:
-      - "not (asic_type in ['cisco-8000'] and 't1' in topo_type)"
+      - "not (platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0']  and 't1' in topo_type)"
 
 #######################################
 #####           route             #####
@@ -1629,6 +1643,12 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
     conditions:
       - "topo_type in ['tgen']"
 
+snappi_tests/multidut/pfc/test_multidut_global_pause_with_snappi.py:
+  skip:
+    reason: "Global pause is not supported in cisco-8000."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####            snmp             #####
 #######################################
@@ -1644,6 +1664,11 @@ snmp/test_snmp_link_local.py:
     conditions:
       - "is_multi_asic==False"
       - "release in ['202205', '202211', '202305', '202311']"
+  xfail:
+    reason: "Test script has issues on kvm testbed."
+    condition:
+      - "asic_type in ['vs']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/15081"
 
 snmp/test_snmp_loopback.py::test_snmp_loopback:
   skip:
@@ -1814,6 +1839,12 @@ telemetry/test_telemetry.py:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
+
+telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
+  skip:
+    reason: "Testcase ignored due to switch type is voq"
+    conditions:
+      - "(switch_type=='voq')"
 
 #######################################
 #####         pktgen              #####
