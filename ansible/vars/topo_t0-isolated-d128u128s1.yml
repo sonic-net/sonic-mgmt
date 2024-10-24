@@ -807,7 +807,7 @@ configuration_properties:
     failure_rate: 0
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
-    
+
 configuration:
   ARISTA01T1:
     properties:
