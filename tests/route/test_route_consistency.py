@@ -1,14 +1,69 @@
 import pytest
 import logging
+import traceback
 import re
 import time
 import math
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import get_program_info
+from tests.common.config_reload import config_reload
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)
+
+def kill_process_by_pid(duthost, container_name, program_name, program_pid):
+    """Kills a process in the specified container by its pid.
+
+    Args:
+        duthost: Hostname of DUT.
+        container_name: A string shows container name.
+        program_name: A string shows process name.
+        program_pid: An integer represents the PID of a process.
+
+    Returns:
+        None.
+    """
+    if "20191130" in duthost.os_version:
+        kill_cmd_result = duthost.shell("docker exec {} supervisorctl stop {}".format(container_name, program_name))
+    else:
+        # If we used the command `supervisorctl stop <proc_name>' to stop process,
+        # Supervisord will treat the exit code of process as expected and it will not generate
+        # alerting message.
+        kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
+
+    # Get the exit code of 'kill' or 'supervisorctl stop' command
+    exit_code = kill_cmd_result["rc"]
+    pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
+
+    logger.info("Program '{}' in container '{}' was stopped successfully"
+                .format(program_name, container_name))
+
+
+def check_and_kill_process(duthost, container_name, program_name):
+    """Checks the running status of a critical process. If it is running, kill it. Otherwise,
+       fail this test.
+
+    Args:
+        duthost: Hostname of DUT.
+        container_name: A string shows container name.
+        program_name: A string shows process name.
+        program_pid: An integer represents the PID of a process.
+
+    Returns:
+        None.
+    """
+    program_status, program_pid = get_program_info(duthost, container_name, program_name)
+    if program_status == "RUNNING":
+        kill_process_by_pid(duthost, container_name, program_name, program_pid)
+    elif program_status in ["EXITED", "STOPPED", "STARTING"]:
+        pytest.fail("Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
+                    .format(program_name, container_name, program_status))
+    else:
+        pytest.fail("Failed to find program '{}' in container '{}'"
+                    .format(program_name, container_name))
 
 
 class TestRouteConsistency():
@@ -49,7 +104,7 @@ class TestRouteConsistency():
            withdraw and advertise the routes by peers.
         """
         self.__class__.sleep_interval = math.ceil(max_prefix_cnt/3000) + 120
-        logger.debug("max_no_of_prefix: {} sleep_interval: {}".format(max_prefix_cnt, self.sleep_interval))
+        logger.info("max_no_of_prefix: {} sleep_interval: {}".format(max_prefix_cnt, self.sleep_interval))
 
     def test_route_withdraw_advertise(self, duthosts, tbinfo, localhost):
 
@@ -137,3 +192,145 @@ class TestRouteConsistency():
             # startup bgp back in case of any exception
             duthost.shell("sudo config bgp startup all")
             time.sleep(self.sleep_interval)
+
+    @pytest.mark.disable_loganalyzer
+    def test_bgpd_crash_and_recover(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        logger.info("test_bgp_crash_and_recover: DUT{}".format(duthost.hostname))
+
+        namespace_ids, succeeded = duthost.get_namespace_ids("bgp")
+        pytest_assert(succeeded, "Failed to get namespace ids of container '{}'".format("bgp"))
+        logger.info("namespace_ids: {}".format(namespace_ids))
+
+        try:
+            logger.info("kill bgpd(s) for {}".format(duthost.hostname))
+            for id in namespace_ids:
+                if id == None:
+                    id = ""
+                check_and_kill_process(duthost, "bgp" + str(id), "bgpd")
+            time.sleep(30)
+
+            post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
+            num_routes_withdrawn = 0
+            for dut_instance_name in self.pre_test_route_snapshot.keys():
+                if num_routes_withdrawn == 0:
+                    num_routes_withdrawn = len(self.pre_test_route_snapshot[dut_instance_name] -
+                                               post_withdraw_route_snapshot[dut_instance_name])
+                    logger.info("num_routes_withdrawn: {}".format(num_routes_withdrawn))
+                else:
+                    assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
+                                                       post_withdraw_route_snapshot[dut_instance_name])
+
+            logger.info("start bgpd for {}".format(duthost.hostname))
+            for id in namespace_ids:
+                if id == None:
+                    id = ""
+                duthost.shell("docker exec {} supervisorctl start {}".format("bgp" + str(id), "bgpd"))
+                duthost.shell("docker exec {} supervisorctl restart {}".format("bgp" + str(id), "bgpcfgd"))
+            time.sleep(self.sleep_interval)
+
+            # take the snapshot of route table from all the DUTs
+            post_test_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
+            for dut_instance_name in self.pre_test_route_snapshot.keys():
+                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
+            logger.info("Route table is consistent across all the DUTs")
+        except Exception:
+            # startup bgpd back in case of any exception
+            logger.info(traceback.format_exc())
+            config_reload(duthost)
+            time.sleep(self.sleep_interval)
+
+    @pytest.mark.disable_loganalyzer
+    def test_syncd_crash_and_recover(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        logger.info("test_syncd_crash_and_recover: DUT{}".format(duthost.hostname))
+
+        namespace_ids, succeeded = duthost.get_namespace_ids("syncd")
+        pytest_assert(succeeded, "Failed to get namespace ids of container '{}'".format("syncd"))
+        logger.info("namespace_ids: {}".format(namespace_ids))
+        # for id in namespace_ids:
+        #     if id == None:
+        #         id = ""
+        #     duthost.shell("sudo config feature autorestart {} disabled".format("syncd" + str(id)))
+        #     logger.info(duthost.shell("show feature status"))
+
+        try:
+            logger.info("kill syncd(s) for {}".format(duthost.hostname))
+            for id in namespace_ids:
+                if id == None:
+                    id = ""
+                check_and_kill_process(duthost, "syncd" + str(id), "syncd")
+            time.sleep(30)
+
+            post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
+            num_routes_withdrawn = 0
+            for dut_instance_name in self.pre_test_route_snapshot.keys():
+                if num_routes_withdrawn == 0:
+                    num_routes_withdrawn = len(self.pre_test_route_snapshot[dut_instance_name] -
+                                               post_withdraw_route_snapshot[dut_instance_name])
+                    logger.info("num_routes_withdrawn: {}".format(num_routes_withdrawn))
+                else:
+                    assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
+                                                       post_withdraw_route_snapshot[dut_instance_name])
+
+            logger.info("Sleep and wait for syncd autorestart on {}".format(duthost.hostname))
+            time.sleep(self.sleep_interval)
+
+            # take the snapshot of route table from all the DUTs
+            post_test_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
+            for dut_instance_name in self.pre_test_route_snapshot.keys():
+                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
+            logger.info("Route table is consistent across all the DUTs")
+        except Exception:
+            # startup bgpd back in case of any exception
+            logger.info("Encountered error. Perform a config reload to recover!")
+            config_reload(duthost)
+            time.sleep(self.sleep_interval)
+
+    @pytest.mark.disable_loganalyzer
+    def test_orchagent_crash_and_recover(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        logger.info("test_orchagent_crash_and_recover: DUT{}".format(duthost.hostname))
+
+        namespace_ids, succeeded = duthost.get_namespace_ids("swss")
+        pytest_assert(succeeded, "Failed to get namespace ids of container '{}'".format("swss"))
+        logger.info("namespace_ids: {}".format(namespace_ids))
+        # for id in namespace_ids:
+        #     if id == None:
+        #         id = ""
+        #     duthost.shell("sudo config feature autorestart {} disabled".format("syncd" + str(id)))
+        #     logger.info(duthost.shell("show feature status"))
+
+        try:
+            logger.info("kill orchagent(s) for {}".format(duthost.hostname))
+            for id in namespace_ids:
+                if id == None:
+                    id = ""
+                check_and_kill_process(duthost, "swss" + str(id), "orchagent")
+            time.sleep(30)
+
+            post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
+            num_routes_withdrawn = 0
+            for dut_instance_name in self.pre_test_route_snapshot.keys():
+                if num_routes_withdrawn == 0:
+                    num_routes_withdrawn = len(self.pre_test_route_snapshot[dut_instance_name] -
+                                               post_withdraw_route_snapshot[dut_instance_name])
+                    logger.info("num_routes_withdrawn: {}".format(num_routes_withdrawn))
+                else:
+                    assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
+                                                       post_withdraw_route_snapshot[dut_instance_name])
+
+            logger.info("Sleep and wait for swss autorestart on {}".format(duthost.hostname))
+            time.sleep(self.sleep_interval)
+
+            # take the snapshot of route table from all the DUTs
+            post_test_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
+            for dut_instance_name in self.pre_test_route_snapshot.keys():
+                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
+            logger.info("Route table is consistent across all the DUTs")
+        except Exception:
+            # startup bgpd back in case of any exception
+            logger.info("Encountered error. Perform a config reload to recover!")
+            config_reload(duthost)
+            time.sleep(self.sleep_interval)
+                    
