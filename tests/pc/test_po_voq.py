@@ -239,7 +239,7 @@ def test_voq_po_member_down_update(duthosts, enum_rand_one_per_hwsku_frontend_ho
         else:
             logging.info("Disabling {} via fanout to simulate external flapping".format(down_pc_member))
             logging.info("Disabling {} on {}".format(fanout_port, fanout.hostname))
-            fanout.shell("config interface shutdown {}".format(fanout_port))
+            fanout.shutdown(fanout_port)
 
         pytest_assert(wait_until(30, 5, 0, lambda: not duthost.check_intf_link_state(down_pc_member)),
                       "{} is not disabled".format(down_pc_member))
@@ -262,7 +262,7 @@ def test_voq_po_member_down_update(duthosts, enum_rand_one_per_hwsku_frontend_ho
         else:
             logging.info("Enabling {} via fanout".format(down_pc_member))
             logging.info("Enabling {} on {}".format(fanout_port, fanout.hostname))
-            fanout.shell("config interface startup {}".format(fanout_port))
+            fanout.no_shutdown(fanout_port)
 
         pytest_assert(wait_until(30, 5, 0, lambda: duthost.check_intf_link_state(down_pc_member)),
                       "{} is not enabled".format(down_pc_member))

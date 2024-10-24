@@ -230,6 +230,8 @@ def verify_lag_member_in_asic_db(asics, lag_id, expected=0):
             if asicdb.hget_key_value(lag_member, "SAI_LAG_MEMBER_ATTR_LAG_ID") == lag_oid:
                 count += 1
 
+        logging.info("Found {} members of LAG in {} asic {} ASIC_DB"
+                     .format(count, asic.sonichost.hostname, asic.asic_index))
         pytest_assert(count == expected, "Found {} LAG members in {} asic{} ASIC_DB, expected {}"
                                          .format(count, asic.sonichost.hostname, asic.asic_index, expected))
 
