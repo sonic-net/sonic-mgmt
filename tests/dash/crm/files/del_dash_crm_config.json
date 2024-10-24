@@ -13,7 +13,7 @@
     },
     {
         "DASH_ACL_RULE_TABLE:group2:rule1": {
-            "priority": 0,
+            "priority": 1,
             "action": "allow",
             "terminating": "true",
             "src_addr": "1.1.1.1/32",
@@ -26,7 +26,7 @@
     {
         "DASH_ACL_GROUP_TABLE:group2": {
             "ip_version": "ipv4",
-            "guid": "dash-group-2"
+            "guid": "a55b99cc-b5b4-4699-a6b2-35fe7c272133"
     },
         "OP": "DEL"
     },
@@ -45,7 +45,7 @@
     {
         "DASH_ACL_GROUP_TABLE:group1": {
             "ip_version": "ipv4",
-            "guid": "dash-group-1"
+            "guid": "a55b99cc-b5b4-4699-a6b2-35fe7c272132"
     },
         "OP": "DEL"
     },

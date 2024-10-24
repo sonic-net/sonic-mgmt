@@ -2,6 +2,7 @@ import logging
 import json
 import time
 import uuid
+import math
 from functools import lru_cache
 import pytest
 
@@ -72,8 +73,6 @@ IP      = %s
 
 def generate_gnmi_cert(localhost, duthost):
     """
-    Generate CA certificate, server certificate and client certificate
-
     Args:
         localhost: fixture for localhost
         duthost: fixture for duthost
@@ -82,7 +81,6 @@ def generate_gnmi_cert(localhost, duthost):
     """
     env = GNMIEnvironment(duthost)
     localhost.shell("mkdir "+env.work_dir, module_ignore_errors=True)
-    # Create Root key
     local_command = "openssl genrsa -out %s 2048" % (env.work_dir+env.gnmi_ca_key)
     localhost.shell(local_command)
 
@@ -199,7 +197,7 @@ def apply_gnmi_cert(duthost, ptfhost):
     time.sleep(env.gnmi_server_start_wait_time)
 
 
-def recover_gnmi_cert(localhost, duthost):
+def recover_gnmi_cert(localhost, duthost, skip_cert_cleanup):
     """
     Restart gnmi server to use default certificate
 
@@ -210,7 +208,8 @@ def recover_gnmi_cert(localhost, duthost):
     Returns:
     """
     env = GNMIEnvironment(duthost)
-    localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
+    if not skip_cert_cleanup:
+        localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
     output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
     if 'RUNNING' in output:
@@ -325,7 +324,8 @@ def gnmi_get(duthost, ptfhost, path_list):
             raise Exception("error:" + msg)
 
 
-def apply_gnmi_file(duthost, ptfhost, dest_path):
+def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=None,
+                    wait_after_apply=5, max_updates_in_single_cmd=1024):
     """
     Apply dash configuration with gnmi client
 
@@ -333,16 +333,22 @@ def apply_gnmi_file(duthost, ptfhost, dest_path):
         duthost: fixture for duthost
         ptfhost: fixture for ptfhost
         dest_path: configuration file path
-
+        config_json: configuration in json
+        wait_after_apply: the seconds to wait after gNMI file applied
+        max_updates_in_single_cmd: threshold to separate the updates into multiple gnmi calls for linux command
+                                   length is limited
     Returns:
     """
     env = GNMIEnvironment(duthost)
-    logger.info("Applying config files on DUT")
-    dut_command = "cat %s" % dest_path
-    ret = duthost.shell(dut_command)
-    assert ret["rc"] == 0, "Failed to read config file"
-    text = ret["stdout"]
-    res = json.loads(text)
+    if dest_path:
+        logger.info("Applying config files on DUT")
+        dut_command = "cat %s" % dest_path
+        ret = duthost.shell(dut_command)
+        assert ret["rc"] == 0, "Failed to read config file"
+        text = ret["stdout"]
+        res = json.loads(text)
+    elif config_json:
+        res = json.loads(config_json)
     delete_list = []
     update_list = []
     update_cnt = 0
@@ -362,13 +368,12 @@ def apply_gnmi_file(duthost, ptfhost, dest_path):
                     text = json.dumps(v)
                     with open(env.work_dir+filename, "w") as file:
                         file.write(text)
-                ptfhost.copy(src=env.work_dir+filename, dest='/root/')
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
                 if proto_utils.ENABLE_PROTO:
-                    path = "/APPL_DB/%s:$/root/%s" % (k, filename)
+                    path = "/APPL_DB/localhost/%s:$/root/%s" % (k, filename)
                 else:
-                    path = "/APPL_DB/%s:@/root/%s" % (k, filename)
+                    path = "/APPL_DB/localhost/%s:@/root/%s" % (k, filename)
                 update_list.append(path)
         elif operation["OP"] == "DEL":
             for k, v in operation.items():
@@ -376,9 +381,33 @@ def apply_gnmi_file(duthost, ptfhost, dest_path):
                     continue
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
-                path = "/APPL_DB/%s" % (k)
+                path = "/APPL_DB/localhost/%s" % (k)
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])
-    gnmi_set(duthost, ptfhost, delete_list, update_list, [])
-    time.sleep(5)
+    localhost.shell(f'tar -zcvf /tmp/updates.tar.gz -C {env.work_dir} .')
+    ptfhost.copy(src='/tmp/updates.tar.gz', dest='~')
+    ptfhost.shell('tar -xf updates.tar.gz')
+
+    def _devide_list(operation_list):
+        list_group = []
+        for i in range(math.ceil(len(operation_list) / max_updates_in_single_cmd)):
+            start_index = max_updates_in_single_cmd * i
+            end_index = max_updates_in_single_cmd * (i + 1)
+            list_group.append(operation_list[start_index:end_index])
+        return list_group
+
+    if delete_list:
+        delete_list_group = _devide_list(delete_list)
+        for delete_list in delete_list_group:
+            gnmi_set(duthost, ptfhost, delete_list, [], [])
+    if update_list:
+        update_list_group = _devide_list(update_list)
+        for update_list in update_list_group:
+            gnmi_set(duthost, ptfhost, [], update_list, [])
+
+    localhost.shell('rm -f /tmp/updates.tar.gz')
+    ptfhost.shell('rm -f updates.tar.gz')
+    localhost.shell(f'rm -f {env.work_dir}update*')
+    ptfhost.shell('rm -f update*')
+    time.sleep(wait_after_apply)

@@ -1,0 +1,37 @@
+[
+    {
+        "DASH_ACL_RULE_TABLE:{{ acl_group }}:{{ acl_rule }}": {
+            "priority": {{priority }},
+            "action": "{{ action }}",
+            "terminating": "{{ terminating }}"
+            {% if src_addr is defined %}
+            ,"src_addr": "{{ src_addr }}"
+            {% elif src_tag is defined %}
+            ,"src_tag": "{{ src_tag }}"
+            {% else %}
+            ,"src_addr": "0.0.0.0/0"
+            {% endif %}
+            {% if dst_addr is defined %}
+            ,"dst_addr": "{{ dst_addr }}"
+            {% elif dst_tag is defined %}
+            ,"dst_tag": "{{ dst_tag }}"
+            {% else %}
+            ,"dst_addr": "0.0.0.0/0"
+            {% endif %}
+            {% if src_port is defined %}
+            ,"src_port": "{{ src_port }}"
+            {% else %}
+            ,"src_port": "0-65535"
+            {% endif %}
+            {% if dst_port is defined %}
+            ,"dst_port": "{{ dst_port }}"
+            {% else %}
+            ,"dst_port": "0-65535"
+            {% endif %}
+            {% if protocol is defined %}
+            ,"protocol": "{{ protocol }}"
+            {% endif %}
+        },
+        "OP": "{{op}}"
+    }
+]

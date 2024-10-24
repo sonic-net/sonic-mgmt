@@ -71,9 +71,14 @@ function validate_parameters()
         RET=2
     fi
 
-    if [[ -z ${TOPOLOGY} && -z ${TEST_CASES} ]]; then
-        echo "Neither TOPOLOGY (-t) nor test case list (-c) is set.."
+    if [[ -z ${TOPOLOGY} && -z ${TEST_CASES} && -z ${TEST_CASES_FILE} ]]; then
+        echo "Neither TOPOLOGY (-t) nor test case list (-c) nor test case list file (-F) is set.."
         RET=3
+    fi
+
+    if [[ ${TEST_CASES} && ${TEST_CASES_FILE} ]]; then
+        echo "Specified both a test case list (-c) and a test case list file (-F).."
+        RET=4
     fi
 
     if [[ ${RET} != 0 ]]; then
@@ -103,6 +108,7 @@ function setup_environment()
     SKIP_FOLDERS="ptftests acstests saitests scripts k8s sai_qualify"
     TESTBED_FILE="${BASE_PATH}/ansible/testbed.yaml"
     TEST_CASES=""
+    TEST_FILTER=""
     TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
@@ -131,10 +137,21 @@ function setup_test_options()
     # expanded to matched test scripts by bash. Among the expanded scripts, we may want to skip a few. Then we can
     # explicitly specify the script to be skipped.
     ignores=$(python3 -c "print('|'.join('''$SKIP_FOLDERS'''.split()))")
-    if [[ -z ${TEST_CASES} ]]; then
+    if [[ -z ${TEST_CASES} && -z ${TEST_CASES_FILE} ]]; then
         # When TEST_CASES is not specified, find all the possible scripts, ignore the scripts under $SKIP_FOLDERS
         all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${ignores})")
+        ignore_files=("test_pretest.py" "test_posttest.py")
+        for ((i=${#all_scripts[@]}-1; i>=0; i--)); do
+            # Check if the current element is in the sub array
+            if [[ " ${ignore_files[@]} " =~ " ${all_scripts[i]} " ]]; then
+                # Remove the element from the main array
+                unset 'all_scripts[i]'
+            fi
+        done
     else
+        if [[ ${TEST_CASES_FILE} ]]; then
+            TEST_CASES="${TEST_CASES} $(cat ${TEST_CASES_FILE} | tr '\n' ' ')"
+        fi
         # When TEST_CASES is specified, ignore the scripts under $SKIP_FOLDERS
         all_scripts=""
         for test_script in ${TEST_CASES}; do
@@ -184,6 +201,10 @@ function setup_test_options()
             PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ignore=${skip}"
         fi
     done
+
+    if [[ ! -z $TEST_FILTER ]]; then
+        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} -k ${TEST_FILTER}"
+    fi
 
     if [[ -d ${LOG_PATH} ]]; then
         rm -rf ${LOG_PATH}
@@ -237,6 +258,8 @@ function run_debug_tests()
     echo "SKIP_SCRIPTS:          ${SKIP_SCRIPTS}"
     echo "SKIP_FOLDERS:          ${SKIP_FOLDERS}"
     echo "TEST_CASES:            ${TEST_CASES}"
+    echo "TEST_CASES_FILE:       ${TEST_CASES_FILE}"
+    echo "TEST_FILTER:           ${TEST_FILTER}"
     echo "TEST_INPUT_ORDER:      ${TEST_INPUT_ORDER}"
     echo "TEST_MAX_FAIL:         ${TEST_MAX_FAIL}"
     echo "TEST_METHOD:           ${TEST_METHOD}"
@@ -340,7 +363,7 @@ function run_individual_tests()
 setup_environment
 
 
-while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
+while getopts "h?a:b:c:C:d:e:Ef:F:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -355,6 +378,9 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
         c )
             TEST_CASES="${TEST_CASES} ${OPTARG}"
             ;;
+        C )
+            TEST_FILTER="${TEST_FILTER} ${OPTARG}"
+            ;;
         d )
             DUT_NAME=${OPTARG}
             ;;
@@ -366,6 +392,9 @@ while getopts "h?a:b:c:d:e:Ef:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
             ;;
         f )
             TESTBED_FILE=${OPTARG}
+            ;;
+        F )
+            TEST_CASES_FILE="${OPTARG}"
             ;;
         i )
             INVENTORY=${OPTARG}

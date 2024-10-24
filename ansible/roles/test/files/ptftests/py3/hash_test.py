@@ -128,6 +128,16 @@ class HashTest(BaseTest):
                 if src_port in exp_port_list:
                     break
             else:
+                if self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
+                    dest_port_dut_index = self.ptf_test_port_map[str(exp_port_lists[0][0])]['target_dut'][0]
+                    src_port_dut_index = self.ptf_test_port_map[str(src_port)]['target_dut'][0]
+                    if src_port_dut_index == 0 and dest_port_dut_index == 0:
+                        ptf_non_upstream_ports = []
+                        for ptf_port, ptf_port_info in self.ptf_test_port_map.items():
+                            if ptf_port_info['target_dut'][0] != 0:
+                                ptf_non_upstream_ports.append(ptf_port)
+                        src_port = int(random.choice(ptf_non_upstream_ports))
+
                 break
         return src_port, exp_port_lists, next_hops
 
@@ -388,8 +398,7 @@ class HashTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         # mask the chksum also if masking the ttl
         if self.ignore_ttl:
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
 
@@ -709,7 +718,8 @@ class IPinIPHashTest(HashTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         # mask the chksum also if masking the ttl
         if self.ignore_ttl:
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
         send_packet(self, src_port, ipinip_pkt)

@@ -5,7 +5,7 @@ import time
 import pytest
 
 from tests.common.helpers.platform_api import chassis, fan_drawer, fan_drawer_fan
-from tests.platform_tests.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
+from tests.common.helpers.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
 from .platform_api_test_base import PlatformApiTestBase
 
 ###################################################
@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 FAN_DIRECTION_INTAKE = "intake"
@@ -45,7 +46,8 @@ class TestFanDrawerFans(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn, duthost):
+    def setup(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if self.num_fan_drawers is None:
             try:
                 self.num_fan_drawers = chassis.get_num_fan_drawers(platform_api_conn)
@@ -280,23 +282,6 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_fans_speed_tolerance(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
-        for j in range(self.num_fan_drawers):
-            num_fans = fan_drawer.get_num_fans(platform_api_conn, j)
-
-            for i in range(num_fans):
-                speed_tolerance = fan_drawer_fan.get_speed_tolerance(platform_api_conn, j, i)
-                if self.expect(speed_tolerance is not None,
-                               "Unable to retrieve fan drawer {} fan {} speed tolerance".format(j, i)):
-                    if self.expect(isinstance(speed_tolerance, int),
-                                   "Fan drawer {} fan {} speed tolerance appears incorrect".format(j, i)):
-                        self.expect(speed_tolerance > 0 and speed_tolerance <= 100,
-                                    "Fan drawer {} fan {} speed tolerance {} reading does not make sense"
-                                    .format(j, i, speed_tolerance))
-
-        self.assert_expectations()
-
     def test_set_fans_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -321,13 +306,16 @@ class TestFanDrawerFans(PlatformApiTestBase):
                     target_speed = random.randint(speed_minimum, speed_maximum)
 
                 speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
-                speed_tol = fan_drawer_fan.get_speed_tolerance(platform_api_conn, j, i)
+                speed_delta = abs(speed-target_speed)
 
                 speed_set = fan_drawer_fan.set_speed(platform_api_conn, j, i, target_speed)     # noqa F841
-                time.sleep(5)
+                time_wait = 10 if speed_delta > 40 else 5
+                time.sleep(self.get_fan_facts(duthost, j, i, time_wait, "speed", "delay"))
 
                 act_speed = fan_drawer_fan.get_speed(platform_api_conn, j, i)
-                self.expect(abs(act_speed - target_speed) <= speed_tol,
+                under_speed = fan_drawer_fan.is_under_speed(platform_api_conn, j, i)
+                over_speed = fan_drawer_fan.is_over_speed(platform_api_conn, j, i)
+                self.expect(not under_speed and not over_speed,
                             "Fan drawer {} fan {} speed change from {} to {} is not within tolerance, actual speed {}"
                             .format(j, i, speed, target_speed, act_speed))
 

@@ -2,9 +2,10 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.fixtures.tacacs import get_aaa_sub_options_value
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -49,19 +50,6 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
-
-
-def get_aaa_sub_options_value(duthost, aaa_type, option):
-    r""" Verify if AAA sub type's options match with expected value
-
-    Sample output:
-    admin@vlab-01:~$ show aaa | grep -Po "AAA authentication login \K.*"
-    local (default)
-    """
-    output = duthost.shell(r'show aaa | grep -Po "AAA {} {} \K.*"'.format(aaa_type, option))
-
-    pytest_assert(not output['rc'], "Failed to grep AAA {}".format(option))
-    return output['stdout']
 
 
 def aaa_add_init_config_without_table(duthost):
@@ -304,6 +292,9 @@ def test_tc1_aaa_suite(rand_selected_dut):
         contian AAA table. So we remove AAA config at first.
     """
     aaa_add_init_config_without_table(rand_selected_dut)
+    # Recent AAA YANG update that passkey in TACPLUS must exist first for authorization tacacs+
+    # Since tc2 it will clean and retest TACPLUS table, we don't care TACPLUS residue after tc1
+    tacacs_global_tc2_add_config(rand_selected_dut)
     aaa_tc1_add_config(rand_selected_dut)
     aaa_tc1_replace(rand_selected_dut)
     aaa_tc1_add_duplicate(rand_selected_dut)
@@ -428,6 +419,7 @@ def test_tc2_tacacs_global_suite(rand_selected_dut):
     """ This test is for default setting when configDB doesn't
         contian TACACS table. So we remove TACACS config at first.
     """
+    aaa_add_init_config_without_table(rand_selected_dut)
     tacacs_add_init_config_without_table(rand_selected_dut)
     tacacs_global_tc2_add_config(rand_selected_dut)
     tacacs_global_tc2_invalid_input(rand_selected_dut)

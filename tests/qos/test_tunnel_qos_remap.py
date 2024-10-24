@@ -16,8 +16,12 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor,\
     toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor  # noqa F401
+from tests.common.dualtor.nic_simulator_control import active_active_ports                              # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info,\
-    get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled                           # noqa F401
+    get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled,\
+    config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup,\
+    toggle_all_aa_ports_to_lower_tor, toggle_all_aa_ports_to_rand_selected_tor,\
+    toggle_all_aa_ports_to_rand_unselected_tor  # noqa F401
 
 from .tunnel_qos_remap_base import build_testing_packet, check_queue_counter,\
     dut_config, qos_config, tunnel_qos_maps, run_ptf_test, toggle_mux_to_host,\
@@ -31,6 +35,7 @@ from tests.common.helpers.pfc_storm import PFCStorm
 
 
 pytestmark = [
+    pytest.mark.enable_active_active,
     pytest.mark.topology('t0')
 ]
 
@@ -68,8 +73,10 @@ def _last_port_in_last_lag(lags):
     return lags[last_lag][-1]
 
 
-def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,                            # noqa F811
-                            toggle_all_simulator_ports_to_lower_tor, tbinfo, ptfadapter, tunnel_qos_maps):       # noqa F811
+def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,  # noqa F811
+                            toggle_all_simulator_ports_to_lower_tor,  # noqa F811
+                            toggle_all_aa_ports_to_lower_tor,         # noqa F811
+                            tbinfo, ptfadapter, tunnel_qos_maps):     # noqa F811
     """
     The test is to verify the dscp rewriting of encapped packets.
     Test steps
@@ -122,7 +129,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
         testutils.send(ptfadapter, src_port, pkt)
         # Verify encaped packet
         try:
-            testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports)
+            testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports, timeout=20)
             logger.info("Verified DSCP combination {}".format(str(dscp_combination)))
         except AssertionError:
             logger.info("Failed to verify packet on DSCP combination {}".format(str(dscp_combination)))
@@ -133,7 +140,8 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
 
 def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_tor_host,        # noqa F811
                                                 toggle_all_simulator_ports_to_lower_tor,        # noqa F811
-                                                tbinfo, ptfadapter):
+                                                toggle_all_aa_ports_to_lower_tor,               # noqa F811
+                                                tbinfo, ptfadapter):       # noqa F811
     """
     The test case is to verify the encapped packet is mapped to the correct queue
     Test steps:
@@ -188,8 +196,9 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
 
 
 def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_unselected_dut,
-                                            toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
-                                            tbinfo, ptfadapter, tunnel_qos_maps): # noqa F811
+                                            toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
+                                            toggle_all_aa_ports_to_rand_selected_tor,         # noqa F811
+                                            tbinfo, ptfadapter, tunnel_qos_maps):             # noqa F811
     """
     The test case is to verify the decapped packet on active ToR are egressed to server from expected queue.
     Test steps:
@@ -210,6 +219,9 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
     try:
         # Walk through all DSCP values
         for inner_dscp in range(0, 64):
+            # For Nvidia platforms, the inner dscp 2 and 6 are considered invalid use cases, skip the test
+            if 'mellanox' == rand_selected_dut.facts["asic_type"] and inner_dscp in [2, 6]:
+                continue
             outer_dscp = tunnel_qos_maps['inner_dscp_to_outer_dscp_map'][inner_dscp]
             _, exp_packet = build_testing_packet(src_ip=DUMMY_IP,
                                                  dst_ip=dualtor_meta['target_server_ip'],
@@ -239,6 +251,7 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
 
 
 def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_dut,
+                                  setup_standby_ports_on_rand_unselected_tor,
         toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, dut_qos_maps_module):  # noqa F811
     """
     The test case is to verify separated DSCP_TO_TC_MAP/TC_TO_QUEUE_MAP on uplink and downlink ports of dualtor
@@ -347,6 +360,7 @@ def pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, dut, port, queue,
 
 
 def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
+                                          setup_standby_ports_on_rand_selected_tor,
         toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
@@ -424,6 +438,7 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
 
 
 def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
+                                         setup_standby_ports_on_rand_unselected_tor,
         toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
@@ -500,7 +515,9 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
 
 
 def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-        toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
+                                              toggle_all_simulator_ports_to_rand_unselected_tor,  # noqa F811
+                                              toggle_all_aa_ports_to_rand_unselected_tor,         # noqa F811
+                                              tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config):  # noqa F811
     """
     The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
 
@@ -598,7 +615,9 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
 
 
 def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-        toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts): # noqa F811
+                                             toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
+                                             toggle_all_aa_ports_to_rand_selected_tor,         # noqa F811
+                                             tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):  # noqa F811
     """
     The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
 

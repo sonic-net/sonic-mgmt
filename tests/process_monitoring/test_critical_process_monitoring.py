@@ -451,7 +451,12 @@ def stop_critical_processes(duthost, containers_in_namespaces):
             container_name_in_namespace = container_name
             if namespace_id != DEFAULT_ASIC_ID:
                 container_name_in_namespace += namespace_id
-
+            if 'lldp' in container_name:
+                # Killing lldpd may impact lldp-syncd process, the next around check for lldp-syncd will probably fail
+                # move lldpd to the end of the list to avoid this issue
+                critical_process_list.append(critical_process_list.pop(critical_process_list.index('lldpd')))
+                logger.info("Critical process list for {} after moving lldpd to the end: {}".format(
+                    container_name_in_namespace, critical_process_list))
             for critical_process in critical_process_list:
                 # Skip 'dsserve' process since it was not managed by supervisord
                 # TODO: Should remove the following two lines once the issue was solved in the image.
@@ -481,6 +486,10 @@ def ensure_process_is_running(duthost, container_name, critical_process):
     Returns:
         None.
     """
+    if critical_process in ["dhcp6relay", "dhcprelayd"]:
+        # For dhcp-relay container, the process name in supervisord started 'dhcp-relay: + the process name'
+        critical_process = "dhcp-relay" + ":" + critical_process
+
     logger.info("Checking whether process '{}' in container '{}' is running..."
                 .format(critical_process, container_name))
     program_status, program_pid = get_program_info(duthost, container_name, critical_process)

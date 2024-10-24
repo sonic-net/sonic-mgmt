@@ -197,15 +197,22 @@ def enable_debug_shell(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         def get_npu_routes():
             npu_route_list = duthost.shell("sudo show platform npu router route-table")["stdout_lines"]
             return npu_route_list
+
+        def is_debug_shell_enabled():
+            routes = get_npu_routes()
+            if routes:
+                return True
+            else:
+                return False
         original_dshell_status = duthost.shell("docker exec -it syncd supervisorctl status dshell_client | \
                                                 grep \"dshell_client.*RUNNING\"",
                                                module_ignore_errors=True)["stdout_lines"]
         if 'RUNNING' not in original_dshell_status:
-            debug_shell_enable = duthost.command("sudo config platform cisco sdk-debug enable")
+            debug_shell_enable = duthost.shell("sudo config platform cisco sdk-debug enable", module_ignore_errors=True)
             logging.info(debug_shell_enable)
-            is_debug_shell_enabled = lambda: get_npu_routes() is not None
             wait_until(360, 5, 0, is_debug_shell_enabled)
         yield
         if 'RUNNING' not in original_dshell_status:
-            debug_shell_disable = duthost.command("sudo config platform cisco sdk-debug disable")
+            debug_shell_disable = duthost.shell("sudo config platform cisco sdk-debug disable",
+                                                module_ignore_errors=True)
             logging.info(debug_shell_disable)

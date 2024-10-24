@@ -11,8 +11,9 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F
 from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
-from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
-from tests.common.checkpoint import create_checkpoint, rollback
+from tests.common.helpers.backend_acl import bind_acl_table
+from tests.common.config_reload import config_reload
+from tests.common.utilities import check_skip_release
 
 
 # TODO: Remove this once we no longer support Python 2
@@ -360,7 +361,7 @@ def acl_rule_cleanup(duthost, tbinfo):
     """Cleanup all the existing DATAACL rules"""
     # remove all rules under the ACL_RULE table
     if "t0-backend" in tbinfo["topo"]["name"]:
-        duthost.shell('acl-loader delete')
+        duthost.shell('acl-loader delete DATAACL')
 
     yield
 
@@ -374,18 +375,34 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
     yield
 
     if "t0-backend" in tbinfo["topo"]["name"]:
-        duthost.command('config acl remove table DATAACL')
         # rebind with new set of ports
         bind_acl_table(duthost, tbinfo)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
-               ports_list, tbinfo, vlan_intfs_dict, setup_acl_table):  # noqa F811
+               ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, fanouthosts):  # noqa F811
 
-    if "dualtor" in tbinfo["topo"]["name"]:
+    if any(topo in tbinfo["topo"]["name"] for topo in ["dualtor", "t0-backend", "t0-standalone"]):
         yield
         return
+
+    """
+    The test set can't run on testbeds connected to sonic leaf-fanout,
+    Tagged packet will be dropped by sonic leaf-fanout because dot1q-tunnel is not supported.
+    Hence we skip the test on testbeds running sonic leaf-fanout
+    """
+    for fanouthost in list(fanouthosts.values()):
+        if fanouthost.get_fanout_os() == 'sonic':
+            # Skips this test if the SONiC image installed on fanout is < 202205
+            is_skip, _ = check_skip_release(fanouthost, ["201811", "201911", "202012", "202106", "202111"])
+            if is_skip:
+                pytest.skip("OS Version of fanout is older than 202205, unsupported")
+            asic_type = fanouthost.facts['asic_type']
+            platform = fanouthost.facts["platform"]
+            if not (asic_type in ["broadcom", "mellanox"] or platform in
+                    ["armhf-nokia_ixs7215_52x-r0", "arm64-nokia_ixs7215_52xb-r0"]):
+                pytest.skip("Not supporteds on SONiC leaf-fanout platform")
 
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -395,16 +412,33 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
         return
     # --------------------- Setup -----------------------
     try:
-        create_checkpoint(duthost, SETUP_ENV_CP)
         dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict)
 
         vp_list = running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list)
         populate_fdb(ptfadapter, vp_list, vlan_intfs_dict)
-        bind_acl_table(duthost, tbinfo)
-        apply_acl_rules(duthost, tbinfo)
     # --------------------- Testing -----------------------
         yield
     # --------------------- Teardown -----------------------
     finally:
-        rollback(duthost, SETUP_ENV_CP)
+        config_reload(duthost, safe_reload=True)
         ptf_teardown(ptfhost, ptf_lag_map)
+
+
+def has_portchannels(duthosts, rand_one_dut_hostname):
+    """
+    Check if the ansible_facts contain non-empty portchannel interfaces and portchannels.
+
+    Args:
+        duthosts: A dictionary that maps DUT hostnames to DUT instances.
+        rand_one_dut_hostname: A random hostname belonging to one of the DUT instances.
+    Returns:
+        bool: True if the ansible_facts contain non-empty portchannel interfaces and portchannels, False otherwise.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    # Retrieve the configuration facts from the DUT
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    # Check if the portchannel interfaces list or portchannels dictionary is empty
+    if not cfg_facts.get("minigraph_portchannel_interfaces", []) or not cfg_facts.get("minigraph_portchannels", {}):
+        return False
+
+    return True

@@ -299,6 +299,7 @@ class LabGraph(object):
             band_width = link["BandWidth"]
             vlan_ID = link["VlanID"]
             vlan_mode = link["VlanMode"]
+            autoneg_mode = link.get("AutoNeg", "off")
 
             if start_device not in links:
                 links[start_device] = {}
@@ -313,11 +314,13 @@ class LabGraph(object):
                 "peerdevice": end_device,
                 "peerport": end_port,
                 "speed": band_width,
+                "autoneg": autoneg_mode,
             }
             links[end_device][end_port] = {
                 "peerdevice": start_device,
                 "peerport": start_port,
                 "speed": band_width,
+                "autoneg": autoneg_mode,
             }
 
             port_vlans[start_device][start_port] = {
@@ -399,6 +402,8 @@ class LabGraph(object):
             if device is None and not ignore_error:
                 msg = "Cannot find device {}, check if it is in {}".format(hostname, self.csv_files["devices"])
                 return (False, msg)
+            if device is None:
+                continue
             device_info[hostname] = device
             device_conn[hostname] = self.graph_facts["links"].get(hostname, {})
 

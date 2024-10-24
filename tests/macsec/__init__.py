@@ -51,16 +51,25 @@ class MacsecPlugin(object):
                                  ids=profiles,
                                  scope="module")
 
+    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
+        return NotImplementedError()
+
+    def downstream_neighbor(self,tbinfo, neighbor):
+        return NotImplementedError()
+
+    def upstream_neighbor(self,tbinfo, neighbor):
+        return NotImplementedError()
+
     @pytest.fixture(scope="module")
-    def start_macsec_service(self, duthost, macsec_nbrhosts):
+    def start_macsec_service(self, macsec_duthost, macsec_nbrhosts):
         def __start_macsec_service():
-            enable_macsec_feature(duthost, macsec_nbrhosts)
+            enable_macsec_feature(macsec_duthost, macsec_nbrhosts)
         return __start_macsec_service
 
     @pytest.fixture(scope="module")
-    def stop_macsec_service(self, duthost, macsec_nbrhosts):
+    def stop_macsec_service(self, macsec_duthost, macsec_nbrhosts):
         def __stop_macsec_service():
-            disable_macsec_feature(duthost, macsec_nbrhosts)
+            disable_macsec_feature(macsec_duthost, macsec_nbrhosts)
         return __stop_macsec_service
 
     @pytest.fixture(scope="module")
@@ -70,19 +79,20 @@ class MacsecPlugin(object):
         stop_macsec_service()
 
     @pytest.fixture(scope="module")
-    def startup_macsec(self, request, duthost, ctrl_links, macsec_profile):
+    def startup_macsec(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
+        topo_name = tbinfo['topo']['name']
         def __startup_macsec():
             profile = macsec_profile
             if request.config.getoption("neighbor_type") == "eos":
-                if duthost.facts["asic_type"] == "vs" and profile['send_sci'] == "false":
+                if macsec_duthost.facts["asic_type"] == "vs" and profile['send_sci'] == "false":
                     # On EOS, portchannel mac is not same as the member port mac (being as SCI),
                     # then src mac is not equal to SCI in its sending packet. The receiver of vSONIC
                     # will drop it for macsec kernel module does not correctly handle it.
                     pytest.skip(
                         "macsec on dut vsonic, neighbor eos, send_sci false")
-
-            cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
-            setup_macsec_configuration(duthost, ctrl_links,
+            if 't2' not in topo_name:
+                cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
+            setup_macsec_configuration(macsec_duthost, ctrl_links,
                                        profile['name'], profile['priority'], profile['cipher_suite'],
                                        profile['primary_cak'], profile['primary_ckn'], profile['policy'],
                                        profile['send_sci'], profile['rekey_period'])
@@ -91,10 +101,10 @@ class MacsecPlugin(object):
         return __startup_macsec
 
     @pytest.fixture(scope="module")
-    def shutdown_macsec(self, duthost, ctrl_links, macsec_profile):
+    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile):
         def __shutdown_macsec():
             profile = macsec_profile
-            cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
+            cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
 
     @pytest.fixture(scope="module", autouse=True)
@@ -111,48 +121,52 @@ class MacsecPlugin(object):
         return {nbr["name"]: nbr for nbr in list(ctrl_links.values())}
 
     @pytest.fixture(scope="module")
-    def ctrl_links(self, duthost, tbinfo, nbrhosts):
+    def ctrl_links(self, macsec_duthost, tbinfo, nbrhosts):
+
         if not nbrhosts:
             topo_name = tbinfo['topo']['name']
             pytest.skip("None of neighbors on topology {}".format(topo_name))
-        ctrl_nbr_names = natsort.natsorted(list(nbrhosts.keys()))[:2]
+
+        ctrl_nbr_names = self.get_ctrl_nbr_names(macsec_duthost, nbrhosts, tbinfo)
         logger.info("Controlled links {}".format(ctrl_nbr_names))
         nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
-        return self.find_links_from_nbr(duthost, tbinfo, nbrhosts)
+        return self.find_links_from_nbr(macsec_duthost, tbinfo, nbrhosts)
 
     @pytest.fixture(scope="module")
-    def unctrl_links(self, duthost, tbinfo, nbrhosts, ctrl_links):
+    def unctrl_links(self, macsec_duthost, tbinfo, nbrhosts, ctrl_links):
         unctrl_nbr_names = set(nbrhosts.keys())
-        for _, nbr in list(ctrl_links.items()):
+        for _, nbr in ctrl_links.items():
             if nbr["name"] in unctrl_nbr_names:
                 unctrl_nbr_names.remove(nbr["name"])
+
         logger.info("Uncontrolled links {}".format(unctrl_nbr_names))
         nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
-        return self.find_links_from_nbr(duthost, tbinfo, nbrhosts)
+        return self.find_links_from_nbr(macsec_duthost, tbinfo, nbrhosts)
 
     @pytest.fixture(scope="module")
-    def downstream_links(self, duthost, tbinfo, nbrhosts):
+    def downstream_links(self, macsec_duthost, tbinfo, nbrhosts):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
-            if ((tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"])
-                    or (tbinfo["topo"]["type"] == "t2" and "T1" in neighbor["name"])):
+            if self.downstream_neighbor(tbinfo, neighbor):
                 port = mg_facts["minigraph_neighbors"][interface]["port"]
+                if interface not in mg_facts["minigraph_ptf_indices"]:
+                    logger.info("Interface {} not in minigraph_ptf_indices".format(interface))
+                    return
                 links[interface] = {
                     "name": neighbor["name"],
                     "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
                     "port": port
                 }
-        self.find_links(duthost, tbinfo, filter)
+        self.find_links(macsec_duthost, tbinfo, filter)
         return links
 
     @pytest.fixture(scope="module")
-    def upstream_links(self, duthost, tbinfo, nbrhosts):
+    def upstream_links(self, macsec_duthost, tbinfo, nbrhosts):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
-            if ((tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"])
-                    or (tbinfo["topo"]["type"] == "t2" and "T3" in neighbor["name"])):
+            if self.upstream_neighbor(tbinfo, neighbor):
                 for item in mg_facts["minigraph_bgp"]:
                     if item["name"] == neighbor["name"]:
                         if isinstance(ip_address(item["addr"]), IPv4Address):
@@ -161,6 +175,9 @@ class MacsecPlugin(object):
                             # The address of DUT
                             peer_ipv4_addr = item["peer_addr"]
                             break
+                if interface not in mg_facts["minigraph_ptf_indices"]:
+                    logger.info("Interface {} not in minigraph_ptf_indices".format(interface))
+                    return
                 port = mg_facts["minigraph_neighbors"][interface]["port"]
                 links[interface] = {
                     "name": neighbor["name"],
@@ -170,12 +187,13 @@ class MacsecPlugin(object):
                     "port": port,
                     "host": nbrhosts[neighbor["name"]]["host"]
                 }
-        self.find_links(duthost, tbinfo, filter)
+        self.find_links(macsec_duthost, tbinfo, filter)
         return links
 
     def find_links(self, duthost, tbinfo, filter):
+
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
+        for interface, neighbor in mg_facts["minigraph_neighbors"].items():
             filter(interface, neighbor, mg_facts, tbinfo)
 
     def is_interface_portchannel_member(self, pc, interface):
@@ -186,7 +204,6 @@ class MacsecPlugin(object):
 
     def find_links_from_nbr(self, duthost, tbinfo, nbrhosts):
         links = collections.defaultdict(dict)
-
         def filter(interface, neighbor, mg_facts, tbinfo):
             if neighbor["name"] not in list(nbrhosts.keys()):
                 return
@@ -200,3 +217,50 @@ class MacsecPlugin(object):
             }
         self.find_links(duthost, tbinfo, filter)
         return links
+
+class MacsecPluginT0(MacsecPlugin):
+    """
+    Pytest macsec plugin
+    """
+
+
+    def __init__(self):
+         super(MacsecPluginT0, self).__init__()
+
+    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
+        ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:2]
+        return ctrl_nbr_names
+
+    def downstream_neighbor(self,tbinfo, neighbor):
+        if (tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]):
+            return True
+        return False
+
+    def upstream_neighbor(self,tbinfo, neighbor):
+        if (tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]):
+            return True
+        return False
+
+class MacsecPluginT2(MacsecPlugin):
+    """
+    Pytest macsec plugin
+    """
+
+
+    def __init__(self):
+         super(MacsecPluginT2, self).__init__()
+
+    def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts, tbinfo):
+        mg_facts = macsec_duthost.get_extended_minigraph_facts(tbinfo)
+        ctrl_nbr_names = mg_facts['macsec_neighbors']
+        return ctrl_nbr_names
+
+    def downstream_neighbor(self,tbinfo, neighbor):
+        if ("t2" in tbinfo["topo"]["type"] and "T1" in neighbor["name"]):
+            return True
+        return False
+
+    def upstream_neighbor(self,tbinfo, neighbor):
+        if ("t2" in tbinfo["topo"]["type"] and "T3" in neighbor["name"]):
+            return True
+        return False

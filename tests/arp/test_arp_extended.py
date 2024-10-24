@@ -5,7 +5,8 @@ import logging
 import ptf.testutils as testutils
 import pytest
 
-from tests.arp.arp_utils import clear_dut_arp_cache, increment_ipv4_addr
+from tests.arp.arp_utils import clear_dut_arp_cache
+from tests.common.utilities import increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 pytestmark = [
@@ -52,7 +53,7 @@ def test_arp_garp_enabled(rand_selected_dut, garp_enabled, ip_and_intf_info, int
     pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['interface'] in vlan_intfs)
 
 
-def test_proxy_arp(proxy_arp_enabled, ip_and_intf_info, ptfadapter, packets_for_test):
+def test_proxy_arp(rand_selected_dut, proxy_arp_enabled, ip_and_intf_info, ptfadapter, packets_for_test):
     """
     Send an ARP request or neighbor solicitation (NS) to the DUT for an IP address within the subnet of the DUT's VLAN.
 
@@ -70,5 +71,25 @@ def test_proxy_arp(proxy_arp_enabled, ip_and_intf_info, ptfadapter, packets_for_
         pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
     ptfadapter.dataplane.flush()
+
+    if ip_version == 'v6':
+        running_config = rand_selected_dut.get_running_config_facts()
+        logger.debug("NDP Debug Logs Start")
+        for table_name, table in running_config.items():
+            if "VLAN" in table_name:
+                logger.debug("{}: {}".format(table_name, table))
+        swss_status = rand_selected_dut.shell('docker exec swss supervisorctl status',
+                                              module_ignore_errors=True)['stdout']
+        logger.debug(swss_status)
+        ndppd_conf = rand_selected_dut.shell('docker exec swss cat /etc/ndppd.conf',
+                                             module_ignore_errors=True)['stdout']
+        logger.debug(ndppd_conf)
+
+        neigh_table = rand_selected_dut.shell('ip -6 neigh')['stdout']
+        logger.debug(neigh_table)
+
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
+    if ip_version == 'v6':
+        neigh_table = rand_selected_dut.shell('ip -6 neigh')['stdout']
+        logger.debug(neigh_table)
     testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)

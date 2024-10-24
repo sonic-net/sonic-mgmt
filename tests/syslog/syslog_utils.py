@@ -2,6 +2,8 @@
     Helpful utilities for writing tests for the syslog feature.
 """
 import logging
+import random
+import string
 import time
 import os
 
@@ -58,6 +60,18 @@ def create_vrf(dut, vrf):
     dut.command('sudo config vrf add {} '.format(vrf), module_async=True)
 
 
+def check_vrf(dut, vrf):
+    """
+    Check if Vrf was created
+
+    Args:
+        dut (SonicHost): The target device
+        vrf (str): vrf
+    """
+    res = dut.command('sudo show vrf')["stdout"]
+    return vrf in res
+
+
 def remove_vrf(dut, vrf):
     """
     Remove Vrf
@@ -98,7 +112,7 @@ def replace_ip_neigh(dut, neighbour, neigh_mac_addr, dev):
         dev=dev))
 
 
-def capture_syslog_packets(dut, tcpdump_cmd):
+def capture_syslog_packets(dut, tcpdump_cmd, logger_flags='', logger_msg=''):
     """
     Capture syslog packets
 
@@ -118,8 +132,10 @@ def capture_syslog_packets(dut, tcpdump_cmd):
     logging.debug("Generating log message from DUT")
     # Generate syslog msgs from the DUT
     logger_info_msg_count = 20
+    default_priority = '--priority INFO'
+    random_msg = ''.join(random.choice(string.ascii_letters) for _ in range(logger_info_msg_count))
     for i in range(logger_info_msg_count):
-        dut.shell("logger --priority INFO ....{}".format("i"))
+        dut.shell("logger {flags} ....{msg}".format(flags=default_priority+''+logger_flags, msg=random_msg+logger_msg))
         time.sleep(0.2)
 
     # wait for stoping tcpdump
@@ -128,15 +144,3 @@ def capture_syslog_packets(dut, tcpdump_cmd):
     dut.fetch(src=pcap_file_full_path, dest=DOCKER_TMP_PATH)
     filepath = os.path.join(DOCKER_TMP_PATH, dut.hostname, pcap_file_full_path.lstrip(os.path.sep))
     return filepath
-
-
-def is_mgmt_vrf_enabled(dut):
-    """
-    Check mgmt vrf is enabled or not
-
-    Args:
-        dut (SonicHost): The target device
-    Return: True or False
-    """
-    show_mgmt_vrf = dut.command("show mgmt-vrf")["stdout"]
-    return "ManagementVRF : Disabled" not in show_mgmt_vrf

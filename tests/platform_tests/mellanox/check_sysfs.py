@@ -5,7 +5,8 @@ This script contains re-usable functions for checking status of hw-management re
 """
 import logging
 import re
-from tests.common.mellanox_data import get_platform_data
+from pkg_resources import parse_version
+from tests.common.mellanox_data import get_hw_management_version, get_platform_data
 from tests.common.utilities import wait_until
 
 MAX_FAN_SPEED_THRESHOLD = 0.15
@@ -41,7 +42,7 @@ def check_sysfs(dut):
     @summary: Check various hw-management related sysfs under /var/run/hw-management
     """
     platform_data = get_platform_data(dut)
-    sysfs_config = generate_sysfs_config(platform_data)
+    sysfs_config = generate_sysfs_config(dut, platform_data)
     logging.info("Collect mellanox sysfs facts")
     sysfs_facts = dut.sysfs_facts(config=sysfs_config)['ansible_facts']
 
@@ -162,6 +163,10 @@ def check_sysfs(dut):
 
     logging.info("Check SFP related sysfs")
     for sfp_id, sfp_info in list(sysfs_facts['sfp_info'].items()):
+        # Skip when the sfp is missing
+        if not sfp_info["temp_fault"]:
+            continue
+
         assert sfp_info["temp_fault"] == '0', "SFP%d temp fault" % int(sfp_id)
         sfp_temp = float(sfp_info['temp']) if sfp_info['temp'] != '0' else 0
         sfp_temp_crit = float(
@@ -247,7 +252,7 @@ def _is_fan_speed_in_range(sysfs_facts):
     return True
 
 
-def generate_sysfs_config(platform_data):
+def generate_sysfs_config(dut, platform_data):
     config = list()
     config.append(generate_sysfs_symbolink_config())
     config.append(generate_sysfs_asic_config())
@@ -256,7 +261,7 @@ def generate_sysfs_config(platform_data):
     config.append(generate_sysfs_cpu_core_config(platform_data))
     config.append(generate_sysfs_fan_config(platform_data))
     if platform_data['psus']['hot_swappable']:
-        config.append(generate_sysfs_psu_config(platform_data))
+        config.append(generate_sysfs_psu_config(dut, platform_data))
     config.append(generate_sysfs_sfp_config(platform_data))
     return config
 
@@ -369,8 +374,8 @@ def generate_sysfs_cpu_core_config(platform_data):
     }
 
 
-def generate_sysfs_psu_config(platform_data):
-    return {
+def generate_sysfs_psu_config(dut, platform_data):
+    data = {
         'name': 'psu_info',
         'start': 1,
         'count': platform_data['psus']['number'],
@@ -386,15 +391,15 @@ def generate_sysfs_psu_config(platform_data):
             },
             {
                 'name': 'temp',
-                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_temp',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_temp1',
             },
             {
                 'name': 'max_temp',
-                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_temp_max',
+                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_temp1_max',
             },
             {
                 'name': 'max_temp_alarm',
-                'cmd_pattern': 'cat /var/run/hw-management/thermal/psu{}_temp_max_alarm',
+                'cmd_pattern': 'cat /var/run/hw-management/alarm/psu{}_temp1_max_alarm',
             },
             {
                 'name': 'fan_speed',
@@ -402,6 +407,12 @@ def generate_sysfs_psu_config(platform_data):
             }
         ]
     }
+    hw_mgmt_version = get_hw_management_version(dut)
+    if parse_version(hw_mgmt_version) < parse_version('7.0030.2003'):
+        data['properties'][2]['cmd_pattern'] = 'cat /var/run/hw-management/thermal/psu{}_temp'
+        data['properties'][3]['cmd_pattern'] = 'cat /var/run/hw-management/thermal/psu{}_temp_max'
+        data['properties'][4]['cmd_pattern'] = 'cat /var/run/hw-management/thermal/psu{}_temp_max_alarm'
+    return data
 
 
 def generate_sysfs_sfp_config(platform_data):

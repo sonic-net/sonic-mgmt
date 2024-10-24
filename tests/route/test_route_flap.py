@@ -7,6 +7,8 @@ from collections import namedtuple
 import pytest
 import ptf.testutils as testutils
 import ptf.packet as scapy
+from tests.common.dualtor.mux_simulator_control import \
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m   # noqa F401
 
 from ptf.mask import Mask
 from natsort import natsorted
@@ -98,6 +100,96 @@ def get_ptf_recv_ports(duthost, tbinfo):
     return recv_ports
 
 
+def get_neighbor_info(duthost, dev_port, tbinfo):
+    """
+    This function returns the neighbor type of
+    the chosen dev_port based on route info
+
+    Args:
+        duthost: DUT belong to the testbed.
+        dev_port: Chosen dev_port based on route info
+        tbinfo: A fixture to gather information about the testbed.
+    """
+    neighbor_type = ''
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    neighs = config_facts['BGP_NEIGHBOR']
+    dev_neigh_mdata = config_facts['DEVICE_NEIGHBOR_METADATA'] if 'DEVICE_NEIGHBOR_METADATA' in config_facts else {}
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    nbr_port_map = mg_facts['minigraph_port_name_to_alias_map'] \
+        if 'minigraph_port_name_to_alias_map' in mg_facts else {}
+    for neighbor in neighs:
+        local_ip = neighs[neighbor]['local_addr']
+        nbr_port = get_port_by_ip(config_facts, local_ip)
+        if 'Ethernet' in nbr_port:
+            for p_key, p_value in nbr_port_map.items():
+                if p_value == nbr_port:
+                    nbr_port = p_key
+        if dev_port == nbr_port:
+            neighbor_name = neighs[neighbor]['name']
+    for k, v in dev_neigh_mdata.items():
+        if k == neighbor_name:
+            neighbor_type = v['type']
+    return neighbor_type
+
+
+def get_port_by_ip(config_facts, ipaddr):
+    """
+    This function returns port name based on ip address
+    """
+    if ':' in ipaddr:
+        iptype = "ipv6"
+    else:
+        iptype = "ipv4"
+
+    intf = {}
+    intf.update(config_facts.get('INTERFACE', {}))
+    if "PORTCHANNEL_INTERFACE" in config_facts:
+        intf.update(config_facts['PORTCHANNEL_INTERFACE'])
+    for a_intf in intf:
+        for addrs in intf[a_intf]:
+            intf_ip = addrs.split('/')
+            if iptype == 'ipv6' and ':' in intf_ip[0] and intf_ip[0].lower() == ipaddr.lower():
+                return a_intf
+            elif iptype == 'ipv4' and ':' not in intf_ip[0] and intf_ip[0] == ipaddr:
+                return a_intf
+
+    raise Exception("Did not find port for IP %s" % ipaddr)
+
+
+def get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list):
+    """
+    This function returns all the ptf ports of
+    all the duts w.r.t received neighbors' list, even for multi dut chassis
+    """
+    recv_ports = []
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        for interface, neighbor in mg_facts["minigraph_neighbors"].items():
+            if neighbor['name'] in recv_neigh_list and interface in mg_facts["minigraph_ptf_indices"]:
+                ptf_idx = mg_facts["minigraph_ptf_indices"][interface]
+                recv_ports.append(ptf_idx)
+    return recv_ports
+
+
+def get_all_recv_neigh(duthosts, neigh_type):
+    """
+    This function returns all the neighbors of
+    same type for dut, including multi dut chassis
+    """
+    recv_neigh_list = []
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        device_neighbor_metadata = config_facts['DEVICE_NEIGHBOR_METADATA']
+        for k, v in device_neighbor_metadata.items():
+            if v['type'] == neigh_type:
+                recv_neigh_list.append(k)
+    return recv_neigh_list
+
+
 def get_ptf_send_ports(duthost, tbinfo, dev_port):
     if tbinfo['topo']['name'] in ['t0', 't1-lag', 'm0']:
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -116,6 +208,9 @@ def check_route(duthost, route, dev_port, operation):
         cmd = ' -c "show ip route {} json"'.format(route)
         for asichost in duthost.frontend_asics:
             out = json.loads(asichost.run_vtysh(cmd)['stdout'])
+            if len(out) == 0:
+                logger.info("Route table empty on asic {}, check other asic".format(asichost.asic_index))
+                continue
             nexthops = out[route][0]['nexthops']
             routes_per_asic = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
             result.extend(routes_per_asic)
@@ -132,7 +227,7 @@ def check_route(duthost, route, dev_port, operation):
                       "Route {} was not announced {}".format(route, result))
 
 
-def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, exp_src_mac, src_ip, dst_ip):
+def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, exp_src_mac, src_ip, dst_ip, tbinfo):
     # use ptf sender interface mac for easy identify testing packets
     src_mac = ptfadapter.dataplane.get_mac(0, ptf_send_port)
     pkt = testutils.simple_icmp_packet(
@@ -142,6 +237,9 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     ext_pkt['Ether'].src = exp_src_mac
 
     masked_exp_pkt = Mask(ext_pkt)
+    # Mask src_mac for T2 multi-dut chassis, since the packet can be received on any of the dut's ptf-ports
+    if 't2' in tbinfo["topo"]["name"]:
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
     masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
@@ -227,7 +325,7 @@ def get_internal_interfaces(duthost):
 
     # Then check for voq chassis: get voq inband interface for later filtering
     voq_inband_interfaces = duthost.get_voq_inband_interfaces()
-    internal_intfs.append([voq_inband_interfaces])
+    internal_intfs += voq_inband_interfaces
 
     return internal_intfs
 
@@ -248,6 +346,8 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
                     break
                 dev = json.loads(asic.run_vtysh(cmd)['stdout'])
                 for per_hop in dev[route_to_ping][0]['nexthops']:
+                    if dev_port:
+                        break
                     if 'interfaceName' not in per_hop.keys():
                         continue
                     if 'ip' not in per_hop.keys():
@@ -260,10 +360,11 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
                         logger.info("{} is still internal interface, skipping".format(port))
                     else:
                         dev_port = port
-                    break
         else:
             dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
             for per_hop in dev[route_to_ping][0]['nexthops']:
+                if dev_port:
+                    break
                 if 'interfaceName' not in per_hop.keys():
                     continue
                 # For chassis, even single-asic linecard could have internal interface
@@ -272,20 +373,29 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
                 if 'IB' in per_hop['interfaceName'] or 'BP' in per_hop['interfaceName']:
                     continue
                 dev_port = per_hop['interfaceName']
-                break
     pytest_assert(dev_port, "dev_port not exist")
     return dev_port, route_to_ping
 
 
 def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
-                    get_function_conpleteness_level, announce_default_routes,
-                    enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+                    get_function_completeness_level, announce_default_routes,
+                    enum_rand_one_per_hwsku_frontend_hostname,
+                    enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index,
+                    setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m,                     # noqa F811
+                    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m, loganalyzer):    # noqa F811
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get(
         'common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    duthost_upstream = duthosts[enum_upstream_dut_hostname]
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR.*\"missed_FRR_routes\".*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
     # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
     # After routing, output packet source mac will be replaced with port-channel mac (same as dut_mac)
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
@@ -331,15 +441,24 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
 
     # choose one ptf port to send msg
     ptf_send_port = get_ptf_send_ports(duthost, tbinfo, dev_port)
-    ptf_recv_ports = get_ptf_recv_ports(duthost, tbinfo)
+
+    # Get the list of ptf ports to receive msg, even for multi-dut scenario
+    neighbor_type = get_neighbor_info(duthost, dev_port, tbinfo)
+    recv_neigh_list = get_all_recv_neigh(duthosts, neighbor_type)
+    logger.info("Receiving ports neighbor list : {}".format(recv_neigh_list))
+    if 't2' in tbinfo["topo"]["type"] and duthost == duthost_upstream:
+        ptf_recv_ports = get_ptf_recv_ports(duthost, tbinfo)
+    else:
+        ptf_recv_ports = get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list)
+    logger.info("Receiving ptf ports list : {}".format(ptf_recv_ports))
 
     exabgp_port = get_exabgp_port(duthost, tbinfo, dev_port)
     logger.info("exabgp_port = %d" % exabgp_port)
     ping_ip = route_to_ping.strip('/{}'.format(route_prefix_len))
 
-    normalized_level = get_function_conpleteness_level
+    normalized_level = get_function_completeness_level
     if normalized_level is None:
-        normalized_level = 'basic'
+        normalized_level = 'debug'
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
@@ -359,7 +478,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
 
             # test link status
             send_recv_ping_packet(
-                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
+                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip, tbinfo)
 
             withdraw_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is withdraw with first 3 routes
@@ -367,7 +486,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                 time.sleep(1)
                 check_route(duthost, dst_prefix, dev_port, WITHDRAW)
             send_recv_ping_packet(
-                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
+                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip, tbinfo)
 
             announce_route(ptf_ip, dst_prefix, nexthop, exabgp_port, aspath)
             # Check if route is announced with first 3 routes
@@ -375,7 +494,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                 time.sleep(1)
                 check_route(duthost, dst_prefix, dev_port, ANNOUNCE)
             send_recv_ping_packet(
-                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip)
+                ptfadapter, ptf_send_port, ptf_recv_ports, vlan_mac, dut_mac, ptf_ip, ping_ip, tbinfo)
 
             route_index += 1
 

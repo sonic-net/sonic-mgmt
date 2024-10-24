@@ -285,6 +285,12 @@ class ParseTestbedTopoinfo():
             vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
             vm_topo_config['dut_asn'] = dut_asn
 
+        if hwsku == 'Cisco-8111-O64':
+            if 't1' in topo_name:
+                vm_topo_config['dut_type'] = "BackEndLeafRouter"
+            elif 't0' in topo_name:
+                vm_topo_config['dut_type'] = "BackEndToRRouter"
+
         for slot, asic_definition in slot_definition.items():
             asic_topo_config[slot] = dict()
             for asic in asic_definition:
@@ -328,6 +334,8 @@ class ParseTestbedTopoinfo():
 
         if 'DUT' in topo_definition['topology']:
             vm_topo_config['DUT'] = topo_definition['topology']['DUT']
+            if 'autoneg_interfaces' in vm_topo_config['DUT']:
+                vm_topo_config['autoneg_interfaces'] = topo_definition['topology']['DUT']['autoneg_interfaces']
         else:
             vm_topo_config['DUT'] = {}
 

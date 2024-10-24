@@ -11,6 +11,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
+from tests.common.fixtures.ptfhost_utils import skip_traffic_test       # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -30,16 +31,20 @@ LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 
 
 @pytest.fixture(scope='module')
-def setup_counterpoll_interval(rand_selected_dut):
+def setup_counterpoll_interval(rand_selected_dut, rand_unselected_dut, tbinfo):
     """
     Set the counterpoll interval for acl to 1 second (10 seconds by default)
     """
     # Set polling interval to 1 second
     rand_selected_dut.shell('counterpoll acl interval 1000')
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        rand_unselected_dut.shell('counterpoll acl interval 1000')
     time.sleep(10)
     yield
     # Restore default value 10 seconds
     rand_selected_dut.shell('counterpoll acl interval 10000')
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        rand_unselected_dut.shell('counterpoll acl interval 10000')
 
 
 def clear_acl_counter(dut):
@@ -68,13 +73,15 @@ def read_acl_counter(dut, rule_name):
 
 # TODO: Move this fixture to a shared place of acl test
 @pytest.fixture(scope="module", autouse=True)
-def remove_dataacl_table(rand_selected_dut):
+def remove_dataacl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
     """
     Remove DATAACL to free TCAM resources
     """
     TABLE_NAME = "DATAACL"
     data_acl_table = None
     output = rand_selected_dut.shell("sonic-cfggen -d --var-json \"ACL_TABLE\"")['stdout']
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        output = rand_unselected_dut.shell("sonic-cfggen -d --var-json \"ACL_TABLE\"")['stdout']
     try:
         acl_tables = json.loads(output)
         if TABLE_NAME in acl_tables:
@@ -87,6 +94,8 @@ def remove_dataacl_table(rand_selected_dut):
     # Remove DATAACL
     logger.info("Removing ACL table {}".format(TABLE_NAME))
     rand_selected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME))
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        rand_unselected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME))
     yield
     # Recover DATAACL
     data_acl = {}
@@ -94,17 +103,24 @@ def remove_dataacl_table(rand_selected_dut):
     cmd = 'sonic-cfggen -a \'{}\' -w'.format(json.dumps(data_acl))
     logger.info("Restoring ACL table {}".format(TABLE_NAME))
     rand_selected_dut.shell(cmd)
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        rand_unselected_dut.shell(cmd)
 
 
 @pytest.fixture(scope='module')
-def setup_custom_acl_table(rand_selected_dut):
+def setup_custom_acl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
     # Define a custom table type CUSTOM_TYPE by loading a json configuration
     rand_selected_dut.copy(src=CUSTOM_ACL_TABLE_TYPE_SRC_FILE, dest=CUSTOM_ACL_TABLE_TYPE_DST_FILE)
     rand_selected_dut.shell("sonic-cfggen -j {} -w".format(CUSTOM_ACL_TABLE_TYPE_DST_FILE))
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        rand_unselected_dut.copy(src=CUSTOM_ACL_TABLE_TYPE_SRC_FILE, dest=CUSTOM_ACL_TABLE_TYPE_DST_FILE)
+        rand_unselected_dut.shell("sonic-cfggen -j {} -w".format(CUSTOM_ACL_TABLE_TYPE_DST_FILE))
     # Create an ACL table and bind to Vlan1000 interface
     cmd_create_table = "config acl add table CUSTOM_TABLE CUSTOM_TYPE -s ingress -p Vlan1000"
     cmd_remove_table = "config acl remove table CUSTOM_TABLE"
     loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="custom_acl")
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        loganalyzer = LogAnalyzer(ansible_host=rand_unselected_dut, marker_prefix="custom_acl")
     loganalyzer.load_common_config()
 
     try:
@@ -114,42 +130,60 @@ def setup_custom_acl_table(rand_selected_dut):
         loganalyzer.ignore_regex = [r".*"]
         with loganalyzer:
             rand_selected_dut.shell(cmd_create_table)
+            if "dualtor-aa" in tbinfo["topo"]["name"]:
+                rand_unselected_dut.shell(cmd_create_table)
     except LogAnalyzerError as err:
         # Cleanup Config DB if table creation failed
         logger.error("ACL table creation failed, attempting to clean-up...")
         rand_selected_dut.shell(cmd_remove_table)
+        if "dualtor-aa" in tbinfo["topo"]["name"]:
+            rand_unselected_dut.shell(cmd_remove_table)
         raise err
 
     yield
     logger.info("Removing ACL table and custom type")
     # Remove ACL table
     rand_selected_dut.shell(cmd_remove_table)
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        rand_unselected_dut.shell(cmd_remove_table)
     # Remove custom type
     rand_selected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|CUSTOM_TYPE\'")
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        rand_unselected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|CUSTOM_TYPE\'")
 
 
 @pytest.fixture(scope='module')
-def setup_acl_rules(rand_selected_dut, setup_custom_acl_table):
+def setup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo, setup_custom_acl_table):
     # Copy and load acl rules
     rand_selected_dut.copy(src=ACL_RULE_SRC_FILE, dest=ACL_RULE_DST_FILE)
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        rand_unselected_dut.copy(src=ACL_RULE_SRC_FILE, dest=ACL_RULE_DST_FILE)
     cmd_add_rules = "sonic-cfggen -j {} -w".format(ACL_RULE_DST_FILE)
     cmd_rm_rules = "acl-loader delete CUSTOM_TABLE"
 
     loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="custom_acl")
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        loganalyzer = LogAnalyzer(ansible_host=rand_unselected_dut, marker_prefix="custom_acl")
     loganalyzer.match_regex = [LOG_EXPECT_ACL_RULE_FAILED_RE]
     try:
         logger.info("Creating ACL rules in CUSTOM_TABLE")
         with loganalyzer:
             rand_selected_dut.shell(cmd_add_rules)
+            if "dualtor-aa" in tbinfo["topo"]["name"]:
+                rand_unselected_dut.shell(cmd_add_rules)
     except LogAnalyzerError as err:
         # Cleanup Config DB if failed
         logger.error("ACL rule creation failed, attempting to clean-up...")
         rand_selected_dut.shell(cmd_rm_rules)
+        if "dualtor-aa" in tbinfo["topo"]["name"]:
+            rand_unselected_dut.shell(cmd_rm_rules)
         raise err
     yield
     # Remove testing rules
     logger.info("Removing testing ACL rules")
     rand_selected_dut.shell(cmd_rm_rules)
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        rand_unselected_dut.shell(cmd_rm_rules)
 
 
 def build_testing_pkts(router_mac):
@@ -215,9 +249,9 @@ def build_exp_pkt(input_pkt):
     return exp_pkt
 
 
-def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter,
+def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
                     setup_acl_rules, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
-                    setup_counterpoll_interval, remove_dataacl_table):
+                    setup_counterpoll_interval, remove_dataacl_table, skip_traffic_test):   # noqa F811
     """
     The test case is to verify the functionality of custom ACL table
     Test steps
@@ -230,6 +264,7 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter,
     """
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     if "dualtor" in tbinfo["topo"]["name"]:
+        mg_facts_unselected_dut = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
         vlan_name = list(mg_facts['minigraph_vlans'].keys())[0]
         # Use VLAN MAC as router MAC on dual-tor testbed
         router_mac = rand_selected_dut.get_dut_iface_mac(vlan_name)
@@ -244,6 +279,8 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter,
     for _, v in mg_facts['minigraph_portchannels'].items():
         for member in v['members']:
             dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
+            if "dualtor-aa" in tbinfo["topo"]["name"]:
+                dst_port_indices.append(mg_facts_unselected_dut['minigraph_ptf_indices'][member])
 
     test_pkts = build_testing_pkts(router_mac)
     for rule, pkt in list(test_pkts.items()):
@@ -251,9 +288,15 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter,
         exp_pkt = build_exp_pkt(pkt)
         # Send and verify packet
         clear_acl_counter(rand_selected_dut)
-        ptfadapter.dataplane.flush()
-        testutils.send(ptfadapter, pkt=pkt, port_id=src_port_indice)
-        testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_port_indices, timeout=5)
-        acl_counter = read_acl_counter(rand_selected_dut, rule)
-        # Verify acl counter
-        pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))
+        if not skip_traffic_test:
+            if "dualtor-aa" in tbinfo["topo"]["name"]:
+                clear_acl_counter(rand_unselected_dut)
+            ptfadapter.dataplane.flush()
+            testutils.send(ptfadapter, pkt=pkt, port_id=src_port_indice)
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_port_indices, timeout=5)
+            acl_counter = read_acl_counter(rand_selected_dut, rule)
+            if "dualtor-aa" in tbinfo["topo"]["name"]:
+                acl_counter_unselected_dut = read_acl_counter(rand_unselected_dut, rule)
+                acl_counter += acl_counter_unselected_dut
+            # Verify acl counter
+            pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))

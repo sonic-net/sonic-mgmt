@@ -4,6 +4,7 @@ import pprint
 from ptf.mask import Mask
 import ptf.testutils as testutils
 import ptf.packet as scapy
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -28,6 +29,12 @@ def IntToMac(intMac):
 
 
 def get_crm_resources(duthost, resource, status):
+    retry_count = 5
+    count = 0
+    while len(duthost.get_crm_resources()) == 0 and count < retry_count:
+        logger.debug("CRM resources not fully populated, retry after 2 seconds: count: {}".format(count))
+        time.sleep(2)
+        count = count + 1
     return duthost.get_crm_resources().get("main_resources").get(resource).get(status)
 
 
@@ -39,6 +46,15 @@ def get_fdb_dynamic_mac_count(duthost):
         if "dynamic" in output_mac.lower() and BASE_MAC_PREFIX in output_mac.lower():
             total_mac_count += 1
     return total_mac_count
+
+
+def fdb_table_has_dummy_mac_for_interface(duthost, interface, dummy_mac_prefix=""):
+    res = duthost.command('show mac')
+    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+    for output_mac in res['stdout_lines']:
+        if (interface in output_mac and (dummy_mac_prefix in output_mac or dummy_mac_prefix == "")):
+            return True
+    return False
 
 
 def fdb_table_has_no_dynamic_macs(duthost):

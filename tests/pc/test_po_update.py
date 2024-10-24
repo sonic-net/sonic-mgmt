@@ -13,7 +13,7 @@ import ipaddress
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.voq.voq_helpers import verify_no_routes_from_nexthop
+from tests.common.helpers.voq_helpers import verify_no_routes_from_nexthop
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -36,11 +36,11 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
     # when loganalyzer is disabled, the object could be None
     if loganalyzer:
         ignoreRegex = [
-            (".*ERR syncd#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, "
+            (".*ERR syncd[0-9]*#syncd: :- process_on_fdb_event: invalid OIDs in fdb notifications, "
              "NOT translating and NOT storing in ASIC DB.*"),
-            (".*ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent "
+            (".*ERR syncd[0-9]*#syncd: :- process_on_fdb_event: FDB notification was not sent "
              "since it contain invalid OIDs, bug.*"),
-            (".*ERR syncd#syncd: :- translate_vid_to_rid: unable to get RID for VID.*"),
+            (".*ERR syncd[0-9]*#syncd: :- translate_vid_to_rid: unable to get RID for VID.*"),
         ]
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 

@@ -305,9 +305,9 @@ def pdu_action_on_dut(host, attrs, action):
         ret['Summary'].append('Unsupported action {}.'.format(action))
         return ret
 
-    status = pduman.get_outlet_status()
+    outlet_status = pduman.get_outlet_status()
     psu_status = {}
-    for outlet in status:
+    for outlet in outlet_status:
         ret['PDU status'].append(outlet)
         psu_name = outlet['psu_name']
         status = psu_status.get(psu_name, {
@@ -315,7 +315,18 @@ def pdu_action_on_dut(host, attrs, action):
                 'output_watts': 0,
         })
         status['power_on'] = status['power_on'] or outlet['outlet_on']
-        status['output_watts'] = status['output_watts'] + int(outlet['output_watts'])
+        if 'output_watts' not in outlet:
+            status['output_watts'] = 'N/A'
+        else:
+            raw_outlet_watts = outlet['output_watts']
+            if not raw_outlet_watts:
+                outlet_watts = 0
+            else:
+                try:
+                    outlet_watts = int(outlet['output_watts'])
+                except ValueError:
+                    outlet_watts = 0
+            status['output_watts'] = status['output_watts'] + outlet_watts
         psu_status[psu_name] = status
     ret['PSU status'] = psu_status
 

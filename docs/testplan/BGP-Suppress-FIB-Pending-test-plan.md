@@ -171,3 +171,26 @@ show ip route 1.1.1.0/24 json
 8. Restore orchagent process
 9. Make sure the routes are programmed in FIB by checking __offloaded__ flag in the DUT routing table
 10. Send traffic matching the prefixes and verify packets are forwarded to __T0 VM__
+
+### Test case # 7 - Test BGP route suppress under stress
+1. Do BGP route flap 5 times
+2. Disable BGP suppress-fib-pending function
+3. Send traffic matching the prefixes in the BGP route flap and verify packets are forwarded __back to T2 VM__
+4. Suspend orchagent process to simulate a delay
+5. Announce 1K BGP prefixes to DUT from T0 VM by exabgp
+6. Verify the BGP routes are announced to T2 VM peer
+7. Send traffic matching the prefixes in the BGP route flap and verify packets are forwarded __back to T2 VM__
+8. Enable BGP suppress-fib-pending function at DUT
+9. Restore orchagent process
+10. Verify the routes are programmed in FIB by checking __offloaded__ flag in the DUT routing table
+11. Send traffic matching the prefixes and verify packets are forwarded to __T0 VM__
+
+### Test case # 8 - Test BGP route suppress performance
+1. Enable BGP suppress-fib-pending function at DUT
+2. Start tcpdump capture at the ingress and egress port at DUT
+3. Announce 1K BGP prefixes to DUT from T0 VM by exabgp
+4. Verify the BGP routes are announced to T2 VM peer by DUT
+5. Withdraw 1K BGP prefixes
+6. Verify the BGP routes are withdraw from T2 VM peer by DUT
+7. Stop tcpdump cature
+8. Verify the average as well as middle route process time is under threshold

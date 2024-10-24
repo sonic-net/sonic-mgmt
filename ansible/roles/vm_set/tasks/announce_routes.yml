@@ -47,7 +47,7 @@
   - name: Gather exabgp v4 programs
     set_fact:
       program_group_name: "exabgpv4"
-      program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '(.*)', 'exabgp-\\1') | join(',')}}"
+      program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1') | join(',')}}"
 
   - name: Configure exabgpv4 group
     template:
@@ -73,7 +73,7 @@
   - name: Gather exabgp v6 programs
     set_fact:
       program_group_name: "exabgpv6"
-      program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '(.*)', 'exabgp-\\1-v6') | join(',')}}"
+      program_group_programs: "{{ topology['VMs'].keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1-v6') | join(',')}}"
 
   - name: Configure exabgpv6 group
     template:
@@ -82,12 +82,14 @@
     delegate_to: "{{ ptf_host }}"
 
   - name: Add exabgpv4 supervisor config and start related processes
+    when: "{{ topology['VMs'] | length > 0 }}"
     supervisorctl:
       name: "exabgpv4:"
       state: present  # present contains `supervisorctl reread` and `supervisorctl add`
     delegate_to: "{{ ptf_host }}"
 
   - name: Add exabgpv6 supervisor config and start related processes
+    when: "{{ topology['VMs'] | length > 0 }}"
     supervisorctl:
       name: "exabgpv6:"
       state: present  # present contains `supervisorctl reread` and `supervisorctl add`

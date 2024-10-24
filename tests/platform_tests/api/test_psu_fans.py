@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 FAN_DIRECTION_INTAKE = "intake"
@@ -295,28 +296,6 @@ class TestPsuFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_fans_speed_tolerance(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        for j in range(self.num_psus):
-            num_fans = psu.get_num_fans(platform_api_conn, j)
-
-            for i in range(num_fans):
-                speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
-                if not speed_controllable:
-                    logger.info("test_get_fans_speed_tolerance: Skipping PSU {} fan {} (speed not controllable)"
-                                .format(j, i))
-                    continue
-                speed_tolerance = psu_fan.get_speed_tolerance(platform_api_conn, j, i)
-                if self.expect(speed_tolerance is not None,
-                               "Unable to retrieve psu {} fan {} speed tolerance".format(j, i)):
-                    if self.expect(isinstance(speed_tolerance, int), "psu {} fan {} speed tolerance appears incorrect"
-                                   .format(j, i)):
-                        self.expect(speed_tolerance > 0 and speed_tolerance <= 100,
-                                    "psu {} fan {} speed tolerance {} reading does not make sense"
-                                    .format(j, i, speed_tolerance))
-
-        self.assert_expectations()
-
     def test_set_fans_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -340,13 +319,14 @@ class TestPsuFans(PlatformApiTestBase):
                     target_speed = random.randint(speed_minimum, speed_maximum)
 
                 speed = psu_fan.get_speed(platform_api_conn, j, i)
-                speed_tol = psu_fan.get_speed_tolerance(platform_api_conn, j, i)
 
                 speed_set = psu_fan.set_speed(platform_api_conn, j, i, target_speed)    # noqa F841
-                time.sleep(5)
+                time.sleep(self.get_fan_facts(duthost, j, i, 5, "speed", "delay"))
 
                 act_speed = psu_fan.get_speed(platform_api_conn, j, i)
-                self.expect(abs(act_speed - target_speed) <= speed_tol,
+                under_speed = psu_fan.is_under_speed(platform_api_conn, j, i)
+                over_speed = psu_fan.is_over_speed(platform_api_conn, j, i)
+                self.expect(not under_speed and not over_speed,
                             "psu {} fan {} speed change from {} to {} is not within tolerance, actual speed {}"
                             .format(j, i, speed, target_speed, act_speed))
 

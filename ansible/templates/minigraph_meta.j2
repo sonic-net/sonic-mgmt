@@ -59,6 +59,13 @@
             <a:Value>Gemini</a:Value>
           </a:DeviceProperty>
 {% endif %}
+{% if enable_compute_ai_deployment|default('false')|bool %}
+          <a:DeviceProperty>
+            <a:Name>ResourceType</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>ComputeAI</a:Value>
+          </a:DeviceProperty>
+{% endif %}
 {% if dhcp_servers %}
           <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>
@@ -127,6 +134,13 @@
             <a:Name>SwitchType</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ switch_type }}</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if msft_an_enabled is defined %}
+          <a:DeviceProperty>
+            <a:Name>AutoNegotiation</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ msft_an_enabled }}</a:Value>
           </a:DeviceProperty>
 {% endif %}
 {% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
@@ -198,6 +212,12 @@
             <a:Reference i:nil="true"/>
             <a:Value>{{ switch_type }}</a:Value>
          </a:DeviceProperty>
+{% endif %}
+{% if macsec_card is defined and macsec_card == True and 't2' in topo %}
+    <a:DeviceProperty>
+      <a:Name>MacSecProfile</a:Name>
+      <a:Value>PrimaryKey="MACSEC_PROFILE" FallbackKey="macsec-profile2" MacsecPolicy=""</a:Value>
+    </a:DeviceProperty>
 {% endif %}
         </a:Properties>
       </a:DeviceMetadata>

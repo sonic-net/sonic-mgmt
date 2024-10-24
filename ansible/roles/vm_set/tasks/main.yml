@@ -1,17 +1,19 @@
 # This role creates a set of VM with veos or SONiC or cisco or Ubuntu for Kubernetes master
 # Input parameters for the role:
-# - action: 'start', 'stop' or 'renumber' for creating, removeing, or renumbering vm set respectively
+# - action: 'start', 'stop' or 'renumber' for creating, removing, or renumbering vm set respectively
 # - id: sequence number for vm set on the host.
 # - external_port: interface which will be used as parent for vlan interface creation
 # - vlan_base: first vlan id for the VMs
 # - VMs: a dictionary which contains hostnames of VMs as a key and a dictionary with parameters (num, memory, mgmt_ip) for every VM.
 # - topology: a dictionary which contains hostnames of VMs as a key and vlans value which define a topology (numbers of connected ports for every VM)
 # - mgmt_bridge: linux bridge which is used for management interface connections
-# - root_path: path where disk images for VMs are created
-# - hdd_image_filename: base hdd image for VMs
-# - cd_image_filename: base cd image for VMs
-# - vm_images_url: url where base images are located
-# - vmimages_saskey: a key for Azure download service. Could be set to ''
+
+# Variables used by the role are mostly defined in files under ansible/group_vars/vm_host directory.
+# Supported neighbor types are: veos, sonic, cisco, ubuntu, k8s
+# For each of the supported neighbor types, there is a file in ansible/group_vars/vm_host directory which defines the
+# the variables for the neighbor type. The neighbor VM image files usually can be manually prepared or automatically
+# downloaded from the URLs defined in the variables. Please update the URLs to the actual URLs of the image files in
+# your environment.
 
 # Need latest ubuntu 4.10 kernel to fix a openvswitch bug
 # https://bugs.launchpad.net/ubuntu/+source/kernel-package/+bug/1685742
@@ -124,6 +126,21 @@
 - include_tasks: docker.yml
   when: package_installation|bool
 
+- name: Update python3 packages
+  block:
+    # Workaround for '"Error connecting: Error while fetching server API version: Not supported URL scheme http+docker'
+    # See https://github.com/docker/docker-py/issues/3256
+  - name: Remove old requests package >=2.32.0
+    pip: name=requests state=absent executable={{ pip_executable }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+    ignore_errors: yes
+  - name: Install requests package <2.32.0
+    pip: name=requests version=2.31.0 state=present executable={{ pip_executable }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+  when: pip_executable=="pip3"
+
 - name: Ensure {{ ansible_user }} in docker,sudo group
   user:
     name: "{{ ansible_user }}"
@@ -165,6 +182,13 @@
   sysctl:
     name: "net.core.rmem_default"
     value: "31457280"
+    sysctl_set: yes
+  become: yes
+
+- name: Increase IPv6 route cache size
+  sysctl:
+    name: "net.ipv6.route.max_size"
+    value: "16384"
     sysctl_set: yes
   become: yes
 
@@ -229,10 +253,18 @@
   register: vm_list_running
   become: true
 
-- name: Retrieve a list of the paused VMs
+- name: Set vm_state_string according to ansible version
+  set_fact:
+    vm_state_string: "{{ 'paused' if ansible_version.full is version_compare('2.13', '>=') else 'pause' }}"
+
+- name: Print ansible version and vm_state_string
+  debug:
+    msg: "ansible version is {{ ansible_version.full }} and vm_state_string is {{ vm_state_string }}"
+
+- name: Retrieve a list of the paused VMs with status={{ vm_state_string }}
   virt: command=list_vms
         uri=qemu:///system
-        state=pause
+        state={{ vm_state_string }}
   register: vm_list_paused
   become: true
 

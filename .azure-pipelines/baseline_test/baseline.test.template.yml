@@ -1,0 +1,134 @@
+jobs:
+- job: t0_elastictest
+  displayName: "kvmtest-t0 by Elastictest"
+  timeoutInMinutes: 240
+  continueOnError: false
+  pool: sonic-ubuntu-1c
+  steps:
+  - template: ../run-test-elastictest-template.yml
+    parameters:
+      TOPOLOGY: t0
+      MIN_WORKER: $(T0_INSTANCE_NUM)
+      MAX_WORKER: $(T0_INSTANCE_NUM)
+      KVM_IMAGE_BRANCH: "master"
+      MGMT_BRANCH: "master"
+      BUILD_REASON: "BaselineTest"
+      RETRY_TIMES: "0"
+      STOP_ON_FAILURE: "False"
+      TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+
+- job: t0_2vlans_elastictest
+  displayName: "kvmtest-t0-2vlans by Elastictest"
+  timeoutInMinutes: 240
+  continueOnError: false
+  pool: sonic-ubuntu-1c
+  steps:
+  - template: ../run-test-elastictest-template.yml
+    parameters:
+      TOPOLOGY: t0
+      TEST_SET: t0-2vlans
+      MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+      MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
+      DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
+      KVM_IMAGE_BRANCH: "master"
+      MGMT_BRANCH: "master"
+      BUILD_REASON: "BaselineTest"
+      RETRY_TIMES: "0"
+      STOP_ON_FAILURE: "False"
+      TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+
+- job: t1_lag_elastictest
+  displayName: "kvmtest-t1-lag by Elastictest"
+  timeoutInMinutes: 240
+  continueOnError: false
+  pool: sonic-ubuntu-1c
+  steps:
+  - template: ../run-test-elastictest-template.yml
+    parameters:
+      TOPOLOGY: t1-lag
+      MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
+      MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
+      KVM_IMAGE_BRANCH: "master"
+      MGMT_BRANCH: "master"
+      BUILD_REASON: "BaselineTest"
+      RETRY_TIMES: "0"
+      STOP_ON_FAILURE: "False"
+      TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+
+- job: dualtor_elastictest
+  displayName: "kvmtest-dualtor-t0 by Elastictest"
+  timeoutInMinutes: 240
+  continueOnError: false
+  pool: sonic-ubuntu-1c
+  steps:
+    - template: ../run-test-elastictest-template.yml
+      parameters:
+        TOPOLOGY: dualtor
+        MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+        MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
+        COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
+        KVM_IMAGE_BRANCH: "master"
+        MGMT_BRANCH: "master"
+        BUILD_REASON: "BaselineTest"
+        RETRY_TIMES: "0"
+        STOP_ON_FAILURE: "False"
+        TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+
+- job: multi_asic_elastictest
+  displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
+  timeoutInMinutes: 240
+  continueOnError: false
+  pool: sonic-ubuntu-1c
+  steps:
+    - template: ../run-test-elastictest-template.yml
+      parameters:
+        TOPOLOGY: t1-8-lag
+        TEST_SET: multi-asic-t1-lag
+        MIN_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+        MAX_WORKER: $(MULTI_ASIC_INSTANCE_NUM)
+        NUM_ASIC: 4
+        KVM_IMAGE_BRANCH: "master"
+        MGMT_BRANCH: "master"
+        BUILD_REASON: "BaselineTest"
+        RETRY_TIMES: "0"
+        STOP_ON_FAILURE: "False"
+        TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+
+- job: sonic_t0_elastictest
+  displayName: "kvmtest-t0-sonic by Elastictest"
+  timeoutInMinutes: 240
+  continueOnError: false
+  pool: sonic-ubuntu-1c
+  steps:
+    - template: ../run-test-elastictest-template.yml
+      parameters:
+        TOPOLOGY: t0-64-32
+        MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
+        MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
+        TEST_SET: t0-sonic
+        COMMON_EXTRA_PARAMS: "--neighbor_type=sonic "
+        VM_TYPE: vsonic
+        KVM_IMAGE_BRANCH: "master"
+        MGMT_BRANCH: "master"
+        BUILD_REASON: "BaselineTest"
+        RETRY_TIMES: "0"
+        STOP_ON_FAILURE: "False"
+        TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+
+- job: dpu_elastictest
+  displayName: "kvmtest-dpu by Elastictest"
+  timeoutInMinutes: 240
+  continueOnError: false
+  pool: sonic-ubuntu-1c
+  steps:
+    - template: ../run-test-elastictest-template.yml
+      parameters:
+        TOPOLOGY: dpu
+        MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
+        MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
+        KVM_IMAGE_BRANCH: "master"
+        MGMT_BRANCH: "master"
+        BUILD_REASON: "BaselineTest"
+        RETRY_TIMES: "0"
+        STOP_ON_FAILURE: "False"
+        TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)

@@ -28,9 +28,11 @@ class TestRouteConsistency():
     def get_route_prefix_snapshot_from_asicdb(self, duthosts):
         prefix_snapshot = {}
         max_prefix_cnt = 0
-        for dut in duthosts.frontend_nodes:
+        for idx, dut in enumerate(duthosts.frontend_nodes):
             for asic in dut.asics:
                 dut_instance_name = dut.hostname + '-' + str(asic.asic_index)
+                if dut.facts['switch_type'] == "voq" and idx == 0:
+                    dut_instance_name = dut_instance_name + "UpstreamLc"
                 prefix_snapshot[dut_instance_name] = \
                     set(self.extract_dest_ips(asic.run_sonic_db_cli_cmd('ASIC_DB KEYS *ROUTE_ENTRY*')['stdout_lines']))
                 logger.debug("snapshot of route table from {}: {}".format(dut_instance_name,
@@ -43,10 +45,10 @@ class TestRouteConsistency():
         # take the snapshot of route table from all the DUTs
         self.__class__.pre_test_route_snapshot, max_prefix_cnt = self.get_route_prefix_snapshot_from_asicdb(duthosts)
         """sleep interval is calculated based on the max number of prefixes in the route table.
-           Addtional 30 seconds is added to the sleep interval to account for the time taken to
-           withdraw and advertise the routes by peers
+           Addtional 120 seconds is added to the sleep interval to account for the time taken to
+           withdraw and advertise the routes by peers.
         """
-        self.__class__.sleep_interval = math.ceil(max_prefix_cnt/3000) + 30
+        self.__class__.sleep_interval = math.ceil(max_prefix_cnt/3000) + 120
         logger.debug("max_no_of_prefix: {} sleep_interval: {}".format(max_prefix_cnt, self.sleep_interval))
 
     def test_route_withdraw_advertise(self, duthosts, tbinfo, localhost):
@@ -61,19 +63,28 @@ class TestRouteConsistency():
             time.sleep(self.sleep_interval)
 
             """ compare the number of routes withdrawn from all the DUTs. In working condition, the number of routes
-                withdrawn should be same across all the DUTs
+                withdrawn should be same across all the DUTs.
+                On VOQ Upstream LC's will have same route and Downstream LC will have same route.
                 Note: this will be noop for single asic pizzabox duts
             """
             post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
             num_routes_withdrawn = 0
+            num_routes_withdrawn_upstream_lc = 0
             for dut_instance_name in self.pre_test_route_snapshot.keys():
-                if num_routes_withdrawn == 0:
+                if num_routes_withdrawn == 0 and not dut_instance_name.endswith("UpstreamLc"):
                     num_routes_withdrawn = len(self.pre_test_route_snapshot[dut_instance_name] -
                                                post_withdraw_route_snapshot[dut_instance_name])
                     logger.debug("num_routes_withdrawn: {}".format(num_routes_withdrawn))
+                elif num_routes_withdrawn_upstream_lc == 0 and dut_instance_name.endswith("UpstreamLc"):
+                    num_routes_withdrawn_upstream_lc = len(self.pre_test_route_snapshot[dut_instance_name] -
+                                                           post_withdraw_route_snapshot[dut_instance_name])
                 else:
-                    assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                       post_withdraw_route_snapshot[dut_instance_name])
+                    if dut_instance_name.endswith("UpstreamLc"):
+                        assert num_routes_withdrawn_upstream_lc == len(self.pre_test_route_snapshot[dut_instance_name] -
+                                                                       post_withdraw_route_snapshot[dut_instance_name])
+                    else:
+                        assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
+                                                           post_withdraw_route_snapshot[dut_instance_name])
 
             logger.info("advertise ipv4 and ipv6 routes for {}".format(topo_name))
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
@@ -86,10 +97,12 @@ class TestRouteConsistency():
             for dut_instance_name in self.pre_test_route_snapshot.keys():
                 assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
             logger.info("Route table is consistent across all the DUTs")
-        except Exception:
+        except Exception as e:
+            logger.error("Exception occurred: {}".format(e))
             # announce the routes back in case of any exception
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
             time.sleep(self.sleep_interval)
+            raise e
 
     def test_bgp_shut_noshut(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, localhost):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]

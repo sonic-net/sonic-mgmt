@@ -14,11 +14,14 @@ import ipaddr as ipaddress
 
 from jinja2 import Template
 from natsort import natsorted
+from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until, delete_running_config
+from tests.common.gu_utils import apply_patch, expect_op_success
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 
 
 pytestmark = [
@@ -59,16 +62,74 @@ def bbr_default_state(setup):
     return setup['bbr_default_state']
 
 
+def add_bbr_config_to_running_config(duthost, status):
+    logger.info('Add BGP_BBR config to running config')
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/BGP_BBR",
+            "value": {
+                "all": {
+                    "status": "{}".format(status)
+                }
+            }
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+    time.sleep(3)
+
+
+def config_bbr_by_gcu(duthost, status):
+    logger.info('Config BGP_BBR by GCU cmd')
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/BGP_BBR/all/status",
+            "value": "{}".format(status)
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+    time.sleep(3)
+
+
 def enable_bbr(duthost, namespace):
     logger.info('Enable BGP_BBR')
-    duthost.shell('sonic-cfggen {} -j /tmp/enable_bbr.json -w '.format('-n ' + namespace if namespace else ''))
-    time.sleep(3)
+    # gcu doesn't support multi-asic for now, use sonic-cfggen instead
+    if namespace:
+        logger.info('Enable BGP_BBR in namespace {}'.format(namespace))
+        duthost.shell('sonic-cfggen {} -j /tmp/enable_bbr.json -w '.format('-n ' + namespace))
+        time.sleep(3)
+    else:
+        config_bbr_by_gcu(duthost, "enabled")
 
 
 def disable_bbr(duthost, namespace):
     logger.info('Disable BGP_BBR')
-    duthost.shell('sonic-cfggen {} -j /tmp/disable_bbr.json -w'.format('-n ' + namespace if namespace else ''))
-    time.sleep(3)
+    # gcu doesn't support multi-asic for now, use sonic-cfggen instead
+    if namespace:
+        logger.info('Disable BGP_BBR in namespace {}'.format(namespace))
+        duthost.shell('sonic-cfggen {} -j /tmp/disable_bbr.json -w '.format('-n ' + namespace))
+        time.sleep(3)
+    else:
+        config_bbr_by_gcu(duthost, "disabled")
 
 
 @pytest.fixture
@@ -93,23 +154,41 @@ def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_defau
     enable_bbr(duthost, setup['tor1_namespace'])
 
 
+def get_bbr_default_state(duthost):
+    bbr_supported = False
+    bbr_default_state = 'disabled'
+
+    # Check BBR configuration from config_db first
+    bbr_config_db_exist = int(duthost.shell('redis-cli -n 4 HEXISTS "BGP_BBR|all" "status"')["stdout"])
+    if bbr_config_db_exist:
+        # key exist, BBR is supported
+        bbr_supported = True
+        bbr_default_state = duthost.shell('redis-cli -n 4 HGET "BGP_BBR|all" "status"')["stdout"]
+    else:
+        # Check BBR configuration from constants.yml
+        constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
+        try:
+            bbr_supported = constants['constants']['bgp']['bbr']['enabled']
+            if not bbr_supported:
+                return bbr_supported, bbr_default_state
+            bbr_default_state = constants['constants']['bgp']['bbr']['default_state']
+        except KeyError:
+            return bbr_supported, bbr_default_state
+
+    return bbr_supported, bbr_default_state
+
+
 @pytest.fixture(scope='module')
 def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     duthost = duthosts[rand_one_dut_hostname]
 
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     if not constants_stat['stat']['exists']:
-        pytest.skip('No file {} on DUT, BBR is not supported')
+        pytest.skip('No constants.yml file on DUT, BBR is not supported')
 
-    constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
-    bbr_default_state = 'disabled'
-    try:
-        bbr_enabled = constants['constants']['bgp']['bbr']['enabled']
-        if not bbr_enabled:
-            pytest.skip('BGP BBR is not enabled')
-        bbr_default_state = constants['constants']['bgp']['bbr']['default_state']
-    except KeyError:
-        pytest.skip('No BBR configuration in {}, BBR is not supported.'.format(CONSTANTS_FILE))
+    bbr_supported, bbr_default_state = get_bbr_default_state(duthost)
+    if not bbr_supported:
+        pytest.skip('BGP BBR is not supported')
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -172,6 +251,10 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
         'bbr_route_dual_dut_asn': bbr_route_dual_dut_asn,
         'bbr_route_v6_dual_dut_asn': bbr_route_v6_dual_dut_asn
     }
+
+    if not setup_info['tor1_namespace']:
+        logger.info('non multi-asic environment, add bbr config to running config using gcu cmd')
+        add_bbr_config_to_running_config(duthost, bbr_default_state)
 
     logger.info('setup_info: {}'.format(json.dumps(setup_info, indent=2)))
 
@@ -352,3 +435,28 @@ def test_bbr_disabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhost
     prepare_routes([bbr_route, bbr_route_v6])
     for route in (bbr_route, bbr_route_v6):
         check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=False)
+
+
+@pytest.mark.parametrize('bbr_status', ['enabled', 'disabled'])
+def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, setup,
+                                            bbr_status, restore_bbr_default_state):
+    duthost = duthosts[rand_one_dut_hostname]
+    if setup['tor1_namespace']:
+        pytest.skip('Skip test for multi-asic environment')
+
+    # Set BBR status in config_db
+    duthost.shell('redis-cli -n 4 HSET "BGP_BBR|all" "status" "{}" '.format(bbr_status))
+    duthost.shell('sudo config save -y')
+    config_reload(duthost)
+
+    # Verify BBR status after config reload
+    bbr_status_after_reload = duthost.shell('redis-cli -n 4 HGET "BGP_BBR|all" "status"')["stdout"]
+    pytest_assert(bbr_status_after_reload == bbr_status, "BGP BBR status is not consistent after config reload")
+
+    # Check if BBR is enabled or disabled using the running configuration
+    bbr_status_running_config = duthost.shell("show runningconfiguration bgp | grep allowas", module_ignore_errors=True)\
+        ['stdout'] # noqa E211
+    if bbr_status == 'enabled':
+        pytest_assert('allowas-in' in bbr_status_running_config, "BGP BBR is not enabled in running configuration")
+    else:
+        pytest_assert('allowas-in' not in bbr_status_running_config, "BGP BBR is not disabled in running configuration")

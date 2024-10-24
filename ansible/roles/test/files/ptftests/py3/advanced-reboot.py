@@ -180,6 +180,7 @@ class ReloadTest(BaseTest):
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
         self.check_param('neighbor_type', 'eos', required=False)
+        self.check_param('port_channel_intf_idx', [], required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
@@ -230,6 +231,7 @@ class ReloadTest(BaseTest):
         self.nr_pc_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
+        self.control_plane_down_timeout = 600   # Wait up to 6 minutes for control plane down
         self.task_timeout = 300   # Wait up to 5 minutes for tasks to complete
         self.max_nr_vl_pkts = 500  # FIXME: should be 1000.
         # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
@@ -627,6 +629,7 @@ class ReloadTest(BaseTest):
 
     def setUp(self):
         self.fails['dut'] = set()
+        self.fails['infrastructure'] = set()
         self.dut_mac = self.test_params['dut_mac']
         self.vlan_mac = self.test_params['vlan_mac']
         self.lo_prefix = self.test_params['lo_prefix']
@@ -1014,8 +1017,8 @@ class ReloadTest(BaseTest):
 
     def wait_until_control_plane_down(self):
         self.log("Wait until Control plane is down")
-        self.timeout(self.wait_until_cpu_port_down, self.task_timeout,
-                     "DUT hasn't shutdown in {} seconds".format(self.task_timeout))
+        self.timeout(self.wait_until_cpu_port_down, self.control_plane_down_timeout,
+                     "DUT hasn't shutdown in {} seconds".format(self.control_plane_down_timeout))
         if self.reboot_type == 'fast-reboot':
             self.light_probe = True
         else:
@@ -1474,7 +1477,7 @@ class ReloadTest(BaseTest):
             # Check to see if the warm-reboot script knows about the retry count feature
             stdout, stderr, return_code = self.dut_connection.execCommand(
                 "sudo " + self.reboot_type + " -h", timeout=5)
-            if "retry count" in stdout:
+            if "retry count" in "\n".join(stdout):
                 if self.test_params['neighbor_type'] == "sonic":
                     reboot_command = self.reboot_type + " -N"
                 else:
@@ -1777,16 +1780,15 @@ class ReloadTest(BaseTest):
 
     def start_sniffer(self, pcap_path, tcpdump_filter, timeout):
         """
-        Star tcpdump sniffer on all data interfaces
+        Start tcpdump sniffer on all data interfaces, and kill them after a specified timeout
         """
         self.tcpdump_data_ifaces = [
             iface for iface in scapyall.get_if_list() if iface.startswith('eth')]
         processes_list = []
         for iface in self.tcpdump_data_ifaces:
-            process = multiprocessing.Process(
-                target=self.start_dump_process,
-                kwargs={'iface': iface, 'pcap_path': pcap_path, 'tcpdump_filter': tcpdump_filter})
-            process.start()
+            iface_pcap_path = '{}_{}'.format(pcap_path, iface)
+            process = subprocess.Popen(['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path])
+            self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
             processes_list.append(process)
 
         time_start = time.time()
@@ -1797,22 +1799,27 @@ class ReloadTest(BaseTest):
                 break
             time_start = curr_time
 
-        self.log("Going to kill all tcpdump processes by SIGINT")
-        subprocess.call(['killall', '-s', 'SIGINT', 'tcpdump'])
+        self.log("Going to kill all tcpdump processes by SIGTERM")
+        for process in processes_list:
+            process.terminate()
 
         for process in processes_list:
-            process.join()
+            process.wait(timeout=5)
+            # Return code here could be 0, so we need to explicitly check for None
+            if process.returncode is not None:
+                self.log("Tcpdump process {} terminated".format(process.args))
 
-        self.log("Killed all tcpdump processes by SIGINT")
+        for process in processes_list:
+            if process.returncode is not None:
+                continue
+            self.log("Killing tcpdump process {}".format(process.args))
+            process.kill()
+            process.wait(timeout=5)
+            # Return code here could be 0, so we need to explicitly check for None
+            if process.returncode is not None:
+                self.log("Tcpdump process {} killed".format(process.args))
 
-    def start_dump_process(self, iface, pcap_path, tcpdump_filter):
-        """
-        Start tcpdump on specific interface and save data to pcap file
-        """
-        iface_pcap_path = '{}_{}'.format(pcap_path, iface)
-        cmd = ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path]
-        self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
-        subprocess.call(cmd)
+        self.log("Killed all tcpdump processes")
 
     def create_single_pcap(self, pcap_path):
         """
@@ -1938,14 +1945,17 @@ class ReloadTest(BaseTest):
         self.lost_packets = dict()
         self.max_disrupt, self.total_disruption = 0, 0
         sent_packets = dict()
+        # Track packet id's that were neither sent or received
+        missing_sent_and_received_packet_id_sequences = []
         self.fails['dut'].add("Sniffer failed to capture any traffic")
         self.assertTrue(packets, "Sniffer failed to capture any traffic")
         self.fails['dut'].clear()
         prev_payload = None
         if packets:
-            prev_payload, prev_time = 0, 0
+            prev_payload, prev_time = -1, 0
             sent_payload = 0
             received_counter = 0    # Counts packets from dut.
+            received_but_not_sent_packets = set()
             sent_counter = 0
             received_t1_to_vlan = 0
             received_vlan_to_t1 = 0
@@ -1980,31 +1990,60 @@ class ReloadTest(BaseTest):
                     prev_time = received_time
                     continue
                 if received_payload - prev_payload > 1:
-                    # Packets in a row are missing, a disruption.
+                    if received_payload not in sent_packets:
+                        self.log("Ignoring received packet with payload {}, as it was not sent".format(
+                            received_payload))
+                        received_but_not_sent_packets.add(received_payload)
+                        continue
+                    # Packets in a row are missing, a potential disruption.
                     self.log("received_payload: {}, prev_payload: {}, sent_counter: {}, received_counter: {}".format(
                         received_payload, prev_payload, sent_counter, received_counter))
                     # How many packets lost in a row.
                     lost_id = (received_payload - 1) - prev_payload
-                    # How long disrupt lasted.
-                    disrupt = (
-                        sent_packets[received_payload] - sent_packets[prev_payload + 1])
-                    # Add disrupt to the dict:
-                    self.lost_packets[prev_payload] = (
-                        lost_id, disrupt, received_time - disrupt, received_time)
-                    self.log("Disruption between packet ID %d and %d. For %.4f " % (
-                        prev_payload, received_payload, disrupt))
-                    for lost_index in range(prev_payload + 1, received_payload):
-                        # lost received for packet sent from vlan to T1.
-                        if (lost_index % 5) == 0:
-                            missed_vlan_to_t1 += 1
+
+                    # Find previous sequential sent packet that was captured
+                    missing_sent_and_received_pkt_count = 0
+                    prev_pkt_pt = prev_payload + 1
+                    prev_sent_packet_time = None
+                    while prev_pkt_pt < received_payload:
+                        if prev_pkt_pt in sent_packets:
+                            prev_sent_packet_time = sent_packets[prev_pkt_pt]
+                            break  # Found it
                         else:
-                            missed_t1_to_vlan += 1
-                    self.log("")
-                    if not self.disruption_start:
-                        self.disruption_start = datetime.datetime.fromtimestamp(
-                            prev_time)
-                    self.disruption_stop = datetime.datetime.fromtimestamp(
-                        received_time)
+                            if prev_pkt_pt not in received_but_not_sent_packets:
+                                missing_sent_and_received_pkt_count += 1
+                            prev_pkt_pt += 1
+                    if missing_sent_and_received_pkt_count > 0:
+                        missing_sent_and_received_packet_id_sequences_fmtd = \
+                            str(prev_payload + 1) if missing_sent_and_received_pkt_count == 1\
+                            else "{}-{}".format(prev_payload + 1, received_payload - 1)
+                        missing_sent_and_received_packet_id_sequences.append(
+                            missing_sent_and_received_packet_id_sequences_fmtd)
+                    if prev_sent_packet_time is not None:
+                        # Disruption occurred - some sent packets were not received
+
+                        # How long disrupt lasted.
+                        this_sent_packet_time = sent_packets[received_payload]
+                        disrupt = this_sent_packet_time - prev_sent_packet_time
+
+                        # Add disrupt to the dict:
+                        self.lost_packets[prev_payload] = (
+                            lost_id, disrupt, received_time - disrupt, received_time)
+                        self.log("Disruption between packet ID %d and %d. For %.4f " % (
+                            prev_payload, received_payload, disrupt))
+                        for lost_index in range(prev_payload + 1, received_payload):
+                            # lost received for packet sent from vlan to T1.
+                            if lost_index in sent_packets:
+                                if (lost_index % 5) == 0:
+                                    missed_vlan_to_t1 += 1
+                                else:
+                                    missed_t1_to_vlan += 1
+                        self.log("")
+                        if not self.disruption_start:
+                            self.disruption_start = datetime.datetime.fromtimestamp(
+                                prev_time)
+                        self.disruption_stop = datetime.datetime.fromtimestamp(
+                            received_time)
                 prev_payload = received_payload
                 prev_time = received_time
             self.log(
@@ -2037,6 +2076,11 @@ class ReloadTest(BaseTest):
             self.total_disrupt_packets = 0
             self.total_disrupt_time = 0
             self.log("Gaps in forwarding not found.")
+
+        if missing_sent_and_received_packet_id_sequences:
+            self.fails["infrastructure"].add(
+                "Missing sent and received packets: {}"
+                .format(missing_sent_and_received_packet_id_sequences))
 
         self.dataplane_loss_checked_successfully = True
 
@@ -2137,8 +2181,8 @@ class ReloadTest(BaseTest):
                 up_time = None
 
             if elapsed > warm_up_timeout_secs:
-                raise Exception("IO didn't come up within warm up timeout. Control plane: {}, Data plane: {}".format(
-                    ctrlplane, dataplane))
+                raise Exception("IO didn't come up within warm up timeout. Control plane: {}, Data plane: {}."
+                                "Actual warm up time {}".format(ctrlplane, dataplane, elapsed))
             time.sleep(1)
 
         # check until flooding is over. Flooding happens when FDB entry of

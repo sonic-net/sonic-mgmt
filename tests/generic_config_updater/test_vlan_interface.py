@@ -5,10 +5,10 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import create_path, check_show_ip_intf
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import create_path, check_show_ip_intf
 
 # Test on t0 topo to verify functionality and to choose predefined variable
 # "VLAN_INTERFACE": {
@@ -60,11 +60,11 @@ def get_vlan_info(intf):
 
 
 @pytest.fixture()
-def vlan_info(duthost, tbinfo):
+def vlan_info(rand_selected_dut, tbinfo):
     """
     Fixture of getting ipv4/ipv6 vlan info
     Args:
-        duthost: DUT host
+        rand_selected_dut: rand DUT host
         tbinfo: fixture provides information about testbed
     Return:
         Name and prefix of ipv4/ipv6 vlans
@@ -80,7 +80,7 @@ def vlan_info(duthost, tbinfo):
             }
         }
     """
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlan_intf = mg_facts['minigraph_vlan_interfaces']
     vlan_v4_info = None
     vlan_v6_info = None

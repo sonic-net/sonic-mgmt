@@ -4,6 +4,7 @@ import pytest
 import re
 import time
 import logging
+import allure
 import tech_support_cmds as cmds
 from random import randint
 from collections import defaultdict
@@ -50,6 +51,8 @@ SESSION_INFO = {
     'queue': "0"
 }
 
+DPU_PLATFORM_DUMP_FILES = ["sysfs_tree", "sys_version", "dmesg",
+                           "dmidecode", "lsmod", "lspci", "top", "bin/platform-dump.sh"]
 
 # ACL PART #
 
@@ -77,6 +80,24 @@ def setup_acl_rules(duthost, acl_setup):
 
     logger.info('Applying {}'.format(dut_conf_file_path))
     duthost.command('config acl update full {}'.format(dut_conf_file_path))
+
+
+def check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    Check dut is dpu or not. True when dut is dpu, else False
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    return config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
+
+
+@pytest.fixture(scope='module')
+def skip_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    When dut is dpu, skip the case
+    """
+    if check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        pytest.skip("Skip the test, as it is not supported on DPU.")
 
 
 @pytest.fixture(scope='function')
@@ -281,7 +302,66 @@ def execute_command(duthost, since):
     return True
 
 
-def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def extract_file_from_tar_file(duthost, tar_file, is_need_create_target_folder=False):
+    extracted_dump_folder_name = tar_file.split('/')[-1].split('.')[0]
+    target_folder = '/tmp/'
+    if is_need_create_target_folder:
+        target_folder = f'/tmp/{extracted_dump_folder_name}'
+        create_target_folder = f"mkdir -p {target_folder}"
+        duthost.command(create_target_folder)
+
+    duthost.command(f"tar -xf {tar_file} -C {target_folder}")
+    extracted_dump_folder_path = f'/tmp/{extracted_dump_folder_name}'
+    return extracted_dump_folder_name, extracted_dump_folder_path
+
+
+def validate_platform_dump_files(duthost, dump_folder_path, platform_dump_folder_name, platform_dump_name):
+    """
+    Validate platform-dump.tar.gz includes the following files:
+     sysfs_tree, sys_version, dmesg, dmidecode, lsmod, lspci, top, bin/platform-dump.sh
+    :param duthost: duthost object
+    :param dump_folder_path: path to folder which has extracted dump file content
+    :return: AssertionError in case of failure, else None
+    """
+    platform_dump_path = '{}/{}/'.format(dump_folder_path, platform_dump_folder_name)
+
+    logger.info("extract {}".format(platform_dump_name))
+    duthost.shell("tar -xf {}{} -C {} ".format(platform_dump_path, platform_dump_name, platform_dump_path))
+
+    platform_dump_files_list = []
+    print_last_column = "awk '{print $NF}'"
+    cmd_list_file_name = "ls -l {folder_path} | grep '^{file_type}' | {print_last_column}"
+    platform_dump_folders = duthost.shell(cmd_list_file_name.format(
+        folder_path=platform_dump_path, file_type='d', print_last_column=print_last_column))["stdout_lines"]
+
+    def collect_platform_dump_files(folder_name):
+        temp_dump_folder_path = os.path.join(platform_dump_path, folder_name) if folder_name else platform_dump_path
+        platform_dump_files = duthost.shell(cmd_list_file_name.format(
+            folder_path=temp_dump_folder_path, file_type='-', print_last_column=print_last_column))["stdout_lines"]
+        for file in platform_dump_files:
+            dump_file_name = file.strip() if not folder_name else "{}/{}".format(folder_name, file.strip())
+            platform_dump_files_list.append(dump_file_name)
+
+    logger.info("Collect dump file name for {}".format(platform_dump_path))
+    collect_platform_dump_files('')
+
+    for folder_name in platform_dump_folders:
+        logger.info("Collect dump file name for {}/{}".format(platform_dump_path, folder_name))
+        collect_platform_dump_files(folder_name.strip())
+
+    for dump_file in DPU_PLATFORM_DUMP_FILES:
+        assert dump_file in platform_dump_files_list, "dump file {} doesn't exist in {}".format(
+            dump_file, platform_dump_files_list)
+
+
+def gen_dump_file(duthost, since):
+    logger.debug("Running show techsupport ... ")
+    wait_until(300, 20, 0, execute_command, duthost, str(since))
+    tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
+    return tar_file
+
+
+def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname, skip_on_dpu):  # noqa F811
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
@@ -295,9 +375,7 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
     logger.debug("Loop_range is {} and loop_delay is {}".format(loop_range, loop_delay))
 
     for i in range(loop_range):
-        logger.debug("Running show techsupport ... ")
-        wait_until(300, 20, 0, execute_command, duthost, str(since))
-        tar_file = [j for j in pytest.tar_stdout.split('\n') if j != ''][-1]
+        tar_file = gen_dump_file(duthost, since)
         duthost.command("tar -xf {} -C /tmp/".format(tar_file))
         extracted_dump_folder_name = tar_file.lstrip('/var/dump/').split('.')[0]
         extracted_dump_folder_path = '/tmp/{}'.format(extracted_dump_folder_name)
@@ -394,6 +472,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         "bridge_cmds": cmds.bridge_cmds,
         "frr_cmds": add_asic_arg(" -n {}", cmds.frr_cmds, num),
         "bgp_cmds": add_asic_arg(" -n {}", cmds.bgp_cmds, num),
+        "evpn_cmds": add_asic_arg(" -n {}", cmds.evpn_cmds, num),
         "nat_cmds": cmds.nat_cmds,
         "bfd_cmds": add_asic_arg(" -n {}", cmds.bfd_cmds, num),
         "redis_db_cmds": add_asic_arg("asic{} ", cmds.redis_db_cmds, num),
@@ -449,7 +528,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             )
     # Remove /proc/dma for armh
     elif duthost.facts["asic_type"] == "marvell":
-        if 'armhf-' in duthost.facts["platform"]:
+        if 'armhf-' in duthost.facts["platform"] or 'arm64-' in duthost.facts["platform"]:
             cmds.copy_proc_files.remove("/proc/dma")
 
     return cmds_to_check
@@ -493,8 +572,7 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
 
 
 def test_techsupport_commands(
-        duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check
-):
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check, skip_on_dpu):  # noqa F811
     """
     This test checks list of commands that will be run when executing
     'show techsupport' CLI against a standard expected list of commands
@@ -529,4 +607,60 @@ def test_techsupport_commands(
             check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist)
         )
 
-    pytest_assert(len(cmd_not_found) == 0, cmd_not_found)
+    error_message = ''
+    for key, commands in cmd_not_found.items():
+        error_message += "Commands not found for '{}': ".format(key) + '; '.join(commands) + '\n'
+
+    pytest_assert(len(cmd_not_found) == 0, error_message)
+
+
+def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    This test is to check some files exist or not in the dump file generated by show techsupport on DPU
+    1. Generate dump file by " show techsupport -r --since 'xx xxx xxx' " ( select 1-5 minutes ago randomly)
+    2. Validate that the dump file contains platform-dump.tar.gz archive
+    3. Validate that platform-dump.tar.gz includes the following files:
+         sysfs_tree, sys_version, dmesg, dmidecode, lsmod, lspci, top, bin/platform-dump.sh
+    4. Validate that the dump file contains sai_sdk_dump folder
+    5. Validate that sai_sdk_dump is not empty folder
+    :param duthosts: DUT host
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if not check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        pytest.skip("Skip the test, as it is supported only on DPU.")
+
+    since = str(randint(1, 5)) + " minute ago"
+    platform_dump_name = "platform-dump.tar.gz"
+    sai_sdk_dump_folder_name = "sai_sdk_dump"
+    platform_dump_folder_name = "platform-dump"
+
+    tar_file = gen_dump_file(duthost, since)
+    extracted_dump_folder_name, extracted_dump_folder_path = extract_file_from_tar_file(duthost, tar_file)
+
+    try:
+        with allure.step('Validate that the dump file contains {} archive'.format(platform_dump_name)):
+            is_platform_dump_tar_gz_exist = duthost.shell("ls {}/{}/{}".format(
+                extracted_dump_folder_path, platform_dump_folder_name, platform_dump_name))["stdout_lines"]
+            assert is_platform_dump_tar_gz_exist, \
+                "{} doesn't exist in {}".format(platform_dump_name, extracted_dump_folder_name)
+
+        with allure.step('validate that {} includes the expected files'.format(platform_dump_name)):
+            validate_platform_dump_files(duthost, extracted_dump_folder_path, platform_dump_folder_name,
+                                         platform_dump_name)
+
+        with allure.step('Validate that the dump file contains sai_sdk_dump folder'):
+            is_existing_sai_sdk_dump_folder = duthost.shell(
+                "find {} -maxdepth 1 -type d -name {}".format(
+                    extracted_dump_folder_path, sai_sdk_dump_folder_name))["stdout_lines"]
+            assert is_existing_sai_sdk_dump_folder, \
+                "Folder {} doesn't exist in dump archive".format(sai_sdk_dump_folder_name)
+
+        with allure.step('Validate sai_sdk_dump is not empty folder'):
+            sai_sdk_dump = duthost.shell("ls {}/sai_sdk_dump/".format(extracted_dump_folder_path))["stdout_lines"]
+            assert len(sai_sdk_dump), \
+                "Folder {} in dump archive is empty. Expected not an empty folder".format(sai_sdk_dump_folder_name)
+    except AssertionError as err:
+        raise AssertionError(err)
+    finally:
+        duthost.command("rm -rf {}".format(tar_file))
+        duthost.command("rm -rf {}".format(extracted_dump_folder_path))

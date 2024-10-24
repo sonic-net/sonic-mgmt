@@ -101,6 +101,7 @@ class DHCPTest(DataplaneBaseTest):
     def __init__(self):
         self.test_params = testutils.test_params_get()
         self.client_port_index = int(self.test_params['client_port_index'])
+        self.is_dualtor = True if self.test_params['is_dualtor'] == 'True' else False
         self.client_link_local = self.generate_client_interace_ipv6_link_local_address(
             self.client_port_index)
 
@@ -128,17 +129,18 @@ class DHCPTest(DataplaneBaseTest):
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
         self.uplink_mac = self.test_params['uplink_mac']
         self.loopback_ipv6 = self.test_params['loopback_ipv6']
-        self.is_dualtor = True if self.test_params['is_dualtor'] == 'True' else False
 
     def generate_client_interace_ipv6_link_local_address(self, client_port_index):
-        # Shutdown and startup the client interface to generate a proper IPv6 link-local address
-        command = "ifconfig eth{} down".format(client_port_index)
-        proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
-        proc.communicate()
-
-        command = "ifconfig eth{} up".format(client_port_index)
-        proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
-        proc.communicate()
+        # For DUALTOR Setup, flapping the link will disrupt ICMP HB communication and link health is impacted.
+        # Skip this for DUALTOR.
+        if not self.is_dualtor:
+            # Shutdown and startup the client interface to generate a proper IPv6 link-local address
+            command = "ifconfig eth{} down".format(client_port_index)
+            proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+            proc.communicate()
+            command = "ifconfig eth{} up".format(client_port_index)
+            proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+            proc.communicate()
 
         command = "ip addr show eth{} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1".\
                   format(client_port_index)
@@ -298,8 +300,9 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_relay_relay_reply_packet(self):
         relay_relay_reply_packet = packet.Ether(dst=self.uplink_mac)
+        dst_ip = self.loopback_ipv6 if self.is_dualtor else self.relay_iface_ip
         relay_relay_reply_packet /= IPv6(src=self.server_ip,
-                                         dst=self.relay_iface_ip)
+                                         dst=dst_ip)
         relay_relay_reply_packet /= packet.UDP(
             sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         relay_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, hopcount=1, linkaddr=self.vlan_ip,
@@ -355,8 +358,6 @@ class DHCPTest(DataplaneBaseTest):
         masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
         masked_packet.set_do_not_care_scapy(packet.UDP, "len")
         masked_packet.set_do_not_care_scapy(
-            scapy.layers.dhcp6.DHCP6_RelayForward, "linkaddr")
-        masked_packet.set_do_not_care_scapy(
             DHCP6OptClientLinkLayerAddr, "clladdr")
 
         # verify packets received on the ports connected to our leaves
@@ -411,8 +412,6 @@ class DHCPTest(DataplaneBaseTest):
         masked_packet.set_do_not_care_scapy(IPv6, "nh")
         masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
         masked_packet.set_do_not_care_scapy(packet.UDP, "len")
-        masked_packet.set_do_not_care_scapy(
-            scapy.layers.dhcp6.DHCP6_RelayForward, "linkaddr")
         masked_packet.set_do_not_care_scapy(
             DHCP6OptClientLinkLayerAddr, "clladdr")
 

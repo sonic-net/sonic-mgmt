@@ -305,7 +305,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
                          prio_dscp_map=prio_dscp_map,
                          trigger_pfcwd=trigger_pfcwd)
 
-    config_reload(duthost=duthost, config_source='minigraph', safe_reload=True)
+    config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
 
 @pytest.mark.disable_loganalyzer
@@ -367,4 +367,4 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
                          prio_dscp_map=prio_dscp_map,
                          trigger_pfcwd=trigger_pfcwd)
 
-    config_reload(duthost=duthost, config_source='minigraph', safe_reload=True)
+    config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)

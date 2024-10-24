@@ -103,45 +103,31 @@ def verify_drop_counters(duthosts, asic_index, dut_iface, get_cnt_cli_cmd, colum
             # if the dut_iface is not found ignore this device
             if dut_iface not in pkt_drops:
                 continue
-            drop_list.append(int(pkt_drops[dut_iface][column_key].replace(",", "")))
+            try:
+                drop_list.append(int(pkt_drops[dut_iface][column_key].replace(",", "")))
+            except ValueError:
+                # Catch error invalid literal for int() with base 10: 'N/A'
+                drop_list.append(0)
         return drop_list
 
     def _check_drops_on_dut():
         return packets_count in _get_drops_across_all_duthosts()
 
     if not wait_until(25, 1, 0, _check_drops_on_dut):
-        # The actual Drop count should always be equal or 1 or 2 packets more than what is expected
-        # due to some other drop may occur over the interface being examined.
-        # When that happens if looking onlyu for exact count it will be a false positive failure.
-        # So do one more check to allow up to 2 packets more dropped than what was expected as an allowed case.
+        # We were seeing a few more drop counters than expected, so we are allowing a small margin of error
+        # The max number of unexpected drop we see equals to the number of vlan members in t0 topology
+        duthost = duthosts.frontend_nodes[0]
+        mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
+        DROP_MARGIN = 0 if mg_facts['minigraph_vlans'] else 10
+        for vlan in mg_facts['minigraph_vlans']:
+            DROP_MARGIN += len(mg_facts['minigraph_vlans'][vlan]['members'])
+        logger.info(f"The DROP_MARGIN is {DROP_MARGIN}")
         actual_drop = _get_drops_across_all_duthosts()
-        if ((packets_count+2) in actual_drop) or ((packets_count+1) in actual_drop):
-            logger.warning("Actual drops {} exceeded expected drops {} on iface {}\n"
-                           .format(actual_drop, packets_count, dut_iface))
-        else:
-            fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
-                column_key, dut_iface, column_key, actual_drop, packets_count)
-            pytest.fail(fail_msg)
-
-
-def verify_drop_counters_dut(duthost, dut_iface, get_cnt_cli_cmd, column_key, packets_count):
-    """Verify drop counters incremented on a specific dut for a specific interface"""
-    def get_drops_on_dut():
-        pkt_drops = get_pkt_drops(duthost, get_cnt_cli_cmd)
-        if dut_iface in pkt_drops:
-            dut_drop_count = int(pkt_drops[dut_iface][column_key].replace(",", ""))
-        return dut_drop_count
-    check_drops_on_dut = lambda: packets_count == get_drops_on_dut()
-    if not wait_until(25, 1, 0, check_drops_on_dut):
-        # The actual Drop count should always be equal to or 1 or 2 packets
-        # more than what is expected due to some other drop may occur
-        # over the interface being examined. When that happens if looking
-        # only for exact count it will be a false positive failure.
-        # So do one more check to allow up to 2 packets more dropped than what was expected as an allowed case.
-        actual_drop = get_drops_on_dut()
-        if ((packets_count+2) == actual_drop) or ((packets_count+1) == actual_drop):
-            logger.warning("Actual drops {} exceeded expected drops {} on iface {}\n"
-                           .format(actual_drop, packets_count, dut_iface))
+        for drop in actual_drop:
+            if drop >= packets_count and drop <= packets_count + DROP_MARGIN:
+                logger.warning("Actual drops {} exceeded expected drops {} on iface {}\n".format(
+                    actual_drop, packets_count, dut_iface))
+                break
         else:
             fail_msg = "'{}' drop counter was not incremented on iface {}. DUT {} == {}; Sent == {}".format(
                 column_key, dut_iface, column_key, actual_drop, packets_count)

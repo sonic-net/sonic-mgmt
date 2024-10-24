@@ -1,0 +1,20 @@
+[
+    {
+        "op": "add",
+        "path": "/ACL_RULE/DYNAMIC_ACL_TABLE|RULE_1",
+        "value": {
+            "DST_IP": "{{ ipv4_subnet }}",
+            "PRIORITY": "9999",
+            "PACKET_ACTION": "FORWARD"
+        }
+    },
+    {
+        "op": "add",
+        "path": "/ACL_RULE/DYNAMIC_ACL_TABLE|RULE_2",
+        "value": {
+            "DST_IPV6": "{{ ipv6_subnet }}",
+            "PRIORITY": "9998",
+            "PACKET_ACTION": "FORWARD"
+        }
+    }
+]

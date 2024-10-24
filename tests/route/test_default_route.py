@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
+from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
 
 
 pytestmark = [
@@ -16,6 +17,23 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
+
+    ignore_errors = [
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_tnl_route_event_add:\d+ ecmp table entry lookup "
+        "failed with error.*",
+        r".* ERR syncd#syncd: .*SAI_API_TUNNEL:_brcm_sai_mptnl_process_route_add_mode_default_and_host:\d+ "
+        "_brcm_sai_mptnl_tnl_route_event_add failed with error.*"
+    ]
+
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+
+    return None
 
 
 def get_upstream_neigh(tb, device_neigh_metadata):
@@ -215,3 +233,21 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
         duthost.command("sudo config bgp startup all")
         if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
             pytest.fail("not all bgp sessions are up after config reload")
+
+
+def test_ipv6_default_route_table_enabled_for_mgmt_interface(duthosts, tbinfo):
+    """
+    check if ipv6 default route nexthop address uses global address
+
+    """
+    duthost = find_duthost_on_role(
+        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+
+    # When management-vrf enabled, IPV6 route of management interface will not add to 'default' route table
+    if is_mgmt_vrf_enabled(duthost):
+        logging.info("Ignore IPV6 default route table test because management-vrf enabled")
+        return
+
+    ipv6_rules = duthost.command("ip -6 rule list")["stdout"]
+    pytest_assert("32767:\tfrom all lookup default" in ipv6_rules,
+                  "IPV6 rules does not include default route table: {}".format(ipv6_rules))

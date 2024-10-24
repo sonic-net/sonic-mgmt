@@ -7,7 +7,7 @@ from enum import Enum, unique
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.snmp_helpers import get_snmp_facts
-from tests.platform_tests.thermal_control_test_helper import mocker_factory     # noqa F401
+from tests.common.helpers.thermal_control_test_helper import mocker_factory     # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -525,7 +525,7 @@ def test_transceiver_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
     keys = redis_get_keys(duthost, STATE_DB, XCVR_KEY_TEMPLATE.format('*'))
     # Ignore the test if the platform does not have interfaces (e.g Supervisor)
     if not keys:
-        pytest.skip('Fan information does not exist in DB, skipping this test')
+        pytest.skip('Transceiver information does not exist in DB, skipping this test')
     name_to_snmp_facts = {}
     for oid, values in list(snmp_physical_entity_info.items()):
         values['oid'] = oid
@@ -621,16 +621,17 @@ def _get_transceiver_sensor_data(duthost, name):
 @pytest.mark.disable_loganalyzer
 def test_turn_off_psu_and_check_psu_info(duthosts, enum_supervisor_dut_hostname,
                                          localhost, creds_all_duts,
-                                         pdu_controller):
+                                         get_pdu_controller):
     """
     Turn off one PSU and check all PSU sensor entity being removed because it can no longer get any value
     :param duthost: DUT host object
     :param localhost: localhost object
     :param creds_all_duts: Credential for snmp
-    :param pdu_controller: PDU controller
+    :param get_pdu_controller: PDU controller
     :return:
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
+    pdu_controller = get_pdu_controller(duthost)
     if not pdu_controller:
         pytest.skip('psu_controller is None, skipping this test')
     outlet_status = pdu_controller.get_outlet_status()
@@ -785,11 +786,23 @@ def redis_get_keys(duthost, db_id, pattern):
     :param pattern: Redis key pattern
     :return: A list of key name in string
     """
+    totalOutput = []
+
+    def run_cmd_store_output(cmd):
+        logging.debug('Getting keys from redis by command: {}'.format(cmd))
+        output = duthost.shell(cmd)['stdout'].strip()
+        if output:
+            totalOutput.extend(output.split('\n'))
+
+    if duthost.is_multi_asic:
+        # Search the namespaces as well on LCs
+        for asic in duthost.frontend_asics:
+            cmd = 'sonic-db-cli -n {} {} KEYS \"{}\"'.format(asic.namespace, db_id, pattern)
+            run_cmd_store_output(cmd)
+
     cmd = 'sonic-db-cli {} KEYS \"{}\"'.format(db_id, pattern)
-    logging.debug('Getting keys from redis by command: {}'.format(cmd))
-    output = duthost.shell(cmd)
-    content = output['stdout'].strip()
-    return content.split('\n') if content else None
+    run_cmd_store_output(cmd)
+    return totalOutput if totalOutput else None
 
 
 def redis_hgetall(duthost, db_id, key):
@@ -800,14 +813,28 @@ def redis_hgetall(duthost, db_id, key):
     :param key: Redis Key
     :return: A dictionary, key is field name, value is field value
     """
+
+    def run_cmd(cmd):
+        output = duthost.shell(cmd)['stdout'].strip()
+        if not output:
+            return {}
+        # fix to make literal_eval() work with nested dictionaries
+        content = output.replace("'{", '"{').replace("}'", '}"')
+        return ast.literal_eval(content)
+
+    if duthost.is_multi_asic:
+        # Search the namespaces as well on LCs
+        for asic in duthost.frontend_asics:
+            cmd = 'sonic-db-cli -n {} {} HGETALL \"{}\"'.format(asic.namespace, db_id, key)
+            output = run_cmd(cmd)
+            if output:
+                return output
+
     cmd = 'sonic-db-cli {} HGETALL \"{}\"'.format(db_id, key)
-    output = duthost.shell(cmd)
-    content = output['stdout'].strip()
-    if not content:
-        return {}
-    # fix to make literal_eval() work with nested dictionaries
-    content = content.replace("'{", '"{').replace("}'", '}"')
-    return ast.literal_eval(content)
+    output = run_cmd(cmd)
+    if output:
+        return output
+    return {}
 
 
 def is_null_str(value):

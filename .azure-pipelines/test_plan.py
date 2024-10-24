@@ -5,6 +5,8 @@ import ast
 import json
 import os
 import sys
+import subprocess
+import copy
 import time
 from datetime import datetime, timedelta
 
@@ -21,7 +23,14 @@ INTERNAL_SONIC_MGMT_REPO = "https://dev.azure.com/mssonic/internal/_git/sonic-mg
 PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
-TOKEN_EXPIRE_HOURS = 6
+TOKEN_EXPIRE_HOURS = 1
+MAX_GET_TOKEN_RETRY_TIMES = 3
+TEST_PLAN_STATUS_UNSUCCESSFUL_FINISHED = ["FAILED", "CANCELLED"]
+TEST_PLAN_STEP_STATUS_UNFINISHED = ["EXECUTING", None]
+
+
+class PollTimeoutException(Exception):
+    pass
 
 
 class TestPlanStatus(Enum):
@@ -67,7 +76,7 @@ def test_plan_status_factory(status):
     raise Exception("The status is not correct.")
 
 
-class AbstractStatus():
+class AbstractStatus:
     def __init__(self, status):
         self.status = status
 
@@ -103,7 +112,7 @@ class ExecutingStatus(AbstractStatus):
         super(ExecutingStatus, self).__init__(TestPlanStatus.EXECUTING)
 
     def print_logs(self, test_plan_id, resp_data, start_time):
-        print("Test plan id: {}, status: {}, progress: {}%, elapsed: {:.0f} seconds"
+        print("Test plan id: {}, status: {}, progress: {:.2f}%, elapsed: {:.0f} seconds"
               .format(test_plan_id, resp_data.get("status", None),
                       resp_data.get("progress", 0) * 100, time.time() - start_time))
 
@@ -128,18 +137,6 @@ class FinishStatus(AbstractStatus):
         super(FinishStatus, self).__init__(TestPlanStatus.FINISHED)
 
 
-def get_scope(elastictest_url):
-    scope = "api://sonic-testbed-tools-dev/.default"
-    if elastictest_url in [
-        "http://sonic-testbed2-scheduler-backend.azurewebsites.net",
-        "https://sonic-testbed2-scheduler-backend.azurewebsites.net",
-        "http://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net",
-        "https://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net"
-    ]:
-        scope = "api://sonic-testbed-tools-prod/.default"
-    return scope
-
-
 def parse_list_from_str(s):
     # Since Azure Pipeline doesn't support to receive an empty parameter,
     # We use ' ' as a magic code for empty parameter.
@@ -155,50 +152,72 @@ def parse_list_from_str(s):
 
 class TestPlanManager(object):
 
-    def __init__(self, url, frontend_url, tenant_id=None, client_id=None, client_secret=None, ):
-        self.url = url
+    def __init__(self, scheduler_url, community_url, frontend_url, client_id=None):
+        self.scheduler_url = scheduler_url
+        self.community_url = community_url
         self.frontend_url = frontend_url
-        self.tenant_id = tenant_id
         self.client_id = client_id
-        self.client_secret = client_secret
         self.with_auth = False
         self._token = None
-        self._token_generate_time = None
-        if self.tenant_id and self.client_id and self.client_secret:
+        self._token_expires_on = None
+        if self.client_id:
             self.with_auth = True
             self.get_token()
 
+    def cmd(self, cmds):
+        process = subprocess.Popen(
+            cmds,
+            shell=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        stdout, stderr = process.communicate()
+        return_code = process.returncode
+
+        return stdout, stderr, return_code
+
+    def az_run(self, cmd):
+        stdout, stderr, retcode = self.cmd(cmd.split())
+        if retcode != 0:
+            raise Exception(f'Command {cmd} execution failed, rc={retcode}, error={stderr}')
+        return stdout, stderr, retcode
+
     def get_token(self):
-        token_generate_time_valid = \
-            self._token_generate_time is not None and \
-            (datetime.utcnow() - self._token_generate_time) < timedelta(hours=TOKEN_EXPIRE_HOURS)
 
-        if self._token is not None and token_generate_time_valid:
+        token_is_valid = \
+            self._token_expires_on is not None and \
+            (self._token_expires_on - datetime.now()) > timedelta(hours=TOKEN_EXPIRE_HOURS)
+
+        if self._token is not None and token_is_valid:
             return self._token
 
-        token_url = "https://login.microsoftonline.com/{}/oauth2/v2.0/token".format(self.tenant_id)
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
+        cmd = 'az account get-access-token --resource {}'.format(self.client_id)
+        attempt = 0
+        while attempt < MAX_GET_TOKEN_RETRY_TIMES:
+            try:
+                stdout, _, _ = self.az_run(cmd)
 
-        payload = {
-            "grant_type": "client_credentials",
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-            "scope": get_scope(self.url)
-        }
-        try:
-            resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
-            self._token = resp["access_token"]
-            self._token_generate_time = datetime.utcnow()
-            return self._token
-        except Exception as exception:
-            raise Exception("Get token failed with exception: {}".format(repr(exception)))
+                token = json.loads(stdout.decode("utf-8"))
+                self._token = token.get("accessToken", None)
+                if not self._token:
+                    raise Exception("Parse token from stdout failed")
+
+                # Parse token expires time from string
+                token_expires_on = token.get("expiresOn", "")
+                self._token_expires_on = datetime.strptime(token_expires_on, "%Y-%m-%d %H:%M:%S.%f")
+                print("Get token successfully.")
+                return self._token
+
+            except Exception as exception:
+                attempt += 1
+                print("Failed to get token with exception: {}".format(repr(exception)))
+
+        raise Exception("Failed to get token after {} attempts".format(MAX_GET_TOKEN_RETRY_TIMES))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
                min_worker=None, max_worker=None, pr_id="unknown", output=None,
                common_extra_params="", **kwargs):
-        tp_url = "{}/test_plan".format(self.url)
+        tp_url = "{}/test_plan".format(self.scheduler_url)
         testbed_name = parse_list_from_str(kwargs.get("testbed_name", None))
         image_url = kwargs.get("image_url", None)
         hwsku = kwargs.get("hwsku", None)
@@ -208,13 +227,29 @@ class TestPlanManager(object):
         features = parse_list_from_str(kwargs.get("features", None))
         scripts_exclude = parse_list_from_str(kwargs.get("scripts_exclude", None))
         features_exclude = parse_list_from_str(kwargs.get("features_exclude", None))
+        ptf_image_tag = kwargs.get("ptf_image_tag", None)
 
         print("Creating test plan, topology: {}, name: {}, build info:{} {} {}".format(topology, test_plan_name,
                                                                                        repo_name, pr_id, build_id))
         print("Test scripts to be covered in this test plan:")
         print(json.dumps(scripts, indent=4))
 
-        common_extra_params = common_extra_params + " --completeness_level=confident --allow_recover"
+        common_extra_params = common_extra_params + " --allow_recover"
+
+        # Add topo and device type args for PR test
+        if test_plan_type == "PR":
+            # Add topo arg
+            if topology in ["t0", "t0-64-32"]:
+                common_extra_params = common_extra_params + " --topology=t0,any"
+            elif topology in ["t1-lag", "t1-8-lag"]:
+                common_extra_params = common_extra_params + " --topology=t1,any"
+            elif topology == "dualtor":
+                common_extra_params = common_extra_params + " --topology=t0,dualtor,any"
+            elif topology == "dpu":
+                common_extra_params = common_extra_params + " --topology=dpu,any"
+
+            # Add device type arg
+            common_extra_params = common_extra_params + " --device_type=vs"
 
         # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
         sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
@@ -255,6 +290,7 @@ class TestPlanManager(object):
                     "features_exclude": features_exclude,
                     "scripts_exclude": scripts_exclude
                 },
+                "ptf_image_tag": ptf_image_tag,
                 "image": {
                     "url": image_url,
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
@@ -306,14 +342,14 @@ class TestPlanManager(object):
 
         if output:
             print("Store new test plan id to file {}".format(output))
-            with open(output, "w") as f:
-                f.write(str(resp["data"]))
+            with open(output, "a") as f:
+                f.write(str(resp["data"]) + "\n")
 
         return resp["data"]
 
     def cancel(self, test_plan_id):
 
-        tp_url = "{}/test_plan/{}".format(self.url, test_plan_id)
+        tp_url = "{}/test_plan/{}".format(self.scheduler_url, test_plan_id)
         cancel_url = "{}/cancel".format(tp_url)
 
         print("Cancelling test plan at {}".format(cancel_url))
@@ -343,27 +379,54 @@ class TestPlanManager(object):
               .format(self.frontend_url, test_plan_id))
         print("Polling interval: {} seconds".format(interval))
 
-        poll_url = "{}/test_plan/{}".format(self.url, test_plan_id)
+        poll_url = "{}/test_plan/{}/get_test_plan_status".format(self.scheduler_url, test_plan_id)
+        poll_url_no_auth = "{}/get_test_plan_status/{}".format(self.community_url, test_plan_id)
         headers = {
             "Content-Type": "application/json"
         }
         start_time = time.time()
         http_exception_times = 0
-        while (timeout < 0 or (time.time() - start_time) < timeout):
-            try:
-                if self.with_auth:
-                    headers["Authorization"] = "Bearer {}".format(self.get_token())
-                resp = requests.get(poll_url, headers=headers, timeout=10).json()
-            except Exception as exception:
-                print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
-                                                                                          str(exception)))
-                http_exception_times = http_exception_times + 1
-                if http_exception_times >= TOLERATE_HTTP_EXCEPTION_TIMES:
-                    raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
-                                    .format(poll_url, resp, str(exception)))
-                else:
-                    time.sleep(interval)
+        http_exception_times_no_auth = 0
+        failed_poll_auth_url = False
+        while timeout < 0 or (time.time() - start_time) < timeout:
+            resp = None
+            # To make the transition smoother, first try to access the original API
+            if not failed_poll_auth_url:
+                try:
+                    if self.with_auth:
+                        headers["Authorization"] = "Bearer {}".format(self.get_token())
+                    resp = requests.get(poll_url, headers=headers, timeout=10).json()
+                except Exception as exception:
+                    print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url, resp,
+                                                                                              str(exception)))
+                    http_exception_times = http_exception_times + 1
+                    if http_exception_times >= TOLERATE_HTTP_EXCEPTION_TIMES:
+                        failed_poll_auth_url = True
+                    else:
+                        time.sleep(interval)
                     continue
+
+            # If failed on poll auth url(most likely token has expired), try with no-auth url
+            else:
+                print("Polling test plan status failed with auth url, try with no-auth url.")
+                try:
+                    resp = requests.get(poll_url_no_auth, headers={"Content-Type": "application/json"},
+                                        timeout=10).json()
+                except Exception as e:
+                    print("HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url_no_auth, resp,
+                                                                                              repr(e)))
+                    http_exception_times_no_auth = http_exception_times_no_auth + 1
+                    if http_exception_times_no_auth >= TOLERATE_HTTP_EXCEPTION_TIMES:
+                        raise Exception(
+                            "HTTP execute failure, url: {}, raw_resp: {}, exception: {}".format(poll_url_no_auth, resp,
+                                                                                                repr(e)))
+                    else:
+                        time.sleep(interval)
+                        continue
+
+            if not resp:
+                raise Exception("Poll test plan status failed with request error, no response!")
+
             if not resp["success"]:
                 raise Exception("Query test plan at {} failed with error: {}".format(poll_url, resp["errmsg"]))
 
@@ -371,12 +434,14 @@ class TestPlanManager(object):
             if not resp_data:
                 raise Exception("No valid data in response: {}".format(str(resp)))
 
-            status = resp_data.get("status", None)
-            result = resp_data.get("result", None)
+            current_tp_status = resp_data.get("status", None)
+            current_tp_result = resp_data.get("result", None)
 
             if expected_state:
-                current_status = test_plan_status_factory(status)
+                current_status = test_plan_status_factory(current_tp_status)
                 expected_status = test_plan_status_factory(expected_state)
+
+                print("current test plan status: {}, expected status: {}".format(current_tp_status, expected_state))
 
                 if expected_status.get_status() == current_status.get_status():
                     current_status.print_logs(test_plan_id, resp_data, start_time)
@@ -391,34 +456,60 @@ class TestPlanManager(object):
                             if step.get("step") == expected_state:
                                 step_status = step.get("status")
                                 break
-                    # We fail the step only if the step_status is "FAILED".
-                    # Other status such as "SKIPPED", "CANCELED" are considered successful.
-                    if step_status == "FAILED":
+
+                    # Print test summary
+                    test_summary = resp_data.get("runtime", {}).get("test_summary", None)
+                    if test_summary:
+                        print("Test summary:\n{}".format(json.dumps(test_summary, indent=4)))
+
+                    """
+                    In below scenarios, need to return false to pipeline.
+                    1. If step status is {FAILED}, exactly need to return false to pipeline.
+                    2. If current test plan status finished but unsuccessful, need to check if current step status
+                       executed successfully, if not, return false to pipeline.
+                    """
+                    current_step_unsuccessful = (step_status == "FAILED"
+                                                 or (current_tp_status in TEST_PLAN_STATUS_UNSUCCESSFUL_FINISHED
+                                                     and step_status in TEST_PLAN_STEP_STATUS_UNFINISHED))
+
+                    if current_step_unsuccessful:
+
+                        # Print error type and message
+                        err_code = resp_data.get("runtime", {}).get("err_code", None)
+                        if err_code:
+                            print("Error type: {}".format(err_code))
+
+                        err_msg = resp_data.get("runtime", {}).get("message", None)
+                        if err_msg:
+                            print("Error message: {}".format(err_msg))
+
                         raise Exception("Test plan id: {}, status: {}, result: {}, Elapsed {:.0f} seconds. "
                                         "Check {}/scheduler/testplan/{} for test plan status"
-                                        .format(test_plan_id, step_status, result, time.time() - start_time,
+                                        .format(test_plan_id, step_status, current_tp_result, time.time() - start_time,
                                                 self.frontend_url,
                                                 test_plan_id))
                     if expected_result:
-                        if result != expected_result:
+                        if current_tp_result != expected_result:
                             raise Exception("Test plan id: {}, status: {}, result: {} not match expected result: {}, "
                                             "Elapsed {:.0f} seconds. "
                                             "Check {}/scheduler/testplan/{} for test plan status"
-                                            .format(test_plan_id, step_status, result,
+                                            .format(test_plan_id, step_status, current_tp_result,
                                                     expected_result, time.time() - start_time,
                                                     self.frontend_url,
                                                     test_plan_id))
 
-                    print("Current status is {}".format(step_status))
+                    print("Current step status is {}".format(step_status))
                     return
                 else:
-                    print("Current state is {}, waiting for the state {}".format(status, expected_state))
+                    print("Current test plan state is {}, waiting for the expected state {}".format(current_tp_status,
+                                                                                                    expected_state))
 
                 time.sleep(interval)
 
         else:
-            raise Exception("Max polling time reached, test plan at {} is not successfully finished or cancelled"
-                            .format(poll_url))
+            raise PollTimeoutException(
+                "Max polling time reached, test plan at {} is not successfully finished or cancelled".format(poll_url)
+            )
 
 
 if __name__ == "__main__":
@@ -565,6 +656,16 @@ if __name__ == "__main__":
         help="The asic number of dut"
     )
     parser_create.add_argument(
+        "--build-reason",
+        type=str,
+        dest="build_reason",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Build reason"
+    )
+    parser_create.add_argument(
         "--repo-name",
         type=str,
         dest="repo_name",
@@ -583,6 +684,16 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="Testbed name, Split by ',', like: 'testbed1, testbed2'"
+    )
+    parser_create.add_argument(
+        "--ptf_image_tag",
+        type=str,
+        dest="ptf_image_tag",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="PTF image tag"
     )
     parser_create.add_argument(
         "--image_url",
@@ -749,6 +860,16 @@ if __name__ == "__main__":
         required=False,
         help="Max execute seconds of the test plan."
     )
+    parser_create.add_argument(
+        "--test-plan-num",
+        type=int,
+        dest="test_plan_num",
+        nargs="?",
+        const=1,
+        default=1,
+        required=False,
+        help="Test plan num to be created."
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -795,7 +916,7 @@ if __name__ == "__main__":
         required=False,
         default=-1,
         dest="timeout",
-        help="Max polling time. Default 36000 seconds (10 hours)."
+        help="Max polling time in seconds. Default -1, no timeout."
     )
 
     if len(sys.argv) == 1:
@@ -810,7 +931,7 @@ if __name__ == "__main__":
         args.test_plan_id = args.test_plan_id.replace("'", "")
 
     print("Test plan utils parameters: {}".format(args))
-    auth_env = ["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"]
+    auth_env = ["CLIENT_ID"]
     required_env = ["ELASTICTEST_SCHEDULER_BACKEND_URL"]
 
     if args.action in ["create", "cancel"]:
@@ -818,9 +939,8 @@ if __name__ == "__main__":
 
     env = {
         "elastictest_scheduler_backend_url": os.environ.get("ELASTICTEST_SCHEDULER_BACKEND_URL"),
-        "tenant_id": os.environ.get("ELASTICTEST_MSAL_TENANT_ID"),
+        "elastictest_community_url": os.environ.get("ELASTICTEST_COMMUNITY_URL"),
         "client_id": os.environ.get("ELASTICTEST_MSAL_CLIENT_ID"),
-        "client_secret": os.environ.get("ELASTICTEST_MSAL_CLIENT_SECRET"),
         "frontend_url": os.environ.get("ELASTICTEST_FRONTEND_URL", "https://elastictest.org"),
     }
     env_missing = [k.upper() for k, v in env.items() if k.upper() in required_env and not v]
@@ -831,21 +951,20 @@ if __name__ == "__main__":
     try:
         tp = TestPlanManager(
             env["elastictest_scheduler_backend_url"],
+            env["elastictest_community_url"],
             env["frontend_url"],
-            env["tenant_id"],
-            env["client_id"],
-            env["client_secret"])
+            env["client_id"])
 
         if args.action == "create":
             pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
                 "SYSTEM_PULLREQUEST_PULLREQUESTID")
             repo = os.environ.get("BUILD_REPOSITORY_PROVIDER")
-            reason = os.environ.get("BUILD_REASON")
+            reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
 
-            test_plan_name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
+            test_plan_prefix = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
                     repo=repo,
                     reason=reason,
@@ -867,46 +986,55 @@ if __name__ == "__main__":
                 if not specific_param:
                     specific_param = parsed_specific_param
 
-            tp.create(
-                args.topology,
-                test_plan_name=test_plan_name,
-                deploy_mg_extra_params=args.deploy_mg_extra_params,
-                kvm_build_id=args.kvm_build_id,
-                kvm_image_branch=args.kvm_image_branch,
-                min_worker=args.min_worker,
-                max_worker=args.max_worker,
-                pr_id=pr_id,
-                scripts=scripts,
-                features=args.features,
-                scripts_exclude=args.scripts_exclude,
-                features_exclude=args.features_exclude,
-                output=args.output,
-                source_repo=repo_name,
-                mgmt_branch=args.mgmt_branch,
-                common_extra_params=args.common_extra_params,
-                num_asic=args.num_asic,
-                specified_params=args.specified_params,
-                specific_param=specific_param,
-                affinity=args.affinity,
-                vm_type=args.vm_type,
-                testbed_name=args.testbed_name,
-                image_url=args.image_url,
-                upgrade_image_param=args.upgrade_image_param,
-                hwsku=args.hwsku,
-                test_plan_type=args.test_plan_type,
-                platform=args.platform,
-                stop_on_failure=args.stop_on_failure,
-                retry_times=args.retry_times,
-                dump_kvm_if_fail=args.dump_kvm_if_fail,
-                requester=args.requester,
-                max_execute_seconds=args.max_execute_seconds,
-                lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
-            )
+            for num in range(args.test_plan_num):
+                test_plan_name = copy.copy(test_plan_prefix)
+                if args.test_plan_num > 1:
+                    test_plan_name = "{}_{}".format(test_plan_name, num + 1)
+
+                tp.create(
+                    args.topology,
+                    test_plan_name=test_plan_name,
+                    deploy_mg_extra_params=args.deploy_mg_extra_params,
+                    kvm_build_id=args.kvm_build_id,
+                    kvm_image_branch=args.kvm_image_branch,
+                    min_worker=args.min_worker,
+                    max_worker=args.max_worker,
+                    pr_id=pr_id,
+                    scripts=scripts,
+                    features=args.features,
+                    scripts_exclude=args.scripts_exclude,
+                    features_exclude=args.features_exclude,
+                    output=args.output,
+                    source_repo=repo_name,
+                    mgmt_branch=args.mgmt_branch,
+                    common_extra_params=args.common_extra_params,
+                    num_asic=args.num_asic,
+                    specified_params=args.specified_params,
+                    specific_param=specific_param,
+                    affinity=args.affinity,
+                    vm_type=args.vm_type,
+                    testbed_name=args.testbed_name,
+                    ptf_image_tag=args.ptf_image_tag,
+                    image_url=args.image_url,
+                    upgrade_image_param=args.upgrade_image_param,
+                    hwsku=args.hwsku,
+                    test_plan_type=args.test_plan_type,
+                    platform=args.platform,
+                    stop_on_failure=args.stop_on_failure,
+                    retry_times=args.retry_times,
+                    dump_kvm_if_fail=args.dump_kvm_if_fail,
+                    requester=args.requester,
+                    max_execute_seconds=args.max_execute_seconds,
+                    lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
+                )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
         sys.exit(0)
+    except PollTimeoutException as e:
+        print("Polling test plan failed with exception: {}".format(repr(e)))
+        sys.exit(2)
     except Exception as e:
         print("Operation failed with exception: {}".format(repr(e)))
         sys.exit(3)

@@ -205,12 +205,14 @@ def __tgen_bgp_config(cvg_api,
                           i, location=temp_tg_port[i-1]['location'])
 
     lag0 = config.lags.lag(name="lag0")[-1]
+    lag0.protocol.lacp.actor_system_id = "00:10:00:00:11:11"
+
     lp = lag0.ports.port(port_name='Test_Port_1')[-1]
-    lp.protocol.lacp.actor_system_id = "00:10:00:00:11:11"
-    lp.protocol.lacp.lacpdu_periodic_time_interval = lacpdu_interval_period
-    lp.protocol.lacp.lacpdu_timeout = lacpdu_timeout
     lp.ethernet.name = "eth0"
     lp.ethernet.mac = "00:11:02:00:10:01"
+    lp.lacp.lacpdu_periodic_time_interval = lacpdu_interval_period
+    lp.lacp.lacpdu_timeout = lacpdu_timeout
+
     lag1 = config.lags.lag(name="lag1")[-1]
     for i in range(2, port_count+1):
         lagport = lag1.ports.port(port_name='Test_Port_%d' % i)[-1]
@@ -218,11 +220,11 @@ def __tgen_bgp_config(cvg_api,
             m = '0'+hex(i).split('0x')[1]
         else:
             m = hex(i).split('0x')[1]
-        lagport.protocol.lacp.actor_system_id = "00:10:00:00:00:11"
-        #
-        lagport.protocol.lacp.lacpdu_periodic_time_interval = lacpdu_interval_period
-        lagport.protocol.lacp.lacpdu_timeout = lacpdu_timeout
-        #
+        lag1.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
+
+        lagport.lacp.lacpdu_periodic_time_interval = lacpdu_interval_period
+        lagport.lacp.lacpdu_timeout = lacpdu_timeout
+
         lagport.ethernet.name = "eth%d" % i
         lagport.ethernet.mac = "00:10:04:00:00:%s" % m
     logger.info('|-------------- LACP Timers --------------|')

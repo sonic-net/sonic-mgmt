@@ -102,6 +102,20 @@ class EosHost(AnsibleHostBase):
         intf_str = ','.join(interfaces)
         return self.no_shutdown(intf_str)
 
+    def is_lldp_disabled(self):
+        """
+        Checks if LLDP is enabled by neighbors
+        Returns True if disabled (i.e. neighbors absent)
+        Returns False if enabled (i.e. found neighbors)
+        """
+        command = 'show lldp neighbors | json'
+        output = self.eos_command(commands=[command])['stdout']
+        logger.debug(f'lldp neighbors returned: {output}')
+        # check for empty output -> ['']
+        if output is None or (len(output) == 1 and len(output[0]) == 0):
+            return True
+        return False
+
     def check_intf_link_state(self, interface_name):
         """
         This function returns link oper status
@@ -299,6 +313,9 @@ class EosHost(AnsibleHostBase):
             'output': 'json'
         }])['stdout'][0]
 
+    def run_command_list(self, cmd):
+        return self.eos_command(commands=cmd)
+
     def get_auto_negotiation_mode(self, interface_name):
         output = self.eos_command(commands=[{
             'command': 'show interfaces %s status' % interface_name,
@@ -309,6 +326,9 @@ class EosHost(AnsibleHostBase):
             return None
         autoneg_enabled = output['stdout'][0]['interfaceStatuses'][interface_name]['autoNegotiateActive']
         return autoneg_enabled
+
+    def get_version(self):
+        return self.eos_command(commands=["show version"])
 
     def _reset_port_speed(self, interface_name):
         out = self.eos_config(

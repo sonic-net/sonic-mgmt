@@ -197,10 +197,10 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     logger.info("Setup macsec configuration step1: set macsec profile")
     # 1. Set macsec profile
     i = 0
-    for dut_port, nbr in list(ctrl_links.items()):
-        submit_async_task(set_macsec_profile,
-                          (duthost, dut_port, profile_name, default_priority,
-                           cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period))
+    for dut_port, nbr in ctrl_links.items():
+        submit_async_task(set_macsec_profile, (duthost, dut_port, profile_name, default_priority,
+                          cipher_suite, primary_cak, primary_ckn, policy,
+                          send_sci, rekey_period))
         if i % 2 == 0:
             priority = default_priority - 1
         else:
@@ -220,9 +220,9 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
 
     # 3. Wait for interface's macsec ready
     for dut_port, nbr in list(ctrl_links.items()):
-        wait_until(20, 3, 0,
-                   lambda: duthost.iface_macsec_ok(dut_port) and
-                   nbr["host"].iface_macsec_ok(nbr["port"]))
+        assert wait_until(20, 3, 0,
+                          lambda: duthost.iface_macsec_ok(dut_port) and
+                          nbr["host"].iface_macsec_ok(nbr["port"]))
 
     # Enabling macsec may cause link flap, which impacts LACP, BGP, etc
     # protocols. To hold some time for protocol recovery.

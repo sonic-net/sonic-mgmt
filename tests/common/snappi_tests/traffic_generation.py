@@ -1,16 +1,17 @@
 """
 This module allows various snappi based tests to generate various traffic configurations.
 """
-
 import time
 import logging
+import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
     get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
     traffic_flow_mode
 from tests.common.snappi_tests.port import select_ports, select_tx_port
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
+from tests.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,10 @@ def setup_base_traffic_config(testbed_config,
                 dut_port_config (list): a list of two dictionaries of tx and rx ports on the peer (switch) side,
                                         and the associated test priorities
                                         ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
+                test_flow_name_dut_rx_port_map (dict): Mapping of test flow name to DUT RX port(s)
+                                                  ex. {'flow1': [Ethernet4, Ethernet8]}
+                test_flow_name_dut_tx_port_map (dict): Mapping of test flow name to DUT TX port(s)
+                                                  ex. {'flow1': [Ethernet4, Ethernet8]}
     """
     base_flow_config = {}
     rx_port_id = port_id
@@ -89,7 +94,8 @@ def setup_base_traffic_config(testbed_config,
 def generate_test_flows(testbed_config,
                         test_flow_prio_list,
                         prio_dscp_map,
-                        snappi_extra_params):
+                        snappi_extra_params,
+                        number_of_streams=1):
     """
     Generate configurations of test flows. Test flows and background flows are also known as data flows.
 
@@ -98,21 +104,33 @@ def generate_test_flows(testbed_config,
         test_flow_prio_list (list): list of test flow priorities
         prio_dscp_map (dict): priority to DSCP mapping
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        number_of_streams (int): number of UDP streams
     """
     base_flow_config = snappi_extra_params.base_flow_config
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
     data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
     pytest_assert(data_flow_config is not None, "Cannot find data flow configuration")
+    test_flow_name_dut_rx_port_map = {}
+    test_flow_name_dut_tx_port_map = {}
 
     for prio in test_flow_prio_list:
-        test_flow = testbed_config.flows.flow(name='{} Prio {}'.format(data_flow_config["flow_name"], prio))[-1]
+        test_flow_name = "{} Prio {}".format(data_flow_config["flow_name"], prio)
+        test_flow = testbed_config.flows.flow(name=test_flow_name)[-1]
         test_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
         test_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
-        eth, ipv4 = test_flow.packet.ethernet().ipv4()
+        eth, ipv4, udp = test_flow.packet.ethernet().ipv4().udp()
+        src_port = random.randint(5000, 6000)
+        udp.src_port.increment.start = src_port
+        udp.src_port.increment.step = 1
+        udp.src_port.increment.count = number_of_streams
+
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
@@ -140,6 +158,13 @@ def generate_test_flows(testbed_config,
         dut_port_config[0][str(base_flow_config["tx_port_config"].peer_port)].append(int(prio))
         dut_port_config[1][str(base_flow_config["rx_port_config"].peer_port)].append(int(prio))
         base_flow_config["dut_port_config"] = dut_port_config
+
+        # Save flow name to TX and RX port mapping for DUT
+        test_flow_name_dut_rx_port_map[test_flow_name] = [base_flow_config["tx_port_config"].peer_port]
+        test_flow_name_dut_tx_port_map[test_flow_name] = [base_flow_config["rx_port_config"].peer_port]
+
+    base_flow_config["test_flow_name_dut_rx_port_map"] = test_flow_name_dut_rx_port_map
+    base_flow_config["test_flow_name_dut_tx_port_map"] = test_flow_name_dut_tx_port_map
 
     snappi_extra_params.base_flow_config = base_flow_config
 
@@ -170,7 +195,10 @@ def generate_background_flows(testbed_config,
         eth, ipv4 = bg_flow.packet.ethernet().ipv4()
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
-        eth.pfc_queue.value = prio
+        if pfcQueueGroupSize == 8:
+            eth.pfc_queue.value = prio
+        else:
+            eth.pfc_queue.value = pfcQueueValueDict[prio]
 
         ipv4.src.value = base_flow_config["tx_port_config"].ip
         ipv4.dst.value = base_flow_config["rx_port_config"].ip
@@ -254,6 +282,24 @@ def generate_pause_flows(testbed_config,
     pause_flow.metrics.loss = True
 
 
+def clear_dut_interface_counters(duthost):
+    """
+    Clears the dut interface counter.
+    Args:
+        duthost (obj): DUT host object
+    """
+    duthost.command("sonic-clear counters \n")
+
+
+def clear_dut_que_counters(duthost):
+    """
+    Clears the dut que counter.
+    Args:
+        duthost (obj): DUT host object
+    """
+    duthost.command("sonic-clear queuecounters \n")
+
+
 def run_traffic(duthost,
                 api,
                 config,
@@ -273,20 +319,22 @@ def run_traffic(duthost,
         exp_dur_sec (int): experiment duration in second
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
-        per-flow statistics (list)
+        flow_metrics (snappi metrics object): per-flow statistics from TGEN (right after flows end)
+        switch_device_results (dict): statistics from DUT on both TX and RX and per priority
+        in_flight_flow_metrics (snappi metrics object): in-flight statistics per flow from TGEN
+                                                        (right before flows end)
     """
 
     api.set_config(config)
-
     logger.info("Wait for Arp to Resolve ...")
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
-
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
     switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"][1].values(), [])
     switch_rx_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
     switch_tx_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
     switch_device_results = None
+    in_flight_flow_metrics = None
 
     if pcap_type != packet_capture.NO_CAPTURE:
         logger.info("Starting packet capture ...")
@@ -294,6 +342,10 @@ def run_traffic(duthost,
         cs.port_names = snappi_extra_params.packet_capture_ports
         cs.state = cs.START
         api.set_capture_state(cs)
+
+    clear_dut_interface_counters(duthost)
+
+    clear_dut_que_counters(duthost)
 
     logger.info("Starting transmit on all flows ...")
     ts = api.transmit_state()
@@ -312,7 +364,7 @@ def run_traffic(duthost,
         exp_dur_sec = exp_dur_sec + ANSIBLE_POLL_DELAY_SEC  # extra time to allow for device polling
         poll_freq_sec = int(exp_dur_sec / 10)
 
-        for _ in range(10):
+        for poll_iter in range(10):
             for lossless_prio in switch_tx_lossless_prios:
                 switch_device_results["tx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_tx_port,
                                                                                                 lossless_prio)[0])
@@ -320,17 +372,28 @@ def run_traffic(duthost,
                                                                                                 lossless_prio)[0])
             time.sleep(poll_freq_sec)
 
+            if poll_iter == 5:
+                logger.info("Polling TGEN for in-flight traffic statistics...")
+                in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+                flow_names = [metric.name for metric in in_flight_flow_metrics if metric.name in data_flow_names]
+                tx_frames = [metric.frames_tx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
+                rx_frames = [metric.frames_rx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
+                logger.info("In-flight traffic statistics for flows: {}".format(flow_names))
+                logger.info("In-flight TX frames: {}".format(tx_frames))
+                logger.info("In-flight RX frames: {}".format(rx_frames))
         logger.info("DUT polling complete")
     else:
-        time.sleep(exp_dur_sec)  # no polling required
+        time.sleep(exp_dur_sec*(2/5))  # no switch polling required, only TGEN polling
+        logger.info("Polling TGEN for in-flight traffic statistics...")
+        in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)  # fetch in-flight metrics from TGEN
+        time.sleep(exp_dur_sec*(3/5))
 
     attempts = 0
     max_attempts = 20
 
     while attempts < max_attempts:
-        request = api.metrics_request()
-        request.flow.flow_names = data_flow_names
-        flow_metrics = api.get_metrics(request).flow_metrics
+        logger.info("Checking if all flows have stopped. Attempt #{}".format(attempts + 1))
+        flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
 
         # If all the data flows have stopped
         transmit_states = [metric.transmit for metric in flow_metrics]
@@ -360,15 +423,13 @@ def run_traffic(duthost,
 
     # Dump per-flow statistics
     logger.info("Dumping per-flow statistics")
-    request = api.metrics_request()
-    request.flow.flow_names = all_flow_names
-    flow_metrics = api.get_metrics(request).flow_metrics
+    flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
     logger.info("Stopping transmit on all remaining flows")
     ts = api.transmit_state()
     ts.state = ts.STOP
     api.set_transmit_state(ts)
 
-    return flow_metrics, switch_device_results
+    return flow_metrics, switch_device_results, in_flight_flow_metrics
 
 
 def verify_pause_flow(flow_metrics,
@@ -473,7 +534,7 @@ def verify_basic_test_flow(flow_metrics,
 
 def verify_in_flight_buffer_pkts(duthost,
                                  flow_metrics,
-                                 snappi_extra_params):
+                                 snappi_extra_params, asic_value=None):
     """
     Verify in-flight TX bytes of test flows should be held by switch buffer unless PFC delay is applied
     for when test traffic is expected to be paused
@@ -507,7 +568,7 @@ def verify_in_flight_buffer_pkts(duthost,
 
         for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
-                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
+                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets > 0,
                               "Total TX dropped packets {} should be more than 0".
                               format(dropped_packets))
@@ -518,22 +579,26 @@ def verify_in_flight_buffer_pkts(duthost,
 
         for peer_port, prios in dut_port_config[0].items():
             for prio in prios:
-                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio)
+                dropped_packets = get_pg_dropped_packets(duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets == 0,
                               "Total TX dropped packets {} should be 0".
                               format(dropped_packets))
 
 
-def verify_pause_frame_count_dut(duthost,
+def verify_pause_frame_count_dut(rx_dut,
+                                 tx_dut,
                                  test_traffic_pause,
+                                 global_pause,
                                  snappi_extra_params):
     """
     Verify correct frame count for pause frames when the traffic is expected to be paused or not
     on the DUT
 
     Args:
-        duthost (obj): DUT host object
+        rx_dut (obj): Ingress DUT host object receiving packets from IXIA transmitter.
+        tx_dut (obj): Egress DUT host object sending packets to IXIA, hence also receiving PFCs from IXIA.
         test_traffic_pause (bool): whether test traffic is expected to be paused
+        global_pause (bool): if pause frame is IEEE 802.3X pause i.e. global pause applied
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
@@ -541,9 +606,26 @@ def verify_pause_frame_count_dut(duthost,
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
 
-    for peer_port, prios in dut_port_config[0].items():  # TX PFC pause frames
+    for peer_port, prios in dut_port_config[1].items():  # PFC pause frames received on DUT's egress port
         for prio in prios:
-            pfc_pause_tx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=True)
+            pfc_pause_rx_frames = get_pfc_frame_count(tx_dut, peer_port, prio, is_tx=False)
+            # For now, all PFC pause test cases send out PFC pause frames from the TGEN RX port to the DUT TX port,
+            # except the case with global pause frames which SONiC does not count currently
+            if global_pause:
+                pytest_assert(pfc_pause_rx_frames == 0,
+                              "Global pause frames should not be counted in RX PFC counters for priority {}"
+                              .format(prio))
+            elif not snappi_extra_params.set_pfc_class_enable_vec:
+                pytest_assert(pfc_pause_rx_frames == 0,
+                              "PFC pause frames with no bit set in the class enable vector should be dropped")
+            else:
+                pytest_assert(pfc_pause_rx_frames > 0,
+                              "PFC pause frames should be received and counted in RX PFC counters for priority {}"
+                              .format(prio))
+
+    for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
+        for prio in prios:
+            pfc_pause_tx_frames = get_pfc_frame_count(rx_dut, peer_port, prio, is_tx=True)
             if test_traffic_pause:
                 pytest_assert(pfc_pause_tx_frames > 0,
                               "PFC pause frames should be transmitted and counted in TX PFC counters for priority {}"
@@ -553,20 +635,9 @@ def verify_pause_frame_count_dut(duthost,
                 pytest_assert(pfc_pause_tx_frames == 0,
                               "PFC pause frames should not be transmitted and counted in TX PFC counters")
 
-    for peer_port, prios in dut_port_config[1].items():  # RX PFC pause frames
-        for prio in prios:
-            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=False)
-            if test_traffic_pause:
-                pytest_assert(pfc_pause_rx_frames > 0,
-                              "PFC pause frames should be received and counted in RX PFC counters for priority {}"
-                              .format(prio))
-            else:
-                # PFC pause frames should not be received when test traffic is not paused
-                pytest_assert(pfc_pause_rx_frames == 0,
-                              "PFC pause frames should not be received and counted in RX PFC counters")
-
 
 def verify_tx_frame_count_dut(duthost,
+                              api,
                               snappi_extra_params,
                               tx_frame_count_deviation=0.05,
                               tx_drop_frame_count_tol=5):
@@ -576,6 +647,7 @@ def verify_tx_frame_count_dut(duthost,
     DUT is polled after it stops receiving PFC pause frames from TGEN.
     Args:
         duthost (obj): DUT host object
+        api (obj): snappi session
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
         tx_frame_count_deviation (float): deviation for tx frame count (default to 1%)
         tx_drop_frame_count_tol (int): tolerance for tx drop frame count
@@ -584,17 +656,28 @@ def verify_tx_frame_count_dut(duthost,
     """
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
-    tgen_tx_frames = snappi_extra_params.test_tx_frames
+    test_flow_name_dut_tx_port_map = snappi_extra_params.base_flow_config["test_flow_name_dut_tx_port_map"]
 
     # RX frames on DUT must TX once DUT stops receiving PFC pause frames
     for peer_port, _ in dut_port_config[1].items():
-        tx_frames, tx_drop_frames = get_tx_frame_count(duthost, peer_port)
-        pytest_assert(abs(sum(tgen_tx_frames) - tx_frames)/sum(tgen_tx_frames) <= tx_frame_count_deviation,
+        # Collect metrics from TGEN once all flows have stopped
+        test_flow_name = next((test_flow_name for test_flow_name, dut_tx_ports in test_flow_name_dut_tx_port_map.items()
+                               if peer_port in dut_tx_ports), None)
+        tgen_test_flow_metrics = fetch_snappi_flow_metrics(api, [test_flow_name])
+        pytest_assert(tgen_test_flow_metrics, "TGEN test flow metrics is not provided")
+        tgen_tx_frames = tgen_test_flow_metrics[0].frames_tx
+
+        # Collect metrics from DUT once all flows have stopped
+        tx_dut_frames, tx_dut_drop_frames = get_tx_frame_count(duthost, peer_port)
+
+        # Verify metrics between TGEN and DUT
+        pytest_assert(abs(tgen_tx_frames - tx_dut_frames)/tgen_tx_frames <= tx_frame_count_deviation,
                       "Additional frames are transmitted outside of deviation. Possible PFC frames are counted.")
-        pytest_assert(tx_drop_frames <= tx_drop_frame_count_tol, "No frames should be dropped")
+        pytest_assert(tx_dut_drop_frames <= tx_drop_frame_count_tol, "No frames should be dropped")
 
 
 def verify_rx_frame_count_dut(duthost,
+                              api,
                               snappi_extra_params,
                               rx_frame_count_deviation=0.05,
                               rx_drop_frame_count_tol=5):
@@ -603,6 +686,7 @@ def verify_rx_frame_count_dut(duthost,
     (OK and DROPS) when the traffic is expected to be paused on the DUT.
     Args:
         duthost (obj): DUT host object
+        api (obj): snappi session
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
         rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
         rx_drop_frame_count_tol (int): tolerance for tx drop frame count
@@ -611,12 +695,22 @@ def verify_rx_frame_count_dut(duthost,
     """
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
-    tgen_tx_frames = snappi_extra_params.test_tx_frames
+    test_flow_name_dut_rx_port_map = snappi_extra_params.base_flow_config["test_flow_name_dut_rx_port_map"]
 
     # TX on TGEN is RX on DUT
     for peer_port, _ in dut_port_config[0].items():
+        # Collect metrics from TGEN once all flows have stopped
+        test_flow_name = next((test_flow_name for test_flow_name, dut_rx_ports in test_flow_name_dut_rx_port_map.items()
+                               if peer_port in dut_rx_ports), None)
+        tgen_test_flow_metrics = fetch_snappi_flow_metrics(api, [test_flow_name])
+        pytest_assert(tgen_test_flow_metrics, "TGEN test flow metrics is not provided")
+        tgen_rx_frames = tgen_test_flow_metrics[0].frames_rx
+
+        # Collect metrics from DUT once all flows have stopped
         rx_frames, rx_drop_frames = get_rx_frame_count(duthost, peer_port)
-        pytest_assert(abs(sum(tgen_tx_frames) - rx_frames)/sum(tgen_tx_frames) <= rx_frame_count_deviation,
+
+        # Verify metrics between TGEN and DUT
+        pytest_assert(abs(tgen_rx_frames - rx_frames)/tgen_rx_frames <= rx_frame_count_deviation,
                       "Additional frames are received outside of deviation. Possible PFC frames are counted.")
         pytest_assert(rx_drop_frames <= rx_drop_frame_count_tol, "No frames should be dropped")
 

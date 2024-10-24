@@ -5,13 +5,14 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
+from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_failure
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import is_valid_platform_and_version, get_asic_name
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)
@@ -77,8 +78,8 @@ def ensure_application_of_updated_config(duthost, xoff, values):
 
 
 @pytest.mark.parametrize("operation", ["replace"])
-def test_pg_headroom_update(duthost, ensure_dut_readiness, operation):
-    asic_type = duthost.get_asic_name()
+def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_buffer_is_dynamic_model):
+    asic_type = get_asic_name(duthost)
     pytest_require("td2" not in asic_type, "PG headroom should be skipped on TD2")
     tmpfile = generate_tmpfile(duthost)
 

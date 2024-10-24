@@ -49,6 +49,8 @@ def generate_and_verify_traffic(duthost, ptfadapter, rif_interface, src_port_ind
     eth_dst = duthost.facts["router_mac"]
     eth_src = ptfadapter.dataplane.get_mac(0, src_port_index).decode('utf-8')
     duthost.shell("sudo ip neigh replace {} lladdr {} dev {}".format(ip_dst, eth_src, rif_interface))
+    pytest_assert(wait_until(60, 3, 0, check_neighbor, duthost, ip_dst, eth_src, rif_interface),
+                  "Failed to add neighbor for {}.".format(ip_dst))
     logger.info("Traffic info is: eth_dst- {}, eth_src- {}, ip_src- {}, ip_dst- {}, vlan_vid- {}".format(
         eth_dst, eth_src, ip_src, ip_dst, vlan_vid))
     pkt = testutils.simple_ip_packet(
@@ -75,6 +77,30 @@ def generate_and_verify_traffic(duthost, ptfadapter, rif_interface, src_port_ind
         testutils.verify_no_packet(ptfadapter, exp_pkt, src_port_index)
     else:
         testutils.verify_packet(ptfadapter, exp_pkt, src_port_index)
+
+
+def check_neighbor(duthost, ip_address, mac_address, interface):
+    """
+    Verify the static ip neighbor is configured successfully
+    :param duthost: DUT host object
+    :param ip_address: Neighbor ip address
+    :param mac_address: Neighbor mac address
+    :param interface: Neighbor interface
+    """
+    asic_db_output = duthost.shell("redis-cli -n 1 keys *NEIGHBOR_ENTRY* | grep {}".format(ip_address))['stdout_lines']
+    if len(asic_db_output) < 1:
+        logger.error('No neighbor entry or extra neighbor entries of {} in ASIC db.'.format(ip_address))
+        return False
+
+    asic_db_neighbor_entry = asic_db_output[0]
+    mac_in_asic_db = duthost.shell("redis-cli -n 1 hget '{}' '{}'".format(
+        asic_db_neighbor_entry, "SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS"))['stdout_lines']
+
+    if len(mac_in_asic_db) < 1 or mac_in_asic_db[0].upper() != mac_address.upper():
+        logger.error('The neighbor entry of {} in ASIC db is not correct.'.format(ip_address))
+        return False
+
+    return True
 
 
 def get_tested_up_ports(duthost, ptf_ifaces_map, count=10):
@@ -464,8 +490,7 @@ def add_ptf_bond(ptfhost, port, bond_id, ip_addr):
     """
     try:
         bond_port = 'bond{}'.format(bond_id)
-        ptfhost.shell("ip link add {} type bond".format(bond_port))
-        ptfhost.shell("ip link set {} type bond miimon 100 mode 802.3ad".format(bond_port))
+        ptfhost.shell("teamd -t {} -d -c '{{\"runner\": {{\"name\": \"lacp\"}}}}'".format(bond_port))
         ptfhost.shell("ip link set {} down".format(port))
         ptfhost.shell("ip link set {} master {}".format(port, bond_port))
         ptfhost.shell("ip link set dev {} up".format(bond_port))
@@ -530,6 +555,19 @@ def clear_rif_counter(duthost):
     duthost.shell("sonic-clear rifcounters")
 
 
+def check_ip_interface_up(duthost, interfaces):
+    """
+    Check the ip interfaces are all up
+    :param duthost: DUT host object
+    :param interfaces: List of ip interfaces to check
+    """
+    output = duthost.shell("show ip interface")['stdout']
+    for interface in interfaces:
+        if not re.search("{}\\s.*up\\/up".format(interface), output):
+            return False
+    return True
+
+
 def show_loopback_action(duthost):
     """
     Get the loopback action for every rif interface
@@ -591,6 +629,9 @@ def verify_rif_tx_err_count(duthost, rif_interfaces, expect_counts):
     :param rif_interfaces: List of rif interface
     :param expect_counts: expected TX ERR for for every rif interface
     """
+    # Wait for the rif counters polling
+    counter_poll_rif_interval = duthost.get_counter_poll_status()['RIF_STAT']['interval']
+    time.sleep(counter_poll_rif_interval / 1000 + 1)
     rif_tx_err_map = get_rif_tx_err_count(duthost)
     for rif_interface, expected_count in zip(rif_interfaces, expect_counts):
         tx_err_count = int(rif_tx_err_map[rif_interface])
@@ -634,3 +675,13 @@ def check_interface_state(duthost, rif_interfaces, state='up'):
         return all(interface in ports_down for interface in rif_interfaces)
 
     return all(interface not in ports_down for interface in rif_interfaces)
+
+
+def is_rif_counters_ready(duthost):
+    """
+    Check whether the rif counters are all available
+    """
+    result = duthost.shell("show interfaces counters rif")
+    if len(result['stdout_lines']) == 2 or 'N/A' in result['stdout']:
+        return False
+    return True
