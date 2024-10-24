@@ -119,6 +119,35 @@ class SonicDbCli(object):
             v_dict = ast.literal_eval(v_sanitized)
             return v_dict
 
+    def hget_all_asic_scope(self, key, asic_ns):
+        """
+        Executes a sonic-db-cli HGETALL command for specific asic.
+        Use for multi-asic device.
+
+        Args:
+            key: full name of the key to get.
+
+        Returns:
+            The corresponding value of the key.
+        Raises:
+            SonicDbKeyNotFound: If the key is not found.
+        """
+        if not self.host.is_multi_asic:
+            raise SonicDbKeyNotFound("API not supported for single asic device")
+
+        cmd = "-n {} ".format(asic_ns) + self._cli_prefix() + "HGETALL {}".format(key)
+        result = self._run_and_check(cmd)
+        if result['stdout'] == "{}":
+            raise SonicDbKeyNotFound("Key: %s not found in sonic-db cmd: %s" % (key, cmd))
+        else:
+            if six.PY2:
+                v = result['stdout'].decode('unicode-escape')
+            else:
+                v = result['stdout']
+            v_sanitized = v.replace('\n', '\\n')
+            v_dict = ast.literal_eval(v_sanitized)
+            return v_dict
+
     def get_and_check_key_value(self, key, value, field=None):
         """
         Executes a sonic-db CLI get or hget and validates the response against a provided field.
@@ -170,6 +199,37 @@ class SonicDbCli(object):
                 return result['stdout'].decode('unicode-escape').splitlines()
             else:
                 return result['stdout'].splitlines()
+
+    def get_keys_asic_scope(self, table):
+        """
+        Gets the list of keys in a table for all asics. Use for multi-asic device.
+
+        Args:
+            table: full name of the table for which to get the keys.
+
+            Returns:
+                list of keys retrieved
+
+            Raises:
+                SonicDbKeyNotFound: If the key or field has no value or is not present.
+
+        """
+        if not self.host.is_multi_asic:
+            raise SonicDbKeyNotFound("API not supported for single asic device")
+
+        cli = self._cli_prefix() + " keys {}".format(table)
+        rt = []
+        for asic in self.host.asics:
+            cmd = asic.cli_ns_option + " " + cli
+            result = self._run_and_check(cmd)
+            if result == {}:
+                continue
+            else:
+                if six.PY2:
+                    rt.extend(result['stdout'].decode('unicode-escape'))
+                else:
+                    rt.extend(result['stdout'].splitlines())
+        return rt
 
     def dump(self, table):
         """
