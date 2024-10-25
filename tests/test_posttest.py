@@ -33,7 +33,7 @@ def test_collect_techsupport(request, duthosts, enum_dut_hostname):
     out = duthost.command("show techsupport --since {}".format(since), module_ignore_errors=True)
     if out['rc'] == 0:
         tar_file = out['stdout_lines'][-1]
-        duthost.fetch(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
+        duthost.fetch_no_slurp(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
 
     assert True
 
