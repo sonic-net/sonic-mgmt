@@ -576,6 +576,12 @@ dualtor_mgmt/test_dualtor_bgp_update_delay.py:
       - asic_type in ['vs']
       - https://github.com/sonic-net/sonic-mgmt/issues/14996
 
+dualtor_mgmt/test_server_failure.py::test_server_reboot:
+  skip:
+    reason: "KVM testbed does not have fanout hosts"
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####         dut_console         #####
 #######################################
