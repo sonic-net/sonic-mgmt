@@ -8,7 +8,6 @@
     It will get all test scripts in specific impacted area.
 """
 import os
-import sys
 import re
 import logging
 import json
@@ -18,7 +17,8 @@ from constant import PR_TOPOLOGY_TYPE, EXCLUDE_TEST_SCRIPTS
 
 
 def topo_name_to_type(topo_name):
-    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|mgmttor|m0|mc0|mx|dpu|any|snappi|util)')
+    pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|multidut-tgen|mgmttor'
+                         r'|m0|mc0|mx|dpu|any|snappi|util|t0-2vlans|t0-sonic|t1-multi-asic)')
     match = pattern.match(topo_name)
     if match is None:
         logging.warning("Unsupported testbed type - {}".format(topo_name))
@@ -77,12 +77,14 @@ def collect_all_scripts(features, location):
                                         test_scripts_per_topology_type[key].append(filename)
                             else:
                                 topology_type = topo_name_to_type(topology_mark)
-                                if topology_type in test_scripts_per_topology_type and filename not in test_scripts_per_topology_type[topology_type]:
+                                if topology_type in test_scripts_per_topology_type \
+                                        and filename not in test_scripts_per_topology_type[topology_type]:
                                     test_scripts_per_topology_type[topology_type].append(filename)
         except Exception as e:
             logging.error('Failed to load file {}, error {}'.format(f, e))
 
-    test_scripts_per_topology_type = {k: v for k, v in test_scripts_per_topology_type.items() if test_scripts_per_topology_type[k]}
+    test_scripts_per_topology_type = \
+        {k: v for k, v in test_scripts_per_topology_type.items() if test_scripts_per_topology_type[k]}
 
     return test_scripts_per_topology_type
 
