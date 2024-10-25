@@ -363,7 +363,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
   skip:
@@ -994,7 +994,7 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
-      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
+      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305']"
 
 #######################################
 ######  test_secure_upgrade.py  #######
