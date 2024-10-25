@@ -34,6 +34,7 @@ create_sonic_topo:
 		--tar_ball $(GOLDENCODE) \
 		--clean_sim \
 		--cicd \
+		--add_sim_patches \
 		$(SIM_ADDITIONAL_PARAMS) \
 	"
 
@@ -108,7 +109,7 @@ t0_run:
 t1_run:
 	echo "run T1 testing..."
 	bash -c "python3.8 update_topo.py T1"
-	bash -c "cd infra; source pyats/bin/activate; python3.8 -u ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -u cisco -p cisco123 -t t1-64-lag -c -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report --additional_tests $(ADDITIONAL_TESTS)"
+	bash -c "cd infra; source pyats/bin/activate; python3.8 -u ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -u cisco -p cisco123 -t t1-64-lag -c -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report --additional_tests --add_sim_patches $(ADDITIONAL_TESTS)"
 
 run_hw:
 	echo "run sanity on HW..."
