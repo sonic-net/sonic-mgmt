@@ -267,12 +267,34 @@ class SonicAsic(object):
             raise Exception("Invalid IPv4 address {}".format(ipv4))
 
         try:
-            self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
+            rc = self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
                 self.ns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
             return False
-        return True
+        return not rc['failed']
+
+    def ping_v6(self, ipv6, count=1):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv6 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_pton(socket.AF_INET6, ipv6)
+        except socket.error:
+            raise Exception("Invalid IPv6 address {}".format(ipv6))
+
+        try:
+            rc = self.sonichost.shell("{}ping -6 -q -c{} {} > /dev/null".format(
+                self.ns_arg, count, ipv6
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return not rc['failed']
 
     def is_backend_portchannel(self, port_channel):
         mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)['ansible_facts']
