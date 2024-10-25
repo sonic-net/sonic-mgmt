@@ -99,7 +99,6 @@ def check_memory_leak(duthost, target_mem_usage, delay=10, timeout=15, interval=
 
     def _check_memory(duthost):
         mem_usage = get_tunnel_packet_handler_memory_usage(duthost)
-        mem_usage = float(mem_usage)
         if mem_usage > target_mem_usage:
             logging.error(
                 "tunnel_packet_handler.py MEM usage exceeds the threshold. current usage:{}, target usage: {}".format(
