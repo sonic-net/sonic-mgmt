@@ -21,7 +21,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 from tests.common import constants
-from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # noqa F811
+from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # noqa F811
 
 
 pytestmark = [
