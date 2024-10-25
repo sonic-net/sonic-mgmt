@@ -55,8 +55,8 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
     
     We put the check in the end to make sure no core dump generated either
     during device down/up, or config initializing
-
     """
+
     core_dumps = {}
     # Perform reboot on multiple LCs within 30sec
     for dut in duthosts:
@@ -86,7 +86,7 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
         bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
         pytest_assert(wait_until(30, 5, 0, dut.check_bgp_session_state, list(bgp_neighbors.keys())),
                      "Not all BGP sessions are established on DUT")
-        
+
     # Check if new core dumps are generated
     for dut in duthosts:
         if dut.is_supervisor_node():
