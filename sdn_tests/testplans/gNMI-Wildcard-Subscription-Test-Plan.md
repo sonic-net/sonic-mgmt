@@ -47,169 +47,116 @@ This test plan focuses on wildcard feature requirements above. The purpose is no
 ## **Covered Paths**
 
 
-### Paths with ON\_CHANGE
+### Paths with ON_CHANGE
 
-<tr>
-  <td>_/openconfig/interfaces/interface[name=\*]/state/admin-status_
-  </td>
-</tr>
-<tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/id _
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/oper-status_
+<table>
+  <tbody>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/admin-status</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/id </em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/oper-status</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/health-indicator</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/hardware-port</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/ethernet/state/mac-address</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/ethernet/state/port-speed</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/ethernet/state/negotiated-port-speed</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/components/component/integrated-circuit/state/node-id</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/components/component[name=*]/software-module/state/module-type</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/components/component/state/parent</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/components/component[name=*]/state/type</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/components/component[name=*]/state/oper-status</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/components/component[name=*]/state/software-version</em></td>
+    </tr>
+    <tr>
+      <td><em>/system/alarms/alarm[id=*]/state/severity</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/qos/interfaces/interface[name=*]/output/queues/queue/state/id</em></td>
+    </tr>
+  </tbody>
+</table>
 
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/health-indicator_
+## Paths with TARGET_DEFINED
 
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/hardware-port_
+<table>
+  <tbody>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/in-unicast-pkts</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/in-broadcast-pkts</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/in-multicast-pkts</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/out-unicast-pkts</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/out-broadcast-pkts</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/out-multicast-pkts</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/in-octets</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/out-octets</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/in-discards</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/out-discards</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/in-errors</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/out-errors</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/interfaces/interface[name=*]/state/counters/in-fcs-errors</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/qos/interfaces/interface[name=*]/output/queues/queue/state/transmit-pkts</em></td>
+    </tr>
+    <tr>
+      <td><em>/openconfig/qos/interfaces/interface[name=*]/output/queues/queue/state/transmit-octets</em></td>
+    </tr>
+    <tr>
+      <td><em>/qos/interfaces/interface[name=*]/output/queues/queue/state/dropped-pkts</em></td>
+    </tr>
+  </tbody>
+</table>
 
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/ethernet/state/mac-address_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/ethernet/state/port-speed_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/ethernet/state/negotiated-port-speed_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/components/component/integrated-circuit/state/node-id_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/components/component[name=\*]/software-module/state/module-type_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/components/component/state/parent_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/components/component[name=\*]/state/type_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/components/component[name=\*]/state/oper-status_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/components/component[name=\*]/state/software-version_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/system/alarms/alarm[id=\*]/state/severity_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/qos/interfaces/interface[name=\*]/output/queues/queue/state/id_
-
-   </td>
-  </tr>
-
-  ## Paths with TARGET\_DEFINED
-
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/in-unicast-pkts_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/in-broadcast-pkts_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/in-multicast-pkts_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/out-unicast-pkts_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/out-broadcast-pkts_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/out-multicast-pkts_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/in-octets_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/out-octets_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/in-discards_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/out-discards_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/in-errors_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/out-errors_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/interfaces/interface[name=\*]/state/counters/in-fcs-errors_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/qos/interfaces/interface[name=\*]/output/queues/queue/state/transmit-pkts_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/openconfig/qos/interfaces/interface[name=\*]/output/queues/queue/state/transmit-octets_
-
-   </td>
-  </tr>
-  <tr>
-   <td>_/qos/interfaces/interface[name=\*]/output/queues/queue/state/dropped-pkts_
-
-   </td>
-  </tr>
 
   ### Initial Setup
 
@@ -290,10 +237,12 @@ WS_TDSET:
 <table>
   <thead>
     <tr>
-      <th><p><pre>
-Path to be tested
-</pre></p></th>
-      <th>/openconfig/interfaces/interface[name=*]/state/admin-status</em></th>
+      <td><p><pre>
+path
+</pre></p></td>
+      <td><code>Path to be tested.<br>
+<br>
+<em>Example: </code>/openconfig/interfaces/interface[name=*]/state/admin-status</em></td>
       <th></th>
     </tr>
   </thead>
@@ -302,12 +251,22 @@ Path to be tested
       <td><p><pre>
 tdset1
 </pre></p></td>
-      <td>
+      <td><p><pre>
 WS_TDSET:
+</pre></p>
+
 <ul>
 <li><code>timeout</code></li>
+</ul>
+<br>
+<ul>
 <li><code>SubscribeRequest</code></li>
 </ul>
+<p><pre>
+Optional. Only needed if the test requires a specific SubscribeRequest
+</pre></p></td>
+      <td></td>
+    </tr>
   </tbody>
 </table>
 
@@ -343,7 +302,11 @@ Wait for sync_response
 </pre></p></td>
       <td><ul>
 <li><code>Not timed out</code></li>
+</ul>
+<ul>
 <li><code>Receive sync_response</code></li>
+</ul>
+<ul>
 <li><code>No update received</code></li>
 </ul>
 </td>
@@ -411,10 +374,9 @@ WS_TDSET:
 1
 </pre></p></td>
       <td><p><pre>
-Initialize DUT with tdset1 if needed
-</pre></p>
-
-<ul>
+Initialize DUT with tdset1 if needed (optional)
+</pre></p></td>
+      <td><ul>
 <li><code>Succeed</code></li>
 </ul>
 </td>
@@ -428,8 +390,7 @@ Retrieve DUT initial state for validation
 </pre></p>
 
 <ul>
-<li><code>Get Initial state of DUT using GetRequest on the subtree
-node with wildcard key</code></li>
+<li><code>Get Initial state of DUT using GetRequest on the subtree node with wildcard key</code></li>
 </ul>
 <p><pre>
 Example: /openconfig/interfaces/interface
@@ -437,8 +398,7 @@ Example: /openconfig/interfaces/interface
 
 <br>
 <ul>
-<li><code>From the GetResponse, extract all paths and values that
-match tested wildcard path (expected updates)</code></li>
+<li><code>From the GetResponse, extract all paths and values that match tested wildcard path (expected updates)</code></li>
 </ul>
 </td>
       <td><ul>
@@ -455,8 +415,7 @@ tdset1
 </pre></p>
 
 <ul>
-<li><code>Send ON_CHANGE SubscribeRequest to DUT with updates_only =
-false</code></li>
+<li><code>Send ON_CHANGE SubscribeRequest to DUT with updates_only = false</code></li>
 </ul>
 </td>
       <td><ul>
@@ -493,8 +452,7 @@ tdset1
 </pre></p>
 
 <ul>
-<li><code>Validate DUT $updates against expected updates from step
-2</code></li>
+<li><code>Validate DUT $updates against expected updates from step 2</code></li>
 </ul>
 </td>
       <td><ul>
@@ -1167,8 +1125,7 @@ tdset1
 </pre></p>
 
 <ul>
-<li><code>Collect initial updates into $init_updates, which may be
-used in step 4 to pick deleted key</code></li>
+<li><code>Collect initial updates into $init_updates, which may be used in step 4 to pick deleted key</code></li>
 </ul>
 </td>
       <td><ul>
