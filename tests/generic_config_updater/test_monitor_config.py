@@ -21,37 +21,55 @@ MONITOR_CONFIG_POLICER = "policer_dscp"
 
 
 @pytest.fixture(scope='module')
-def get_valid_acl_ports(cfg_facts):
+def get_valid_acl_ports(rand_selected_dut, rand_front_end_asic_namespace):
     """ Get valid acl ports that could be added to ACL table
     valid ports refers to the portchannels and ports not belongs portchannel
     """
-    ports = set()
-    portchannel_members = set()
 
-    portchannel_member_dict = cfg_facts.get('PORTCHANNEL_MEMBER', {})
-    for po, po_members in list(portchannel_member_dict.items()):
-        ports.add(po)
-        for po_member in po_members:
-            portchannel_members.add(po_member)
+    asic_namespace, _asic_id = rand_front_end_asic_namespace
 
-    port_dict = cfg_facts.get('PORT', {})
-    for key in port_dict:
-        if key not in portchannel_members:
-            ports.add(key)
+    def _get_valid_acl_ports():
+        ports = set()
+        portchannel_members = set()
 
-    return list(ports)
+        cfg_facts = rand_selected_dut.config_facts(
+            host=rand_selected_dut.hostname,
+            source="running",
+            verbose=False,
+            namespace=asic_namespace
+            )['ansible_facts']
+        portchannel_member_dict = cfg_facts.get('PORTCHANNEL_MEMBER', {})
+        for po, po_members in list(portchannel_member_dict.items()):
+            ports.add(po)
+            for po_member in po_members:
+                portchannel_members.add(po_member)
+
+        port_dict = cfg_facts.get('PORT', {})
+        for key in port_dict:
+            if key not in portchannel_members:
+                port_role = cfg_facts['PORT'][key].get('role')
+                if port_role and port_role != 'Ext':    # ensure port is front-panel port
+                    continue
+                ports.add(key)
+        return list(ports)
+
+    return _get_valid_acl_ports()
 
 
-def bgp_monitor_config_cleanup(duthost):
+def bgp_monitor_config_cleanup(duthost, namespace=None):
     """ Test requires no monitor config
     Clean up current monitor config if existed
     """
     cmds = []
-    cmds.append('sonic-db-cli CONFIG_DB del "ACL_TABLE|{}"'.format(MONITOR_CONFIG_ACL_TABLE))
-    cmds.append('sonic-db-cli CONFIG_DB del "ACL_RULE|{}|{}"'
-                .format(MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
-    cmds.append('sonic-db-cli CONFIG_DB del "MIRROR_SESSION|{}"'.format(MONITOR_CONFIG_MIRROR_SESSION))
-    cmds.append('sonic-db-cli CONFIG_DB del "POLICER|{}"'.format(MONITOR_CONFIG_POLICER))
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    cmds.append('sonic-db-cli {} CONFIG_DB del "ACL_TABLE|{}"'
+                .format(namespace_prefix, MONITOR_CONFIG_ACL_TABLE))
+    cmds.append('sonic-db-cli {} CONFIG_DB del "ACL_RULE|{}|{}"'
+                .format(namespace_prefix, MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE))
+    cmds.append('sonic-db-cli {} CONFIG_DB del "MIRROR_SESSION|{}"'
+                .format(namespace_prefix, MONITOR_CONFIG_MIRROR_SESSION))
+    cmds.append('sonic-db-cli {} CONFIG_DB del "POLICER|{}"'
+                .format(namespace_prefix, MONITOR_CONFIG_POLICER))
 
     output = duthost.shell_cmds(cmds=cmds)['results']
     for res in output:
@@ -59,7 +77,7 @@ def bgp_monitor_config_cleanup(duthost):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname):
+def setup_env(duthosts, rand_one_dut_front_end_hostname):
     """
     Setup/teardown fixture for syslog config
 
@@ -67,7 +85,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         duthosts: list of DUTs.
         rand_selected_dut: The fixture returns a randomly selected DuT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     create_checkpoint(duthost)
 
     yield
@@ -141,13 +159,17 @@ def verify_no_monitor_config(duthost):
         MONITOR_CONFIG_MIRROR_SESSION, MONITOR_CONFIG_POLICER])
 
 
-def monitor_config_add_config(duthost, get_valid_acl_ports):
+def monitor_config_add_config(duthost, rand_front_end_asic_namespace, get_valid_acl_ports):
     """ Test to add everflow always on config
     """
+
+    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    json_namespace = '' if asic_namespace is None else '/' + asic_namespace
+
     json_patch = [
         {
             "op": "add",
-            "path": "/ACL_TABLE/{}".format(MONITOR_CONFIG_ACL_TABLE),
+            "path": "{}/ACL_TABLE/{}".format(json_namespace, MONITOR_CONFIG_ACL_TABLE),
             "value": {
                 "policy_desc": "{}".format(MONITOR_CONFIG_ACL_TABLE),
                 "ports": get_valid_acl_ports,
@@ -157,7 +179,7 @@ def monitor_config_add_config(duthost, get_valid_acl_ports):
         },
         {
             "op": "add",
-            "path": "/ACL_RULE",
+            "path": "{}/ACL_RULE".format(json_namespace),
             "value": {
                 "{}|{}".format(MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE): {
                     "DSCP": "5",
@@ -168,7 +190,7 @@ def monitor_config_add_config(duthost, get_valid_acl_ports):
         },
         {
             "op": "add",
-            "path": "/MIRROR_SESSION",
+            "path": "{}/MIRROR_SESSION".format(json_namespace),
             "value": {
                "{}".format(MONITOR_CONFIG_MIRROR_SESSION): {
                     "dscp": "5",
@@ -182,7 +204,7 @@ def monitor_config_add_config(duthost, get_valid_acl_ports):
         },
         {
             "op": "add",
-            "path": "/POLICER",
+            "path": "{}/POLICER".format(json_namespace),
             "value": {
                 "{}".format(MONITOR_CONFIG_POLICER): {
                     "meter_type": "bytes",
@@ -207,15 +229,17 @@ def monitor_config_add_config(duthost, get_valid_acl_ports):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_monitor_config_tc1_suite(rand_selected_dut, get_valid_acl_ports):
+def test_monitor_config_tc1_suite(rand_selected_dut, rand_front_end_asic_namespace, get_valid_acl_ports):
     """ Test enable/disable EverflowAlwaysOn config
     """
+    asic_namespace, _asic_id = rand_front_end_asic_namespace
+
     # Step 1: Create checkpoint at initial state where no monitor config exist
-    bgp_monitor_config_cleanup(rand_selected_dut)
+    bgp_monitor_config_cleanup(rand_selected_dut, namespace=asic_namespace)
     create_checkpoint(rand_selected_dut, MONITOR_CONFIG_INITIAL_CP)
 
     # Step 2: Add EverflowAlwaysOn config to rand_selected_dut
-    monitor_config_add_config(rand_selected_dut, get_valid_acl_ports)
+    monitor_config_add_config(rand_selected_dut, rand_front_end_asic_namespace, get_valid_acl_ports)
 
     # Step 3: Create checkpoint that containing desired EverflowAlwaysOn config
     create_checkpoint(rand_selected_dut, MONITOR_CONFIG_TEST_CP)
