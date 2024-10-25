@@ -46,22 +46,35 @@ def enable_default_pfcwd_configuration(duthost):
     pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
     if pfc_status == 'disable':
         duthost.shell('redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable')
+        # apply cofig to all namespaces also for multi-asic platforms
+        for asic_id in duthost.get_asic_ids():
+            if asic_id:
+                duthost.asic_instance(asic_id).command(
+                    'redis-cli -n 4 hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable'
+                )
     # Enable default pfcwd configuration
     start_pfcwd = duthost.shell('config pfcwd start_default')
     pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config")
+    # apply cofig to all namespaces also for multi-asic platforms
+    for asic_id in duthost.get_asic_ids():
+        if asic_id:
+            start_pfcwd = duthost.asic_instance(asic_id).command('config pfcwd start_default')
+            pytest_assert(not start_pfcwd['rc'], "Failed to start default pfcwd config for asic")
 
 
-def ensure_application_of_updated_config(duthost, value):
+def ensure_application_of_updated_config(duthost, value, namespace=None):
     """
     Ensures application of the JSON patch config update by verifying field value presence in FLEX COUNTER DB
 
     Args:
         duthost: DUT host object
         value: expected value of POLL_INTERVAL
+        namespace: Namespace to run the command in. Ex. asic0, asic1, None
     """
     def _confirm_value_in_flex_counter_db():
-        poll_interval = duthost.shell(
-            'sonic-db-cli PFC_WD_DB hget FLEX_COUNTER_GROUP_TABLE:PFC_WD POLL_INTERVAL')["stdout"]
+        ns_flag_prefix = '' if namespace is None else '-n ' + namespace
+        cmd = 'sonic-db-cli {} PFC_WD_DB hget FLEX_COUNTER_GROUP_TABLE:PFC_WD POLL_INTERVAL'.format(ns_flag_prefix)
+        poll_interval = duthost.shell(cmd)["stdout"]
         return value == poll_interval
 
     pytest_assert(
@@ -70,7 +83,7 @@ def ensure_application_of_updated_config(duthost, value):
     )
 
 
-def prepare_pfcwd_interval_config(duthost, value):
+def prepare_pfcwd_interval_config(duthost, value, namespace=None):
     """
     Prepares config db by setting pfcwd poll interval to specified value.
     If value is empty string, delete the current entry.
@@ -78,41 +91,47 @@ def prepare_pfcwd_interval_config(duthost, value):
     Args:
         duthost: DUT host object
         value: poll interval value to be set
+        namespace: Namespace to run the command in. Ex. asic0, asic1, None
     """
-
+    netns_exec_prefix = '' if namespace is None else 'sudo ip netns exec {}'.format(namespace)
+    ns_flag_prefix = '' if namespace is None else '-n ' + namespace
     logger.info("Setting configdb entry pfcwd poll interval to value: {}".format(value))
 
     if value:
-        cmd = "pfcwd interval {}".format(value)
+        cmd = "{} pfcwd interval {}".format(netns_exec_prefix, value)
     else:
-        cmd = r"sonic-db-cli CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL"
+        cmd = r"sonic-db-cli {} CONFIG_DB del \PFC_WD\GLOBAL\POLL_INTERVAL".format(ns_flag_prefix)
 
     duthost.shell(cmd)
 
-
-def get_detection_restoration_times(duthost):
+def get_detection_restoration_times(duthost, namespace=None):
     """
     Returns detection_time, restoration_time for an interface.
     Poll_interval must be greater than both in order to be valid
 
     Args:
         duthost: DUT host object
+        namespace: Namespace to run the command in. Ex. asic0, asic1, None
     """
 
-    duthost.shell('config pfcwd start --action drop all 400 --restoration-time 400', module_ignore_errors=True)
+    ns_flag_prefix = '' if namespace is None else '-n ' + namespace
+    netns_exec_prefix = '' if namespace is None else 'sudo ip netns exec {}'.format(namespace)
+    cmd = '{} config pfcwd start --action drop all 400 --restoration-time 400'.format(netns_exec_prefix)
+    duthost.shell(cmd, module_ignore_errors=True)
     pfcwd_config = duthost.shell("show pfcwd config")
     pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
 
     for line in pfcwd_config['stdout_lines']:
         if line.startswith('Ethernet'):
             interface = line.split()[0]     # Since line starts with Ethernet, we can safely use 0 index
-
-            cmd = "sonic-db-cli CONFIG_DB hget \"PFC_WD|{}\" \"detection_time\" ".format(interface)
+            cmd = "sonic-db-cli {} CONFIG_DB hget \"PFC_WD|{}\" \"detection_time\" ".format(
+                ns_flag_prefix, interface)
             output = duthost.shell(cmd, module_ignore_errors=True)
             pytest_assert(not output['rc'], "Unable to read detection time")
             detection_time = output["stdout"]
 
-            cmd = "sonic-db-cli CONFIG_DB hget \"PFC_WD|{}\" \"restoration_time\" ".format(interface)
+            cmd = "sonic-db-cli {} CONFIG_DB hget \"PFC_WD|{}\" \"restoration_time\" ".format(
+                ns_flag_prefix, interface)
             output = duthost.shell(cmd, module_ignore_errors=True)
             pytest_assert(not output['rc'], "Unable to read restoration time")
             restoration_time = output["stdout"]
@@ -122,7 +141,7 @@ def get_detection_restoration_times(duthost):
     pytest_assert(True, "Failed to read detection_time and/or restoration time")
 
 
-def get_new_interval(duthost, is_valid):
+def get_new_interval(duthost, is_valid, namespace=None):
     """
     Returns new interval value for pfcwd poll interval, based on the operation being performed
 
@@ -130,9 +149,10 @@ def get_new_interval(duthost, is_valid):
         duthost: DUT host object
         is_valid: if is_valid is true, return a valid new interval. Config update should succeed.
         If is_valid is false, return an invalid new interval. Config update should fail.
+        namespace: Namespace to run the command in. Ex. asic0, asic1, None
     """
 
-    detection_time, restoration_time = get_detection_restoration_times(duthost)
+    detection_time, restoration_time = get_detection_restoration_times(duthost, namespace)
     if is_valid:
         return max(detection_time, restoration_time) - 10
     else:
@@ -143,25 +163,27 @@ def get_new_interval(duthost, is_valid):
 @pytest.mark.parametrize("field_pre_status", ["existing", "nonexistent"])
 @pytest.mark.parametrize("is_valid_config_update", [True, False])
 def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
-                                       field_pre_status, is_valid_config_update):
-    new_interval = get_new_interval(duthost, is_valid_config_update)
+                                       field_pre_status, is_valid_config_update, rand_front_end_asic_namespace):
+    asic_namespace, _asic_id = rand_front_end_asic_namespace
+    new_interval = get_new_interval(duthost, is_valid_config_update, asic_namespace)
 
     operation_to_new_value_map = {"add": "{}".format(new_interval), "replace": "{}".format(new_interval)}
-    detection_time, restoration_time = get_detection_restoration_times(duthost)
+    detection_time, restoration_time = get_detection_restoration_times(duthost, asic_namespace)
     pre_status = max(detection_time, restoration_time)
     field_pre_status_to_value_map = {"existing": "{}".format(pre_status), "nonexistent": ""}
 
-    prepare_pfcwd_interval_config(duthost, field_pre_status_to_value_map[field_pre_status])
+    prepare_pfcwd_interval_config(duthost, field_pre_status_to_value_map[field_pre_status], asic_namespace)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of pfcwd poll interval and operation: {}".format(tmpfile, oper))
     value = operation_to_new_value_map[oper]
     logger.info("value to be added to json patch: {}".format(value))
 
+    json_namespace = '' if asic_namespace is None else '/' + asic_namespace
     json_patch = [
         {
             "op": "{}".format(oper),
-            "path": "/PFC_WD/GLOBAL/POLL_INTERVAL",
+            "path": "{}/PFC_WD/GLOBAL/POLL_INTERVAL".format(json_namespace),
             "value": "{}".format(value)
         }]
 
@@ -170,7 +192,7 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
 
         if is_valid_config_update and is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable", oper):
             expect_op_success(duthost, output)
-            ensure_application_of_updated_config(duthost, value)
+            ensure_application_of_updated_config(duthost, value, asic_namespace)
         else:
             expect_op_failure(output)
     finally:
