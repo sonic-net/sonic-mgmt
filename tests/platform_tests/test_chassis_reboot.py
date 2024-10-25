@@ -47,8 +47,16 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
     @summary: This test case is to perform cold reboot on different linecards within 30 seconds,
     we consider it as parallel reboot.
 
+    First, perform "parallel reboot" on all LCs, record initial dump files
+    Then, make sure LCs are up and healthy
+    Lastly, check if new core dumps are generated.
+    
+    We put the check in the end to make sure no core dump generated either
+    during device down/up, or config initializing
+
     """
     core_dumps = {}
+    # Perform reboot on multiple LCs within 30sec
     for dut in duthosts:
         if dut.is_supervisor_node():
             continue
@@ -63,18 +71,28 @@ def test_parallel_reboot(duthosts, localhost, conn_graph_facts, xcvr_skip_list):
         rand_interval = random.randint(0, 30)
         time.sleep(rand_interval)
 
+    # Make sure duts/critical/links/bgps are up
     for dut in duthosts:
-        # After test, make sure all LCs are up and links are up
-        wait_for_startup(dut, localhost, delay=10, timeout=300)
+        # 1. Make sure all LCs are up and links are up
+        wait_for_startup(dut, localhost, delay=10, timeout=600)
+
+        interfaces = conn_graph_facts.get("device_conn", {}).get(dut.hostname, {})
+        check_interfaces_and_services(dut, interfaces, xcvr_skip_list)
+
+        # 2. Verify sessions are established
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+        pytest_assert(wait_until(30, 5, 0, dut.check_bgp_session_state, list(bgp_neighbors.keys())),
+                  "Not all BGP sessions are established on DUT")
+        
+    # Check if new core dumps are generated
+    for dut in duthosts:
         if dut.is_supervisor_node():
             continue
         post_core_dump = get_core_dump(dut)
         new_core_dumps = (set(post_core_dump) - set(core_dumps[dut.hostname]))
 
         if new_core_dumps:
-            logging.info("New core dump found on  {} during reboot! {}".format(dut.hostname, new_core_dumps))
-            assert False
+            pytest_assert(False, "New core dump found on  {} during reboot! {}".format(dut.hostname, new_core_dumps))
         else:
             logging.info("No new core dump found on  {} during reboot".format(dut.hostname))
-        interfaces = conn_graph_facts.get("device_conn", {}).get(dut.hostname, {})
-        check_interfaces_and_services(dut, interfaces, xcvr_skip_list)
