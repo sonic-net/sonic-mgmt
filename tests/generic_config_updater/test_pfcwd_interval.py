@@ -104,6 +104,7 @@ def prepare_pfcwd_interval_config(duthost, value, namespace=None):
 
     duthost.shell(cmd)
 
+
 def get_detection_restoration_times(duthost, namespace=None):
     """
     Returns detection_time, restoration_time for an interface.

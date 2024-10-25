@@ -203,14 +203,12 @@ def check_config_update(duthost, expected_count, namespace=None):
 
     logger.info("Validating in FLEX COUNTER DB...")
     pytest_assert(
-         wait_until(
+        wait_until(
             READ_FLEXDB_TIMEOUT,
             READ_FLEXDB_INTERVAL,
             0,
             _confirm_value_in_flex_db
-        ),
-        "FLEX DB does not properly reflect Pfcwd status: Expected number of entries {}".format(expected_count)
-    )
+            ), "FLEX DB does not properly reflect Pfcwd status: Expected number of entries {}".format(expected_count))
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
