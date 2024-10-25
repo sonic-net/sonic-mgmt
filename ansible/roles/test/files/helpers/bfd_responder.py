@@ -14,7 +14,8 @@ scapy2.conf.use_pcap = True
 
 IPv4 = '4'
 IPv6 = '6'
-
+BFD_FLAG_P_BIT = 5
+BFD_FLAG_F_BIT = 4
 
 def get_if(iff, cmd):
     s = socket.socket()
@@ -92,7 +93,7 @@ class BFDResponder(object):
             return
         session = self.sessions[ip_dst]
         if bfd_state == 3:
-            #Respond with F bit if P bit is set
+            # Respond with F bit if P bit is set
             if (bfd_flags & (1 << BFD_FLAG_P_BIT)):
                 session["pkt"].payload.payload.payload.load.flags = (1 << BFD_FLAG_F_BIT)
             interface.send(session["pkt"])
