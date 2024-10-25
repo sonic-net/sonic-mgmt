@@ -1,6 +1,8 @@
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.cisco_data import is_cisco_device
+import logging
+logger = logging.getLogger(__name__)
 
 
 def skip_warm_reboot(duthost, reboot_type):
@@ -21,8 +23,10 @@ def skip_warm_reboot(duthost, reboot_type):
         reboot_case_supported = False
     elif is_broadcom_device(duthost) and asic_type in SKIP_LIST and "warm" in reboot_type:
         reboot_case_supported = False
-    pytest_require(reboot_case_supported, "Reboot type {} is not supported on {} switches".
-                   format(reboot_type, duthost.facts['asic_type']))
+    msg = "Reboot type {} is {} supported on {} switches".format(
+            reboot_type, "" if reboot_case_supported else "not", duthost.facts['asic_type'])
+    logger.info(msg)
+    pytest_require(reboot_case_supported, msg)
 
 
 def skip_ecn_tests(duthost):
