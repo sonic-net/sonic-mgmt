@@ -127,7 +127,7 @@ func GNMIAble(t *testing.T, d *ondatra.DUTDevice) error {
 
 // ConfigGet returns a full config for the given DUT.
 func (d GNMIConfigDUT) ConfigGet() ([]byte, error) {
-	return os.ReadFile("ondatra/data/config.json")
+	return os.ReadFile("infrastructure/data/config.json")
 }
 
 // ConfigPush pushes the given config onto the DUT. If nil is passed in for config,

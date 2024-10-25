@@ -1,0 +1,218 @@
+diff --git a/BUILD.boost b/BUILD.boost
+index d952c3b..f4718d0 100644
+--- a/BUILD.boost
++++ b/BUILD.boost
+@@ -12,7 +12,7 @@ _w_no_deprecated = selects.with_or({
+ config_setting(
+     name = "linux",
+     constraint_values = [
+-        "@bazel_tools//platforms:linux",
++        "@platforms//os:linux",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -20,7 +20,7 @@ config_setting(
+ config_setting(
+     name = "android",
+     constraint_values = [
+-        "@bazel_tools//platforms:android",
++        "@platforms//os:android",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -28,7 +28,7 @@ config_setting(
+ config_setting(
+     name = "osx",
+     constraint_values = [
+-        "@bazel_tools//platforms:osx",
++        "@platforms//os:osx",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -36,7 +36,7 @@ config_setting(
+ config_setting(
+     name = "windows",
+     constraint_values = [
+-        "@bazel_tools//platforms:windows",
++        "@platforms//os:windows",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -44,8 +44,8 @@ config_setting(
+ config_setting(
+     name = "linux_arm",
+     constraint_values = [
+-        "@bazel_tools//platforms:linux",
+-        "@bazel_tools//platforms:arm",
++        "@platforms//os:linux",
++        "@platforms//cpu:arm",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -53,8 +53,8 @@ config_setting(
+ config_setting(
+     name = "linux_ppc",
+     constraint_values = [
+-        "@bazel_tools//platforms:linux",
+-        "@bazel_tools//platforms:ppc",
++        "@platforms//os:linux",
++        "@platforms//cpu:ppc",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -62,8 +62,8 @@ config_setting(
+ config_setting(
+     name = "linux_aarch64",
+     constraint_values = [
+-        "@bazel_tools//platforms:linux",
+-        "@bazel_tools//platforms:aarch64",
++        "@platforms//os:linux",
++        "@platforms//cpu:aarch64",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -71,8 +71,8 @@ config_setting(
+ config_setting(
+     name = "linux_x86_64",
+     constraint_values = [
+-        "@bazel_tools//platforms:linux",
+-        "@bazel_tools//platforms:x86_64",
++        "@platforms//os:linux",
++        "@platforms//cpu:x86_64",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -80,8 +80,8 @@ config_setting(
+ config_setting(
+     name = "osx_arm64",
+     constraint_values = [
+-        "@bazel_tools//platforms:osx",
+-        "@bazel_tools//platforms:aarch64",
++        "@platforms//os:osx",
++        "@platforms//cpu:aarch64",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -89,8 +89,8 @@ config_setting(
+ config_setting(
+     name = "osx_x86_64",
+     constraint_values = [
+-        "@bazel_tools//platforms:osx",
+-        "@bazel_tools//platforms:x86_64",
++        "@platforms//os:osx",
++        "@platforms//cpu:x86_64",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -98,8 +98,8 @@ config_setting(
+ config_setting(
+     name = "windows_x86_64",
+     constraint_values = [
+-        "@bazel_tools//platforms:windows",
+-        "@bazel_tools//platforms:x86_64",
++        "@platforms//os:windows",
++        "@platforms//cpu:x86_64",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -107,7 +107,7 @@ config_setting(
+ config_setting(
+     name = "x86_64",
+     constraint_values = [
+-        "@bazel_tools//platforms:x86_64",
++        "@platforms//cpu:x86_64",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -115,8 +115,8 @@ config_setting(
+ config_setting(
+     name = "android_arm",
+     constraint_values = [
+-        "@bazel_tools//platforms:android",
+-        "@bazel_tools//platforms:arm",
++        "@platforms//os:android",
++        "@platforms//cpu:arm",
+     ],
+     visibility = ["//visibility:public"],
+ )
+@@ -124,8 +124,8 @@ config_setting(
+ config_setting(
+     name = "android_aarch64",
+     constraint_values = [
+-        "@bazel_tools//platforms:android",
+-        "@bazel_tools//platforms:aarch64",
++        "@platforms//os:android",
++        "@platforms//cpu:aarch64",
+     ],
+     visibility = ["//visibility:public"],
+ )
+diff --git a/BUILD.lzma b/BUILD.lzma
+index 55a1d0e..448800c 100644
+--- a/BUILD.lzma
++++ b/BUILD.lzma
+@@ -6,33 +6,33 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+ 
+ config_setting(
+     name = "linux",
+-    constraint_values = ["@bazel_tools//platforms:linux"],
++    constraint_values = ["@platforms//os:linux"],
+ )
+ 
+ config_setting(
+     name = "osx_arm64",
+     constraint_values = [
+-        "@bazel_tools//platforms:osx",
+-        "@bazel_tools//platforms:aarch64",
++        "@platforms//os:osx",
++        "@platforms//cpu:aarch64",
+     ],
+ )
+ 
+ config_setting(
+     name = "osx_x86_64",
+     constraint_values = [
+-        "@bazel_tools//platforms:osx",
+-        "@bazel_tools//platforms:x86_64",
++        "@platforms//os:osx",
++        "@platforms//cpu:x86_64",
+     ],
+ )
+ 
+ config_setting(
+     name = "windows",
+-    constraint_values = ["@bazel_tools//platforms:windows"],
++    constraint_values = ["@platforms//os:windows"],
+ )
+ 
+ config_setting(
+     name = "android",
+-    constraint_values = ["@bazel_tools//platforms:android"],
++    constraint_values = ["@platforms//os:android"],
+ )
+ 
+ copy_file(
+diff --git a/BUILD.zstd b/BUILD.zstd
+index 3112574..d47aec6 100644
+--- a/BUILD.zstd
++++ b/BUILD.zstd
+@@ -233,6 +233,6 @@ cc_library(
+ config_setting(
+     name = "windows",
+     constraint_values = [
+-        "@bazel_tools//platforms:windows",
++        "@platforms//os:windows",
+     ],
+ )
+diff --git a/test/BUILD b/test/BUILD
+index f60707f..d185a15 100644
+--- a/test/BUILD
++++ b/test/BUILD
+@@ -566,7 +566,7 @@ cc_test(
+ config_setting(
+     name = "windows",
+     constraint_values = [
+-        "@bazel_tools//platforms:windows",
++        "@platforms//os:windows",
+     ],
+     visibility = ["//visibility:public"],
+ )
