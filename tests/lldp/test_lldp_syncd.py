@@ -216,8 +216,13 @@ def test_lldp_entry_table_after_flap(
         if interface == "eth0":
             pytest.skip("Skipping test for eth0 interface")
         # Shutdown and startup the interface
-        duthost.shell("sudo config interface shutdown {}".format(interface))
-        duthost.shell("sudo config interface startup {}".format(interface))
+        if duthost.is_multi_asic:
+            ns = duthost.get_port_asic_instance(interface).get_asic_namespace()
+            duthost.shell("sudo config interface -n {} shutdown {}".format(ns, interface))
+            duthost.shell("sudo config interface -n {} startup {}".format(ns, interface))
+        else:
+            duthost.shell("sudo config interface shutdown {}".format(interface))
+            duthost.shell("sudo config interface startup {}".format(interface))
         result = wait_until(40, 2, 5, verify_lldp_entry, db_instance, interface)
         pytest_assert(
             result,
