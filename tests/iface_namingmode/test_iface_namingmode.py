@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import redis_get_keys
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 't1-multi-asic')
 ]
 
 logger = logging.getLogger(__name__)
