@@ -21,7 +21,7 @@ MONITOR_CONFIG_POLICER = "policer_dscp"
 
 
 @pytest.fixture(scope='module')
-def get_valid_acl_ports(rand_selected_dut, rand_front_end_asic_namespace):
+def get_valid_acl_ports(rand_selected_front_end_dut, rand_front_end_asic_namespace):
     """ Get valid acl ports that could be added to ACL table
     valid ports refers to the portchannels and ports not belongs portchannel
     """
@@ -32,8 +32,8 @@ def get_valid_acl_ports(rand_selected_dut, rand_front_end_asic_namespace):
         ports = set()
         portchannel_members = set()
 
-        cfg_facts = rand_selected_dut.config_facts(
-            host=rand_selected_dut.hostname,
+        cfg_facts = rand_selected_front_end_dut.config_facts(
+            host=rand_selected_front_end_dut.hostname,
             source="running",
             verbose=False,
             namespace=asic_namespace
@@ -83,7 +83,7 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname):
 
     Args:
         duthosts: list of DUTs.
-        rand_selected_dut: The fixture returns a randomly selected DuT.
+        rand_selected_front_end_dut: The fixture returns a randomly selected DuT.
     """
     duthost = duthosts[rand_one_dut_front_end_hostname]
     create_checkpoint(duthost)
@@ -229,38 +229,38 @@ def monitor_config_add_config(duthost, rand_front_end_asic_namespace, get_valid_
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_monitor_config_tc1_suite(rand_selected_dut, rand_front_end_asic_namespace, get_valid_acl_ports):
+def test_monitor_config_tc1_suite(rand_selected_front_end_dut, rand_front_end_asic_namespace, get_valid_acl_ports):
     """ Test enable/disable EverflowAlwaysOn config
     """
     asic_namespace, _asic_id = rand_front_end_asic_namespace
 
     # Step 1: Create checkpoint at initial state where no monitor config exist
-    bgp_monitor_config_cleanup(rand_selected_dut, namespace=asic_namespace)
-    create_checkpoint(rand_selected_dut, MONITOR_CONFIG_INITIAL_CP)
+    bgp_monitor_config_cleanup(rand_selected_front_end_dut, namespace=asic_namespace)
+    create_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_INITIAL_CP)
 
-    # Step 2: Add EverflowAlwaysOn config to rand_selected_dut
-    monitor_config_add_config(rand_selected_dut, rand_front_end_asic_namespace, get_valid_acl_ports)
+    # Step 2: Add EverflowAlwaysOn config to rand_selected_front_end_dut
+    monitor_config_add_config(rand_selected_front_end_dut, rand_front_end_asic_namespace, get_valid_acl_ports)
 
     # Step 3: Create checkpoint that containing desired EverflowAlwaysOn config
-    create_checkpoint(rand_selected_dut, MONITOR_CONFIG_TEST_CP)
+    create_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_TEST_CP)
 
     try:
         # Step 4: Rollback to initial state disabling monitor config
-        output = rollback(rand_selected_dut, MONITOR_CONFIG_INITIAL_CP)
+        output = rollback(rand_selected_front_end_dut, MONITOR_CONFIG_INITIAL_CP)
         pytest_assert(
             not output['rc'] and "Config rolled back successfull" in output['stdout'],
             "config rollback to {} failed.".format(MONITOR_CONFIG_INITIAL_CP)
         )
-        verify_no_monitor_config(rand_selected_dut)
+        verify_no_monitor_config(rand_selected_front_end_dut)
 
         # Step 5: Rollback to EverflowAlwaysOn config and verify
-        output = rollback(rand_selected_dut, MONITOR_CONFIG_TEST_CP)
+        output = rollback(rand_selected_front_end_dut, MONITOR_CONFIG_TEST_CP)
         pytest_assert(
             not output['rc'] and "Config rolled back successfull" in output['stdout'],
             "config rollback to {} failed.".format(MONITOR_CONFIG_TEST_CP)
         )
-        verify_monitor_config(rand_selected_dut)
+        verify_monitor_config(rand_selected_front_end_dut)
 
     finally:
-        delete_checkpoint(rand_selected_dut, MONITOR_CONFIG_INITIAL_CP)
-        delete_checkpoint(rand_selected_dut, MONITOR_CONFIG_TEST_CP)
+        delete_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_INITIAL_CP)
+        delete_checkpoint(rand_selected_front_end_dut, MONITOR_CONFIG_TEST_CP)
