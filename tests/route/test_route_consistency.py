@@ -248,12 +248,8 @@ class TestRouteConsistency():
                     assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
                                                        post_withdraw_route_snapshot[dut_instance_name])
 
-            logger.info("start bgpd for {}".format(duthost.hostname))
-            for id in namespace_ids:
-                if id is None:
-                    id = ""
-                duthost.shell("docker exec {} supervisorctl start {}".format("bgp" + str(id), "bgpd"))
-                duthost.shell("docker exec {} supervisorctl restart {}".format("bgp" + str(id), "bgpcfgd"))
+            logger.info("recover bgpd for {}".format(duthost.hostname))
+            config_reload(duthost)
             time.sleep(self.sleep_interval)
 
             # take the snapshot of route table from all the DUTs
@@ -301,7 +297,8 @@ class TestRouteConsistency():
                     assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
                                                        post_withdraw_route_snapshot[dut_instance_name])
 
-            logger.info("Sleep and wait for syncd autorestart on {}".format(duthost.hostname))
+            logger.info("Recover syncd on {}".format(duthost.hostname))
+            config_reload(duthost)
             time.sleep(self.sleep_interval)
 
             # take the snapshot of route table from all the DUTs
@@ -349,7 +346,8 @@ class TestRouteConsistency():
                     assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
                                                        post_withdraw_route_snapshot[dut_instance_name])
 
-            logger.info("Sleep and wait for swss autorestart on {}".format(duthost.hostname))
+            logger.info("Recover swss on {}".format(duthost.hostname))
+            config_reload(duthost)
             time.sleep(self.sleep_interval)
 
             # take the snapshot of route table from all the DUTs
